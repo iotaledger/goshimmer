@@ -1,12 +1,12 @@
-import {action, makeObservable, observable} from 'mobx';
-import moment, {Moment} from 'moment';
+import { action, makeObservable, observable } from 'mobx';
+import moment, { Moment } from 'moment';
 import TangleStore from './TangleStore';
-import {tangleVertex} from 'models/tangle';
+import { tangleVertex } from 'models/tangle';
 import UTXOStore from './UTXOStore';
-import {utxoVertex} from 'models/utxo';
+import { utxoVertex } from 'models/utxo';
 import BranchStore from './BranchStore';
-import {branchVertex} from 'models/branch';
-import {DEFAULT_DASHBOARD_URL} from 'utils/constants';
+import { branchVertex } from 'models/branch';
+import { DEFAULT_DASHBOARD_URL } from 'utils/constants';
 
 export class searchResult {
     messages: Array<tangleVertex>;
@@ -43,12 +43,12 @@ export class GlobalStore {
     @action
     updateStartManualPicker = (b: boolean) => {
         this.manualPicker[0] = b;
-    }
+    };
 
     @action
     updateEndManualPicker = (b: boolean) => {
         this.manualPicker[1] = b;
-    }
+    };
 
     syncWithMsg = () => {
         const msg = this.tangleStore.selectedMsg;
@@ -130,26 +130,23 @@ export class GlobalStore {
 
     updateSearchResults = (results: searchResult) => {
         this.searchResult = results;
-    }
+    };
 
     @action
     updatePreviewResponseSize = (response: searchResult) => {
         const numOfBranches = response.branches.length;
         const numOfMessages = response.messages.length;
         const numOfTransactions = response.txs.length;
-        this.previewResponseSize =
-            `Found: messages: ${numOfMessages}; 
+        this.previewResponseSize = `Found: messages: ${numOfMessages}; 
             transactions: ${numOfTransactions}; 
             branches: ${numOfBranches};`;
-    }
+    };
 
     @action
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
-                `/api/dagsvisualizer/search/${this.searchStartingTime}/${
-                    this.searchEndingTime
-                }`
+                `/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`
             );
             const result: searchResult = await res.json();
             if (res.status !== 200) {
@@ -176,7 +173,7 @@ export class GlobalStore {
 
     @action
     renderSearchResults = async () => {
-        if (!this.searchResult)  {
+        if (!this.searchResult) {
             return;
         }
         this.stopDrawNewVertices();
@@ -193,7 +190,9 @@ export class GlobalStore {
         const branches = this.searchResult.branches || [];
         for (let i = 0; i < branches.length; i++) {
             await this.branchStore.drawVertex(branches[i]);
-            this.branchStore.graph.cy.getElementById(branches[i].ID).addClass('search');
+            this.branchStore.graph.cy
+                .getElementById(branches[i].ID)
+                .addClass('search');
         }
 
         this.searchResult = undefined;

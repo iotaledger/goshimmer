@@ -1,7 +1,7 @@
 import * as React from 'react';
 import Card from 'react-bootstrap/Card';
 import ListGroup from 'react-bootstrap/ListGroup';
-import {inject, observer} from 'mobx-react';
+import { inject, observer } from 'mobx-react';
 import BranchStore from 'stores/BranchStore';
 import LinkToDashboard from 'components/LinkToDashboard';
 
@@ -22,9 +22,7 @@ export class BranchInfo extends React.Component<Props, any> {
                         <Card.Body>
                             <Card.Title>
                                 <LinkToDashboard
-                                    route={`explorer/branch/${
-                                        selectedBranch.ID
-                                    }`}
+                                    route={`explorer/branch/${selectedBranch.ID}`}
                                     title={selectedBranch.ID}
                                 />
                             </Card.Title>
@@ -35,19 +33,20 @@ export class BranchInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     Parent:
                                     <ListGroup>
-                                        {
-                                            selectedBranch.parents ?
-                                                selectedBranch.parents.map((p, i) => (
+                                        {selectedBranch.parents ? (
+                                            selectedBranch.parents.map(
+                                                (p, i) => (
                                                     <ListGroup.Item key={i}>
                                                         <LinkToDashboard
                                                             route={`explorer/branch/${p}`}
                                                             title={p}
                                                         />
                                                     </ListGroup.Item>
-                                                ))   
-                                                :
-                                                <></>    
-                                        }
+                                                )
+                                            )
+                                        ) : (
+                                            <></>
+                                        )}
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
@@ -62,53 +61,53 @@ export class BranchInfo extends React.Component<Props, any> {
                                 </ListGroup.Item>
                                 {selectedBranch.type === 'ConflictBranchType' &&
                                     selectedBranch.conflicts && (
-                                    <ListGroup.Item>
+                                        <ListGroup.Item>
                                             Conflicts:
-                                        {selectedBranch.conflicts.conflicts.map(
-                                            (p, i) => {
-                                                return (
-                                                    <ListGroup key={i}>
-                                                        <ListGroup.Item>
+                                            {selectedBranch.conflicts.conflicts.map(
+                                                (p, i) => {
+                                                    return (
+                                                        <ListGroup key={i}>
+                                                            <ListGroup.Item>
                                                                 OutputID:{' '}
-                                                            <LinkToDashboard
-                                                                route={`explorer/output/${p}`}
-                                                                title={
-                                                                    p
-                                                                        .outputID
-                                                                        .base58
-                                                                }
-                                                            />
-                                                        </ListGroup.Item>
-                                                        <ListGroup.Item>
+                                                                <LinkToDashboard
+                                                                    route={`explorer/output/${p}`}
+                                                                    title={
+                                                                        p
+                                                                            .outputID
+                                                                            .base58
+                                                                    }
+                                                                />
+                                                            </ListGroup.Item>
+                                                            <ListGroup.Item>
                                                                 Branches:
-                                                            <ListGroup>
-                                                                {p.branchIDs.map(
-                                                                    (
-                                                                        p,
-                                                                        i
-                                                                    ) => (
-                                                                        <ListGroup.Item
-                                                                            key={
-                                                                                i
-                                                                            }
-                                                                        >
-                                                                            <LinkToDashboard
-                                                                                route={`explorer/branch/${p}`}
-                                                                                title={
-                                                                                    p
+                                                                <ListGroup>
+                                                                    {p.branchIDs.map(
+                                                                        (
+                                                                            p,
+                                                                            i
+                                                                        ) => (
+                                                                            <ListGroup.Item
+                                                                                key={
+                                                                                    i
                                                                                 }
-                                                                            />
-                                                                        </ListGroup.Item>
-                                                                    )
-                                                                )}
-                                                            </ListGroup>
-                                                        </ListGroup.Item>
-                                                    </ListGroup>
-                                                );
-                                            }
-                                        )}
-                                    </ListGroup.Item>
-                                )}
+                                                                            >
+                                                                                <LinkToDashboard
+                                                                                    route={`explorer/branch/${p}`}
+                                                                                    title={
+                                                                                        p
+                                                                                    }
+                                                                                />
+                                                                            </ListGroup.Item>
+                                                                        )
+                                                                    )}
+                                                                </ListGroup>
+                                                            </ListGroup.Item>
+                                                        </ListGroup>
+                                                    );
+                                                }
+                                            )}
+                                        </ListGroup.Item>
+                                    )}
                             </ListGroup>
                         </Card.Body>
                     </Card>

@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Button from 'react-bootstrap/Button';
 import GlobalStore from '../stores/GlobalStore';
-import {inject, observer} from 'mobx-react';
-import moment, {isMoment, Moment} from 'moment';
+import { inject, observer } from 'mobx-react';
+import moment, { isMoment, Moment } from 'moment';
 import Datetime from 'react-datetime';
-import {DATE_FORMAT, TIME_FORMAT} from '../utils/constants';
+import { DATE_FORMAT, TIME_FORMAT } from '../utils/constants';
 
 interface Props {
     globalStore?: GlobalStore;
@@ -14,41 +14,41 @@ interface Props {
 @inject('globalStore')
 @observer
 export class TimePickerButtons extends React.Component<Props, any> {
-
     setCurrent = () => {
         const m = moment();
         this.updateSearchTimes(m);
-    }
+    };
 
     addTime = () => {
-        let m = this.props.isStartTime ? moment.unix(this.props.globalStore.searchStartingTime) : moment.unix(this.props.globalStore.searchEndingTime);
+        let m = this.props.isStartTime
+            ? moment.unix(this.props.globalStore.searchStartingTime)
+            : moment.unix(this.props.globalStore.searchEndingTime);
         m = m.add(30, 'seconds');
         this.updateSearchTimes(m);
-    }
+    };
 
     updateSearchTimes = (m: Moment) => {
         if (this.props.isStartTime) {
             this.props.globalStore.updateSearchStartingTime(m);
             this.props.globalStore.updateStartManualPicker(true);
-
         } else {
             this.props.globalStore.updateSearchEndingTime(m);
             this.props.globalStore.updateEndManualPicker(true);
         }
-    }
+    };
 
     subTime = () => {
-        let m = this.props.isStartTime ? moment.unix(this.props.globalStore.searchStartingTime) : moment.unix(this.props.globalStore.searchEndingTime);
+        let m = this.props.isStartTime
+            ? moment.unix(this.props.globalStore.searchStartingTime)
+            : moment.unix(this.props.globalStore.searchEndingTime);
         m = m.subtract(30, 'seconds');
         this.updateSearchTimes(m);
-    }
+    };
 
     render() {
-
         return (
             <div>
-                <div
-                    className={'tripleButton'}>
+                <div className={'tripleButton'}>
                     <Button
                         className={'button button-wide button-left'}
                         variant="outline-secondary"
@@ -84,15 +84,13 @@ interface PickerProps {
 }
 
 export class Picker extends React.Component<PickerProps, any> {
-
-    updateFrom = date => {
+    updateFrom = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchStartingTime(date);
-
         }
     };
 
-    updateTo = date => {
+    updateTo = (date) => {
         if (isMoment(date)) {
             this.props.globalStore.updateSearchEndingTime(date);
         }
@@ -112,7 +110,6 @@ export class Picker extends React.Component<PickerProps, any> {
                     onOpen={onOpenFunc}
                 />
             </>
-
         );
     }
 }

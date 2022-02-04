@@ -5,8 +5,8 @@ import TangleDAG from 'components/TangleDAG';
 import UTXODAG from 'components/UTXODAG';
 import BranchDAG from 'components/BranchDAG';
 import GlobalSettings from 'components/GlobalSettings';
-import {connectWebSocket} from 'utils/WS';
-import {Navbar} from 'react-bootstrap';
+import { connectWebSocket } from 'utils/WS';
+import { Navbar } from 'react-bootstrap';
 import logo from './../images/logo_dark.png';
 
 export class Root extends React.Component {
@@ -37,20 +37,24 @@ export class Root extends React.Component {
         return (
             <>
                 <Navbar className={'nav'}>
-                    <img src={logo} alt={'DAGs Visualizer'} style={{height: '50px'}}/>
+                    <img
+                        src={logo}
+                        alt={'DAGs Visualizer'}
+                        style={{ height: '50px' }}
+                    />
                 </Navbar>
                 <Container>
                     <Row>
-                        <GlobalSettings/>
+                        <GlobalSettings />
                     </Row>
                     <Row>
-                        <TangleDAG/>
+                        <TangleDAG />
                     </Row>
                     <Row>
-                        <UTXODAG/>
+                        <UTXODAG />
                     </Row>
                     <Row>
-                        <BranchDAG/>
+                        <BranchDAG />
                     </Row>
                 </Container>
             </>
