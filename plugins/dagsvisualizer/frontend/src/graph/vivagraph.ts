@@ -1,8 +1,8 @@
-import {IGraph} from './graph';
-import {default as Viva} from 'vivagraphjs';
-import {parentRefType, tangleVertex} from 'models/tangle';
-import {COLOR, LINE_TYPE, LINE_WIDTH, VERTEX} from 'styles/tangleStyles';
-import {ObservableMap} from 'mobx';
+import { IGraph } from './graph';
+import { default as Viva } from 'vivagraphjs';
+import { parentRefType, tangleVertex } from 'models/tangle';
+import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
+import { ObservableMap } from 'mobx';
 
 export class vivagraphLib implements IGraph {
     graph;
@@ -450,7 +450,7 @@ function dfsIterator(
 
         if (cb(node)) return true;
 
-        for (const link of node.links) {
+        for (const link of node.links || []) {
             if (cbLinks) cbLinks(link);
 
             if (
