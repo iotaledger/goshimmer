@@ -948,7 +948,7 @@ type LikedConflictMembers struct {
 	conflictMembers ledgerstate.BranchIDs
 }
 
-// LikedInstead returns branches that are liked instead of a disliked branch as predefined.
+// LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
 func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
 	likedConflictMembers := o.likedConflictMember[branchID]
 	innerConflictMembers := likedConflictMembers.conflictMembers.Clone().Subtract(ledgerstate.NewBranchIDs(branchID))

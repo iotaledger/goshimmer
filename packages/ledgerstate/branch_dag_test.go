@@ -48,6 +48,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	require.NoError(t, err)
 	defer cachedConflictBranch3.Release()
 	conflictBranch3, err = cachedConflictBranch3.UnwrapConflictBranch()
+	require.NoError(t, err)
 	assert.False(t, newBranchCreated)
 	assert.Equal(t, NewConflictIDs(ConflictID{3}), conflictBranch3.Conflicts())
 }
