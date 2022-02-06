@@ -1,4 +1,4 @@
-//nolint:dupl
+//nolint:dupl,whitespace
 package tangle
 
 import (
@@ -459,7 +459,6 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message5": testFramework.BranchIDs("Message1"),
 			"Message6": testFramework.BranchIDs("Message1", "Message3"),
 		})
-
 	}
 
 	// ISSUE Message7
@@ -535,7 +534,6 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message7": testFramework.BranchIDs("Message1", "Message3", "Message5"),
 			"Message8": testFramework.BranchIDs("Message8"),
 		})
-
 	}
 }
 
@@ -946,7 +944,6 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 	// ISSUE A2*
 	{
-
 		testFramework.CreateMessage("A2*", WithStrongParents("A1"), WithInputs("A1"), WithOutput("A2*", 500))
 
 		testFramework.RegisterBranchID("A2", "A2")

@@ -40,9 +40,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
-			return emptyLikeReferences(strongParents, issuingTime, tangle)
-		},
+		emptyLikeReferences,
 	)
 	tangle.MessageFactory.SetTimeout(powTimeout)
 	defer tangle.MessageFactory.Shutdown()
@@ -136,9 +134,7 @@ func TestMessageFactory_POW(t *testing.T) {
 		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
 			return []MessageID{EmptyMessageID}, nil
 		}),
-		func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
-			return emptyLikeReferences(strongParents, issuingTime, tangle)
-		},
+		emptyLikeReferences,
 	)
 	defer msgFactory.Shutdown()
 
@@ -359,9 +355,8 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDsSlice, expe
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
 		return
-	} else {
-		require.NoError(t, err)
 	}
+	require.NoError(t, err)
 
 	assert.Equal(t, parents.ToMessageIDs(), actualReferences[StrongParentType])
 

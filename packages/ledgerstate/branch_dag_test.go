@@ -48,6 +48,7 @@ func TestBranchDAG_RetrieveConflictBranch(t *testing.T) {
 	require.NoError(t, err)
 	defer cachedConflictBranch3.Release()
 	conflictBranch3, err = cachedConflictBranch3.UnwrapConflictBranch()
+	require.NoError(t, err)
 	assert.False(t, newBranchCreated)
 	assert.Equal(t, NewConflictIDs(ConflictID{3}), conflictBranch3.Conflicts())
 }
@@ -111,9 +112,9 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch6"] = createConflictBranch(t, ledgerstate, "Branch6", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	branchIDs["Branch7"] = createConflictBranch(t, ledgerstate, "Branch7", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	branchIDs["Branch8"] = createConflictBranch(t, ledgerstate, "Branch8", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
-	branchIDs["Branch5+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch7", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch7"]))
-	branchIDs["Branch2+Branch7"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
-	branchIDs["Branch5+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
+	branchIDs["Branch5+Branch7"] = createAggregatedBranch(ledgerstate, "Branch5+Branch7", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch7"]))
+	branchIDs["Branch2+Branch7"] = createAggregatedBranch(ledgerstate, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
+	branchIDs["Branch5+Branch8"] = createAggregatedBranch(ledgerstate, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
 
 	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
 
@@ -133,10 +134,10 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
 
 	// Spawning a new aggregated branch with Confirmed parents results in Confirmed
-	branchIDs["Branch4+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch4+Branch8", NewBranchIDs(branchIDs["Branch4"], branchIDs["Branch8"]))
+	branchIDs["Branch4+Branch8"] = createAggregatedBranch(ledgerstate, "Branch4+Branch8", NewBranchIDs(branchIDs["Branch4"], branchIDs["Branch8"]))
 
 	// Spawning a new aggregated branch with any Rejected parent results in Rejected
-	branchIDs["Branch3+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch3+Branch8", NewBranchIDs(branchIDs["Branch3"], branchIDs["Branch8"]))
+	branchIDs["Branch3+Branch8"] = createAggregatedBranch(ledgerstate, "Branch3+Branch8", NewBranchIDs(branchIDs["Branch3"], branchIDs["Branch8"]))
 
 	// Create a new ConflictBranch in an already-decided Conflict Set results in straight Reject
 	branchIDs["Branch9"] = createConflictBranch(t, ledgerstate, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
@@ -158,7 +159,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	})
 
 	// Pruning confirmed branches from aggregation
-	branchIDs["Branch2+Branch8"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch8", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch8"]))
+	branchIDs["Branch2+Branch8"] = createAggregatedBranch(ledgerstate, "Branch2+Branch8", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch8"]))
 
 	ledgerstate.BranchDAG.Branch(branchIDs["Branch2+Branch8"]).Consume(func(branch Branch) {
 		assert.Equal(t, NewBranchIDs(), branch.Parents())
@@ -167,7 +168,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	})
 
 	// Pruning confirmed branches from aggregation
-	branchIDs["Branch2+Branch6"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch6", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch6"]))
+	branchIDs["Branch2+Branch6"] = createAggregatedBranch(ledgerstate, "Branch2+Branch6", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch6"]))
 
 	ledgerstate.BranchDAG.Branch(branchIDs["Branch2+Branch6"]).Consume(func(branch Branch) {
 		assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
@@ -177,7 +178,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch10"] = createConflictBranch(t, ledgerstate, "Branch10", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 	branchIDs["Branch11"] = createConflictBranch(t, ledgerstate, "Branch11", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 
-	branchIDs["Branch2+Branch7+Branch11"] = createAggregatedBranch(t, ledgerstate, "Branch2+Branch7+Branch11", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"], branchIDs["Branch11"]))
+	branchIDs["Branch2+Branch7+Branch11"] = createAggregatedBranch(ledgerstate, "Branch2+Branch7+Branch11", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"], branchIDs["Branch11"]))
 
 	ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch10"])
 
@@ -223,7 +224,7 @@ func createConflictBranch(t *testing.T, ledgerstate *Ledgerstate, branchAlias st
 	return cachedBranch.ID()
 }
 
-func createAggregatedBranch(t *testing.T, ledgerstate *Ledgerstate, branchAlias string, parents BranchIDs) BranchID {
+func createAggregatedBranch(ledgerstate *Ledgerstate, branchAlias string, parents BranchIDs) BranchID {
 	branchID := ledgerstate.AggregateConflictBranchesID(parents)
 	RegisterBranchIDAlias(branchID, branchAlias)
 

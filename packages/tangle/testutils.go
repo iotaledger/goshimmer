@@ -611,7 +611,7 @@ func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	}
 }
 
-// WithShallowLikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
+// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
 func WithShallowDislikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
@@ -818,7 +818,6 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
-	noAManaNode         = identity.GenerateIdentity()
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
@@ -875,6 +874,7 @@ func NewTestTangle(options ...Option) *Tangle {
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct{}
 
+// FirstUnconfirmedMarkerIndex mocks its interface function.
 func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
 	return 0
 }
@@ -941,12 +941,14 @@ type SimpleMockOnTangleVoting struct {
 	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
 }
 
+// LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
+// ConflictMembers.
 type LikedConflictMembers struct {
 	likedBranch     ledgerstate.BranchID
 	conflictMembers ledgerstate.BranchIDs
 }
 
-// LikedInstead returns branches that are liked instead of a disliked branch as predefined.
+// LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
 func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
 	likedConflictMembers := o.likedConflictMember[branchID]
 	innerConflictMembers := likedConflictMembers.conflictMembers.Clone().Subtract(ledgerstate.NewBranchIDs(branchID))

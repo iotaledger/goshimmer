@@ -380,7 +380,7 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 		return nil, errors.Errorf("none of the provided strong parents can be referenced")
 	}
 
-	return
+	return references, nil
 }
 
 func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {

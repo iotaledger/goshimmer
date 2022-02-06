@@ -2,11 +2,11 @@ package message
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/stringify"
 	"net/http"
 	"strconv"
 
 	"github.com/iotaledger/hive.go/node"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 

@@ -150,16 +150,16 @@ func (a *ApprovalWeightManager) updateBranchSupporters(message *Message) {
 		return
 	}
 
-	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
+	a.tangle.Storage.LatestBranchVotes(voter, NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
 		addedVote := vote.WithOpinion(Confirmed)
 		for addBranchID := range addedBranchIDs {
-			latestVotes.Store(addedVote.WithBranchID(addBranchID))
+			latestBranchVotes.Store(addedVote.WithBranchID(addBranchID))
 			a.addSupportToBranch(addBranchID, voter)
 		}
 
 		revokedVote := vote.WithOpinion(Rejected)
 		for revokedBranchID := range revokedBranchIDs {
-			latestVotes.Store(revokedVote.WithBranchID(revokedBranchID))
+			latestBranchVotes.Store(revokedVote.WithBranchID(revokedBranchID))
 			a.revokeSupportFromBranch(revokedBranchID, voter)
 		}
 	})
@@ -255,8 +255,8 @@ func (a *ApprovalWeightManager) identicalVoteWithHigherSequenceExists(vote *Vote
 }
 
 func (a *ApprovalWeightManager) voteWithHigherSequence(vote *Vote) (existingVote *Vote, exists bool) {
-	a.tangle.Storage.LatestVotes(vote.Voter).Consume(func(latestVotes *LatestBranchVotes) {
-		existingVote, exists = latestVotes.Vote(vote.BranchID)
+	a.tangle.Storage.LatestBranchVotes(vote.Voter).Consume(func(latestBranchVotes *LatestBranchVotes) {
+		existingVote, exists = latestBranchVotes.Vote(vote.BranchID)
 	})
 
 	return existingVote, exists && existingVote.SequenceNumber > vote.SequenceNumber
@@ -334,7 +334,7 @@ func (a *ApprovalWeightManager) addSupportToMarker(marker markers.Marker, messag
 }
 
 // updateMarkerWeights updates the marker weights in the given range and triggers the MarkerWeightChanged event.
-func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex markers.Index, rangeEndIndex markers.Index) {
+func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceID, rangeStartIndex, rangeEndIndex markers.Index) {
 	if rangeStartIndex <= 1 {
 		rangeStartIndex = a.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(sequenceID)
 	}
@@ -422,8 +422,8 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchSupporters(voter Voter, 
 		return false
 	}
 
-	a.tangle.Storage.LatestVotes(voter, NewLatestBranchVotes).Consume(func(latestVotes *LatestBranchVotes) {
-		supportAdded = latestVotes.Store(&Vote{
+	a.tangle.Storage.LatestBranchVotes(voter, NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
+		supportAdded = latestBranchVotes.Store(&Vote{
 			Voter:          voter,
 			BranchID:       forkedBranchSupporters.BranchID(),
 			Opinion:        Confirmed,

@@ -421,7 +421,6 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			assert.Equal(t, branches["I"], transactionMetadata.BranchID())
 		}))
 	}
-
 }
 
 func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {

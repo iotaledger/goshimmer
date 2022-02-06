@@ -2,7 +2,6 @@ package markers
 
 import (
 	"fmt"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"math"
 	"sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
@@ -465,7 +465,7 @@ func WithStore(store kvstore.KVStore) ManagerOption {
 }
 
 // WithCacheTime is an option for the Manager that allows to specify how long objects should be cached in the object
-// storage
+// storage.
 func WithCacheTime(cacheTime time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.CacheTime = cacheTime

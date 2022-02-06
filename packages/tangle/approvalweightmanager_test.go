@@ -1,7 +1,7 @@
+//nolint:dupl
 package tangle
 
 import (
-	"encoding/binary"
 	"fmt"
 	"testing"
 	"time"
@@ -16,12 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
-
-func toByteArray(i uint32) (arr []byte) {
-	arr = make([]byte, 4)
-	binary.BigEndian.PutUint32(arr, i)
-	return
-}
 
 func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	supporters := map[string]*identity.Identity{
@@ -858,16 +852,15 @@ func TestLatestMarkerVotes(t *testing.T) {
 			4: 11,
 		})
 	}
-
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestVotes.ForEach(func(node *thresholdmap.Element) bool {
+	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
 		index := node.Key().(markers.Index)
 		seq := node.Value().(uint64)
 
 		_, exists := expectedVotes[index]
-		assert.Truef(t, exists, "%s:%d does not exist in latestVotes", index, seq)
+		assert.Truef(t, exists, "%s:%d does not exist in latestMarkerVotes", index, seq)
 		delete(expectedVotes, index)
 
 		return true

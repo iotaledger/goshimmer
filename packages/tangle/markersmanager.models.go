@@ -7,14 +7,15 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region MarkerIndexBranchIDMapping ///////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +89,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 // MarkerIndexBranchIDMappingFromObjectStorage restores a MarkerIndexBranchIDMapping that was stored in the object
 // storage.
-func MarkerIndexBranchIDMappingFromObjectStorage(key []byte, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+func MarkerIndexBranchIDMappingFromObjectStorage(key, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	if markerIndexBranchIDMapping, _, err = MarkerIndexBranchIDMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 		return
@@ -248,7 +249,7 @@ func markerIndexComparator(a, b interface{}) int {
 	}
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

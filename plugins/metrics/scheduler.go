@@ -34,6 +34,8 @@ var (
 )
 
 func measureSchedulerMetrics() {
+	nodeQueueSizesMutex.Lock()
+	defer nodeQueueSizesMutex.Unlock()
 	nodeQueueSizes = make(map[identity.ID]int)
 	for k, v := range deps.Tangle.Scheduler.NodeQueueSizes() {
 		nodeQueueSizes[k] = v

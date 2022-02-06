@@ -2,7 +2,13 @@ package markers
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
@@ -10,10 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +62,8 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
 
-func IndexComparator(a interface{}, b interface{}) int {
+// IndexComparator is a generic comparator for Index types.
+func IndexComparator(a, b interface{}) int {
 	aCasted := a.(Index)
 	bCasted := b.(Index)
 	switch {
@@ -1113,31 +1116,25 @@ func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes 
 func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
 	sequence = &Sequence{}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 	}
 	if sequence.referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
 	}
 	if sequence.referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
 	}
 	if sequence.verticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if sequence.lowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
 	}
 	if sequence.highestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
 	}
 
-	return
+	return sequence, nil
 }
 
 // SequenceFromObjectStorage restores a Sequence that was stored in the object storage.
@@ -1284,7 +1281,7 @@ func (s *Sequence) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// code contract (make sure the type implements all required methods)
+// code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &Sequence{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1462,7 +1459,7 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 		return
 	}
 
-	return
+	return structureDetails, nil
 }
 
 // Clone creates a deep copy of the StructureDetails.
