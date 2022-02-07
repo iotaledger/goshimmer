@@ -192,7 +192,6 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 		for ; s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
 			s.lastConfirmedMarkers[sequenceID] = index
 		}
-		return
 	}
 
 	index++
