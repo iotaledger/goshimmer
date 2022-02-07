@@ -10,6 +10,7 @@ import { utxoVertex, utxoBooked, utxoConfirmed } from 'models/utxo';
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;
     @observable transactions = new ObservableMap<string, utxoVertex>();
+    @observable foundTxs = new ObservableMap<string, utxoVertex>();
     @observable selectedTx: utxoVertex = null;
     @observable paused = false;
     @observable search = '';
@@ -81,6 +82,16 @@ export class UTXOStore {
     };
 
     @action
+    addFoundTx = (tx: utxoVertex) => {
+        this.foundTxs.set(tx.ID, tx);
+    };
+
+    @action
+    clearFoundTxs = () => {
+        this.foundTxs.clear();
+    };
+
+    @action
     setTxBranch = (bookedTx: utxoBooked) => {
         const tx = this.transactions.get(bookedTx.ID);
         if (!tx) {
@@ -106,7 +117,7 @@ export class UTXOStore {
 
     @action
     updateSelected = (txID: string) => {
-        const tx = this.transactions.get(txID);
+        const tx = this.transactions.get(txID) || this.foundTxs.get(txID);
         if (!tx) return;
         this.selectedTx = tx;
     };
@@ -154,11 +165,22 @@ export class UTXOStore {
         // clear pre-selected node first.
         this.clearSelected(true);
         this.graph.selectVertex(txID);
-        this.updateSelected(this.search);
+        this.updateSelected(txID);
     };
 
-    getTxsFromBranch = (branchID: string) => {
+    getTxsFromBranch = (branchID: string, searchMode: boolean) => {
         const txs = [];
+
+        if (searchMode) {
+            this.foundTxs.forEach((tx: utxoVertex) => {
+                if (tx.branchID === branchID) {
+                    txs.push(tx.ID);
+                }
+            });
+
+            return txs;
+        }
+
         this.transactions.forEach((tx: utxoVertex) => {
             if (tx.branchID === branchID) {
                 txs.push(tx.ID);
