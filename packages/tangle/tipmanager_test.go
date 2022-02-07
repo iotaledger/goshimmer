@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 func TestTipManager_AddTip(t *testing.T) {
@@ -636,6 +637,67 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
+// Test based on packages/tangle/images/Scenario 2.png
+func TestTipManager_TimeSinceConfirmation(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+	tipManager := tangle.TipManager
+	confirmedMessageIDs := &MessageIDs{}
+	confirmedMarkers := markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(3, 2))
+
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("G", 3),
+	)
+
+	tangle.Setup()
+
+	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-time.Minute*8)), WithInputs("G"), WithOutput("A", 1), WithOutput("B", 1), WithOutput("C", 1))
+	testFramework.CreateMessage("Message2", WithStrongParents("Genesis", "Message1"), WithIssuingTime(time.Now().Add(-time.Minute*6)), WithInputs("B", "C"), WithOutput("E", 2))
+	testFramework.CreateMessage("Message3", WithStrongParents("Message1", "Message2"), WithReattachment("Message2"))
+	testFramework.CreateMessage("Message4", WithStrongParents("Genesis", "Message1"), WithInputs("A"), WithOutput("D", 1))
+	testFramework.CreateMessage("Message5", WithStrongParents("Message1", "Message2"), WithInputs("A"), WithOutput("F", 1))
+	testFramework.CreateMessage("Message6", WithStrongParents("Message2", "Message5"), WithInputs("E", "F"), WithOutput("L", 3))
+	testFramework.CreateMessage("Message7", WithStrongParents("Message1", "Message4"), WithInputs("C"), WithOutput("H", 1))
+	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message7"), WithInputs("H", "D"), WithOutput("I", 2))
+	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message7"), WithInputs("B"), WithOutput("J", 1))
+
+	testFramework.IssueMessages("Message1").WaitMessagesBooked()
+	testFramework.IssueMessages("Message2").WaitMessagesBooked()
+	testFramework.IssueMessages("Message3", "Message4").WaitMessagesBooked()
+	testFramework.IssueMessages("Message5").WaitMessagesBooked()
+	testFramework.IssueMessages("Message6").WaitMessagesBooked()
+	testFramework.IssueMessages("Message7").WaitMessagesBooked()
+	testFramework.IssueMessages("Message8").WaitMessagesBooked()
+	testFramework.IssueMessages("Message9").WaitMessagesBooked()
+
+	tangle.TimeManager.updateTime(testFramework.Message("Message7").ID())
+
+	checkMarkers(t, testFramework, map[string]*markers.Markers{
+		"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
+		"Message2": markers.NewMarkers(markers.NewMarker(1, 2)),
+		"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
+		"Message4": markers.NewMarkers(markers.NewMarker(1, 1)),
+		"Message5": markers.NewMarkers(markers.NewMarker(2, 3)),
+		"Message6": markers.NewMarkers(markers.NewMarker(2, 4)),
+		"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
+		"Message8": markers.NewMarkers(markers.NewMarker(3, 3)),
+		"Message9": markers.NewMarkers(markers.NewMarker(4, 3)),
+	})
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message9").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message8").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message7").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message4").ID()))
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message1").ID()))
+
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message6").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message5").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message3").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message2").ID()))
+}
+
 func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
@@ -669,6 +731,8 @@ func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParent
 
 type MockConfirmationOracleTipManagerTest struct {
 	confirmedMessageIDs *MessageIDs
+	confirmedMarkers    *markers.Markers
+
 	MockConfirmationOracle
 }
 
@@ -677,6 +741,14 @@ func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageI
 	return containsMessageID(*m.confirmedMessageIDs, msgID)
 }
 
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers.Marker) bool {
+	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(marker.SequenceID())
+	if !exists {
+		return false
+	}
+	return marker.Index() <= confirmedMarkerIndex
+}
 func containsMessageID(s MessageIDs, e MessageID) bool {
 	for _, a := range s {
 		if a == e {
