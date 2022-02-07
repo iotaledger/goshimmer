@@ -191,7 +191,6 @@ h5 {
 }
 
 .panel .response-info {
-    border: var(--color-shade-blue) solid 1px;
     padding: 10px;
     color: var(--color-light-grey);
 }
