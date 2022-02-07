@@ -450,7 +450,7 @@ function dfsIterator(
 
         if (cb(node)) return true;
 
-        for (const link of node.links) {
+        for (const link of node.links || []) {
             if (cbLinks) cbLinks(link);
 
             if (
