@@ -55,6 +55,10 @@ export class GlobalStore {
         const msg = this.tangleStore.selectedMsg;
         if (!msg) return;
 
+        this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
+        this.branchStore.clearSelected(true);
+
         if (msg.isTx) {
             this.utxoStore.selectTx(msg.txID);
             this.utxoStore.centerTx(msg.txID);
@@ -65,6 +69,11 @@ export class GlobalStore {
     syncWithTx = () => {
         const tx = this.utxoStore.selectedTx;
         if (!tx) return;
+
+        // clear previous highligh and selected
+        this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
+        this.branchStore.clearSelected(true);
 
         const msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (msg) {
@@ -82,6 +91,12 @@ export class GlobalStore {
     syncWithBranch = () => {
         const branch = this.branchStore.selectedBranch;
         if (!branch) return;
+
+        // clear previous highligh and selected
+        this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
+        this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
 
         // iterate messages to highlight all messages lies in that branch
         const msgs = this.tangleStore.getMsgsFromBranch(
