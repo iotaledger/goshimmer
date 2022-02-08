@@ -96,8 +96,9 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*le
 				peer.Name(), tx.ID().Base58(), metadata, err)
 			t.Logf("GoF is %d for tx %s in peer %s", metadata.GradeOfFinality, tx.ID().Base58(), peer.Name())
 			if prevGoF != unknownGoF {
-				require.EqualValues(t, prevGoF, metadata.GradeOfFinality,
-					"Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
+				require.Eventually(t,
+					func() bool { return prevGoF == metadata.GradeOfFinality },
+					10*time.Second, 2*time.Second, "Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
 					peers[i-1].Name(), prevGoF, peer.Name(), metadata.GradeOfFinality)
 			}
 			prevGoF = metadata.GradeOfFinality
