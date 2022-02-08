@@ -143,6 +143,11 @@ export class GlobalStore {
         this.searchResponse = e;
     };
 
+    @action
+    updatePreviewSearchResponse = (msg: string) => {
+        this.previewResponseSize = msg;
+    };
+
     updateSearchResults = (results: searchResult) => {
         this.searchResult = results;
     };
@@ -152,9 +157,9 @@ export class GlobalStore {
         const numOfBranches = response.branches.length;
         const numOfMessages = response.messages.length;
         const numOfTransactions = response.txs.length;
-        this.previewResponseSize = `Found: messages: ${numOfMessages};
+        this.updatePreviewSearchResponse(`Found: messages: ${numOfMessages};
             transactions: ${numOfTransactions};
-            branches: ${numOfBranches};`;
+            branches: ${numOfBranches};`);
     };
 
     @action
@@ -236,6 +241,7 @@ export class GlobalStore {
 
         this.drawNewVertices();
         this.updateSearchResponse('');
+        this.updatePreviewSearchResponse('');
     };
 
     drawNewVertices() {
