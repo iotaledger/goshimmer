@@ -10,9 +10,11 @@ import { utxoVertex, utxoBooked, utxoConfirmed } from 'models/utxo';
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;
     @observable transactions = new ObservableMap<string, utxoVertex>();
+    @observable foundTxs = new ObservableMap<string, utxoVertex>();
     @observable selectedTx: utxoVertex = null;
     @observable paused = false;
     @observable search = '';
+    foundOutputMap = new Map();
     outputMap = new Map();
     txOrder: Array<any> = [];
     highligtedTxs = [];
@@ -46,7 +48,6 @@ export class UTXOStore {
     addTransaction = (tx: utxoVertex) => {
         this.checkLimit();
 
-        tx.branchID = '';
         this.txOrder.push(tx.ID);
         this.transactions.set(tx.ID, tx);
         tx.outputs.forEach((outputID) => {
@@ -81,6 +82,20 @@ export class UTXOStore {
     };
 
     @action
+    addFoundTx = (tx: utxoVertex) => {
+        this.foundTxs.set(tx.ID, tx);
+        tx.outputs.forEach((outputID) => {
+            this.foundOutputMap.set(outputID, tx.ID);
+        });
+    };
+
+    @action
+    clearFoundTxs = () => {
+        this.foundTxs.clear();
+        this.foundOutputMap.clear();
+    };
+
+    @action
     setTxBranch = (bookedTx: utxoBooked) => {
         const tx = this.transactions.get(bookedTx.ID);
         if (!tx) {
@@ -106,7 +121,7 @@ export class UTXOStore {
 
     @action
     updateSelected = (txID: string) => {
-        const tx = this.transactions.get(txID);
+        const tx = this.transactions.get(txID) || this.foundTxs.get(txID);
         if (!tx) return;
         this.selectedTx = tx;
     };
@@ -154,11 +169,22 @@ export class UTXOStore {
         // clear pre-selected node first.
         this.clearSelected(true);
         this.graph.selectVertex(txID);
-        this.updateSelected(this.search);
+        this.updateSelected(txID);
     };
 
-    getTxsFromBranch = (branchID: string) => {
+    getTxsFromBranch = (branchID: string, searchMode: boolean) => {
         const txs = [];
+
+        if (searchMode) {
+            this.foundTxs.forEach((tx: utxoVertex) => {
+                if (tx.branchID === branchID) {
+                    txs.push(tx.ID);
+                }
+            });
+
+            return txs;
+        }
+
         this.transactions.forEach((tx: utxoVertex) => {
             if (tx.branchID === branchID) {
                 txs.push(tx.ID);
@@ -193,6 +219,11 @@ export class UTXOStore {
 
     updateDrawStatus = (draw: boolean) => {
         this.draw = draw;
+    };
+
+    drawFoundVertex = (tx: utxoVertex) => {
+        drawTransaction(tx, this.graph, this.foundOutputMap);
+        this.vertexChanges++;
     };
 
     drawVertex = (tx: utxoVertex) => {

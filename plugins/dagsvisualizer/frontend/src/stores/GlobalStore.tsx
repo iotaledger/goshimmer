@@ -23,6 +23,7 @@ export class GlobalStore {
     @observable previewResponseSize = '';
     @observable manualPicker = [false, false];
     searchResult: searchResult = undefined;
+    searchMode = false;
 
     tangleStore: TangleStore;
     utxoStore: UTXOStore;
@@ -54,6 +55,10 @@ export class GlobalStore {
         const msg = this.tangleStore.selectedMsg;
         if (!msg) return;
 
+        this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
+        this.branchStore.clearSelected(true);
+
         if (msg.isTx) {
             this.utxoStore.selectTx(msg.txID);
             this.utxoStore.centerTx(msg.txID);
@@ -64,6 +69,11 @@ export class GlobalStore {
     syncWithTx = () => {
         const tx = this.utxoStore.selectedTx;
         if (!tx) return;
+
+        // clear previous highlight and selected
+        this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
+        this.branchStore.clearSelected(true);
 
         const msg = this.tangleStore.getTangleVertex(tx.msgID);
         if (msg) {
@@ -83,12 +93,17 @@ export class GlobalStore {
         if (!branch) return;
 
         // iterate messages to highlight all messages lies in that branch
-        const msgs = this.tangleStore.getMsgsFromBranch(branch.ID);
+        const msgs = this.tangleStore.getMsgsFromBranch(
+            branch.ID,
+            this.searchMode
+        );
         this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
         this.tangleStore.highlightMsgs(msgs);
 
-        const txs = this.utxoStore.getTxsFromBranch(branch.ID);
+        const txs = this.utxoStore.getTxsFromBranch(branch.ID, this.searchMode);
         this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
         this.utxoStore.highlightTxs(txs);
     };
 
@@ -128,6 +143,11 @@ export class GlobalStore {
         this.searchResponse = e;
     };
 
+    @action
+    updatePreviewSearchResponse = (msg: string) => {
+        this.previewResponseSize = msg;
+    };
+
     updateSearchResults = (results: searchResult) => {
         this.searchResult = results;
     };
@@ -137,16 +157,18 @@ export class GlobalStore {
         const numOfBranches = response.branches.length;
         const numOfMessages = response.messages.length;
         const numOfTransactions = response.txs.length;
-        this.previewResponseSize = `Found: messages: ${numOfMessages}; 
-            transactions: ${numOfTransactions}; 
-            branches: ${numOfBranches};`;
+        this.updatePreviewSearchResponse(`Found: messages: ${numOfMessages};
+            transactions: ${numOfTransactions};
+            branches: ${numOfBranches};`);
     };
 
     @action
     searchAndDrawResults = async () => {
         try {
             const res = await fetch(
-                `/api/dagsvisualizer/search/${this.searchStartingTime}/${this.searchEndingTime}`
+                `/api/dagsvisualizer/search/${this.searchStartingTime}/${
+                    this.searchEndingTime
+                }`
             );
             const result: searchResult = await res.json();
             if (res.status !== 200) {
@@ -176,19 +198,23 @@ export class GlobalStore {
         if (!this.searchResult) {
             return;
         }
+        this.searchMode = true;
         this.stopDrawNewVertices();
         this.clearGraphs();
 
         (this.searchResult.messages || []).forEach((msg) => {
+            this.tangleStore.addFoundMsg(msg);
             this.tangleStore.drawVertex(msg);
         });
 
         (this.searchResult.txs || []).forEach((tx) => {
-            this.utxoStore.drawVertex(tx);
+            this.utxoStore.addFoundTx(tx);
+            this.utxoStore.drawFoundVertex(tx);
         });
 
         const branches = this.searchResult.branches || [];
         for (let i = 0; i < branches.length; i++) {
+            this.branchStore.addFoundBranch(branches[i]);
             await this.branchStore.drawVertex(branches[i]);
             this.branchStore.graph.cy
                 .getElementById(branches[i].ID)
@@ -203,6 +229,8 @@ export class GlobalStore {
 
     @action
     clearSearchAndResume = () => {
+        this.searchMode = false;
+        this.clearFoundVertices();
         this.clearGraphs();
         this.clearSelectedVertices();
 
@@ -213,6 +241,7 @@ export class GlobalStore {
 
         this.drawNewVertices();
         this.updateSearchResponse('');
+        this.updatePreviewSearchResponse('');
     };
 
     drawNewVertices() {
@@ -238,6 +267,12 @@ export class GlobalStore {
         this.tangleStore.clearGraph();
         this.branchStore.clearGraph();
         this.utxoStore.clearGraph();
+    }
+
+    clearFoundVertices() {
+        this.tangleStore.clearFoundMsgs();
+        this.utxoStore.clearFoundTxs();
+        this.branchStore.clearFoundBranches();
     }
 }
 

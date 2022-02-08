@@ -15,6 +15,7 @@ import { BRANCH } from '../styles/cytoscapeStyles';
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
     @observable branches = new ObservableMap<string, branchVertex>();
+    @observable foundBranches = new ObservableMap<string, branchVertex>();
     branchesBeforeSearching: Map<string, branchVertex>;
     @observable selectedBranch: branchVertex = null;
     @observable paused = false;
@@ -74,6 +75,16 @@ export class BranchStore {
     };
 
     @action
+    addFoundBranch = (branch: branchVertex) => {
+        this.foundBranches.set(branch.ID, branch);
+    };
+
+    @action
+    clearFoundBranches = () => {
+        this.foundBranches.clear();
+    };
+
+    @action
     updateParents = (newParents: branchParentUpdate) => {
         const b = this.branches.get(newParents.ID);
         if (!b) {
@@ -109,7 +120,8 @@ export class BranchStore {
 
     @action
     updateSelected = (branchID: string) => {
-        const b = this.branches.get(branchID);
+        const b =
+            this.branches.get(branchID) || this.foundBranches.get(branchID);
         if (!b) return;
         this.selectedBranch = b;
     };
@@ -154,7 +166,7 @@ export class BranchStore {
     };
 
     getBranchVertex = (branchID: string) => {
-        return this.branches.get(branchID);
+        return this.branches.get(branchID) || this.foundBranches.get(branchID);
     };
 
     drawExistedBranches = () => {

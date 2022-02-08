@@ -21,6 +21,7 @@ import {
 export class TangleStore {
     @observable maxTangleVertices = MAX_VERTICES;
     @observable messages = new ObservableMap<string, tangleVertex>();
+    @observable foundMsgs = new ObservableMap<string, tangleVertex>();
     // might still need markerMap for advanced features
     @observable markerMap = new ObservableMap<string, Array<string>>();
     @observable selectedMsg: tangleVertex = null;
@@ -72,6 +73,16 @@ export class TangleStore {
             const removed = this.msgOrder.shift();
             this.removeMessage(removed);
         }
+    };
+
+    @action
+    addFoundMsg = (msg: tangleVertex) => {
+        this.foundMsgs.set(msg.ID, msg);
+    };
+
+    @action
+    clearFoundMsgs = () => {
+        this.foundMsgs.clear();
     };
 
     @action
@@ -246,7 +257,7 @@ export class TangleStore {
     };
 
     getTangleVertex = (msgID: string) => {
-        return this.messages.get(msgID);
+        return this.messages.get(msgID) || this.foundMsgs.get(msgID);
     };
 
     highlightMsgs = (msgIDs: string[]) => {
@@ -281,8 +292,18 @@ export class TangleStore {
         unselectMessage(msgID, color, this.graph);
     };
 
-    getMsgsFromBranch = (branchID: string) => {
+    getMsgsFromBranch = (branchID: string, searchedMode: boolean) => {
         const msgs = [];
+
+        if (searchedMode) {
+            this.foundMsgs.forEach((msg: tangleVertex) => {
+                if (msg.branchID === branchID) {
+                    msgs.push(msg.ID);
+                }
+            });
+            return msgs;
+        }
+
         this.messages.forEach((msg: tangleVertex) => {
             if (msg.branchID === branchID) {
                 msgs.push(msg.ID);
