@@ -13,12 +13,15 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import 'styles/style.css';
+import GlobalStore from '../stores/GlobalStore';
 
 interface Props {
     branchStore?: BranchStore;
+    globalStore?: GlobalStore;
 }
 
 @inject('branchStore')
+@inject('globalStore')
 @observer
 export default class BranchDAG extends React.Component<Props, any> {
     constructor(props) {
@@ -53,6 +56,10 @@ export default class BranchDAG extends React.Component<Props, any> {
 
     centerGraph = () => {
         this.props.branchStore.centerEntireGraph();
+    };
+
+    syncWithBranch = () => {
+        this.props.globalStore.syncWithBranch();
     };
 
     render() {
@@ -117,6 +124,15 @@ export default class BranchDAG extends React.Component<Props, any> {
                                         variant="outline-secondary"
                                     >
                                         Center Graph
+                                    </Button>
+                                </InputGroup>
+                                <InputGroup className="mb-1">
+                                    <Button
+                                        className={'button'}
+                                        onClick={this.syncWithBranch}
+                                        variant="outline-secondary"
+                                    >
+                                        Sync with branch
                                     </Button>
                                 </InputGroup>
                             </Col>

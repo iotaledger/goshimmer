@@ -12,12 +12,15 @@ import Popover from 'react-bootstrap/Popover';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
+import GlobalStore from '../stores/GlobalStore';
 
 interface Props {
     utxoStore?: UTXOStore;
+    globalStore?: GlobalStore;
 }
 
 @inject('utxoStore')
+@inject('globalStore')
 @observer
 export default class UTXODAG extends React.Component<Props, any> {
     constructor(props) {
@@ -52,6 +55,10 @@ export default class UTXODAG extends React.Component<Props, any> {
 
     centerGraph = () => {
         this.props.utxoStore.centerEntireGraph();
+    };
+
+    syncWithTx = () => {
+        this.props.globalStore.syncWithTx();
     };
 
     render() {
@@ -116,6 +123,15 @@ export default class UTXODAG extends React.Component<Props, any> {
                                         variant="outline-secondary"
                                     >
                                         Center Graph
+                                    </Button>
+                                </InputGroup>
+                                <InputGroup className="mb-1">
+                                    <Button
+                                        className={'button'}
+                                        onClick={this.syncWithTx}
+                                        variant="outline-secondary"
+                                    >
+                                        Sync with tx
                                     </Button>
                                 </InputGroup>
                             </Col>

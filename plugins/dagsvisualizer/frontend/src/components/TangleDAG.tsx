@@ -13,12 +13,15 @@ import Popover from 'react-bootstrap/Popover';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
+import GlobalStore from '../stores/GlobalStore';
 
 interface Props {
     tangleStore?: TangleStore;
+    globalStore?: GlobalStore;
 }
 
 @inject('tangleStore')
+@inject('globalStore')
 @observer
 export default class TangleDAG extends React.Component<Props, any> {
     constructor(props) {
@@ -53,6 +56,10 @@ export default class TangleDAG extends React.Component<Props, any> {
 
     centerGraph = () => {
         this.props.tangleStore.centerEntireGraph();
+    };
+
+    syncWithMsg = () => {
+        this.props.globalStore.syncWithMsg();
     };
 
     render() {
@@ -117,6 +124,15 @@ export default class TangleDAG extends React.Component<Props, any> {
                                         variant="outline-secondary"
                                     >
                                         Center Graph
+                                    </Button>
+                                </InputGroup>
+                                <InputGroup className="mb-1">
+                                    <Button
+                                        className={'button'}
+                                        onClick={this.syncWithMsg}
+                                        variant="outline-secondary"
+                                    >
+                                        Sync with msg
                                     </Button>
                                 </InputGroup>
                             </Col>
