@@ -132,19 +132,18 @@ func registerUTXOEvents() {
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
-				branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
-				if err != nil {
-					branchID = ledgerstate.BranchID{}
-				}
-				wsMsg := &wsMessage{
-					Type: MsgTypeUTXOBooked,
-					Data: &utxoBooked{
-						ID:       message.Payload().(*ledgerstate.Transaction).ID().Base58(),
-						BranchID: branchID.Base58(),
-					},
-				}
-				visualizerWorkerPool.TrySubmit(wsMsg)
-				storeWsMessage(wsMsg)
+				tx := message.Payload().(*ledgerstate.Transaction)
+				deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+					wsMsg := &wsMessage{
+						Type: MsgTypeUTXOBooked,
+						Data: &utxoBooked{
+							ID:       tx.ID().Base58(),
+							BranchID: txMetadata.BranchID().Base58(),
+						},
+					}
+					visualizerWorkerPool.TrySubmit(wsMsg)
+					storeWsMessage(wsMsg)
+				})
 			}
 		})
 	})
@@ -360,9 +359,11 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 
 	var gof string
 	var confirmedTime int64
+	var branchID string
 	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
+		branchID = txMetadata.BranchID().Base58()
 	})
 
 	ret = &utxoVertex{
@@ -371,11 +372,12 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 		Inputs:        inputs,
 		Outputs:       outputs,
 		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
+		BranchID:      branchID,
 		GoF:           gof,
 		ConfirmedTime: confirmedTime,
 	}
 
-	return
+	return ret
 }
 
 func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {

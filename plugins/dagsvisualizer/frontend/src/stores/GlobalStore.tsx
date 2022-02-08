@@ -70,7 +70,7 @@ export class GlobalStore {
         const tx = this.utxoStore.selectedTx;
         if (!tx) return;
 
-        // clear previous highligh and selected
+        // clear previous highlight and selected
         this.tangleStore.clearSelected();
         this.tangleStore.clearHighlightedMsgs();
         this.branchStore.clearSelected(true);
@@ -92,22 +92,18 @@ export class GlobalStore {
         const branch = this.branchStore.selectedBranch;
         if (!branch) return;
 
-        // clear previous highligh and selected
-        this.tangleStore.clearSelected();
-        this.tangleStore.clearHighlightedMsgs();
-        this.utxoStore.clearSelected(true);
-        this.utxoStore.clearHighlightedTxs();
-
         // iterate messages to highlight all messages lies in that branch
         const msgs = this.tangleStore.getMsgsFromBranch(
             branch.ID,
             this.searchMode
         );
         this.tangleStore.clearSelected();
+        this.tangleStore.clearHighlightedMsgs();
         this.tangleStore.highlightMsgs(msgs);
 
         const txs = this.utxoStore.getTxsFromBranch(branch.ID, this.searchMode);
         this.utxoStore.clearSelected(true);
+        this.utxoStore.clearHighlightedTxs();
         this.utxoStore.highlightTxs(txs);
     };
 

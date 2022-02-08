@@ -47,7 +47,6 @@ export class UTXOStore {
     addTransaction = (tx: utxoVertex) => {
         this.checkLimit();
 
-        tx.branchID = '';
         this.txOrder.push(tx.ID);
         this.transactions.set(tx.ID, tx);
         tx.outputs.forEach((outputID) => {

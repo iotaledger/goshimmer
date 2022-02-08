@@ -70,6 +70,7 @@ type utxoVertex struct {
 	Outputs       []string            `json:"outputs"`
 	IsConfirmed   bool                `json:"isConfirmed"`
 	GoF           string              `json:"gof"`
+	BranchID      string              `json:"branchID"`
 	ConfirmedTime int64               `json:"confirmedTime"`
 }
 
