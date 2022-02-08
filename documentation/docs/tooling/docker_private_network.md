@@ -54,7 +54,7 @@ Reachable from the host system
 <!-- Running the dashboard and analysis dashboard on the same container causes the dashboard to malfunction -->
 
 It is therefore possible to send messages to the local network via the `peer_master`. Log messages of a specific containter can be followed via 
-```
+```shell
 docker logs --follow CONTAINERNAME
 ```
 
@@ -70,7 +70,8 @@ Docker Compose uses the `SNAPSHOT_FILE` environment variable to determine the lo
 network, and gather their results in the `csv` folder.
 
 Once the network is up and running, execute the script:
-```
+
+```shell
 ./get_approval_csv.sh
 ```
 Example output:
@@ -104,7 +105,7 @@ In order to start the spammer, you need to send GET requests to a `/spammer` API
 
 Example requests:
 
-```bash
+```shell
 http://localhost:8080/spammer?cmd=start&rate=10&unit=mps
 
 http://localhost:8080/spammer?cmd=start&rate=10&unit=mps&imif=uniform
@@ -131,7 +132,8 @@ Here is an example config that can be added:
 To get an instance up and running on your machine make sure you have [Docker Compose](https://docs.docker.com/compose/install/) installed.
 
 Then you just need to run this command:
-```bash
+
+```shell
 docker-compose build
 docker-compose --profile drng --profile grafana up -d
 ```
@@ -152,7 +154,7 @@ These services that are created by default with `docker-compose up -d`.
 
 You can set the environment variable configuration inline as seen in this example.
 
-```bash
+```shell
 GOSHIMMER_TAG=develop docker-compose up -d
 ```
 
@@ -214,7 +216,7 @@ In order to enable these containers you must set the `--profile grafana` flag wh
 
 You can set the environment variable configuration inline as seen in this example.
 
-```bash
+```shell
 docker-compose --profile grafana up -d
 ```
 
@@ -244,7 +246,7 @@ In order to enable these containers you must set the `--profile drng` flag when 
 
 You can set the environment variable configuration inline as seen in this example.
 
-```bash
+```shell
 DRNG_REPLICAS=2 docker-compose --profile drng up -d
 ```
 

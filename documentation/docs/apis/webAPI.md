@@ -39,9 +39,10 @@ An implementation example is shown later for the POST method.
 Two methods are currently used. First, with `GET` we register a new GET route for a handler function. The handler is accessed via the address `path`. The handler for a GET method can set the node to perform certain actions.
 ```go
 webapi.Server().GET("path", HandlerFunc)
-```	
+```
 A command can be sent to the node software to the API, e.g. via command prompt: 
-``` 
+
+```shell
 curl "http://127.0.0.1:8080/path?command"
 ```
 

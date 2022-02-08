@@ -5,7 +5,7 @@ A plugin for IOTA's GoShimmer Node to broadcast every message on the message lay
 Move the project's folder into your goshimmer/plugins/ folder.
 
 In goshimmer/plugins/research.go add the following line:
-```
+```go
 broadcast.Plugin(),
 ```
 in the node.Plugins(...) list.
@@ -13,10 +13,11 @@ in the node.Plugins(...) list.
 You may need to recompile the goshimmer software.
 
 In the config.json you need to add "broadcast" to the "node" sections as followed:
-```
+
+```json
 "node": {
-    "disablePlugins": [],
-    "enablePlugins": ["broadcast"]
+"disablePlugins": [],
+"enablePlugins": ["broadcast"]
 },
 ```
 
