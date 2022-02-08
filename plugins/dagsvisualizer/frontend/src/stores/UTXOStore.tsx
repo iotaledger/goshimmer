@@ -14,6 +14,7 @@ export class UTXOStore {
     @observable selectedTx: utxoVertex = null;
     @observable paused = false;
     @observable search = '';
+    foundOutputMap = new Map();
     outputMap = new Map();
     txOrder: Array<any> = [];
     highligtedTxs = [];
@@ -83,11 +84,15 @@ export class UTXOStore {
     @action
     addFoundTx = (tx: utxoVertex) => {
         this.foundTxs.set(tx.ID, tx);
+        tx.outputs.forEach((outputID) => {
+            this.foundOutputMap.set(outputID, tx.ID);
+        });
     };
 
     @action
     clearFoundTxs = () => {
         this.foundTxs.clear();
+        this.foundOutputMap.clear();
     };
 
     @action
@@ -214,6 +219,11 @@ export class UTXOStore {
 
     updateDrawStatus = (draw: boolean) => {
         this.draw = draw;
+    };
+
+    drawFoundVertex = (tx: utxoVertex) => {
+        drawTransaction(tx, this.graph, this.foundOutputMap);
+        this.vertexChanges++;
     };
 
     drawVertex = (tx: utxoVertex) => {

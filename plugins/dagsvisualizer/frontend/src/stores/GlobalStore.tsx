@@ -204,7 +204,7 @@ export class GlobalStore {
 
         (this.searchResult.txs || []).forEach((tx) => {
             this.utxoStore.addFoundTx(tx);
-            this.utxoStore.drawVertex(tx);
+            this.utxoStore.drawFoundVertex(tx);
         });
 
         const branches = this.searchResult.branches || [];
