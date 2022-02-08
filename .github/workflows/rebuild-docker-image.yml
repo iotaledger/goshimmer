@@ -25,5 +25,5 @@ jobs:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: latest,${{github.event.inputs.tagName}}
-          tag_with_ref: true
+          tags: ${{github.event.inputs.tagName}}
+          build-args: DOWNLOAD_SNAPSHOT=0
