@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/libp2putil"
+	"github.com/iotaledger/goshimmer/packages/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -60,15 +61,49 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 		libp2p.NATPortMap(),
 	)
 	if err != nil {
-		Plugin.LogFatalf("Could create libp2p host: %s", err)
+		Plugin.LogFatalf("Couldn't create libp2p host: %s", err)
 	}
-
-	return gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger())
+	var opts []gossip.ManagerOption
+	if Parameters.MessagesRateLimit != (messagesLimitParameters{}) {
+		Plugin.Logger().Infof("Initializing messages rate limiter with the following parameters: %+v",
+			Parameters.MessagesRateLimit)
+		mrl, mrlErr := ratelimiter.NewPeerRateLimiter(
+			Parameters.MessagesRateLimit.Interval, Parameters.MessagesRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "messagesRateLimiter"),
+		)
+		if mrlErr != nil {
+			Plugin.LogFatalf("Failed to initialize messages rate limiter: %+v", mrlErr)
+		}
+		opts = append(opts, gossip.WithMessagesRateLimiter(mrl))
+	}
+	if Parameters.MessageRequestsRateLimit != (messageRequestsLimitParameters{}) {
+		Plugin.Logger().Infof("Initializing message requests rate limiter with the following parameters: %+v",
+			Parameters.MessageRequestsRateLimit)
+		mrrl, mrrlErr := ratelimiter.NewPeerRateLimiter(
+			Parameters.MessageRequestsRateLimit.Interval, Parameters.MessageRequestsRateLimit.Limit,
+			Plugin.Logger().With("rateLimiter", "messageRequestsRateLimiter"),
+		)
+		if mrrlErr != nil {
+			Plugin.LogFatalf("Failed to initialize message requests rate limiter: %+v", mrrlErr)
+		}
+		opts = append(opts, gossip.WithMessageRequestsRateLimiter(mrrl))
+	}
+	mgr := gossip.NewManager(libp2pHost, lPeer, loadMessage, Plugin.Logger(), opts...)
+	return mgr
 }
 
 func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
-
+	defer func() {
+		if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
+			mrl.Close()
+		}
+	}()
+	defer func() {
+		if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
+			mrrl.Close()
+		}
+	}()
 	defer deps.GossipMgr.Stop()
 	defer func() {
 		if err := deps.GossipMgr.Libp2pHost.Close(); err != nil {

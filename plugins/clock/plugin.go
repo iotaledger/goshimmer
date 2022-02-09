@@ -20,10 +20,8 @@ const (
 	syncInterval = 30 * time.Minute
 )
 
-var (
-	// Plugin is the plugin instance of the clock plugin.
-	Plugin *node.Plugin
-)
+// Plugin is the plugin instance of the clock plugin.
+var Plugin *node.Plugin
 
 func init() {
 	Plugin = node.NewPlugin("Clock", nil, node.Enabled, configure, run)

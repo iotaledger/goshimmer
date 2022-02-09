@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
+	"github.com/iotaledger/goshimmer/plugins/firewall"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
@@ -43,6 +44,7 @@ var Core = node.Plugins(
 	clock.Plugin,
 	messagelayer.Plugin,
 	gossip.Plugin,
+	firewall.Plugin,
 	messagelayer.ManaPlugin,
 	manarefresher.Plugin,
 	drng.Plugin,
