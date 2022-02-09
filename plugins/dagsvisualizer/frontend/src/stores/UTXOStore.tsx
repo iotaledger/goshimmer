@@ -269,7 +269,6 @@ export class UTXOStore {
             if (this.vertexChanges > 0 && !this.paused) {
                 this.graph.updateLayout();
                 this.vertexChanges = 0;
-                console.log('layout updated');
             }
         }, 10000);
     };
