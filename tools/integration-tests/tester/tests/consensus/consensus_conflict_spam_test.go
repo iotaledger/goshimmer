@@ -28,14 +28,15 @@ const (
 	splits = conflictRepetitions * numberOfConflictingOutputs * 2
 )
 
-// TestConflictSpam spams a node with conflicts and makes sure the GoFs are the same across the network
-func TestConflictSpam(t *testing.T) {
+// TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the GoFs are the same across the network
+// and verifies that the Tangle converged to Master
+func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
-		Activity:    true,
+		Activity:    false,
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -43,10 +44,20 @@ func TestConflictSpam(t *testing.T) {
 	faucet, peer1 := n.Peers()[0], n.Peers()[1]
 	tokensPerRequest = faucet.Config().TokensPerRequest
 
+	const delayBetweenDataMessages = 100 * time.Millisecond
+	dataMessagesAmount := len(n.Peers()) * 2
+
+	t.Logf("Sending %d data messages to confirm Faucet Outputs", dataMessagesAmount)
+	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	fundingAddress := peer1.Address(0)
 	tests.SendFaucetRequest(t, peer1, fundingAddress)
+
+	t.Logf("Sending %d data messages to confirm Faucet Funds", dataMessagesAmount)
+	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
+
 	require.Eventually(t, func() bool {
 		return tests.Balance(t, peer1, fundingAddress, ledgerstate.ColorIOTA) >= uint64(tokensPerRequest)
 	}, tests.Timeout, tests.Tick)
@@ -71,8 +82,19 @@ func TestConflictSpam(t *testing.T) {
 		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
+
+	t.Logf("Sending data %d messages to confirm Conflicts and make GoF converge on all nodes", dataMessagesAmount*2)
+	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount*2, delayBetweenDataMessages)
+
 	t.Logf("number of txs to verify is %d", len(txs))
 	verifyConfirmationsOnPeers(t, n.Peers(), txs)
+
+	msgID, _ := tests.SendDataMessage(t, peer1, []byte("Gimme Master!"), 1)
+
+	t.Logf("Verifying that %s is on MasterBranch", msgID)
+	messageMetadata, err := peer1.GetMessageMetadata(msgID)
+	require.NoError(t, err)
+	require.Equal(t, ledgerstate.MasterBranchID.Base58(), messageMetadata.BranchID)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
@@ -92,13 +114,13 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*le
 			require.Eventually(t, func() bool {
 				metadata, err = peer.GetTransactionMetadata(tx.ID().Base58())
 				return err == nil && metadata != nil
-			}, 10*time.Second, time.Second, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
+			}, 10*time.Second, 10*time.Millisecond, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
 				peer.Name(), tx.ID().Base58(), metadata, err)
 			t.Logf("GoF is %d for tx %s in peer %s", metadata.GradeOfFinality, tx.ID().Base58(), peer.Name())
 			if prevGoF != unknownGoF {
 				require.Eventually(t,
 					func() bool { return prevGoF == metadata.GradeOfFinality },
-					10*time.Second, 2*time.Second, "Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
+					10*time.Second, 10*time.Millisecond, "Different gofs on tx %s between peers %s (GoF=%d) and %s (GoF=%d)", tx.ID().Base58(),
 					peers[i-1].Name(), prevGoF, peer.Name(), metadata.GradeOfFinality)
 			}
 			prevGoF = metadata.GradeOfFinality
@@ -154,7 +176,7 @@ func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 			attackName, tx.ID().Base58(), peers[peerIndex].Name())
 		require.Empty(t, resp.Error, "%s: There was an error in the response while posting transaction %s to peer %s",
 			attackName, tx.ID().Base58(), peers[peerIndex].Name())
-		time.Sleep(time.Second)
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

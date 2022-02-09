@@ -227,8 +227,8 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 
-	// Make sure the message is available on the peer itself and has gof.High.
-	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.High)
+	// Make sure the message is available on the peer itself and has gof.Low.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.Low)
 
 	return resp.ID, sent
 }
@@ -318,6 +318,24 @@ func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, id
 		result[id] = sent
 	}
 	return result
+}
+
+// SendDataMessagesWithDelay sends a total of numMessages data messages, each after a delay interval, and saves the sent message to a map.
+// It chooses the peers to send the messages from in a round-robin fashion.
+func SendDataMessagesWithDelay(t *testing.T, peers []*framework.Node, numMessages int, delay time.Duration) (result map[string]DataMessageSent) {
+	result = make(map[string]DataMessageSent, numMessages)
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	for i := 0; i < numMessages; i++ {
+		data := []byte(fmt.Sprintf("Test: %d", i))
+
+		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
+		result[id] = sent
+		<-ticker.C
+	}
+
+	return
 }
 
 // SendTransaction sends a transaction of value and color. It returns the transactionID and the error return by PostTransaction.

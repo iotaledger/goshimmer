@@ -58,9 +58,12 @@ func PeerConfig() config.GoShimmer {
 
 	c.Image = "iotaledger/goshimmer"
 
-	c.DisabledPlugins = []string{"portcheck", "dashboard", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
+	c.DisabledPlugins = []string{"portcheck", "analysisClient", "profiling", "clock", "remotelogmetrics", "remotemetrics"}
 
 	c.Network.Enabled = true
+
+	c.Dashboard.Enabled = true
+	c.Dashboard.BindAddress = "0.0.0.0:8081"
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
