@@ -522,10 +522,19 @@ const (
 
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
+// VotePower is used to establish an absolute order of votes, regarldless of their arrival order.
+// Currently, the used VotePower is the SequenceNumber embedded in the Message Layout, so that, regardless
+// of the order in which votes are received, the same conclusion is computed.
+// Alternatively, the objective timestamp of a Message could be used.
+type VotePower = uint64
+
 // LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.
 var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
 
-// LatestMarkerVotes represents the markers supported from a certain Voter.
+// LatestMarkerVotes keeps track of the most up-to-date for a certain Voter casted on a specific Marker SequenceID.
+// Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
+// Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
+// Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
 	sequenceID        markers.SequenceID
 	voter             Voter
@@ -583,12 +592,12 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 			return nil, errors.Errorf("failed to read Index from MarshalUtil: %w", markerIndexErr)
 		}
 
-		sequenceNumber, sequenceNumberErr := marshalUtil.ReadUint64()
+		votePower, votePowerErr := marshalUtil.ReadUint64()
 		if markerIndexErr != nil {
-			return nil, errors.Errorf("failed to read sequence number from MarshalUtil: %w", sequenceNumberErr)
+			return nil, errors.Errorf("failed to read sequence number from MarshalUtil: %w", votePowerErr)
 		}
 
-		latestMarkerVotes.latestMarkerVotes.Set(markerIndex, sequenceNumber)
+		latestMarkerVotes.latestMarkerVotes.Set(markerIndex, votePower)
 	}
 
 	return latestMarkerVotes, nil
@@ -609,8 +618,8 @@ func (l *LatestMarkerVotes) Voter() Voter {
 	return l.voter
 }
 
-// SequenceNumber returns the sequence number of the vote for the given marker Index.
-func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber uint64, exists bool) {
+// Power returns the power of the vote for the given marker Index.
+func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
@@ -619,11 +628,12 @@ func (l *LatestMarkerVotes) SequenceNumber(index markers.Index) (sequenceNumber 
 		return 0, exists
 	}
 
-	return key.(uint64), exists
+	return key.(VotePower), exists
 }
 
-// Store stores the vote with the given marker Index and sequence number.
-func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (stored bool, previousHighestIndex markers.Index) {
+// Store stores the vote with the given marker Index and votePower.
+// The votePower parameter is used to determine the order of the vote.
+func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored bool, previousHighestIndex markers.Index) {
 	l.Lock()
 	defer l.Unlock()
 
@@ -633,16 +643,16 @@ func (l *LatestMarkerVotes) Store(index markers.Index, sequenceNumber uint64) (s
 
 	// abort if we already have a higher value on an Index that is larger or equal
 	_, ceilingValue, ceilingExists := l.latestMarkerVotes.Ceiling(index)
-	if ceilingExists && sequenceNumber < ceilingValue.(uint64) {
+	if ceilingExists && power < ceilingValue.(VotePower) {
 		return false, previousHighestIndex
 	}
 
 	// set the new value
-	l.latestMarkerVotes.Set(index, sequenceNumber)
+	l.latestMarkerVotes.Set(index, power)
 
 	// remove all predecessors that are lower than the newly set value
 	floorKey, floorValue, floorExists := l.latestMarkerVotes.Floor(index - 1)
-	for floorExists && floorValue.(uint64) < sequenceNumber {
+	for floorExists && floorValue.(VotePower) < power {
 		l.latestMarkerVotes.Delete(floorKey)
 
 		floorKey, floorValue, floorExists = l.latestMarkerVotes.Floor(index - 1)
@@ -769,14 +779,14 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 // LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
 	voter             Voter
-	latestBranchVotes map[ledgerstate.BranchID]*Vote
+	latestBranchVotes map[ledgerstate.BranchID]*BranchVote
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
 }
 
 // Vote returns the Vote for the LatestBranchVotes.
-func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exists bool) {
+func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *BranchVote, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
@@ -786,11 +796,11 @@ func (l *LatestBranchVotes) Vote(branchID ledgerstate.BranchID) (vote *Vote, exi
 }
 
 // Store stores the vote for the LatestBranchVotes.
-func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
+func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
-	if currentVote, exists := l.latestBranchVotes[vote.BranchID]; exists && currentVote.SequenceNumber >= vote.SequenceNumber {
+	if currentVote, exists := l.latestBranchVotes[vote.BranchID]; exists && currentVote.VotePower >= vote.VotePower {
 		return false
 	}
 
@@ -804,7 +814,7 @@ func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 	latestBranchVotes = &LatestBranchVotes{
 		voter:             voter,
-		latestBranchVotes: make(map[ledgerstate.BranchID]*Vote),
+		latestBranchVotes: make(map[ledgerstate.BranchID]*BranchVote),
 	}
 
 	latestBranchVotes.Persist()
@@ -837,7 +847,7 @@ func LatestBranchVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 		return nil, errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
-	latestBranchVotes.latestBranchVotes = make(map[ledgerstate.BranchID]*Vote, int(mapSize))
+	latestBranchVotes.latestBranchVotes = make(map[ledgerstate.BranchID]*BranchVote, int(mapSize))
 
 	for i := uint64(0); i < mapSize; i++ {
 		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
@@ -959,17 +969,17 @@ func (c *CachedLatestBranchVotes) String() string {
 
 // region Vote /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Vote represents a struct that holds information about the shared Opinion of a node regarding an individual Branch.
-type Vote struct {
-	Voter          Voter
-	BranchID       ledgerstate.BranchID
-	Opinion        Opinion
-	SequenceNumber uint64
+// BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
+type BranchVote struct {
+	Voter     Voter
+	BranchID  ledgerstate.BranchID
+	Opinion   Opinion
+	VotePower VotePower
 }
 
 // VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshalling).
-func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *Vote, err error) {
-	vote = &Vote{}
+func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *BranchVote, err error) {
+	vote = &BranchVote{}
 
 	if vote.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
@@ -985,50 +995,50 @@ func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *Vote, err 
 	}
 	vote.Opinion = Opinion(untypedOpinion)
 
-	if vote.SequenceNumber, err = marshalUtil.ReadUint64(); err != nil {
-		return nil, errors.Errorf("failed to parse SequenceNumber from MarshalUtil: %w", err)
+	if vote.VotePower, err = marshalUtil.ReadUint64(); err != nil {
+		return nil, errors.Errorf("failed to parse VotePower from MarshalUtil: %w", err)
 	}
 
 	return
 }
 
 // WithOpinion derives a vote for the given Opinion.
-func (v *Vote) WithOpinion(opinion Opinion) (voteWithOpinion *Vote) {
-	return &Vote{
-		Voter:          v.Voter,
-		BranchID:       v.BranchID,
-		Opinion:        opinion,
-		SequenceNumber: v.SequenceNumber,
+func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
+	return &BranchVote{
+		Voter:     v.Voter,
+		BranchID:  v.BranchID,
+		Opinion:   opinion,
+		VotePower: v.VotePower,
 	}
 }
 
 // WithBranchID derives a vote for the given BranchID.
-func (v *Vote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *Vote) {
-	return &Vote{
-		Voter:          v.Voter,
-		BranchID:       branchID,
-		Opinion:        v.Opinion,
-		SequenceNumber: v.SequenceNumber,
+func (v *BranchVote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *BranchVote) {
+	return &BranchVote{
+		Voter:     v.Voter,
+		BranchID:  branchID,
+		Opinion:   v.Opinion,
+		VotePower: v.VotePower,
 	}
 }
 
 // Bytes returns the bytes of the Vote.
-func (v *Vote) Bytes() []byte {
+func (v *BranchVote) Bytes() []byte {
 	return marshalutil.New().
 		Write(v.Voter).
 		Write(v.BranchID).
 		WriteUint8(uint8(v.Opinion)).
-		WriteUint64(v.SequenceNumber).
+		WriteUint64(v.VotePower).
 		Bytes()
 }
 
 // String returns a human-readable version of the Vote.
-func (v *Vote) String() string {
+func (v *BranchVote) String() string {
 	return stringify.Struct("Vote",
 		stringify.StructField("Voter", v.Voter),
 		stringify.StructField("BranchID", v.BranchID),
 		stringify.StructField("Opinion", int(v.Opinion)),
-		stringify.StructField("SequenceNumber", v.SequenceNumber),
+		stringify.StructField("VotePower", v.VotePower),
 	)
 }
 

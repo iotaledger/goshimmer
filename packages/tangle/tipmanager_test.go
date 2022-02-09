@@ -291,7 +291,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["G1"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["G1"])
 		// make sure that message is too old and cannot be directly referenced
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
-		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], map[ParentsType]MessageIDs{
+		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
 		}, issueTime)
 
@@ -309,7 +309,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 
 		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
-		messages["2"] = newTestParentsPayloadMessage(transactions["2"], map[ParentsType]MessageIDs{
+		messages["2"] = newTestParentsPayloadMessage(transactions["2"], ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
 		})
 
@@ -328,7 +328,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 
 		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
-		messages["3"] = newTestParentsPayloadMessage(transactions["3"], map[ParentsType]MessageIDs{
+		messages["3"] = newTestParentsPayloadMessage(transactions["3"], ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
 		})
 
@@ -362,7 +362,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			outputsByID,
 			walletsByAddress,
 		)
-		messages["4"] = newTestParentsPayloadMessage(transactions["4"], map[ParentsType]MessageIDs{
+		messages["4"] = newTestParentsPayloadMessage(transactions["4"], ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{messages["2"].ID(), EmptyMessageID}.ToMessageIDs(),
 		})
 
@@ -374,7 +374,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 5
 	{
-		messages["5"] = newTestParentsDataMessage("data", map[ParentsType]MessageIDs{
+		messages["5"] = newTestParentsDataMessage("data", ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
 		})
 
@@ -390,7 +390,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
 
 		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
-		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], map[ParentsType]MessageIDs{
+		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], ParentMessageIDs{
 			StrongParentType: MessageIDsSlice(strongParents).ToMessageIDs(),
 		})
 
@@ -462,7 +462,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 15
 	{
-		messages["15"] = newTestParentsDataMessage("data", map[ParentsType]MessageIDs{
+		messages["15"] = newTestParentsDataMessage("data", ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID()}.ToMessageIDs(),
 		})
 
@@ -474,7 +474,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 16
 	{
-		messages["16"] = newTestParentsDataMessage("data", map[ParentsType]MessageIDs{
+		messages["16"] = newTestParentsDataMessage("data", ParentMessageIDs{
 			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}.ToMessageIDs(),
 		})
 
@@ -664,7 +664,7 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 }
 
 func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", map[ParentsType]MessageIDs{
+	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
 		StrongParentType: strongParents.ToMessageIDs(),
 		WeakParentType:   weakParents.ToMessageIDs(),
 	})

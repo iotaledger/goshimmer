@@ -208,6 +208,24 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 
 }
 
+func TestArithmeticBranchIDs_Add(t *testing.T) {
+	branchID1 := BranchIDFromRandomness()
+	branchID2 := BranchIDFromRandomness()
+	branchID3 := BranchIDFromRandomness()
+
+	RegisterBranchIDAlias(branchID1, "branchID1")
+	RegisterBranchIDAlias(branchID2, "branchID2")
+	RegisterBranchIDAlias(branchID3, "branchID3")
+
+	arithmeticBranchIDs := NewArithmeticBranchIDs()
+
+	arithmeticBranchIDs.Add(NewBranchIDs(branchID1, branchID2))
+	arithmeticBranchIDs.Add(NewBranchIDs(branchID1, branchID3))
+	arithmeticBranchIDs.Subtract(NewBranchIDs(branchID2, branchID2))
+
+	assert.Equal(t, NewBranchIDs(branchID1, branchID3), arithmeticBranchIDs.BranchIDs())
+}
+
 func assertInclusionStates(t *testing.T, ledgerstate *Ledgerstate, expectedInclusionStates map[BranchID]InclusionState) {
 	for branchID, expectedInclusionState := range expectedInclusionStates {
 		assert.Equal(t, expectedInclusionState, ledgerstate.BranchDAG.InclusionState(branchID), "%s inclustionState is not %s", branchID, expectedInclusionState)

@@ -119,7 +119,7 @@ func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgersta
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
-	references := map[ParentsType]MessageIDs{
+	references := ParentMessageIDs{
 		StrongParentType:         m.strongParentIDs(options),
 		WeakParentType:           m.weakParentIDs(options),
 		ShallowDislikeParentType: m.shallowDislikeParentIDs(options),
@@ -660,38 +660,29 @@ func nextSequenceNumber() uint64 {
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType: {
-			EmptyMessageID: types.Void,
-		},
-	}, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
 	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType: {
-			EmptyMessageID: types.Void,
-		},
-	}, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	message, _ := NewMessage(map[ParentsType]MessageIDs{
-		StrongParentType: {
-			EmptyMessageID: types.Void,
-		},
-	}, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsDataMessage(payloadString string, references map[ParentsType]MessageIDs) (message *Message) {
+func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
 	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return
 }
 
-func newTestParentsDataMessageWithOptions(payloadString string, references map[ParentsType]MessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+func newTestParentsDataMessageWithOptions(payloadString string, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
 	var sequenceNumber uint64
 	if options.overrideSequenceNumber {
 		sequenceNumber = options.sequenceNumber
@@ -706,12 +697,12 @@ func newTestParentsDataMessageWithOptions(payloadString string, references map[P
 	return
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, references map[ParentsType]MessageIDs) (message *Message) {
+func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
 	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return
 }
 
-func newTestParentsPayloadMessageWithOptions(p payload.Payload, references map[ParentsType]MessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+func newTestParentsPayloadMessageWithOptions(p payload.Payload, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
 	var sequenceNumber uint64
 	if options.overrideSequenceNumber {
 		sequenceNumber = options.sequenceNumber
@@ -726,7 +717,7 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references map[P
 	return
 }
 
-func newTestParentsPayloadWithTimestamp(p payload.Payload, references map[ParentsType]MessageIDs, timestamp time.Time) *Message {
+func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
 	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
@@ -956,14 +947,12 @@ func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.Bran
 	return likedConflictMembers.likedBranch, innerConflictMembers
 }
 
-func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references map[ParentsType]MessageIDs, err error) {
+func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
-func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references map[ParentsType]MessageIDs) {
-	return map[ParentsType]MessageIDs{
-		StrongParentType: parents.ToMessageIDs(),
-	}
+func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references ParentMessageIDs) {
+	return NewParentMessageIDs().AddAll(StrongParentType, parents.ToMessageIDs())
 }
 
 // EventMock acts as a container for event mocks.

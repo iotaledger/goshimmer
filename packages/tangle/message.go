@@ -198,6 +198,16 @@ func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
 // MessageIDs is a set of MessageIDs where every MessageID is stored only once.
 type MessageIDs map[MessageID]types.Empty
 
+// NewMessageIDs construct a new MessageID collection from the optional MessageIDs.
+func NewMessageIDs(msgIDs ...MessageID) MessageIDs {
+	m := make(MessageIDs)
+	for _, msgID := range msgIDs {
+		m[msgID] = types.Void
+	}
+
+	return m
+}
+
 // Slice converts the set of MessageIDs into a slice of MessageIDs.
 func (m MessageIDs) Slice() MessageIDsSlice {
 	ids := make(MessageIDsSlice, 0)
@@ -216,41 +226,30 @@ func (m MessageIDs) Clone() (clonedMessageIDs MessageIDs) {
 	return
 }
 
+// Add adds a MessageID to the collection and returns the collection to enable chaining.
+func (m MessageIDs) Add(messageID MessageID) MessageIDs {
+	m[messageID] = types.Void
+
+	return m
+}
+
+// AddAll adds all MessageIDs to the collection and returns the collection to enable chaining.
+func (m MessageIDs) AddAll(messageIDs MessageIDs) MessageIDs {
+	for messageID := range messageIDs {
+		m.Add(messageID)
+	}
+
+	return m
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ParentsType is a type that defines the type of the parent.
-type ParentsType uint8
-
-const (
-	// UndefinedParentType is the undefined parent.
-	UndefinedParentType ParentsType = iota
-	// StrongParentType is the ParentsType for a strong parent.
-	StrongParentType
-	// WeakParentType is the ParentsType for a weak parent.
-	WeakParentType
-	// ShallowLikeParentType is the ParentsType for the shallow like parent.
-	ShallowLikeParentType
-	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
-	ShallowDislikeParentType
-)
 
 const (
 	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
 	LastValidBlockType = ShallowDislikeParentType
 )
-
-// String returns string representation of ParentsType.
-func (bp ParentsType) String() string {
-	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
-}
-
-// ParentsBlock is the container for parents in a Message.
-type ParentsBlock struct {
-	ParentsType
-	References MessageIDsSlice
-}
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
@@ -275,7 +274,7 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(references map[ParentsType]MessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(references[StrongParentType].Slice())
@@ -770,10 +769,76 @@ func (m *Message) String() string {
 
 // region Parent ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ParentsType is a type that defines the type of the parent.
+type ParentsType uint8
+
+const (
+	// UndefinedParentType is the undefined parent.
+	UndefinedParentType ParentsType = iota
+	// StrongParentType is the ParentsType for a strong parent.
+	StrongParentType
+	// WeakParentType is the ParentsType for a weak parent.
+	WeakParentType
+	// ShallowLikeParentType is the ParentsType for the shallow like parent.
+	ShallowLikeParentType
+	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
+	ShallowDislikeParentType
+)
+
+// String returns string representation of ParentsType.
+func (bp ParentsType) String() string {
+	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
+}
+
 // Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
 	Type ParentsType
+}
+
+// ParentsBlock is the container for parents in a Message.
+type ParentsBlock struct {
+	ParentsType
+	References MessageIDsSlice
+}
+
+// ParentMessageIDs is a map of ParentType to MessageIDs.
+type ParentMessageIDs map[ParentsType]MessageIDs
+
+// NewParentMessageIDs constructs a new ParentMessageIDs.
+func NewParentMessageIDs() ParentMessageIDs {
+	p := make(ParentMessageIDs)
+	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
+		p[parentType] = NewMessageIDs()
+	}
+
+	return p
+}
+
+// AddStrong adds a strong parent to the map.
+func (p ParentMessageIDs) AddStrong(messageID MessageID) ParentMessageIDs {
+	return p.Add(StrongParentType, messageID)
+}
+
+// Add adds a parent to the map.
+func (p ParentMessageIDs) Add(parentType ParentsType, messageID MessageID) ParentMessageIDs {
+	p[parentType].Add(messageID)
+	return p
+}
+
+// AddAll adds a collection of parents to the map.
+func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) ParentMessageIDs {
+	p[parentType].AddAll(messageIDs)
+	return p
+}
+
+// Clone returns a copy of map.
+func (p ParentMessageIDs) Clone() ParentMessageIDs {
+	pCloned := NewParentMessageIDs()
+	for parentType, messageIDs := range p {
+		pCloned.AddAll(parentType, messageIDs)
+	}
+	return pCloned
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

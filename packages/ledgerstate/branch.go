@@ -1074,3 +1074,95 @@ func (c CachedChildBranches) String() string {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ArithmeticBranchIDs //////////////////////////////////////////////////////////////////////////////////////////
+
+// ArithmeticBranchIDs represents an arithmetic collection of BranchIDs that allows us to add and subtract them from
+// each other.
+type ArithmeticBranchIDs map[BranchID]int
+
+// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object.
+func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranchIDs ArithmeticBranchIDs) {
+	newArithmeticBranchIDs = make(ArithmeticBranchIDs)
+	if len(optionalBranchIDs) >= 1 {
+		newArithmeticBranchIDs.Add(optionalBranchIDs[0])
+	}
+
+	return newArithmeticBranchIDs
+}
+
+// Add adds all BranchIDs to the collection.
+func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]++
+	}
+}
+
+// Subtract subtracts all BranchIDs from the collection.
+func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]--
+	}
+}
+
+// BranchIDs returns the BranchIDs represented by this collection.
+func (a ArithmeticBranchIDs) BranchIDs() (branchIDs BranchIDs) {
+	branchIDs = NewBranchIDs()
+	for branchID, value := range a {
+		if value >= 1 {
+			branchIDs.Add(branchID)
+		}
+	}
+
+	return
+}
+
+// String returns a human-readable version of the ArithmeticBranchIDs.
+func (a ArithmeticBranchIDs) String() string {
+	if len(a) == 0 {
+		return "ArithmeticBranchIDs() = " + a.BranchIDs().String()
+	}
+
+	result := "ArithmeticBranchIDs("
+	i := 0
+	for branchID, value := range a {
+		switch {
+		case value == 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += branchID.String()
+			i++
+		case value > 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += strconv.Itoa(value) + "*" + branchID.String()
+			i++
+		case value == 0:
+		case value == -1:
+			if i != 0 {
+				result += " - "
+			} else {
+				result += "-"
+			}
+
+			result += branchID.String()
+			i++
+		case value < -1:
+			if i != 0 {
+				result += " - "
+			}
+
+			result += strconv.Itoa(-value) + "*" + branchID.String()
+			i++
+		}
+	}
+	result += ") = " + a.BranchIDs().String()
+
+	return result
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

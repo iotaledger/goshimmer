@@ -333,13 +333,13 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessage("A", map[ParentsType]MessageIDs{
+	messageA := newTestParentsDataMessage("A", ParentMessageIDs{
 		StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
 	})
-	messageB := newTestParentsDataMessage("B", map[ParentsType]MessageIDs{
+	messageB := newTestParentsDataMessage("B", ParentMessageIDs{
 		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
 	})
-	messageC := newTestParentsDataMessage("C", map[ParentsType]MessageIDs{
+	messageC := newTestParentsDataMessage("C", ParentMessageIDs{
 		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
 	})
 

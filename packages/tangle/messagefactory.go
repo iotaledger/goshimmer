@@ -5,8 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -111,7 +109,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	var nonce uint64
 	var parents MessageIDsSlice
 	var issuingTime time.Time
-	var references map[ParentsType]MessageIDs
+	var references ParentMessageIDs
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
@@ -227,7 +225,7 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {
@@ -241,7 +239,7 @@ func (f *MessageFactory) doPOW(references map[ParentsType]MessageIDs, issuingTim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references map[ParentsType]MessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
 	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	if err != nil {
@@ -324,15 +322,15 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error)
+type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
 
 // PrepareReferences is an implementation of LikeReferencesFunc.
-func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references map[ParentsType]MessageIDs, err error) {
-	references = map[ParentsType]MessageIDs{StrongParentType: {}}
+func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
+	references = NewParentMessageIDs()
 
 	for _, strongParent := range strongParents {
 		if strongParent == EmptyMessageID {
-			references[StrongParentType][strongParent] = types.Void
+			references.AddStrong(strongParent)
 			continue
 		}
 
@@ -341,10 +339,7 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
 
-		referencesCopy := make(map[ParentsType]MessageIDs)
-		for parentType, messageIDs := range references {
-			referencesCopy[parentType] = messageIDs.Clone()
-		}
+		referencesCopy := references.Clone()
 
 		opinionCanBeExpressed := true
 		for strongParentBranchID := range strongParentBranchIDs {
@@ -357,10 +352,7 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 				continue
 			}
 
-			if _, exists := references[referenceParentType]; !exists {
-				references[referenceParentType] = make(map[MessageID]types.Empty)
-			}
-			references[referenceParentType][referenceMessageID] = types.Void
+			references.Add(referenceParentType, referenceMessageID)
 
 			if len(references[referenceParentType]) > MaxParentsCount {
 				opinionCanBeExpressed = false
@@ -368,12 +360,13 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 			}
 		}
 
+		// If the opinion cannot be expressed, we have to rollback to the previous references collection.
 		if !opinionCanBeExpressed {
 			references = referencesCopy
 			continue
 		}
 
-		references[StrongParentType][strongParent] = types.Void
+		references.AddStrong(strongParent)
 	}
 
 	if len(references[StrongParentType]) == 0 {

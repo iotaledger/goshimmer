@@ -189,6 +189,7 @@ func (t *TipManager) AddTip(message *Message) {
 	t.removeStrongParents(message)
 }
 
+// checkApprovers returns true if the message has any confirmed or scheduled approver.
 func (t *TipManager) checkApprovers(messageID MessageID) bool {
 	approverScheduledConfirmed := false
 	t.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
@@ -196,19 +197,11 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 			return
 		}
 
-		msgConfirmed := t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
-		if !msgConfirmed {
-			var msgScheduled bool
+		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
+		if !approverScheduledConfirmed {
 			t.tangle.Storage.MessageMetadata(approver.approverMessageID).Consume(func(messageMetadata *MessageMetadata) {
-				msgScheduled = messageMetadata.Scheduled()
+				approverScheduledConfirmed = messageMetadata.Scheduled()
 			})
-			if msgScheduled {
-				approverScheduledConfirmed = true
-				return
-			}
-		} else {
-			approverScheduledConfirmed = true
-			return
 		}
 	})
 	return approverScheduledConfirmed

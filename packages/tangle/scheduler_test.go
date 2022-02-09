@@ -539,7 +539,7 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 
 func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Message {
 	message, _ := NewMessage(
-		map[ParentsType]MessageIDs{
+		ParentMessageIDs{
 			StrongParentType: {
 				EmptyMessageID: types.Void,
 			},

@@ -3908,25 +3908,6 @@ func TestObjectiveInvalidity(t *testing.T) {
 	}
 }
 
-func TestArithmeticBranchIDs_Add(t *testing.T) {
-	branchID1 := ledgerstate.BranchIDFromRandomness()
-	branchID2 := ledgerstate.BranchIDFromRandomness()
-	branchID3 := ledgerstate.BranchIDFromRandomness()
-
-	ledgerstate.RegisterBranchIDAlias(branchID1, "branchID1")
-	ledgerstate.RegisterBranchIDAlias(branchID2, "branchID2")
-	ledgerstate.RegisterBranchIDAlias(branchID3, "branchID3")
-
-	arithmeticBranchIDs := NewArithmeticBranchIDs()
-	fmt.Println(arithmeticBranchIDs)
-
-	arithmeticBranchIDs.Add(ledgerstate.NewBranchIDs(branchID1, branchID2))
-	arithmeticBranchIDs.Add(ledgerstate.NewBranchIDs(branchID1, branchID3))
-	arithmeticBranchIDs.Subtract(ledgerstate.NewBranchIDs(branchID2, branchID2))
-
-	fmt.Println(arithmeticBranchIDs)
-}
-
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
