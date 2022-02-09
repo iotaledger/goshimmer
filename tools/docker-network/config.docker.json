@@ -83,8 +83,5 @@
   },
   "faucet": {
     "powDifficulty": 12
-  },
-  "messageLayer": {
-    "tangleWidth": 10
   }
 }

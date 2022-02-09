@@ -16,7 +16,7 @@ type ParametersDefinition struct {
 		// File is the path to the snapshot file.
 		File string `default:"./snapshot.bin" usage:"the path to the snapshot file"`
 		// GenesisNode is the identity of the node that is allowed to attach to the Genesis message.
-		GenesisNode string `default:"7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
+		GenesisNode string `default:"Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24" usage:"the node (base58 public key) that is allowed to attach to the genesis message"`
 	}
 
 	// TangleTimeWindow defines the time window in which the node considers itself as synced according to TangleTime.
