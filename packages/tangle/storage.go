@@ -38,8 +38,8 @@ const (
 	// PrefixMarkerBranchIDMapping defines the storage prefix for the PrefixMarkerBranchIDMapping.
 	PrefixMarkerBranchIDMapping
 
-	// PrefixBranchSupporters defines the storage prefix for the BranchSupporters.
-	PrefixBranchSupporters
+	// PrefixBranchVoters defines the storage prefix for the BranchVoters.
+	PrefixBranchVoters
 
 	// PrefixLatestBranchVotes defines the storage prefix for the LatestBranchVotes.
 	PrefixLatestBranchVotes
@@ -74,7 +74,7 @@ type Storage struct {
 	missingMessageStorage             *objectstorage.ObjectStorage
 	attachmentStorage                 *objectstorage.ObjectStorage
 	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage
-	branchSupportersStorage           *objectstorage.ObjectStorage
+	branchVotersStorage               *objectstorage.ObjectStorage
 	latestBranchVotesStorage          *objectstorage.ObjectStorage
 	latestMarkerVotesStorage          *objectstorage.ObjectStorage
 	branchWeightStorage               *objectstorage.ObjectStorage
@@ -98,7 +98,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		missingMessageStorage:             osFactory.New(PrefixMissingMessage, MissingMessageFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		attachmentStorage:                 osFactory.New(PrefixAttachments, AttachmentFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: osFactory.New(PrefixMarkerBranchIDMapping, MarkerIndexBranchIDMappingFromObjectStorage, cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchSupportersStorage:           osFactory.New(PrefixBranchSupporters, BranchSupportersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchVotersStorage:               osFactory.New(PrefixBranchVoters, BranchVotersFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestBranchVotesStorage:          osFactory.New(PrefixLatestBranchVotes, LatestBranchVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestMarkerVotesStorage:          osFactory.New(PrefixLatestMarkerVotes, LatestMarkerVotesFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
 		branchWeightStorage:               osFactory.New(PrefixBranchWeight, BranchWeightFromObjectStorage, cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -318,15 +318,15 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 	return
 }
 
-// BranchSupporters retrieves the BranchSupporters with the given ledgerstate.BranchID.
-func (s *Storage) BranchSupporters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchSupporters) *CachedBranchSupporters {
+// BranchVoters retrieves the BranchVoters with the given ledgerstate.BranchID.
+func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *CachedBranchVoters {
 	if len(computeIfAbsentCallback) >= 1 {
-		return &CachedBranchSupporters{s.branchSupportersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		return &CachedBranchVoters{s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {
 			return computeIfAbsentCallback[0](branchID)
 		})}
 	}
 
-	return &CachedBranchSupporters{CachedObject: s.branchSupportersStorage.Load(branchID.Bytes())}
+	return &CachedBranchVoters{CachedObject: s.branchVotersStorage.Load(branchID.Bytes())}
 }
 
 // LatestBranchVotes retrieves the LatestBranchVotes of the given Voter.
@@ -418,7 +418,7 @@ func (s *Storage) Shutdown() {
 	s.missingMessageStorage.Shutdown()
 	s.attachmentStorage.Shutdown()
 	s.markerIndexBranchIDMappingStorage.Shutdown()
-	s.branchSupportersStorage.Shutdown()
+	s.branchVotersStorage.Shutdown()
 	s.latestBranchVotesStorage.Shutdown()
 	s.latestMarkerVotesStorage.Shutdown()
 	s.branchWeightStorage.Shutdown()
@@ -436,7 +436,7 @@ func (s *Storage) Prune() error {
 		s.missingMessageStorage,
 		s.attachmentStorage,
 		s.markerIndexBranchIDMappingStorage,
-		s.branchSupportersStorage,
+		s.branchVotersStorage,
 		s.latestBranchVotesStorage,
 		s.latestMarkerVotesStorage,
 		s.branchWeightStorage,

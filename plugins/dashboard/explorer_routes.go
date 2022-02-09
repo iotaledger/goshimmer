@@ -195,7 +195,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
-	routeGroup.GET("/branch/:branchID/supporters", ledgerstateAPI.GetBranchSupporters)
+	routeGroup.GET("/branch/:branchID/voters", ledgerstateAPI.GetBranchVoters)
 	routeGroup.POST("/chat", chat.SendChatMessage)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {

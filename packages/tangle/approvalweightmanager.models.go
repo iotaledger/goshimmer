@@ -197,78 +197,78 @@ func (c *CachedBranchWeight) String() string {
 // Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
 type Voter = identity.ID
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Supporters ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region Voters ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Supporters is a set of node identities that votes for a particular Branch.
-type Supporters struct {
+// Voters is a set of node identities that votes for a particular Branch.
+type Voters struct {
 	set.Set
 }
 
-// NewSupporters is the constructor of the Supporters type.
-func NewSupporters() (supporters *Supporters) {
-	return &Supporters{
+// NewVoters is the constructor of the Voters type.
+func NewVoters() (voters *Voters) {
+	return &Voters{
 		Set: set.New(),
 	}
 }
 
-// Add adds a new Supporter to the Set and returns true if the Supporter was not present in the set before.
-func (s *Supporters) Add(supporter Voter) (added bool) {
-	return s.Set.Add(supporter)
+// Add adds a new Voter to the Set and returns true if the Voter was not present in the set before.
+func (v *Voters) Add(voter Voter) (added bool) {
+	return v.Set.Add(voter)
 }
 
-// AddAll adds all new Supporters to the Set.
-func (s *Supporters) AddAll(supporters *Supporters) {
-	supporters.ForEach(func(supporter Voter) {
-		s.Set.Add(supporter)
+// AddAll adds all new Voters to the Set.
+func (v *Voters) AddAll(voters *Voters) {
+	voters.ForEach(func(voter Voter) {
+		v.Set.Add(voter)
 	})
 }
 
-// Delete removes the Supporter from the Set and returns true if it did exist.
-func (s *Supporters) Delete(supporter Voter) (deleted bool) {
-	return s.Set.Delete(supporter)
+// Delete removes the Voter from the Set and returns true if it did exist.
+func (v *Voters) Delete(voter Voter) (deleted bool) {
+	return v.Set.Delete(voter)
 }
 
-// Has returns true if the Supporter exists in the Set.
-func (s *Supporters) Has(supporter Voter) (has bool) {
-	return s.Set.Has(supporter)
+// Has returns true if the Voter exists in the Set.
+func (v *Voters) Has(voter Voter) (has bool) {
+	return v.Set.Has(voter)
 }
 
-// ForEach iterates through the Supporters and calls the callback for every element.
-func (s *Supporters) ForEach(callback func(supporter Voter)) {
-	s.Set.ForEach(func(element interface{}) {
+// ForEach iterates through the Voters and calls the callback for every element.
+func (v *Voters) ForEach(callback func(voter Voter)) {
+	v.Set.ForEach(func(element interface{}) {
 		callback(element.(Voter))
 	})
 }
 
-// Clone returns a copy of the Supporters.
-func (s *Supporters) Clone() (clonedSupporters *Supporters) {
-	clonedSupporters = NewSupporters()
-	s.ForEach(func(supporter Voter) {
-		clonedSupporters.Add(supporter)
+// Clone returns a copy of the Voters.
+func (v *Voters) Clone() (clonedVoters *Voters) {
+	clonedVoters = NewVoters()
+	v.ForEach(func(voter Voter) {
+		clonedVoters.Add(voter)
 	})
 
 	return
 }
 
-// Intersect creates an intersection of two set of Supporters.
-func (s *Supporters) Intersect(other *Supporters) (intersection *Supporters) {
-	intersection = NewSupporters()
-	s.ForEach(func(supporter Voter) {
-		if other.Has(supporter) {
-			intersection.Add(supporter)
+// Intersect creates an intersection of two set of Voters.
+func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
+	intersection = NewVoters()
+	v.ForEach(func(voter Voter) {
+		if other.Has(voter) {
+			intersection.Add(voter)
 		}
 	})
 
 	return
 }
 
-// String returns a human-readable version of the Supporters.
-func (s *Supporters) String() string {
-	structBuilder := stringify.StructBuilder("Supporters")
-	s.ForEach(func(supporter Voter) {
-		structBuilder.AddField(stringify.StructField(supporter.String(), "true"))
+// String returns a human-readable version of the Voters.
+func (v *Voters) String() string {
+	structBuilder := stringify.StructBuilder("Voters")
+	v.ForEach(func(voter Voter) {
+		structBuilder.AddField(stringify.StructField(voter.String(), "true"))
 	})
 
 	return structBuilder.String()
@@ -276,36 +276,36 @@ func (s *Supporters) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchSupporters /////////////////////////////////////////////////////////////////////////////////////////////
+// region BranchVoters /////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchSupporters is a data structure that tracks which nodes support a branch.
-type BranchSupporters struct {
-	branchID   ledgerstate.BranchID
-	supporters *Supporters
+// BranchVoters is a data structure that tracks which nodes support a branch.
+type BranchVoters struct {
+	branchID ledgerstate.BranchID
+	voters   *Voters
 
-	supportersMutex sync.RWMutex
+	votersMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
 
-// NewBranchSupporters is the constructor for the BranchSupporters object.
-func NewBranchSupporters(branchID ledgerstate.BranchID) (branchSupporters *BranchSupporters) {
-	branchSupporters = &BranchSupporters{
-		branchID:   branchID,
-		supporters: NewSupporters(),
+// NewBranchVoters is the constructor for the BranchVoters object.
+func NewBranchVoters(branchID ledgerstate.BranchID) (branchVoters *BranchVoters) {
+	branchVoters = &BranchVoters{
+		branchID: branchID,
+		voters:   NewVoters(),
 	}
 
-	branchSupporters.Persist()
-	branchSupporters.SetModified()
+	branchVoters.Persist()
+	branchVoters.SetModified()
 
 	return
 }
 
-// BranchSupportersFromBytes unmarshals a BranchSupporters object from a sequence of bytes.
-func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters, consumedBytes int, err error) {
+// BranchVotersFromBytes unmarshals a BranchVoters object from a sequence of bytes.
+func BranchVotersFromBytes(bytes []byte) (branchVoters *BranchVoters, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if branchSupporters, err = BranchSupportersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceSupporters from MarshalUtil: %w", err)
+	if branchVoters, err = BranchVotersFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -313,37 +313,37 @@ func BranchSupportersFromBytes(bytes []byte) (branchSupporters *BranchSupporters
 	return
 }
 
-// BranchSupportersFromMarshalUtil unmarshals a BranchSupporters object using a MarshalUtil (for easier unmarshalling).
-func BranchSupportersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchSupporters *BranchSupporters, err error) {
-	branchSupporters = &BranchSupporters{}
-	if branchSupporters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+// BranchVotersFromMarshalUtil unmarshals a BranchVoters object using a MarshalUtil (for easier unmarshalling).
+func BranchVotersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
+	branchVoters = &BranchVoters{}
+	if branchVoters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
 	}
 
-	supportersCount, err := marshalUtil.ReadUint64()
+	votersCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = errors.Errorf("failed to parse supporters count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse voters count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	branchSupporters.supporters = NewSupporters()
-	for i := uint64(0); i < supportersCount; i++ {
-		supporter, supporterErr := identity.IDFromMarshalUtil(marshalUtil)
-		if supporterErr != nil {
-			err = errors.Errorf("failed to parse Supporter (%v): %w", supporterErr, cerrors.ErrParseBytesFailed)
+	branchVoters.voters = NewVoters()
+	for i := uint64(0); i < votersCount; i++ {
+		voter, voterErr := identity.IDFromMarshalUtil(marshalUtil)
+		if voterErr != nil {
+			err = errors.Errorf("failed to parse Voter (%v): %w", voterErr, cerrors.ErrParseBytesFailed)
 			return
 		}
 
-		branchSupporters.supporters.Add(supporter)
+		branchVoters.voters.Add(voter)
 	}
 
 	return
 }
 
-// BranchSupportersFromObjectStorage restores a BranchSupporters object from the object storage.
-func BranchSupportersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = BranchSupportersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse BranchSupporters from bytes: %w", err)
+// BranchVotersFromObjectStorage restores a BranchVoters object from the object storage.
+func BranchVotersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = BranchVotersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
 		return
 	}
 
@@ -351,24 +351,24 @@ func BranchSupportersFromObjectStorage(key, data []byte) (result objectstorage.S
 }
 
 // BranchID returns the BranchID that is being tracked.
-func (b *BranchSupporters) BranchID() (branchID ledgerstate.BranchID) {
+func (b *BranchVoters) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchID
 }
 
 // Has returns true if the given Voter is currently supporting this Branch.
-func (b *BranchSupporters) Has(voter Voter) bool {
-	b.supportersMutex.RLock()
-	defer b.supportersMutex.RUnlock()
+func (b *BranchVoters) Has(voter Voter) bool {
+	b.votersMutex.RLock()
+	defer b.votersMutex.RUnlock()
 
-	return b.supporters.Has(voter)
+	return b.voters.Has(voter)
 }
 
-// AddSupporter adds a new Supporter to the tracked BranchID.
-func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
-	b.supportersMutex.Lock()
-	defer b.supportersMutex.Unlock()
+// AddVoter adds a new Voter to the tracked BranchID.
+func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
+	b.votersMutex.Lock()
+	defer b.votersMutex.Unlock()
 
-	if added = b.supporters.Add(supporter); !added {
+	if added = b.voters.Add(voter); !added {
 		return
 	}
 	b.SetModified()
@@ -376,10 +376,10 @@ func (b *BranchSupporters) AddSupporter(supporter Voter) (added bool) {
 	return
 }
 
-// AddSupporters adds the supporters set to the tracked BranchID.
-func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
-	supporters.ForEach(func(supporter Voter) {
-		if b.supporters.Add(supporter) {
+// AddVoters adds the Voters set to the tracked BranchID.
+func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
+	voters.ForEach(func(voter Voter) {
+		if b.voters.Add(voter) {
 			added = true
 		}
 	})
@@ -391,12 +391,12 @@ func (b *BranchSupporters) AddSupporters(supporters *Supporters) (added bool) {
 	return
 }
 
-// DeleteSupporter deletes a Supporter from the tracked BranchID.
-func (b *BranchSupporters) DeleteSupporter(supporter Voter) (deleted bool) {
-	b.supportersMutex.Lock()
-	defer b.supportersMutex.Unlock()
+// DeleteVoter deletes a Voter from the tracked BranchID.
+func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
+	b.votersMutex.Lock()
+	defer b.votersMutex.Unlock()
 
-	if deleted = b.supporters.Delete(supporter); !deleted {
+	if deleted = b.voters.Delete(voter); !deleted {
 		return
 	}
 	b.SetModified()
@@ -404,80 +404,80 @@ func (b *BranchSupporters) DeleteSupporter(supporter Voter) (deleted bool) {
 	return
 }
 
-// Supporters returns the set of Supporters that are supporting the given BranchID.
-func (b *BranchSupporters) Supporters() (supporters *Supporters) {
-	b.supportersMutex.RLock()
-	defer b.supportersMutex.RUnlock()
+// Voters returns the set of Voters that are supporting the given BranchID.
+func (b *BranchVoters) Voters() (voters *Voters) {
+	b.votersMutex.RLock()
+	defer b.votersMutex.RUnlock()
 
-	return b.supporters.Clone()
+	return b.voters.Clone()
 }
 
-// Bytes returns a marshaled version of the BranchSupporters.
-func (b *BranchSupporters) Bytes() (marshaledBranchSupporters []byte) {
+// Bytes returns a marshaled version of the BranchVoters.
+func (b *BranchVoters) Bytes() (marshaledBranchVoters []byte) {
 	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
 }
 
-// String returns a human-readable version of the BranchSupporters.
-func (b *BranchSupporters) String() string {
-	return stringify.Struct("BranchSupporters",
+// String returns a human-readable version of the BranchVoters.
+func (b *BranchVoters) String() string {
+	return stringify.Struct("BranchVoters",
 		stringify.StructField("branchID", b.BranchID()),
-		stringify.StructField("supporters", b.Supporters()),
+		stringify.StructField("voters", b.Voters()),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *BranchSupporters) Update(objectstorage.StorableObject) {
+func (b *BranchVoters) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (b *BranchSupporters) ObjectStorageKey() []byte {
+func (b *BranchVoters) ObjectStorageKey() []byte {
 	return b.BranchID().Bytes()
 }
 
-// ObjectStorageValue marshals the BranchSupporters into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the BranchVoters into a sequence of bytes that are used as the value part in the
 // object storage.
-func (b *BranchSupporters) ObjectStorageValue() []byte {
-	b.supportersMutex.RLock()
-	defer b.supportersMutex.RUnlock()
+func (b *BranchVoters) ObjectStorageValue() []byte {
+	b.votersMutex.RLock()
+	defer b.votersMutex.RUnlock()
 
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + b.supporters.Size()*identity.IDLength)
-	marshalUtil.WriteUint64(uint64(b.supporters.Size()))
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size + b.voters.Size()*identity.IDLength)
+	marshalUtil.WriteUint64(uint64(b.voters.Size()))
 
-	b.supporters.ForEach(func(supporter Voter) {
-		marshalUtil.WriteBytes(supporter.Bytes())
+	b.voters.ForEach(func(voter Voter) {
+		marshalUtil.WriteBytes(voter.Bytes())
 	})
 
 	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &BranchSupporters{}
+var _ objectstorage.StorableObject = &BranchVoters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////
+// region CachedBranchVoters ///////////////////////////////////////////////////////////////////////////////////////////
 
-// CachedBranchSupporters is a wrapper for the generic CachedObject returned by the object storage that overrides the
+// CachedBranchVoters is a wrapper for the generic CachedObject returned by the object storage that overrides the
 // accessor methods with a type-casted one.
-type CachedBranchSupporters struct {
+type CachedBranchVoters struct {
 	objectstorage.CachedObject
 }
 
 // Retain marks the CachedObject to still be in use by the program.
-func (c *CachedBranchSupporters) Retain() *CachedBranchSupporters {
-	return &CachedBranchSupporters{c.CachedObject.Retain()}
+func (c *CachedBranchVoters) Retain() *CachedBranchVoters {
+	return &CachedBranchVoters{c.CachedObject.Retain()}
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedBranchSupporters) Unwrap() *BranchSupporters {
+func (c *CachedBranchVoters) Unwrap() *BranchVoters {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(*BranchSupporters)
+	typedObject := untypedObject.(*BranchVoters)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
@@ -487,15 +487,15 @@ func (c *CachedBranchSupporters) Unwrap() *BranchSupporters {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranchSupporters) Consume(consumer func(branchSupporters *BranchSupporters), forceRelease ...bool) (consumed bool) {
+func (c *CachedBranchVoters) Consume(consumer func(branchVoters *BranchVoters), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*BranchSupporters))
+		consumer(object.(*BranchVoters))
 	}, forceRelease...)
 }
 
-// String returns a human-readable version of the CachedBranchSupporters.
-func (c *CachedBranchSupporters) String() string {
-	return stringify.Struct("CachedBranchSupporters",
+// String returns a human-readable version of the CachedBranchVoters.
+func (c *CachedBranchVoters) String() string {
+	return stringify.Struct("CachedBranchVoters",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
 }
@@ -801,9 +801,9 @@ func (l *LatestBranchVotes) Store(vote *Vote) (stored bool) {
 }
 
 // NewLatestBranchVotes creates a new LatestBranchVotes.
-func NewLatestBranchVotes(supporter Voter) (latestBranchVotes *LatestBranchVotes) {
+func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 	latestBranchVotes = &LatestBranchVotes{
-		voter:             supporter,
+		voter:             voter,
 		latestBranchVotes: make(map[ledgerstate.BranchID]*Vote),
 	}
 
@@ -867,7 +867,7 @@ func LatestBranchVotesFromObjectStorage(key, data []byte) (result objectstorage.
 }
 
 // Bytes returns a marshaled version of the LatestBranchVotes.
-func (l *LatestBranchVotes) Bytes() (marshaledSequenceSupporters []byte) {
+func (l *LatestBranchVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
 

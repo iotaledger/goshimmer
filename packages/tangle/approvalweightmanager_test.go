@@ -18,14 +18,14 @@ import (
 )
 
 func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
-	supporters := map[string]*identity.Identity{
+	voters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
 	}
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
-		for _, s := range supporters {
+		for _, s := range voters {
 			weightProvider.Update(time.Now(), s.ID())
 			m[s.ID()] = 100
 		}
@@ -57,7 +57,7 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 		var total time.Duration
 		for m := 0; m < measurements; m++ {
 			start := time.Now()
-			approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
+			approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(markers.SequenceID(i), markers.Index(i))))
 			total += time.Since(start)
 		}
 	}
@@ -75,26 +75,26 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	assert.Equal(t, branchWeight.Weight(), branchWeightFromBytes.Weight())
 }
 
-func TestBranchSupportersMarshalling(t *testing.T) {
-	branchSupporters := NewBranchSupporters(ledgerstate.BranchIDFromRandomness())
+func TestBranchVotersMarshalling(t *testing.T) {
+	branchVoters := NewBranchVoters(ledgerstate.BranchIDFromRandomness())
 
 	for i := 0; i < 100; i++ {
-		branchSupporters.AddSupporter(identity.GenerateIdentity().ID())
+		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 
-	branchSupportersFromBytes, _, err := BranchSupportersFromBytes(branchSupporters.Bytes())
+	branchVotersFromBytes, _, err := BranchVotersFromBytes(branchVoters.Bytes())
 	require.NoError(t, err)
 
-	// verify that branchSupportersFromBytes has all supporters from branchSupporters
-	assert.Equal(t, branchSupporters.Supporters().Size(), branchSupportersFromBytes.Supporters().Size())
-	branchSupporters.Supporters().ForEach(func(supporter Voter) {
-		assert.True(t, branchSupportersFromBytes.supporters.Has(supporter))
+	// verify that branchVotersFromBytes has all voters from branchVoters
+	assert.Equal(t, branchVoters.Voters().Size(), branchVotersFromBytes.Voters().Size())
+	branchVoters.Voters().ForEach(func(voter Voter) {
+		assert.True(t, branchVotersFromBytes.voters.Has(voter))
 	})
 }
 
-// TestApprovalWeightManager_updateBranchSupporters tests the ApprovalWeightManager's functionality regarding branches.
+// TestApprovalWeightManager_updateBranchVoters tests the ApprovalWeightManager's functionality regarding branches.
 // The scenario can be found in images/approvalweight-updateBranchSupporters.png.
-func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
+func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
 	var weightProvider *CManaWeightProvider
@@ -169,7 +169,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 				FutureMarkers: markers.NewMarkers(),
 			})
 		})
-		approvalWeightManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     false,
@@ -199,7 +199,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 				FutureMarkers: markers.NewMarkers(),
 			})
 		})
-		approvalWeightManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     true,
@@ -229,7 +229,7 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 				FutureMarkers: markers.NewMarkers(),
 			})
 		})
-		approvalWeightManager.updateBranchSupporters(message)
+		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
 			"Branch 1":     false,
@@ -248,17 +248,17 @@ func TestApprovalWeightManager_updateBranchSupporters(t *testing.T) {
 	}
 }
 
-// TestApprovalWeightManager_updateSequenceSupporters tests the ApprovalWeightManager's functionality regarding sequences.
+// TestApprovalWeightManager_updateSequenceVoters tests the ApprovalWeightManager's functionality regarding sequences.
 // The scenario can be found in images/approvalweight-updateSequenceSupporters.png.
-func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
-	supporters := map[string]*identity.Identity{
+func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
+	voters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
 		"B": identity.New(ed25519.GenerateKeyPair().PublicKey),
 	}
 	var weightProvider *CManaWeightProvider
 	manaRetrieverMock := func() map[identity.ID]float64 {
 		m := make(map[identity.ID]float64)
-		for _, s := range supporters {
+		for _, s := range voters {
 			weightProvider.Update(time.Now(), s.ID())
 			m[s.ID()] = 100
 		}
@@ -300,12 +300,12 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE1: APPROVE MARKER(0, 3)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 3)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(0, 3)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"0,1": {supporters["A"]},
-			"0,2": {supporters["A"]},
-			"0,3": {supporters["A"]},
+		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+			"0,1": {voters["A"]},
+			"0,2": {voters["A"]},
+			"0,3": {voters["A"]},
 			"0,4": {},
 			"1,2": {},
 			"1,3": {},
@@ -322,19 +322,19 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE2: APPROVE MARKER(0, 4) + MARKER(2, 6)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(0, 4), markers.NewMarker(2, 6)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(0, 4), markers.NewMarker(2, 6)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"0,1": {supporters["A"]},
-			"0,2": {supporters["A"]},
-			"0,3": {supporters["A"]},
-			"0,4": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
+		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+			"0,1": {voters["A"]},
+			"0,2": {voters["A"]},
+			"0,3": {voters["A"]},
+			"0,4": {voters["A"]},
+			"1,2": {voters["A"]},
+			"1,3": {voters["A"]},
+			"1,4": {voters["A"]},
 			"1,5": {},
-			"2,5": {supporters["A"]},
-			"2,6": {supporters["A"]},
+			"2,5": {voters["A"]},
+			"2,6": {voters["A"]},
 			"2,7": {},
 			"2,8": {},
 			"3,8": {},
@@ -344,45 +344,45 @@ func TestApprovalWeightManager_updateSequenceSupporters(t *testing.T) {
 
 	// CASE3: APPROVE MARKER(4, 8)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["A"], markers.NewMarker(4, 8)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["A"], markers.NewMarker(4, 8)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"0,1": {supporters["A"]},
-			"0,2": {supporters["A"]},
-			"0,3": {supporters["A"]},
-			"0,4": {supporters["A"]},
-			"1,2": {supporters["A"]},
-			"1,3": {supporters["A"]},
-			"1,4": {supporters["A"]},
+		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+			"0,1": {voters["A"]},
+			"0,2": {voters["A"]},
+			"0,3": {voters["A"]},
+			"0,4": {voters["A"]},
+			"1,2": {voters["A"]},
+			"1,3": {voters["A"]},
+			"1,4": {voters["A"]},
 			"1,5": {},
-			"2,5": {supporters["A"]},
-			"2,6": {supporters["A"]},
-			"2,7": {supporters["A"]},
+			"2,5": {voters["A"]},
+			"2,6": {voters["A"]},
+			"2,7": {voters["A"]},
 			"2,8": {},
 			"3,8": {},
-			"4,8": {supporters["A"]},
+			"4,8": {voters["A"]},
 		})
 	}
 
 	// CASE4: APPROVE MARKER(1, 5)
 	{
-		approvalWeightManager.updateSequenceSupporters(approveMarkers(approvalWeightManager, supporters["B"], markers.NewMarker(1, 5)))
+		approvalWeightManager.updateSequenceVoters(approveMarkers(approvalWeightManager, voters["B"], markers.NewMarker(1, 5)))
 
-		validateMarkerSupporters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
-			"0,1": {supporters["A"], supporters["B"]},
-			"0,2": {supporters["A"]},
-			"0,3": {supporters["A"]},
-			"0,4": {supporters["A"]},
-			"1,2": {supporters["A"], supporters["B"]},
-			"1,3": {supporters["A"], supporters["B"]},
-			"1,4": {supporters["A"], supporters["B"]},
-			"1,5": {supporters["B"]},
-			"2,5": {supporters["A"]},
-			"2,6": {supporters["A"]},
-			"2,7": {supporters["A"]},
+		validateMarkerVoters(t, approvalWeightManager, markersMap, map[string][]*identity.Identity{
+			"0,1": {voters["A"], voters["B"]},
+			"0,2": {voters["A"]},
+			"0,3": {voters["A"]},
+			"0,4": {voters["A"]},
+			"1,2": {voters["A"], voters["B"]},
+			"1,3": {voters["A"], voters["B"]},
+			"1,4": {voters["A"], voters["B"]},
+			"1,5": {voters["B"]},
+			"2,5": {voters["A"]},
+			"2,6": {voters["A"]},
+			"2,7": {voters["A"]},
 			"2,8": {},
 			"3,8": {},
-			"4,8": {supporters["A"]},
+			"4,8": {voters["A"]},
 		})
 	}
 }
@@ -868,23 +868,23 @@ func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedV
 	assert.Empty(t, expectedVotes)
 }
 
-func validateMarkerSupporters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedSupporters map[string][]*identity.Identity) {
-	for markerAlias, expectedSupportersOfMarker := range expectedSupporters {
+func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedVoters map[string][]*identity.Identity) {
+	for markerAlias, expectedVotersOfMarker := range expectedVoters {
 		// sanity check
 		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers.Marker().SequenceID(), markersMap[markerAlias].PastMarkers.Marker().Index()))
 
-		supporters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
+		voters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
 
-		assert.Equal(t, len(expectedSupportersOfMarker), len(supporters), "size of supporters for Marker("+markerAlias+") does not match")
-		for _, supporter := range expectedSupportersOfMarker {
-			_, supporterExists := supporters[supporter.ID()]
-			assert.True(t, supporterExists)
+		assert.Equal(t, len(expectedVotersOfMarker), len(voters), "size of voters for Marker("+markerAlias+") does not match")
+		for _, voter := range expectedVotersOfMarker {
+			_, voterExists := voters[voter.ID()]
+			assert.True(t, voterExists)
 		}
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, supporter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
-	message = newTestDataMessagePublicKey("test", supporter.PublicKey())
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
+	message = newTestDataMessagePublicKey("test", voter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		messageMetadata.SetStructureDetails(&markers.StructureDetails{
@@ -912,7 +912,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, supporter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		conflictBranchIDs, err := approvalWeightManager.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchIDs[branchIDString]))
@@ -920,9 +920,9 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 			panic(err)
 		}
 		for conflictBranchID := range conflictBranchIDs {
-			supporters := approvalWeightManager.SupportersOfConflictBranch(conflictBranchID)
-			if supporters != nil {
-				actualResult = supporters.Has(supporter)
+			voters := approvalWeightManager.VotersOfConflictBranch(conflictBranchID)
+			if voters != nil {
+				actualResult = voters.Has(voter)
 			}
 			if !actualResult {
 				break

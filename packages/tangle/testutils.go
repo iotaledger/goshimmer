@@ -927,8 +927,8 @@ func (m *MockWeightProvider) Weight(message *Message) (weight, totalWeight float
 	return 1, 1
 }
 
-// WeightsOfRelevantSupporters mocks its interface function.
-func (m *MockWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
+// WeightsOfRelevantVoters mocks its interface function.
+func (m *MockWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64) {
 	return
 }
 

@@ -67,7 +67,7 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 	s.stepIndex++
 }
 
-// ProcessMessageScenario the approval weight and supporter adjustments.
+// ProcessMessageScenario the approval weight and voter adjustments.
 //nolint:gomnd
 func ProcessMessageScenario(t *testing.T) *TestScenario {
 	s := &TestScenario{t: t}

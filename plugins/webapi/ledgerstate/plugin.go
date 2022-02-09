@@ -90,7 +90,7 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/branches/:branchID", GetBranch)
 	deps.Server.GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
 	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
-	deps.Server.GET("ledgerstate/branches/:branchID/supporters", GetBranchSupporters)
+	deps.Server.GET("ledgerstate/branches/:branchID/voters", GetBranchVoters)
 	deps.Server.GET("ledgerstate/branches/:branchID/sequenceids", GetBranchSequenceIDs)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
@@ -290,10 +290,10 @@ func GetBranchConflicts(c echo.Context) (err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+// region GetBranchVoters ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchSupporters is the handler for the /ledgerstate/branches/:branchID/supporters endpoint.
-func GetBranchSupporters(c echo.Context) (err error) {
+// GetBranchVoters is the handler for the /ledgerstate/branches/:branchID/voters endpoint.
+func GetBranchVoters(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
@@ -304,12 +304,12 @@ func GetBranchSupporters(c echo.Context) (err error) {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
 	}
 
-	supporters := tangle.NewSupporters()
+	voters := tangle.NewVoters()
 	for conflictBranchID := range conflictBranchIDs {
-		supporters.AddAll(deps.Tangle.ApprovalWeightManager.SupportersOfConflictBranch(conflictBranchID))
+		voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflictBranch(conflictBranchID))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchVotersResponse(branchID, voters))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

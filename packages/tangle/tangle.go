@@ -355,8 +355,8 @@ type WeightProvider interface {
 	// Weight returns the weight and total weight for the given message.
 	Weight(message *Message) (weight, totalWeight float64)
 
-	// WeightsOfRelevantSupporters returns all relevant weights.
-	WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64)
+	// WeightsOfRelevantVoters returns all relevant weights.
+	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()
