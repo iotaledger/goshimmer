@@ -9,17 +9,19 @@ import (
 	"github.com/labstack/echo"
 )
 
-var (
-	// settings
-	webSocketWriteTimeout = time.Duration(3) * time.Second
+const writeTimeout = 3
 
-	// ws clients
+var (
+	// settings.
+	webSocketWriteTimeout = time.Duration(writeTimeout) * time.Second
+
+	// ws clients.
 	wsClients      = make(map[uint64]*wsclient)
 	nextWsClientID uint64
 	wsClientsMu    sync.RWMutex
 	chanLen        = 1024
 
-	// gorilla websocket layer
+	// gorilla websocket layer.
 	upgrader = websocket.Upgrader{
 		HandshakeTimeout:  webSocketWriteTimeout,
 		CheckOrigin:       func(r *http.Request) bool { return true },

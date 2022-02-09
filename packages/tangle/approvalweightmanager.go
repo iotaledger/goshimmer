@@ -504,29 +504,6 @@ func branchWeightChangedEventHandler(handler interface{}, params ...interface{})
 	handler.(func(*BranchWeightChangedEvent))(params[0].(*BranchWeightChangedEvent))
 }
 
-// MarkerAWUpdated contains the message ID of a marker with its updated approval weight.
-type MarkerAWUpdated struct {
-	ID             MessageID
-	ApprovalWeight float64
-}
-
-// markerAWUpdatedCaller is the caller function for events that hand over a MarkerAWUpdated.
-func markerAWUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(markerAW *MarkerAWUpdated))(params[0].(*MarkerAWUpdated))
-}
-
-// BranchAWUpdated contains the branch ID and conflict IDs of a branch with its updated approval weight.
-type BranchAWUpdated struct {
-	ID             ledgerstate.BranchID
-	Conflicts      ledgerstate.BranchIDs
-	ApprovalWeight float64
-}
-
-// branchAWUpdatedCaller is the caller function for events that hand over a BranchAWUpdated.
-func branchAWUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(branchAW *BranchAWUpdated))(params[0].(*BranchAWUpdated))
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region BranchWeight /////////////////////////////////////////////////////////////////////////////////////////////////

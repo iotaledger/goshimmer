@@ -642,6 +642,7 @@ type BranchDAGEvents struct {
 	BranchParentsUpdated *events.Event
 }
 
+// BranchParentUpdate contains the new branch parents of a branch.
 type BranchParentUpdate struct {
 	ID         BranchID
 	NewParents BranchIDs
