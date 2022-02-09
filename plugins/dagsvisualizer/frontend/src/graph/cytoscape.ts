@@ -1,6 +1,6 @@
 import { IGraph } from './graph';
 import cytoscape from 'cytoscape';
-import { dagreOptions } from 'styles/graphStyle';
+import { dagreOptions, branchDagreOptions } from 'styles/graphStyle';
 import { utxoVertex } from 'models/utxo';
 import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
@@ -352,7 +352,7 @@ export function initBranchDAG() {
             name: LINE.LAYOUT
         }
     });
-    const layout = dagreOptions;
+    const layout = branchDagreOptions;
     const layoutApi = cy.layoutUtilities({
         desiredAspectRatio: 1,
         polyominoGridSizeFactor: 1,
