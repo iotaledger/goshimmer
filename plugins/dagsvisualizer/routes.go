@@ -28,6 +28,7 @@ const (
 	app       = "/plugins/dagsvisualizer/frontend/build"
 	staticJS  = "/plugins/dagsvisualizer/frontend/build/static/js"
 	staticCSS = "/plugins/dagsvisualizer/frontend/build/static/css"
+	staticMedia = "/plugins/dagsvisualizer/frontend/build/static/media"
 )
 
 func indexRoute(e echo.Context) error {
@@ -92,6 +93,13 @@ func setupRoutes(e *echo.Echo) {
 				return err
 			}
 			e.GET("/static/css/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/css/", http.FileServer(pkger.Dir(staticCSS)))))
+			return nil
+		})
+		pkger.Walk(staticMedia, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			e.GET("/static/media/"+info.Name(), echo.WrapHandler(http.StripPrefix("/static/media/", http.FileServer(pkger.Dir(staticMedia)))))
 			return nil
 		})
 	}
