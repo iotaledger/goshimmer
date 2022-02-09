@@ -42,6 +42,7 @@ func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.Branch
 	return
 }
 
+// branchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
 func (o *OnTangleVoting) branchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
 	branchLiked = true
 	if branchID == ledgerstate.MasterBranchID {
@@ -56,6 +57,7 @@ func (o *OnTangleVoting) branchLiked(branchID ledgerstate.BranchID) (branchLiked
 	return
 }
 
+// branchPreferred returns whether the branch is the winner across its conflict sets.
 func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalker *walker.Walker) (preferred bool) {
 	preferred = true
 	if branchID == ledgerstate.MasterBranchID {
@@ -110,6 +112,8 @@ func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID le
 	return dislikedBranches
 }
 
+// forEachConnectedConflictingBranchInDescendingOrder iterates over all branches connected via conflict sets
+// and sorts them by weight. It calls the callback for each of them in that order.
 func (o *OnTangleVoting) forEachConnectedConflictingBranchInDescendingOrder(branchID ledgerstate.BranchID, callback func(branchID ledgerstate.BranchID, weight float64)) {
 	branchWeights := make(map[ledgerstate.BranchID]float64)
 	branchesOrderedByWeight := make([]ledgerstate.BranchID, 0)

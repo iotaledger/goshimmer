@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/objectstorage"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
@@ -56,7 +55,6 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 // updates the ConflictBranch according to the new details if necessary.
 func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
 	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
 
 	resolvedParentBranchIDs, err := b.ResolveConflictBranchIDs(parentBranchIDs)
 	if err != nil {
@@ -67,8 +65,6 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	// create or load the branch
 	cachedConflictBranch = b.Branch(branchID, func() Branch {
 		conflictBranch := NewConflictBranch(branchID, resolvedParentBranchIDs, conflictIDs)
-		conflictBranch.Persist()
-		conflictBranch.SetModified()
 
 		newBranchCreated = true
 
@@ -107,9 +103,10 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		}
 	})
 
+	b.inclusionStateMutex.RUnlock()
+
 	if newBranchCreated {
 		b.Events.BranchCreated.Trigger(branchID)
-		return
 	}
 
 	return
@@ -172,10 +169,10 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 		if !b.Branch(branchID).Consume(func(branch Branch) {
 			switch branch.Type() {
 			case ConflictBranchType:
-				result[branch.ID()] = types.Void
+				result.Add(branch.ID())
 			case AggregatedBranchType:
 				for parentBranchID := range branch.Parents() {
-					result[parentBranchID] = types.Void
+					result.Add(parentBranchID)
 				}
 			}
 		}) {
@@ -206,7 +203,7 @@ func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (confli
 					return
 				}
 
-				result[branch.ID()] = types.Void
+				result.Add(branch.ID())
 			case *AggregatedBranch:
 				for parentBranchID := range branch.Parents() {
 					branchWalker.Push(parentBranchID)

@@ -1213,8 +1213,8 @@ func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
 	return
 }
 
-// SetInvalid sets the message associated with this metadata as invalid.
-// It returns true if the invalid status is modified. False otherwise.
+// SetSubjectivelyInvalid sets the message associated with this metadata as subjectively invalid - it returns true if
+// the status was changed.
 func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
@@ -1313,9 +1313,12 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("subtractedBranchIDs", m.SubtractedBranchIDs()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
+		stringify.StructField("discardedTime", m.DiscardedTime()),
+		stringify.StructField("queuedTime", m.QueuedTime()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
 		stringify.StructField("objectivelyInvalid", m.IsObjectivelyInvalid()),
+		stringify.StructField("subjectivelyInvalid", m.IsSubjectivelyInvalid()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)

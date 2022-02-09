@@ -254,19 +254,6 @@ func (b BranchIDs) Slice() (list []BranchID) {
 	return
 }
 
-// IsMasterBranch returns true if the BranchIDs are either empty or contain only the MasterBranch.
-func (b BranchIDs) IsMasterBranch() (isMasterBranch bool) {
-	if len(b) == 0 {
-		return true
-	}
-
-	if _, masterBranchExists := b[MasterBranchID]; len(b) == 1 && masterBranchExists {
-		return true
-	}
-
-	return false
-}
-
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
@@ -560,11 +547,16 @@ type ConflictBranch struct {
 
 // NewConflictBranch creates a new ConflictBranch from the given details.
 func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
-	return &ConflictBranch{
+	c := &ConflictBranch{
 		id:        id,
 		parents:   parents.Clone(),
 		conflicts: conflicts.Clone(),
 	}
+
+	c.SetModified()
+	c.Persist()
+
+	return c
 }
 
 // ConflictBranchFromBytes unmarshals an ConflictBranch from a sequence of bytes.
@@ -642,7 +634,6 @@ func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modif
 
 	c.inclusionState = inclusionState
 	c.SetModified()
-	c.Persist()
 
 	return
 }
