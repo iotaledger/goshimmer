@@ -22,6 +22,18 @@ Each node in a graph can be selected to see its contained information, and they 
 
 #### Search Vertex Within Time Intervals
 You can check how Tangle, UTXO and branch DAG look like in a given timeframe.
+Press "search" button, it will show you numbers of messages, transactions and branches found within the given timeframe. If you want to render them in graphs, push "render" button.
+
+The branch DAG shows not just branches in the given time interval (colored in orage) but also the full history (colored in blue) to the master branch.
+
+:::note
+
+Drawing a large amount of transactions or branches may slow down the browser.
+
+:::
+
+[![DAGs visualizer Searching](/img/tooling/searching.png "DAGs visualizer searching")](/img/tooling/searching.png)
+
 
 #### Select and center vertex across DAGs
 You can see a selected message/transaction/branch and its corresponding message/transaction/branch in other DAGs! Here's an example of sync with the selected transaction, you can see the message and branch that contains the transaction are highlighted.
