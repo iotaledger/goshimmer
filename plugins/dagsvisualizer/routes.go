@@ -33,11 +33,16 @@ const (
 
 func indexRoute(e echo.Context) error {
 	if Parameters.Dev {
-		res, err := http.Get("http://" + Parameters.DevBindAddress)
+		req, err := http.NewRequestWithContext(e.Request().Context(), "GET", "http://"+Parameters.DevBindAddress, nil)
 		if err != nil {
 			return err
 		}
-		devIndexHTML, err := ioutil.ReadAll(res.Body)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		devIndexHTML, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
