@@ -163,7 +163,7 @@ func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
 
 // determineVotes iterates over a set of branches and, taking into account the opinion a Voter expressed previously,
 // computes the branches that will receive additional weight, the ones that will see their weight revoked, and if the
-// result constitues an overrall valid state transition.
+// result constitutes an overrall valid state transition.
 func (a *ApprovalWeightManager) determineVotes(votedBranchIDs ledgerstate.BranchIDs, vote *BranchVote) (addedBranches, revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
 	for votedBranchID := range votedBranchIDs {
