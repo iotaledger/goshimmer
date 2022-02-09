@@ -24,6 +24,8 @@ jobs:
           export config=$(cat EXTERNAL_DOCS_CONFIG)
           # Set up the wiki using iota wiki cli.  This will clone the wiki repository as well the current repository
           npm run setup
+          # Sync the PRs static content with the freshly created wiki instance 
+          rsync -av --progress ./static/img/ ./local-wiki/iota-wiki/static/img/
           cd ../
           # Sync the PR content with the freshly created wiki instance
           rsync -av --progress ./ ./documentation/local-wiki/iota-wiki/external/goshimmer --exclude .git --exclude node_modules --exclude local-wiki
