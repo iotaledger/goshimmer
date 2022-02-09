@@ -156,7 +156,11 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 	var branchID ledgerstate.BranchID
 	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(metadata.ID())
 	if err == nil {
-		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
+		if len(branchIDs) > 1 {
+			branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
+		} else {
+			branchID = branchIDs.Slice()[0]
+		}
 	}
 
 	return jsonmodels.MessageMetadata{
@@ -165,7 +169,7 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Solid:               metadata.IsSolid(),
 		SolidificationTime:  metadata.SolidificationTime().Unix(),
 		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchID:            branchID.String(),
+		BranchID:            branchID.Base58(),
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		Booked:              metadata.IsBooked(),
