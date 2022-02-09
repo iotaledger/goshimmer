@@ -62,7 +62,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Network.Enabled = true
 
-	c.Dashboard.Enabled = true
+	c.Dashboard.Enabled = false
 	c.Dashboard.BindAddress = "0.0.0.0:8081"
 
 	c.Database.Enabled = true
