@@ -20,7 +20,6 @@ services:
     command: >
       --skip-config=true
       --node.overwriteStoredSeed=true
-      --messageLayer.snapshot.genesisNode=7DJYaCCnq9bPW2tnwC3BUEDMs6PLDC73NShduZzE4r9k
       --autoPeering.bindAddress=0.0.0.0:15626
       {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
@@ -28,4 +27,4 @@ services:
       --autoPeering.entryNodes=
       --analysis.client.serverAddress=
       --node.disablePlugins=activity,analysisClient,chat,consensus,dashboard,drng,faucet,fpc,gossip,firewall,issuer,mana,manarefresher,manualpeering,messageLayer,metrics,networkdelay,portcheck,pow,syncBeaconFollower,webAPIBroadcastDataEndpoint,WebAPIDataEndpoint,WebAPIHealthzEndpoint,WebAPIDRNGEndpoint,WebAPIFaucetEndpoint,webAPIFindTransactionHashesEndpoint,webAPIGetNeighborsEndpoint,webAPIGetTransactionObjectsByHashEndpoint,webAPIGetTransactionTrytesByHashEndpoint,WebAPIInfoEndpoint,WebAPILedgerstateEndpoint,WebAPIMessageEndpoint,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,WebAPIWeightProviderEndpoint,remotelog,remotelogmetrics
-      --logger.level={{ logLevel }} 
+      --logger.level={{ logLevel }}
