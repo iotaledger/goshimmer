@@ -5,6 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -19,6 +20,8 @@ type BranchMarkersMapper struct {
 	tangle         *Tangle
 	discardedNodes map[identity.ID]time.Time
 	*markers.Manager
+
+	Events *BranchMarkersMapperEvents
 }
 
 // NewBranchMarkersMapper is the constructor of the MarkersManager.
@@ -38,7 +41,7 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 // InheritStructureDetails returns the structure Details of a Message that are derived from the StructureDetails of its
 // strong and like parents.
 func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structureDetails []*markers.StructureDetails) (newStructureDetails *markers.StructureDetails, newSequenceCreated bool) {
-	//newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
+	// newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, func(sequenceID markers.SequenceID, currentHighestIndex markers.Index) bool {
 	//	nodeID := identity.NewID(message.IssuerPublicKey())
 	//	bufferUsedRatio := float64(b.tangle.Scheduler.BufferSize()) / float64(b.tangle.Scheduler.MaxBufferSize())
 	//	nodeQueueRatio := float64(b.tangle.Scheduler.NodeQueueSize(nodeID)) / float64(b.tangle.Scheduler.BufferSize())
@@ -51,7 +54,7 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 	//		delete(b.discardedNodes, nodeID)
 	//	}
 	//	return b.tangle.Options.IncreaseMarkersIndexCallback(sequenceID, currentHighestIndex)
-	//})
+	// })
 
 	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
 	if newStructureDetails.IsPastMarker {
@@ -176,6 +179,11 @@ func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInh
 		updated, inheritFurther := b.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 		if updated {
 			messageMetadata.SetModified(true)
+
+			b.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdate{
+				ID:           messageMetadata.ID(),
+				FutureMarker: b.MessageID(pastMarkerToInherit),
+			})
 		}
 		if inheritFurther {
 			b.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
@@ -190,6 +198,22 @@ func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInh
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
 func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
+}
+
+// BranchMarkersMapperEvents represents events happening in the BranchMarkersMapper.
+type BranchMarkersMapperEvents struct {
+	// FutureMarkerUpdated is triggered when a message's future marker is updated.
+	FutureMarkerUpdated *events.Event
+}
+
+// FutureMarkerUpdate contains the messageID of the future marker of a message.
+type FutureMarkerUpdate struct {
+	ID           MessageID
+	FutureMarker MessageID
+}
+
+func futureMarkerUpdateEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(fmUpdate *FutureMarkerUpdate))(params[0].(*FutureMarkerUpdate))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

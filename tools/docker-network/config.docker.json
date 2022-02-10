@@ -19,13 +19,16 @@
   },
   "dashboard": {
     "bindAddress": "0.0.0.0:8081",
-    "devDashboardAddress": "http://127.0.0.1:9090/",
     "dev": false,
     "basicAuth": {
       "enabled": false,
       "username": "goshimmer",
       "password": "goshimmer"
     }
+  },
+  "dagsvisualizer": {
+    "dev": false,
+    "devBindAddress": "dagsvisualizer-dev-docker:3000"
   },
   "database": {
     "directory": "mainnetdb"

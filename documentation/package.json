@@ -13,6 +13,6 @@
     "node": ">=14.14.0"
   },
   "dependencies": {
-    "iota-wiki-cli": "git+https://github.com/iota-community/iota-wiki-cli.git#v1.3.0"
+    "iota-wiki-cli": "git+https://github.com/iota-community/iota-wiki-cli.git#v1.6.0"
   }
 }
