@@ -561,6 +561,8 @@ type MarkersManager struct {
 	tangle         *Tangle
 	discardedNodes map[identity.ID]time.Time
 	*markers.Manager
+
+	Events *MarkersManagerEvents
 }
 
 // NewMarkersManager is the constructor of the MarkersManager.
@@ -569,6 +571,9 @@ func NewMarkersManager(tangle *Tangle) *MarkersManager {
 		tangle:         tangle,
 		discardedNodes: make(map[identity.ID]time.Time),
 		Manager:        markers.NewManager(tangle.Options.Store, tangle.Options.CacheTimeProvider),
+		Events: &MarkersManagerEvents{
+			FutureMarkerUpdated: events.NewEvent(futureMarkerUpdateEventCaller),
+		},
 	}
 }
 
@@ -724,6 +729,11 @@ func (m *MarkersManager) propagatePastMarkerToFutureMarkers(pastMarkerToInherit 
 		updated, inheritFurther := m.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 		if updated {
 			messageMetadata.SetModified(true)
+
+			m.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdate{
+				ID:           messageMetadata.ID(),
+				FutureMarker: m.MessageID(pastMarkerToInherit),
+			})
 		}
 		if inheritFurther {
 			m.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
@@ -761,6 +771,22 @@ func (m *MarkersManager) structureDetailsOfStrongAndLikeParents(message *Message
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
 func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
+}
+
+// MarkersManagerEvents represents events happening in the Markers Manager.
+type MarkersManagerEvents struct {
+	// FutureMarkerUpdated is triggered when a message's future marker is updated.
+	FutureMarkerUpdated *events.Event
+}
+
+// FutureMarkerUpdate contains the messageID of the future marker of a message.
+type FutureMarkerUpdate struct {
+	ID           MessageID
+	FutureMarker MessageID
+}
+
+func futureMarkerUpdateEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(fmUpdate *FutureMarkerUpdate))(params[0].(*FutureMarkerUpdate))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

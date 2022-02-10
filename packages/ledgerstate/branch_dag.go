@@ -46,7 +46,8 @@ func NewBranchDAG(store kvstore.KVStore, cacheProvider *database.CacheTimeProvid
 		normalizedBranchCache:  lru_cache.NewLRUCache(BranchDAGCacheSize),
 		conflictBranchIDsCache: lru_cache.NewLRUCache(BranchDAGCacheSize),
 		Events: &BranchDAGEvents{
-			BranchCreated: events.NewEvent(BranchIDEventHandler),
+			BranchCreated:        events.NewEvent(BranchIDEventHandler),
+			BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),
 		},
 	}
 	newBranchDAG.init()
@@ -108,6 +109,8 @@ func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newPa
 	}
 
 	conflictBranch.SetParents(newParentBranchIDs)
+
+	b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{conflictBranchID, newParentBranchIDs})
 
 	return
 }
@@ -589,6 +592,8 @@ func (b *BranchDAG) aggregateNormalizedBranches(parentBranchIDs BranchIDs) (cach
 				cachedChildBranch.Release()
 			}
 		}
+
+		b.Events.BranchCreated.Trigger(aggregatedBranch.ID())
 	}
 
 	return
@@ -632,4 +637,19 @@ func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID Branc
 type BranchDAGEvents struct {
 	// BranchCreated gets triggered when a new Branch is created.
 	BranchCreated *events.Event
+
+	// BranchParentsUpdated gets triggered whenever a Branch's parents are updated.
+	BranchParentsUpdated *events.Event
 }
+
+// BranchParentUpdate contains the new branch parents of a branch.
+type BranchParentUpdate struct {
+	ID         BranchID
+	NewParents BranchIDs
+}
+
+func branchParentUpdateEventCaller(handler interface{}, params ...interface{}) {
+	handler.(func(branchParents *BranchParentUpdate))(params[0].(*BranchParentUpdate))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
