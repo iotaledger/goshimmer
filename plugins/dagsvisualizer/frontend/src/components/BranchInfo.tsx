@@ -4,6 +4,7 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import { inject, observer } from 'mobx-react';
 import BranchStore from 'stores/BranchStore';
 import LinkToDashboard from 'components/LinkToDashboard';
+import {resolveBase58BranchID} from '../utils/BranchIDResolver';
 
 interface Props {
     branchStore?: BranchStore;
@@ -23,7 +24,7 @@ export class BranchInfo extends React.Component<Props, any> {
                             <Card.Title>
                                 <LinkToDashboard
                                     route={`explorer/branch/${
-                                        selectedBranch.ID
+                                        resolveBase58BranchID(selectedBranch.ID)
                                     }`}
                                     title={selectedBranch.ID}
                                 />
@@ -41,7 +42,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                                     <ListGroup.Item key={i}>
                                                         <LinkToDashboard
                                                             route={`explorer/branch/${p}`}
-                                                            title={p}
+                                                            title={resolveBase58BranchID(p)}
                                                         />
                                                     </ListGroup.Item>
                                                 )
@@ -96,7 +97,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                                                             <LinkToDashboard
                                                                                 route={`explorer/branch/${p}`}
                                                                                 title={
-                                                                                    p
+                                                                                    resolveBase58BranchID(p)
                                                                                 }
                                                                             />
                                                                         </ListGroup.Item>

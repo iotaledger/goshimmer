@@ -215,7 +215,8 @@ export function drawMessage(
     };
     drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs);
     drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs);
-    drawVertexParentReference(parentRefType.LikedRef, msg.likedParentIDs);
+    drawVertexParentReference(parentRefType.ShallowLikeRef, msg.shallowLikeParentIDs);
+    drawVertexParentReference(parentRefType.ShallowDislikeRef, msg.shallowDislikeParentIDs);
 }
 
 export function selectMessage(id: string, vivaLib: vivagraphLib) {
@@ -406,12 +407,7 @@ function updateParentRefUI(
 
     switch (parentType) {
     case parentRefType.StrongRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_STRONG,
-            LINE_WIDTH.STRONG,
-            LINE_TYPE.STRONG
-        );
+        setUILink(linkUI, COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG);
         linkUI.refType = parentRefType.StrongRef;
         break;
     }
@@ -420,14 +416,14 @@ function updateParentRefUI(
         linkUI.refType = parentRefType.WeakRef;
         break;
     }
-    case parentRefType.LikedRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_LIKED,
-            LINE_WIDTH.LIKED,
-            LINE_TYPE.LIKED
-        );
-        linkUI.refType = parentRefType.LikedRef;
+    case parentRefType.ShallowLikeRef: {
+        setUILink(linkUI, COLOR.LINK_SHALLOW_LIKED, LINE_WIDTH.SHALLOW_LIKED, LINE_TYPE.SHALLOW_LIKED);
+        linkUI.refType = parentRefType.ShallowLikeRef;
+        break;
+    }
+    case parentRefType.ShallowDislikeRef: {
+        setUILink(linkUI, COLOR.LINK_SHALLOW_DISLIKED, LINE_WIDTH.SHALLOW_DISLIKED, LINE_TYPE.SHALLOW_DISLIKED);
+        linkUI.refType = parentRefType.ShallowDislikeRef;
         break;
     }
     }

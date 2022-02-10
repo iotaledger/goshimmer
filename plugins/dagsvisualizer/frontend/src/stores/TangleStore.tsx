@@ -104,7 +104,7 @@ export class TangleStore {
             return;
         }
 
-        msg.branchID = branch.branchID;
+        msg.branchIDs = branch.branchIDs;
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
