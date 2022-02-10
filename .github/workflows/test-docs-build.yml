@@ -1,0 +1,43 @@
+name: Test Docs Wiki Build
+
+on:
+  pull_request:
+    branches:
+      - develop
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: '16.x'
+      - name: Install dependencies
+        run: |
+          cd documentation
+          npm ci
+      - name: Setup Wiki and Test Build
+        run: |
+          # Move into the documentation folder
+          cd documentation
+          # Export this projects configuration as a variable
+          export config=$(cat EXTERNAL_DOCS_CONFIG)
+          # Set up the wiki using iota wiki cli.  This will clone the wiki repository as well the current repository
+          npm run setup
+          # Sync the PRs static content with the freshly created wiki instance 
+          rsync -av --progress ./static/img/ ./local-wiki/iota-wiki/static/img/
+          cd ../
+          # Sync the PR content with the freshly created wiki instance
+          rsync -av --progress ./ ./documentation/local-wiki/iota-wiki/external/goshimmer --exclude .git --exclude node_modules --exclude local-wiki
+          # Change directory into the wiki
+          cd documentation/local-wiki/iota-wiki
+          # Install docusaurus and it's dependencies
+          yarn
+          # Replace the configuration placeholder with the configuration variable text
+          export replace_string='/\* AUTO GENERATED EXTERNAL DOCS CONFIG \*/'
+          perl -0pe 's#$ENV{replace_string}#$ENV{config}#' docusaurus.config.js > docusaurus.config.js.cpy
+          # Replace the existing configuration file with the edited one
+          rm -f docusaurus.config.js && mv docusaurus.config.js.cpy docusaurus.config.js
+          sed -i "s+baseUrl: '/',+baseUrl: '/goshimmer/',+g" docusaurus.config.js
+          # Run the build process to test for any errors
+          yarn build
