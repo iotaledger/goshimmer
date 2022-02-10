@@ -11,4 +11,6 @@ type WeightFunc func(branchID ledgerstate.BranchID) (weight float64)
 type Mechanism interface {
 	// LikedConflictMember returns the liked BranchID across the members of its conflict sets.
 	LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs)
+	// BranchLiked returns true if the BranchID is liked.
+	BranchLiked(branchID ledgerstate.BranchID) (branchLiked bool)
 }

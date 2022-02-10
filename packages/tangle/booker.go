@@ -116,6 +116,30 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 	return
 }
 
+// PayloadBranchIDs returns the BranchIDs of the payload contained in the given Message.
+func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs ledgerstate.BranchIDs, err error) {
+	branchIDs = ledgerstate.NewBranchIDs()
+
+	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		transaction, isTransaction := message.Payload().(*ledgerstate.Transaction)
+		if !isTransaction {
+			branchIDs.Add(ledgerstate.MasterBranchID)
+			return
+		}
+
+		b.tangle.LedgerState.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+			resolvedConflictBranchIDs, resolveErr := b.tangle.LedgerState.ResolvePendingConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
+			if resolveErr != nil {
+				err = errors.Errorf("failed to resolve conflict branch ids of transaction with %s: %w", transaction.ID(), resolveErr)
+				return
+			}
+			branchIDs.AddAll(resolvedConflictBranchIDs)
+		})
+	})
+
+	return
+}
+
 // Shutdown shuts down the Booker and persists its state.
 func (b *Booker) Shutdown() {
 	close(b.shutdown)

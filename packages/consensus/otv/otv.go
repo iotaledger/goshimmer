@@ -31,7 +31,7 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
 	conflictMembers = ledgerstate.NewBranchIDs()
 	o.branchDAG.ForEachConflictingBranchID(conflictBranchID, func(conflictingBranchID ledgerstate.BranchID) bool {
-		if likedBranchID == ledgerstate.UndefinedBranchID && o.branchLiked(conflictingBranchID) {
+		if likedBranchID == ledgerstate.UndefinedBranchID && o.BranchLiked(conflictingBranchID) {
 			likedBranchID = conflictingBranchID
 		}
 		conflictMembers.Add(conflictingBranchID)
@@ -42,8 +42,8 @@ func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.Branch
 	return
 }
 
-// branchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
-func (o *OnTangleVoting) branchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
+// BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
+func (o *OnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
 	branchLiked = true
 	if branchID == ledgerstate.MasterBranchID {
 		return

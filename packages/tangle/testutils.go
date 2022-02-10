@@ -947,6 +947,15 @@ func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.Bran
 	return likedConflictMembers.likedBranch, innerConflictMembers
 }
 
+// BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
+func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
+	likedConflictMembers, ok := o.likedConflictMember[branchID]
+	if !ok {
+		return false
+	}
+	return likedConflictMembers.conflictMembers.Contains(branchID)
+}
+
 func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil
 }

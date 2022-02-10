@@ -225,6 +225,17 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 	return
 }
 
+// AllBranchesLiked returs true if all the passed branches are liked.
+func (u *Utils) AllBranchesLiked(branchIDs ledgerstate.BranchIDs) bool {
+	for branchID := range branchIDs {
+		if !u.tangle.OTVConsensusManager.BranchLiked(branchID) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // messageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
 // Message given by approvingMessageID (ignoring weak parents as a potential last reference).
 func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approvingMessageID MessageID) (stronglyApproved bool) {

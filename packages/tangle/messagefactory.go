@@ -360,9 +360,18 @@ func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tan
 			}
 		}
 
-		// If the opinion cannot be expressed, we have to rollback to the previous references collection.
 		if !opinionCanBeExpressed {
+			// If the opinion cannot be expressed, we have to rollback to the previous references collection.
 			references = referencesCopy
+			strongParentPayloadBranchIDs, strongParentPayloadBranchIDsErr := tangle.Booker.PayloadBranchIDs(strongParent)
+			if strongParentPayloadBranchIDsErr != nil {
+				return nil, errors.Errorf("failed to determine payload branch ids of strong parent with %s: %w", strongParent, strongParentPayloadBranchIDsErr)
+			}
+
+			if tangle.Utils.AllBranchesLiked(strongParentPayloadBranchIDs) {
+				references.Add(WeakParentType, strongParent)
+			}
+
 			continue
 		}
 
