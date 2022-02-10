@@ -30,6 +30,9 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 		tangle:         tangle,
 		discardedNodes: make(map[identity.ID]time.Time),
 		Manager:        markers.NewManager(markers.WithStore(tangle.Options.Store)),
+		Events: &BranchMarkersMapperEvents{
+			FutureMarkerUpdated: events.NewEvent(futureMarkerUpdateEventCaller),
+		},
 	}
 
 	// Always set Genesis to MasterBranch.

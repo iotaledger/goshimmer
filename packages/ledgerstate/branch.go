@@ -265,8 +265,8 @@ func (b BranchIDs) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// Strings returns a slice of base58 BranchIDs.
-func (b BranchIDs) Strings() (result []string) {
+// Base58 returns a slice of base58 BranchIDs.
+func (b BranchIDs) Base58() (result []string) {
 	for id := range b {
 		result = append(result, id.Base58())
 	}
