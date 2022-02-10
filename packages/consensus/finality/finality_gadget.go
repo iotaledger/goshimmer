@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
@@ -267,33 +268,45 @@ func (s *SimpleFinalityGadget) setMarkerConfirmed(marker *markers.Marker) (updat
 
 // propagateGoFToMessagePastCone propagates the given GradeOfFinality to the past cone of the Message.
 func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
-	confirmationWalker := walker.New(false).Push(tangle.Parent{
-		ID:   messageID,
-		Type: tangle.StrongParentType,
-	})
+	strongParentWalker := walker.New(false).Push(messageID)
+	weakParentsSet := set.New()
 
-	for confirmationWalker.HasNext() {
-		currentElement := confirmationWalker.Next().(tangle.Parent)
-		if currentElement.ID == tangle.EmptyMessageID {
+	for strongParentWalker.HasNext() {
+		strongParentMessageID := strongParentWalker.Next().(tangle.MessageID)
+		if strongParentMessageID == tangle.EmptyMessageID {
 			continue
 		}
 
-		s.tangle.Storage.MessageMetadata(currentElement.ID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			if messageMetadata.GradeOfFinality() >= gradeOfFinality || !s.setMessageGoF(messageMetadata, gradeOfFinality) {
 				return
 			}
 
-			if currentElement.Type != tangle.StrongParentType {
-				return
-			}
-
-			s.tangle.Storage.Message(currentElement.ID).Consume(func(message *tangle.Message) {
+			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
 				message.ForEachParent(func(parent tangle.Parent) {
-					confirmationWalker.Push(parent)
+					if parent.Type == tangle.StrongParentType {
+						strongParentWalker.Push(parent.ID)
+						return
+					}
+					weakParentsSet.Add(parent.ID)
 				})
 			})
 		})
 	}
+
+	weakParentsSet.ForEach(func(weakParent interface{}) {
+		weakParentMessageID := weakParent.(tangle.MessageID)
+		if strongParentWalker.Pushed(weakParentMessageID) {
+			return
+		}
+		s.tangle.Storage.MessageMetadata(weakParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
+				return
+			}
+			s.setMessageGoF(messageMetadata, gradeOfFinality)
+		})
+
+	})
 }
 
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
