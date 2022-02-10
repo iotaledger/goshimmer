@@ -422,6 +422,97 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 	return s
 }
 
+// ProcessMessageScenario2 creates a scenario useful to validate strong / weak propagation paths.
+//nolint:gomnd
+func ProcessMessageScenario2(t *testing.T) *TestScenario {
+	s := &TestScenario{t: t}
+	s.nodes = make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		s.nodes[node] = identity.GenerateIdentity()
+	}
+
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range s.nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
+		return map[identity.ID]float64{
+			s.nodes["A"].ID(): 30,
+			s.nodes["B"].ID(): 15,
+			s.nodes["C"].ID(): 25,
+			s.nodes["D"].ID(): 20,
+			s.nodes["E"].ID(): 10,
+		}
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
+	s.Tangle.Setup()
+
+	s.testEventMock = NewEventMock(t, s.Tangle.ApprovalWeightManager)
+	s.testFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
+	s.Steps = []TestStep{
+		// ISSUE Message0
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			testFramework.CreateMessage("Message0", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.30)
+
+			IssueAndValidateMessageApproval(t, "Message0", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+				*markers.NewMarker(0, 1): 0.30,
+			})
+		},
+		// ISSUE Message1
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
+
+			IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+				*markers.NewMarker(0, 1): 0.30,
+			})
+		},
+		// ISSUE Message2
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()))
+
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.15)
+
+			IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+				*markers.NewMarker(0, 1): 0.30,
+				*markers.NewMarker(1, 1): 0.15,
+			})
+		},
+		// ISSUE Message3
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["B"].PublicKey()))
+
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.15)
+
+			IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+				*markers.NewMarker(0, 1): 0.30,
+				*markers.NewMarker(1, 1): 0.15,
+				*markers.NewMarker(1, 2): 0.15,
+			})
+		},
+		// ISSUE Message4
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			testFramework.CreateMessage("Message4", WithWeakParents("Message2"), WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()))
+
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.35)
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.35)
+			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.20)
+
+			IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
+				*markers.NewMarker(0, 1): 0.30,
+				*markers.NewMarker(1, 1): 0.35,
+				*markers.NewMarker(1, 2): 0.35,
+				*markers.NewMarker(1, 3): 0.20,
+			})
+		},
+	}
+	return s
+}
+
 // IssueAndValidateMessageApproval issues the msg by the given alias and assets the expected weights.
 //nolint:gomnd
 func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *EventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {

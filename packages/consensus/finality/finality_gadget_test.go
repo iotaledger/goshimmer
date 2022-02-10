@@ -388,6 +388,82 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	}
 }
 
+func TestWeakVsStrongParentWalk(t *testing.T) {
+	processMsgScenario := tangle.ProcessMessageScenario2(t)
+	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
+		if err := processMsgScenario.Cleanup(t); err != nil {
+			require.NoError(t, err)
+		}
+	}(processMsgScenario, t)
+
+	processMsgScenario.Tangle.Configure(tangle.MergeBranches(false))
+
+	testOpts := []Option{
+		WithBranchThresholdTranslation(TestBranchGoFTranslation),
+		WithMessageThresholdTranslation(TestMessageGoFTranslation),
+	}
+
+	sfg := NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
+	wireUpEvents(t, processMsgScenario.Tangle, sfg)
+
+	prePostSteps := []*tangle.PrePostStepTuple{
+		// Message0
+		{
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
+					gof.Medium: {"Message0"},
+				})
+			},
+		},
+		// Message1
+		{
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
+					gof.None: {"Message1"},
+				})
+			},
+		},
+		// Message2
+		{
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
+					gof.Medium: {},
+					gof.None:   {"Message1", "Message2"},
+				})
+			},
+		},
+		// Message3
+		{
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
+					gof.High:   {},
+					gof.Medium: {},
+					gof.None:   {"Message1", "Message2", "Message3"},
+				})
+			},
+		},
+		// Message4
+		{
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				sfg.propagateGoFToMessagePastCone(testFramework.Message("Message4").ID(), gof.High)
+				assertMsgsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
+					gof.High:   {"Message1", "Message2", "Message3", "Message4"},
+					gof.Medium: {},
+					gof.Low:    {},
+				})
+			},
+		},
+	}
+
+	for i := 0; processMsgScenario.HasNext(); i++ {
+		if len(prePostSteps)-1 < i {
+			processMsgScenario.Next(nil)
+			continue
+		}
+		processMsgScenario.Next(prePostSteps[i])
+	}
+}
+
 func assertMsgsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, expected map[gof.GradeOfFinality][]string) {
 	for expectedGoF, msgAliases := range expected {
 		for _, msgAlias := range msgAliases {
