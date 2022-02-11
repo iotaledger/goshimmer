@@ -357,12 +357,37 @@ export function updateNodeDataAndColor(
     if (exists && msgData) {
         vivaLib.drawVertex(msgData);
         updateNodeColorOnConfirmation(msgData, vivaLib);
+        if (msgData.isMarker) {
+            drawMarker(msgData.ID, vivaLib);
+        }
     }
 }
 
+function drawMarker(id: string, vivaLib: vivagraphLib) {
+    const group = vivaLib.graphics.getNodeUI(id);
+    // check if the node already has a marker.
+    if (group.childNodes.length >= 2) {
+        return;
+    }
+
+    const circle = Viva.Graph.svg('circle');
+    circle
+        .attr('fill', COLOR.MARKER)
+        .attr('r', VERTEX.MARKER_SIZE)
+        .attr('cx', VERTEX.SIZE_DEFAULT / 2)
+        .attr('cy', VERTEX.SIZE_DEFAULT / 2);
+
+    group.append(circle);
+}
+
 function svgUpdateNodePos(nodeUI, pos) {
-    const size = nodeUI.getAttribute('width');
-    nodeUI.attr('x', pos.x - size / 2).attr('y', pos.y - size / 2);
+    const rectUI = nodeUI.childNodes[0];
+    const size = rectUI.getAttribute('width');
+
+    nodeUI.attr(
+        'transform',
+        'translate(' + (pos.x - size / 2) + ',' + (pos.y - size / 2) + ')'
+    );
 }
 
 function resetLinks(vivaLib: vivagraphLib) {
@@ -387,7 +412,7 @@ function updateNodeColorOnConfirmation(
             : COLOR.MESSAGE_CONFIRMED;
     }
 
-    setUINodeColor(nodeUI, color);
+    setUINodeColor(nodeUI.childNodes[0], color);
 }
 
 function updateParentRefUI(
@@ -470,12 +495,16 @@ function dfsIterator(
 }
 
 const svgNodeBuilder = function(): any {
+    const group = Viva.Graph.svg('g');
+
     const ui = Viva.Graph.svg('rect');
     setUINodeColor(ui, COLOR.TIP);
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT);
     setCorners(ui, VERTEX.ROUNDED_CORNER);
 
-    return ui;
+    group.append(ui);
+
+    return group;
 };
 
 const svgLinkBuilder = function(color: string, width: number, type: string) {

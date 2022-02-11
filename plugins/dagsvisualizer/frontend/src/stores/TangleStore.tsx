@@ -221,7 +221,7 @@ export class TangleStore {
     tangleOnClick = (event: any) => {
         // message is currently selected
         if (event.target.tagName === 'rect') {
-            this.selectMsg(event.target.node.id);
+            this.selectMsg(event.target.parentNode.node.id);
         } else {
             if (this.selectedMsg !== null) {
                 this.clearSelected();
