@@ -3,7 +3,12 @@ import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
 import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
-import { cytoscapeLib, drawBranch, initBranchDAG } from 'graph/cytoscape';
+import {
+    applyConfirmedStyle,
+    cytoscapeLib,
+    drawBranch,
+    initBranchDAG
+} from 'graph/cytoscape';
 import {
     branchConfirmed,
     branchParentUpdate,
@@ -105,6 +110,7 @@ export class BranchStore {
 
         b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
+        applyConfirmedStyle(confirmedBranch.ID, this.graph.cy);
     };
 
     @action

@@ -15,6 +15,8 @@ export const LINE = {
 
 export const BRANCH = {
     COLOR: '#2E8BC0',
+    COLOR_AGGR: '#777c87',
+    COLOR_CONFIRMED: '#EF8354',
     STEP: '20px',
     SELECTED: '#F0C808',
     OPACITY: 1,
