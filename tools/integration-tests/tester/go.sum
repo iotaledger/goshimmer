@@ -525,8 +525,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20220128093844-cd0a35292f34 h1:k6Jq7lA361ztArQi+e5fLpVa/3sZCBHFF1TchPCeDMo=
-github.com/iotaledger/hive.go v0.0.0-20220128093844-cd0a35292f34/go.mod h1:kAp5zXl/MWy+2LYf1APBwSlX9FZ4uIIJr0QrvVLTvsc=
+github.com/iotaledger/hive.go v0.0.0-20220210121915-5c76c0ccc668 h1:i30qJFPRs0OKmI2f8j4Sf52F38XwGTlbn/OrUXRN8Kk=
+github.com/iotaledger/hive.go v0.0.0-20220210121915-5c76c0ccc668/go.mod h1:kAp5zXl/MWy+2LYf1APBwSlX9FZ4uIIJr0QrvVLTvsc=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
