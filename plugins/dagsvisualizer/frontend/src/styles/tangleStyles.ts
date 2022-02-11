@@ -9,7 +9,8 @@ export const COLOR = {
     NODE_UNKNOWN: '#b58900',
     LINK_WEAK: '#E7DFC6',
     LINK_STRONG: '#36636D',
-    LINK_LIKED: '#F0C808',
+    LINK_SHALLOW_LIKED: '#10f008',
+    LINK_SHALLOW_DISLIKED: '#f00808',
     LINK_FUTURE_CONE: '#EF8354',
     LINK_PAST_CONE: '#B91372',
     MARKER: '#05445E'
@@ -18,13 +19,15 @@ export const COLOR = {
 export const LINE_TYPE = {
     STRONG: '-',
     WEAK: '5 2',
-    LIKED: '2 3'
+    SHALLOW_LIKED: '2 3',
+    SHALLOW_DISLIKED: '2 3'
 };
 
 export const LINE_WIDTH = {
     STRONG: 3,
     WEAK: 2,
-    LIKED: 2
+    SHALLOW_LIKED: 2,
+    SHALLOW_DISLIKED: 2
 };
 
 export const VERTEX = {

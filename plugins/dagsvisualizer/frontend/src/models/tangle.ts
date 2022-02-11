@@ -2,8 +2,9 @@ export class tangleVertex {
     ID: string;
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
-    likedParentIDs: Array<string>;
-    branchID: string;
+    shallowLikeParentIDs: Array<string>;
+    shallowDislikeParentIDs: Array<string>;
+    branchIDs: Array<string>;
     isMarker: boolean;
     isTx: boolean;
     txID: string;
@@ -17,7 +18,7 @@ export class tangleVertex {
 export class tangleBooked {
     ID: string;
     isMarker: boolean;
-    branchID: string;
+    branchIDs: Array<string>;
 }
 
 export class tangleConfirmed {
@@ -34,5 +35,6 @@ export class tangleFutureMarkerUpdated {
 export enum parentRefType {
     StrongRef,
     WeakRef,
-    LikedRef
+    ShallowLikeRef,
+    ShallowDislikeRef
 }

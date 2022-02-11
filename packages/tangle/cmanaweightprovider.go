@@ -85,12 +85,12 @@ func (c *CManaWeightProvider) Update(t time.Time, nodeID identity.ID) {
 
 // Weight returns the weight and total weight for the given message.
 func (c *CManaWeightProvider) Weight(message *Message) (weight, totalWeight float64) {
-	weights, totalWeight := c.WeightsOfRelevantSupporters()
+	weights, totalWeight := c.WeightsOfRelevantVoters()
 	return weights[identity.NewID(message.IssuerPublicKey())], totalWeight
 }
 
-// WeightsOfRelevantSupporters returns all relevant weights.
-func (c *CManaWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
+// WeightsOfRelevantVoters returns all relevant weights.
+func (c *CManaWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64) {
 	weights = make(map[identity.ID]float64)
 
 	mana := c.manaRetrieverFunc()

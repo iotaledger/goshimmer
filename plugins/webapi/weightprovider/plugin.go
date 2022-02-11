@@ -44,7 +44,7 @@ func getNodesHandler(c echo.Context) (err error) {
 }
 
 func getWeightsHandler(c echo.Context) (err error) {
-	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantSupporters()
+	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	weightsString := make(map[string]float64)
 	for nodeID, mana := range weights {

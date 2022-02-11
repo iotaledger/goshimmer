@@ -104,7 +104,7 @@ export class TangleStore {
             return;
         }
 
-        msg.branchID = branch.branchID;
+        msg.branchIDs = branch.branchIDs;
         msg.isMarker = branch.isMarker;
 
         this.messages.set(msg.ID, msg);
@@ -297,7 +297,7 @@ export class TangleStore {
 
         if (searchedMode) {
             this.foundMsgs.forEach((msg: tangleVertex) => {
-                if (msg.branchID === branchID) {
+                if (msg.branchIDs.includes(branchID)) {
                     msgs.push(msg.ID);
                 }
             });
@@ -305,7 +305,7 @@ export class TangleStore {
         }
 
         this.messages.forEach((msg: tangleVertex) => {
-            if (msg.branchID === branchID) {
+            if (msg.branchIDs.includes(branchID)) {
                 msgs.push(msg.ID);
             }
         });

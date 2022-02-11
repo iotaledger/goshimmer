@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -14,21 +15,30 @@ import (
 // LedgerState is a Tangle component that wraps the components of the ledgerstate package and makes them available at a
 // "single point of contact".
 type LedgerState struct {
-	tangle    *Tangle
-	BranchDAG *ledgerstate.BranchDAG
-	UTXODAG   ledgerstate.IUTXODAG
-
+	tangle      *Tangle
 	totalSupply uint64
+
+	*ledgerstate.Ledgerstate
 }
 
 // NewLedgerState is the constructor of the LedgerState component.
 func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
-	branchDAG := ledgerstate.NewBranchDAG(tangle.Options.Store, tangle.Options.CacheTimeProvider)
 	return &LedgerState{
-		tangle:    tangle,
-		BranchDAG: branchDAG,
-		UTXODAG:   ledgerstate.NewUTXODAG(tangle.Options.Store, tangle.Options.CacheTimeProvider, branchDAG),
+		tangle: tangle,
+		Ledgerstate: ledgerstate.New(
+			ledgerstate.Store(tangle.Options.Store),
+			ledgerstate.CacheTimeProvider(tangle.Options.CacheTimeProvider),
+		),
 	}
+}
+
+// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
+func (l *LedgerState) Setup() {
+	l.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		if l.tangle.Options.LedgerState.MergeBranches {
+			l.SetBranchConfirmed(branchID)
+		}
+	}))
 }
 
 // Shutdown shuts down the LedgerState and persists its state.
@@ -37,40 +47,12 @@ func (l *LedgerState) Shutdown() {
 	l.BranchDAG.Shutdown()
 }
 
-// InheritBranch implements the inheritance rules for Branches in the Tangle. It returns a single inherited Branch
-// and automatically creates an AggregatedBranch if necessary.
-func (l *LedgerState) InheritBranch(referencedBranchIDs ledgerstate.BranchIDs) (inheritedBranch ledgerstate.BranchID, err error) {
-	if referencedBranchIDs.Contains(ledgerstate.InvalidBranchID) {
-		inheritedBranch = ledgerstate.InvalidBranchID
-		return
-	}
-
-	cachedAggregatedBranch, _, err := l.BranchDAG.AggregateBranches(referencedBranchIDs)
-	if err != nil {
-		if errors.Is(err, ledgerstate.ErrInvalidStateTransition) {
-			l.tangle.Events.Error.Trigger(err)
-
-			// We book under the InvalidBranch, no error.
-			inheritedBranch = ledgerstate.InvalidBranchID
-			err = nil
-			return
-		}
-
-		err = errors.Errorf("failed to aggregate BranchIDs: %w", err)
-		return
-	}
-	cachedAggregatedBranch.Release()
-
-	inheritedBranch = cachedAggregatedBranch.ID()
-	return
-}
-
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
 func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
 	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
+		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			messageMetadata.SetObjectivelyInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 
@@ -103,7 +85,7 @@ func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, mess
 		err = errors.Errorf("failed to book Transaction: %w", err)
 
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messagemetadata *MessageMetadata) {
-			messagemetadata.SetInvalid(true)
+			messagemetadata.SetObjectivelyInvalid(true)
 		})
 		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
 

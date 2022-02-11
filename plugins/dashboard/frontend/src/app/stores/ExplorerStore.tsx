@@ -37,11 +37,13 @@ export class Message {
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     solid: boolean;
-    branchID: string;
-    metadataBranchID: string;
+    branchIDs: Array<string>;
+    addedBranchIDs: Array<string>;
+    subtractedBranchIDs: Array<string>;
     scheduled: boolean;
     booked: boolean;
-    invalid: boolean;
+    objectivelyInvalid: boolean;
+    subjectivelyInvalid: boolean;
     gradeOfFinality: number;
     gradeOfFinalityTime: number;
     payload_type: number;
@@ -129,9 +131,9 @@ class BranchConflicts {
     conflicts: Array<BranchConflict>
 }
 
-class BranchSupporters {
+class BranchVoters {
     branchID: string;
-    supporters: Array<string>
+    voters: Array<string>
 }
 
 class SearchResult {
@@ -168,7 +170,7 @@ export class ExplorerStore {
     @observable branch: Branch = null;
     @observable branchChildren: BranchChildren = null;
     @observable branchConflicts: BranchConflicts = null;
-    @observable branchSupporters: BranchSupporters = null;
+    @observable branchVoters: BranchVoters = null;
 
     // loading
     @observable query_loading: boolean = false;
@@ -436,14 +438,14 @@ export class ExplorerStore {
         }
     }
 
-    getBranchSupporters = async (id: string) => {
+    getBranchVoters = async (id: string) => {
         try {
-            let res = await fetch(`/api/branch/${id}/supporters`)
+            let res = await fetch(`/api/branch/${id}/voters`)
             if (res.status === 404) {
                 return;
             }
-            let branchSupporters: BranchSupporters = await res.json()
-            this.updateBranchSupporters(branchSupporters)
+            let branchVoters: BranchVoters = await res.json()
+            this.updateBranchVoters(branchVoters)
         } catch (err) {
             // ignore
         }
@@ -524,8 +526,8 @@ export class ExplorerStore {
     }
 
     @action
-    updateBranchSupporters = (branchSupporters: BranchSupporters) => {
-        this.branchSupporters = branchSupporters;
+    updateBranchVoters = (branchVoters: BranchVoters) => {
+        this.branchVoters = branchVoters;
     }
 
     @action

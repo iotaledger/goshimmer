@@ -58,12 +58,13 @@ export class GlobalStore {
         this.utxoStore.clearSelected(true);
         this.utxoStore.clearHighlightedTxs();
         this.branchStore.clearSelected(true);
+        this.branchStore.clearHighlightedBranches();
 
         if (msg.isTx) {
             this.utxoStore.selectTx(msg.txID);
             this.utxoStore.centerTx(msg.txID);
         }
-        this.branchStore.selectBranch(msg.branchID);
+        this.branchStore.highlightBranches(msg.branchIDs);
     };
 
     syncWithTx = () => {

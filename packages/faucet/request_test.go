@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -24,11 +25,11 @@ func ExampleRequest() {
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	// 2. build actual message
-	tx, _ := tangle.NewMessage(
-		tangle.MessageIDs{tangle.EmptyMessageID},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
+	tx, _ := tangle.NewMessage(map[tangle.ParentsType]tangle.MessageIDs{
+		tangle.StrongParentType: {
+			tangle.EmptyMessageID: types.Void,
+		},
+	},
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -73,10 +74,11 @@ func TestIsFaucetReq(t *testing.T) {
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	faucetMsg, _ := tangle.NewMessage(
-		tangle.MessageIDs{tangle.EmptyMessageID},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
+		map[tangle.ParentsType]tangle.MessageIDs{
+			tangle.StrongParentType: {
+				tangle.EmptyMessageID: types.Void,
+			},
+		},
 		time.Now(),
 		local.PublicKey(),
 		0,
@@ -86,10 +88,11 @@ func TestIsFaucetReq(t *testing.T) {
 	)
 
 	dataMsg, _ := tangle.NewMessage(
-		tangle.MessageIDs{tangle.EmptyMessageID},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
-		tangle.MessageIDs{},
+		map[tangle.ParentsType]tangle.MessageIDs{
+			tangle.StrongParentType: {
+				tangle.EmptyMessageID: types.Void,
+			},
+		},
 		time.Now(),
 		local.PublicKey(),
 		0,
