@@ -364,6 +364,10 @@ export function updateNodeDataAndColor(
 
 function drawMarker(id: string, vivaLib: vivagraphLib) {
     const group = vivaLib.graphics.getNodeUI(id);
+    // check if the node already has a marker.
+    if (group.childNodes.length >= 2) {
+        return;
+    }
 
     const circle = Viva.Graph.svg('circle');
     circle
