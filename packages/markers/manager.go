@@ -8,6 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -263,7 +264,7 @@ func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*Stru
 func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
 	normalizedMarkers = markers.Clone()
 
-	normalizeWalker := walker.New()
+	normalizeWalker := genericwalker.New[*Marker](walker.New())
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizeWalker.Push(NewMarker(sequenceID, index))
 
@@ -272,7 +273,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 
 	seenMarkers := NewMarkers()
 	for i := 0; normalizeWalker.HasNext(); i++ {
-		currentMarker := normalizeWalker.Next().(*Marker)
+		currentMarker := normalizeWalker.Next()
 
 		if i >= markers.Size() {
 			if added, updated := seenMarkers.Set(currentMarker.SequenceID(), currentMarker.Index()); !added && !updated {
@@ -348,7 +349,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 // the earlier Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid
 // reference.
 func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
-	referenceWalker := walker.New()
+	referenceWalker := genericwalker.New[*Marker](walker.New())
 	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referenceWalker.Push(NewMarker(sequenceID, index))
 		return true
@@ -356,7 +357,7 @@ func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarke
 
 	seenMarkers := NewMarkers()
 	for i := 0; referenceWalker.HasNext(); i++ {
-		laterMarker := referenceWalker.Next().(*Marker)
+		laterMarker := referenceWalker.Next()
 		if added, updated := seenMarkers.Set(laterMarker.SequenceID(), laterMarker.Index()); !added && !updated {
 			continue
 		}

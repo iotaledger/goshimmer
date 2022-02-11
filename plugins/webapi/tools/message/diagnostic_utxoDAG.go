@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
@@ -33,7 +33,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *genericwalker.Walker[tangle.MessageID]) {
 		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 			transactionInfo := getDiagnosticUTXODAGInfo(transactionID, messageID)
 			_, err = fmt.Fprintln(c.Response(), transactionInfo.toCSV())

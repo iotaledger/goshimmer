@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	genericset "github.com/iotaledger/hive.go/generics/set"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -184,20 +186,19 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	}
 
 	return result, nil
-
 }
 
 // ResolvePendingConflictBranchIDs returns the BranchIDs of the pending and rejected ConflictBranches that are
 // addressed by the given BranchIDs.
 func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	branchWalker := walker.New()
+	branchWalker := genericwalker.New[BranchID](walker.New())
 	for branchID := range branchIDs {
 		branchWalker.Push(branchID)
 	}
 
 	result := make(BranchIDs)
 	for branchWalker.HasNext() {
-		currentBranchID := branchWalker.Next().(BranchID)
+		currentBranchID := branchWalker.Next()
 
 		if !b.Branch(currentBranchID).Consume(func(branch Branch) {
 			switch typeCastedBranch := branch.(type) {
@@ -234,14 +235,14 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 		panic(err)
 	}
 
-	confirmationWalker := walker.New()
+	confirmationWalker := genericwalker.New[BranchID](walker.New())
 	for conflictBranchID := range conflictBranchIDs {
 		confirmationWalker.Push(conflictBranchID)
 	}
-	rejectedWalker := walker.New()
+	rejectedWalker := genericwalker.New[BranchID](walker.New())
 
 	for confirmationWalker.HasNext() {
-		currentBranchID := confirmationWalker.Next().(BranchID)
+		currentBranchID := confirmationWalker.Next()
 
 		b.Branch(currentBranchID).ConsumeConflictBranch(func(branch *ConflictBranch) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
@@ -263,7 +264,7 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	}
 
 	for rejectedWalker.HasNext() {
-		b.Branch(rejectedWalker.Next().(BranchID)).ConsumeConflictBranch(func(branch *ConflictBranch) {
+		b.Branch(rejectedWalker.Next()).ConsumeConflictBranch(func(branch *ConflictBranch) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
@@ -439,8 +440,8 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 		panic(err)
 	}
 
-	traversedBranches := set.New()
-	conflictSetsWalker := walker.New()
+	traversedBranches := genericset.New[BranchID](set.New())
+	conflictSetsWalker := genericwalker.New[ConflictID](walker.New())
 
 	processBranchAndQueueConflictSets := func(conflictBranchID BranchID) {
 		if !traversedBranches.Add(conflictBranchID) {
@@ -459,13 +460,13 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 	}
 
 	for conflictSetsWalker.HasNext() {
-		b.ConflictMembers(conflictSetsWalker.Next().(ConflictID)).Consume(func(conflictMember *ConflictMember) {
+		b.ConflictMembers(conflictSetsWalker.Next()).Consume(func(conflictMember *ConflictMember) {
 			processBranchAndQueueConflictSets(conflictMember.BranchID())
 		})
 	}
 
-	traversedBranches.ForEach(func(element interface{}) {
-		callback(element.(BranchID))
+	traversedBranches.ForEach(func(element BranchID) {
+		callback(element)
 	})
 }
 

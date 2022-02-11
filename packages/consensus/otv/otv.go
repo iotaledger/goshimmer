@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -48,8 +49,8 @@ func (o *OnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked
 	if branchID == ledgerstate.MasterBranchID {
 		return
 	}
-	for likeWalker := walker.New().Push(branchID); likeWalker.HasNext(); {
-		if branchLiked = branchLiked && o.branchPreferred(likeWalker.Next().(ledgerstate.BranchID), likeWalker); !branchLiked {
+	for likeWalker := genericwalker.New[ledgerstate.BranchID](walker.New()).Push(branchID); likeWalker.HasNext(); {
+		if branchLiked = branchLiked && o.branchPreferred(likeWalker.Next(), likeWalker); !branchLiked {
 			return
 		}
 	}
@@ -58,7 +59,7 @@ func (o *OnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked
 }
 
 // branchPreferred returns whether the branch is the winner across its conflict sets.
-func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalker *walker.Walker) (preferred bool) {
+func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalker *genericwalker.Walker[ledgerstate.BranchID]) (preferred bool) {
 	preferred = true
 	if branchID == ledgerstate.MasterBranchID {
 		return
@@ -90,14 +91,14 @@ func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID le
 			return
 		}
 
-		rejectionWalker := walker.New()
+		rejectionWalker := genericwalker.New[ledgerstate.BranchID](walker.New())
 		o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			rejectionWalker.Push(conflictingBranchID)
 			return true
 		})
 
 		for rejectionWalker.HasNext() {
-			rejectedBranchID := rejectionWalker.Next().(ledgerstate.BranchID)
+			rejectedBranchID := rejectionWalker.Next()
 
 			dislikedBranches.Add(rejectedBranchID)
 

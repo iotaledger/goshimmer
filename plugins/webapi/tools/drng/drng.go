@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
@@ -35,7 +35,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 	}
 
 	var writeErr error
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *genericwalker.Walker[tangle.MessageID]) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == drng.PayloadType {
 				messageInfo := getDiagnosticDRNGMessageInfo(message)

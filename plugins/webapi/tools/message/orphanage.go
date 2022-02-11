@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -60,7 +60,7 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) error 
 		return err
 	}
 	var writeErr error
-	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *genericwalker.Walker[tangle.MessageID]) {
 		approverMessageIDs := deps.Tangle.Utils.ApprovingMessageIDs(msgID)
 		if len(approverMessageIDs) == 0 {
 			deps.Tangle.Storage.Message(msgID).Consume(func(message *tangle.Message) {

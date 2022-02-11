@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -217,7 +218,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 // by the vote and if the vote is valid (not voting for conflicting Branches).
 func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBranches ledgerstate.BranchIDs, vote *BranchVote) (revokedBranches ledgerstate.BranchIDs, isInvalid bool) {
 	revokedBranches = ledgerstate.NewBranchIDs()
-	subTractionWalker := walker.New()
+	subTractionWalker := genericwalker.New[ledgerstate.BranchID](walker.New())
 	for addedBranch := range addedBranches {
 		a.tangle.LedgerState.ForEachConflictingBranchID(addedBranch, func(conflictingBranchID ledgerstate.BranchID) bool {
 			subTractionWalker.Push(conflictingBranchID)
@@ -227,7 +228,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 	}
 
 	for subTractionWalker.HasNext() {
-		currentVote := vote.WithBranchID(subTractionWalker.Next().(ledgerstate.BranchID))
+		currentVote := vote.WithBranchID(subTractionWalker.Next())
 
 		if isInvalid = addedBranches.Contains(currentVote.BranchID) || votedBranches.Contains(currentVote.BranchID); isInvalid {
 			return
@@ -297,22 +298,21 @@ func (a *ApprovalWeightManager) updateSequenceVoters(message *Message) {
 	a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// Do not revisit markers that have already been visited. With the like switch there can be cycles in the sequence DAG
 		// which results in endless walks.
-		supportWalker := walker.New(false)
+		supportWalker := genericwalker.New[markers.Marker](walker.New(false))
 
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-
 			supportWalker.Push(*markers.NewMarker(sequenceID, index))
 
 			return true
 		})
 
 		for supportWalker.HasNext() {
-			a.addVoteToMarker(supportWalker.Next().(markers.Marker), message, supportWalker)
+			a.addVoteToMarker(supportWalker.Next(), message, supportWalker)
 		}
 	})
 }
 
-func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, message *Message, walk *walker.Walker) {
+func (a *ApprovalWeightManager) addVoteToMarker(marker markers.Marker, message *Message, walk *genericwalker.Walker[markers.Marker]) {
 	// We don't add the voter and abort if the marker is already confirmed. This prevents walking too much in the sequence DAG.
 	// However, it might lead to inaccuracies when creating a new branch once a conflict arrives and we copy over the
 	// voters of the marker to the branch. Since the marker is already seen as confirmed it should not matter too much though.

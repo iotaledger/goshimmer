@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
@@ -258,7 +258,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 			entryMsgs = append(entryMsgs, approver.ApproverMessageID())
 		})
 
-		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *genericwalker.Walker[tangle.MessageID]) {
 			deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 				// only keep messages that is issued in the given time interval
 				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
