@@ -5,8 +5,8 @@
 ARG REMOTE_DEBUGGING=0
 
 ############################
-# golang 1.17.2-buster multi-arch
-FROM golang@sha256:5b036db95aaf91b8c75be815e2ba0ca0eecbfc3f57952c24c5d8c125970e2634 AS build
+# golang 1.18beta2-buster multi-arch
+FROM golang:1.18beta2-buster AS build
 
 ARG RUN_TEST=0
 ARG BUILD_TAGS=rocksdb,builtin_static
