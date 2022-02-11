@@ -1,3 +1,30 @@
+# v0.8.6 - 2022-02-11
+
+> This release introduces the "Merge to Master" functionality to avoid propagation of Confirmed branches to the future cone and introduces an amazing new DAGs Visualizer tool! The new visualizer is exposed on port 8061 by default, check it out!
+
+The snapshot has been taken at 2022-02-11 10:30 CET.
+- Feat: Merge confirmed Branches with the MasterBranch (#1770)
+- Fix: disable REMOTE_DEBUGGING on feature network, hangs the entrynode (#2034)
+- Mark markers in DAGs visualizer (#2032)
+- Update go.mod to point to hive.go in master branch (#2028)
+- Remove node-sass package from analysis dashboard (#2027)
+- Build(deps): bump follow-redirects from 1.14.2 to 1.14.8 in /plugins/dagsvisualizer/frontend (#2026)
+- Build(deps-dev): bump node-sass in /plugins/analysis/dashboard/frontend (#2017)
+- Implement DAGs Visualizer (#2014)
+- Docs - Add Test Build Action (#1994)
+- Build(deps): bump simple-get from 3.1.0 to 3.1.1 in /plugins/dashboard/frontend (#2005)
+- Skip snapshot download when rebuilding images of old goshimmer version (#1959)
+- Spam protection  (#1990)
+- Do not hardcode parameters in Docker ENTRYPOINT (#1992)
+- Add json and shell annotations for better readability (#1983)
+- Fix browser not popping up the basic auth login modal  (#1986)
+- Build(deps): bump nanoid from 3.1.23 to 3.2.0 in /plugins/dashboard/frontend (#1980)
+- Do not increase the scheduling rate when node is out of sync. (#1961)
+- Update webAPI.md (#1981)
+- Added section on how to install goshimmer from source (#1935)
+- fix: lock scheduler metrics map when writing (#1974)
+- Documentation release.md: merge into master without squashing (#1972)
+
 # v0.8.5 - 2022-01-19
 
 > This release introduces minor bug fixes and improvements.
