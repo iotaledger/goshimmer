@@ -19,7 +19,7 @@ import (
 )
 
 // PluginName is the name of the dags visualizer plugin.
-const PluginName = "DAGs visualizer"
+const PluginName = "DAGsVisualizer"
 
 var (
 	deps = new(dependencies)
