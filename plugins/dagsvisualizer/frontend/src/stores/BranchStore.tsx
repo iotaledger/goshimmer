@@ -27,6 +27,7 @@ export class BranchStore {
     @observable search = '';
     branchOrder: Array<any> = [];
     draw = true;
+    showAggregated = false;
 
     vertexChanges = 0;
     branchToRemoveAfterResume = [];
@@ -205,6 +206,10 @@ export class BranchStore {
     };
 
     drawVertex = async (branch: branchVertex) => {
+        if (!this.showAggregated && branch.type == 'AggregatedBranchType') {
+            console.log('skip');
+            return;
+        }
         this.vertexChanges++;
         await drawBranch(branch, this.graph, this.branches);
     };
