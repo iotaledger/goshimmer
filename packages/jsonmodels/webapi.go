@@ -100,22 +100,22 @@ func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerCo
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchSupportersResponse ///////////////////////////////////////////////////////////////////////////////////
+// region GetBranchVotersResponse //////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchSupportersResponse represents the JSON model of a response from the GetBranchSupporters endpoint.
-type GetBranchSupportersResponse struct {
-	BranchID   string   `json:"branchID"`
-	Supporters []string `json:"supporters"`
+// GetBranchVotersResponse represents the JSON model of a response from the GetBranchVoters endpoint.
+type GetBranchVotersResponse struct {
+	BranchID string   `json:"branchID"`
+	Voters   []string `json:"voters"`
 }
 
-// NewGetBranchSupportersResponse returns a GetBranchSupportersResponse from the given details.
-func NewGetBranchSupportersResponse(branchID ledgerstate.BranchID, supporters *tangle.Supporters) *GetBranchSupportersResponse {
-	return &GetBranchSupportersResponse{
+// NewGetBranchVotersResponse returns a GetBranchVotersResponse from the given details.
+func NewGetBranchVotersResponse(branchID ledgerstate.BranchID, voters *tangle.Voters) *GetBranchVotersResponse {
+	return &GetBranchVotersResponse{
 		BranchID: branchID.Base58(),
-		Supporters: func() (supportersStr []string) {
-			supportersStr = make([]string, 0)
-			supporters.ForEach(func(supporter tangle.Supporter) {
-				supportersStr = append(supportersStr, supporter.String())
+		Voters: func() (votersStr []string) {
+			votersStr = make([]string, 0)
+			voters.ForEach(func(voter tangle.Voter) {
+				votersStr = append(votersStr, voter.String())
 			})
 			return
 		}(),
@@ -160,7 +160,7 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDsSlice) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
 	for _, messageID := range messageIDs {
 		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())

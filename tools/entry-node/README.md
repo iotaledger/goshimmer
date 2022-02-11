@@ -15,13 +15,14 @@ The entry node exposes the following ports on the host:
 ### Create the Docker volume
 Before starting an entry node for the specified git tag the first time, a Docker volume needs to be created.
 This is only needed once and can be done via the following command: 
-```sh
+```shell
 TAG=tag ./create-volume.sh
 ```
 The environment variable `TAG` contains the Git tag of the desired GoShimmer version.
 ### Run the GoShimmer entry node
 To start the actual entry node, run the following: 
-```sh
+
+```shell
 TAG=tag SEED=seed docker-compose up -d --build
 ```
 The optional environment variable `SEED` contains the autopeering seed of the entry node in Base64 encoding.

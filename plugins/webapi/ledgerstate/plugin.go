@@ -90,7 +90,8 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/branches/:branchID", GetBranch)
 	deps.Server.GET("ledgerstate/branches/:branchID/children", GetBranchChildren)
 	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
-	deps.Server.GET("ledgerstate/branches/:branchID/supporters", GetBranchSupporters)
+	deps.Server.GET("ledgerstate/branches/:branchID/voters", GetBranchVoters)
+	deps.Server.GET("ledgerstate/branches/:branchID/sequenceids", GetBranchSequenceIDs)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
@@ -289,18 +290,48 @@ func GetBranchConflicts(c echo.Context) (err error) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region GetBranchSupporters ///////////////////////////////////////////////////////////////////////////////////////////
+// region GetBranchVoters ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// GetBranchSupporters is the handler for the /ledgerstate/branches/:branchID/supporters endpoint.
-func GetBranchSupporters(c echo.Context) (err error) {
+// GetBranchVoters is the handler for the /ledgerstate/branches/:branchID/voters endpoint.
+func GetBranchVoters(c echo.Context) (err error) {
 	branchID, err := branchIDFromContext(c)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	supporters := deps.Tangle.ApprovalWeightManager.SupportersOfAggregatedBranch(branchID)
+	conflictBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
+	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchSupportersResponse(branchID, supporters))
+	voters := tangle.NewVoters()
+	for conflictBranchID := range conflictBranchIDs {
+		voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflictBranch(conflictBranchID))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchVotersResponse(branchID, voters))
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region GetBranchSequenceIDs /////////////////////////////////////////////////////////////////////////////////////////
+
+// GetBranchSequenceIDs is the handler for the /ledgerstate/branch/:branchID endpoint.
+func GetBranchSequenceIDs(c echo.Context) (err error) {
+	//branchID, err := branchIDFromContext(c)
+	//if err != nil {
+	//	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	//}
+	//
+	//sequenceIDs := make([]string, 0)
+	//deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
+	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
+	//		return true
+	//	})
+	//})
+
+	return c.JSON(http.StatusOK, "ok")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -416,7 +447,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	var messageIDs tangle.MessageIDs
+	var messageIDs tangle.MessageIDsSlice
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
 		messageIDs = append(messageIDs, attachment.MessageID())
 	}) {
@@ -437,10 +468,6 @@ func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err err
 	switch branchIDString := c.Param("branchID"); branchIDString {
 	case "MasterBranchID":
 		branchID = ledgerstate.MasterBranchID
-	case "LazyBookedConflictsBranchID":
-		branchID = ledgerstate.LazyBookedConflictsBranchID
-	case "InvalidBranchID":
-		branchID = ledgerstate.InvalidBranchID
 	default:
 		branchID, err = ledgerstate.BranchIDFromBase58(branchIDString)
 	}

@@ -112,14 +112,14 @@ if err != nil {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "shortNodeID": "4AeXyZ26e4G",
   "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
   "access": 26.5,
   "accessTimestamp": 1614924295,
   "consensus": 26.5,
-  "consensusTimestamp": 1614924295,
+  "consensusTimestamp": 1614924295
 }
 ```
 
@@ -176,7 +176,7 @@ for _, m := range manas.Consensus {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "access": [
       {
@@ -250,14 +250,14 @@ fmt.Println("consensus mana percentile: ", mana.Consensus, "consensus mana updat
 ```
 
 ### Response examples
-```shell
+```json
 {
   "shortNodeID": "4AeXyZ26e4G",
   "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
   "access": 75,
   "accessTimestamp": 1614924295,
   "consensus": 75,
-  "consensusTimestamp": 1614924295,
+  "consensusTimestamp": 1614924295
 }
 ```
 
@@ -305,16 +305,16 @@ for _, m := accessMana.Online {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "online": [
-      {
-        "rank": 1,
-        "shortNodeID": "4AeXyZ26e4G",
-        "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
-        "mana": 75
-      }
-  ],  
+    {
+      "rank": 1,
+      "shortNodeID": "4AeXyZ26e4G",
+      "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
+      "mana": 75
+    }
+  ],
   "timestamp": 1614924295
 }
 ```
@@ -367,7 +367,7 @@ for _, m := accessMana.Online {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "online": [
       {
@@ -435,7 +435,7 @@ for _, m := accessMana.Nodes {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "nodes": [
       {
@@ -500,7 +500,7 @@ for _, m := consensusMana.Nodes {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "nodes": [
       {
@@ -564,10 +564,10 @@ fmt.Println("the timestamp of the output (decay duration)", res.Timestamp)
 ```
 
 ### Response examples
-```shell
+```json
 {
   "mana": 26.5,
-  "outputID": "4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje4YFQg9bu5YGNMSJK1",  
+  "outputID": "4a5KkxVfsdFVbf1NBGeGTCjP8Ppsje4YFQg9bu5YGNMSJK1",
   "timestamp": 1614924295
 }
 ```
@@ -618,7 +618,7 @@ for _, m := range res.Consensus {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "consensus": [
       {
@@ -707,7 +707,7 @@ for nodeID, e := range res.Logs {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "logs": [
       "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5": {
@@ -808,7 +808,7 @@ for _, id := range res.Consensus.Allowed {
 ```
 
 ### Response examples
-```shell
+```json
 {
   "accessMana": {
       "isFilterEnabled": false,

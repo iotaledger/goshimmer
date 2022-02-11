@@ -465,7 +465,7 @@ It is problematic when incoming messages reference extremely old messages. If an
 
 ### Message timestamp vs transaction timestamp
 Transactions contain a timestamp that is signed by the user when creating the transaction. It is thus different from the timestamp in the message which is created and signed by the node. We require
-```
+```go
 transaction.timestamp+TW >= message.timestamp >= transaction.timestamp
 ```
 where `TW` defines the maximum allowed difference between both timestamps, currently set to `10min`.
@@ -477,7 +477,8 @@ Reattachments of a transaction are possible during the time window `TW`. Specifi
 
 ### Age of UTXO
 Inputs to a transaction (unspent outputs) inherit their spent time from the transaction timestamp. Similarly, unspent outputs inherit their creation time from the transaction timestamp as well. For a transaction to be considered valid we require
-```
+
+```go
 transaction.timestamp >= inputs.timestamp
 ```
 In other words, all inputs to a transaction need to have a smaller or equal timestamp than the transaction. In turn, all created unspent outputs will have a greater or equal timestamp than all inputs.

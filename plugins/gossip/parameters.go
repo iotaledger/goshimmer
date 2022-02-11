@@ -1,6 +1,8 @@
 package gossip
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/configuration"
 )
 
@@ -11,6 +13,19 @@ type ParametersDefinition struct {
 
 	// MissingMessageRequestRelayProbability defines the probability of missing message requests being relayed to other neighbors.
 	MissingMessageRequestRelayProbability float64 `default:"0.01" usage:"the probability of missing message requests being relayed to other neighbors"`
+
+	MessagesRateLimit        messagesLimitParameters
+	MessageRequestsRateLimit messageRequestsLimitParameters
+}
+
+type messagesLimitParameters struct {
+	Interval time.Duration `default:"1s" usage:"the time interval for which we count the messages rate"`
+	Limit    int           `default:"200" usage:"the base limit of messages per interval"`
+}
+
+type messageRequestsLimitParameters struct {
+	Interval time.Duration `default:"1s" usage:"the time interval for which we count the message requests rate"`
+	Limit    int           `default:"5000" usage:"the base limit of message requests per interval"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.

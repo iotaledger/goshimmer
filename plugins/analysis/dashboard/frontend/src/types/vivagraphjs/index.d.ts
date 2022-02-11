@@ -3,6 +3,11 @@ declare module "vivagraphjs" {
         export interface ILink {
             id: string;
         }
+
+        export interface INode {
+            id: string;
+        }
+
         export interface IGraph {
             getLink: (nodeA: string, nodeB: string) => ILink | undefined;
             addLink: (nodeA: string, nodeB: string) => void;
@@ -14,6 +19,7 @@ declare module "vivagraphjs" {
             beginUpdate: () => void;
             endUpdate: () => void;
             forEachLink: (callback: (link: ILink) => void) => void;
+            forEachNode: (callback: (node: INode) => void) => void;
         }
 
         export interface ILocation {
@@ -39,7 +45,7 @@ declare module "vivagraphjs" {
         function graph(): IGraph;
         function webgl(context: WebGLRenderingContextBase): IWebGL;
         function webglInputEvents(graphics: View.IWebGLGraphics, graph: IGraph): IEvents;
-
+        // TODO change events from webgl to svg
         export namespace View {
             export interface IItem {
 
@@ -57,18 +63,31 @@ declare module "vivagraphjs" {
                 setNodeProgram: (program: WebGLProgram) => void;
             }
 
+            export interface ISvgGraphics {
+                node: (callback: () => IItem) => void;
+                link: (callback: () => IItem) => void;
+                getNodeUI: (nodeId: string) => any | undefined;
+                getLinkUI: (linkId: string) => any | undefined;
+            }
+
             export interface IRenderer {
                 run: () => void;
                 dispose: () => void;
                 getLayout: () => Layout.ILayout;
                 rerender: () => void;
+                pause: () => void;
+                resume: () => void;
             }
+
             function webglGraphics(): IWebGLGraphics;
+
+            function svgGraphics(): ISvgGraphics;
+
             function webglLine(color: string): IItem;
 
             function renderer(graph: IGraph, options: {
                 container: HTMLElement | null;
-                graphics: IWebGLGraphics;
+                graphics: IWebGLGraphics | ISvgGraphics;
                 layout: Layout.ILayout;
                 renderLinks: boolean;
             }): IRenderer;

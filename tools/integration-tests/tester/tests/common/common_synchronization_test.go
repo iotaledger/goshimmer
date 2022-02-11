@@ -2,11 +2,13 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 	"time"
 
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -93,6 +95,42 @@ func TestCommonSynchronization(t *testing.T) {
 		func() bool { return tests.Synced(t, newPeer) },
 		tests.Timeout, tests.Tick,
 		"the peer %s did not sync again after restart", newPeer)
+}
+
+func TestFirewall(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		StartSynced: true,
+	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		if peerIndex == 0 {
+			cfg.Gossip.MessagesRateLimit.Limit = 50
+		}
+		return cfg
+	})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+	peer1, peer2 := n.Peers()[0], n.Peers()[1]
+	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got1)
+	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got2)
+
+	// Start spamming messages from peer2 to peer1.
+	for i := 0; i < 51; i++ {
+		tests.SendDataMessage(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
+		require.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool {
+		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
+		require.NoError(t, err)
+		return got1 != 0
+	}, tests.Timeout, tests.Tick)
+	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got2)
 }
 
 func createNewPeerConfig(t *testing.T) config.GoShimmer {

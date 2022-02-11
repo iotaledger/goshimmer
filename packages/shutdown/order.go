@@ -27,6 +27,8 @@ const (
 	PriorityAutopeering
 	// PriorityManualpeering defines the shutdown priority for manualpeering.
 	PriorityManualpeering
+	// PriorityFirewall defines the shutdown priority for firewall.
+	PriorityFirewall
 	// PriorityWebAPI defines the shutdown priority for webapi.
 	PriorityWebAPI
 	// PriorityDashboard defines the shutdown priority for dashboard.

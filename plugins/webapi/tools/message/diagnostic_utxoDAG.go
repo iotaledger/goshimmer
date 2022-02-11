@@ -46,7 +46,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
 
 	c.Response().Flush()
 }

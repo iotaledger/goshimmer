@@ -18,18 +18,6 @@ func DiagnosticBranchesHandler(c echo.Context) (err error) {
 	return
 }
 
-// DiagnosticLazyBookedBranchesHandler runs the diagnostic over the Tangle.
-func DiagnosticLazyBookedBranchesHandler(c echo.Context) (err error) {
-	runDiagnosticChildBranches(c, ledgerstate.LazyBookedConflictsBranchID)
-	return
-}
-
-// DiagnosticInvalidBranchesHandler runs the diagnostic over the Tangle.
-func DiagnosticInvalidBranchesHandler(c echo.Context) (err error) {
-	runDiagnosticChildBranches(c, ledgerstate.InvalidBranchID)
-	return
-}
-
 // region DiagnosticBranches code implementation /////////////////////////////////////////////////////////////////////////////////
 
 func runDiagnosticBranches(c echo.Context) {
@@ -45,10 +33,6 @@ func runDiagnosticBranches(c echo.Context) {
 	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
-			return
-		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
@@ -141,6 +125,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
 		fmt.Sprint(d.SolidTime.UnixNano()),
 		fmt.Sprint(d.LazyBooked),
+		fmt.Sprint(d.GradeOfFinality),
 	}
 
 	result = strings.Join(row, ",")

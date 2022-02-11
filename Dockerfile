@@ -109,6 +109,8 @@ EXPOSE 9311/tcp
 EXPOSE 8080/tcp
 # Dashboard
 EXPOSE 8081/tcp
+# DAGs Visualizer
+EXPOSE 8061/tcp
 
 # Copy configuration
 COPY --from=build /tmp/snapshot.bin /snapshot.bin
@@ -120,7 +122,7 @@ COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /run/goshimmer
 # We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0.
 FROM prepare-runtime as debugger-enabled-0
 
-ENTRYPOINT ["/run/goshimmer", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/goshimmer", "--config=/config.json"]
 
 # We execute this stage only if debugging is enabled, i.e REMOTE_DEBUGGIN==1.
 FROM prepare-runtime as debugger-enabled-1
@@ -128,7 +130,7 @@ EXPOSE 40000
 
 # Copy the Delve binary
 COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /run/dlv
-ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless=true" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json", "--messageLayer.snapshot.file=/snapshot.bin", "--database.directory=/tmp/mainnetdb"]
+ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless=true" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
 FROM debugger-enabled-${REMOTE_DEBUGGING} as runtime

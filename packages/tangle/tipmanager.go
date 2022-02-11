@@ -189,6 +189,7 @@ func (t *TipManager) AddTip(message *Message) {
 	t.removeStrongParents(message)
 }
 
+// checkApprovers returns true if the message has any confirmed or scheduled approver.
 func (t *TipManager) checkApprovers(messageID MessageID) bool {
 	approverScheduledConfirmed := false
 	t.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
@@ -196,36 +197,30 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 			return
 		}
 
-		msgConfirmed := t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
-		if !msgConfirmed {
-			var msgScheduled bool
+		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
+		if !approverScheduledConfirmed {
 			t.tangle.Storage.MessageMetadata(approver.approverMessageID).Consume(func(messageMetadata *MessageMetadata) {
-				msgScheduled = messageMetadata.Scheduled()
+				approverScheduledConfirmed = messageMetadata.Scheduled()
 			})
-			if msgScheduled {
-				approverScheduledConfirmed = true
-				return
-			}
-		} else {
-			approverScheduledConfirmed = true
-			return
 		}
 	})
 	return approverScheduledConfirmed
 }
 
 func (t *TipManager) removeStrongParents(message *Message) {
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) {
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.Events.TipRemoved.Trigger(&TipEvent{
 				MessageID: parentMessageID,
 			})
 		}
+
+		return true
 	})
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -256,7 +251,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDsSlice) {
 	parents = make([]MessageID, 0, MaxParentsCount)
 	parentsMap := make(map[MessageID]types.Empty)
 
@@ -328,13 +323,13 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() MessageIDs {
+func (t *TipManager) AllTips() MessageIDsSlice {
 	return retrieveAllTips(t.tips)
 }
 
-func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
+func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDsSlice {
 	mapKeys := tipsMap.Keys()
-	tips := make(MessageIDs, len(mapKeys))
+	tips := make(MessageIDsSlice, len(mapKeys))
 	for i, key := range mapKeys {
 		tips[i] = key.(MessageID)
 	}
