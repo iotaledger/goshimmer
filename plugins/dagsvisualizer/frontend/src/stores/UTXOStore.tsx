@@ -4,8 +4,14 @@ import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import 'styles/style.css';
-import { cytoscapeLib, drawTransaction, initUTXODAG } from 'graph/cytoscape';
-import { utxoVertex, utxoBooked, utxoConfirmed } from 'models/utxo';
+import {
+    cytoscapeLib,
+    drawTransaction,
+    initUTXODAG,
+    removeConfirmationStyle,
+    updateConfirmedTransaction
+} from 'graph/cytoscape';
+import { utxoBooked, utxoConfirmed, utxoVertex } from 'models/utxo';
 
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;
@@ -34,7 +40,7 @@ export class UTXOStore {
         registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
         registerHandler(
             WSMsgType.TransactionConfirmed,
-            this.setTXConfirmedTime
+            this.transactionConfirmed
         );
     }
 
@@ -106,6 +112,11 @@ export class UTXOStore {
         this.transactions.set(bookedTx.ID, tx);
     };
 
+    @action transactionConfirmed = (txConfirmed: utxoConfirmed) => {
+        this.setTXConfirmedTime(txConfirmed);
+        this.updateUTXO(txConfirmed);
+    };
+
     @action
     setTXConfirmedTime = (txConfirmed: utxoConfirmed) => {
         const tx = this.transactions.get(txConfirmed.ID);
@@ -124,6 +135,7 @@ export class UTXOStore {
         const tx = this.transactions.get(txID) || this.foundTxs.get(txID);
         if (!tx) return;
         this.selectedTx = tx;
+        removeConfirmationStyle(txID, this.graph.cy);
     };
 
     @action
@@ -132,7 +144,9 @@ export class UTXOStore {
         if (removePreSelectedNode && this.selectedTx) {
             this.graph.unselectVertex(this.selectedTx.ID);
         }
-
+        if (this.selectedTx) {
+            updateConfirmedTransaction(this.selectedTx, this.graph.cy);
+        }
         this.selectedTx = null;
     };
 
@@ -228,6 +242,7 @@ export class UTXOStore {
 
     drawVertex = (tx: utxoVertex) => {
         drawTransaction(tx, this.graph, this.outputMap);
+        updateConfirmedTransaction(tx, this.graph.cy);
         this.vertexChanges++;
     };
 
@@ -293,6 +308,13 @@ export class UTXOStore {
                 this.transactions.delete(id);
             }
         });
+    }
+
+    updateUTXO(txConfirmed: utxoConfirmed) {
+        const tx = this.transactions.get(txConfirmed.ID);
+        if (tx) {
+            updateConfirmedTransaction(tx, this.graph.cy);
+        }
     }
 
     start = () => {

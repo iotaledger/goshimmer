@@ -4,10 +4,11 @@ import { MAX_VERTICES } from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import {
-    applyConfirmedStyle,
     cytoscapeLib,
     drawBranch,
-    initBranchDAG
+    initBranchDAG,
+    removeConfirmationStyle,
+    updateConfirmedBranch
 } from 'graph/cytoscape';
 import {
     branchConfirmed,
@@ -57,7 +58,6 @@ export class BranchStore {
     @action
     addBranch = (branch: branchVertex) => {
         this.checkLimit();
-
         this.branchOrder.push(branch.ID);
 
         if (this.paused) {
@@ -111,7 +111,7 @@ export class BranchStore {
 
         b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
-        applyConfirmedStyle(confirmedBranch.ID, this.graph.cy);
+        updateConfirmedBranch(b, this.graph.cy);
     };
 
     @action
@@ -131,6 +131,7 @@ export class BranchStore {
             this.branches.get(branchID) || this.foundBranches.get(branchID);
         if (!b) return;
         this.selectedBranch = b;
+        removeConfirmationStyle(b.ID, this.graph.cy);
     };
 
     @action
@@ -139,7 +140,7 @@ export class BranchStore {
         if (removePreSelectedNode && this.selectedBranch) {
             this.graph.unselectVertex(this.selectedBranch.ID);
         }
-
+        updateConfirmedBranch(this.selectedBranch, this.graph.cy);
         this.selectedBranch = null;
     };
 
@@ -207,11 +208,11 @@ export class BranchStore {
 
     drawVertex = async (branch: branchVertex) => {
         if (!this.showAggregated && branch.type == 'AggregatedBranchType') {
-            console.log('skip');
             return;
         }
         this.vertexChanges++;
         await drawBranch(branch, this.graph, this.branches);
+        updateConfirmedBranch(branch, this.graph.cy);
     };
 
     removeVertex = (branchID: string) => {
@@ -225,6 +226,7 @@ export class BranchStore {
         this.clearSelected(true);
         this.graph.selectVertex(branchID);
         this.updateSelected(branchID);
+        removeConfirmationStyle(this.selectedBranch.ID, this.graph.cy);
     };
 
     centerBranch = (branchID: string) => {
