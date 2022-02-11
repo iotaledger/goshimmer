@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericset "github.com/iotaledger/hive.go/generics/set"
 	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
@@ -84,8 +85,8 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 	return
 }
 
-func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID ledgerstate.BranchID) (dislikedBranches set.Set) {
-	dislikedBranches = set.New()
+func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID ledgerstate.BranchID) (dislikedBranches genericset.Set[ledgerstate.BranchID]) {
+	dislikedBranches = genericset.New[ledgerstate.BranchID](set.New())
 	o.forEachConnectedConflictingBranchInDescendingOrder(currentBranchID, func(branchID ledgerstate.BranchID, weight float64) {
 		if dislikedBranches.Has(branchID) {
 			return

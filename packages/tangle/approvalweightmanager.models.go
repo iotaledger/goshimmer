@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -538,7 +539,7 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 type LatestMarkerVotes struct {
 	sequenceID        markers.SequenceID
 	voter             Voter
-	latestMarkerVotes *thresholdmap.ThresholdMap
+	latestMarkerVotes *genericthresholdmap.ThresholdMap[markers.Index, VotePower]
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
@@ -549,7 +550,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	newLatestMarkerVotes = &LatestMarkerVotes{
 		sequenceID:        sequenceID,
 		voter:             voter,
-		latestMarkerVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
+		latestMarkerVotes: genericthresholdmap.New[markers.Index, VotePower](thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)),
 	}
 
 	newLatestMarkerVotes.SetModified()
@@ -585,7 +586,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
 	}
 
-	latestMarkerVotes.latestMarkerVotes = thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	latestMarkerVotes.latestMarkerVotes = genericthresholdmap.New[markers.Index, VotePower](thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator))
 	for i := uint64(0); i < mapSize; i++ {
 		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if markerIndexErr != nil {
@@ -628,7 +629,7 @@ func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists 
 		return 0, exists
 	}
 
-	return key.(VotePower), exists
+	return key, exists
 }
 
 // Store stores the vote with the given marker Index and votePower.
@@ -638,12 +639,12 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 	defer l.Unlock()
 
 	if maxElement := l.latestMarkerVotes.MaxElement(); maxElement != nil {
-		previousHighestIndex = maxElement.Key().(markers.Index)
+		previousHighestIndex = maxElement.Key()
 	}
 
 	// abort if we already have a higher value on an Index that is larger or equal
 	_, ceilingValue, ceilingExists := l.latestMarkerVotes.Ceiling(index)
-	if ceilingExists && power < ceilingValue.(VotePower) {
+	if ceilingExists && power < ceilingValue {
 		return false, previousHighestIndex
 	}
 
@@ -652,7 +653,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 
 	// remove all predecessors that are lower than the newly set value
 	floorKey, floorValue, floorExists := l.latestMarkerVotes.Floor(index - 1)
-	for floorExists && floorValue.(VotePower) < power {
+	for floorExists && floorValue < power {
 		l.latestMarkerVotes.Delete(floorKey)
 
 		floorKey, floorValue, floorExists = l.latestMarkerVotes.Floor(index - 1)
@@ -667,8 +668,8 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
-	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		builder.AddField(stringify.StructField(node.Key().(markers.Index).String(), node.Value()))
+	l.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, VotePower]) bool {
+		builder.AddField(stringify.StructField(node.Key().String(), node.Value()))
 
 		return true
 	})
@@ -698,9 +699,9 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(l.latestMarkerVotes.Size()))
-	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		marshalUtil.Write(node.Key().(markers.Index))
-		marshalUtil.WriteUint64(node.Value().(uint64))
+	l.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, VotePower]) bool {
+		marshalUtil.Write(node.Key())
+		marshalUtil.WriteUint64(node.Value())
 
 		return true
 	})

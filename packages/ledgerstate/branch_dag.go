@@ -163,7 +163,7 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	result := make(BranchIDs)
 
 	// iterate through parameters and collect the conflict branches
-	seenBranches := set.New()
+	seenBranches := genericset.New[BranchID](set.New())
 	for branchID := range branchIDs {
 		// abort if branch was processed already
 		if !seenBranches.Add(branchID) {

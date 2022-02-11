@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
+	genericset "github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -694,7 +695,7 @@ func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transacti
 		stack.PushBack(outputID)
 	}
 
-	seenTransactions := set.New()
+	seenTransactions := genericset.New[TransactionID](set.New())
 	for stack.Len() > 0 {
 		firstElement := stack.Front()
 		stack.Remove(firstElement)

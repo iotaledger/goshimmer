@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -23,7 +24,7 @@ import (
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
 	sequenceID   markers.SequenceID
-	mapping      *thresholdmap.ThresholdMap
+	mapping      *genericthresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchID]
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -33,7 +34,7 @@ type MarkerIndexBranchIDMapping struct {
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
-		mapping:    thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator),
+		mapping:    genericthresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator)),
 	}
 
 	markerBranchMapping.SetModified()
@@ -67,7 +68,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator)
+	markerIndexBranchIDMapping.mapping = genericthresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator))
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
@@ -113,7 +114,7 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
 
-	return value.(ledgerstate.BranchID)
+	return value
 }
 
 // SetBranchID creates a mapping between the given marker Index and the given BranchID.
@@ -141,7 +142,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	defer m.mappingMutex.RUnlock()
 
 	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
-		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
+		return untypedIndex, untypedBranchID, true
 	}
 
 	return 0, ledgerstate.UndefinedBranchID, false
@@ -154,7 +155,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	defer m.mappingMutex.RUnlock()
 
 	if untypedIndex, untypedBranchID, exists := m.mapping.Ceiling(index); exists {
-		return untypedIndex.(markers.Index), untypedBranchID.(ledgerstate.BranchID), true
+		return untypedIndex, untypedBranchID, true
 	}
 
 	return 0, ledgerstate.UndefinedBranchID, false
@@ -172,10 +173,10 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchID)
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		index := node.Key().(markers.Index)
+	m.mapping.ForEach(func(node *genericthresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+		index := node.Key()
 		indexes = append(indexes, index)
-		branchIDs[index] = node.Value().(ledgerstate.BranchID)
+		branchIDs[index] = node.Value()
 
 		return true
 	})
@@ -224,9 +225,9 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		marshalUtil.Write(node.Key().(markers.Index))
-		marshalUtil.Write(node.Value().(ledgerstate.BranchID))
+	m.mapping.ForEach(func(node *genericthresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+		marshalUtil.Write(node.Key())
+		marshalUtil.Write(node.Value())
 
 		return true
 	})
