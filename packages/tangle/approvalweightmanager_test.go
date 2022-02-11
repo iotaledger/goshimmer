@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -855,9 +855,9 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		index := node.Key().(markers.Index)
-		seq := node.Value().(uint64)
+	votes.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, uint64]) bool {
+		index := node.Key()
+		seq := node.Value()
 
 		_, exists := expectedVotes[index]
 		assert.Truef(t, exists, "%s:%d does not exist in latestMarkerVotes", index, seq)
