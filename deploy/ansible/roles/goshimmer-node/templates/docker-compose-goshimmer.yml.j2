@@ -22,6 +22,8 @@ services:
     {% if debugPorts|default(false) %}
       # Dashboard
       - "0.0.0.0:8081:8081/tcp"
+      # DAGs Visualizer
+      - "0.0.0.0:8061:8061/tcp"
       # pprof profiling
       - "0.0.0.0:6061:6061/tcp"
     {% else %}
