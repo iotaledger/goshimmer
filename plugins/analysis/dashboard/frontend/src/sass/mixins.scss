@@ -4,12 +4,12 @@ $rem-base-font: 16px !default;
   font-size: $font-size;
 
   // sass-lint:disable no-duplicate-properties
-  font-size: $font-size / $rem-base-font * 1rem;
+  font-size: calc($font-size / $rem-base-font) * 1rem;
 
   @if $line-height > 0 {
     line-height: $line-height;
 
     // sass-lint:disable no-duplicate-properties
-    line-height: $line-height / $rem-base-font * 1rem;
+    line-height: calc($line-height / $rem-base-font) * 1rem;
   }
 }
