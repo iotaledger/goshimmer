@@ -21,6 +21,7 @@ export class BranchStore {
     @observable paused = false;
     @observable search = '';
     branchOrder: Array<any> = [];
+    highlightedBranches = [];
     draw = true;
 
     vertexChanges = 0;
@@ -207,6 +208,22 @@ export class BranchStore {
         this.vertexChanges++;
         this.graph.removeVertex(branchID);
         this.branches.delete(branchID);
+    };
+
+    highlightBranches = (branchIDs: string[]) => {
+        this.clearHighlightedBranches();
+
+        // update highlighted branches
+        this.highlightedBranches = branchIDs;
+        branchIDs.forEach((id) => {
+            this.graph.selectVertex(id);
+        });
+    };
+
+    clearHighlightedBranches = () => {
+        this.highlightedBranches.forEach((id) => {
+            this.graph.unselectVertex(id);
+        });
     };
 
     selectBranch = (branchID: string) => {
