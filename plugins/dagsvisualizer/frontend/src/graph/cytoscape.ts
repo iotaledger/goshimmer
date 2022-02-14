@@ -230,16 +230,16 @@ function drawBranchesUpToMaster(
     }
 }
 
-export function updateConfirmedTransaction(tx: utxoVertex, cy: any) {
-    const node = cy.getElementById(tx.ID);
+export function updateConfirmedTransaction(tx: utxoVertex, graph: any) {
+    const node = graph.cy.getElementById(tx.ID);
     if (!node) return;
     if (tx.isConfirmed) {
         node.addClass('confirmed');
     }
 }
 
-export function updateConfirmedBranch(branch: branchVertex, cy: any): void {
-    const node = cy.getElementById(branch.ID);
+export function updateConfirmedBranch(branch: branchVertex, graph: any): void {
+    const node = graph.cy.getElementById(branch.ID);
     if (!node) return;
     if (branch.isConfirmed) {
         node.addClass('confirmed');
@@ -247,8 +247,8 @@ export function updateConfirmedBranch(branch: branchVertex, cy: any): void {
     }
 }
 
-export function removeConfirmationStyle(id: string, cy: any): void {
-    const node = cy.getElementById(id);
+export function removeConfirmationStyle(id: string, graph: any): void {
+    const node = graph.cy.getElementById(id);
     if (!node) return;
     node.removeClass('confirmed');
 }

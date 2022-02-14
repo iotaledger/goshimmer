@@ -135,7 +135,7 @@ export class UTXOStore {
         const tx = this.transactions.get(txID) || this.foundTxs.get(txID);
         if (!tx) return;
         this.selectedTx = tx;
-        removeConfirmationStyle(txID, this.graph.cy);
+        removeConfirmationStyle(txID, this.graph);
     };
 
     @action
@@ -145,7 +145,7 @@ export class UTXOStore {
             this.graph.unselectVertex(this.selectedTx.ID);
         }
         if (this.selectedTx) {
-            updateConfirmedTransaction(this.selectedTx, this.graph.cy);
+            updateConfirmedTransaction(this.selectedTx, this.graph);
         }
         this.selectedTx = null;
     };
@@ -242,7 +242,7 @@ export class UTXOStore {
 
     drawVertex = (tx: utxoVertex) => {
         drawTransaction(tx, this.graph, this.outputMap);
-        updateConfirmedTransaction(tx, this.graph.cy);
+        updateConfirmedTransaction(tx, this.graph);
         this.vertexChanges++;
     };
 
@@ -313,7 +313,7 @@ export class UTXOStore {
     updateUTXO(txConfirmed: utxoConfirmed) {
         const tx = this.transactions.get(txConfirmed.ID);
         if (tx) {
-            updateConfirmedTransaction(tx, this.graph.cy);
+            updateConfirmedTransaction(tx, this.graph);
         }
     }
 

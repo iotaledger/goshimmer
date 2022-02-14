@@ -111,7 +111,7 @@ export class BranchStore {
 
         b.isConfirmed = true;
         this.branches.set(confirmedBranch.ID, b);
-        updateConfirmedBranch(b, this.graph.cy);
+        updateConfirmedBranch(b, this.graph);
     };
 
     @action
@@ -131,7 +131,7 @@ export class BranchStore {
             this.branches.get(branchID) || this.foundBranches.get(branchID);
         if (!b) return;
         this.selectedBranch = b;
-        removeConfirmationStyle(b.ID, this.graph.cy);
+        removeConfirmationStyle(b.ID, this.graph);
     };
 
     @action
@@ -140,7 +140,7 @@ export class BranchStore {
         if (removePreSelectedNode && this.selectedBranch) {
             this.graph.unselectVertex(this.selectedBranch.ID);
         }
-        updateConfirmedBranch(this.selectedBranch, this.graph.cy);
+        updateConfirmedBranch(this.selectedBranch, this.graph);
         this.selectedBranch = null;
     };
 
@@ -212,7 +212,7 @@ export class BranchStore {
         }
         this.vertexChanges++;
         await drawBranch(branch, this.graph, this.branches);
-        updateConfirmedBranch(branch, this.graph.cy);
+        updateConfirmedBranch(branch, this.graph);
     };
 
     removeVertex = (branchID: string) => {
@@ -226,7 +226,7 @@ export class BranchStore {
         this.clearSelected(true);
         this.graph.selectVertex(branchID);
         this.updateSelected(branchID);
-        removeConfirmationStyle(this.selectedBranch.ID, this.graph.cy);
+        removeConfirmationStyle(this.selectedBranch.ID, this.graph);
     };
 
     centerBranch = (branchID: string) => {
