@@ -230,7 +230,10 @@ function drawBranchesUpToMaster(
     }
 }
 
-export function updateConfirmedTransaction(tx: utxoVertex, graph: any) {
+export function updateConfirmedTransaction(
+    tx: utxoVertex,
+    graph: cytoscapeLib
+) {
     const node = graph.cy.getElementById(tx.ID);
     if (!node) return;
     if (tx.isConfirmed) {
@@ -238,16 +241,18 @@ export function updateConfirmedTransaction(tx: utxoVertex, graph: any) {
     }
 }
 
-export function updateConfirmedBranch(branch: branchVertex, graph: any): void {
+export function updateConfirmedBranch(
+    branch: branchVertex,
+    graph: cytoscapeLib
+): void {
     const node = graph.cy.getElementById(branch.ID);
     if (!node) return;
     if (branch.isConfirmed) {
         node.addClass('confirmed');
-        console.log('add confirmed');
     }
 }
 
-export function removeConfirmationStyle(id: string, graph: any): void {
+export function removeConfirmationStyle(id: string, graph: cytoscapeLib): void {
     const node = graph.cy.getElementById(id);
     if (!node) return;
     node.removeClass('confirmed');
