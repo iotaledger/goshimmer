@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 
@@ -66,7 +67,10 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 		ConfirmedTimestamp: clock.SyncedTime(),
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
-
+	deps.Tangle.Storage.Message(oldestAttachmentMessageID).Consume(func(message *tangle.Message) {
+		issuerID := identity.NewID(message.IssuerPublicKey())
+		record.IssuerID = issuerID.String()
+	})
 	_ = deps.RemoteLogger.Send(record)
 	sendBranchMetrics()
 }

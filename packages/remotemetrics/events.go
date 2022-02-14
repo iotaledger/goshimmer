@@ -45,6 +45,7 @@ type SyncStatusChangedEvent struct {
 type MessageFinalizedMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
+	IssuerID           string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID          string    `json:"messageID" bson:"messageID"`
 	TransactionID      string    `json:"transactionID,omitempty" bson:"transactionID"`
@@ -66,6 +67,7 @@ type MessageFinalizedMetrics struct {
 type MessageScheduledMetrics struct {
 	Type          string `json:"type" bson:"type"`
 	NodeID        string `json:"nodeID" bson:"nodeID"`
+	IssuerID      string `json:"issuerID" bson:"issuerID"`
 	MetricsLevel  uint8  `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID     string `json:"messageID" bson:"messageID"`
 	TransactionID string `json:"transactionID,omitempty" bson:"transactionID"`
@@ -110,6 +112,7 @@ type MissingMessageMetrics struct {
 type BranchConfirmationMetrics struct {
 	Type               string    `json:"type" bson:"type"`
 	NodeID             string    `json:"nodeID" bson:"nodeID"`
+	IssuerID           string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel       uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID          string    `json:"messageID" bson:"messageID"`
 	BranchID           string    `json:"transactionID" bson:"transactionID"`
