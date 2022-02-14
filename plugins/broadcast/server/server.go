@@ -148,7 +148,7 @@ func removeInactiveConnections() {
 	idx := int(index.Load())
 	if idx >= indexThreshold {
 		newIndex := 0
-		var newConnectionList = [256]connection{}
+		newConnectionList := [256]connection{}
 		for i := 0; i < idx; i++ {
 			if connectionList[i].active {
 				newConnectionList[newIndex] = connectionList[i]

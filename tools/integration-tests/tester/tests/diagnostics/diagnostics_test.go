@@ -82,20 +82,6 @@ func TestDiagnosticApis(t *testing.T) {
 	require.NoError(t, err, "error while reading tools/diagnostic/branches csv")
 	require.Equal(t, branchesHeader, records[0], "unexpected branches header")
 
-	fmt.Println("run tools/diagnostic/branches/lazybooked")
-	lazyBookedBranches, err := peers[0].GoShimmerAPI.GetDiagnosticsLazyBookedBranches()
-	require.NoError(t, err, "error while running tools/diagnostic/branches/lazybooked api call")
-	records, err = lazyBookedBranches.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/branches/lazybooked csv")
-	require.Equal(t, branchesHeader, records[0], "unexpected tips header")
-
-	fmt.Println("run tools/diagnostic/branches/invalid")
-	invalidBranches, err := peers[0].GoShimmerAPI.GetDiagnosticsInvalidBranches()
-	require.NoError(t, err, "error while running tools/diagnostic/branches/invalid api call")
-	records, err = invalidBranches.ReadAll()
-	require.NoError(t, err, "error while reading tools/diagnostic/branches/invalid csv")
-	require.Equal(t, branchesHeader, records[0], "unexpected tips header")
-
 	fmt.Println("run tools/diagnostic/utxodag")
 	dag, err := peers[0].GoShimmerAPI.GetDiagnosticsUtxoDag()
 	require.NoError(t, err, "error while running tools/diagnostic/utxodag api call")

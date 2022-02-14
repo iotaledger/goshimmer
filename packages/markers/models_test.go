@@ -14,10 +14,10 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, Index(1), marker.Index())
 
 	marshaledMarker := marker.Bytes()
-	unmarshaledMarker, consumedBytes, err := MarkerFromBytes(marshaledMarker)
+	unmarshalledMarker, consumedBytes, err := MarkerFromBytes(marshaledMarker)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledMarker), consumedBytes)
-	assert.Equal(t, marker, unmarshaledMarker)
+	assert.Equal(t, marker, unmarshalledMarker)
 }
 
 func TestMarkers(t *testing.T) {
@@ -28,10 +28,10 @@ func TestMarkers(t *testing.T) {
 	)
 
 	marshaledMarkers := markers.Bytes()
-	unmarshaledMarkers, consumedBytes, err := FromBytes(marshaledMarkers)
+	unmarshalledMarkers, consumedBytes, err := FromBytes(marshaledMarkers)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledMarkers), consumedBytes)
-	assert.Equal(t, markers, unmarshaledMarkers)
+	assert.Equal(t, markers, unmarshalledMarkers)
 	assert.Equal(t, Index(3), markers.HighestIndex())
 	assert.Equal(t, Index(1), markers.LowestIndex())
 
@@ -124,7 +124,7 @@ func TestReferencedMarkers(t *testing.T) {
 	), referencedMarkers.Get(12))
 
 	marshaledReferencedMarkers := referencedMarkers.Bytes()
-	unmarshaledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
+	unmarshalledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
 
@@ -132,27 +132,25 @@ func TestReferencedMarkers(t *testing.T) {
 		&Marker{1, 3},
 		&Marker{2, 7},
 		&Marker{4, 9},
-	), unmarshaledReferencedMarkers.Get(8))
+	), unmarshalledReferencedMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
 		&Marker{4, 9},
-	), unmarshaledReferencedMarkers.Get(10))
+	), unmarshalledReferencedMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 8},
 		&Marker{4, 9},
-	), unmarshaledReferencedMarkers.Get(11))
+	), unmarshalledReferencedMarkers.Get(11))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 		&Marker{4, 9},
-	), unmarshaledReferencedMarkers.Get(12))
-
-	fmt.Println(unmarshaledReferencedMarkers)
+	), unmarshalledReferencedMarkers.Get(12))
 }
 
 func TestReferencedMarkersPanic(t *testing.T) {
@@ -202,7 +200,7 @@ func TestReferencingMarkers(t *testing.T) {
 	assert.Equal(t, NewMarkers(), referencingMarkers.Get(13))
 
 	marshaledReferencingMarkers := referencingMarkers.Bytes()
-	unmarshaledReferencingMarkers, consumedBytes, err := ReferencingMarkersFromBytes(marshaledReferencingMarkers)
+	unmarshalledReferencingMarkers, consumedBytes, err := ReferencingMarkersFromBytes(marshaledReferencingMarkers)
 	require.NoError(t, err)
 	assert.Equal(t, len(marshaledReferencingMarkers), consumedBytes)
 
@@ -210,26 +208,43 @@ func TestReferencingMarkers(t *testing.T) {
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledReferencingMarkers.Get(8))
+	), unmarshalledReferencingMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 5},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledReferencingMarkers.Get(9))
+	), unmarshalledReferencingMarkers.Get(9))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
 		&Marker{3, 4},
-	), unmarshaledReferencingMarkers.Get(10))
+	), unmarshalledReferencingMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
 		&Marker{1, 7},
 		&Marker{2, 10},
-	), unmarshaledReferencingMarkers.Get(12))
+	), unmarshalledReferencingMarkers.Get(12))
 
-	assert.Equal(t, NewMarkers(), unmarshaledReferencingMarkers.Get(13))
+	assert.Equal(t, NewMarkers(), unmarshalledReferencingMarkers.Get(13))
 
-	fmt.Println(unmarshaledReferencingMarkers)
+	fmt.Println(unmarshalledReferencingMarkers)
+}
+
+func TestSequence(t *testing.T) {
+	sequence := NewSequence(1337, NewMarkers(
+		&Marker{1, 3},
+		&Marker{2, 6},
+	))
+
+	assert.Equal(t, SequenceID(1337), sequence.ID())
+	assert.Equal(t, Index(7), sequence.HighestIndex())
+
+	marshaledSequence := sequence.Bytes()
+	unmarshalledSequence, consumedBytes, err := SequenceFromBytes(marshaledSequence)
+	require.NoError(t, err)
+	assert.Equal(t, len(marshaledSequence), consumedBytes)
+	assert.Equal(t, sequence.ID(), unmarshalledSequence.ID())
+	assert.Equal(t, sequence.HighestIndex(), unmarshalledSequence.HighestIndex())
 }

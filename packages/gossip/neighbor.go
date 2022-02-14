@@ -98,7 +98,7 @@ func (n *Neighbor) readLoop() {
 			packet := &pb.Packet{}
 			err := n.ps.readPacket(packet)
 			if err != nil {
-				if isAlreadyClosedError(err) {
+				if isPermanentError(err) {
 					if disconnectErr := n.disconnect(); disconnectErr != nil {
 						n.log.Warnw("Failed to disconnect", "err", disconnectErr)
 					}
@@ -132,7 +132,7 @@ func (n *Neighbor) disconnect() (err error) {
 	return err
 }
 
-func isAlreadyClosedError(err error) bool {
+func isPermanentError(err error) bool {
 	return strings.Contains(err.Error(), "use of closed network connection") ||
 		errors.Is(err, io.ErrClosedPipe) || errors.Is(err, mux.ErrReset) || errors.Is(err, yamux.ErrStreamClosed) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)

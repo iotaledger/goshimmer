@@ -21,7 +21,7 @@ const (
 	pathConflicts      = "/conflicts"
 	pathConsumers      = "/consumers"
 	pathMetadata       = "/metadata"
-	pathSupporters     = "/supporters"
+	pathVoters         = "/voters"
 	pathAttachments    = "/attachments"
 )
 
@@ -91,11 +91,11 @@ func (api *GoShimmerAPI) GetBranchConflicts(base58EncodedBranchID string) (*json
 	return res, nil
 }
 
-// GetBranchSupporters gets the supporters of a branch.
-func (api *GoShimmerAPI) GetBranchSupporters(base58EncodedBranchID string) (*jsonmodels.GetBranchSupportersResponse, error) {
-	res := &jsonmodels.GetBranchSupportersResponse{}
+// GetBranchVoters gets the Voters of a branch.
+func (api *GoShimmerAPI) GetBranchVoters(base58EncodedBranchID string) (*jsonmodels.GetBranchVotersResponse, error) {
+	res := &jsonmodels.GetBranchVotersResponse{}
 	if err := api.do(http.MethodGet, func() string {
-		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathSupporters}, "")
+		return strings.Join([]string{routeGetBranches, base58EncodedBranchID, pathVoters}, "")
 	}(), nil, res); err != nil {
 		return nil, err
 	}

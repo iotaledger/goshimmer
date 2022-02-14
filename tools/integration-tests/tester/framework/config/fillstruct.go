@@ -11,7 +11,6 @@ import (
 // fillStructFromDefaultTag recursively explores the given struct pointer and sets values of fields to the `default` as
 // specified in the struct tags.
 func fillStructFromDefaultTag(val reflect.Value) {
-
 	for i := 0; i < val.NumField(); i++ {
 		valueField := val.Field(i)
 		typeField := val.Type().Field(i)

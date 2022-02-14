@@ -60,7 +60,7 @@ func TestCManaWeightProvider(t *testing.T) {
 	// Add node1 as active in the genesis.
 	{
 		weightProvider.Update(tangleTime, nodes["1"])
-		assertWeightsOfRelevantSupporters(t, weightProvider, nodes, map[string]float64{
+		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 		})
 	}
@@ -69,7 +69,7 @@ func TestCManaWeightProvider(t *testing.T) {
 	{
 		weightProvider.Update(tangleTime.Add(20*time.Minute), nodes["2"])
 		weightProvider.Update(tangleTime.Add(20*time.Minute), nodes["3"])
-		assertWeightsOfRelevantSupporters(t, weightProvider, nodes, map[string]float64{
+		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 		})
 	}
@@ -77,7 +77,7 @@ func TestCManaWeightProvider(t *testing.T) {
 	// Advance TangleTime by 25min -> all nodes are active.
 	{
 		tangleTime = tangleTime.Add(25 * time.Minute)
-		assertWeightsOfRelevantSupporters(t, weightProvider, nodes, map[string]float64{
+		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"1": 20,
 			"2": 50,
 			"3": 30,
@@ -87,7 +87,7 @@ func TestCManaWeightProvider(t *testing.T) {
 	// Advance TangleTime by 10min -> node1 and node2 are active.
 	{
 		tangleTime = tangleTime.Add(25 * time.Minute)
-		assertWeightsOfRelevantSupporters(t, weightProvider, nodes, map[string]float64{
+		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{
 			"2": 50,
 			"3": 30,
 		})
@@ -96,11 +96,11 @@ func TestCManaWeightProvider(t *testing.T) {
 	// Advance tangleTime by 25min -> no node is active anymore.
 	{
 		tangleTime = tangleTime.Add(25 * time.Minute)
-		assertWeightsOfRelevantSupporters(t, weightProvider, nodes, map[string]float64{})
+		assertWeightsOfRelevantVoters(t, weightProvider, nodes, map[string]float64{})
 	}
 }
 
-func assertWeightsOfRelevantSupporters(t *testing.T, weightProvider WeightProvider, nodes map[string]identity.ID, expectedAlias map[string]float64) {
+func assertWeightsOfRelevantVoters(t *testing.T, weightProvider WeightProvider, nodes map[string]identity.ID, expectedAlias map[string]float64) {
 	expected := make(map[identity.ID]float64)
 	var expectedTotalWeight float64
 
@@ -109,7 +109,7 @@ func assertWeightsOfRelevantSupporters(t *testing.T, weightProvider WeightProvid
 		expectedTotalWeight += weight
 	}
 
-	weights, totalWeight := weightProvider.WeightsOfRelevantSupporters()
+	weights, totalWeight := weightProvider.WeightsOfRelevantVoters()
 	assert.EqualValues(t, expected, weights)
 	assert.Equal(t, expectedTotalWeight, totalWeight)
 }

@@ -60,6 +60,7 @@ type ConfirmationOracle interface {
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
 }
 
@@ -91,7 +92,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Dispatcher = NewDispatcher(tangle)
 
@@ -107,6 +108,7 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -123,6 +125,7 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	t.Dispatcher.Setup()
 	t.Booker.Setup()
+	t.LedgerState.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -242,6 +245,7 @@ type Options struct {
 	SyncTimeWindow               time.Duration
 	StartSynced                  bool
 	CacheTimeProvider            *database.CacheTimeProvider
+	LedgerState                  struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -331,6 +335,13 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
+// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
+func MergeBranches(mergeBranches bool) Option {
+	return func(o *Options) {
+		o.LedgerState.MergeBranches = mergeBranches
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -344,8 +355,8 @@ type WeightProvider interface {
 	// Weight returns the weight and total weight for the given message.
 	Weight(message *Message) (weight, totalWeight float64)
 
-	// WeightsOfRelevantSupporters returns all relevant weights.
-	WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64)
+	// WeightsOfRelevantVoters returns all relevant weights.
+	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()

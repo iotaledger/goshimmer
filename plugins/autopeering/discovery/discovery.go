@@ -22,10 +22,8 @@ const (
 	entryNodeParts = 2
 )
 
-var (
-	// ErrParsingEntryNode is returned for an invalid entry node.
-	ErrParsingEntryNode = errors.New("cannot parse entry node")
-)
+// ErrParsingEntryNode is returned for an invalid entry node.
+var ErrParsingEntryNode = errors.New("cannot parse entry node")
 
 // CreatePeerDisc creates a discover protocol instance.
 func CreatePeerDisc(localID *peer.Local) *discover.Protocol {

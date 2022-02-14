@@ -46,7 +46,7 @@ func (s *Solidifier) Setup() {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
+	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDsSlice{messageID}, true)
 }
 
 // RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
@@ -72,7 +72,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 	}
 
 	if !s.areParentMessagesValid(message) {
-		if !messageMetadata.SetInvalid(true) {
+		if !messageMetadata.SetObjectivelyInvalid(true) {
 			return
 		}
 		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
@@ -168,7 +168,7 @@ func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessag
 	})
 
 	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = valid && !messageMetadata.IsInvalid()
+		valid = valid && !messageMetadata.IsObjectivelyInvalid()
 	})
 
 	return

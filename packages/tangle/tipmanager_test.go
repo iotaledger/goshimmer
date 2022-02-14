@@ -291,7 +291,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["G1"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["G1"])
 		// make sure that message is too old and cannot be directly referenced
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
-		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, issueTime)
+		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+		}, issueTime)
 
 		storeAndBookMessage(t, tangle, messages["1"])
 
@@ -307,7 +309,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
 
 		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
-		messages["2"] = newTestParentsPayloadMessage(transactions["2"], []MessageID{EmptyMessageID}, []MessageID{}, nil, nil)
+		messages["2"] = newTestParentsPayloadMessage(transactions["2"], ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["2"])
 
@@ -324,7 +328,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
 
 		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
-		messages["3"] = newTestParentsPayloadMessage(transactions["3"], []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
+		messages["3"] = newTestParentsPayloadMessage(transactions["3"], ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["3"])
 
@@ -356,7 +362,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			outputsByID,
 			walletsByAddress,
 		)
-		messages["4"] = newTestParentsPayloadMessage(transactions["4"], []MessageID{messages["2"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
+		messages["4"] = newTestParentsPayloadMessage(transactions["4"], ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{messages["2"].ID(), EmptyMessageID}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["4"])
 
@@ -366,7 +374,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 5
 	{
-		messages["5"] = newTestParentsDataMessage("data", []MessageID{messages["1"].ID(), EmptyMessageID}, []MessageID{}, nil, nil)
+		messages["5"] = newTestParentsDataMessage("data", ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["5"])
 
@@ -380,7 +390,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
 
 		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
-		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], strongParents, []MessageID{}, nil, nil)
+		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], ParentMessageIDs{
+			StrongParentType: MessageIDsSlice(strongParents).ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages[messageStringID])
 	}
@@ -450,7 +462,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 15
 	{
-		messages["15"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID()}, []MessageID{}, nil, nil)
+		messages["15"] = newTestParentsDataMessage("data", ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID()}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["15"])
 
@@ -460,7 +474,9 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 16
 	{
-		messages["16"] = newTestParentsDataMessage("data", []MessageID{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}, []MessageID{}, nil, nil)
+		messages["16"] = newTestParentsDataMessage("data", ParentMessageIDs{
+			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}.ToMessageIDs(),
+		})
 
 		storeAndBookMessage(t, tangle, messages["16"])
 
@@ -641,19 +657,18 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
-		messageBranchID, err := tangle.Booker.MessageBranchID(message.ID())
+		messageBranchIDs, err := tangle.Booker.MessageBranchIDs(message.ID())
 		assert.NoError(t, err)
-		require.Equal(t, ledgerstate.MasterBranchID, messageBranchID)
+		require.Equal(t, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), messageBranchIDs)
 	})
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", strongParents, weakParents, nil, nil)
-	tangle.Storage.StoreMessage(message)
-
-	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		messageMetadata.SetBranchID(ledgerstate.MasterBranchID)
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
+	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
+		StrongParentType: strongParents.ToMessageIDs(),
+		WeakParentType:   weakParents.ToMessageIDs(),
 	})
+	tangle.Storage.StoreMessage(message)
 
 	return
 }
