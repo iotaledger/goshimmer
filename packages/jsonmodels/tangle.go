@@ -34,11 +34,14 @@ type MessageMetadata struct {
 	SolidificationTime  int64               `json:"solidificationTime"`
 	StructureDetails    *StructureDetails   `json:"structureDetails,omitempty"`
 	BranchID            string              `json:"branchID"`
+	AddedBranchIDs      string              `json:"addedBranchIDs"`
+	SubtractedBranchIDs string              `json:"subtractedBranchIDs"`
 	Scheduled           bool                `json:"scheduled"`
 	ScheduledTime       int64               `json:"scheduledTime"`
 	Booked              bool                `json:"booked"`
 	BookedTime          int64               `json:"bookedTime"`
-	Invalid             bool                `json:"invalid"`
+	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }

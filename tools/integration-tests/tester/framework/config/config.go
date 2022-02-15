@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/activity"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
+	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
@@ -50,6 +51,7 @@ type GoShimmer struct {
 	DRNG
 	Prometheus
 	Profiling
+	Dashboard
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -151,6 +153,13 @@ type Profiling struct {
 	Enabled bool
 
 	profiling.ParametersDefinition
+}
+
+// Dashboard defines the parameters of the Dashboard plugin.
+type Dashboard struct {
+	Enabled bool
+
+	dashboard.ParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

@@ -60,9 +60,24 @@ export class MessageInfo extends React.Component<Props, any> {
                                     </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    Liked Parents:
+                                    ShallowLike Parents:
                                     <ListGroup>
-                                        {selectedMsg.likedParentIDs.map(
+                                        {selectedMsg.shallowLikeParentIDs.map(
+                                            (p, i) => (
+                                                <ListGroup.Item key={i}>
+                                                    <LinkToDashboard
+                                                        route={`explorer/message/${p}`}
+                                                        title={p}
+                                                    />
+                                                </ListGroup.Item>
+                                            )
+                                        )}
+                                    </ListGroup>
+                                </ListGroup.Item>
+                                <ListGroup.Item>
+                                    ShallowDislike Parents:
+                                    <ListGroup>
+                                        {selectedMsg.shallowDislikeParentIDs.map(
                                             (p, i) => (
                                                 <ListGroup.Item key={i}>
                                                     <LinkToDashboard
@@ -84,13 +99,21 @@ export class MessageInfo extends React.Component<Props, any> {
                                     </ListGroup.Item>
                                 )}
                                 <ListGroup.Item>
-                                    Branch:{' '}
-                                    <LinkToDashboard
-                                        route={`explorer/branch/${selectedMsg.branchID}`}
-                                        title={resolveBase58BranchID(
-                                            selectedMsg.branchID
+                                    BranchIDs:{' '}
+                                    <ListGroup>
+                                        {selectedMsg.branchIDs.map(
+                                            (b, i) => (
+                                                <ListGroup.Item key={i}>
+                                                    <LinkToDashboard
+                                                        route={`explorer/branch/${b}`}
+                                                        title={resolveBase58BranchID(
+                                                            b
+                                                        )}
+                                                    />
+                                                </ListGroup.Item>
+                                            )
                                         )}
-                                    />
+                                    </ListGroup>
                                 </ListGroup.Item>
                                 <ListGroup.Item>
                                     isMarker: {selectedMsg.isMarker.toString()}
@@ -99,7 +122,7 @@ export class MessageInfo extends React.Component<Props, any> {
                                     GoF: {selectedMsg.gof}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    Confrimed:{' '}
+                                    Confirmed:{' '}
                                     {selectedMsg.isConfirmed.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>

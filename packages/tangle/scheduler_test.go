@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
@@ -85,6 +87,8 @@ func TestScheduler_Discarded(t *testing.T) {
 	t.Skip("Skip test. Zero mana nodes are allowed to issue messages.")
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
+
+	noAManaNode := identity.GenerateIdentity()
 
 	messageDiscarded := make(chan MessageID, 1)
 	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
@@ -401,7 +405,7 @@ func TestSchedulerFlow(t *testing.T) {
 
 	msgC.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 
 	msgC.issuingTime = time.Now().Add(5 * time.Second)
@@ -410,14 +414,14 @@ func TestSchedulerFlow(t *testing.T) {
 	msgD := newMessage(peerNode.PublicKey())
 	msgD.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
 	msgE.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDs{messages["A"].ID(), messages["B"].ID()},
+		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
 	}
 	msgE.issuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
@@ -522,10 +526,7 @@ func BenchmarkScheduler(b *testing.B) {
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	message, _ := NewMessage(
-		[]MessageID{EmptyMessageID},
-		[]MessageID{},
-		[]MessageID{},
-		[]MessageID{},
+		emptyLikeReferencesFromStrongParents(MessageIDsSlice{EmptyMessageID}),
 		time.Now(),
 		issuerPublicKey,
 		0,
@@ -538,10 +539,11 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 
 func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Message {
 	message, _ := NewMessage(
-		[]MessageID{EmptyMessageID},
-		[]MessageID{},
-		[]MessageID{},
-		[]MessageID{},
+		ParentMessageIDs{
+			StrongParentType: {
+				EmptyMessageID: types.Void,
+			},
+		},
 		timestamp,
 		issuerPublicKey,
 		0,

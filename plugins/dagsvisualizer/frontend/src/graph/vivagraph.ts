@@ -215,7 +215,8 @@ export function drawMessage(
     };
     drawVertexParentReference(parentRefType.StrongRef, msg.strongParentIDs);
     drawVertexParentReference(parentRefType.WeakRef, msg.weakParentIDs);
-    drawVertexParentReference(parentRefType.LikedRef, msg.likedParentIDs);
+    drawVertexParentReference(parentRefType.ShallowLikeRef, msg.shallowLikeParentIDs);
+    drawVertexParentReference(parentRefType.ShallowDislikeRef, msg.shallowDislikeParentIDs);
 }
 
 export function selectMessage(id: string, vivaLib: vivagraphLib) {
@@ -356,12 +357,37 @@ export function updateNodeDataAndColor(
     if (exists && msgData) {
         vivaLib.drawVertex(msgData);
         updateNodeColorOnConfirmation(msgData, vivaLib);
+        if (msgData.isMarker) {
+            drawMarker(msgData.ID, vivaLib);
+        }
     }
 }
 
+function drawMarker(id: string, vivaLib: vivagraphLib) {
+    const group = vivaLib.graphics.getNodeUI(id);
+    // check if the node already has a marker.
+    if (group.childNodes.length >= 2) {
+        return;
+    }
+
+    const circle = Viva.Graph.svg('circle');
+    circle
+        .attr('fill', COLOR.MARKER)
+        .attr('r', VERTEX.MARKER_SIZE)
+        .attr('cx', VERTEX.SIZE_DEFAULT / 2)
+        .attr('cy', VERTEX.SIZE_DEFAULT / 2);
+
+    group.append(circle);
+}
+
 function svgUpdateNodePos(nodeUI, pos) {
-    const size = nodeUI.getAttribute('width');
-    nodeUI.attr('x', pos.x - size / 2).attr('y', pos.y - size / 2);
+    const rectUI = nodeUI.childNodes[0];
+    const size = rectUI.getAttribute('width');
+
+    nodeUI.attr(
+        'transform',
+        'translate(' + (pos.x - size / 2) + ',' + (pos.y - size / 2) + ')'
+    );
 }
 
 function resetLinks(vivaLib: vivagraphLib) {
@@ -386,7 +412,7 @@ function updateNodeColorOnConfirmation(
             : COLOR.MESSAGE_CONFIRMED;
     }
 
-    setUINodeColor(nodeUI, color);
+    setUINodeColor(nodeUI.childNodes[0], color);
 }
 
 function updateParentRefUI(
@@ -406,12 +432,7 @@ function updateParentRefUI(
 
     switch (parentType) {
     case parentRefType.StrongRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_STRONG,
-            LINE_WIDTH.STRONG,
-            LINE_TYPE.STRONG
-        );
+        setUILink(linkUI, COLOR.LINK_STRONG, LINE_WIDTH.STRONG, LINE_TYPE.STRONG);
         linkUI.refType = parentRefType.StrongRef;
         break;
     }
@@ -420,14 +441,14 @@ function updateParentRefUI(
         linkUI.refType = parentRefType.WeakRef;
         break;
     }
-    case parentRefType.LikedRef: {
-        setUILink(
-            linkUI,
-            COLOR.LINK_LIKED,
-            LINE_WIDTH.LIKED,
-            LINE_TYPE.LIKED
-        );
-        linkUI.refType = parentRefType.LikedRef;
+    case parentRefType.ShallowLikeRef: {
+        setUILink(linkUI, COLOR.LINK_SHALLOW_LIKED, LINE_WIDTH.SHALLOW_LIKED, LINE_TYPE.SHALLOW_LIKED);
+        linkUI.refType = parentRefType.ShallowLikeRef;
+        break;
+    }
+    case parentRefType.ShallowDislikeRef: {
+        setUILink(linkUI, COLOR.LINK_SHALLOW_DISLIKED, LINE_WIDTH.SHALLOW_DISLIKED, LINE_TYPE.SHALLOW_DISLIKED);
+        linkUI.refType = parentRefType.ShallowDislikeRef;
         break;
     }
     }
@@ -474,12 +495,16 @@ function dfsIterator(
 }
 
 const svgNodeBuilder = function(): any {
+    const group = Viva.Graph.svg('g');
+
     const ui = Viva.Graph.svg('rect');
     setUINodeColor(ui, COLOR.TIP);
     setUINodeSize(ui, VERTEX.SIZE_DEFAULT);
     setCorners(ui, VERTEX.ROUNDED_CORNER);
 
-    return ui;
+    group.append(ui);
+
+    return group;
 };
 
 const svgLinkBuilder = function(color: string, width: number, type: string) {

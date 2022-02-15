@@ -36,7 +36,7 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		return
 	}
@@ -55,7 +55,7 @@ func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			callback(message, walker)
@@ -68,7 +68,7 @@ func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walke
 // should be visited more than once following different paths. The callback receives a Walker object as the last
 // parameter which can be used to control the behavior of the walk similar to how a "Context" is used in some parts of
 // the stdlib.
-func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			callback(messageMetadata, walker)
@@ -81,7 +81,7 @@ func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetada
 // true if a Message should be visited more than once following different paths. The callback receives a Walker object
 // as the last parameter which can be used to control the behavior of the walk similar to how a "Context" is used in
 // some parts of the stdlib.
-func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDs, revisitElements ...bool) {
+func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
 	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -128,16 +128,16 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			continue
 		}
 
-		bookedParents := make(MessageIDs, 0)
+		bookedParents := make(MessageIDsSlice, 0)
 
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDsSlice {
 				return message.ParentsByType(WeakParentType)
 			}, nil)
 			if approved {
 				return
 			}
-			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDs {
+			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDsSlice {
 				return message.ParentsByType(StrongParentType)
 			}, &bookedParents)
 		})
@@ -161,7 +161,7 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 }
 
 // checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true.
-func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDs, bookedParents *MessageIDs) bool {
+func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDsSlice, bookedParents *MessageIDsSlice) bool {
 	for _, parentID := range getParents(message) {
 		var parentBooked bool
 		u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
@@ -216,13 +216,24 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 // ApprovingMessageIDs returns the MessageIDs that approve a given Message. It accepts an optional ApproverType to
 // filter the Approvers.
-func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDs) {
-	approvingMessageIDs = make(MessageIDs, 0)
+func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDsSlice) {
+	approvingMessageIDs = make(MessageIDsSlice, 0)
 	u.tangle.Storage.Approvers(messageID, optionalApproverType...).Consume(func(approver *Approver) {
 		approvingMessageIDs = append(approvingMessageIDs, approver.ApproverMessageID())
 	})
 
 	return
+}
+
+// AllBranchesLiked returs true if all the passed branches are liked.
+func (u *Utils) AllBranchesLiked(branchIDs ledgerstate.BranchIDs) bool {
+	for branchID := range branchIDs {
+		if !u.tangle.OTVConsensusManager.BranchLiked(branchID) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // messageStronglyApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the

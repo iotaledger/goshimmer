@@ -23,7 +23,7 @@ export class UTXOStore {
     foundOutputMap = new Map();
     outputMap = new Map();
     txOrder: Array<any> = [];
-    highligtedTxs = [];
+    highlightedTxs = [];
     draw = true;
 
     vertexChanges = 0;
@@ -254,15 +254,15 @@ export class UTXOStore {
     highlightTxs = (txIDs: string[]) => {
         this.clearHighlightedTxs();
 
-        // update highlighted msgs
-        this.highligtedTxs = txIDs;
+        // update highlighted txs
+        this.highlightedTxs = txIDs;
         txIDs.forEach((id) => {
             this.graph.selectVertex(id);
         });
     };
 
     clearHighlightedTxs = () => {
-        this.highligtedTxs.forEach((id) => {
+        this.highlightedTxs.forEach((id) => {
             this.graph.unselectVertex(id);
         });
     };

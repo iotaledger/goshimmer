@@ -63,17 +63,17 @@ func registerTangleEvents() {
 
 	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
 			if err != nil {
-				branchID = ledgerstate.BranchID{}
+				branchIDs = ledgerstate.NewBranchIDs()
 			}
 
 			wsMsg := &wsMessage{
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
-					ID:       messageID.Base58(),
-					IsMarker: msgMetadata.StructureDetails().IsPastMarker,
-					BranchID: branchID.Base58(),
+					ID:        messageID.Base58(),
+					IsMarker:  msgMetadata.StructureDetails().IsPastMarker,
+					BranchIDs: branchIDs.Base58(),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -183,7 +183,7 @@ func registerBranchEvents() {
 			Type: MsgTypeBranchParentsUpdate,
 			Data: &branchParentUpdate{
 				ID:      parentUpdate.ID.Base58(),
-				Parents: parentUpdate.NewParents.Strings(),
+				Parents: parentUpdate.NewParents.Base58(),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -252,8 +252,8 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		messages := []*tangleVertex{}
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
-		branchMap := make(map[ledgerstate.BranchID]struct{})
-		entryMsgs := tangle.MessageIDs{}
+		branchMap := ledgerstate.NewBranchIDs()
+		entryMsgs := tangle.MessageIDsSlice{}
 		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
 			entryMsgs = append(entryMsgs, approver.ApproverMessageID())
 		})
@@ -273,15 +273,17 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 					}
 
 					// add branch
-					branchID, err := deps.Tangle.Booker.MessageBranchID(msg.ID())
+					branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(msg.ID())
 					if err != nil {
-						branchID = ledgerstate.BranchID{}
+						branchIDs = ledgerstate.NewBranchIDs()
 					}
-					if _, ok := branchMap[branchID]; !ok {
-						branchMap[branchID] = struct{}{}
+					for branchID := range branchIDs {
+						if branchMap.Contains(branchID) {
+							continue
+						}
 
-						branchNode := newBranchVertex(branchID)
-						branches = append(branches, branchNode)
+						branchMap.Add(branchID)
+						branches = append(branches, newBranchVertex(branchID))
 					}
 				}
 
@@ -321,21 +323,22 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
+			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
 			if err != nil {
-				branchID = ledgerstate.BranchID{}
+				branchIDs = ledgerstate.NewBranchIDs()
 			}
 			ret = &tangleVertex{
-				ID:              messageID.Base58(),
-				StrongParentIDs: msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-				WeakParentIDs:   msg.ParentsByType(tangle.WeakParentType).ToStrings(),
-				LikedParentIDs:  msg.ParentsByType(tangle.LikeParentType).ToStrings(),
-				BranchID:        branchID.Base58(),
-				IsMarker:        msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
-				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
-				IsConfirmed:     deps.FinalityGadget.IsMessageConfirmed(messageID),
-				ConfirmedTime:   msgMetadata.GradeOfFinalityTime().UnixNano(),
-				GoF:             msgMetadata.GradeOfFinality().String(),
+				ID:                      messageID.Base58(),
+				StrongParentIDs:         msg.ParentsByType(tangle.StrongParentType).ToStrings(),
+				WeakParentIDs:           msg.ParentsByType(tangle.WeakParentType).ToStrings(),
+				ShallowLikeParentIDs:    msg.ParentsByType(tangle.ShallowLikeParentType).ToStrings(),
+				ShallowDislikeParentIDs: msg.ParentsByType(tangle.ShallowDislikeParentType).ToStrings(),
+				BranchIDs:               branchIDs.Base58(),
+				IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+				IsTx:                    msg.Payload().Type() == ledgerstate.TransactionType,
+				IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(messageID),
+				ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
+				GoF:                     msgMetadata.GradeOfFinality().String(),
 			}
 		})
 
@@ -397,7 +400,7 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
 			Type:        branch.Type().String(),
-			Parents:     branch.Parents().Strings(),
+			Parents:     branch.Parents().Base58(),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 			GoF:         branchGoF.String(),

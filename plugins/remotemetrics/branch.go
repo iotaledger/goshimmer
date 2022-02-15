@@ -103,11 +103,12 @@ func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 			delete(activeBranches, conflictingBranchID)
 		}
+		return true
 	})
 	finalizedBranchCountDB.Inc()
 	confirmedBranchCount.Inc()
@@ -124,10 +125,6 @@ func measureInitialBranchCounts() {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
-		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
-			return
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
@@ -136,10 +133,11 @@ func measureInitialBranchCounts() {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
+					return true
 				})
 				initialFinalizedBranchCountDB++
 				initialConfirmedBranchCountDB++
@@ -150,10 +148,11 @@ func measureInitialBranchCounts() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}
+			return true
 		})
 		delete(activeBranches, branchID)
 	}

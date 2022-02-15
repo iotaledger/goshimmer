@@ -70,7 +70,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
 	if writeErr != nil {
 		return writeErr
 	}
@@ -120,7 +120,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 				walker.Push(approver.ApproverMessageID())
 			}
 		})
-	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
 	if writeErr != nil {
 		return writeErr
 	}
@@ -169,36 +169,36 @@ var DiagnosticMessagesTableDescription = []string{
 
 // DiagnosticMessagesInfo holds the information of a message.
 type DiagnosticMessagesInfo struct {
-	ID                  string
-	IssuerID            string
-	IssuerPublicKey     string
-	IssuanceTimestamp   time.Time
-	ArrivalTime         time.Time
-	SolidTime           time.Time
-	ScheduledTime       time.Time
-	BookedTime          time.Time
-	GradeOfFinality     gof.GradeOfFinality
-	GradeOfFinalityTime time.Time
-	StrongParents       tangle.MessageIDs
-	WeakParents         tangle.MessageIDs
-	DislikeParents      tangle.MessageIDs
-	LikeParents         tangle.MessageIDs
-	StrongApprovers     tangle.MessageIDs
-	WeakApprovers       tangle.MessageIDs
-	BranchID            string
-	Scheduled           bool
-	Booked              bool
-	Invalid             bool
-	Rank                uint64
-	IsPastMarker        bool
-	PastMarkers         string // PastMarkers
-	PMHI                uint64 // PastMarkers Highest Index
-	PMLI                uint64 // PastMarkers Lowest Index
-	FutureMarkers       string // FutureMarkers
-	FMHI                uint64 // FutureMarkers Highest Index
-	FMLI                uint64 // FutureMarkers Lowest Index
-	PayloadType         string
-	TransactionID       string
+	ID                    string
+	IssuerID              string
+	IssuerPublicKey       string
+	IssuanceTimestamp     time.Time
+	ArrivalTime           time.Time
+	SolidTime             time.Time
+	ScheduledTime         time.Time
+	BookedTime            time.Time
+	GradeOfFinality       gof.GradeOfFinality
+	GradeOfFinalityTime   time.Time
+	StrongParents         tangle.MessageIDsSlice
+	WeakParents           tangle.MessageIDsSlice
+	ShallowDislikeParents tangle.MessageIDsSlice
+	ShallowLikeParents    tangle.MessageIDsSlice
+	StrongApprovers       tangle.MessageIDsSlice
+	WeakApprovers         tangle.MessageIDsSlice
+	BranchID              string
+	Scheduled             bool
+	Booked                bool
+	ObjectivelyInvalid    bool
+	Rank                  uint64
+	IsPastMarker          bool
+	PastMarkers           string // PastMarkers
+	PMHI                  uint64 // PastMarkers Highest Index
+	PMLI                  uint64 // PastMarkers Lowest Index
+	FutureMarkers         string // FutureMarkers
+	FMHI                  uint64 // FutureMarkers Highest Index
+	FMLI                  uint64 // FutureMarkers Lowest Index
+	PayloadType           string
+	TransactionID         string
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
@@ -212,18 +212,20 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.IssuerPublicKey = message.IssuerPublicKey().String()
 		msgInfo.StrongParents = message.ParentsByType(tangle.StrongParentType)
 		msgInfo.WeakParents = message.ParentsByType(tangle.WeakParentType)
-		msgInfo.DislikeParents = message.ParentsByType(tangle.DislikeParentType)
-		msgInfo.LikeParents = message.ParentsByType(tangle.LikeParentType)
+		msgInfo.ShallowDislikeParents = message.ParentsByType(tangle.ShallowDislikeParentType)
+		msgInfo.ShallowLikeParents = message.ParentsByType(tangle.ShallowLikeParentType)
 		msgInfo.PayloadType = message.Payload().Type().String()
 		if message.Payload().Type() == ledgerstate.TransactionType {
 			msgInfo.TransactionID = message.Payload().(*ledgerstate.Transaction).ID().Base58()
 		}
 	})
 
-	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
-	if err != nil {
-		branchID = ledgerstate.BranchID{}
+	var branchID ledgerstate.BranchID
+	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
+	if err == nil {
+		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
 	}
+
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
@@ -234,7 +236,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.GradeOfFinality = metadata.GradeOfFinality()
 		msgInfo.GradeOfFinalityTime = metadata.GradeOfFinalityTime()
 		msgInfo.Booked = metadata.IsBooked()
-		msgInfo.Invalid = metadata.IsInvalid()
+		msgInfo.ObjectivelyInvalid = metadata.IsObjectivelyInvalid()
 		if metadata.StructureDetails() != nil {
 			msgInfo.Rank = metadata.StructureDetails().Rank
 			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
@@ -267,14 +269,14 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.GradeOfFinalityTime.UnixNano()),
 		strings.Join(d.StrongParents.ToStrings(), ";"),
 		strings.Join(d.WeakParents.ToStrings(), ";"),
-		strings.Join(d.DislikeParents.ToStrings(), ";"),
-		strings.Join(d.LikeParents.ToStrings(), ";"),
+		strings.Join(d.ShallowDislikeParents.ToStrings(), ";"),
+		strings.Join(d.ShallowLikeParents.ToStrings(), ";"),
 		strings.Join(d.StrongApprovers.ToStrings(), ";"),
 		strings.Join(d.WeakApprovers.ToStrings(), ";"),
 		d.BranchID,
 		fmt.Sprint(d.Scheduled),
 		fmt.Sprint(d.Booked),
-		fmt.Sprint(d.Invalid),
+		fmt.Sprint(d.ObjectivelyInvalid),
 		fmt.Sprint(d.Rank),
 		fmt.Sprint(d.IsPastMarker),
 		d.PastMarkers,

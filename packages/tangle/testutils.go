@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -92,36 +91,50 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...
 }
 
 // BranchID returns the BranchID registered with the given alias.
-func (m *MessageTestFramework) BranchID(alias string) ledgerstate.BranchID {
+func (m *MessageTestFramework) BranchID(alias string) (branchID ledgerstate.BranchID) {
 	branchID, ok := m.branchIDs[alias]
 	if !ok {
 		panic("no branch registered with such alias " + alias)
 	}
-	return branchID
+
+	return
+}
+
+// BranchIDs returns the BranchIDs registered with the given aliases.
+func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgerstate.BranchIDs) {
+	branchIDs = ledgerstate.NewBranchIDs()
+
+	for _, alias := range aliases {
+		branchID, ok := m.branchIDs[alias]
+		if !ok {
+			panic("no branch registered with such alias " + alias)
+		}
+		branchIDs.Add(branchID)
+	}
+
+	return
 }
 
 // CreateMessage creates a Message with the given alias and MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
+	references := ParentMessageIDs{
+		StrongParentType:         m.strongParentIDs(options),
+		WeakParentType:           m.weakParentIDs(options),
+		ShallowDislikeParentType: m.shallowDislikeParentIDs(options),
+		ShallowLikeParentType:    m.shallowLikeParentIDs(options),
+	}
+
 	if options.reattachmentMessageAlias != "" {
 		reattachmentPayload := m.Message(options.reattachmentMessageAlias).Payload()
-		if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
-		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(reattachmentPayload, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
-		}
+		m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(reattachmentPayload, references, options)
 	} else {
 		transaction := m.buildTransaction(options)
-
-		if transaction != nil && options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
-		} else if transaction != nil && !options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageTimestampIssuer(transaction, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
-		} else if options.issuingTime.IsZero() {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer)
+		if transaction != nil {
+			m.messagesByAlias[messageAlias] = newTestParentsPayloadMessageWithOptions(transaction, references, options)
 		} else {
-			m.messagesByAlias[messageAlias] = newTestParentsDataMessageTimestampIssuer(messageAlias, m.strongParentIDs(options), m.weakParentIDs(options), nil, m.likeParentIDs(options), options.issuer, options.issuingTime)
+			m.messagesByAlias[messageAlias] = newTestParentsDataMessageWithOptions(messageAlias, references, options)
 		}
 	}
 
@@ -380,8 +393,8 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 
 // strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) (strongParentIDs MessageIDs) {
-	strongParentIDs = make(MessageIDs, 0)
+func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	strongParentIDs := make(MessageIDsSlice, 0)
 	for strongParentAlias := range options.strongParents {
 		if strongParentAlias == "Genesis" {
 			strongParentIDs = append(strongParentIDs, EmptyMessageID)
@@ -392,13 +405,13 @@ func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMess
 		strongParentIDs = append(strongParentIDs, m.messagesByAlias[strongParentAlias].ID())
 	}
 
-	return
+	return strongParentIDs.ToMessageIDs()
 }
 
 // weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) (weakParentIDs MessageIDs) {
-	weakParentIDs = make(MessageIDs, 0)
+func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	weakParentIDs := make(MessageIDsSlice, 0)
 	for weakParentAlias := range options.weakParents {
 		if weakParentAlias == "Genesis" {
 			weakParentIDs = append(weakParentIDs, EmptyMessageID)
@@ -409,24 +422,41 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 		weakParentIDs = append(weakParentIDs, m.messagesByAlias[weakParentAlias].ID())
 	}
 
-	return
+	return weakParentIDs.ToMessageIDs()
 }
 
-// likeParentIDs returns the MessageIDs that were defined to be the like parents of the
+// shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
 // MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) likeParentIDs(options *MessageTestFrameworkMessageOptions) (likeParentIDs MessageIDs) {
-	likeParentIDs = make(MessageIDs, 0)
-	for likeParentAlias := range options.likeParents {
-		if likeParentAlias == "Genesis" {
-			likeParentIDs = append(likeParentIDs, EmptyMessageID)
+func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	shallowDislikeParentIDs := make(MessageIDsSlice, 0)
+	for shallowDislikeParentAlias := range options.shallowDislikeParents {
+		if shallowDislikeParentAlias == "Genesis" {
+			shallowDislikeParentIDs = append(shallowDislikeParentIDs, EmptyMessageID)
 
 			continue
 		}
 
-		likeParentIDs = append(likeParentIDs, m.messagesByAlias[likeParentAlias].ID())
+		shallowDislikeParentIDs = append(shallowDislikeParentIDs, m.messagesByAlias[shallowDislikeParentAlias].ID())
 	}
 
-	return
+	return shallowDislikeParentIDs.ToMessageIDs()
+}
+
+// shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
+// MessageTestFrameworkMessageOptions.
+func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
+	shallowLikeParentIDs := make(MessageIDsSlice, 0)
+	for shallowLikeParentAlias := range options.shallowLikeParents {
+		if shallowLikeParentAlias == "Genesis" {
+			shallowLikeParentIDs = append(shallowLikeParentIDs, EmptyMessageID)
+
+			continue
+		}
+
+		shallowLikeParentIDs = append(shallowLikeParentIDs, m.messagesByAlias[shallowLikeParentAlias].ID())
+	}
+
+	return shallowLikeParentIDs.ToMessageIDs()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -500,20 +530,24 @@ type MessageTestFrameworkMessageOptions struct {
 	coloredOutputs           map[string]map[ledgerstate.Color]uint64
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
-	likeParents              map[string]types.Empty
+	shallowLikeParents       map[string]types.Empty
+	shallowDislikeParents    map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
+	sequenceNumber           uint64
+	overrideSequenceNumber   bool
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:        make(map[string]types.Empty),
-		outputs:       make(map[string]uint64),
-		strongParents: make(map[string]types.Empty),
-		weakParents:   make(map[string]types.Empty),
-		likeParents:   make(map[string]types.Empty),
+		inputs:                make(map[string]types.Empty),
+		outputs:               make(map[string]uint64),
+		strongParents:         make(map[string]types.Empty),
+		weakParents:           make(map[string]types.Empty),
+		shallowLikeParents:    make(map[string]types.Empty),
+		shallowDislikeParents: make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -568,11 +602,20 @@ func WithWeakParents(messageAliases ...string) MessageOption {
 	}
 }
 
-// WithLikeParents returns a MessageOption that is used to define the like parents of the Message.
-func WithLikeParents(messageAliases ...string) MessageOption {
+// WithShallowLikeParents returns a MessageOption that is used to define the shallow like parents of the Message.
+func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
-			options.likeParents[messageAlias] = types.Void
+			options.shallowLikeParents[messageAlias] = types.Void
+		}
+	}
+}
+
+// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
+func WithShallowDislikeParents(messageAliases ...string) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		for _, messageAlias := range messageAliases {
+			options.shallowDislikeParents[messageAlias] = types.Void
 		}
 	}
 }
@@ -598,63 +641,84 @@ func WithReattachment(messageAlias string) MessageOption {
 	}
 }
 
+// WithSequenceNumber returns a MessageOption that is used to define the sequence number of the Message.
+func WithSequenceNumber(sequenceNumber uint64) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.sequenceNumber = sequenceNumber
+		options.overrideSequenceNumber = true
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
 
-var sequenceNumber uint64
+var _sequenceNumber uint64
 
 func nextSequenceNumber() uint64 {
-	return atomic.AddUint64(&sequenceNumber, 1) - 1
+	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
-	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
 	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	message, _ := NewMessage([]MessageID{EmptyMessageID}, []MessageID{}, nil, nil, time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
 	return message
 }
 
-func newTestParentsDataMessage(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	return
 }
 
-func newTestParentsDataMessageIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsDataMessageWithOptions(payloadString string, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+	var sequenceNumber uint64
+	if options.overrideSequenceNumber {
+		sequenceNumber = options.sequenceNumber
+	} else {
+		sequenceNumber = nextSequenceNumber()
+	}
+	if options.issuingTime.IsZero() {
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	} else {
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	}
+	return
 }
 
-func newTestParentsDataMessageTimestampIssuer(payloadString string, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
-	return message
+func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	return
 }
 
-func newTestParentsPayloadMessage(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
+func newTestParentsPayloadMessageWithOptions(p payload.Payload, references ParentMessageIDs, options *MessageTestFrameworkMessageOptions) (message *Message) {
+	var sequenceNumber uint64
+	if options.overrideSequenceNumber {
+		sequenceNumber = options.sequenceNumber
+	} else {
+		sequenceNumber = nextSequenceNumber()
+	}
+	if options.issuingTime.IsZero() {
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+	} else {
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+	}
+	return
 }
 
-func newTestParentsPayloadMessageIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, time.Now(), issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
-}
-
-func newTestParentsPayloadMessageTimestampIssuer(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, issuer ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, issuer, nextSequenceNumber(), p, 0, ed25519.Signature{})
-	return message
-}
-
-func newTestParentsPayloadWithTimestamp(p payload.Payload, strongParents, weakParents, dislikeParents, likeParents []MessageID, timestamp time.Time) *Message {
-	message, _ := NewMessage(strongParents, weakParents, dislikeParents, likeParents, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
+	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
 	return message
 }
 
@@ -745,7 +809,6 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
-	noAManaNode         = identity.GenerateIdentity()
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
@@ -792,11 +855,20 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
+	t.Events.Error.Attach(events.NewClosure(func(e error) {
+		fmt.Println(e)
+	}))
+
 	return t
 }
 
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
 type MockConfirmationOracle struct{}
+
+// FirstUnconfirmedMarkerIndex mocks its interface function.
+func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+	return 0
+}
 
 // IsMarkerConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
@@ -846,8 +918,8 @@ func (m *MockWeightProvider) Weight(message *Message) (weight, totalWeight float
 	return 1, 1
 }
 
-// WeightsOfRelevantSupporters mocks its interface function.
-func (m *MockWeightProvider) WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64) {
+// WeightsOfRelevantVoters mocks its interface function.
+func (m *MockWeightProvider) WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64) {
 	return
 }
 
@@ -857,32 +929,39 @@ func (m *MockWeightProvider) Shutdown() {
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
-	disliked     ledgerstate.BranchIDs
-	likedInstead map[ledgerstate.BranchID][]consensus.OpinionTuple
+	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
 }
 
-// Opinion returns liked and disliked branches as predefined.
-func (o *SimpleMockOnTangleVoting) Opinion(branchIDs ledgerstate.BranchIDs) (liked, disliked ledgerstate.BranchIDs, err error) {
-	liked = ledgerstate.NewBranchIDs()
-	disliked = ledgerstate.NewBranchIDs()
-	for branchID := range branchIDs {
-		if o.disliked.Contains(branchID) {
-			disliked.Add(branchID)
-		} else {
-			liked.Add(branchID)
-		}
+// LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
+// ConflictMembers.
+type LikedConflictMembers struct {
+	likedBranch     ledgerstate.BranchID
+	conflictMembers ledgerstate.BranchIDs
+}
+
+// LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
+	likedConflictMembers := o.likedConflictMember[branchID]
+	innerConflictMembers := likedConflictMembers.conflictMembers.Clone().Subtract(ledgerstate.NewBranchIDs(branchID))
+
+	return likedConflictMembers.likedBranch, innerConflictMembers
+}
+
+// BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
+func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
+	likedConflictMembers, ok := o.likedConflictMember[branchID]
+	if !ok {
+		return false
 	}
-	return
+	return likedConflictMembers.conflictMembers.Contains(branchID)
 }
 
-// LikedInstead returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedInstead(branchID ledgerstate.BranchID) (opinionTuple []consensus.OpinionTuple, err error) {
-	opinionTuple = o.likedInstead[branchID]
-	return
+func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
+	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
-func emptyLikeReferences(parents MessageIDs, issuingTime time.Time, tangle *Tangle) (MessageIDs, error) {
-	return []MessageID{}, nil
+func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references ParentMessageIDs) {
+	return NewParentMessageIDs().AddAll(StrongParentType, parents.ToMessageIDs())
 }
 
 // EventMock acts as a container for event mocks.
@@ -940,7 +1019,7 @@ func (e *EventMock) attach(event *events.Event, f interface{}) {
 	}{event, closure})
 }
 
-// AssertExpectations assets expectations.
+// AssertExpectations asserts expectations.
 func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 	calledEvents := atomic.LoadUint64(&e.calledEvents)
 	expectedEvents := atomic.LoadUint64(&e.expectedEvents)

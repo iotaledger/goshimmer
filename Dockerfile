@@ -109,6 +109,8 @@ EXPOSE 9311/tcp
 EXPOSE 8080/tcp
 # Dashboard
 EXPOSE 8081/tcp
+# DAGs Visualizer
+EXPOSE 8061/tcp
 
 # Copy configuration
 COPY --from=build /tmp/snapshot.bin /snapshot.bin
