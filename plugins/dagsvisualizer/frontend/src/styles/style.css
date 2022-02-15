@@ -196,6 +196,48 @@ h5 {
     color: var(--color-light-grey);
 }
 
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    position: relative;
+    font-size: 0.8em;
+    margin: 10px 10%;
+    justify-content: center;
+}
+
+.legend-item {
+    align-items: center;
+    display: flex;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.legend .legend-item .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.legend .legend-item .legend-label {
+    padding-left: 10px;
+}
+
+.legend .legend-item .link-type {
+    height: 0;
+    width: 30px;
+    align-content: flex-start;
+}
+
+.legend .legend-item .legend-marker {
+    width: 30%;
+    height: 30%;
+    background-color: var(--color-dark-blue);
+    border-radius: 50%;
+}
+
 .panel .checkbox {
     color: var(--color-dark-grey);
 }
