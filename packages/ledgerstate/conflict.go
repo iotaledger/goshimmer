@@ -438,7 +438,7 @@ func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		return
 	}
 	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
 		return
 	}
 
@@ -475,7 +475,7 @@ func (c *ConflictMember) Bytes() []byte {
 func (c *ConflictMember) String() string {
 	return stringify.Struct("ConflictMember",
 		stringify.StructField("conflictID", c.conflictID),
-		stringify.StructField("branchID", c.branchID),
+		stringify.StructField("compressedBranches", c.branchID),
 	)
 }
 

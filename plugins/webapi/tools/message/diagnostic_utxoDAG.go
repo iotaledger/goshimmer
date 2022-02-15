@@ -61,7 +61,7 @@ var DiagnosticUTXODAGTableDescription = []string{
 	"Inputs",
 	"Outputs",
 	"Attachments",
-	"BranchID",
+	"CompressedBranches",
 	"Conflicting",
 	"LazyBooked",
 	"GradeOfFinality",
@@ -107,7 +107,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 
 	deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txInfo.SolidTime = transactionMetadata.SolidificationTime()
-		txInfo.BranchID = transactionMetadata.BranchID().String()
+		txInfo.BranchID = transactionMetadata.CompressedBranches().String()
 
 		txInfo.Conflicting = deps.Tangle.LedgerState.TransactionConflicting(transactionID)
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()

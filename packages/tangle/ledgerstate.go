@@ -101,7 +101,7 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	conflictSet = make(ledgerstate.TransactionIDs)
 
 	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
-		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+		conflictIDs = branch.(*ledgerstate.Branch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
@@ -116,7 +116,7 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 // BranchID returns the branchID of the given transactionID.
 func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		branchID = transactionMetadata.BranchID()
+		branchID = transactionMetadata.CompressedBranches()
 	})
 	return
 }
@@ -163,7 +163,7 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
+			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.CompressedBranches()) {
 				isUnconfirmed = true
 			}
 		})

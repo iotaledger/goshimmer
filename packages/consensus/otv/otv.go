@@ -27,7 +27,7 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 	}
 }
 
-// LikedConflictMember returns the liked BranchID across the members of its conflict sets.
+// LikedConflictMember returns the liked CompressedBranches across the members of its conflict sets.
 func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
 	conflictMembers = ledgerstate.NewBranchIDs()
 	o.branchDAG.ForEachConflictingBranchID(conflictBranchID, func(conflictingBranchID ledgerstate.BranchID) bool {
@@ -64,7 +64,7 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 		return
 	}
 
-	o.branchDAG.Branch(branchID).ConsumeConflictBranch(func(currentBranch *ledgerstate.ConflictBranch) {
+	o.branchDAG.Branch(branchID).ConsumeConflictBranch(func(currentBranch *ledgerstate.Branch) {
 		switch currentBranch.InclusionState() {
 		case ledgerstate.Rejected:
 			preferred = false

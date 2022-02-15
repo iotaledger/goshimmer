@@ -16,7 +16,7 @@ var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "GradeOfFinality", "GradeOfFinalityTime", "StrongParents", "WeakParents",
-		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "Booked",
+		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "CompressedBranches", "Scheduled", "Booked",
 		"Invalid", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI",
 		"PayloadType", "TransactionID",
 	}
@@ -29,7 +29,7 @@ var (
 
 	utxoDagHeader = []string{
 		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
-		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked",
+		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "CompressedBranches", "Conflicting", "LazyBooked",
 		"GradeOfFinality", "GradeOfFinalityTime",
 	}
 

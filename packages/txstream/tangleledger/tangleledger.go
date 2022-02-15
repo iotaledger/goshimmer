@@ -73,7 +73,7 @@ func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
 	t.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
-		if t.tangleInstance.ConfirmationOracle.IsBranchConfirmed(txmeta.BranchID()) {
+		if t.tangleInstance.ConfirmationOracle.IsBranchConfirmed(txmeta.CompressedBranches()) {
 			found = true
 			t.tangleInstance.LedgerState.Transaction(txid).Consume(f)
 		}

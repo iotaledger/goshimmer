@@ -138,7 +138,7 @@ func registerUTXOEvents() {
 						Type: MsgTypeUTXOBooked,
 						Data: &utxoBooked{
 							ID:       tx.ID().Base58(),
-							BranchID: txMetadata.BranchID().Base58(),
+							BranchID: txMetadata.CompressedBranches().Base58(),
 						},
 					}
 					visualizerWorkerPool.TrySubmit(wsMsg)
@@ -366,7 +366,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchID = txMetadata.BranchID().Base58()
+		branchID = txMetadata.CompressedBranches().Base58()
 	})
 
 	ret = &utxoVertex{
@@ -388,7 +388,7 @@ func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
 		conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
 		// get conflicts of a Conflict branch
 		if branch.Type() == ledgerstate.ConflictBranchType {
-			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+			for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
 				conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
 				deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 					conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())

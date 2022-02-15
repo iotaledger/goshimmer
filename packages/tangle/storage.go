@@ -366,7 +366,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 	return cachedLatestMarkerVotesByVoter
 }
 
-// BranchWeight retrieves the BranchWeight with the given BranchID.
+// BranchWeight retrieves the BranchWeight with the given CompressedBranches.
 func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *CachedBranchWeight {
 	if len(computeIfAbsentCallback) >= 1 {
 		return &CachedBranchWeight{s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) objectstorage.StorableObject {

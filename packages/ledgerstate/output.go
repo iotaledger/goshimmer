@@ -2366,7 +2366,7 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -2533,7 +2533,7 @@ func (o *OutputMetadata) Bytes() []byte {
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("branchID", o.BranchID()),
+		stringify.StructField("compressedBranches", o.BranchID()),
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),

@@ -27,7 +27,7 @@ import (
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionType represents the payload Type of a Transaction.
+// TransactionType represents the payload Type of Transaction.
 var TransactionType payload.Type
 
 // init defers the initialization of the TransactionType to not have an initialization loop.
@@ -85,7 +85,7 @@ func TransactionIDFromBase58(base58String string) (transactionID TransactionID, 
 	return
 }
 
-// TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshaling).
+// TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshalling).
 func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
 	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
@@ -114,7 +114,7 @@ func (i TransactionID) Base58() string {
 	return base58.Encode(i[:])
 }
 
-// String creates a human readable version of the TransactionID.
+// String creates a human-readable version of the TransactionID.
 func (i TransactionID) String() string {
 	return "TransactionID(" + i.Base58() + ")"
 }
@@ -136,7 +136,7 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
-// String returns a human readable version of the TransactionIDs.
+// String returns a human-readable version of the TransactionIDs.
 func (t TransactionIDs) String() (result string) {
 	return "TransactionIDs(" + strings.Join(t.Base58s(), ",") + ")"
 }
@@ -182,7 +182,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
-		// address set as the later determined alias address. Hence this check here.
+		// address set as the latter determined alias address. Hence, this check here.
 		if output.Type() == AliasOutputType {
 			alias := output.(*AliasOutput)
 			aliasAddress := alias.GetAliasAddress()
@@ -210,7 +210,7 @@ func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes
 	return
 }
 
-// TransactionFromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshaling).
+// TransactionFromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
 func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
 	readStartOffset := marshalUtil.ReadOffset()
 
@@ -311,7 +311,7 @@ func TransactionFromObjectStorage(key []byte, data []byte) (transaction objectst
 }
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
-// we calculate this value lazy and use double checked locking.
+// we calculate this value lazy and use double-checked locking.
 func (t *Transaction) ID() TransactionID {
 	t.idMutex.RLock()
 	if t.id != nil {
@@ -379,7 +379,7 @@ func (t *Transaction) Bytes() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of the Transaction.
+// String returns a human-readable version of the Transaction.
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
 		stringify.StructField("id", t.ID()),
@@ -449,7 +449,7 @@ func (c *CachedTransaction) Consume(consumer func(transaction *Transaction), for
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedTransaction.
+// String returns a human-readable version of the CachedTransaction.
 func (c *CachedTransaction) String() string {
 	return stringify.Struct("CachedTransaction",
 		stringify.StructField("CachedObject", c.Unwrap()),
@@ -505,7 +505,7 @@ func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionE
 	return
 }
 
-// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
+// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshalling).
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
 	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
@@ -608,7 +608,7 @@ func (t *TransactionEssence) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the TransactionEssence.
+// String returns a human-readable version of the TransactionEssence.
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
 		stringify.StructField("version", t.version),
@@ -642,7 +642,7 @@ func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenc
 }
 
 // TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
-// unmarshaling).
+// unmarshalling).
 func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
 	readByte, err := marshalUtil.ReadByte()
 	if err != nil {
@@ -676,7 +676,7 @@ func (t TransactionEssenceVersion) Compare(other TransactionEssenceVersion) int 
 	}
 }
 
-// String returns a human readable version of the TransactionEssenceVersion.
+// String returns a human-readable version of the TransactionEssenceVersion.
 func (t TransactionEssenceVersion) String() string {
 	return "TransactionEssenceVersion(" + strconv.Itoa(int(t)) + ")"
 }
@@ -689,8 +689,8 @@ func (t TransactionEssenceVersion) String() string {
 // a node.
 type TransactionMetadata struct {
 	id                      TransactionID
-	branchID                BranchID
-	branchIDMutex           sync.RWMutex
+	compressedBranches      CompressedBranchesID
+	compressedBranchesMutex sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
@@ -723,15 +723,15 @@ func TransactionMetadataFromBytes(bytes []byte) (transactionMetadata *Transactio
 	return
 }
 
-// TransactionMetadataFromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
+// TransactionMetadataFromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshalling).
 func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
 	transactionMetadata = &TransactionMetadata{}
 	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
-	if transactionMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
+	if transactionMetadata.compressedBranches, err = CompressedBranchesIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -775,24 +775,24 @@ func (t *TransactionMetadata) ID() TransactionID {
 	return t.id
 }
 
-// BranchID returns the identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) BranchID() BranchID {
-	t.branchIDMutex.RLock()
-	defer t.branchIDMutex.RUnlock()
+// CompressedBranches returns the identifier of the Branch that the Transaction was booked in.
+func (t *TransactionMetadata) CompressedBranches() CompressedBranchesID {
+	t.compressedBranchesMutex.RLock()
+	defer t.compressedBranchesMutex.RUnlock()
 
-	return t.branchID
+	return t.compressedBranches
 }
 
-// SetBranchID sets the identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) SetBranchID(branchID BranchID) (modified bool) {
-	t.branchIDMutex.Lock()
-	defer t.branchIDMutex.Unlock()
+// SetCompressedBranchesID sets the compressed identifier of the Branches that the Transaction was booked in.
+func (t *TransactionMetadata) SetCompressedBranchesID(compressedBranchesID CompressedBranchesID) (modified bool) {
+	t.compressedBranchesMutex.Lock()
+	defer t.compressedBranchesMutex.Unlock()
 
-	if t.branchID == branchID {
+	if t.compressedBranches == compressedBranchesID {
 		return
 	}
 
-	t.branchID = branchID
+	t.compressedBranches = compressedBranchesID
 	t.SetModified()
 	modified = true
 
@@ -896,7 +896,9 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
-	return t.BranchID() == NewBranchID(t.ID())
+	compressedBranches := t.CompressedBranches()
+
+	return compressedBranches.IsSingleBranch() && compressedBranches.BranchID() == NewBranchID(t.ID())
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -904,11 +906,11 @@ func (t *TransactionMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(t.ObjectStorageKey(), t.ObjectStorageValue())
 }
 
-// String returns a human readable version of the TransactionMetadata.
+// String returns a human-readable version of the TransactionMetadata.
 func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
-		stringify.StructField("branchID", t.BranchID()),
+		stringify.StructField("compressedBranches", t.CompressedBranches()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
@@ -932,7 +934,7 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 // only used as a key in the ObjectStorage.
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(t.BranchID()).
+		Write(t.CompressedBranches()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).
@@ -982,7 +984,7 @@ func (c *CachedTransactionMetadata) Consume(consumer func(transactionMetadata *T
 	}, forceRelease...)
 }
 
-// String returns a human readable version of the CachedTransactionMetadata.
+// String returns a human-readable version of the CachedTransactionMetadata.
 func (c *CachedTransactionMetadata) String() string {
 	return stringify.Struct("CachedTransactionMetadata",
 		stringify.StructField("CachedObject", c.Unwrap()),

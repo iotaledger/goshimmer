@@ -139,7 +139,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	// Spawning a new aggregated branch with any Rejected parent results in Rejected
 	branchIDs["Branch3+Branch8"] = createAggregatedBranch(ledgerstate, "Branch3+Branch8", NewBranchIDs(branchIDs["Branch3"], branchIDs["Branch8"]))
 
-	// Create a new ConflictBranch in an already-decided Conflict Set results in straight Reject
+	// Create a new Branch in an already-decided Conflict Set results in straight Reject
 	branchIDs["Branch9"] = createConflictBranch(t, ledgerstate, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 
 	assertInclusionStates(t, ledgerstate, map[BranchID]InclusionState{

@@ -2631,11 +2631,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 		// We confirm E and we should inherit it when attaching again to Message19
 		testFramework.tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
 			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Confirmed)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
 			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -2966,11 +2966,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("D+H", "Message5", "Message29")
 		testFramework.RegisterBranchID("E+Z", "Message12", "Message16")
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
 			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
 			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -3947,7 +3947,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 
-		assert.Equal(t, messageExpectedBranchIDs, retrievedBranchIDs, "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
+		assert.Equal(t, messageExpectedBranchIDs, retrievedBranchIDs, "CompressedBranches of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
 	}
 }
 

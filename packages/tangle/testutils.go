@@ -253,7 +253,7 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerst
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledgerstate.ConflictBranch.
+// This function thus only works on the message creating ledgerstate.Branch.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Branch(messageAlias string) (b ledgerstate.Branch) {
 	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch ledgerstate.Branch) {

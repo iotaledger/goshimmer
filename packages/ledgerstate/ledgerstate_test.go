@@ -127,7 +127,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions)
 
 	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
-	// a ConflictBranch again: just G.
+	// a Branch again: just G.
 	{
 		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
 		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
@@ -153,7 +153,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
 	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-		assert.Equal(t, branchID, transactionMetadata.BranchID(), transactionMetadata.String(), branchID.String())
+		assert.Equal(t, branchID, transactionMetadata.CompressedBranches(), transactionMetadata.String(), branchID.String())
 	}))
 
 	for _, output := range transaction.Essence().Outputs() {
@@ -208,7 +208,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, MasterBranchID, transactionMetadata.CompressedBranches())
 		}))
 	}
 
@@ -241,10 +241,10 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.CompressedBranches())
 		}))
 	}
 
@@ -277,13 +277,13 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, MasterBranchID, transactionMetadata.CompressedBranches())
 		}))
 	}
 
@@ -316,16 +316,16 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.CompressedBranches())
 		}))
 	}
 
@@ -358,19 +358,19 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["H"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, MasterBranchID, transactionMetadata.CompressedBranches())
 		}))
 	}
 
@@ -403,22 +403,22 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["H"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["H"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["H"], transactionMetadata.CompressedBranches())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["I"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["I"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["I"], transactionMetadata.CompressedBranches())
 		}))
 	}
 }

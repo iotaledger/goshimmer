@@ -77,7 +77,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 		branchID, branchIDErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
+			err = errors.Errorf("failed to parse CompressedBranches: %w", branchIDErr)
 			return
 		}
 
@@ -110,7 +110,7 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 
 	value, exists := m.mapping.Get(markerIndex)
 	if !exists {
-		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
+		panic(fmt.Sprintf("tried to retrieve the CompressedBranches of unknown marker.%s", markerIndex))
 	}
 
 	return value.(ledgerstate.BranchID)
@@ -216,7 +216,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
 	return m.sequenceID.Bytes()
 }
 
-// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()

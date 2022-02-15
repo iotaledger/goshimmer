@@ -554,7 +554,7 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 			}
 
 			conflictIDs := make([]string, 0)
-			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+			for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
 				conflictIDs = append(conflictIDs, conflictID.Base58())
 			}
 
@@ -752,7 +752,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchID:            transactionMetadata.BranchID().Base58(),
+		BranchID:            transactionMetadata.CompressedBranches().Base58(),
 		Solid:               transactionMetadata.Solid(),
 		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
 		LazyBooked:          transactionMetadata.LazyBooked(),

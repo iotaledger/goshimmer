@@ -200,7 +200,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 			continue
 		}
 
-		a.tangle.LedgerState.Branch(currentConflictBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		a.tangle.LedgerState.Branch(currentConflictBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(conflictBranch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
@@ -388,7 +388,7 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
 			a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
-				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.(*ledgerstate.ConflictBranch).Parents(), message.SequenceNumber()) {
+				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.(*ledgerstate.Branch).Parents(), message.SequenceNumber()) {
 					return
 				}
 
@@ -406,7 +406,7 @@ func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldB
 			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
 			// voters of the marker we are forking also voted for all parents of the branch the marker is
 			// being forked into.
-			parentBranchIDs := forkedBranch.(*ledgerstate.ConflictBranch).Parents()
+			parentBranchIDs := forkedBranch.(*ledgerstate.Branch).Parents()
 
 			for voter, sequenceNumber := range a.markerVotes(marker) {
 				if !a.addSupportToForkedBranchVoters(voter, branchVoters, parentBranchIDs, sequenceNumber) {

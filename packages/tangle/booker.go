@@ -128,7 +128,7 @@ func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs ledgerstate.Br
 		}
 
 		b.tangle.LedgerState.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			resolvedConflictBranchIDs, resolveErr := b.tangle.LedgerState.ResolvePendingConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.BranchID()))
+			resolvedConflictBranchIDs, resolveErr := b.tangle.LedgerState.ResolvePendingConflictBranchIDs(ledgerstate.NewBranchIDs(transactionMetadata.CompressedBranches()))
 			if resolveErr != nil {
 				err = errors.Errorf("failed to resolve conflict branch ids of transaction with %s: %w", transaction.ID(), resolveErr)
 				return
@@ -484,7 +484,7 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 	return payloadBranchIDs, err
 }
 
-// bookPayload books the Payload of a Message and returns its assigned BranchID.
+// bookPayload books the Payload of a Message and returns its assigned CompressedBranches.
 func (b *Booker) bookPayload(message *Message) (conflictBranchIDs ledgerstate.BranchIDs, err error) {
 	payload := message.Payload()
 	if payload == nil || payload.Type() != ledgerstate.TransactionType {
@@ -522,7 +522,7 @@ func (b *Booker) bookPayload(message *Message) (conflictBranchIDs ledgerstate.Br
 
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
+// PropagateForkedBranch propagates the forked CompressedBranches to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker) {
 		if !messageMetadata.IsBooked() {
@@ -547,7 +547,7 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 	return
 }
 
-// propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
+// propagateForkedTransactionToMarkerFutureCone propagates a newly created CompressedBranches into the future cone of the given Marker.
 func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID) (err error) {
 	markerWalker := walker.New(false)
 	markerWalker.Push(marker)
@@ -564,10 +564,10 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 	return
 }
 
-// forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
+// forkSingleMarker propagates a newly created CompressedBranches to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker) (err error) {
-	// update BranchID mapping
+	// update CompressedBranches mapping
 	oldConflictBranchIDs, err := b.MarkersManager.ConflictBranchIDs(currentMarker)
 	if err != nil {
 		return errors.Errorf("failed to retrieve ConflictBranchIDs of %s: %w", currentMarker, err)
@@ -585,7 +585,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	// trigger event
 	b.Events.MarkerBranchAdded.Trigger(currentMarker, oldConflictBranchIDs, newBranchID)
 
-	// propagate updates to later BranchID mappings of the same sequence.
+	// propagate updates to later CompressedBranches mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ ledgerstate.BranchID) {
 		markerWalker.Push(mappedMarker)
 	})
@@ -598,7 +598,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	return
 }
 
-// propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
+// propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict CompressedBranches.
 func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newConflictBranchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
 	branchIDAdded, err := b.addBranchIDToAddedBranchIDs(messageMetadata, newConflictBranchID)
 	if err != nil {
@@ -651,10 +651,10 @@ type BookerEvents struct {
 	// MessageBooked is triggered when a Message was booked (it's Branch, and it's Payload's Branch were determined).
 	MessageBooked *events.Event
 
-	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
+	// MessageBranchUpdated is triggered when the CompressedBranches of a Message is changed in its MessageMetadata.
 	MessageBranchUpdated *events.Event
 
-	// MarkerBranchAdded is triggered when a Marker is mapped to a new BranchID.
+	// MarkerBranchAdded is triggered when a Marker is mapped to a new CompressedBranches.
 	MarkerBranchAdded *events.Event
 
 	// Error gets triggered when the Booker faces an unexpected error.

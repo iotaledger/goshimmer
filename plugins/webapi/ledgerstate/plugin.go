@@ -268,12 +268,12 @@ func GetBranchConflicts(c echo.Context) (err error) {
 
 	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
 		if branch.Type() != ledgerstate.ConflictBranchType {
-			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
+			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(fmt.Errorf("the Branch with %s is not a Branch", branchID)))
 			return
 		}
 
 		branchIDsPerConflictID := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-		for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+		for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
 			branchIDsPerConflictID[conflictID] = make([]ledgerstate.BranchID, 0)
 			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
@@ -461,7 +461,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 
 // region branchIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
 
-// branchIDFromContext determines the BranchID from the branchID parameter in an echo.Context. It expects it to either
+// branchIDFromContext determines the CompressedBranches from the branchID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterBranchID, LazyBookedConflictsBranchID or
 // InvalidBranchID)
 func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err error) {

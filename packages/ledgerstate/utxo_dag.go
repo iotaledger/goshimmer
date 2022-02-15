@@ -168,7 +168,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	})}
 	if !newTransaction {
 		if !cachedTransactionMetadata.Consume(func(transactionMetadata *TransactionMetadata) {
-			targetBranch = transactionMetadata.BranchID()
+			targetBranch = transactionMetadata.CompressedBranches()
 		}) {
 			err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transaction.ID(), cerrors.ErrFatal)
 		}
@@ -201,9 +201,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 // TransactionBranchIDs returns the BranchIDs of the given Transaction.
 func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if branchIDs, err = u.ledgerstate.ResolveConflictBranchIDs(NewBranchIDs(transactionMetadata.BranchID())); err != nil {
-			err = errors.Errorf("failed to resolve ConflictBranchIDs of Transaction with %s: %w", transactionID, err)
-		}
+		branchIDs = u.ledgerstate.BranchDAG.UncompressBranches(transactionMetadata.CompressedBranches())
 	}) {
 		err = errors.Errorf("failed to retrieve TransactionMetadata for Transaction with %s: %w", transactionID, err)
 	}
@@ -243,24 +241,12 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 		return gof.High, nil
 	}
 
-	resolvedConflictBranchIDs, err := u.ledgerstate.ResolveConflictBranchIDs(NewBranchIDs(branchID))
-	if err != nil {
+	conflictBranchGoF, gofErr := u.TransactionGradeOfFinality(branchID.TransactionID())
+	if gofErr != nil {
 		return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
 	}
 
-	gradeOfFinality = gof.High
-	for conflictBranchID := range resolvedConflictBranchIDs {
-		conflictBranchGoF, gofErr := u.TransactionGradeOfFinality(conflictBranchID.TransactionID())
-		if gofErr != nil {
-			return gof.None, errors.Errorf("failed to normalize %s: %w", branchID, err)
-		}
-
-		if conflictBranchGoF < gradeOfFinality {
-			gradeOfFinality = conflictBranchGoF
-		}
-	}
-
-	return gradeOfFinality, nil
+	return conflictBranchGoF, nil
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
@@ -351,7 +337,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		// store TransactionMetadata
 		txMetadata := NewTransactionMetadata(txID)
 		txMetadata.SetSolid(true)
-		txMetadata.SetBranchID(MasterBranchID)
+		txMetadata.SetCompressedBranchesID(NewCompressedBranchesID(NewBranchIDs(MasterBranchID)))
 		txMetadata.SetGradeOfFinality(gof.High)
 
 		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) objectstorage.StorableObject {
@@ -376,9 +362,9 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
 func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranch BranchID) {
-	targetBranch = u.ledgerstate.AggregateConflictBranchesID(normalizedBranchIDs)
+	targetBranch = u.ledgerstate.CompressBranches(normalizedBranchIDs)
 
-	transactionMetadata.SetBranchID(targetBranch)
+	transactionMetadata.SetCompressedBranchesID(targetBranch)
 	transactionMetadata.SetSolid(true)
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
 	u.bookOutputs(transaction, targetBranch)
@@ -387,7 +373,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 }
 
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
-// already been spent by another Transaction. It creates a new ConflictBranch for the new Transaction and "forks" the
+// already been spent by another Transaction. It creates a new Branch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
 func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranch BranchID) {
 	// fork existing consumers
@@ -397,43 +383,43 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 		return
 	}, types.True)
 
-	// create new ConflictBranch
+	// create new Branch
 	targetBranch = NewBranchID(transaction.ID())
 	cachedConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(targetBranch, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
-		panic(fmt.Errorf("failed to create ConflictBranch when booking Transaction with %s: %w", transaction.ID(), err))
+		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
 
-	// book Transaction into new ConflictBranch
+	// book Transaction into new Branch
 	if !cachedConflictBranch.Consume(func(branch Branch) {
-		transactionMetadata.SetBranchID(targetBranch)
+		transactionMetadata.SetCompressedBranchesID(targetBranch)
 		transactionMetadata.SetSolid(true)
 		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
 		u.bookOutputs(transaction, targetBranch)
 	}) {
-		panic(fmt.Errorf("failed to load ConflictBranch with %s", cachedConflictBranch.ID()))
+		panic(fmt.Errorf("failed to load Branch with %s", cachedConflictBranch.ID()))
 	}
 
 	return
 }
 
-// forkConsumer is an internal utility function that creates a ConflictBranch for a Transaction that has not been
+// forkConsumer is an internal utility function that creates a Branch for a Transaction that has not been
 // conflicting first but now turned out to be conflicting because of a newly booked double spend.
 func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(txMetadata *TransactionMetadata) {
 		conflictBranchID := NewBranchID(transactionID)
-		conflictBranchParents := NewBranchIDs(txMetadata.BranchID())
+		conflictBranchParents := NewBranchIDs(txMetadata.CompressedBranches())
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
 		cachedConsumingConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(conflictBranchID, conflictBranchParents, conflictIDs)
 		if err != nil {
-			panic(fmt.Errorf("failed to create ConflictBranch when forking Transaction with %s: %w", transactionID, err))
+			panic(fmt.Errorf("failed to create Branch when forking Transaction with %s: %w", transactionID, err))
 		}
 		cachedConsumingConflictBranch.Release()
 
 		// We don't need to propagate updates if the branch did already exist.
 		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
-		if txMetadata.BranchID() == conflictBranchID {
+		if txMetadata.CompressedBranches() == conflictBranchID {
 			return
 		}
 
@@ -446,7 +432,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 			}
 		}
 
-		txMetadata.SetBranchID(conflictBranchID)
+		txMetadata.SetCompressedBranchesID(conflictBranchID)
 		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
 			TransactionID:  transactionID,
 			NewBranchID:    conflictBranchID,
@@ -462,12 +448,12 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 }
 
 // propagateBranchUpdates is an internal utility function that propagates changes in the perception of the BranchDAG
-// after introducing a new ConflictBranch.
+// after introducing a new Branch.
 func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
-			if err := u.ledgerstate.UpdateConflictBranchParents(transactionMetadata.BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
-				panic(fmt.Errorf("failed to update ConflictBranch with %s: %w", transactionMetadata.BranchID(), err))
+			if err := u.ledgerstate.UpdateConflictBranchParents(transactionMetadata.CompressedBranches(), u.consumedBranchIDs(transactionID)); err != nil {
+				panic(fmt.Errorf("failed to update Branch with %s: %w", transactionMetadata.CompressedBranches(), err))
 			}
 			return
 		}
@@ -484,7 +470,7 @@ func (u *UTXODAG) propagateBranchUpdates(transactionID TransactionID, conflictBr
 // are booked into.
 func (u *UTXODAG) updateBranchOfTransaction(transactionID TransactionID, newBranchID, conflictBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		if transactionMetadata.SetBranchID(newBranchID) {
+		if transactionMetadata.SetCompressedBranchesID(newBranchID) {
 			updatedOutputs = u.createdOutputIDsOfTransaction(transactionID)
 			for _, outputID := range updatedOutputs {
 				if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
