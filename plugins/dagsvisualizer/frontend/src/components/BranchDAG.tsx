@@ -2,7 +2,7 @@ import * as React from 'react';
 import Container from 'react-bootstrap/Container';
 import { inject, observer } from 'mobx-react';
 import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
+import { Collapse, FormCheck } from 'react-bootstrap';
 import BranchStore from 'stores/BranchStore';
 import { BranchInfo } from 'components/BranchInfo';
 import Row from 'react-bootstrap/Row';
@@ -60,6 +60,10 @@ export default class BranchDAG extends React.Component<Props, any> {
 
     syncWithBranch = () => {
         this.props.globalStore.syncWithBranch();
+    };
+
+    toggleAggregated = (e) => {
+        this.props.branchStore.showAggregated = e.target.checked;
     };
 
     render() {
@@ -135,6 +139,16 @@ export default class BranchDAG extends React.Component<Props, any> {
                                         Sync with branch
                                     </Button>
                                 </InputGroup>
+                            </Col>
+                            <Col>
+                                <FormCheck
+                                    className="checkbox"
+                                    type="switch"
+                                    id="custom-switch"
+                                    label="show aggregated branches"
+                                    onChange={this.toggleAggregated}
+                                    defaultChecked={false}
+                                />
                             </Col>
                             <Col>
                                 <InputGroup className="mb-1">
