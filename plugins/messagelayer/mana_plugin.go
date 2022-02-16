@@ -464,10 +464,10 @@ func verifyPledgeNodes() error {
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	cachedOutputMetadata := deps.Tangle.LedgerState.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
-	outputMetadata := cachedOutputMetadata.Unwrap()
+	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if outputMetadata == nil || outputMetadata.ConsumerCount() > 0 {
+	if !exists || outputMetadata.ConsumerCount() > 0 {
 		return 0, time.Time{}
 	}
 
@@ -481,7 +481,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 
 	cachedTx := deps.Tangle.LedgerState.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
-	tx := cachedTx.Unwrap()
+	tx, _ := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
 }

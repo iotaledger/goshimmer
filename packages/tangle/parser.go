@@ -480,12 +480,12 @@ type TransactionFilter struct {
 // Filter compares the timestamps between the message, and it's transaction payload and calls the corresponding callback.
 func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
-		transaction, _, err := ledgerstate.TransactionFromBytes(payload.Bytes())
+		transaction, err := (&ledgerstate.Transaction{}).FromBytes(payload.Bytes())
 		if err != nil {
 			f.getRejectCallback()(msg, err, peer)
 			return
 		}
-		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
+		if !isMessageAndTransactionTimestampsValid(transaction.(*ledgerstate.Transaction), msg) {
 			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
 			return
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
@@ -237,7 +238,7 @@ type Output interface {
 	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
-	objectstorage.StorableObject
+	genericobjectstorage.StorableObject
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
@@ -560,15 +561,13 @@ func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleO
 	}
 }
 
-// SigLockedSingleOutputFromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
-func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput, consumedBytes int, err error) {
+// FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
+func (*SigLockedSingleOutput) FromBytes(bytes []byte) (output genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedSingleOutput from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -766,14 +765,13 @@ func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigL
 	}
 }
 
-// SigLockedColoredOutputFromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
-func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutput, consumedBytes int, err error) {
+// FromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
+func (*SigLockedColoredOutput) FromBytes(bytes []byte) (output genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -1007,7 +1005,7 @@ type AliasOutput struct {
 	// governance transition
 	delegationTimelock time.Time
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewAliasOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
@@ -1057,6 +1055,17 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 	a.isDelegated = true
 	a.delegationTimelock = lockUntil
 	return a
+}
+
+// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
+func (*AliasOutput) FromBytes(data []byte) (output genericobjectstorage.StorableObject, err error) {
+	marshalUtil := marshalutil.New(data)
+	if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
+		return
+	}
+
+	return
 }
 
 // AliasOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
@@ -1910,14 +1919,13 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	return nil
 }
 
-// ExtendedOutputFromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func ExtendedOutputFromBytes(data []byte) (output *ExtendedLockedOutput, consumedBytes int, err error) {
+// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
+func (*ExtendedLockedOutput) FromBytes(data []byte) (output genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(data)
 	if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -2218,107 +2226,6 @@ var _ Output = &ExtendedLockedOutput{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutput is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
-// methods with a type-casted one.
-type CachedOutput struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedOutput) Retain() *CachedOutput {
-	return &CachedOutput{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedOutput) Unwrap() Output {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(Output)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutput) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(Output))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedOutput.
-func (c *CachedOutput) String() string {
-	return stringify.Struct("CachedOutput",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputs ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputs represents a collection of CachedOutput objects.
-type CachedOutputs []*CachedOutput
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedOutputs) Unwrap() (unwrappedOutputs Outputs) {
-	unwrappedOutputs = make(Outputs, len(c))
-	for i, cachedOutput := range c {
-		untypedObject := cachedOutput.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(Output)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedOutputs) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
-	for _, cachedOutput := range c {
-		consumed = cachedOutput.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedOutputs) Release(force ...bool) {
-	for _, cachedOutput := range c {
-		cachedOutput.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedOutputs.
-func (c CachedOutputs) String() string {
-	structBuilder := stringify.StructBuilder("CachedOutputs")
-	for i, cachedOutput := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutput))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
@@ -2346,14 +2253,13 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 	}
 }
 
-// OutputMetadataFromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func OutputMetadataFromBytes(bytes []byte) (outputMetadata *OutputMetadata, consumedBytes int, err error) {
+// FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
+func (*OutputMetadata) FromBytes(bytes []byte) (outputMetadata genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if outputMetadata, err = OutputMetadataFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -2393,16 +2299,6 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	return
-}
-
-// OutputMetadataFromObjectStorage restores an OutputMetadata object that was stored in the ObjectStorage.
-func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata objectstorage.StorableObject, err error) {
-	if outputMetadata, _, err = OutputMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
-		return
-	}
-
 	return
 }
 
@@ -2685,107 +2581,6 @@ func (o OutputsMetadataByID) String() string {
 	structBuilder := stringify.StructBuilder("OutputsMetadataByID")
 	for id, output := range o {
 		structBuilder.AddField(stringify.StructField(id.String(), output))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedOutputMetadata struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedOutputMetadata) Retain() *CachedOutputMetadata {
-	return &CachedOutputMetadata{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*OutputMetadata)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutputMetadata) Consume(consumer func(outputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*OutputMetadata))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedOutputMetadata.
-func (c *CachedOutputMetadata) String() string {
-	return stringify.Struct("CachedOutputMetadata",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputsMetadata ////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputsMetadata represents a collection of CachedOutputMetadata objects.
-type CachedOutputsMetadata []*CachedOutputMetadata
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedOutputsMetadata) Unwrap() (unwrappedOutputs []*OutputMetadata) {
-	unwrappedOutputs = make([]*OutputMetadata, len(c))
-	for i, cachedOutputMetadata := range c {
-		untypedObject := cachedOutputMetadata.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*OutputMetadata)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedOutputsMetadata) Consume(consumer func(consumer *OutputMetadata), forceRelease ...bool) (consumed bool) {
-	for _, cachedOutputMetadata := range c {
-		consumed = cachedOutputMetadata.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedOutputsMetadata) Release(force ...bool) {
-	for _, cachedOutputMetadata := range c {
-		cachedOutputMetadata.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedOutputsMetadata.
-func (c CachedOutputsMetadata) String() string {
-	structBuilder := stringify.StructBuilder("CachedOutputsMetadata")
-	for i, cachedOutputMetadata := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutputMetadata))
 	}
 
 	return structBuilder.String()

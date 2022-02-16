@@ -3,7 +3,6 @@ package ledgerstate
 import (
 	"container/list"
 	"fmt"
-	"strconv"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -11,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	genericset "github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/objectstorage"
@@ -37,25 +37,25 @@ type IUTXODAG interface {
 	// BookTransaction books a Transaction into the ledger state.
 	BookTransaction(transaction *Transaction) (targetBranch BranchID, err error)
 	// CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-	CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction)
+	CachedTransaction(transactionID TransactionID) (cachedTransaction *genericobjectstorage.CachedObject[*Transaction])
 	// Transaction returns a specific transaction, consumed.
 	Transaction(transactionID TransactionID) (transaction *Transaction)
 	// Transactions returns all the transactions, consumed.
 	Transactions() (transactions map[TransactionID]*Transaction)
 	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata)
+	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata **genericobjectstorage.CachedObject[*TransactionMetadata])
 	// CachedOutput retrieves the Output with the given OutputID from the object storage.
-	CachedOutput(outputID OutputID) (cachedOutput *CachedOutput)
+	CachedOutput(outputID OutputID) (cachedOutput *genericobjectstorage.CachedObject[Output])
 	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
-	CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata)
+	CachedOutputMetadata(outputID OutputID) (cachedOutput *genericobjectstorage.CachedObject[*OutputMetadata])
 	// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-	CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers)
+	CachedConsumers(outputID OutputID) (cachedConsumers *genericobjectstorage.CachedObjects[*Consumer])
 	// LoadSnapshot creates a set of outputs in the UTXODAG, that are forming the genesis for future transactions.
 	LoadSnapshot(snapshot *Snapshot)
 	// CachedAddressOutputMapping retrieves the outputs for the given address.
-	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings)
+	CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings *genericobjectstorage.CachedObject[*AddressOutputMapping])
 	// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-	ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs)
+	ConsumedOutputs(transaction *Transaction) (cachedInputs *genericobjectstorage.CachedObjects[Output])
 	// ManageStoreAddressOutputMapping manages how to store the address-output mapping dependent on which type of output it is.
 	ManageStoreAddressOutputMapping(output Output)
 	// StoreAddressOutputMapping stores the address-output mapping.
@@ -75,30 +75,29 @@ type UTXODAG struct {
 
 	ledgerstate *Ledgerstate
 
-	transactionStorage          *objectstorage.ObjectStorage
-	transactionMetadataStorage  *objectstorage.ObjectStorage
-	outputStorage               *objectstorage.ObjectStorage
-	outputMetadataStorage       *objectstorage.ObjectStorage
-	consumerStorage             *objectstorage.ObjectStorage
-	addressOutputMappingStorage *objectstorage.ObjectStorage
+	transactionStorage          *genericobjectstorage.ObjectStorage[*Transaction]
+	transactionMetadataStorage  *genericobjectstorage.ObjectStorage[*TransactionMetadata]
+	outputStorage               *genericobjectstorage.ObjectStorage[Output]
+	outputMetadataStorage       *genericobjectstorage.ObjectStorage[*OutputMetadata]
+	consumerStorage             *genericobjectstorage.ObjectStorage[*Consumer]
+	addressOutputMappingStorage *genericobjectstorage.ObjectStorage[*AddressOutputMapping]
 	shutdownOnce                sync.Once
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
 func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
-	osFactory := objectstorage.NewFactory(ledgerstate.Options.Store, database.PrefixLedgerState)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
 			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 		},
 		ledgerstate:                 ledgerstate,
-		transactionStorage:          osFactory.New(PrefixTransactionStorage, TransactionFromObjectStorage, options.transactionStorageOptions...),
-		transactionMetadataStorage:  osFactory.New(PrefixTransactionMetadataStorage, TransactionMetadataFromObjectStorage, options.transactionMetadataStorageOptions...),
-		outputStorage:               osFactory.New(PrefixOutputStorage, OutputFromObjectStorage, options.outputStorageOptions...),
-		outputMetadataStorage:       osFactory.New(PrefixOutputMetadataStorage, OutputMetadataFromObjectStorage, options.outputMetadataStorageOptions...),
-		consumerStorage:             osFactory.New(PrefixConsumerStorage, ConsumerFromObjectStorage, options.consumerStorageOptions...),
-		addressOutputMappingStorage: osFactory.New(PrefixAddressOutputMappingStorage, AddressOutputMappingFromObjectStorage, options.addressOutputMappingStorageOptions...),
+		transactionStorage:          genericobjectstorage.New[*Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionStorage}), options.transactionStorageOptions...),
+		transactionMetadataStorage:  genericobjectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
+		outputStorage:               genericobjectstorage.NewWithObjectFactory[Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputStorage}), OutputFromObjectStorage, options.outputStorageOptions...),
+		outputMetadataStorage:       genericobjectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
+		consumerStorage:             genericobjectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConsumerStorage}), options.consumerStorageOptions...),
+		addressOutputMappingStorage: genericobjectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),
 	}
 	return
 }
@@ -159,14 +158,14 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranch Branch
 	transactionMetadata := NewTransactionMetadata(transaction.ID())
 	transactionMetadata.SetSolid(true)
 	newTransaction := false
-	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(transaction.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedTransactionMetadata := u.transactionMetadataStorage.ComputeIfAbsent(transaction.ID().Bytes(), func(key []byte) *TransactionMetadata {
 		newTransaction = true
 
 		transactionMetadata.Persist()
 		transactionMetadata.SetModified()
 
 		return transactionMetadata
-	})}
+	})
 	if !newTransaction {
 		if !cachedTransactionMetadata.Consume(func(transactionMetadata *TransactionMetadata) {
 			targetBranch = transactionMetadata.BranchID()
@@ -265,8 +264,8 @@ func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-func (u *UTXODAG) CachedTransaction(transactionID TransactionID) (cachedTransaction *CachedTransaction) {
-	return &CachedTransaction{CachedObject: u.transactionStorage.Load(transactionID.Bytes())}
+func (u *UTXODAG) CachedTransaction(transactionID TransactionID) (cachedTransaction *genericobjectstorage.CachedObject[*Transaction]) {
+	return u.transactionStorage.Load(transactionID.Bytes())
 }
 
 // Transaction returns a specific transaction, consumed.
@@ -280,8 +279,8 @@ func (u *UTXODAG) Transaction(transactionID TransactionID) (transaction *Transac
 // Transactions returns all the transactions, consumed.
 func (u *UTXODAG) Transactions() (transactions map[TransactionID]*Transaction) {
 	transactions = make(map[TransactionID]*Transaction)
-	u.transactionStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		(&CachedTransaction{CachedObject: cachedObject}).Consume(func(transaction *Transaction) {
+	u.transactionStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*Transaction]) bool {
+		cachedObject.Consume(func(transaction *Transaction) {
 			transactions[transaction.ID()] = transaction
 		})
 		return true
@@ -290,26 +289,25 @@ func (u *UTXODAG) Transactions() (transactions map[TransactionID]*Transaction) {
 }
 
 // CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (u *UTXODAG) CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *CachedTransactionMetadata) {
-	return &CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.Load(transactionID.Bytes())}
+func (u *UTXODAG) CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *genericobjectstorage.CachedObject[*TransactionMetadata]) {
+	return u.transactionMetadataStorage.Load(transactionID.Bytes())
 }
 
 // CachedOutput retrieves the Output with the given OutputID from the object storage.
-func (u *UTXODAG) CachedOutput(outputID OutputID) (cachedOutput *CachedOutput) {
-	return &CachedOutput{CachedObject: u.outputStorage.Load(outputID.Bytes())}
+func (u *UTXODAG) CachedOutput(outputID OutputID) (cachedOutput *genericobjectstorage.CachedObject[Output]) {
+	return u.outputStorage.Load(outputID.Bytes())
 }
 
 // CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
-func (u *UTXODAG) CachedOutputMetadata(outputID OutputID) (cachedOutput *CachedOutputMetadata) {
-	return &CachedOutputMetadata{CachedObject: u.outputMetadataStorage.Load(outputID.Bytes())}
+func (u *UTXODAG) CachedOutputMetadata(outputID OutputID) (cachedOutput *genericobjectstorage.CachedObject[*OutputMetadata]) {
+	return u.outputMetadataStorage.Load(outputID.Bytes())
 }
 
 // CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers CachedConsumers) {
-	cachedConsumers = make(CachedConsumers, 0)
-	u.consumerStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedConsumers = append(cachedConsumers, &CachedConsumer{CachedObject: cachedObject})
-
+func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers genericobjectstorage.CachedObjects[*Consumer]) {
+	cachedConsumers = make(genericobjectstorage.CachedObjects[*Consumer], 0)
+	u.consumerStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*Consumer]) bool {
+		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
 
@@ -355,18 +353,18 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		txMetadata.SetBranchID(MasterBranchID)
 		txMetadata.SetGradeOfFinality(gof.High)
 
-		(&CachedTransactionMetadata{CachedObject: u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) objectstorage.StorableObject {
+		u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) *TransactionMetadata {
 			txMetadata.Persist()
 			txMetadata.SetModified()
 			return txMetadata
-		})}).Release()
+		}).Release()
 	}
 }
 
 // CachedAddressOutputMapping retrieves the outputs for the given address.
-func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings CachedAddressOutputMappings) {
-	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-		cachedAddressOutputMappings = append(cachedAddressOutputMappings, &CachedAddressOutputMapping{cachedObject})
+func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutputMappings genericobjectstorage.CachedObjects[*AddressOutputMapping]) {
+	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*AddressOutputMapping]) bool {
+		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(address.Bytes()))
 	return
@@ -517,12 +515,12 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 		}
 
 		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
-		if !(&CachedConsumer{CachedObject: u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) objectstorage.StorableObject {
+		if !u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) *Consumer {
 			newConsumer.Persist()
 			newConsumer.SetModified()
 
 			return newConsumer
-		})}).Consume(func(consumer *Consumer) {
+		}).Consume(func(consumer *Consumer) {
 			consumer.SetValid(valid)
 		}) {
 			panic("failed to update valid flag of Consumer")
@@ -565,8 +563,8 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inher
 // region private utility functions ////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-func (u *UTXODAG) ConsumedOutputs(transaction *Transaction) (cachedInputs CachedOutputs) {
-	cachedInputs = make(CachedOutputs, 0)
+func (u *UTXODAG) ConsumedOutputs(transaction *Transaction) (cachedInputs genericobjectstorage.CachedObjects[Output]) {
+	cachedInputs = make(genericobjectstorage.CachedObjects[Output], 0)
 	for _, input := range transaction.Essence().Inputs() {
 		cachedInputs = append(cachedInputs, u.CachedOutput(input.(*UTXOInput).ReferencedOutputID()))
 	}
@@ -581,14 +579,13 @@ func (u *UTXODAG) allOutputsExist(inputs Outputs) (solid bool) {
 			return false
 		}
 	}
-
 	return true
 }
 
 // transactionInputsMetadata is an internal utility function that returns the Metadata of the Outputs that are used as
 // Inputs by the given Transaction.
-func (u *UTXODAG) transactionInputsMetadata(transaction *Transaction) (cachedInputsMetadata CachedOutputsMetadata) {
-	cachedInputsMetadata = make(CachedOutputsMetadata, 0)
+func (u *UTXODAG) transactionInputsMetadata(transaction *Transaction) (cachedInputsMetadata genericobjectstorage.CachedObjects[*OutputMetadata]) {
+	cachedInputsMetadata = make(genericobjectstorage.CachedObjects[*OutputMetadata], 0)
 	for _, inputMetadata := range transaction.Essence().Inputs() {
 		cachedInputsMetadata = append(cachedInputsMetadata, u.CachedOutputMetadata(inputMetadata.(*UTXOInput).ReferencedOutputID()))
 	}
@@ -623,8 +620,8 @@ func (u *UTXODAG) consumedOutputsPastConeValid(outputs Outputs, outputsMetadata 
 			}
 
 			cachedTransaction := u.CachedTransaction(consumer.TransactionID())
-			transaction := cachedTransaction.Unwrap()
-			if transaction == nil {
+			transaction, exists := cachedTransaction.Unwrap()
+			if !exists {
 				cachedTransaction.Release()
 				cachedConsumers.Release()
 				panic("failed to unwrap Transaction")
@@ -828,15 +825,13 @@ func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputM
 	}
 }
 
-// AddressOutputMappingFromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func AddressOutputMappingFromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, consumedBytes int, err error) {
+// FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
+func (*AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if addressOutputMapping, err = AddressOutputMappingFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -849,17 +844,6 @@ func AddressOutputMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	}
 	if addressOutputMapping.outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// AddressOutputMappingFromObjectStorage is a factory method that creates a new AddressOutputMapping instance from a
-// storage key of the object storage. It is used by the object storage, to create new instances of this entity.
-func AddressOutputMappingFromObjectStorage(key []byte, _ []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = AddressOutputMappingFromBytes(key); err != nil {
-		err = errors.Errorf("failed to parse AddressOutputMapping from bytes: %w", err)
 		return
 	}
 
@@ -911,107 +895,6 @@ var _ objectstorage.StorableObject = &AddressOutputMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedAddressOutputMapping ///////////////////////////////////////////////////////////////////////////////////
-
-// CachedAddressOutputMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
-// the accessor methods with a type-casted one.
-type CachedAddressOutputMapping struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedAddressOutputMapping) Retain() *CachedAddressOutputMapping {
-	return &CachedAddressOutputMapping{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedAddressOutputMapping) Unwrap() *AddressOutputMapping {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*AddressOutputMapping)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedAddressOutputMapping) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*AddressOutputMapping))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedAddressOutputMapping.
-func (c *CachedAddressOutputMapping) String() string {
-	return stringify.Struct("CachedAddressOutputMapping",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedAddressOutputMappings //////////////////////////////////////////////////////////////////////////////////
-
-// CachedAddressOutputMappings represents a collection of CachedAddressOutputMapping objects.
-type CachedAddressOutputMappings []*CachedAddressOutputMapping
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedAddressOutputMappings) Unwrap() (unwrappedOutputs []*AddressOutputMapping) {
-	unwrappedOutputs = make([]*AddressOutputMapping, len(c))
-	for i, cachedAddressOutputMapping := range c {
-		untypedObject := cachedAddressOutputMapping.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*AddressOutputMapping)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedAddressOutputMappings) Consume(consumer func(addressOutputMapping *AddressOutputMapping), forceRelease ...bool) (consumed bool) {
-	for _, cachedAddressOutputMapping := range c {
-		consumed = cachedAddressOutputMapping.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedAddressOutputMappings) Release(force ...bool) {
-	for _, cachedAddressOutputMapping := range c {
-		cachedAddressOutputMapping.Release(force...)
-	}
-}
-
-// String returns a human-readable version of the CachedAddressOutputMappings.
-func (c CachedAddressOutputMappings) String() string {
-	structBuilder := stringify.StructBuilder("CachedAddressOutputMappings")
-	for i, cachedAddressOutputMapping := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedAddressOutputMapping))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
@@ -1038,14 +921,13 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 	}
 }
 
-// ConsumerFromBytes unmarshals a Consumer from a sequence of bytes.
-func ConsumerFromBytes(bytes []byte) (consumer *Consumer, consumedBytes int, err error) {
+// FromBytes unmarshals a Consumer from a sequence of bytes.
+func (*Consumer) FromBytes(bytes []byte) (consumer genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if consumer, err = ConsumerFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -1063,17 +945,6 @@ func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Co
 	}
 	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// ConsumerFromObjectStorage is a factory method that creates a new Consumer instance from a storage key of the
-// object storage. It is used by the object storage, to create new instances of this entity.
-func ConsumerFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ConsumerFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
 		return
 	}
 
@@ -1148,106 +1019,5 @@ func (c *Consumer) ObjectStorageValue() []byte {
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &Consumer{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedConsumer ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedConsumer is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
-// methods with a type-casted one.
-type CachedConsumer struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedConsumer) Retain() *CachedConsumer {
-	return &CachedConsumer{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedConsumer) Unwrap() *Consumer {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Consumer)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedConsumer) Consume(consumer func(consumer *Consumer), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Consumer))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedConsumer.
-func (c *CachedConsumer) String() string {
-	return stringify.Struct("CachedConsumer",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedConsumers //////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedConsumers represents a collection of CachedConsumer objects.
-type CachedConsumers []*CachedConsumer
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedConsumers) Unwrap() (unwrappedConsumers []*Consumer) {
-	unwrappedConsumers = make([]*Consumer, len(c))
-	for i, cachedConsumer := range c {
-		untypedObject := cachedConsumer.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*Consumer)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedConsumers[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedConsumers) Consume(consumer func(consumer *Consumer), forceRelease ...bool) (consumed bool) {
-	for _, cachedConsumer := range c {
-		consumed = cachedConsumer.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedConsumers) Release(force ...bool) {
-	for _, cachedConsumer := range c {
-		cachedConsumer.Release(force...)
-	}
-}
-
-// String returns a human-readable version of the CachedConsumers.
-func (c CachedConsumers) String() string {
-	structBuilder := stringify.StructBuilder("CachedConsumers")
-	for i, cachedConsumer := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedConsumer))
-	}
-
-	return structBuilder.String()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

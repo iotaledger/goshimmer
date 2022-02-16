@@ -165,11 +165,11 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 
 // processTransactionPayload handles Value payload
 func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
-	tx, _, err := ledgerstate.TransactionFromBytes(p.Bytes())
+	txRaw, err := (&ledgerstate.Transaction{}).FromBytes(p.Bytes())
 	if err != nil {
 		return
 	}
-
+	tx := txRaw.(*ledgerstate.Transaction)
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
