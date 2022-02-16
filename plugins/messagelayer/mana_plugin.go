@@ -11,10 +11,10 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"go.uber.org/dig"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
@@ -35,8 +35,7 @@ var (
 	ManaPlugin         = node.NewPlugin(PluginName, nil, node.Enabled, configureManaPlugin, runManaPlugin)
 	manaLogger         *logger.Logger
 	baseManaVectors    map[mana.Type]mana.BaseManaVector
-	osFactory          *objectstorage.Factory
-	storages           map[mana.Type]*objectstorage.ObjectStorage
+	storages           map[mana.Type]*genericobjectstorage.ObjectStorage[*mana.PersistableBaseMana]
 	allowedPledgeNodes map[mana.Type]AllowedPledge
 	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
@@ -71,14 +70,13 @@ func configureManaPlugin(*node.Plugin) {
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
 
 	// configure storage for each vector type
-	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
+	storages = make(map[mana.Type]*genericobjectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	osFactory = objectstorage.NewFactory(store, db_pkg.PrefixMana)
-	storages[mana.AccessMana] = osFactory.New(mana.PrefixAccess, mana.FromObjectStorage)
-	storages[mana.ConsensusMana] = osFactory.New(mana.PrefixConsensus, mana.FromObjectStorage)
+	storages[mana.AccessMana] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccess}))
+	storages[mana.ConsensusMana] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensus}))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = osFactory.New(mana.PrefixAccessResearch, mana.FromObjectStorage)
-		storages[mana.ResearchConsensus] = osFactory.New(mana.PrefixConsensusResearch, mana.FromObjectStorage)
+		storages[mana.ResearchAccess] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccessResearch}))
+		storages[mana.ResearchConsensus] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensusResearch}))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -241,9 +239,8 @@ func runManaPlugin(_ *node.Plugin) {
 
 func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
-		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
-			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
+		storages[vectorType].ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
+			cachedObject.Consume(func(p *mana.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
 					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
