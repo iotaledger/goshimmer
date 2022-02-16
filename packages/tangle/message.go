@@ -961,11 +961,11 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		return
 	}
 	if result.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse added CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse added CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 	if result.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse subtracted CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse subtracted CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -1090,7 +1090,7 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	return m.structureDetails
 }
 
-// SetAddedBranchIDs sets the aggregated CompressedBranches of the added Branches.
+// SetAddedBranchIDs sets the aggregated CompressedBranchesID of the added Branches.
 func (m *MessageMetadata) SetAddedBranchIDs(aggregatedAddedBranchIDs ledgerstate.BranchID) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
@@ -1106,7 +1106,7 @@ func (m *MessageMetadata) SetAddedBranchIDs(aggregatedAddedBranchIDs ledgerstate
 	return
 }
 
-// AddedBranchIDs returns the aggregated CompressedBranches of the added Branches of the Message.
+// AddedBranchIDs returns the aggregated CompressedBranchesID of the added Branches of the Message.
 func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchID {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
@@ -1114,7 +1114,7 @@ func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchID {
 	return m.addedBranchIDs
 }
 
-// SetSubtractedBranchIDs sets the aggregated CompressedBranches of the added Branches.
+// SetSubtractedBranchIDs sets the aggregated CompressedBranchesID of the added Branches.
 func (m *MessageMetadata) SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs ledgerstate.BranchID) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
@@ -1130,7 +1130,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs l
 	return
 }
 
-// SubtractedBranchIDs returns the aggregated CompressedBranches of the subtracted Branches of the Message.
+// SubtractedBranchIDs returns the aggregated CompressedBranchesID of the subtracted Branches of the Message.
 func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchID {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()

@@ -151,7 +151,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"LikeParents",
 	"StrongApprovers",
 	"WeakApprovers",
-	"CompressedBranches",
+	"CompressedBranchesID",
 	"Scheduled",
 	"Booked",
 	"Invalid",

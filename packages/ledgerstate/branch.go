@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// region CompressedBranches /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region CompressedBranchesID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 var (
 	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
@@ -51,7 +51,7 @@ func BranchIDEventHandler(handler interface{}, params ...interface{}) {
 func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -63,12 +63,12 @@ func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err 
 func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded CompressedBranches (%v): %w", err, cerrors.ErrBase58DecodeFailed)
+		err = errors.Errorf("error while decoding base58 encoded CompressedBranchesID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
 	if branchID, _, err = BranchIDFromBytes(decodedBytes); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches from bytes: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID from bytes: %w", err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
 	if err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse CompressedBranchesID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	copy(branchID[:], branchIDBytes)
@@ -115,15 +115,15 @@ func (b BranchID) Base58() string {
 func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
-		return "CompressedBranches(UndefinedBranchID)"
+		return "CompressedBranchesID(UndefinedBranchID)"
 	case MasterBranchID:
-		return "CompressedBranches(MasterBranchID)"
+		return "CompressedBranchesID(MasterBranchID)"
 	default:
 		if branchIDAlias, exists := branchIDAliases[b]; exists {
-			return "CompressedBranches(" + branchIDAlias + ")"
+			return "CompressedBranchesID(" + branchIDAlias + ")"
 		}
 
-		return "CompressedBranches(" + b.Base58() + ")"
+		return "CompressedBranchesID(" + b.Base58() + ")"
 	}
 }
 
@@ -182,7 +182,7 @@ func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs B
 	for i := uint64(0); i < branchIDsCount; i++ {
 		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse CompressedBranches: %w", branchIDErr)
+			err = errors.Errorf("failed to parse CompressedBranchesID: %w", branchIDErr)
 			return
 		}
 
@@ -531,7 +531,7 @@ func (c *CachedBranch) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CompressedBranches /////////////////////////////////////////////////////////////////////////////////////////
+// region CompressedBranchesID /////////////////////////////////////////////////////////////////////////////////////////
 
 // CompressedBranchesIDLength contains the amount of bytes that a marshaled version of the CompressedBranchesID
 // contains.
@@ -576,7 +576,7 @@ func NewCompressedBranchesID(branchIDs BranchIDs) (compressedBranchesID Compress
 func CompressedBranchesIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (compressedBranchesID CompressedBranchesID, err error) {
 	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
 	if err != nil {
-		return UndefinedCompressedBranchesID, errors.Errorf("failed to parse CompressedBranches (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return UndefinedCompressedBranchesID, errors.Errorf("failed to parse CompressedBranchesID (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	copy(compressedBranchesID[:], branchIDBytes)
 
@@ -599,6 +599,11 @@ func (c CompressedBranchesID) BranchID() (branchID BranchID) {
 	return
 }
 
+// IsBranchID returns true if the CompressedBranchesID represents the given BranchID.
+func (c CompressedBranchesID) IsBranchID(branchID BranchID) bool {
+	return c.IsSingleBranch() && c.BranchID() == branchID
+}
+
 // Bytes returns a marshaled version of the CompressedBranchesID.
 func (c CompressedBranchesID) Bytes() []byte {
 	return c[:]
@@ -613,13 +618,13 @@ func (c CompressedBranchesID) Base58() string {
 func (c CompressedBranchesID) String() string {
 	switch c {
 	case UndefinedCompressedBranchesID:
-		return "CompressedBranches(UndefinedCompressedBranchesID)"
+		return "CompressedBranchesID(UndefinedCompressedBranchesID)"
 	default:
 		if compressedBranchesIDAlias, exists := compressedBranchesIDAliases[c]; exists {
-			return "CompressedBranches(" + compressedBranchesIDAlias + ")"
+			return "CompressedBranchesID(" + compressedBranchesIDAlias + ")"
 		}
 
-		return "CompressedBranches(" + c.Base58() + ")"
+		return "CompressedBranchesID(" + c.Base58() + ")"
 	}
 }
 
@@ -639,7 +644,7 @@ func UnregisterCompressedBranchesIDAliases() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CompressedBranches ///////////////////////////////////////////////////////////////////////////////////////////
+// region CompressedBranchesID ///////////////////////////////////////////////////////////////////////////////////////////
 
 // CompressedBranches is a struct that stores a mapping between a CompressedBranchesID and its corresponding BranchIDs.
 type CompressedBranches struct {
@@ -673,7 +678,7 @@ func (c *CompressedBranches) Bytes() []byte {
 }
 
 func (c *CompressedBranches) String() string {
-	return stringify.Struct("CompressedBranches",
+	return stringify.Struct("CompressedBranchesID",
 		stringify.StructField("ID", c.ID()),
 		stringify.StructField("BranchIDs", c.BranchIDs()),
 	)
@@ -740,11 +745,11 @@ func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes
 func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
 	childBranch = &ChildBranch{}
 	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parent CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse parent CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse child CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse child CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 

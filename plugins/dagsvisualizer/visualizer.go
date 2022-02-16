@@ -138,7 +138,7 @@ func registerUTXOEvents() {
 						Type: MsgTypeUTXOBooked,
 						Data: &utxoBooked{
 							ID:       tx.ID().Base58(),
-							BranchID: txMetadata.CompressedBranches().Base58(),
+							BranchID: txMetadata.CompressedBranchesID().Base58(),
 						},
 					}
 					visualizerWorkerPool.TrySubmit(wsMsg)
@@ -366,7 +366,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchID = txMetadata.CompressedBranches().Base58()
+		branchID = txMetadata.CompressedBranchesID().Base58()
 	})
 
 	ret = &utxoVertex{

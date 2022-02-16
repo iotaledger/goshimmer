@@ -333,7 +333,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledgerstate.TransactionID, candidateBranchID ledgerstate.BranchID, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker) bool {
 	return s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(candidateTxID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		// we stop if we walk outside our branch
-		if transactionMetadata.CompressedBranches() != candidateBranchID {
+		if transactionMetadata.CompressedBranchesID() != candidateBranchID {
 			return
 		}
 
@@ -415,14 +415,14 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 				gradeOfFinality = transactionMetadata.GradeOfFinality()
 			}
 
-			branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(transactionMetadata.CompressedBranches())
+			branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(transactionMetadata.CompressedBranchesID())
 			if err != nil {
 				// TODO: properly handle error
 				panic(err)
 			}
 			// This is an invalid invariant and should never happen.
 			if transactionGoF > branchGoF {
-				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branch %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.CompressedBranches(), branchGoF))
+				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branch %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.CompressedBranchesID(), branchGoF))
 			}
 
 			if branchGoF < gradeOfFinality {

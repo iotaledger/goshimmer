@@ -77,7 +77,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 		branchID, branchIDErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse CompressedBranches: %w", branchIDErr)
+			err = errors.Errorf("failed to parse CompressedBranchesID: %w", branchIDErr)
 			return
 		}
 
@@ -110,7 +110,7 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 
 	value, exists := m.mapping.Get(markerIndex)
 	if !exists {
-		panic(fmt.Sprintf("tried to retrieve the CompressedBranches of unknown marker.%s", markerIndex))
+		panic(fmt.Sprintf("tried to retrieve the CompressedBranchesID of unknown marker.%s", markerIndex))
 	}
 
 	return value.(ledgerstate.BranchID)

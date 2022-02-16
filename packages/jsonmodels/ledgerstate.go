@@ -528,7 +528,6 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
 	ID              string              `json:"id"`
-	Type            string              `json:"type"`
 	Parents         []string            `json:"parents"`
 	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
 	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
@@ -538,8 +537,7 @@ type Branch struct {
 // NewBranch returns a Branch from the given ledgerstate.Branch.
 func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
-		ID:   branch.ID().Base58(),
-		Type: branch.Type().String(),
+		ID: branch.ID().Base58(),
 		Parents: func() []string {
 			parents := make([]string, 0)
 			for id := range branch.Parents() {
@@ -549,12 +547,8 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 			return parents
 		}(),
 		ConflictIDs: func() []string {
-			if branch.Type() != ledgerstate.ConflictBranchType {
-				return make([]string, 0)
-			}
-
 			conflictIDs := make([]string, 0)
-			for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
+			for conflictID := range branch.Conflicts() {
 				conflictIDs = append(conflictIDs, conflictID.Base58())
 			}
 
@@ -571,15 +565,13 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 
 // ChildBranch represents the JSON model of a ledgerstate.ChildBranch.
 type ChildBranch struct {
-	BranchID   string `json:"branchID"`
-	BranchType string `json:"type"`
+	BranchID string `json:"branchID"`
 }
 
 // NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
 func NewChildBranch(childBranch *ledgerstate.ChildBranch) *ChildBranch {
 	return &ChildBranch{
-		BranchID:   childBranch.ChildBranchID().Base58(),
-		BranchType: childBranch.ChildBranchType().String(),
+		BranchID: childBranch.ChildBranchID().Base58(),
 	}
 }
 
@@ -752,7 +744,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchID:            transactionMetadata.CompressedBranches().Base58(),
+		BranchID:            transactionMetadata.CompressedBranchesID().Base58(),
 		Solid:               transactionMetadata.Solid(),
 		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
 		LazyBooked:          transactionMetadata.LazyBooked(),

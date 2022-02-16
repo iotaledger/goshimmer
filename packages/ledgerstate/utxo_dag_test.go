@@ -76,13 +76,13 @@ func TestExampleC(t *testing.T) {
 
 	// Checking TX3
 	{
-		// Checking that the CompressedBranches of Tx3 is correct
+		// Checking that the CompressedBranchesID of Tx3 is correct
 		Tx3AggregatedBranch := NewAggregatedBranch(NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())))
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3AggregatedBranch.ID(), metadata.CompressedBranches())
+			assert.Equal(t, Tx3AggregatedBranch.ID(), metadata.CompressedBranchesID())
 		})
 
-		// Checking that the parents CompressedBranches of TX3 are TX1 and TX2
+		// Checking that the parents CompressedBranchesID of TX3 are TX1 and TX2
 		ledgerstate.Branch(Tx3AggregatedBranch.ID()).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())), branch.Parents())
 		})
@@ -146,13 +146,13 @@ func TestExampleB(t *testing.T) {
 
 	// Checking TX3
 	{
-		// Checking that the CompressedBranches of Tx3 is correct
+		// Checking that the CompressedBranchesID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX3"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3BranchID, metadata.CompressedBranches())
+			assert.Equal(t, Tx3BranchID, metadata.CompressedBranchesID())
 		})
 
-		// Checking that the parents CompressedBranches of Tx3 is MasterBranchID
+		// Checking that the parents CompressedBranchesID of Tx3 is MasterBranchID
 		ledgerstate.Branch(Tx3BranchID).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
@@ -160,12 +160,12 @@ func TestExampleB(t *testing.T) {
 
 	// Checking TX4
 	{
-		// Checking that the CompressedBranches of Tx4 is correct
+		// Checking that the CompressedBranchesID of Tx4 is correct
 		Tx4BranchID := NewBranchID(transactions["TX4"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx4BranchID, metadata.CompressedBranches())
+			assert.Equal(t, Tx4BranchID, metadata.CompressedBranchesID())
 		})
-		// Checking that the parents CompressedBranches of TX4 is MasterBranchID
+		// Checking that the parents CompressedBranchesID of TX4 is MasterBranchID
 		ledgerstate.Branch(Tx4BranchID).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
@@ -179,19 +179,19 @@ func TestExampleB(t *testing.T) {
 		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
 	}
 
-	// Checking that the CompressedBranches of TX2 is correct and it is the parent of both TX3 and TX4.
+	// Checking that the CompressedBranchesID of TX2 is correct and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx2BranchID, metadata.CompressedBranches())
+			assert.Equal(t, Tx2BranchID, metadata.CompressedBranchesID())
 		})
 
-		// Checking that the parents CompressedBranches of Tx3 is Tx2BranchID
+		// Checking that the parents CompressedBranchesID of Tx3 is Tx2BranchID
 		ledgerstate.Branch(NewBranchID(transactions["TX3"].ID())).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(Tx2BranchID), branch.Parents())
 		})
 
-		// Checking that the parents CompressedBranches of Tx4 is Tx2BranchID
+		// Checking that the parents CompressedBranchesID of Tx4 is Tx2BranchID
 		ledgerstate.Branch(NewBranchID(transactions["TX4"].ID())).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(Tx2BranchID), branch.Parents())
 		})
@@ -247,19 +247,19 @@ func TestExampleA(t *testing.T) {
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx2BranchID, metadata.CompressedBranches())
+			assert.Equal(t, Tx2BranchID, metadata.CompressedBranchesID())
 		})
 	}
 
 	// Checking TX3
 	{
-		// Checking that the CompressedBranches of Tx3 is correct
+		// Checking that the CompressedBranchesID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX2"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3BranchID, metadata.CompressedBranches())
+			assert.Equal(t, Tx3BranchID, metadata.CompressedBranchesID())
 		})
 
-		// Checking that the parents CompressedBranches of TX3 is the MasterBranchID
+		// Checking that the parents CompressedBranchesID of TX3 is the MasterBranchID
 		ledgerstate.Branch(Tx3BranchID).Consume(func(branch Branch) {
 			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
@@ -300,8 +300,8 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	assert.Equal(t, MasterBranchID, targetBranch)
 
-	ledgerstate.Branch(txMetadata.CompressedBranches()).Consume(func(branch Branch) {
-		assert.Equal(t, MasterBranchID, txMetadata.CompressedBranches())
+	ledgerstate.Branch(txMetadata.CompressedBranchesID()).Consume(func(branch Branch) {
+		assert.Equal(t, MasterBranchID, txMetadata.CompressedBranchesID())
 		assert.True(t, txMetadata.Solid())
 	})
 
@@ -332,7 +332,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	ledgerstate.bookNonConflictingTransaction(tx1, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
 
-	assert.Equal(t, MasterBranchID, txMetadata.CompressedBranches())
+	assert.Equal(t, MasterBranchID, txMetadata.CompressedBranchesID())
 
 	// double spend
 	tx2, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
@@ -352,12 +352,12 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
 
-	ledgerstate.Branch(txMetadata2.CompressedBranches()).Consume(func(branch Branch) {
-		assert.Equal(t, targetBranch2, txMetadata2.CompressedBranches())
+	ledgerstate.Branch(txMetadata2.CompressedBranchesID()).Consume(func(branch Branch) {
+		assert.Equal(t, targetBranch2, txMetadata2.CompressedBranchesID())
 		assert.True(t, txMetadata2.Solid())
 	})
 
-	assert.NotEqual(t, MasterBranchID, txMetadata.CompressedBranches())
+	assert.NotEqual(t, MasterBranchID, txMetadata.CompressedBranchesID())
 
 	finality, err := ledgerstate.TransactionGradeOfFinality(tx1.ID())
 	require.NoError(t, err)
@@ -609,7 +609,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(output.ID())
-		metadata.SetBranchID(MasterBranchID)
+		metadata.SetCompressedBranchesID(MasterBranchID)
 		metadata.SetSolid(true)
 		ledgerstate.outputMetadataStorage.Store(metadata).Release()
 	}
@@ -749,7 +749,7 @@ func generateOutput(ledgerstate *Ledgerstate, address Address, index uint16) *Si
 
 	// store OutputMetadata
 	metadata := NewOutputMetadata(output.ID())
-	metadata.SetBranchID(MasterBranchID)
+	metadata.SetCompressedBranchesID(MasterBranchID)
 	metadata.SetSolid(true)
 	ledgerstate.outputMetadataStorage.Store(metadata).Release()
 
@@ -766,7 +766,7 @@ func generateOutputs(ledgerstate *Ledgerstate, address Address, branchIDs Branch
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(outputs[i].ID())
-		metadata.SetBranchID(branchID)
+		metadata.SetCompressedBranchesID(branchID)
 		metadata.SetSolid(true)
 		ledgerstate.outputMetadataStorage.Store(metadata).Release()
 		i++

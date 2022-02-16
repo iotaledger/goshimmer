@@ -731,7 +731,7 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		return
 	}
 	if transactionMetadata.compressedBranches, err = CompressedBranchesIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID: %w", err)
 		return
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -776,7 +776,7 @@ func (t *TransactionMetadata) ID() TransactionID {
 }
 
 // CompressedBranches returns the identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) CompressedBranches() CompressedBranchesID {
+func (t *TransactionMetadata) CompressedBranchesID() CompressedBranchesID {
 	t.compressedBranchesMutex.RLock()
 	defer t.compressedBranchesMutex.RUnlock()
 
@@ -896,9 +896,9 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
-	compressedBranches := t.CompressedBranches()
+	compressedBranches := t.CompressedBranchesID()
 
-	return compressedBranches.IsSingleBranch() && compressedBranches.BranchID() == NewBranchID(t.ID())
+	return compressedBranches.IsBranchID(NewBranchID(t.ID()))
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -910,7 +910,7 @@ func (t *TransactionMetadata) Bytes() []byte {
 func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
-		stringify.StructField("compressedBranches", t.CompressedBranches()),
+		stringify.StructField("compressedBranches", t.CompressedBranchesID()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
@@ -934,7 +934,7 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 // only used as a key in the ObjectStorage.
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(t.CompressedBranches()).
+		Write(t.CompressedBranchesID()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).

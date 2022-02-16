@@ -2366,7 +2366,7 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID: %w", err)
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -2419,16 +2419,16 @@ func (o *OutputMetadata) BranchID() BranchID {
 	return o.branchID
 }
 
-// SetBranchID sets the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
+// SetCompressedBranchesID sets the identifier of the Branch that the Output was booked in.
+func (o *OutputMetadata) SetCompressedBranchesID(compressedBranchesID CompressedBranchesID) (modified bool) {
 	o.branchIDMutex.Lock()
 	defer o.branchIDMutex.Unlock()
 
-	if o.branchID == branchID {
+	if o.branchID == compressedBranchesID {
 		return
 	}
 
-	o.branchID = branchID
+	o.branchID = compressedBranchesID
 	o.SetModified()
 	modified = true
 

@@ -59,7 +59,7 @@ func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBy
 func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
 	branchWeight = &BranchWeight{}
 	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -317,7 +317,7 @@ func BranchVotersFromBytes(bytes []byte) (branchVoters *BranchVoters, consumedBy
 func BranchVotersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
 	branchVoters = &BranchVoters{}
 	if branchVoters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", err)
 		return
 	}
 
@@ -852,7 +852,7 @@ func LatestBranchVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 	for i := uint64(0); i < mapSize; i++ {
 		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
 		if voteErr != nil {
-			return nil, errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", voteErr)
+			return nil, errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", voteErr)
 		}
 
 		vote, voteErr := VoteFromMarshalUtil(marshalUtil)
@@ -986,7 +986,7 @@ func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *BranchVote
 	}
 
 	if vote.BranchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", err)
+		return nil, errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", err)
 	}
 
 	untypedOpinion, err := marshalUtil.ReadUint8()
@@ -1036,7 +1036,7 @@ func (v *BranchVote) Bytes() []byte {
 func (v *BranchVote) String() string {
 	return stringify.Struct("Vote",
 		stringify.StructField("Voter", v.Voter),
-		stringify.StructField("CompressedBranches", v.BranchID),
+		stringify.StructField("CompressedBranchesID", v.BranchID),
 		stringify.StructField("Opinion", int(v.Opinion)),
 		stringify.StructField("VotePower", v.VotePower),
 	)

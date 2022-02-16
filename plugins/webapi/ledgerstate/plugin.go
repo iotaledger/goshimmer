@@ -461,7 +461,7 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 
 // region branchIDFromContext //////////////////////////////////////////////////////////////////////////////////////////
 
-// branchIDFromContext determines the CompressedBranches from the branchID parameter in an echo.Context. It expects it to either
+// branchIDFromContext determines the CompressedBranchesID from the branchID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterBranchID, LazyBookedConflictsBranchID or
 // InvalidBranchID)
 func branchIDFromContext(c echo.Context) (branchID ledgerstate.BranchID, err error) {

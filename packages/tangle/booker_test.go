@@ -3947,7 +3947,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 
-		assert.Equal(t, messageExpectedBranchIDs, retrievedBranchIDs, "CompressedBranches of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
+		assert.Equal(t, messageExpectedBranchIDs, retrievedBranchIDs, "CompressedBranchesID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
 	}
 }
 

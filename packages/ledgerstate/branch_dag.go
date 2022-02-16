@@ -53,8 +53,10 @@ func NewBranchDAG(ledgerState *Ledgerstate) (newBranchDAG *BranchDAG) {
 // CompressBranches returns a compressed version of the given BranchIDs.
 func (b *BranchDAG) CompressBranches(branchIDs BranchIDs) (compressedBranchesID CompressedBranchesID) {
 	compressedBranches := NewCompressedBranches(branchIDs)
-	if cachedCompressedBranches, stored := b.compressedBranchesIDStorage.StoreIfAbsent(compressedBranches); stored {
-		cachedCompressedBranches.Release()
+	if !compressedBranches.ID().IsSingleBranch() {
+		if cachedCompressedBranches, stored := b.compressedBranchesIDStorage.StoreIfAbsent(compressedBranches); stored {
+			cachedCompressedBranches.Release()
+		}
 	}
 
 	return compressedBranches.ID()
@@ -62,6 +64,10 @@ func (b *BranchDAG) CompressBranches(branchIDs BranchIDs) (compressedBranchesID 
 
 // UncompressBranches returns the BranchIDs representing the given CompressedBranchesID.
 func (b *BranchDAG) UncompressBranches(compressedBranchesID CompressedBranchesID) (branchIDs BranchIDs) {
+	if compressedBranchesID.IsSingleBranch() {
+		return NewBranchIDs(compressedBranchesID.BranchID())
+	}
+
 	b.compressedBranchesIDStorage.Load(compressedBranchesID.Bytes()).Consume(func(object objectstorage.StorableObject) {
 		branchIDs = object.(*CompressedBranches).BranchIDs()
 	})

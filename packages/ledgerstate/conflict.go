@@ -438,7 +438,7 @@ func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		return
 	}
 	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse CompressedBranches: %w", err)
+		err = errors.Errorf("failed to parse CompressedBranchesID: %w", err)
 		return
 	}
 
