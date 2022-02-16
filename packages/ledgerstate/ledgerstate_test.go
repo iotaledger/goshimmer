@@ -158,7 +158,7 @@ func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transac
 
 	for _, output := range transaction.Essence().Outputs() {
 		assert.True(t, ledgerstate.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
-			assert.Equal(t, branchID, outputMetadata.BranchID(), outputMetadata.String(), branchID.String())
+			assert.Equal(t, branchID, outputMetadata.CompressedBranchesID(), outputMetadata.String(), branchID.String())
 		}))
 	}
 }

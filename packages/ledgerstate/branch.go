@@ -516,7 +516,7 @@ func (c *CachedBranch) Unwrap() *Branch {
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranch) Consume(consumer func(childBranch *Branch), forceRelease ...bool) (consumed bool) {
+func (c *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
 		consumer(object.(*Branch))
 	}, forceRelease...)
@@ -591,7 +591,7 @@ func (c CompressedBranchesID) IsSingleBranch() bool {
 // BranchID returns the BranchID that this CompressedBranchesID represents if it only contains a single element.
 func (c CompressedBranchesID) BranchID() (branchID BranchID) {
 	if !c.IsSingleBranch() {
-		panic("tried to retrieve BranchID from ")
+		panic("tried to retrieve CompressedBranchesID from ")
 	}
 
 	copy(branchID[:], c[1:])

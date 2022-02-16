@@ -812,7 +812,7 @@ func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToS
 	for i, outputToSpend := range outputsToSpend {
 		inputs[i] = NewUTXOInput(outputToSpend.ID())
 		ledgerstate.CachedOutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
-			branchIDs[outputMetadata.BranchID()] = types.Void
+			branchIDs[outputMetadata.CompressedBranchesID()] = types.Void
 		})
 	}
 

@@ -2323,18 +2323,18 @@ func (c CachedOutputs) String() string {
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
-	id                      OutputID
-	branchID                BranchID
-	branchIDMutex           sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
-	solidificationTimeMutex sync.RWMutex
-	consumerCount           int
-	consumerMutex           sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
-	gradeOfFinalityMutex    sync.RWMutex
+	id                                OutputID
+	compressedBranchesID              CompressedBranchesID
+	compressedBranchesIDBranchIDMutex sync.RWMutex
+	solid                             bool
+	solidMutex                        sync.RWMutex
+	solidificationTime                time.Time
+	solidificationTimeMutex           sync.RWMutex
+	consumerCount                     int
+	consumerMutex                     sync.RWMutex
+	gradeOfFinality                   gof.GradeOfFinality
+	gradeOfFinalityTime               time.Time
+	gradeOfFinalityMutex              sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -2358,14 +2358,14 @@ func OutputMetadataFromBytes(bytes []byte) (outputMetadata *OutputMetadata, cons
 	return
 }
 
-// OutputMetadataFromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshaling).
+// OutputMetadataFromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
 func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
 	outputMetadata = &OutputMetadata{}
 	if outputMetadata.id, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if outputMetadata.compressedBranchesID, err = CompressedBranchesIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse CompressedBranchesID: %w", err)
 		return
 	}
@@ -2411,24 +2411,24 @@ func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) BranchID() BranchID {
-	o.branchIDMutex.RLock()
-	defer o.branchIDMutex.RUnlock()
+// CompressedBranchesID returns the identifier of the Branch that the Output was booked in.
+func (o *OutputMetadata) CompressedBranchesID() CompressedBranchesID {
+	o.compressedBranchesIDBranchIDMutex.RLock()
+	defer o.compressedBranchesIDBranchIDMutex.RUnlock()
 
-	return o.branchID
+	return o.compressedBranchesID
 }
 
 // SetCompressedBranchesID sets the identifier of the Branch that the Output was booked in.
 func (o *OutputMetadata) SetCompressedBranchesID(compressedBranchesID CompressedBranchesID) (modified bool) {
-	o.branchIDMutex.Lock()
-	defer o.branchIDMutex.Unlock()
+	o.compressedBranchesIDBranchIDMutex.Lock()
+	defer o.compressedBranchesIDBranchIDMutex.Unlock()
 
-	if o.branchID == compressedBranchesID {
+	if o.compressedBranchesID == compressedBranchesID {
 		return
 	}
 
-	o.branchID = compressedBranchesID
+	o.compressedBranchesID = compressedBranchesID
 	o.SetModified()
 	modified = true
 
@@ -2529,11 +2529,11 @@ func (o *OutputMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
 }
 
-// String returns a human readable version of the OutputMetadata.
+// String returns a human-readable version of the OutputMetadata.
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("compressedBranches", o.BranchID()),
+		stringify.StructField("compressedBranches", o.CompressedBranchesID()),
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
@@ -2557,7 +2557,7 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 // used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(o.BranchID()).
+		Write(o.CompressedBranchesID()).
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
@@ -2605,16 +2605,6 @@ func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
 	}
 
 	return
-}
-
-// BranchIDs returns the BranchIDs that are contained in the list of OutputsMetadata objects.
-func (o OutputsMetadata) BranchIDs() (branchIDs BranchIDs) {
-	branchIDs = NewBranchIDs()
-	for _, inputMetadata := range o {
-		branchIDs.Add(inputMetadata.BranchID())
-	}
-
-	return branchIDs
 }
 
 // SpentOutputsMetadata returns the spent elements of the list of OutputsMetadata objects.

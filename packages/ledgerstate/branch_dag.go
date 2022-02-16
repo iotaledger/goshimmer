@@ -130,41 +130,29 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 	return
 }
 
-// UpdateConflictBranchParents changes the parents of a Branch (also updating the references of the
-// ChildBranches).
-func (b *BranchDAG) UpdateConflictBranchParents(conflictBranchID BranchID, newParentBranchIDs BranchIDs) (err error) {
+// AddBranchParent changes the parents of a Branch (also updating the references of the ChildBranches).
+func (b *BranchDAG) AddBranchParent(branchID BranchID, newParentBranchID BranchID) (err error) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	cachedConflictBranch := b.Branch(conflictBranchID)
-	defer cachedConflictBranch.Release()
+	if !b.Branch(branchID).Consume(func(branch *Branch) {
+		parentBranchIDs := branch.Parents()
+		if _, exists := parentBranchIDs[newParentBranchID]; !exists {
+			parentBranchIDs.Add(newParentBranchID)
 
-	conflictBranch := cachedConflictBranch.Unwrap()
-	if conflictBranch == nil {
-		err = errors.Errorf("failed to unwrap Branch: %w", cerrors.ErrFatal)
-		return
-	}
-
-	oldParentBranchIDs := conflictBranch.Parents()
-	for oldParentBranchID := range oldParentBranchIDs {
-		if _, exists := newParentBranchIDs[conflictBranchID]; !exists {
-			b.childBranchStorage.Delete(NewChildBranch(oldParentBranchID, conflictBranchID).ObjectStorageKey())
-		}
-	}
-
-	for newParentBranchID := range newParentBranchIDs {
-		if _, exists := oldParentBranchIDs[newParentBranchID]; !exists {
-			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, conflictBranchID)); stored {
+			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, branchID)); stored {
 				cachedChildBranch.Release()
 			}
+
+			if branch.SetParents(parentBranchIDs) {
+				b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{branchID, parentBranchIDs})
+			}
 		}
+	}) {
+		return errors.Errorf("failed to unwrap Branch: %w", cerrors.ErrFatal)
 	}
 
-	conflictBranch.SetParents(newParentBranchIDs)
-
-	b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{conflictBranchID, newParentBranchIDs})
-
-	return
+	return nil
 }
 
 // ResolvePendingConflictBranchIDs returns the BranchIDs of the pending and rejected ConflictBranches that are

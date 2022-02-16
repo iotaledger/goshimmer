@@ -493,7 +493,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchID:            outputMetadata.BranchID().Base58(),
+		BranchID:            outputMetadata.CompressedBranchesID().Base58(),
 		Solid:               outputMetadata.Solid(),
 		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:       outputMetadata.ConsumerCount(),

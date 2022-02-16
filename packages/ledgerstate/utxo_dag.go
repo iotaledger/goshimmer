@@ -452,7 +452,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 func (u *UTXODAG) propagateForkedBranch(transactionID TransactionID, forkedBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
-			if err := u.ledgerstate.UpdateConflictBranchParents(transactionMetadata.CompressedBranchesID().BranchID(), u.consumedBranchIDs(transactionID)); err != nil {
+			if err := u.ledgerstate.AddBranchParent(transactionMetadata.CompressedBranchesID().BranchID(), forkedBranchID); err != nil {
 				panic(fmt.Errorf("failed to update Branch with %s: %w", transactionMetadata.CompressedBranchesID(), err))
 			}
 			return
@@ -539,7 +539,13 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, compressedBranchesID Com
 // book a newly arrived Transaction into the UTXODAG using the metadata of its referenced Inputs.
 func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inheritedBranchIDs BranchIDs, conflictingInputs OutputsMetadata, err error) {
 	conflictingInputs = inputsMetadata.SpentOutputsMetadata()
-	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingConflictBranchIDs(inputsMetadata.BranchIDs())
+
+	inheritedBranchIDs = NewBranchIDs()
+	for _, inputMetadata := range inputsMetadata {
+		inheritedBranchIDs.AddAll(u.ledgerstate.UncompressBranches(inputMetadata.CompressedBranchesID()))
+	}
+
+	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingConflictBranchIDs(inheritedBranchIDs)
 	if err != nil {
 		err = errors.Errorf("failed to resolve pending branches: %w", cerrors.ErrFatal)
 		return
@@ -702,30 +708,6 @@ func (u *UTXODAG) walkFutureCone(entryPoints []OutputID, callback func(transacti
 			}
 		})
 	}
-}
-
-// consumedBranchIDs is an internal utility function that determines the list of BranchIDs that were consumed by the
-// Inputs of the given Transaction.
-func (u *UTXODAG) consumedBranchIDs(transactionID TransactionID) (branchIDs BranchIDs) {
-	branchIDs = make(BranchIDs)
-	if !u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
-		for _, input := range transaction.Essence().Inputs() {
-			if !u.CachedOutputMetadata(input.(*UTXOInput).ReferencedOutputID()).Consume(func(outputMetadata *OutputMetadata) {
-				branchIDs[outputMetadata.BranchID()] = types.Void
-			}) {
-				panic(fmt.Errorf("failed to load OutputMetadata with %s", input.(*UTXOInput).ReferencedOutputID()))
-			}
-		}
-	}) {
-		panic(fmt.Errorf("failed to load Transaction with %s", transactionID))
-	}
-
-	branchIDs, err := u.ledgerstate.ResolvePendingConflictBranchIDs(branchIDs)
-	if err != nil {
-		panic(err)
-	}
-
-	return
 }
 
 // ManageStoreAddressOutputMapping manages how to store the address-output mapping dependent on which type of output it is.
