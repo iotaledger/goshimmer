@@ -3,7 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.18
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
-replace github.com/iotaledger/hive.go => "/home/piotrek/Documents/iota/hive.go"
 
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
@@ -15,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20220216085059-4b88b54e237d
+	github.com/iotaledger/hive.go v0.0.0-20220216144318-4471c4f188f5
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
