@@ -6,6 +6,8 @@ import (
 	"sort"
 	"testing"
 
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+
 	"github.com/iotaledger/goshimmer/packages/consensus"
 
 	"github.com/stretchr/testify/require"
@@ -909,7 +911,7 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *BranchDAG) {
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
 func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta, isAggregated bool) bool {
-	var cachedBranch *CachedBranch
+	var cachedBranch *genericobjectstorage.CachedObject[Branch]
 	var newBranchCreated bool
 	var err error
 	if isAggregated {
@@ -925,7 +927,8 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 		require.NoError(t, err)
 		require.True(t, newBranchCreated)
 		defer cachedBranch.Release()
-		branchMeta.BranchID = cachedBranch.ID()
+		branch, _ := cachedBranch.Unwrap()
+		branchMeta.BranchID = branch.ID()
 	}
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated

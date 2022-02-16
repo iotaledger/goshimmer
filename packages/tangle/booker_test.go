@@ -2631,12 +2631,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 		// We confirm E and we should inherit it when attaching again to Message19
 		testFramework.tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Confirmed)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).Consume(func(branch ledgerstate.Branch) {
+			assert.Equal(t, branch.(*ledgerstate.ConflictBranch).InclusionState(), ledgerstate.Confirmed)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).Consume(func(conflictBranch ledgerstate.Branch) {
+			assert.Equal(t, conflictBranch.(*ledgerstate.ConflictBranch).InclusionState(), ledgerstate.Rejected)
 		})
 
 		testFramework.IssueMessages("Message27").WaitMessagesBooked()
@@ -2966,12 +2966,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("D+H", "Message5", "Message29")
 		testFramework.RegisterBranchID("E+Z", "Message12", "Message16")
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).Consume(func(branch ledgerstate.Branch) {
+			assert.Equal(t, branch.(*ledgerstate.ConflictBranch).InclusionState(), ledgerstate.Rejected)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).Consume(func(branch ledgerstate.Branch) {
+			assert.Equal(t, branch.(*ledgerstate.ConflictBranch).InclusionState(), ledgerstate.Rejected)
 		})
 
 		testFramework.IssueMessages("Message30").WaitMessagesBooked()

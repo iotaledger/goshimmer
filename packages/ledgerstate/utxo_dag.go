@@ -412,7 +412,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
 		u.bookOutputs(transaction, targetBranch)
 	}) {
-		panic(fmt.Errorf("failed to load ConflictBranch with %s", cachedConflictBranch.ID()))
+		panic(fmt.Errorf("failed to load ConflictBranch with %s", targetBranch.String()))
 	}
 
 	return

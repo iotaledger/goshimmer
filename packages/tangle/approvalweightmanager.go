@@ -201,7 +201,8 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 			continue
 		}
 
-		a.tangle.LedgerState.Branch(currentConflictBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.ConflictBranch) {
+		a.tangle.LedgerState.Branch(currentConflictBranchID).Consume(func(branch ledgerstate.Branch) {
+			conflictBranch := branch.(*ledgerstate.ConflictBranch)
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(conflictBranch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 

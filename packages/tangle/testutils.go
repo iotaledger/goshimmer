@@ -57,12 +57,15 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	messageTestFramework.createGenesisOutputs()
 
 	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("Message booked")
 		messageTestFramework.messagesBookedWG.Done()
 	}))
 	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
+		fmt.Println("Message processed")
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
 	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(_ *MessageInvalidEvent) {
+		fmt.Println("Message invalid")
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))

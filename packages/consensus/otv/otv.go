@@ -66,7 +66,8 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 		return
 	}
 
-	o.branchDAG.Branch(branchID).ConsumeConflictBranch(func(currentBranch *ledgerstate.ConflictBranch) {
+	o.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+		currentBranch := branch.(*ledgerstate.ConflictBranch)
 		switch currentBranch.InclusionState() {
 		case ledgerstate.Rejected:
 			preferred = false
