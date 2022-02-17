@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -27,34 +26,6 @@ type ConflictID [ConflictIDLength]byte
 // NewConflictID creates a new ConflictID from an OutputID.
 func NewConflictID(outputID OutputID) (conflictID ConflictID) {
 	copy(conflictID[:], outputID[:])
-
-	return
-}
-
-// ConflictIDFromBytes unmarshals a ConflictID from a sequence of bytes.
-func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ConflictIDFromBase58 creates a ConflictID from a base58 encoded string.
-func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error) {
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if conflictID, _, err = ConflictIDFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from bytes: %w", err)
-		return
-	}
 
 	return
 }
@@ -116,18 +87,6 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 	for _, conflictID := range optionalConflictIDs {
 		conflictIDs[conflictID] = types.Void
 	}
-
-	return
-}
-
-// ConflictIDsFromBytes unmarshals a collection of ConflictIDs from a sequence of bytes.
-func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictIDs, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictIDs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -315,11 +274,6 @@ func (c *Conflict) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Conflict) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Conflict) ObjectStorageKey() []byte {
@@ -335,14 +289,14 @@ func (c *Conflict) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &Conflict{}
+var _ genericobjectstorage.StorableObject = &Conflict{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
-var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
+var ConflictMemberKeyPartition = genericobjectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
 
 // ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
 // potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
@@ -424,6 +378,6 @@ func (c *ConflictMember) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &ConflictMember{}
+var _ genericobjectstorage.StorableObject = &ConflictMember{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

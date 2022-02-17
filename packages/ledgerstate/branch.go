@@ -159,18 +159,6 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	return
 }
 
-// BranchIDsFromBytes unmarshals a collection of BranchIDs from a sequence of bytes.
-func BranchIDsFromBytes(bytes []byte) (branchIDs BranchIDs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
 func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
 	branchIDsCount, err := marshalUtil.ReadUint64()
@@ -315,17 +303,6 @@ const (
 	// non-conflicting Branches.
 	AggregatedBranchType
 )
-
-// BranchTypeFromBytes unmarshals a BranchType from a sequence of bytes.
-func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(branchTypeBytes)
-	if branchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
 
 // BranchTypeFromMarshalUtil unmarshals a BranchType using a MarshalUtil (for easier unmarshaling).
 func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
@@ -603,11 +580,6 @@ func (c *ConflictBranch) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ConflictBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ConflictBranch) ObjectStorageKey() []byte {
@@ -731,11 +703,6 @@ func (a *AggregatedBranch) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AggregatedBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (a *AggregatedBranch) ObjectStorageKey() []byte {
@@ -760,7 +727,7 @@ var _ Branch = &AggregatedBranch{}
 // region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ChildBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
-var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
+var ChildBranchKeyPartition = genericobjectstorage.PartitionKey(BranchIDLength, BranchIDLength)
 
 // ChildBranch represents the relationship between a Branch and its children. Since a Branch can have a potentially
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
@@ -839,11 +806,6 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 		stringify.StructField("childBranchID", c.ChildBranchID()),
 		stringify.StructField("childBranchType", c.ChildBranchType()),
 	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ChildBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
