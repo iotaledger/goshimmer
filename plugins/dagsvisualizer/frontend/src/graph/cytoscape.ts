@@ -234,6 +234,8 @@ export function updateConfirmedTransaction(
     tx: utxoVertex,
     graph: cytoscapeLib
 ) {
+    if (!tx) return;
+
     const node = graph.cy.getElementById(tx.ID);
     if (!node) return;
     if (tx.isConfirmed) {
@@ -245,6 +247,8 @@ export function updateConfirmedBranch(
     branch: branchVertex,
     graph: cytoscapeLib
 ): void {
+    if (!branch)  return;
+
     const node = graph.cy.getElementById(branch.ID);
     if (!node) return;
     if (branch.isConfirmed) {
