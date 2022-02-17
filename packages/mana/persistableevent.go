@@ -135,6 +135,8 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
-func (p *PersistableEvent) FromBytes(data []byte) (result objectstorage.StorableObject, err error) {
+func (p *PersistableEvent) FromBytes(data []byte) (result genericobjectstorage.StorableObject, err error) {
 	return parseEvent(marshalutil.New(data))
 }
+
+var _ genericobjectstorage.StorableObject = &PersistableEvent{}

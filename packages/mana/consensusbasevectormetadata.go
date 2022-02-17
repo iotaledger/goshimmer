@@ -69,3 +69,5 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 func (*ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result genericobjectstorage.StorableObject, err error) {
 	return parseMetadata(marshalutil.New(data))
 }
+
+var _ genericobjectstorage.StorableObject = &ConsensusBasePastManaVectorMetadata{}
