@@ -195,3 +195,7 @@ h5 {
     padding: 10px;
     color: var(--color-light-grey);
 }
+
+.panel .checkbox {
+    color: var(--color-dark-grey);
+}

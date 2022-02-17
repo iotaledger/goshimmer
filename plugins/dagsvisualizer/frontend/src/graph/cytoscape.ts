@@ -1,6 +1,6 @@
 import { IGraph } from './graph';
 import cytoscape from 'cytoscape';
-import { dagreOptions, branchDagreOptions } from 'styles/graphStyle';
+import { branchDagreOptions, dagreOptions } from 'styles/graphStyle';
 import { utxoVertex } from 'models/utxo';
 import { branchVertex } from 'models/branch';
 import { ObservableMap } from 'mobx';
@@ -165,7 +165,14 @@ const drawSingleBranch = function (
 
     if (v) {
         graph.layoutApi.placeNewNodes(v);
+        if (branch.type == 'AggregatedBranchType') {
+            v.addClass('aggregated');
+        }
+        if (branch.isConfirmed) {
+            v.addClass('confirmed');
+        }
     }
+
     return v;
 };
 
@@ -221,6 +228,34 @@ function drawBranchesUpToMaster(
             }
         });
     }
+}
+
+export function updateConfirmedTransaction(
+    tx: utxoVertex,
+    graph: cytoscapeLib
+) {
+    const node = graph.cy.getElementById(tx.ID);
+    if (!node) return;
+    if (tx.isConfirmed) {
+        node.addClass('confirmed');
+    }
+}
+
+export function updateConfirmedBranch(
+    branch: branchVertex,
+    graph: cytoscapeLib
+): void {
+    const node = graph.cy.getElementById(branch.ID);
+    if (!node) return;
+    if (branch.isConfirmed) {
+        node.addClass('confirmed');
+    }
+}
+
+export function removeConfirmationStyle(id: string, graph: cytoscapeLib): void {
+    const node = graph.cy.getElementById(id);
+    if (!node) return;
+    node.removeClass('confirmed');
 }
 
 export function initUTXODAG() {
@@ -287,6 +322,12 @@ export function initUTXODAG() {
                 style: {
                     visibility: 'hidden'
                 }
+            },
+            {
+                selector: '.confirmed',
+                style: {
+                    'background-color': UTXO.COLOR_CONFIRMED
+                }
             }
         ],
         layout: {
@@ -345,6 +386,18 @@ export function initBranchDAG() {
                 selector: '.search:selected',
                 style: {
                     'background-color': BRANCH.SELECTED
+                }
+            },
+            {
+                selector: '.confirmed',
+                style: {
+                    'background-color': BRANCH.COLOR_CONFIRMED
+                }
+            },
+            {
+                selector: '.aggregated',
+                style: {
+                    'background-color': BRANCH.COLOR_AGGR
                 }
             }
         ],
