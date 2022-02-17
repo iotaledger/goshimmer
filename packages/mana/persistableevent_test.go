@@ -40,13 +40,6 @@ func TestPersistableEvent_ObjectStorageValue(t *testing.T) {
 	assert.Equal(t, ev.Bytes(), val, "should be equal")
 }
 
-func TestPersistableEvent_Update(t *testing.T) {
-	ev := &PersistableEvent{}
-	assert.Panics(t, func() {
-		ev.Update(nil)
-	}, "should have paniced")
-}
-
 func TestPersistableEvent_FromBytes(t *testing.T) {
 	ev := &PersistableEvent{
 		Type:          EventTypePledge,

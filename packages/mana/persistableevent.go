@@ -9,7 +9,6 @@ import (
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -62,11 +61,6 @@ func (p *PersistableEvent) Bytes() []byte {
 	marshalUtil.WriteBytes(p.InputID.Bytes())
 	p.bytes = marshalUtil.Bytes()
 	return p.bytes
-}
-
-// Update updates the event in storage.
-func (p *PersistableEvent) Update(objectstorage.StorableObject) {
-	panic("should not be updated")
 }
 
 // ObjectStorageKey returns the key of the persistable mana.

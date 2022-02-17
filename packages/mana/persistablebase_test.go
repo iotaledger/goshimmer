@@ -42,13 +42,6 @@ func TestPersistableBaseMana_ObjectStorageValue(t *testing.T) {
 	assert.Equal(t, p.Bytes(), val, "should be equal")
 }
 
-func TestPersistableBaseMana_Update(t *testing.T) {
-	p := newPersistableMana()
-	assert.Panics(t, func() {
-		p.Update(nil)
-	}, "should have paniced")
-}
-
 func TestPersistableBaseMana_FromBytes(t *testing.T) {
 	p1 := newPersistableMana()
 	p2, err := (&PersistableBaseMana{}).FromBytes(p1.Bytes())

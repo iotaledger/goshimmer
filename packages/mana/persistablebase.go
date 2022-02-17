@@ -9,7 +9,6 @@ import (
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -36,7 +35,7 @@ func (persistableBaseMana *PersistableBaseMana) String() string {
 	)
 }
 
-var _ objectstorage.StorableObject = &PersistableBaseMana{}
+var _ genericobjectstorage.StorableObject = &PersistableBaseMana{}
 
 // Bytes  marshals the persistable mana into a sequence of bytes.
 func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
@@ -59,11 +58,6 @@ func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
 
 	persistableBaseMana.bytes = marshalUtil.Bytes()
 	return persistableBaseMana.bytes
-}
-
-// Update updates the persistable mana in storage.
-func (persistableBaseMana *PersistableBaseMana) Update(objectstorage.StorableObject) {
-	panic("should not be updated")
 }
 
 // ObjectStorageKey returns the key of the persistable mana.

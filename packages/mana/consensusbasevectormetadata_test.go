@@ -28,16 +28,6 @@ func TestConsensusBasePastManaVectorMetadata_ObjectStorageValue(t *testing.T) {
 	assert.Equal(t, c.Bytes(), val, "should be equal")
 }
 
-func TestConsensusBasePastManaVectorMetadata_Update(t *testing.T) {
-	timestamp := time.Now()
-	c := &ConsensusBasePastManaVectorMetadata{}
-	c1 := &ConsensusBasePastManaVectorMetadata{
-		Timestamp: timestamp,
-	}
-	c.Update(c1)
-	assert.Equal(t, timestamp, c.Timestamp)
-}
-
 func TestConsensusBasePastManaVectorMetadata_FromBytes(t *testing.T) {
 	timestamp := time.Now()
 	c := &ConsensusBasePastManaVectorMetadata{

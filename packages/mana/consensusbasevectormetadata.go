@@ -5,7 +5,6 @@ import (
 
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 const (
@@ -30,14 +29,6 @@ func (c *ConsensusBasePastManaVectorMetadata) Bytes() []byte {
 	marshalUtil.WriteTime(c.Timestamp)
 	c.bytes = marshalUtil.Bytes()
 	return c.bytes
-}
-
-// Update updates the metadata in storage.
-func (c *ConsensusBasePastManaVectorMetadata) Update(other objectstorage.StorableObject) {
-	metadata := other.(*ConsensusBasePastManaVectorMetadata)
-	c.Timestamp = metadata.Timestamp
-	c.Persist()
-	c.SetModified()
 }
 
 // ObjectStorageKey returns the key of the metadata.
