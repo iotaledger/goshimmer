@@ -12,8 +12,6 @@ import (
 	genericset "github.com/iotaledger/hive.go/generics/set"
 	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/hive.go/objectstorage"
-
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
@@ -375,7 +373,7 @@ func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches generi
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
 
 		return true
-	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
+	}, genericobjectstorage.WithIteratorPrefix(branchID.Bytes()))
 
 	return
 }
@@ -403,7 +401,7 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 		cachedConflictMembers = append(cachedConflictMembers, cachedObject)
 
 		return true
-	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
+	}, genericobjectstorage.WithIteratorPrefix(conflictID.Bytes()))
 
 	return
 }
