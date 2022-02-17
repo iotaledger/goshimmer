@@ -6,8 +6,6 @@ import (
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-
-	"github.com/iotaledger/hive.go/objectstorage"
 )
 
 const (
@@ -119,7 +117,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 
 	options.transactionMetadataStorageOptions = []genericobjectstorage.Option{
 		cacheProvider.CacheTime(transactionCacheTime),
-		objectstorage.LeakDetectionEnabled(false),
+		genericobjectstorage.LeakDetectionEnabled(false),
 	}
 
 	options.outputStorageOptions = []genericobjectstorage.Option{
