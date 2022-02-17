@@ -769,16 +769,6 @@ func TestAliasOutput_Type(t *testing.T) {
 	})
 }
 
-func TestAliasOutput_Update(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		alias := dummyAliasOutput()
-		other := dummyAliasOutput()
-		assert.Panics(t, func() {
-			alias.Update(other)
-		})
-	})
-}
-
 func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
@@ -1935,15 +1925,6 @@ func TestExtendedLockedOutput_UnlockAddressNow(t *testing.T) {
 		output := dummyExtendedLockedOutput().WithFallbackOptions(nil, fallbackDeadline)
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(-time.Minute)).Equals(output.Address()))
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(time.Minute)).Equals(output.Address()))
-	})
-}
-
-func TestExtendedLockedOutput_Update(t *testing.T) {
-	t.Run("CASE: Update panics", func(t *testing.T) {
-		output := &ExtendedLockedOutput{}
-		assert.Panics(t, func() {
-			output.Update(&ExtendedLockedOutput{})
-		})
 	})
 }
 

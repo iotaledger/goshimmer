@@ -351,7 +351,7 @@ type ConflictMember struct {
 	conflictID ConflictID
 	branchID   BranchID
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewConflictMember is the constructor of the ConflictMember reference.
@@ -409,11 +409,6 @@ func (c *ConflictMember) String() string {
 		stringify.StructField("conflictID", c.conflictID),
 		stringify.StructField("branchID", c.branchID),
 	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ConflictMember) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the

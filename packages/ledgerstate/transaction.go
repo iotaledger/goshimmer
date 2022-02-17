@@ -14,7 +14,6 @@ import (
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -371,11 +370,6 @@ func (t *Transaction) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (t *Transaction) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *Transaction) ObjectStorageKey() []byte {
@@ -392,7 +386,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 var _ payload.Payload = &Transaction{}
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &Transaction{}
+var _ genericobjectstorage.StorableObject = &Transaction{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -843,11 +837,6 @@ func (t *TransactionMetadata) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (t *TransactionMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *TransactionMetadata) ObjectStorageKey() []byte {
@@ -868,6 +857,6 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &TransactionMetadata{}
+var _ genericobjectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

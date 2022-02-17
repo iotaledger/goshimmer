@@ -13,7 +13,6 @@ import (
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	genericset "github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -309,7 +308,7 @@ func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers genericobj
 	u.consumerStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
-	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
+	}, genericobjectstorage.WithIteratorPrefix(outputID.Bytes()))
 
 	return
 }
@@ -366,7 +365,7 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 	u.addressOutputMappingStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*AddressOutputMapping]) bool {
 		cachedAddressOutputMappings = append(cachedAddressOutputMappings, cachedObject)
 		return true
-	}, objectstorage.WithIteratorPrefix(address.Bytes()))
+	}, genericobjectstorage.WithIteratorPrefix(address.Bytes()))
 	return
 }
 
@@ -814,7 +813,7 @@ type AddressOutputMapping struct {
 	address  Address
 	outputID OutputID
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewAddressOutputMapping returns a new AddressOutputMapping.
@@ -873,11 +872,6 @@ func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AddressOutputMapping) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (a *AddressOutputMapping) ObjectStorageKey() []byte {
@@ -891,14 +885,14 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &AddressOutputMapping{}
+var _ genericobjectstorage.StorableObject = &AddressOutputMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, TransactionIDLength}...)
+var ConsumerPartitionKeys = genericobjectstorage.PartitionKey([]int{OutputIDLength, TransactionIDLength}...)
 
 // Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
@@ -909,7 +903,7 @@ type Consumer struct {
 	validMutex    sync.RWMutex
 	valid         types.TriBool
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewConsumer creates a Consumer object from the given information.
@@ -998,11 +992,6 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Consumer) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
@@ -1018,6 +1007,6 @@ func (c *Consumer) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &Consumer{}
+var _ genericobjectstorage.StorableObject = &Consumer{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

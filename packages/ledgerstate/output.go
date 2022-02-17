@@ -361,18 +361,6 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	return
 }
 
-// OutputsFromBytes unmarshals a collection of Outputs from a sequence of bytes.
-func OutputsFromBytes(outputBytes []byte) (outputs Outputs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(outputBytes)
-	if outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // OutputsFromMarshalUtil unmarshals a collection of Outputs using a MarshalUtil (for easier unmarshaling).
 func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
 	outputsCount, err := marshalUtil.ReadUint16()
@@ -550,7 +538,7 @@ type SigLockedSingleOutput struct {
 	balance uint64
 	address Address
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
@@ -698,11 +686,6 @@ func (s *SigLockedSingleOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // UpdateMintingColor does nothing for SigLockedSingleOutput.
 func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 	return s
@@ -754,7 +737,7 @@ type SigLockedColoredOutput struct {
 	balances *ColoredBalances
 	address  Address
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
@@ -902,11 +885,6 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 // Bytes returns a marshaled version of the Output.
 func (s *SigLockedColoredOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *SigLockedColoredOutput) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
@@ -1421,11 +1399,6 @@ func (a *AliasOutput) Compare(other Output) int {
 	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
-// Update is disabled.
-func (a *AliasOutput) Update(other objectstorage.StorableObject) {
-	panic("AliasOutput: storage object updates disabled")
-}
-
 // ObjectStorageKey a key.
 func (a *AliasOutput) ObjectStorageKey() []byte {
 	return a.ID().Bytes()
@@ -1875,7 +1848,7 @@ type ExtendedLockedOutput struct {
 	// any attached data (subject to size limits)
 	payload []byte
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 const (
@@ -2138,11 +2111,6 @@ func (o *ExtendedLockedOutput) Bytes() []byte {
 	return o.ObjectStorageValue()
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *ExtendedLockedOutput) Update(objectstorage.StorableObject) {
-	panic("ExtendedLockedOutput: updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
@@ -2243,7 +2211,7 @@ type OutputMetadata struct {
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewOutputMetadata creates a new empty OutputMetadata object.
@@ -2438,11 +2406,6 @@ func (o *OutputMetadata) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *OutputMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *OutputMetadata) ObjectStorageKey() []byte {
@@ -2463,7 +2426,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &OutputMetadata{}
+var _ genericobjectstorage.StorableObject = &OutputMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
