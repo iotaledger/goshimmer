@@ -45,7 +45,7 @@ func TestPeerRateLimiter_ExtendLimit(t *testing.T) {
 	testPeer := newTestPeer()
 	limitExtensionCount := 3
 	for i := 0; i < limitExtensionCount; i++ {
-		prl.ExtendLimit(testPeer)
+		prl.ExtendLimit(testPeer, 1)
 	}
 	testCount(t, prl, testPeer, defaultTestLimit+limitExtensionCount)
 }
