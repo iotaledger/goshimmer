@@ -148,7 +148,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 	cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
@@ -188,7 +188,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+		for _, output := range ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				isUnspent = outputMetadata.ConsumerCount() == 0
 			})
@@ -492,10 +492,11 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
+	txRaw, err := (&ledgerstate.Transaction{}).FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
+	tx := txRaw.(*ledgerstate.Transaction)
 
 	// check if it would introduce a double spend known to the node locally
 	has, conflictingID := doubleSpendFilter.HasConflict(tx.Essence().Inputs())

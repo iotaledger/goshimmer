@@ -11,9 +11,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -33,11 +33,12 @@ var TransactionType payload.Type
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		tx, consumedBytes, err := TransactionFromBytes(data)
+		marshalUtil := marshalutil.New(data)
+		tx, err := TransactionFromMarshalUtil(marshalUtil)
 		if err != nil {
 			return nil, err
 		}
-		if consumedBytes != len(data) {
+		if marshalUtil.ReadOffset() != len(data) {
 			return nil, errors.New("not all payload bytes were consumed")
 		}
 		return tx, nil
@@ -162,7 +163,7 @@ type Transaction struct {
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewTransaction creates a new Transaction from the given details.
@@ -198,15 +199,18 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	return
 }
 
-// TransactionFromBytes unmarshals a Transaction from a sequence of bytes.
-func TransactionFromBytes(bytes []byte) (transaction *Transaction, consumedBytes int, err error) {
+// FromObjectStorage creates an Transaction from sequences of key and bytes.
+func (t *Transaction) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
+// FromBytes unmarshals a Transaction from a sequence of bytes.
+func (*Transaction) FromBytes(bytes []byte) (transaction genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -293,23 +297,6 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 	return
 }
 
-// TransactionFromObjectStorage restores a Transaction that was stored in the ObjectStorage.
-func TransactionFromObjectStorage(key []byte, data []byte) (transaction objectstorage.StorableObject, err error) {
-	if transaction, _, err = TransactionFromBytes(data); err != nil {
-		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
-		return
-	}
-
-	transactionID, _, err := TransactionIDFromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-		return
-	}
-	transaction.(*Transaction).id = &transactionID
-
-	return
-}
-
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
 // we calculate this value lazy and use double checked locking.
 func (t *Transaction) ID() TransactionID {
@@ -388,11 +375,6 @@ func (t *Transaction) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (t *Transaction) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *Transaction) ObjectStorageKey() []byte {
@@ -409,52 +391,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 var _ payload.Payload = &Transaction{}
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &Transaction{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedTransaction is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedTransaction struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedTransaction) Retain() *CachedTransaction {
-	return &CachedTransaction{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedTransaction) Unwrap() *Transaction {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Transaction)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransaction) Consume(consumer func(transaction *Transaction), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Transaction))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedTransaction.
-func (c *CachedTransaction) String() string {
-	return stringify.Struct("CachedTransaction",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ genericobjectstorage.StorableObject = &Transaction{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -701,7 +638,7 @@ type TransactionMetadata struct {
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
@@ -711,15 +648,18 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 	}
 }
 
-// TransactionMetadataFromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func TransactionMetadataFromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, consumedBytes int, err error) {
+// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
+func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
+// FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
+func (*TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionMetadata, err = TransactionMetadataFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -754,16 +694,6 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// TransactionMetadataFromObjectStorage restores TransactionMetadata that were stored in the ObjectStorage.
-func TransactionMetadataFromObjectStorage(key []byte, data []byte) (transactionMetadata objectstorage.StorableObject, err error) {
-	if transactionMetadata, _, err = TransactionMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
 		return
 	}
 
@@ -917,11 +847,6 @@ func (t *TransactionMetadata) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (t *TransactionMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *TransactionMetadata) ObjectStorageKey() []byte {
@@ -942,51 +867,6 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &TransactionMetadata{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedTransactionMetadata ////////////////////////////////////////////////////////////////////////////////////
-
-// CachedTransactionMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedTransactionMetadata struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedTransactionMetadata) Retain() *CachedTransactionMetadata {
-	return &CachedTransactionMetadata{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedTransactionMetadata) Unwrap() *TransactionMetadata {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*TransactionMetadata)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedTransactionMetadata) Consume(consumer func(transactionMetadata *TransactionMetadata), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*TransactionMetadata))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedTransactionMetadata.
-func (c *CachedTransactionMetadata) String() string {
-	return stringify.Struct("CachedTransactionMetadata",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ genericobjectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
