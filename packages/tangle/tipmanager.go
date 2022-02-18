@@ -156,7 +156,7 @@ func (t *TipManager) Set(tips ...MessageID) {
 func (t *TipManager) AddTip(message *Message) {
 	messageID := message.ID()
 	cachedMessageMetadata := t.tangle.Storage.MessageMetadata(messageID)
-	messageMetadata := cachedMessageMetadata.Unwrap()
+	messageMetadata, _ := cachedMessageMetadata.Unwrap()
 	defer cachedMessageMetadata.Release()
 
 	if messageMetadata == nil {

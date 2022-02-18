@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -254,7 +254,7 @@ const (
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
 	version         uint8
@@ -429,14 +429,19 @@ func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
 	return
 }
 
-// MessageFromBytes parses the given bytes into a message.
-func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
+// FromObjectStorage parses the given key and bytes into a message.
+func (m *Message) FromObjectStorage(_, data []byte) (result genericobjectstorage.StorableObject, err error) {
+	return m.FromBytes(data)
+}
+
+// FromBytes parses the given bytes into a message.
+func (*Message) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageFromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
+	consumedBytes := marshalUtil.ReadOffset()
 
 	if len(bytes) != consumedBytes {
 		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
@@ -531,29 +536,6 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 	msg.bytes = msgBytes
 
 	return msg, nil
-}
-
-// MessageFromObjectStorage restores a Message from the ObjectStorage.
-func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	// parse the message
-	message, err := MessageFromMarshalUtil(marshalutil.New(data))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message from object storage: %w", err)
-		return
-	}
-
-	// parse the ID from they key
-	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
-		return
-	}
-	message.id = &id
-
-	// assign result
-	result = message
-
-	return
 }
 
 // VerifySignature verifies the signature of the message.
@@ -724,12 +706,6 @@ func (m *Message) ObjectStorageValue() []byte {
 	return m.Bytes()
 }
 
-// Update updates the object with the values of another object.
-// Since a Message is immutable, this function is not implemented and panics.
-func (m *Message) Update(objectstorage.StorableObject) {
-	panic("messages should never be overwritten and only stored once to optimize IO")
-}
-
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
 	parents := m.ParentsByType(StrongParentType)
@@ -764,6 +740,8 @@ func (m *Message) String() string {
 	builder.AddField(stringify.StructField("signature", m.Signature()))
 	return builder.String()
 }
+
+var _ genericobjectstorage.StorableObject = &Message{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -843,48 +821,11 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedMessage ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedMessage defines a cached message.
-// A wrapper for a cached object.
-type CachedMessage struct {
-	objectstorage.CachedObject
-}
-
-// Retain registers a new consumer for the cached message.
-func (c *CachedMessage) Retain() *CachedMessage {
-	return &CachedMessage{c.CachedObject.Retain()}
-}
-
-// Consume consumes the cached object and releases it when the callback is done.
-// It returns true if the callback was called.
-func (c *CachedMessage) Consume(consumer func(message *Message)) bool {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Message))
-	})
-}
-
-// Unwrap returns the message wrapped by the cached message.
-// If the wrapped object cannot be cast to a Message or has been deleted, it returns nil.
-func (c *CachedMessage) Unwrap() *Message {
-	untypedMessage := c.Get()
-	if untypedMessage == nil {
-		return nil
-	}
-	typeCastedMessage := untypedMessage.(*Message)
-	if typeCastedMessage == nil || typeCastedMessage.IsDeleted() {
-		return nil
-	}
-	return typeCastedMessage
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 
 	messageID           MessageID
 	receivedTime        time.Time
@@ -927,11 +868,15 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	}
 }
 
-// MessageMetadataFromBytes unmarshals the given bytes into a MessageMetadata.
-func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBytes int, err error) {
+// FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
+func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
+// FromBytes unmarshals the given bytes into a MessageMetadata.
+func (*MessageMetadata) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageMetadataFromMarshalUtil(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -996,16 +941,6 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 	if result.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
-		return
-	}
-
-	return
-}
-
-// MessageMetadataFromObjectStorage restores a MessageMetadata object from the ObjectStorage.
-func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 		return
 	}
 
@@ -1360,12 +1295,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Update updates the message metadata.
-// This should never happen and will panic if attempted.
-func (m *MessageMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // String returns a human readable version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
@@ -1389,49 +1318,7 @@ func (m *MessageMetadata) String() string {
 	)
 }
 
-var _ objectstorage.StorableObject = &MessageMetadata{}
-
-// CachedMessageMetadata is a wrapper for stored cached object that represents a message metadata.
-type CachedMessageMetadata struct {
-	objectstorage.CachedObject
-}
-
-// ID returns the MessageID of the CachedMessageMetadata.
-func (c *CachedMessageMetadata) ID() (messageID MessageID) {
-	messageID, _, err := MessageIDFromBytes(c.Key())
-	if err != nil {
-		panic(err)
-	}
-
-	return
-}
-
-// Retain registers a new consumer for the cached message metadata.
-func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
-	return &CachedMessageMetadata{c.CachedObject.Retain()}
-}
-
-// Unwrap returns the underlying stored message metadata wrapped by the CachedMessageMetadata.
-// If the stored object cannot be cast to MessageMetadata or is deleted, it returns nil.
-func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-	typedObject := untypedObject.(*MessageMetadata)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMetadata), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*MessageMetadata))
-	}, forceRelease...)
-}
+var _ genericobjectstorage.StorableObject = &MessageMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

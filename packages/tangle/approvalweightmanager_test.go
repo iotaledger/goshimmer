@@ -67,7 +67,8 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
 	branchWeight.SetWeight(5.1234)
 
-	branchWeightFromBytes, _, err := BranchWeightFromBytes(branchWeight.Bytes())
+	branchWeightFromBytesRaw, err := (&BranchWeight{}).FromBytes(branchWeight.Bytes())
+	branchWeightFromBytes := branchWeightFromBytesRaw.(*BranchWeight)
 	require.NoError(t, err)
 
 	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
@@ -82,7 +83,8 @@ func TestBranchVotersMarshalling(t *testing.T) {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 
-	branchVotersFromBytes, _, err := BranchVotersFromBytes(branchVoters.Bytes())
+	branchVotersFromBytesRaw, err := (&BranchVoters{}).FromBytes(branchVoters.Bytes())
+	branchVotersFromBytes := branchVotersFromBytesRaw.(*BranchVoters)
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters
