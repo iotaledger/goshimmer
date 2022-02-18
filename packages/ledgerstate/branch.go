@@ -442,6 +442,11 @@ func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *C
 	return c
 }
 
+// FromObjectStorage creates an ConflictBranch from sequences of key and bytes.
+func (c *ConflictBranch) FromObjectStorage(key, bytes []byte) (conflictBranch genericobjectstorage.StorableObject, err error) {
+	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals an ConflictBranch from a sequence of bytes.
 func (*ConflictBranch) FromBytes(bytes []byte) (conflictBranch genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -636,6 +641,11 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 	}
 }
 
+// FromObjectStorage creates an AggregatedBranch from sequences of key and bytes.
+func (a *AggregatedBranch) FromObjectStorage(key, bytes []byte) (aggregatedBranch genericobjectstorage.StorableObject, err error) {
+	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals an AggregatedBranch from a sequence of bytes.
 func (*AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -747,6 +757,11 @@ func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranch
 		childBranchID:   childBranchID,
 		childBranchType: childBranchType,
 	}
+}
+
+// FromObjectStorage creates an ChildBranch from sequences of key and bytes.
+func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch genericobjectstorage.StorableObject, err error) {
+	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.

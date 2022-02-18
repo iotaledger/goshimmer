@@ -210,9 +210,9 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 		ed25519.Signature{})
 	assert.NoError(t, err)
 
-	restoredMessage, _, err := MessageFromBytes(testMessage.Bytes())
+	restoredMessage, err := (&Message{}).FromBytes(testMessage.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, testMessage.ID(), restoredMessage.ID())
+	assert.Equal(t, testMessage.ID(), restoredMessage.(*Message).ID())
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
@@ -227,7 +227,8 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 
 	t.Log(testMessage)
 
-	restoredMessage, _, err := MessageFromBytes(testMessage.Bytes())
+	restoredMessageRaw, err := (&Message{}).FromBytes(testMessage.Bytes())
+	restoredMessage := restoredMessageRaw.(*Message)
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 		assert.ElementsMatch(t, testMessage.ParentsByType(StrongParentType), restoredMessage.ParentsByType(StrongParentType))
@@ -698,7 +699,7 @@ func TestMessage_Bytes(t *testing.T) {
 		copy(tmp, msgBytes[3:35])
 		copy(msgBytes[3:35], msgBytes[3+32:35+32])
 		copy(msgBytes[3+32:35+32], tmp)
-		_, _, err = MessageFromBytes(msgBytes)
+		_, err = (&Message{}).FromBytes(msgBytes)
 		assert.Error(t, err)
 	})
 
@@ -764,8 +765,8 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgBytes := msg.Bytes()
-		result, consumedBytes, err := MessageFromBytes(msgBytes)
-		assert.Equal(t, len(msgBytes), consumedBytes)
+		resultRaw, err := (&Message{}).FromBytes(msgBytes)
+		result := resultRaw.(*Message)
 		assert.NoError(t, err)
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
@@ -799,7 +800,7 @@ func TestMessageFromBytes(t *testing.T) {
 		msgBytes := msg.Bytes()
 		// put some bytes at the end
 		msgBytes = append(msgBytes, []byte{0, 1, 2, 3, 4}...)
-		_, _, err = MessageFromBytes(msgBytes)
+		_, err = (&Message{}).FromBytes(msgBytes)
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, cerrors.ErrParseBytesFailed))
 	})
