@@ -118,13 +118,11 @@ export class BranchLegend extends React.Component<any, any> {
         const nodeLabels = [
             'Conflict branch confirmed',
             'Conflict branch pending/rejected',
-            'Aggregated branch',
             'Master branch'
         ];
         const nodeColors = [
             BRANCH.COLOR_CONFIRMED,
             BRANCH.COLOR,
-            BRANCH.COLOR_AGGR,
             BRANCH.MASTER_COLOR
         ];
 

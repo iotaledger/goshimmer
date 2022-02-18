@@ -165,9 +165,6 @@ const drawSingleBranch = function (
 
     if (v) {
         graph.layoutApi.placeNewNodes(v);
-        if (branch.type == 'AggregatedBranchType') {
-            v.addClass('aggregated');
-        }
         if (branch.isConfirmed) {
             v.addClass('confirmed');
         }
@@ -382,9 +379,7 @@ export function initBranchDAG() {
             },
             {
                 selector: '.search',
-                style: {
-                    'background-color': BRANCH.SEARCHED_COLOR
-                }
+                style: {}
             },
             {
                 selector: '.search:selected',
@@ -396,12 +391,6 @@ export function initBranchDAG() {
                 selector: '.confirmed',
                 style: {
                     'background-color': BRANCH.COLOR_CONFIRMED
-                }
-            },
-            {
-                selector: '.aggregated',
-                style: {
-                    'background-color': BRANCH.COLOR_AGGR
                 }
             }
         ],
