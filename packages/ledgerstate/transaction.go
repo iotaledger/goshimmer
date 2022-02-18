@@ -199,6 +199,11 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	return
 }
 
+// FromObjectStorage creates an Transaction from sequences of key and bytes.
+func (t *Transaction) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (*Transaction) FromBytes(bytes []byte) (transaction genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -641,6 +646,11 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 	return &TransactionMetadata{
 		id: transactionID,
 	}
+}
+
+// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
+func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.

@@ -549,6 +549,11 @@ func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleO
 	}
 }
 
+// FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
+func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
 func (*SigLockedSingleOutput) FromBytes(bytes []byte) (output genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -746,6 +751,11 @@ func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigL
 		balances: balances,
 		address:  address,
 	}
+}
+
+// FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
+func (s *SigLockedColoredOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
@@ -1033,6 +1043,11 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 	a.isDelegated = true
 	a.delegationTimelock = lockUntil
 	return a
+}
+
+// FromObjectStorage creates an AliasOutput from sequences of key and bytes.
+func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
@@ -1892,6 +1907,11 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	return nil
 }
 
+// FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
+func (e *ExtendedLockedOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return e.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
 func (*ExtendedLockedOutput) FromBytes(data []byte) (output genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(data)
@@ -2219,6 +2239,11 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 	return &OutputMetadata{
 		id: outputID,
 	}
+}
+
+// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
+func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return o.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
