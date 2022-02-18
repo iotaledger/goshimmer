@@ -40,14 +40,7 @@ func TestPersistableEvent_ObjectStorageValue(t *testing.T) {
 	assert.Equal(t, ev.Bytes(), val, "should be equal")
 }
 
-func TestPersistableEvent_Update(t *testing.T) {
-	ev := &PersistableEvent{}
-	assert.Panics(t, func() {
-		ev.Update(nil)
-	}, "should have paniced")
-}
-
-func TestFromEventObjectStorage(t *testing.T) {
+func TestPersistableEvent_FromBytes(t *testing.T) {
 	ev := &PersistableEvent{
 		Type:          EventTypePledge,
 		NodeID:        identity.ID{},
@@ -56,7 +49,7 @@ func TestFromEventObjectStorage(t *testing.T) {
 		ManaType:      ConsensusMana,
 		TransactionID: ledgerstate.TransactionID{},
 	}
-	res, err := FromEventObjectStorage([]byte{}, ev.Bytes())
+	res, err := (&PersistableEvent{}).FromBytes(ev.Bytes())
 	ev1 := res.(*PersistableEvent)
 	assert.NoError(t, err)
 	assert.Equal(t, ev.Bytes(), ev1.Bytes(), "should be equal")
