@@ -186,6 +186,11 @@ func NewConflict(conflictID ConflictID) *Conflict {
 	}
 }
 
+// FromObjectStorage creates an Conflict from sequences of key and bytes.
+func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict genericobjectstorage.StorableObject, err error) {
+	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
 // FromBytes unmarshals a Conflict from a sequence of bytes.
 func (*Conflict) FromBytes(bytes []byte) (conflict genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
@@ -314,6 +319,11 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 		conflictID: conflictID,
 		branchID:   branchID,
 	}
+}
+
+// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
+func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember genericobjectstorage.StorableObject, err error) {
+	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
