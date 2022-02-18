@@ -14,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go v0.0.0-20220216144318-4471c4f188f5
+	github.com/iotaledger/hive.go v0.0.0-20220218133917-4f26fbc077d8
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
