@@ -3,6 +3,7 @@ package mana
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/byteutils"
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
@@ -54,6 +55,11 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 	result.bytes = make([]byte, consumedBytes)
 	copy(result.bytes, marshalUtil.Bytes())
 	return
+}
+
+// FromObjectStorage creates an ConsensusBasePastManaVectorMetadata from sequences of key and bytes.
+func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmsarshalls bytes into a metadata.
