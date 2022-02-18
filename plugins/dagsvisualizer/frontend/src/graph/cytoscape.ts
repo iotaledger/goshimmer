@@ -231,12 +231,12 @@ export function updateConfirmedTransaction(
     tx: utxoVertex,
     graph: cytoscapeLib
 ) {
-    if (tx) {
-        const node = graph.cy.getElementById(tx.ID);
-        if (!node) return;
-        if (tx.isConfirmed) {
-            node.addClass('confirmed');
-        }
+    if (!tx) return;
+
+    const node = graph.cy.getElementById(tx.ID);
+    if (!node) return;
+    if (tx.isConfirmed) {
+        node.addClass('confirmed');
     }
 }
 
@@ -244,12 +244,12 @@ export function updateConfirmedBranch(
     branch: branchVertex,
     graph: cytoscapeLib
 ): void {
-    if (branch) {
-        const node = graph.cy.getElementById(branch.ID);
-        if (!node) return;
-        if (branch.isConfirmed) {
-            node.addClass('confirmed');
-        }
+    if (!branch)  return;
+
+    const node = graph.cy.getElementById(branch.ID);
+    if (!node) return;
+    if (branch.isConfirmed) {
+        node.addClass('confirmed');
     }
 }
 
