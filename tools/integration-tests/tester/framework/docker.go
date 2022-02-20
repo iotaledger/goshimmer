@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -107,6 +108,47 @@ func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, go
 	}
 
 	return d.CreateContainer(ctx, name, containerConfig)
+}
+func (d *DockerContainer) createSocatContainer(ctx context.Context, name string, targetContainer string, portMapping map[int]config.GoShimmerPort) error {
+
+	// create host configs
+	portBindings := make(nat.PortMap, len(portMapping))
+	for srcPort, targetPort := range portMapping {
+
+		port, err := nat.NewPort("tcp", strconv.Itoa(int(targetPort)))
+		if err != nil {
+			return err
+		}
+
+		portBindings[port] = []nat.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: strconv.Itoa(srcPort),
+			},
+		}
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds:        strslice.StrSlice{"/var/run/docker.sock:/var/run/docker.sock:ro"},
+		PortBindings: portBindings,
+	}
+
+	cmd := ""
+	for _, targetPort := range portMapping {
+		if len(cmd) != 0 {
+			cmd += " || socat "
+		}
+		cmd += fmt.Sprintf("tcp-listen:%d,fork,reuseaddr tcp-connect:%s:%d", targetPort, targetContainer, targetPort)
+	}
+
+	// create container configs
+	containerConfig := &container.Config{
+		Image: "alpine/socat:1.7.4.3-r0",
+		Cmd:   strslice.StrSlice{cmd},
+	}
+
+	return d.CreateContainer(ctx, name, containerConfig, hostConfig)
+
 }
 
 // CreatePumba creates a new container with Pumba configuration blocking all traffic.

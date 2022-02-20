@@ -280,6 +280,30 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 	return node, nil
 }
 
+// creates socat container to access node's ports while debugging
+func (n *Network) createSocatContainer(ctx context.Context, targetNode *Node, containerNum int) (*DockerContainer, error) {
+	offset := 100 * containerNum
+
+	container := NewDockerContainer(n.docker)
+
+	portMapping := make(map[int]config.GoShimmerPort, len(config.GoShimmerPorts))
+	for _, port := range config.GoShimmerPorts {
+		portMapping[int(port)+offset] = port
+	}
+
+	err := container.createSocatContainer(ctx, "socat_"+targetNode.Name(), targetNode.Name(), portMapping)
+	if err != nil {
+		return nil, err
+	}
+
+	err = container.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return container, err
+}
+
 // createPumba creates and starts a Pumba Docker container.
 func (n *Network) createPumba(ctx context.Context, effectedNode *Node, targetIPs []string) (*DockerContainer, error) {
 	name := effectedNode.Name() + containerNameSuffixPumba
