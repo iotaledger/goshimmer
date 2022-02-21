@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -292,7 +291,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+func OutputFromObjectStorage(key []byte, data []byte) (output genericobjectstorage.StorableObject, err error) {
 	if output, _, err = OutputFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return

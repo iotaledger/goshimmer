@@ -119,6 +119,7 @@ func configureGossipIntegration() {
 			}
 		}()
 	}))
+
 	deps.Selection.Events().OutgoingPeering.Attach(events.NewClosure(func(ev *selection.PeeringEvent) {
 		if !ev.Status {
 			return // ignore rejected peering

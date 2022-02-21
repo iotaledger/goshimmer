@@ -199,9 +199,9 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	return
 }
 
-// FromObjectStorage creates an Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
-	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
+// FromObjectStorage creates a Transaction from sequences of key and bytes.
+func (t *Transaction) FromObjectStorage(_, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return t.FromBytes(bytes)
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.

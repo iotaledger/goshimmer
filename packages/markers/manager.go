@@ -8,10 +8,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	genericwalker "github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -24,7 +24,7 @@ import (
 type Manager struct {
 	Options *ManagerOptions
 
-	sequenceStore          *objectstorage.ObjectStorage
+	sequenceStore          *genericobjectstorage.ObjectStorage[*Sequence]
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 	shutdownOnce           sync.Once
@@ -189,8 +189,8 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 }
 
 // Sequence retrieves a Sequence from the object storage.
-func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
-	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+func (m *Manager) Sequence(sequenceID SequenceID) *genericobjectstorage.CachedObject[*Sequence] {
+	return m.sequenceStore.Load(sequenceID.Bytes())
 }
 
 // Shutdown shuts down the Manager and persists its state.
@@ -222,7 +222,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 
 // initObjectStorage sets up the object storage for the Sequences.
 func (m *Manager) initObjectStorage() (self *Manager) {
-	m.sequenceStore = objectstorage.NewFactory(m.Options.Store, database.PrefixMarkers).New(0, SequenceFromObjectStorage, objectstorage.CacheTime(m.Options.CacheTime))
+	m.sequenceStore = genericobjectstorage.New[*Sequence](m.Options.Store.WithRealm([]byte{database.PrefixMarkers, 0}), genericobjectstorage.CacheTime(m.Options.CacheTime))
 
 	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()
@@ -336,7 +336,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers)
 	m.sequenceIDCounterMutex.Unlock()
 
-	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
+	m.sequenceStore.Store(newSequence).Release()
 
 	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
 

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -402,7 +401,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 }
 
 // BranchFromObjectStorage restores a Branch that was stored in the object storage.
-func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
+func BranchFromObjectStorage(_ []byte, data []byte) (branch genericobjectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 		return

@@ -8,13 +8,12 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
-
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 )
@@ -1081,7 +1080,7 @@ type Sequence struct {
 	verticesWithoutFutureMarkerMutex sync.RWMutex
 	highestIndexMutex                sync.RWMutex
 
-	objectstorage.StorableObjectFlags
+	genericobjectstorage.StorableObjectFlags
 }
 
 // NewSequence creates a new Sequence from the given details.
@@ -1101,14 +1100,18 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 	}
 }
 
-// SequenceFromBytes unmarshals a Sequence from a sequence of bytes.
-func SequenceFromBytes(sequenceBytes []byte) (sequence *Sequence, consumedBytes int, err error) {
+// FromObjectStorage creates an Sequence from sequences of key and bytes.
+func (s *Sequence) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
+}
+
+// FromBytes unmarshals a Sequence from a sequence of bytes.
+func (*Sequence) FromBytes(sequenceBytes []byte) (sequence genericobjectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -1136,16 +1139,6 @@ func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Se
 	}
 
 	return sequence, nil
-}
-
-// SequenceFromObjectStorage restores a Sequence that was stored in the object storage.
-func SequenceFromObjectStorage(key, data []byte) (sequence objectstorage.StorableObject, err error) {
-	if sequence, _, err = SequenceFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
-		return
-	}
-
-	return
 }
 
 // ID returns the identifier of the Sequence.
@@ -1256,11 +1249,6 @@ func (s *Sequence) Bytes() []byte {
 	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
 }
 
-// Update is required to match the StorableObject interface but updates of the object are disabled.
-func (s *Sequence) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *Sequence) ObjectStorageKey() []byte {
@@ -1283,45 +1271,7 @@ func (s *Sequence) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ objectstorage.StorableObject = &Sequence{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedSequence ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedSequence is a wrapper for the generic CachedObject returned by the object storage that
-// overrides the accessor methods with a type-casted one.
-type CachedSequence struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks this CachedObject to still be in use by the program.
-func (c *CachedSequence) Retain() *CachedSequence {
-	return &CachedSequence{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedSequence) Unwrap() *Sequence {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Sequence)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
-// object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (c *CachedSequence) Consume(consumer func(sequence *Sequence), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Sequence))
-	}, forceRelease...)
-}
+var _ genericobjectstorage.StorableObject = &Sequence{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
