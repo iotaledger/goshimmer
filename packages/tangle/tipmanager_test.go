@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -305,7 +306,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		assert.Equal(t, 0, tipManager.TipCount())
 
 		// mark this message as confirmed
-		*confirmedMessageIDs = MessageIDs{messages["1"].ID()}
+		*confirmedMessageIDs = MessageIDs{messages["1"].ID(): types.Void}
 	}
 
 	// Message 2
@@ -659,7 +660,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
 	confirmedMessageIDs := &MessageIDs{}
-	confirmedMarkers := markers.NewMarkers(markers.NewMarker(1, 1), markers.NewMarker(3, 2))
+	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 2))
 
 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
 
@@ -692,15 +693,15 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	tangle.TimeManager.updateTime(testFramework.Message("Message7").ID())
 
 	checkMarkers(t, testFramework, map[string]*markers.Markers{
-		"Message1": markers.NewMarkers(markers.NewMarker(1, 1)),
-		"Message2": markers.NewMarkers(markers.NewMarker(1, 2)),
-		"Message3": markers.NewMarkers(markers.NewMarker(1, 3)),
-		"Message4": markers.NewMarkers(markers.NewMarker(1, 1)),
-		"Message5": markers.NewMarkers(markers.NewMarker(2, 3)),
-		"Message6": markers.NewMarkers(markers.NewMarker(2, 4)),
-		"Message7": markers.NewMarkers(markers.NewMarker(3, 2)),
-		"Message8": markers.NewMarkers(markers.NewMarker(3, 3)),
-		"Message9": markers.NewMarkers(markers.NewMarker(4, 3)),
+		"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
+		"Message4": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message5": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message6": markers.NewMarkers(markers.NewMarker(0, 2)),
+		"Message7": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message8": markers.NewMarkers(markers.NewMarker(0, 1)),
+		"Message9": markers.NewMarkers(markers.NewMarker(0, 1)),
 	})
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message9").ID()))
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message8").ID()))
@@ -765,7 +766,7 @@ func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers
 	return marker.Index() <= confirmedMarkerIndex
 }
 func containsMessageID(s MessageIDs, e MessageID) bool {
-	for _, a := range s {
+	for a := range s {
 		if a == e {
 			return true
 		}

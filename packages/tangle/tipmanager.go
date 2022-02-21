@@ -376,7 +376,11 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 			messageWalker.Push(parentID)
 		}
 		// walk through like parents' past cones
-		for _, parentID := range message.ParentsByType(LikeParentType) {
+		for _, parentID := range message.ParentsByType(ShallowLikeParentType) {
+			messageWalker.Push(parentID)
+		}
+		// walk through like parents' past cones
+		for _, parentID := range message.ParentsByType(ShallowDislikeParentType) {
 			messageWalker.Push(parentID)
 		}
 	})
@@ -385,7 +389,7 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 
 func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time) (tscValid bool) {
 	tscValid = true
-	unconfirmedMarkerIdx := t.tangle.ApprovalWeightManager.firstUnconfirmedMarkerIndex(pastMarker.SequenceID())
+	unconfirmedMarkerIdx := t.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(pastMarker.SequenceID())
 
 	// skip any gaps in marker indices
 	for ; unconfirmedMarkerIdx <= pastMarker.Index(); unconfirmedMarkerIdx++ {
