@@ -13,6 +13,7 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import GlobalStore from '../stores/GlobalStore';
+import { UTXOLegend } from './Legend';
 
 interface Props {
     utxoStore?: UTXOStore;
@@ -170,6 +171,7 @@ export default class UTXODAG extends React.Component<Props, any> {
                             <TransactionInfo />
                             <div id="utxoVisualizer" />
                         </div>
+                        <UTXOLegend />
                     </div>
                 </Collapse>
                 <br />
