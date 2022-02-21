@@ -4,8 +4,8 @@ type GoShimmerPort int
 
 const (
 	WebApiPort    GoShimmerPort = 8080
-	DashboardPort               = 8081
-	DebugPort                   = 4000
+	DashboardPort GoShimmerPort = 8081
+	DebugPort     GoShimmerPort = 40000
 )
 
 var GoShimmerPorts = []GoShimmerPort{

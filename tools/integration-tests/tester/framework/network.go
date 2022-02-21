@@ -295,6 +295,9 @@ func (n *Network) createSocatContainer(ctx context.Context, targetNode *Node, co
 	if err != nil {
 		return nil, err
 	}
+	if err := container.ConnectToNetwork(ctx, n.Id); err != nil {
+		return nil, err
+	}
 
 	err = container.Start(ctx)
 	if err != nil {

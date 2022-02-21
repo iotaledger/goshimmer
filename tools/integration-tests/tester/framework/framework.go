@@ -100,7 +100,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		return nil, errors.Wrap(err, "failed to create peers")
 	}
 
-	//wrap peers with socat containers
+	// wrap peers with socat containers
 	for i, peer := range network.peers {
 		// add 1 to never override entry node
 		if _, err = network.createSocatContainer(ctx, peer, i+1); err != nil {
@@ -153,7 +153,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	if err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...); err != nil {
 		return nil, err
 	}
-	//wrap peers with socat containers
+	// wrap peers with socat containers
 	for i, peer := range network.peers {
 		// add 1 to never override entry node
 		if _, err = network.createSocatContainer(ctx, peer, i+1); err != nil {

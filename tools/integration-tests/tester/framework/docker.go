@@ -109,12 +109,12 @@ func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, go
 
 	return d.CreateContainer(ctx, name, containerConfig)
 }
-func (d *DockerContainer) createSocatContainer(ctx context.Context, name string, targetContainer string, portMapping map[int]config.GoShimmerPort) error {
 
+func (d *DockerContainer) createSocatContainer(ctx context.Context, name string, targetContainer string, portMapping map[int]config.GoShimmerPort) error {
 	// create host configs
 	portBindings := make(nat.PortMap, len(portMapping))
+	exposedPorts := make(nat.PortSet, len(portMapping))
 	for srcPort, targetPort := range portMapping {
-
 		port, err := nat.NewPort("tcp", strconv.Itoa(int(targetPort)))
 		if err != nil {
 			return err
@@ -126,6 +126,8 @@ func (d *DockerContainer) createSocatContainer(ctx context.Context, name string,
 				HostPort: strconv.Itoa(srcPort),
 			},
 		}
+
+		exposedPorts[port] = struct{}{}
 	}
 
 	hostConfig := &container.HostConfig{
@@ -135,16 +137,15 @@ func (d *DockerContainer) createSocatContainer(ctx context.Context, name string,
 
 	cmd := ""
 	for _, targetPort := range portMapping {
-		if len(cmd) != 0 {
-			cmd += " || socat "
-		}
-		cmd += fmt.Sprintf("tcp-listen:%d,fork,reuseaddr tcp-connect:%s:%d", targetPort, targetContainer, targetPort)
+		cmd += fmt.Sprintf("socat tcp-listen:%d,fork,reuseaddr tcp-connect:%s:%d & ", targetPort, targetContainer, targetPort)
 	}
 
 	// create container configs
 	containerConfig := &container.Config{
-		Image: "alpine/socat:1.7.4.3-r0",
-		Cmd:   strslice.StrSlice{cmd},
+		Image:        "alpine/socat:1.7.4.3-r0",
+		Entrypoint:   []string{"/bin/sh"},
+		Cmd:          []string{"-c", cmd + "wait"},
+		ExposedPorts: exposedPorts,
 	}
 
 	return d.CreateContainer(ctx, name, containerConfig, hostConfig)
