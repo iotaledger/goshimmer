@@ -29,7 +29,6 @@ export class BranchStore {
     branchOrder: Array<any> = [];
     highlightedBranches = [];
     draw = true;
-    showAggregated = false;
 
     vertexChanges = 0;
     branchToRemoveAfterResume = [];
@@ -208,9 +207,6 @@ export class BranchStore {
     };
 
     drawVertex = async (branch: branchVertex) => {
-        if (!this.showAggregated && branch.type == 'AggregatedBranchType') {
-            return;
-        }
         this.vertexChanges++;
         await drawBranch(branch, this.graph, this.branches);
         updateConfirmedBranch(branch, this.graph);
