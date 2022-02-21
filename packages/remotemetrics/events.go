@@ -45,7 +45,7 @@ type SyncStatusChangedEvent struct {
 type MessageFinalizedMetrics struct {
 	Type                    string    `json:"type" bson:"type"`
 	NodeID                  string    `json:"nodeID" bson:"nodeID"`
-	IssuerID           string    `json:"issuerID" bson:"issuerID"`
+	IssuerID                string    `json:"issuerID" bson:"issuerID"`
 	MetricsLevel            uint8     `json:"metricsLevel" bson:"metricsLevel"`
 	MessageID               string    `json:"messageID" bson:"messageID"`
 	TransactionID           string    `json:"transactionID,omitempty" bson:"transactionID"`
