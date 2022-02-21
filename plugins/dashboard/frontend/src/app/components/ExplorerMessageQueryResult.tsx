@@ -58,7 +58,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
             case PayloadType.Drng:
                 return <DrngPayload/>
             case PayloadType.Transaction:
-                if (!this.props.explorerStore.msg.invalid) {
+                if (!this.props.explorerStore.msg.objectivelyInvalid) {
                     return <TransactionPayload/>
                 }
                 return <BasicPayload/>
@@ -130,12 +130,52 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {msg.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        BranchID: <Link
-                                        to={`/explorer/branch/${msg.branchID}`}>{resolveBase58BranchID(msg.branchID)}</Link>
+                                        BranchIDs: 
+                                        <ListGroup>
+                                            {
+                                                msg.branchIDs.map((value, index) => {
+                                                    return (
+                                                        <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/branch/${msg.branchIDs[index]}`}>
+                                                                {resolveBase58BranchID(msg.branchIDs[index])}
+                                                            </Link>
+                                                        </ListGroup.Item>
+                                                    )
+                                                })
+                                            }
+                                        </ListGroup>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        MetadataBranchID: <Link
-                                        to={`/explorer/branch/${msg.metadataBranchID}`}>{resolveBase58BranchID(msg.metadataBranchID)}</Link>
+                                        AddedBranchIDs:
+                                        <ListGroup>
+                                            {
+                                                msg.addedBranchIDs.map((_, index) => {
+                                                    return (
+                                                        <ListGroup.Item key={"AddedBranchID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/branch/${msg.addedBranchIDs[index]}`}>
+                                                                {resolveBase58BranchID(msg.addedBranchIDs[index])}
+                                                            </Link>
+                                                        </ListGroup.Item>
+                                                    )
+                                                })
+                                            }
+                                        </ListGroup>
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        SubtractedBranchIDs:
+                                        <ListGroup>
+                                            {
+                                                msg.subtractedBranchIDs.map((_, index) => {
+                                                    return (
+                                                        <ListGroup.Item key={"SubtractedBranchID" + index + 1} className="text-break">
+                                                            <Link to={`/explorer/branch/${msg.subtractedBranchIDs[index]}`}>
+                                                                {resolveBase58BranchID(msg.subtractedBranchIDs[index])}
+                                                            </Link>
+                                                        </ListGroup.Item>
+                                                    )
+                                                })
+                                            }
+                                        </ListGroup>
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Solid: {msg.solid ? 'Yes' : 'No'}
@@ -147,7 +187,10 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Booked: {msg.booked ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        Invalid: {msg.invalid ? 'Yes' : 'No'}
+                                        Objectively Invalid: {msg.objectivelyInvalid ? 'Yes' : 'No'}
+                                    </ListGroup.Item>
+                                    <ListGroup.Item>
+                                        Subjectively Invalid: {msg.subjectivelyInvalid ? 'Yes' : 'No'}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
                                         Grade of Finality: {msg.gradeOfFinality}

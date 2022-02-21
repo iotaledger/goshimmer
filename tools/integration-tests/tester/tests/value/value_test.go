@@ -26,7 +26,6 @@ import (
 
 // TestValueTransactionPersistence issues transactions on random peers, restarts them and checks for persistence after restart.
 func TestValueTransactionPersistence(t *testing.T) {
-
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{

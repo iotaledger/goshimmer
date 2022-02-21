@@ -11,12 +11,12 @@ keywords:
 - prometheus
 - grafana
 ---
-# Setting up a GoShimmer node 
+# Setting up a GoShimmer node
 
 This page describes how to set up your own GoShimmer node in the GoShimmer testnet with Docker.
 
 :::warning DISCLAIMER
-**Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**  
+**Note that there will be breaking changes frequently (approx. bi-weekly) where the entire network needs to upgrade. If you don't have time to continuously monitor and upgrade your node, then running a GoShimmer node might not be for you.**
 
 We want to emphasize that running a GoShimmer node requires proper knowledge in Linux and IT related topics such as networking and so on. It is not meant as a node to be run by people with little experience in the mentioned fields. **Do not plan to run any production level services on your node/network.**
 :::
@@ -204,7 +204,7 @@ services:
       - "./peerdb:/tmp/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
-      # Autopeering 
+      # Autopeering
       - "0.0.0.0:14626:14626/udp"
       # Gossip
       - "0.0.0.0:14666:14666/tcp"
@@ -563,7 +563,7 @@ Upgrade your systems' packages by running the following command:
 
 ```shell
 apt update && apt dist-upgrade -y
-```  
+```
 
 #### Installing RocksDB Compression Libraries
 
@@ -571,7 +571,7 @@ GoShimmer uses RocksDB as its underlying database engine. That requires installi
 
 ```shell
 https://github.com/facebook/rocksdb/blob/main/INSTALL.md
-```  
+```
 
 ####  GCC and G++
 
@@ -583,7 +583,7 @@ sudo apt install gcc g++
 
 #### Installing Golang-go
 
-In order for the build script to work later on, we have to install the programming language Go. Which version you need to install is specified in: 
+In order for the build script to work later on, we have to install the programming language Go. Which version you need to install is specified in:
 
 ```shell
 https://github.com/iotaledger/goshimmer/blob/4e3ff2d23d65ddd31053f195fb40d530ef62acf3/go.mod#L3
@@ -612,7 +612,7 @@ Use `go version` to check if it successfully installed golang-go.
 
 ### Clone the Repository
 
-Once you have installed the [software requirements](#software-requirements), you should clone the [GoShimmer repository](https://github.com/iotaledger/goshimmer/) into the `/opt` directory. You can do so by running the following commands: 
+Once you have installed the [software requirements](#software-requirements), you should clone the [GoShimmer repository](https://github.com/iotaledger/goshimmer/) into the `/opt` directory. You can do so by running the following commands:
 
 ```shell
 cd /opt
@@ -636,7 +636,7 @@ nano config.default.json
 
 In the config file where it says **dashboard**, change the **bindAddress** from `"127.0.0.1:8081"` to `"0.0.0.0:8081"`.
 
-Rename the file to config.json and save your changes. 
+Rename the file to config.json and save your changes.
 
 :::note
 If you do not save the file as `config.json`, the node dashboard will not be accessible through your browser.
@@ -650,18 +650,18 @@ You can now run the build script for the goshimmer binary with the following com
 ./scripts/build.sh
 ```
 
-:::tip 
+:::tip
 You can use the `screen` command to keep the node running if you terminate your current ssh session.
 :::
 
 
-You can now run the GoShimmer binary to start your node: 
+You can now run the GoShimmer binary to start your node:
 
 ```shell
 ./goshimmer
 ```
 
-You can "detach" from the GoShimmer screen by pressing your `CTRL+A+D` keys. This will remove the GoShimmer window,  but it will still be running. 
+You can "detach" from the GoShimmer screen by pressing your `CTRL+A+D` keys. This will remove the GoShimmer window,  but it will still be running.
 
 You need the number from the start of the window name to reattach it. If you forget it, you can always use the `-ls` (list) option, as shown below, to get a list of the detached windows:
 
@@ -673,7 +673,7 @@ You can use the -r (reattach) option and the number of the session to reattach i
 
 ```shell
 screen -r (your session id)
-```  
+```
 
 ### Stopping the Node
 

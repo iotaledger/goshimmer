@@ -34,39 +34,39 @@ Approval weight represents the [weight](#active-consensus-mana) of branches (and
 It is important to note that tracking of AW for branches and markers/messages is orthogonal. Thus, a message can reach a high AW whereas its contained payload, e.g., a transaction being a double spend, does not reach any AW on branch/UTXO level.
 
 ### Detailed Design
-Approval weight AW increases because of supporters (nodes) that cast votes for branches and messages by means of making statements. This is necessary due to the changing nature of cMana over time, which prevents simply counting the AW per branch or message. Additionally, whenever a node changes its opinion on a conflict, the previous vote needs to be invalidated.
+Approval weight AW increases because of voters (nodes) that cast votes for branches and messages by means of making statements. This is necessary due to the changing nature of cMana over time, which prevents simply counting the AW per branch or message. Additionally, whenever a node changes its opinion on a conflict, the previous vote needs to be invalidated.
 
 #### Definitions
 * **Statement**: A statement is any message issued by a *node*, expressing its opinion and casting a (virtual) vote. It can be objectively ordered by its timestamp, and, if equal, its message ID.
-* **Branch supporter**: A branch supporter is a *node* that issued a statement attaching to a branch, and, thus, voting for it.
-* **Marker/message supporter**: A marker/message's supporter is a *node* that issued a statement directly or indirectly referencing a marker/message, including its issuer.
+* **Branch voter**: A branch voter is a *node* that issued a statement attaching to a branch, and, thus, voting for it.
+* **Marker/message voter**: A marker/message's voter is a *node* that issued a statement directly or indirectly referencing a marker/message, including its issuer.
 
 #### Branches
-Tracking supporters of [branches](ledgerstate.md#branches) is an effective way of objective virtual voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like (see [like switch](#Like-Switch)). This statement needs to propagate down the branch DAG, adding support to each of the branch's parents. In case a supporter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set.
+Tracking voters of [branches](ledgerstate.md#branches) is an effective way of objective virtual voting. It allows nodes to express their opinion simply by attaching a statement to a branch they like (see [like switch](#Like-Switch)). This statement needs to propagate down the branch DAG, adding support to each of the branch's parents. In case a voter changes their opinion, support needs to be revoked from all conflicting branches and their children. Thus, a node can only support one branch of a conflict set.
 
 To make this more clear consider the following example:
 
-[![Branch Supporter](/img/protocol_specification/branches.png)](/img/protocol_specification/branches.png)
+[![Branch Voter](/img/protocol_specification/branches.png)](/img/protocol_specification/branches.png)
 
 
 
-The green node issued **statement 1** and attached it to the aggregated branch `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a supporter of all the aggregated branch's parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
+The green node issued **statement 1** and attached it to the aggregated branch `Branch 1.1 + Branch 4.1.1`. Thus, the green node is a voter of all the aggregated branch's parent branches, which are (from top to bottom) `Branch 4.1.1`, `Branch 1.1`, `Branch 4.1`, `Branch 1`, and `Branch 4`.
 
-Then, the green node issued **statement 2** and attached it to `Branch 4.1.2`. This makes the green node a supporter of `Branch 4.1.2`, however, `Branch 4.1.1` is its conflict branch and thus support for `Branch 4.1.1` has to be revoked.
+Then, the green node issued **statement 2** and attached it to `Branch 4.1.2`. This makes the green node a voter of `Branch 4.1.2`, however, `Branch 4.1.1` is its conflict branch and thus support for `Branch 4.1.1` has to be revoked.
 
-`Branch 4.1`, `Branch 4` are parent branches of `Branch 4.1.2`, which the green node is still supporting. Since `Branch 1.1`, `Branch 1` are not conflicting to either of `Branch 4.1.2`'s parents, the green node remains their supporter.
+`Branch 4.1`, `Branch 4` are parent branches of `Branch 4.1.2`, which the green node is still supporting. Since `Branch 1.1`, `Branch 1` are not conflicting to either of `Branch 4.1.2`'s parents, the green node remains their voter.
 
-Finally, the green nodes issued **statement 3**, which is in `Branch 2`. Now the green node is a supporter of `Branch 2`, and no longer a supporter of `Branch 1`, since `Branch 1` is conflicting to `Branch 2`. Note that, this supporter removal will propagate to child branches. Thus, the green node is removed from `Branch 1.1` as well.
-`Branch 3`, `4` and both of their child branches have nothing to do with this attachement, the supporter status remains.
+Finally, the green nodes issued **statement 3**, which is in `Branch 2`. Now the green node is a voter of `Branch 2`, and no longer a voter of `Branch 1`, since `Branch 1` is conflicting to `Branch 2`. Note that, this voter removal will propagate to child branches. Thus, the green node is removed from `Branch 1.1` as well.
+`Branch 3`, `4` and both of their child branches have nothing to do with this attachement, the voter status remains.
 
 It is important to notice that the arrival order of the statements does not make a difference on the final outcome. Due to the fact that statements can be ordered objectively, every node in the network eventually comes to the same conclusion as to who is supporting which branch, even when nodes change their opinions.
 
 
 ##### Calculation of Approval Weight
-The approval weight itself is calculated every time a new supporter is added/removed to a branch. The AW for a branch *B* is calculated as follows:
+The approval weight itself is calculated every time a new voter is added/removed to a branch. The AW for a branch *B* is calculated as follows:
 
 ```
-AW(B) = 'active cMana of supporters(B)' / 'total active cMana'
+AW(B) = 'active cMana of voters(B)' / 'total active cMana'
 ```
 
 #### Markers
@@ -74,33 +74,33 @@ It would be computationally expensive to track the AW for each message individua
 
 Recall that markers are not part of the core protocol. As such, this description is merely an optimization from an implementation standpoint.
 
-Rather than keeping a list of supporters for each marker and collecting supporters for each marker (which would also be expensive), we keep a list of supporters along with its approved marker index for each marker sequence. This approach provides a simple and fast look-up for marker supporters making use of the Tangle structure as mapped by the markers.
+Rather than keeping a list of voters for each marker and collecting voters for each marker (which would also be expensive), we keep a list of voters along with its approved marker index for each marker sequence. This approach provides a simple and fast look-up for marker voters making use of the Tangle structure as mapped by the markers.
 
-For each marker sequence, we keep a map of supporter to marker index, meaning a supporter supports a marker index `i`. This implies that the supporter supports all markers with index `<= i`.
+For each marker sequence, we keep a map of voter to marker index, meaning a voter supports a marker index `i`. This implies that the voter supports all markers with index `<= i`.
 
 Take the figure below as an example: 
-![MarkersApprovalWeight SequenceSupporters](/img/protocol_specification/MarkersApprovalWeight.png)
+![MarkersApprovalWeight SequenceVoters](/img/protocol_specification/MarkersApprovalWeight.png)
 
 The purple circles represent markers of the same sequence, the numbers are marker indices.
 
-Four nodes (A to D) issue statements with past markers of the purple sequence. Node A and D issue messages having past marker with index 6, thus node A and D are the supporters of marker 6 and all markers before, which is 1 to 5. On the other hand, node B issues a message having past marker with index 3, which implies node B is a supporter for marker 1 and 2 as well.
+Four nodes (A to D) issue statements with past markers of the purple sequence. Node A and D issue messages having past marker with index 6, thus node A and D are the voters of marker 6 and all markers before, which is 1 to 5. On the other hand, node B issues a message having past marker with index 3, which implies node B is a voter for marker 1 and 2 as well.
 
-This is a fast look-up and avoids walking through a marker's future cone when it comes to retrieving supporters for approval weight calculation.
+This is a fast look-up and avoids walking through a marker's future cone when it comes to retrieving voters for approval weight calculation.
 
-For example, to find all supporter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its supporters. As for marker 5, it has supporters node A and D, which fulfill the check: `index >= 5`.
+For example, to find all voter of marker 2, we iterate through the map and filter out those support marker with `index >= 2`. In this case, all nodes are its voters. As for marker 5, it has voters node A and D, which fulfill the check: `index >= 5`.
 
 Here is another more complicated example with parent sequences:
-![MarkersApprovalWeight SequenceSupporters](/img/protocol_specification/MarkersApprovalWeightSequenceSupporters.png)
+![MarkersApprovalWeight SequenceVoters](/img/protocol_specification/MarkersApprovalWeightSequenceVoters.png)
 
-The supporter will be propagated to the parent sequence.
+The voter will be propagated to the parent sequence.
 
-Node A issues message A2 having past markers `[1,4], [3,4]`, which implies node A is a supporter for marker `[1,1]` to `[1,4]`, `[2,1]` to `[2,3]`, and `[3,4]`  as well as the message with marker `[3,5]` itself.
+Node A issues message A2 having past markers `[1,4], [3,4]`, which implies node A is a voter for marker `[1,1]` to `[1,4]`, `[2,1]` to `[2,3]`, and `[3,4]`  as well as the message with marker `[3,5]` itself.
 
 ##### Calculation of Approval Weight
-The approval weight itself is calculated every time a new supporter is added to a marker. The AW for a marker *M* is calculated as follows:
+The approval weight itself is calculated every time a new voter is added to a marker. The AW for a marker *M* is calculated as follows:
 
 ```
-AW(M) = 'active cMana of supporters(M)' / 'total active cMana'
+AW(M) = 'active cMana of voters(M)' / 'total active cMana'
 ```
 
 
@@ -124,7 +124,7 @@ GoF | AW
 3 | >= 0.67
 
 These thresholds play a curcial role in the safety vs. liveness of the protocol, together with the exact workings of [active cMana](#Active-cMana). We are currently investigating them with in-depth simulations.
-* The higher the AW threshold the more supporters a branch or message will need to reach a certain GoF -> more secure but higher confirmation time.
+* The higher the AW threshold the more voters a branch or message will need to reach a certain GoF -> more secure but higher confirmation time.
 * As a consequence of the above point, TangleTime will be tougher to advance; making the cMana window more likely to get stuck and confirmations to halt forever.
 
 An application needs to decide when to consider a message and (conflicting) transaction as *confirmed* based on its safety requirements. Conversely, a message or branch that does not gain enough AW stays pending forever (and is orphaned/removed on snapshotting time).

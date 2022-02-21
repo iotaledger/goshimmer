@@ -42,11 +42,13 @@ type ExplorerMessage struct {
 	WeakApprovers []string `json:"weakApprovers"`
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
-	BranchID            string              `json:"branchID"`
-	MetadataBranchID    string              `json:"metadataBranchID"`
+	BranchIDs           []string            `json:"branchIDs"`
+	AddedBranchIDs      []string            `json:"addedBranchIDs"`
+	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
 	Scheduled           bool                `json:"scheduled"`
 	Booked              bool                `json:"booked"`
-	Invalid             bool                `json:"invalid"`
+	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
@@ -56,7 +58,6 @@ type ExplorerMessage struct {
 
 	// Structure details
 	Rank          uint64 `json:"rank"`
-	SequenceID    uint64 `json:"sequenceID"`
 	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
@@ -69,9 +70,25 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	defer cachedMessageMetadata.Release()
 	messageMetadata := cachedMessageMetadata.Unwrap()
 
-	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
-	if err != nil {
-		branchID = ledgerstate.BranchID{}
+	branchIDsB58 := make([]string, 0)
+	if branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID); err == nil {
+		for branchID := range branchIDs {
+			branchIDsB58 = append(branchIDsB58, branchID.Base58())
+		}
+	}
+
+	addedBranchIDsB58 := make([]string, 0)
+	if addedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.AddedBranchIDs())); err == nil {
+		for addedBranchID := range addedBranchIDs {
+			addedBranchIDsB58 = append(addedBranchIDsB58, addedBranchID.Base58())
+		}
+	}
+
+	subtractedBranchIDsB58 := make([]string, 0)
+	if subtractedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.SubtractedBranchIDs())); err == nil {
+		for subtractedBranchID := range subtractedBranchIDs {
+			subtractedBranchIDsB58 = append(subtractedBranchIDsB58, subtractedBranchID.Base58())
+		}
 	}
 
 	t := &ExplorerMessage{
@@ -86,11 +103,13 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                branchID.Base58(),
-		MetadataBranchID:        messageMetadata.BranchID().Base58(),
+		BranchIDs:               branchIDsB58,
+		AddedBranchIDs:          addedBranchIDsB58,
+		SubtractedBranchIDs:     subtractedBranchIDsB58,
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
-		Invalid:                 messageMetadata.IsInvalid(),
+		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
+		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
@@ -99,7 +118,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 
 	if d := messageMetadata.StructureDetails(); d != nil {
 		t.Rank = d.Rank
-		t.SequenceID = uint64(d.SequenceID)
 		t.PastMarkerGap = d.PastMarkerGap
 		t.IsPastMarker = d.IsPastMarker
 		t.PastMarkers = d.PastMarkers.String()
@@ -177,7 +195,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
-	routeGroup.GET("/branch/:branchID/supporters", ledgerstateAPI.GetBranchSupporters)
+	routeGroup.GET("/branch/:branchID/voters", ledgerstateAPI.GetBranchVoters)
 	routeGroup.POST("/chat", chat.SendChatMessage)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {

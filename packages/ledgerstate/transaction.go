@@ -894,6 +894,11 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 	return t.gradeOfFinalityTime
 }
 
+// IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
+func (t *TransactionMetadata) IsConflicting() bool {
+	return t.BranchID() == NewBranchID(t.ID())
+}
+
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
 func (t *TransactionMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(t.ObjectStorageKey(), t.ObjectStorageValue())

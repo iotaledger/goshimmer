@@ -2,15 +2,12 @@
 package otv
 
 import (
-	"bytes"
 	"fmt"
 	"sort"
 	"testing"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -18,40 +15,32 @@ import (
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-	type ExpectedOpinionTuple func(executionBranchAlias string, branchIDs []consensus.OpinionTuple)
+	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID BranchID, actualConflictMembers BranchIDs)
 
-	sortOpinionTuple := func(ot []consensus.OpinionTuple) {
-		sort.Slice(ot, func(x, y int) bool {
-			switch bytes.Compare(ot[x].Liked.Bytes(), ot[y].Liked.Bytes()) {
-			case -1:
-				return true
-			case 1:
-				return false
-			default:
-				return bytes.Compare(ot[x].Disliked.Bytes(), ot[y].Disliked.Bytes()) <= 0
+	mustMatch := func(s *Scenario, aliasLikedBranches []string, aliasConflictMembers []string) ExpectedLikedBranch {
+		return func(_ string, actualBranchID BranchID, actualConflictMembers BranchIDs) {
+			expectedBranches := NewBranchIDs()
+			expectedConflictMembers := NewBranchIDs()
+			if len(aliasLikedBranches) > 0 {
+				for _, aliasLikedBranch := range aliasLikedBranches {
+					expectedBranches.Add(s.BranchID(aliasLikedBranch))
+				}
+			} else {
+				expectedBranches.Add(UndefinedBranchID)
 			}
-		})
-	}
-
-	mustMatch := func(s *Scenario, aliasTuples ...aliasOpinionTuple) ExpectedOpinionTuple {
-		return func(executionBranchAlias string, actual []consensus.OpinionTuple) {
-			expected := createOpinionTuples(s, aliasTuples...)
-			sortOpinionTuple(expected)
-			sortOpinionTuple(actual)
-			if assert.EqualValues(t, expected, actual) {
-				return
+			if len(aliasConflictMembers) > 0 {
+				for _, aliasConflictMember := range aliasConflictMembers {
+					expectedConflictMembers.Add(s.BranchID(aliasConflictMember))
+				}
 			}
-			fmt.Printf("failed execution with Branch '%s'\n", executionBranchAlias)
-			fmt.Println("expected", expected)
-			fmt.Println("actual", actual)
-			t.FailNow()
+			require.True(t, expectedBranches.Contains(actualBranchID), "expected one of: %s, actual: %s", expectedBranches, actualBranchID)
+			require.Equal(t, expectedConflictMembers, actualConflictMembers, "expected: %s, actual: %s", expectedConflictMembers, actualConflictMembers)
 		}
 	}
 
 	type execution struct {
-		branchAlias      string
-		wantOpinionTuple ExpectedOpinionTuple
-		wantErr          bool
+		branchAlias     string
+		wantLikedBranch ExpectedLikedBranch
 	}
 	type test struct {
 		Scenario   Scenario
@@ -70,14 +59,12 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A"}),
 					},
 				}
 
@@ -95,19 +82,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 				}
 
@@ -125,20 +109,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B", "C"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A"}),
 					},
 				}
 
@@ -156,20 +136,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B", "C"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A"}),
 					},
 				}
 
@@ -187,19 +163,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 				}
 
@@ -217,19 +190,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 				}
 
@@ -247,25 +217,20 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"C", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "D"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 				}
 
@@ -283,25 +248,20 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "D"}, []string{"B", "C", "D"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"D", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "D"}),
 					},
 					{
-						branchAlias:      "D",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "C"}),
 					},
 				}
 
@@ -319,31 +279,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B", "C", "D"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"E", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "E"}, []string{"A", "E"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "D"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:      "E",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 				}
 
@@ -361,31 +314,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"D", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "D"}, []string{"B", "C", "D"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "E"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"D", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "D"}),
 					},
 					{
-						branchAlias:      "D",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "C"}),
 					},
 					{
-						branchAlias: "E",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "E"},
-						),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 				}
 
@@ -403,20 +349,16 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"C", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B", "C"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"C", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "B"}),
 					},
 				}
 
@@ -434,36 +376,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E"}),
 					},
 					{
-						branchAlias:      "E",
-						wantOpinionTuple: mustMatch(&scenario),
-					},
-					{
-						branchAlias: "C+E",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"D"}),
 					},
 				}
 
@@ -481,33 +411,24 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E"}),
 					},
 					{
-						branchAlias:      "E",
-						wantOpinionTuple: mustMatch(&scenario),
-					},
-					{
-						branchAlias:      "C+E",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"D"}),
 					},
 				}
 
@@ -525,67 +446,48 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "C"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E"}),
 					},
 					{
-						branchAlias:      "E",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"D"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "F"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"G"}),
 					},
 					{
-						branchAlias:      "G",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F"}),
 					},
 					{
-						branchAlias:      "C+E",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"I"}),
 					},
 					{
-						branchAlias:      "H",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "I",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"H"}),
 					},
 					{
-						branchAlias: "I",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "I"},
-						),
+						branchAlias:     "J",
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"K"}),
 					},
 					{
-						branchAlias:      "C+E+G",
-						wantOpinionTuple: mustMatch(&scenario),
-					},
-					{
-						branchAlias: "J",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"K", "J"},
-						),
-					},
-					{
-						branchAlias:      "K",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "K",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"J"}),
 					},
 				}
 
@@ -603,75 +505,48 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias: "D",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"E", "D"},
-						),
+						branchAlias:     "D",
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E"}),
 					},
 					{
-						branchAlias:      "E",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "E",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"D"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"G"}),
 					},
 					{
-						branchAlias: "G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F"}),
 					},
 					{
-						branchAlias: "C+E",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"I"}),
 					},
 					{
-						branchAlias:      "H",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "I",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"H"}),
 					},
 					{
-						branchAlias: "I",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "I"},
-						),
+						branchAlias:     "J",
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"K"}),
 					},
 					{
-						branchAlias: "C+E+G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "C"},
-						),
-					},
-					{
-						branchAlias: "J",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"K", "J"},
-						),
-					},
-					{
-						branchAlias:      "K",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "K",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"J"}),
 					},
 				}
 
@@ -689,39 +564,28 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "H"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"G", "H"}),
 					},
 					{
-						branchAlias: "G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "H"}),
 					},
 					{
-						branchAlias: "H",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "H"},
-						),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C", "F", "G"}),
 					},
 				}
 
@@ -739,36 +603,28 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"C", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias:      "C",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"H", "B"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "F"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"G", "H"}),
 					},
 					{
-						branchAlias:      "G",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "H"}),
 					},
 					{
-						branchAlias: "H",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"G", "H"},
-							aliasOpinionTuple{"C", "H"},
-						),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "C", "G"}, []string{"B", "C", "F", "G"}),
 					},
 				}
 
@@ -786,78 +642,56 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"H", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "H"}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "H"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "F"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "H"}),
 					},
 					{
-						branchAlias: "G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "G"},
-						),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "H"}),
 					},
 					{
-						branchAlias:      "H",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "G", "B", "C"}),
 					},
 					{
-						branchAlias: "I",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"J", "I"},
-						),
+						branchAlias:     "I",
+						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"J", "O"}),
 					},
 					{
-						branchAlias:      "J",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "J",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"I", "O"}),
 					},
 					{
-						branchAlias: "K",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"L", "K"},
-						),
+						branchAlias:     "K",
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"L"}),
 					},
 					{
-						branchAlias:      "L",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "L",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"K"}),
 					},
 					{
-						branchAlias: "M",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"N", "M"},
-						),
+						branchAlias:     "M",
+						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"N", "O"}),
 					},
 					{
-						branchAlias:      "N",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "N",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"M", "O"}),
 					},
 					{
-						branchAlias: "O",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"J", "O"},
-							aliasOpinionTuple{"N", "O"},
-						),
-					},
-					{
-						branchAlias:      "J+N",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "O",
+						wantLikedBranch: mustMatch(&scenario, []string{"J", "N"}, []string{"M", "N", "J", "I"}),
 					},
 				}
 
@@ -875,82 +709,56 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias:      "A",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"B"}),
 					},
 					{
-						branchAlias: "B",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"A", "B"},
-							aliasOpinionTuple{"H", "B"},
-						),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{"A", "H"}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "H"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "F"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "H"}),
 					},
 					{
-						branchAlias: "G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"H", "G"},
-						),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "H"}),
 					},
 					{
-						branchAlias:      "H",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "G", "B", "C"}),
 					},
 					{
-						branchAlias: "I",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "I"},
-						),
+						branchAlias:     "I",
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"J", "O"}),
 					},
 					{
-						branchAlias: "J",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "J"},
-						),
+						branchAlias:     "J",
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"I", "O"}),
 					},
 					{
-						branchAlias: "K",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"L", "K"},
-						),
+						branchAlias:     "K",
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"L"}),
 					},
 					{
-						branchAlias:      "L",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "L",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"K"}),
 					},
 					{
-						branchAlias: "M",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "M"},
-						),
+						branchAlias:     "M",
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"N", "O"}),
 					},
 					{
-						branchAlias: "N",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "N"},
-						),
+						branchAlias:     "N",
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "O"}),
 					},
 					{
-						branchAlias:      "O",
-						wantOpinionTuple: mustMatch(&scenario),
-					},
-					{
-						branchAlias: "J+N",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"O", "J"},
-							aliasOpinionTuple{"O", "N"},
-						),
+						branchAlias:     "O",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"M", "N", "J", "I"}),
 					},
 				}
 
@@ -968,51 +776,36 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 
 				executions := []execution{
 					{
-						branchAlias: "A",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "A",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B"}),
 					},
 					{
-						branchAlias:      "B",
-						wantOpinionTuple: mustMatch(&scenario),
+						branchAlias:     "B",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"A", "H", "C"}),
 					},
 					{
-						branchAlias: "C",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "C"},
-						),
+						branchAlias:     "C",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "H"}),
 					},
 					{
-						branchAlias: "F",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "F",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"G", "H"}),
 					},
 					{
-						branchAlias: "G",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "G",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"F", "H"}),
 					},
 					{
-						branchAlias: "H",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-							aliasOpinionTuple{"B", "H"},
-						),
+						branchAlias:     "H",
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C", "F", "G"}),
 					},
 					{
-						branchAlias: "I",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "I",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"J"}),
 					},
 					{
-						branchAlias: "J",
-						wantOpinionTuple: mustMatch(&scenario,
-							aliasOpinionTuple{"B", "A"},
-						),
+						branchAlias:     "J",
+						wantLikedBranch: mustMatch(&scenario, []string{}, []string{"I"}),
 					},
 				}
 
@@ -1026,400 +819,22 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			defer branchDAG.Shutdown()
+			ls := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+			defer ls.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateBranches(t, ls.BranchDAG)
+			o := NewOnTangleVoting(ls.BranchDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
-				liked, err := o.LikedInstead(tt.test.Scenario.BranchID(e.branchAlias))
-				if e.wantErr {
-					require.Error(t, err)
-					return
-				}
-				require.NoError(t, err)
-
-				e.wantOpinionTuple(e.branchAlias, liked)
+				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.BranchID(e.branchAlias))
+				fmt.Println("branchAlias", e.branchAlias)
+				e.wantLikedBranch(e.branchAlias, liked, conflictMembers)
 			}
-		})
-	}
-}
-
-func TestOnTangleVoting_Opinion(t *testing.T) {
-	type ExpectedBranchesFunc func(branchIDs BranchIDs)
-	type ArgsFunc func() (branchIDs BranchIDs)
-
-	mustMatch := func(s *Scenario, aliases ...string) ExpectedBranchesFunc {
-		return func(actual BranchIDs) {
-			if !assert.EqualValues(t, s.BranchIDs(aliases...), actual) {
-				fmt.Println("expected", s.BranchIDs(aliases...))
-				fmt.Println("actual", actual)
-			}
-		}
-	}
-
-	argsFunc := func(s *Scenario, aliases ...string) ArgsFunc {
-		return func() (branchIDs BranchIDs) {
-			return s.BranchIDs(aliases...)
-		}
-	}
-
-	type test struct {
-		Scenario     Scenario
-		WeightFunc   consensus.WeightFunc
-		args         ArgsFunc
-		wantLiked    ExpectedBranchesFunc
-		wantDisliked ExpectedBranchesFunc
-	}
-
-	tests := []struct {
-		name    string
-		test    test
-		wantErr bool
-	}{
-		{
-			name: "1",
-			test: func() test {
-				scenario := s1
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "2",
-			test: func() test {
-				scenario := s2
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "3",
-			test: func() test {
-				scenario := s3
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "4",
-			test: func() test {
-				scenario := s4
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A"),
-					wantDisliked: mustMatch(&scenario, "B", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "4.5",
-			test: func() test {
-				scenario := s45
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "5",
-			test: func() test {
-				scenario := s5
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "6",
-			test: func() test {
-				scenario := s6
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "C"),
-					wantDisliked: mustMatch(&scenario, "A", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "7",
-			test: func() test {
-				scenario := s7
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "D"),
-					wantDisliked: mustMatch(&scenario, "A", "C"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "8",
-			test: func() test {
-				scenario := s8
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "E"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "9",
-			test: func() test {
-				scenario := s9
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "D"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "E"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "10",
-			test: func() test {
-				scenario := s10
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "C"),
-					wantDisliked: mustMatch(&scenario, "A", "B"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "12",
-			test: func() test {
-				scenario := s12
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "E"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "13",
-			test: func() test {
-				scenario := s13
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "E", "C+E"),
-					wantDisliked: mustMatch(&scenario, "B", "D"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "14",
-			test: func() test {
-				scenario := s14
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "E", "G", "H", "K", "C+E", "C+E+G"),
-					wantDisliked: mustMatch(&scenario, "B", "D", "F", "J", "I"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "15",
-			test: func() test {
-				scenario := s15
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B", "E", "H", "K"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "D", "I", "J"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "16",
-			test: func() test {
-				scenario := s16
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "17",
-			test: func() test {
-				scenario := s17
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "C", "G"),
-					wantDisliked: mustMatch(&scenario, "B", "F", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "18",
-			test: func() test {
-				scenario := s18
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "H", "L", "N", "J", "J+N"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "F", "G", "I", "K", "M", "O"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "19",
-			test: func() test {
-				scenario := s19
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "A", "H", "L", "O"),
-					wantDisliked: mustMatch(&scenario, "B", "C", "F", "G", "I", "N", "K", "M", "J"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-		{
-			name: "20",
-			test: func() test {
-				scenario := s20
-
-				return test{
-					Scenario:     scenario,
-					WeightFunc:   WeightFuncFromScenario(t, scenario),
-					wantLiked:    mustMatch(&scenario, "B"),
-					wantDisliked: mustMatch(&scenario, "A", "C", "H"),
-					args:         argsFunc(&scenario),
-				}
-			}(),
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
-			defer branchDAG.Shutdown()
-
-			tt.test.Scenario.CreateBranches(t, branchDAG)
-			o := NewOnTangleVoting(branchDAG, tt.test.WeightFunc)
-
-			gotLiked, gotDisliked, err := o.Opinion(tt.test.args())
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-
-			tt.test.wantLiked(gotLiked)
-			tt.test.wantDisliked(gotDisliked)
 		})
 	}
 }
 
 // region test helpers /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// aliasOpinionTuple allows to specify consensus.OpinionTuple with branch aliases.
-type aliasOpinionTuple struct {
-	Liked    string
-	Disliked string
-}
-
-// createOpinionTuples creates a slice of consensus.OpinionTuple from aliasOpinionTuple.
-func createOpinionTuples(scenario *Scenario, aliasTuples ...aliasOpinionTuple) []consensus.OpinionTuple {
-	ots := make([]consensus.OpinionTuple, 0)
-	for _, a := range aliasTuples {
-		ots = append(ots, consensus.OpinionTuple{
-			Liked:    scenario.BranchID(a.Liked),
-			Disliked: scenario.BranchID(a.Disliked),
-		})
-	}
-
-	return ots
-}
 
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
 type BranchMeta struct {
@@ -1501,17 +916,17 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 		if len(branchMeta.ParentBranches) == 0 {
 			panic("an aggregated branch must have parents defined")
 		}
-		cachedBranch, newBranchCreated, err = branchDAG.AggregateBranches(branchMeta.ParentBranches)
+		branchMeta.BranchID = branchDAG.AggregateConflictBranchesID(branchMeta.ParentBranches)
 	} else {
 		if branchMeta.BranchID == UndefinedBranchID {
 			panic("a non aggr. branch must have its ID defined in its BranchMeta")
 		}
 		cachedBranch, newBranchCreated, err = branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+		require.NoError(t, err)
+		require.True(t, newBranchCreated)
+		defer cachedBranch.Release()
+		branchMeta.BranchID = cachedBranch.ID()
 	}
-	require.NoError(t, err)
-	require.True(t, newBranchCreated)
-	defer cachedBranch.Release()
-	branchMeta.BranchID = cachedBranch.ID()
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated
 }

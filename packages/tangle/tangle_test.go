@@ -35,7 +35,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
 		return []MessageID{EmptyMessageID}, nil
 	}), emptyLikeReferences)
 
@@ -67,7 +67,7 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDsSlice, err error) {
 		return []MessageID{EmptyMessageID}, nil
 	}), emptyLikeReferences)
 
@@ -128,17 +128,17 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents []MessageID) *Message {
-		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
 	newYoungParentsMessage := func(strongParents []MessageID) *Message {
-		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
 	newValidMessage := func(strongParents []MessageID) *Message {
-		message, err := NewMessage(strongParents, []MessageID{}, nil, nil, time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
@@ -241,7 +241,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
 				return []MessageID{EmptyMessageID}, nil
@@ -333,9 +333,15 @@ func TestRetrieveAllTips(t *testing.T) {
 	messageTangle.Setup()
 	defer messageTangle.Shutdown()
 
-	messageA := newTestParentsDataMessageIssuer("A", []MessageID{EmptyMessageID}, []MessageID{}, nil, nil, selfLocalIdentity.PublicKey())
-	messageB := newTestParentsDataMessageIssuer("B", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
-	messageC := newTestParentsDataMessageIssuer("C", []MessageID{messageA.ID()}, []MessageID{EmptyMessageID}, nil, nil, selfLocalIdentity.PublicKey())
+	messageA := newTestParentsDataMessage("A", ParentMessageIDs{
+		StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+	})
+	messageB := newTestParentsDataMessage("B", ParentMessageIDs{
+		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+	})
+	messageC := newTestParentsDataMessage("C", ParentMessageIDs{
+		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+	})
 
 	var wg sync.WaitGroup
 
@@ -395,7 +401,7 @@ func TestTangle_Flow(t *testing.T) {
 	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
 				return []MessageID{EmptyMessageID}, nil
@@ -613,7 +619,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.doPOW(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -621,7 +627,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature, err := f.sign(parents, nil, nil, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = fmt.Errorf("signing failed failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -629,10 +635,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	msg, err := NewMessage(
-		parents,
-		nil,
-		nil,
-		nil,
+		emptyLikeReferencesFromStrongParents(parents),
 		issuingTime,
 		issuerPublicKey,
 		sequenceNumber,

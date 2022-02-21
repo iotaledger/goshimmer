@@ -10,7 +10,4 @@ var (
 
 	// ErrTransactionNotSolid is returned if a Transaction is processed whose Inputs are not known.
 	ErrTransactionNotSolid = errors.New("transaction not solid")
-
-	// ErrInvalidStateTransition is returned if there is an invalid state transition in the ledger state.
-	ErrInvalidStateTransition = errors.New("invalid state transition")
 )

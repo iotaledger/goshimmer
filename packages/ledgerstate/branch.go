@@ -27,12 +27,6 @@ var (
 
 	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
 	MasterBranchID = BranchID{1}
-
-	// LazyBookedConflictsBranchID is the identifier of the Branch that is the root of all lazy booked ConflictBranches.
-	LazyBookedConflictsBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254}
-
-	// InvalidBranchID is the identifier of the Branch that contains the invalid Transactions.
-	InvalidBranchID = BranchID{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
@@ -122,10 +116,6 @@ func (b BranchID) String() string {
 	switch b {
 	case UndefinedBranchID:
 		return "BranchID(UndefinedBranchID)"
-	case LazyBookedConflictsBranchID:
-		return "BranchID(LazyBookedConflictsBranchID)"
-	case InvalidBranchID:
-		return "BranchID(InvalidBranchID)"
 	case MasterBranchID:
 		return "BranchID(MasterBranchID)"
 	default:
@@ -275,6 +265,15 @@ func (b BranchIDs) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
+// Base58 returns a slice of base58 BranchIDs.
+func (b BranchIDs) Base58() (result []string) {
+	for id := range b {
+		result = append(result, id.Base58())
+	}
+
+	return
+}
+
 // String returns a human readable version of the BranchIDs.
 func (b BranchIDs) String() string {
 	if len(b) == 0 {
@@ -378,7 +377,7 @@ type Branch interface {
 	// Bytes returns a marshaled version of the Branch.
 	Bytes() []byte
 
-	// String returns a human readable version of the Branch.
+	// String returns a human-readable version of the Branch.
 	String() string
 
 	// StorableObject enables the Branch to be stored in the object storage.
@@ -514,6 +513,22 @@ func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...boo
 	}, forceRelease...)
 }
 
+// ConsumeConflictBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not
+// empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeConflictBranch(consumer func(conflictBranch *ConflictBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*ConflictBranch))
+	}, forceRelease...)
+}
+
+// ConsumeAggregatedBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is
+// not empty - it exists). It automatically releases the object when the consumer finishes.
+func (c *CachedBranch) ConsumeAggregatedBranch(consumer func(aggregatedBranch *AggregatedBranch), forceRelease ...bool) (consumed bool) {
+	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
+		consumer(object.(*AggregatedBranch))
+	}, forceRelease...)
+}
+
 // String returns a human readable version of the CachedBranch.
 func (c *CachedBranch) String() string {
 	return stringify.Struct("CachedBranch",
@@ -528,22 +543,29 @@ func (c *CachedBranch) String() string {
 // ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
 // state.
 type ConflictBranch struct {
-	id             BranchID
-	parents        BranchIDs
-	parentsMutex   sync.RWMutex
-	conflicts      ConflictIDs
-	conflictsMutex sync.RWMutex
+	id                  BranchID
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConflictBranch creates a new ConflictBranch from the given details.
 func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
-	return &ConflictBranch{
+	c := &ConflictBranch{
 		id:        id,
 		parents:   parents.Clone(),
 		conflicts: conflicts.Clone(),
 	}
+
+	c.SetModified()
+	c.Persist()
+
+	return c
 }
 
 // ConflictBranchFromBytes unmarshals an ConflictBranch from a sequence of bytes.
@@ -583,6 +605,10 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		err = errors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
+	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
+		return
+	}
 
 	return
 }
@@ -595,6 +621,30 @@ func (c *ConflictBranch) ID() BranchID {
 // Type returns the type of the Branch.
 func (c *ConflictBranch) Type() BranchType {
 	return ConflictBranchType
+}
+
+// InclusionState returns the InclusionState of the ConflictBranch.
+func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
+	c.inclusionStateMutex.RLock()
+	defer c.inclusionStateMutex.RUnlock()
+
+	return c.inclusionState
+}
+
+// setInclusionState sets the InclusionState of the ConflictBranch (it is private because the InclusionState should be
+// set through the corresponding method in the BranchDAG).
+func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	c.inclusionStateMutex.Lock()
+	defer c.inclusionStateMutex.Unlock()
+
+	if modified = c.inclusionState != inclusionState; !modified {
+		return
+	}
+
+	c.inclusionState = inclusionState
+	c.SetModified()
+
+	return
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
@@ -648,7 +698,7 @@ func (c *ConflictBranch) Bytes() []byte {
 	return c.ObjectStorageValue()
 }
 
-// String returns a human readable version of the Branch.
+// String returns a human-readable version of the Branch.
 func (c *ConflictBranch) String() string {
 	return stringify.Struct("ConflictBranch",
 		stringify.StructField("id", c.ID()),
@@ -673,9 +723,10 @@ func (c *ConflictBranch) ObjectStorageKey() []byte {
 func (c *ConflictBranch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(c.Type())).
-		WriteBytes(c.ID().Bytes()).
-		WriteBytes(c.Parents().Bytes()).
-		WriteBytes(c.Conflicts().Bytes()).
+		Write(c.ID()).
+		Write(c.Parents()).
+		Write(c.Conflicts()).
+		Write(c.InclusionState()).
 		Bytes()
 }
 
@@ -1029,6 +1080,98 @@ func (c CachedChildBranches) String() string {
 	}
 
 	return structBuilder.String()
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ArithmeticBranchIDs //////////////////////////////////////////////////////////////////////////////////////////
+
+// ArithmeticBranchIDs represents an arithmetic collection of BranchIDs that allows us to add and subtract them from
+// each other.
+type ArithmeticBranchIDs map[BranchID]int
+
+// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object.
+func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranchIDs ArithmeticBranchIDs) {
+	newArithmeticBranchIDs = make(ArithmeticBranchIDs)
+	if len(optionalBranchIDs) >= 1 {
+		newArithmeticBranchIDs.Add(optionalBranchIDs[0])
+	}
+
+	return newArithmeticBranchIDs
+}
+
+// Add adds all BranchIDs to the collection.
+func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]++
+	}
+}
+
+// Subtract subtracts all BranchIDs from the collection.
+func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
+	for branchID := range branchIDs {
+		a[branchID]--
+	}
+}
+
+// BranchIDs returns the BranchIDs represented by this collection.
+func (a ArithmeticBranchIDs) BranchIDs() (branchIDs BranchIDs) {
+	branchIDs = NewBranchIDs()
+	for branchID, value := range a {
+		if value >= 1 {
+			branchIDs.Add(branchID)
+		}
+	}
+
+	return
+}
+
+// String returns a human-readable version of the ArithmeticBranchIDs.
+func (a ArithmeticBranchIDs) String() string {
+	if len(a) == 0 {
+		return "ArithmeticBranchIDs() = " + a.BranchIDs().String()
+	}
+
+	result := "ArithmeticBranchIDs("
+	i := 0
+	for branchID, value := range a {
+		switch {
+		case value == 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += branchID.String()
+			i++
+		case value > 1:
+			if i != 0 {
+				result += " + "
+			}
+
+			result += strconv.Itoa(value) + "*" + branchID.String()
+			i++
+		case value == 0:
+		case value == -1:
+			if i != 0 {
+				result += " - "
+			} else {
+				result += "-"
+			}
+
+			result += branchID.String()
+			i++
+		case value < -1:
+			if i != 0 {
+				result += " - "
+			}
+
+			result += strconv.Itoa(-value) + "*" + branchID.String()
+			i++
+		}
+	}
+	result += ") = " + a.BranchIDs().String()
+
+	return result
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

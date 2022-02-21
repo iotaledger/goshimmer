@@ -260,11 +260,12 @@ func registerLocalMetrics() {
 		if err != nil {
 			return
 		}
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 				delete(activeBranches, conflictingBranchID)
 			}
+			return true
 		})
 		finalizedBranchCountDB.Inc()
 		confirmedBranchCount.Inc()

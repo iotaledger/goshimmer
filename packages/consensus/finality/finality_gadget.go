@@ -2,8 +2,10 @@ package finality
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/types"
@@ -115,16 +117,19 @@ func WithMessageGoFReachedLevel(msgGradeOfFinality gof.GradeOfFinality) Option {
 // SimpleFinalityGadget is a Gadget which simply translates approval weight down to gof.GradeOfFinality
 // and then applies it to messages, branches, transactions and outputs.
 type SimpleFinalityGadget struct {
-	tangle *tangle.Tangle
-	opts   *Options
-	events *tangle.ConfirmationEvents
+	tangle                    *tangle.Tangle
+	opts                      *Options
+	lastConfirmedMarkers      map[markers.SequenceID]markers.Index
+	lastConfirmedMarkersMutex sync.RWMutex
+	events                    *tangle.ConfirmationEvents
 }
 
 // NewSimpleFinalityGadget creates a new SimpleFinalityGadget.
 func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGadget {
 	sfg := &SimpleFinalityGadget{
-		tangle: t,
-		opts:   &Options{},
+		tangle:               t,
+		opts:                 &Options{},
+		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 		events: &tangle.ConfirmationEvents{
 			MessageConfirmed:     events.NewEvent(tangle.MessageIDCaller),
 			TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
@@ -172,6 +177,29 @@ func (s *SimpleFinalityGadget) IsMessageConfirmed(msgID tangle.MessageID) (confi
 	return
 }
 
+// FirstUnconfirmedMarkerIndex returns the first Index in the given Sequence that was not confirmed, yet.
+func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (index markers.Index) {
+	s.lastConfirmedMarkersMutex.Lock()
+	defer s.lastConfirmedMarkersMutex.Unlock()
+
+	// TODO: MAP GROWS INDEFINITELY
+	index, exists := s.lastConfirmedMarkers[sequenceID]
+	if !exists {
+		s.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+			index = sequence.LowestIndex() - 1
+			s.lastConfirmedMarkers[sequenceID] = index
+		})
+
+		for ; s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
+			s.lastConfirmedMarkers[sequenceID] = index
+		}
+	}
+
+	index++
+
+	return
+}
+
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
 	// TODO: HANDLE ERRORS INSTEAD?
@@ -209,46 +237,76 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 
 	// get message ID of marker
 	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
-
-	// check that we're updating the GoF
-	var gofIncreased bool
 	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		if gradeOfFinality > messageMetadata.GradeOfFinality() {
-			gofIncreased = true
-		}
-	})
-	if !gofIncreased {
-		return
-	}
-
-	propagateGoF := func(message *tangle.Message, messageMetadata *tangle.MessageMetadata, w *walker.Walker) {
-		// stop walking to past cone if reach a message with a higher or equal grade of finality
-		if messageMetadata.GradeOfFinality() >= gradeOfFinality {
+		if gradeOfFinality <= messageMetadata.GradeOfFinality() {
 			return
 		}
 
-		s.setMessageGoF(messageMetadata, gradeOfFinality)
+		if gradeOfFinality > s.opts.MessageGoFReachedLevel {
+			s.setMarkerConfirmed(marker)
+		}
 
-		// TODO: revisit weak parents
-		// mark weak parents as finalized but not propagate finalized flag to its past cone
-		//message.ForEachParentByType(tangle.WeakParentType, func(parentID tangle.MessageID) {
-		//	Tangle().Storage.MessageMetadata(parentID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-		//		setMessageGoF(messageMetadata)
-		//	})
-		//})
+		s.propagateGoFToMessagePastCone(messageID, gradeOfFinality)
+	})
 
-		// propagate GoF to strong and like parents
-		message.ForEachParentByType(tangle.StrongParentType, func(parentID tangle.MessageID) {
-			w.Push(parentID)
-		})
-		message.ForEachParentByType(tangle.LikeParentType, func(parentID tangle.MessageID) {
-			w.Push(parentID)
+	return err
+}
+
+// setMarkerConfirmed marks the current Marker as confirmed.
+func (s *SimpleFinalityGadget) setMarkerConfirmed(marker *markers.Marker) (updated bool) {
+	s.lastConfirmedMarkersMutex.Lock()
+	defer s.lastConfirmedMarkersMutex.Unlock()
+
+	if s.lastConfirmedMarkers[marker.SequenceID()] > marker.Index() {
+		return false
+	}
+
+	s.lastConfirmedMarkers[marker.SequenceID()] = marker.Index()
+
+	return true
+}
+
+// propagateGoFToMessagePastCone propagates the given GradeOfFinality to the past cone of the Message.
+func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
+	strongParentWalker := walker.New(false).Push(messageID)
+	weakParentsSet := set.New()
+
+	for strongParentWalker.HasNext() {
+		strongParentMessageID := strongParentWalker.Next().(tangle.MessageID)
+		if strongParentMessageID == tangle.EmptyMessageID {
+			continue
+		}
+
+		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			if messageMetadata.GradeOfFinality() >= gradeOfFinality || !s.setMessageGoF(messageMetadata, gradeOfFinality) {
+				return
+			}
+
+			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
+				message.ForEachParent(func(parent tangle.Parent) {
+					if parent.Type == tangle.StrongParentType {
+						strongParentWalker.Push(parent.ID)
+						return
+					}
+					weakParentsSet.Add(parent.ID)
+				})
+			})
 		})
 	}
 
-	s.tangle.Utils.WalkMessageAndMetadata(propagateGoF, tangle.MessageIDs{messageID}, false)
+	weakParentsSet.ForEach(func(weakParent interface{}) {
+		weakParentMessageID := weakParent.(tangle.MessageID)
+		if strongParentWalker.Pushed(weakParentMessageID) {
+			return
+		}
+		s.tangle.Storage.MessageMetadata(weakParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
+				return
+			}
+			s.setMessageGoF(messageMetadata, gradeOfFinality)
+		})
 
-	return err
+	})
 }
 
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions

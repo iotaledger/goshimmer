@@ -168,13 +168,13 @@ func UnregisterMessageIDAliases() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
+// region MessageIDsSlice //////////////////////////////////////////////////////////////////////////////////////////////
 
-// MessageIDs is a slice of MessageID.
-type MessageIDs []MessageID
+// MessageIDsSlice is a slice of MessageID.
+type MessageIDsSlice []MessageID
 
 // ToStrings converts a slice of MessageIDs to a slice of strings.
-func (ids MessageIDs) ToStrings() []string {
+func (ids MessageIDsSlice) ToStrings() []string {
 	result := make([]string, 0, len(ids))
 	for _, id := range ids {
 		result = append(result, id.Base58())
@@ -182,42 +182,74 @@ func (ids MessageIDs) ToStrings() []string {
 	return result
 }
 
+// ToMessageIDs converts the slice of MessageIDs into a set of MessageIDs.
+func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
+	msgIDs := make(MessageIDs)
+	for _, id := range ids {
+		msgIDs[id] = types.Void
+	}
+	return msgIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// MessageIDs is a set of MessageIDs where every MessageID is stored only once.
+type MessageIDs map[MessageID]types.Empty
+
+// NewMessageIDs construct a new MessageID collection from the optional MessageIDs.
+func NewMessageIDs(msgIDs ...MessageID) MessageIDs {
+	m := make(MessageIDs)
+	for _, msgID := range msgIDs {
+		m[msgID] = types.Void
+	}
+
+	return m
+}
+
+// Slice converts the set of MessageIDs into a slice of MessageIDs.
+func (m MessageIDs) Slice() MessageIDsSlice {
+	ids := make(MessageIDsSlice, 0)
+	for key := range m {
+		ids = append(ids, key)
+	}
+	return ids
+}
+
+// Clone creates a copy of the MessageIDs.
+func (m MessageIDs) Clone() (clonedMessageIDs MessageIDs) {
+	clonedMessageIDs = make(MessageIDs)
+	for key, value := range m {
+		clonedMessageIDs[key] = value
+	}
+	return
+}
+
+// Add adds a MessageID to the collection and returns the collection to enable chaining.
+func (m MessageIDs) Add(messageID MessageID) MessageIDs {
+	m[messageID] = types.Void
+
+	return m
+}
+
+// AddAll adds all MessageIDs to the collection and returns the collection to enable chaining.
+func (m MessageIDs) AddAll(messageIDs MessageIDs) MessageIDs {
+	for messageID := range messageIDs {
+		m.Add(messageID)
+	}
+
+	return m
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ParentsType is a type that defines the type of the parent.
-type ParentsType uint8
-
 const (
-	// StrongParentType is the ParentsType for a strong parent.
-	StrongParentType ParentsType = iota
-	// WeakParentType is the ParentsType for a weak parent.
-	WeakParentType
-	// DislikeParentType is the ParentsType for a dislike parent.
-	DislikeParentType
-	// LikeParentType is thee ParentsType for the like parent.
-	LikeParentType
-
-	// NumberOfBlockTypes counts StrongParents, WeakParents, DislikeParents, LikeParents.
-	// it must be placed after the declaration of all block types.
-	NumberOfBlockTypes
-
-	// NumberOfUniqueBlocks counts the blocks that may not have their parents repeat in other blocks.
-	// Currently it is only Weak and Dislike blocks.
-	NumberOfUniqueBlocks = 2
+	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
+	LastValidBlockType = ShallowDislikeParentType
 )
-
-// String returns string representation of ParentsType.
-func (bp ParentsType) String() string {
-	return []string{"Strong Parent", "Weak Parent", "Dislike Parent", "Like Parent"}[bp]
-}
-
-// ParentsBlock is the container for parents in a Message.
-type ParentsBlock struct {
-	ParentsType
-	References MessageIDs
-}
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
@@ -242,17 +274,17 @@ type Message struct {
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
-func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageIDs, issuingTime time.Time,
-	issuerPublicKey ed25519.PublicKey, sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
+func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(strongParents)
-	sortedWeakParents := sortParents(weakParents)
-	sortedDislikeParents := sortParents(dislikeParents)
-	sortedLikeParents := sortParents(likeParents)
+	sortedStrongParents := sortParents(references[StrongParentType].Slice())
+	sortedWeakParents := sortParents(references[WeakParentType].Slice())
+	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType].Slice())
+	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType].Slice())
 
 	weakParentsCount := len(sortedWeakParents)
-	dislikeParentsCount := len(sortedDislikeParents)
-	likeParentsCount := len(sortedLikeParents)
+	shallowDislikeParentsCount := len(sortedShallowDislikeParents)
+	shallowLikeParentsCount := len(sortedShallowLikeParents)
 
 	var parentsBlocks []ParentsBlock
 
@@ -268,17 +300,17 @@ func NewMessage(strongParents, weakParents, dislikeParents, likeParents MessageI
 		})
 	}
 
-	if dislikeParentsCount > 0 {
+	if shallowLikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: DislikeParentType,
-			References:  sortedDislikeParents,
+			ParentsType: ShallowLikeParentType,
+			References:  sortedShallowLikeParents,
 		})
 	}
 
-	if likeParentsCount > 0 {
+	if shallowDislikeParentsCount > 0 {
 		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: LikeParentType,
-			References:  sortedLikeParents,
+			ParentsType: ShallowDislikeParentType,
+			References:  sortedShallowDislikeParents,
 		})
 	}
 
@@ -298,7 +330,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
 	// Validate strong parent block
 	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
-		len(parentsBlocks[StrongParentType].References) < MinStrongParentsCount {
+		len(parentsBlocks[0].References) < MinStrongParentsCount {
 		return nil, ErrNoStrongParents
 	}
 
@@ -311,7 +343,7 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 			return nil, ErrBlocksNotOrderedByType
 		}
 		// we can skip the first block because we already ascertained it is of StrongParentType
-		if parentsBlocks[i+1].ParentsType >= NumberOfBlockTypes {
+		if parentsBlocks[i+1].ParentsType > LastValidBlockType {
 			return nil, ErrBlockTypeIsUnknown
 		}
 	}
@@ -334,8 +366,8 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		}
 	}
 
-	if !referencesUniqueAcrossBlocks(parentsBlocks) {
-		return nil, ErrRepeatingMessagesAcrossBlocks
+	if areReferencesConflictingAcrossBlocks(parentsBlocks) {
+		return nil, ErrConflictingReferenceAcrossBlocks
 	}
 
 	return &Message{
@@ -352,31 +384,33 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents.
-func referencesUniqueAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	combinedParents := make(map[MessageID]types.Empty, NumberOfBlockTypes*MaxParentsCount)
-	uniqueParents := make(MessageIDs, 0, MaxParentsCount*NumberOfUniqueBlocks)
-	for _, block := range parentsBlocks {
-		// combine strong parent and like parents
-		if block.ParentsType == StrongParentType || block.ParentsType == LikeParentType {
-			for _, parent := range block.References {
-				combinedParents[parent] = types.Void
+func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
+	additiveParents := MessageIDs{}
+	subtractiveParents := MessageIDs{}
+
+	for _, parentBlock := range parentsBlocks {
+		for _, parent := range parentBlock.References {
+			if parentBlock.ParentsType == WeakParentType || parentBlock.ParentsType == ShallowLikeParentType {
+				additiveParents[parent] = types.Void
+			} else if parentBlock.ParentsType == ShallowDislikeParentType {
+				subtractiveParents[parent] = types.Void
 			}
-		} else {
-			uniqueParents = append(uniqueParents, block.References...)
 		}
 	}
-	expectedLength := len(combinedParents) + len(uniqueParents)
-	for _, parent := range uniqueParents {
-		combinedParents[parent] = types.Void
+
+	for parent := range subtractiveParents {
+		if _, exists := additiveParents[parent]; exists {
+			return true
+		}
 	}
 
-	return expectedLength == len(combinedParents)
+	return false
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents MessageIDs) (sorted MessageIDs) {
+func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
 	seen := make(map[MessageID]types.Empty)
-	sorted = make(MessageIDs, 0, len(parents))
+	sorted = make(MessageIDsSlice, 0, len(parents))
 
 	// filter duplicates
 	for _, parent := range parents {
@@ -441,7 +475,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
 			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		}
-		references := make(MessageIDs, parentsCount)
+		references := make(MessageIDsSlice, parentsCount)
 		for j := 0; j < int(parentsCount); j++ {
 			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
@@ -568,13 +602,13 @@ func (m *Message) Version() uint8 {
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
-func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
+func (m *Message) ParentsByType(parentType ParentsType) MessageIDsSlice {
 	for _, parentBlock := range m.parentsBlocks {
 		if parentBlock.ParentsType == parentType {
 			return parentBlock.References
 		}
 	}
-	return MessageIDs{}
+	return MessageIDsSlice{}
 }
 
 // ForEachParent executes a consumer func for each parent.
@@ -590,9 +624,11 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.
-func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID)) {
+func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID) bool) {
 	for _, parentID := range m.ParentsByType(parentType) {
-		consumer(parentID)
+		if !consumer(parentID) {
+			return
+		}
 	}
 }
 
@@ -708,16 +744,16 @@ func (m *Message) String() string {
 			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(DislikeParentType)
+	parents = m.ParentsByType(ShallowDislikeParentType)
 	if len(parents) > 0 {
 		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("dislikeParent%d", index), parent.String()))
+			builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(LikeParentType)
+	parents = m.ParentsByType(ShallowLikeParentType)
 	if len(parents) > 0 {
 		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("likeParent%d", index), parent.String()))
+			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 		}
 	}
 	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
@@ -733,10 +769,76 @@ func (m *Message) String() string {
 
 // region Parent ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ParentsType is a type that defines the type of the parent.
+type ParentsType uint8
+
+const (
+	// UndefinedParentType is the undefined parent.
+	UndefinedParentType ParentsType = iota
+	// StrongParentType is the ParentsType for a strong parent.
+	StrongParentType
+	// WeakParentType is the ParentsType for a weak parent.
+	WeakParentType
+	// ShallowLikeParentType is the ParentsType for the shallow like parent.
+	ShallowLikeParentType
+	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
+	ShallowDislikeParentType
+)
+
+// String returns string representation of ParentsType.
+func (bp ParentsType) String() string {
+	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
+}
+
 // Parent is a parent that can be either strong or weak.
 type Parent struct {
 	ID   MessageID
 	Type ParentsType
+}
+
+// ParentsBlock is the container for parents in a Message.
+type ParentsBlock struct {
+	ParentsType
+	References MessageIDsSlice
+}
+
+// ParentMessageIDs is a map of ParentType to MessageIDs.
+type ParentMessageIDs map[ParentsType]MessageIDs
+
+// NewParentMessageIDs constructs a new ParentMessageIDs.
+func NewParentMessageIDs() ParentMessageIDs {
+	p := make(ParentMessageIDs)
+	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
+		p[parentType] = NewMessageIDs()
+	}
+
+	return p
+}
+
+// AddStrong adds a strong parent to the map.
+func (p ParentMessageIDs) AddStrong(messageID MessageID) ParentMessageIDs {
+	return p.Add(StrongParentType, messageID)
+}
+
+// Add adds a parent to the map.
+func (p ParentMessageIDs) Add(parentType ParentsType, messageID MessageID) ParentMessageIDs {
+	p[parentType].Add(messageID)
+	return p
+}
+
+// AddAll adds a collection of parents to the map.
+func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) ParentMessageIDs {
+	p[parentType].AddAll(messageIDs)
+	return p
+}
+
+// Clone returns a copy of map.
+func (p ParentMessageIDs) Clone() ParentMessageIDs {
+	pCloned := NewParentMessageIDs()
+	for parentType, messageIDs := range p {
+		pCloned.AddAll(parentType, messageIDs)
+	}
+	return pCloned
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -789,29 +891,32 @@ type MessageMetadata struct {
 	solid               bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
-	branchID            ledgerstate.BranchID
+	addedBranchIDs      ledgerstate.BranchID
+	subtractedBranchIDs ledgerstate.BranchID
 	scheduled           bool
 	scheduledTime       time.Time
 	discardedTime       time.Time
 	queuedTime          time.Time
 	booked              bool
 	bookedTime          time.Time
-	invalid             bool
+	objectivelyInvalid  bool
+	subjectivelyInvalid bool
 	gradeOfFinality     gof.GradeOfFinality
 	gradeOfFinalityTime time.Time
 
-	solidMutex              sync.RWMutex
-	solidificationTimeMutex sync.RWMutex
-	structureDetailsMutex   sync.RWMutex
-	branchIDMutex           sync.RWMutex
-	scheduledMutex          sync.RWMutex
-	scheduledTimeMutex      sync.RWMutex
-	discardedTimeMutex      sync.RWMutex
-	queuedTimeMutex         sync.RWMutex
-	bookedMutex             sync.RWMutex
-	bookedTimeMutex         sync.RWMutex
-	invalidMutex            sync.RWMutex
-	gradeOfFinalityMutex    sync.RWMutex
+	solidMutex               sync.RWMutex
+	solidificationTimeMutex  sync.RWMutex
+	structureDetailsMutex    sync.RWMutex
+	addedBranchIDsMutex      sync.RWMutex
+	subtractedBranchIDsMutex sync.RWMutex
+	scheduledMutex           sync.RWMutex
+	scheduledTimeMutex       sync.RWMutex
+	discardedTimeMutex       sync.RWMutex
+	queuedTimeMutex          sync.RWMutex
+	bookedMutex              sync.RWMutex
+	bookedTimeMutex          sync.RWMutex
+	invalidMutex             sync.RWMutex
+	gradeOfFinalityMutex     sync.RWMutex
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
@@ -855,8 +960,12 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if result.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+	if result.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse added BranchID from MarshalUtil: %w", err)
+		return
+	}
+	if result.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse subtracted BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -875,7 +984,7 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.invalid, err = marshalUtil.ReadBool(); err != nil {
+	if result.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
@@ -981,24 +1090,52 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	return m.structureDetails
 }
 
-// SetBranchID sets the branch ID of the message.
-func (m *MessageMetadata) SetBranchID(bID ledgerstate.BranchID) (modified bool) {
-	m.branchIDMutex.Lock()
-	defer m.branchIDMutex.Unlock()
-	if m.branchID == bID {
+// SetAddedBranchIDs sets the aggregated BranchID of the added Branches.
+func (m *MessageMetadata) SetAddedBranchIDs(aggregatedAddedBranchIDs ledgerstate.BranchID) (modified bool) {
+	m.addedBranchIDsMutex.Lock()
+	defer m.addedBranchIDsMutex.Unlock()
+
+	if m.addedBranchIDs == aggregatedAddedBranchIDs {
 		return
 	}
-	m.branchID = bID
+
+	m.addedBranchIDs = aggregatedAddedBranchIDs
 	m.SetModified(true)
 	modified = true
+
 	return
 }
 
-// BranchID returns the branch ID of the message.
-func (m *MessageMetadata) BranchID() ledgerstate.BranchID {
-	m.branchIDMutex.RLock()
-	defer m.branchIDMutex.RUnlock()
-	return m.branchID
+// AddedBranchIDs returns the aggregated BranchID of the added Branches of the Message.
+func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchID {
+	m.addedBranchIDsMutex.RLock()
+	defer m.addedBranchIDsMutex.RUnlock()
+
+	return m.addedBranchIDs
+}
+
+// SetSubtractedBranchIDs sets the aggregated BranchID of the added Branches.
+func (m *MessageMetadata) SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs ledgerstate.BranchID) (modified bool) {
+	m.subtractedBranchIDsMutex.Lock()
+	defer m.subtractedBranchIDsMutex.Unlock()
+
+	if m.subtractedBranchIDs == aggregatedSubtractedBranchIDs {
+		return
+	}
+
+	m.subtractedBranchIDs = aggregatedSubtractedBranchIDs
+	m.SetModified(true)
+	modified = true
+
+	return
+}
+
+// SubtractedBranchIDs returns the aggregated BranchID of the subtracted Branches of the Message.
+func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchID {
+	m.subtractedBranchIDsMutex.RLock()
+	defer m.subtractedBranchIDsMutex.RUnlock()
+
+	return m.subtractedBranchIDs
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
@@ -1106,26 +1243,52 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	return m.bookedTime
 }
 
-// IsInvalid returns true if the message represented by this metadata is invalid. False otherwise.
-func (m *MessageMetadata) IsInvalid() (result bool) {
+// IsObjectivelyInvalid returns true if the message represented by this metadata is objectively invalid.
+func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.invalid
+	result = m.objectivelyInvalid
 
 	return
 }
 
-// SetInvalid sets the message associated with this metadata as invalid.
-// It returns true if the invalid status is modified. False otherwise.
-func (m *MessageMetadata) SetInvalid(invalid bool) (modified bool) {
+// SetObjectivelyInvalid sets the message associated with this metadata as objectively invalid - it returns true if the
+// status was changed.
+func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.invalid == invalid {
+	if m.objectivelyInvalid == invalid {
 		return false
 	}
 
-	m.invalid = invalid
+	m.objectivelyInvalid = invalid
+	m.SetModified()
+	modified = true
+
+	return
+}
+
+// IsSubjectivelyInvalid returns true if the message represented by this metadata is subjectively invalid.
+func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
+	m.invalidMutex.RLock()
+	defer m.invalidMutex.RUnlock()
+	result = m.subjectivelyInvalid
+
+	return
+}
+
+// SetSubjectivelyInvalid sets the message associated with this metadata as subjectively invalid - it returns true if
+// the status was changed.
+func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
+	m.invalidMutex.Lock()
+	defer m.invalidMutex.Unlock()
+
+	if m.subjectivelyInvalid == invalid {
+		return false
+	}
+
+	m.subjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 
@@ -1185,12 +1348,13 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
 		Write(m.StructureDetails()).
-		Write(m.BranchID()).
+		Write(m.AddedBranchIDs()).
+		Write(m.SubtractedBranchIDs()).
 		WriteBool(m.Scheduled()).
 		WriteTime(m.ScheduledTime()).
 		WriteBool(m.IsBooked()).
 		WriteTime(m.BookedTime()).
-		WriteBool(m.IsInvalid()).
+		WriteBool(m.IsObjectivelyInvalid()).
 		WriteUint8(uint8(m.GradeOfFinality())).
 		WriteTime(m.GradeOfFinalityTime()).
 		Bytes()
@@ -1210,12 +1374,16 @@ func (m *MessageMetadata) String() string {
 		stringify.StructField("solid", m.IsSolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
 		stringify.StructField("structureDetails", m.StructureDetails()),
-		stringify.StructField("branchID", m.BranchID()),
+		stringify.StructField("addedBranchIDs", m.AddedBranchIDs()),
+		stringify.StructField("subtractedBranchIDs", m.SubtractedBranchIDs()),
 		stringify.StructField("scheduled", m.Scheduled()),
 		stringify.StructField("scheduledTime", m.ScheduledTime()),
+		stringify.StructField("discardedTime", m.DiscardedTime()),
+		stringify.StructField("queuedTime", m.QueuedTime()),
 		stringify.StructField("booked", m.IsBooked()),
 		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("invalid", m.IsInvalid()),
+		stringify.StructField("objectivelyInvalid", m.IsObjectivelyInvalid()),
+		stringify.StructField("subjectivelyInvalid", m.IsSubjectivelyInvalid()),
 		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
 	)
@@ -1275,7 +1443,7 @@ var (
 	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
 	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
 	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
-	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 0, NumberOfBlockTypes-1)
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType-1)
 	// ErrParentsOutOfRange is triggered when a block is out of range.
 	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
 	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
@@ -1284,8 +1452,8 @@ var (
 	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
 	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
 	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
-	// ErrRepeatingMessagesAcrossBlocks is triggered if there are duplicate messages in distinct blocks.
-	ErrRepeatingMessagesAcrossBlocks = errors.New("different blocks have repeating messages")
+	// ErrConflictingReferenceAcrossBlocks is triggered if there conflicting references across blocks.
+	ErrConflictingReferenceAcrossBlocks = errors.New("different blocks have conflicting references")
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

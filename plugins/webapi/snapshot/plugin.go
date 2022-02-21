@@ -57,7 +57,7 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	}
 	snapshot.AccessManaByNode = aMana
 
-	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		Plugin.LogErrorf("unable to create snapshot file %s", err)
 	}
