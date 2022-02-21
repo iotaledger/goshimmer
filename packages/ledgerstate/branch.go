@@ -591,7 +591,7 @@ func (c CompressedBranchesID) IsSingleBranch() bool {
 // BranchID returns the BranchID that this CompressedBranchesID represents if it only contains a single element.
 func (c CompressedBranchesID) BranchID() (branchID BranchID) {
 	if !c.IsSingleBranch() {
-		panic("tried to retrieve CompressedBranchesID from ")
+		panic("tried to retrieve single BranchID from multiple Branches addressed by CompressedBranchesID")
 	}
 
 	copy(branchID[:], c[1:])
@@ -660,6 +660,45 @@ func NewCompressedBranches(branchIDs BranchIDs) *CompressedBranches {
 		id:        NewCompressedBranchesID(branchIDs),
 		branchIDs: branchIDs,
 	}
+}
+
+// CompressedBranchesFromBytes unmarshals a CompressedBranches object from a sequence of bytes.
+func CompressedBranchesFromBytes(bytes []byte) (compressedBranches *CompressedBranches, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if compressedBranches, err = CompressedBranchesFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse CompressedBranches from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
+// CompressedBranchesFromMarshalUtil unmarshals a CompressedBranches object using a MarshalUtil (for easier
+// unmarshalling).
+func CompressedBranchesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (compressedBranches *CompressedBranches, err error) {
+	compressedBranches = &CompressedBranches{}
+	if compressedBranches.id, err = CompressedBranchesIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse CompressedBranchesID from MarshalUtil: %w", err)
+		return
+	}
+	if compressedBranches.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse BranchIDs: %w", err)
+		return
+	}
+
+	return
+}
+
+// CompressedBranchesFromObjectStorage is a factory method that creates a new CompressedBranches instance from a storage
+// key of the object storage. It is used by the object storage, to create new instances of this entity.
+func CompressedBranchesFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	if result, _, err = CompressedBranchesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
+		err = errors.Errorf("failed to parse CompressedBranches from bytes: %w", err)
+		return
+	}
+
+	return
 }
 
 // ID returns the identifier of the CompressedBranches.

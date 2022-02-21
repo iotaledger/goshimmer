@@ -34,10 +34,11 @@ func NewBranchDAG(ledgerState *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerState.Options.CacheTimeProvider)
 	osFactory := objectstorage.NewFactory(ledgerState.Options.Store, database.PrefixLedgerState)
 	newBranchDAG = &BranchDAG{
-		branchStorage:         osFactory.New(PrefixBranchStorage, ConflictBranchFromObjectStorage, options.branchStorageOptions...),
-		childBranchStorage:    osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
-		conflictStorage:       osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
-		conflictMemberStorage: osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, options.conflictMemberStorageOptions...),
+		branchStorage:               osFactory.New(PrefixBranchStorage, ConflictBranchFromObjectStorage, options.branchStorageOptions...),
+		childBranchStorage:          osFactory.New(PrefixChildBranchStorage, ChildBranchFromObjectStorage, options.childBranchStorageOptions...),
+		conflictStorage:             osFactory.New(PrefixConflictStorage, ConflictFromObjectStorage, options.conflictStorageOptions...),
+		conflictMemberStorage:       osFactory.New(PrefixConflictMemberStorage, ConflictMemberFromObjectStorage, options.conflictMemberStorageOptions...),
+		compressedBranchesIDStorage: osFactory.New(PrefixCompressedBranchesStorage, CompressedBranchesFromObjectStorage, options.compressedBranchesStorageOptions...),
 		Events: &BranchDAGEvents{
 			BranchCreated:        events.NewEvent(BranchIDEventHandler),
 			BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),

@@ -21,6 +21,9 @@ const (
 	// PrefixConflictMemberStorage defines the storage prefix for the ConflictMember object storage.
 	PrefixConflictMemberStorage
 
+	// PrefixCompressedBranchesStorage defines the storage prefix for the CompressedBranches object storage.
+	PrefixCompressedBranchesStorage
+
 	// PrefixTransactionStorage defines the storage prefix for the Transaction object storage.
 	PrefixTransactionStorage
 
@@ -62,6 +65,9 @@ type storageOptions struct {
 
 	// conflictMemberStorageOptions contains a list of default settings for the ConflictMember object storage.
 	conflictMemberStorageOptions []objectstorage.Option
+
+	// compressedBranchesStorageOptions contains a list of default settings for the CompressedBranches object storage.
+	compressedBranchesStorageOptions []objectstorage.Option
 
 	// transactionStorageOptions contains a list of default settings for the Transaction object storage.
 	transactionStorageOptions []objectstorage.Option

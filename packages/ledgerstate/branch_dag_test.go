@@ -106,63 +106,40 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch6"] = createConflictBranch(t, ledgerState, "Branch6", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	branchIDs["Branch7"] = createConflictBranch(t, ledgerState, "Branch7", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 	branchIDs["Branch8"] = createConflictBranch(t, ledgerState, "Branch8", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
-	branchIDs["Branch5+Branch7"] = createAggregatedBranch(ledgerState, "Branch5+Branch7", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch7"]))
-	branchIDs["Branch2+Branch7"] = createAggregatedBranch(ledgerState, "Branch2+Branch7", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"]))
-	branchIDs["Branch5+Branch8"] = createAggregatedBranch(ledgerState, "Branch5+Branch8", NewBranchIDs(branchIDs["Branch5"], branchIDs["Branch8"]))
 
 	assert.True(t, ledgerState.BranchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
 
 	assertInclusionStates(t, ledgerState, map[BranchID]InclusionState{
-		branchIDs["Branch2"]:         Confirmed,
-		branchIDs["Branch3"]:         Rejected,
-		branchIDs["Branch4"]:         Confirmed,
-		branchIDs["Branch5"]:         Rejected,
-		branchIDs["Branch6"]:         Pending,
-		branchIDs["Branch7"]:         Pending,
-		branchIDs["Branch8"]:         Pending,
-		branchIDs["Branch5+Branch7"]: Rejected,
-		branchIDs["Branch2+Branch7"]: Pending,
-		branchIDs["Branch5+Branch8"]: Rejected,
+		branchIDs["Branch2"]: Confirmed,
+		branchIDs["Branch3"]: Rejected,
+		branchIDs["Branch4"]: Confirmed,
+		branchIDs["Branch5"]: Rejected,
+		branchIDs["Branch6"]: Pending,
+		branchIDs["Branch7"]: Pending,
+		branchIDs["Branch8"]: Pending,
 	})
 
 	assert.True(t, ledgerState.BranchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
-
-	// Spawning a new aggregated branch with Confirmed parents results in Confirmed
-	branchIDs["Branch4+Branch8"] = createAggregatedBranch(ledgerState, "Branch4+Branch8", NewBranchIDs(branchIDs["Branch4"], branchIDs["Branch8"]))
-
-	// Spawning a new aggregated branch with any Rejected parent results in Rejected
-	branchIDs["Branch3+Branch8"] = createAggregatedBranch(ledgerState, "Branch3+Branch8", NewBranchIDs(branchIDs["Branch3"], branchIDs["Branch8"]))
 
 	// Create a new Branch in an already-decided Conflict Set results in straight Reject
 	branchIDs["Branch9"] = createConflictBranch(t, ledgerState, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 
 	assertInclusionStates(t, ledgerState, map[BranchID]InclusionState{
-		branchIDs["Branch2"]:         Confirmed,
-		branchIDs["Branch3"]:         Rejected,
-		branchIDs["Branch4"]:         Confirmed,
-		branchIDs["Branch5"]:         Rejected,
-		branchIDs["Branch6"]:         Rejected,
-		branchIDs["Branch7"]:         Rejected,
-		branchIDs["Branch8"]:         Confirmed,
-		branchIDs["Branch5+Branch7"]: Rejected,
-		branchIDs["Branch2+Branch7"]: Rejected,
-		branchIDs["Branch5+Branch8"]: Rejected,
-		branchIDs["Branch4+Branch8"]: Confirmed,
-		branchIDs["Branch3+Branch8"]: Rejected,
-		branchIDs["Branch9"]:         Rejected,
+		branchIDs["Branch2"]: Confirmed,
+		branchIDs["Branch3"]: Rejected,
+		branchIDs["Branch4"]: Confirmed,
+		branchIDs["Branch5"]: Rejected,
+		branchIDs["Branch6"]: Rejected,
+		branchIDs["Branch7"]: Rejected,
+		branchIDs["Branch8"]: Confirmed,
+		branchIDs["Branch9"]: Rejected,
 	})
-
-	// Pruning confirmed branches from aggregation
-	branchIDs["Branch2+Branch8"] = createAggregatedBranch(ledgerState, "Branch2+Branch8", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch8"]))
 
 	ledgerState.BranchDAG.Branch(branchIDs["Branch2+Branch8"]).Consume(func(branch *Branch) {
 		assert.Equal(t, NewBranchIDs(), branch.Parents())
 		assert.Equal(t, MasterBranchID, branch.ID())
 
 	})
-
-	// Pruning confirmed branches from aggregation
-	branchIDs["Branch2+Branch6"] = createAggregatedBranch(ledgerState, "Branch2+Branch6", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch6"]))
 
 	ledgerState.BranchDAG.Branch(branchIDs["Branch2+Branch6"]).Consume(func(branch *Branch) {
 		assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
@@ -172,8 +149,6 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	branchIDs["Branch10"] = createConflictBranch(t, ledgerState, "Branch10", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 	branchIDs["Branch11"] = createConflictBranch(t, ledgerState, "Branch11", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 
-	branchIDs["Branch2+Branch7+Branch11"] = createAggregatedBranch(ledgerState, "Branch2+Branch7+Branch11", NewBranchIDs(branchIDs["Branch2"], branchIDs["Branch7"], branchIDs["Branch11"]))
-
 	ledgerState.BranchDAG.SetBranchConfirmed(branchIDs["Branch10"])
 
 	ledgerState.BranchDAG.Branch(branchIDs["Branch2+Branch7+Branch11"]).Consume(func(branch *Branch) {
@@ -181,22 +156,16 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	})
 
 	assertInclusionStates(t, ledgerState, map[BranchID]InclusionState{
-		branchIDs["Branch2"]:                  Confirmed,
-		branchIDs["Branch3"]:                  Rejected,
-		branchIDs["Branch4"]:                  Confirmed,
-		branchIDs["Branch5"]:                  Rejected,
-		branchIDs["Branch6"]:                  Rejected,
-		branchIDs["Branch7"]:                  Rejected,
-		branchIDs["Branch8"]:                  Confirmed,
-		branchIDs["Branch5+Branch7"]:          Rejected,
-		branchIDs["Branch2+Branch7"]:          Rejected,
-		branchIDs["Branch5+Branch8"]:          Rejected,
-		branchIDs["Branch4+Branch8"]:          Confirmed,
-		branchIDs["Branch3+Branch8"]:          Rejected,
-		branchIDs["Branch9"]:                  Rejected,
-		branchIDs["Branch10"]:                 Confirmed,
-		branchIDs["Branch11"]:                 Rejected,
-		branchIDs["Branch2+Branch7+Branch11"]: Rejected,
+		branchIDs["Branch2"]:  Confirmed,
+		branchIDs["Branch3"]:  Rejected,
+		branchIDs["Branch4"]:  Confirmed,
+		branchIDs["Branch5"]:  Rejected,
+		branchIDs["Branch6"]:  Rejected,
+		branchIDs["Branch7"]:  Rejected,
+		branchIDs["Branch8"]:  Confirmed,
+		branchIDs["Branch9"]:  Rejected,
+		branchIDs["Branch10"]: Confirmed,
+		branchIDs["Branch11"]: Rejected,
 	})
 
 }
