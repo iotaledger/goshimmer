@@ -234,7 +234,7 @@ h5 {
 .legend .legend-item .legend-marker {
     width: 30%;
     height: 30%;
-    background-color: var(--color-dark-blue);
+    background-color: #05445e;
     border-radius: 50%;
 }
 
