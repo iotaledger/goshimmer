@@ -24,8 +24,9 @@ type Network struct {
 	Id   string
 	name string
 
-	docker *client.Client
-	tester *DockerContainer
+	docker          *client.Client
+	tester          *DockerContainer
+	socatContainers []*DockerContainer
 
 	entryNode *Node
 	peers     []*Node
@@ -205,6 +206,19 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		return err
 	}
 
+	// stop all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			status, err := container.Shutdown(ctx)
+			exitStatus[container.Id] = status
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	// delete all partitions
 	if err := n.DeletePartitions(ctx); err != nil {
 		return err
@@ -222,6 +236,17 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		peer := peer // capture range variable
 		eg.Go(func() error {
 			return peer.Remove(ctx)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// remove all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			return container.Remove(ctx)
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -303,6 +328,8 @@ func (n *Network) createSocatContainer(ctx context.Context, targetNode *Node, co
 	if err != nil {
 		return nil, err
 	}
+
+	n.socatContainers = append(n.socatContainers, container)
 
 	return container, err
 }
