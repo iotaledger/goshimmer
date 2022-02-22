@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -108,6 +109,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 func (b *BranchDAG) AddBranchParent(branchID BranchID, newParentBranchID BranchID) (err error) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
+	fmt.Println("Add parents", branchID, newParentBranchID)
 
 	if !b.Branch(branchID).Consume(func(branch *Branch) {
 		parentBranchIDs := branch.Parents()

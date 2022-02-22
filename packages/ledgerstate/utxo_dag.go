@@ -367,7 +367,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
 	u.bookOutputs(transaction, normalizedBranchIDs)
 
-	return
+	return normalizedBranchIDs
 }
 
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
