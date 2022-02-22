@@ -87,6 +87,10 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
+
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
@@ -131,6 +135,9 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
 
       - name: Run integration tests
         run: |
@@ -225,6 +232,10 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
+
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
@@ -268,6 +279,10 @@ jobs:
           docker build \
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
 
       - name: Run integration tests
         run: |
@@ -314,6 +329,10 @@ jobs:
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
 
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
+
       - name: Run integration tests
         run: |
           export CURRENT_UID=$(id -u):$(id -g)
@@ -357,6 +376,10 @@ jobs:
           docker build \
             --build-arg DOWNLOAD_SNAPSHOT=0 \
             -t iotaledger/goshimmer .
+
+      - name: Pull additional Docker images
+        run: |
+          docker pull alpine/socat:1.7.4.3-r0
 
       - name: Run integration tests
         run: |
