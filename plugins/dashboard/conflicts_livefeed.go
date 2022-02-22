@@ -151,7 +151,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		if branch.Type() != ledgerstate.ConflictBranchType {
 			return
 		}
-		b.ConflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+		b.ConflictIDs = branch.(*ledgerstate.Branch).Conflicts()
 
 		for conflictID := range b.ConflictIDs {
 			_, exists := conflicts.conflict(conflictID)

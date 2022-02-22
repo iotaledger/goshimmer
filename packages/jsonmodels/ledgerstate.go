@@ -554,7 +554,7 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 			}
 
 			conflictIDs := make([]string, 0)
-			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+			for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
 				conflictIDs = append(conflictIDs, conflictID.Base58())
 			}
 

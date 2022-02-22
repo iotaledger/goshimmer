@@ -216,7 +216,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
 	return m.sequenceID.Bytes()
 }
 
-// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()

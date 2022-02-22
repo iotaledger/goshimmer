@@ -689,8 +689,8 @@ func (t TransactionEssenceVersion) String() string {
 // a node.
 type TransactionMetadata struct {
 	id                      TransactionID
-	branchID                BranchID
-	branchIDMutex           sync.RWMutex
+	branchIDs               BranchIDs
+	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
@@ -707,7 +707,8 @@ type TransactionMetadata struct {
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
 func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 	return &TransactionMetadata{
-		id: transactionID,
+		id:        transactionID,
+		branchIDs: NewBranchIDs(),
 	}
 }
 
@@ -730,7 +731,7 @@ func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (t
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
-	if transactionMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if transactionMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
@@ -775,28 +776,36 @@ func (t *TransactionMetadata) ID() TransactionID {
 	return t.id
 }
 
-// BranchID returns the identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) BranchID() BranchID {
-	t.branchIDMutex.RLock()
-	defer t.branchIDMutex.RUnlock()
+// BranchIDs returns the identifiers of the Branches that the Transaction was booked in.
+func (t *TransactionMetadata) BranchIDs() BranchIDs {
+	t.branchIDsMutex.RLock()
+	defer t.branchIDsMutex.RUnlock()
 
-	return t.branchID
+	return t.branchIDs.Clone()
 }
 
-// SetBranchID sets the identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) SetBranchID(branchID BranchID) (modified bool) {
-	t.branchIDMutex.Lock()
-	defer t.branchIDMutex.Unlock()
+// SetBranchIDs sets the identifiers of the Branches that the Transaction was booked in.
+func (t *TransactionMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
+	t.branchIDsMutex.Lock()
+	defer t.branchIDsMutex.Unlock()
 
-	if t.branchID == branchID {
-		return
+	t.branchIDs = branchIDs.Clone()
+	t.SetModified()
+	return true
+}
+
+// AddBranchID adds an identifier of the Branch that the Transaction was booked in.
+func (t *TransactionMetadata) AddBranchID(branchID BranchID) (modified bool) {
+	t.branchIDsMutex.Lock()
+	defer t.branchIDsMutex.Unlock()
+
+	if t.branchIDs.Contains(branchID) {
+		return false
 	}
 
-	t.branchID = branchID
+	t.branchIDs.Add(branchID)
 	t.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // Solid returns true if the Transaction has been marked as solid.
@@ -896,7 +905,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
-	return t.BranchID() == NewBranchID(t.ID())
+	return t.BranchIDs().Contains(NewBranchID(t.ID()))
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -908,7 +917,7 @@ func (t *TransactionMetadata) Bytes() []byte {
 func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
-		stringify.StructField("branchID", t.BranchID()),
+		stringify.StructField("branchID", t.BranchIDs()),
 		stringify.StructField("solid", t.Solid()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
@@ -932,7 +941,7 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 // only used as a key in the ObjectStorage.
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(t.BranchID()).
+		Write(t.BranchIDs()).
 		WriteBool(t.Solid()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).

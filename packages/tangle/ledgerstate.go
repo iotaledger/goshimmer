@@ -101,7 +101,7 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	conflictSet = make(ledgerstate.TransactionIDs)
 
 	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
-		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+		conflictIDs = branch.(*ledgerstate.Branch).Conflicts()
 	})
 
 	for conflictID := range conflictIDs {

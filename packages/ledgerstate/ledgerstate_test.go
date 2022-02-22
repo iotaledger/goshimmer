@@ -127,7 +127,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions)
 
 	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
-	// a ConflictBranch again: just G.
+	// a Branch again: just G.
 	{
 		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
 		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
