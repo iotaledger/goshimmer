@@ -129,7 +129,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			f.issuanceMutex.Unlock()
 			return nil, err
 		}
-		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.DoPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if errPoW != nil {
@@ -225,7 +225,8 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+// DoPOW performs pow on the message and returns a nonce.
+func (f *MessageFactory) DoPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {

@@ -10,6 +10,7 @@ const (
 	routeMessage         = "messages/"
 	routeMessageMetadata = "/metadata"
 	routeSendPayload     = "messages/payload"
+	routeSendMessage     = "/tools/message"
 )
 
 // GetMessage is the handler for the /messages/:messageID endpoint.
@@ -49,6 +50,17 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	res := &jsonmodels.PostPayloadResponse{}
 	if err := api.do(http.MethodPost, routeSendPayload,
 		&jsonmodels.PostPayloadRequest{Payload: payload}, res); err != nil {
+		return "", err
+	}
+
+	return res.ID, nil
+}
+
+// SendMessage sends the given message to the backend.
+func (api *GoShimmerAPI) SendMessage(data []byte) (string, error) {
+	res := &jsonmodels.DataResponse{}
+	if err := api.do(http.MethodPost, routeSendMessage,
+		&jsonmodels.DataRequest{Data: data}, res); err != nil {
 		return "", err
 	}
 
