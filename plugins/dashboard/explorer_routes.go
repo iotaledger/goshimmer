@@ -40,6 +40,10 @@ type ExplorerMessage struct {
 	StrongApprovers []string `json:"strongApprovers"`
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
+	// ShallowLikeApprovers are the shallow like approvers of the message.
+	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
+	// ShallowDislikeApprovers are the shallow dislike approvers of the message.
+	ShallowDislikeApprovers []string `json:"shallowDislikeApprovers"`
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
 	BranchIDs           []string            `json:"branchIDs"`
@@ -102,6 +106,8 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		ParentsByType:           prepareParentReferences(msg),
 		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
 		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).ToStrings(),
+		ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover).ToStrings(),
 		Solid:                   messageMetadata.IsSolid(),
 		BranchIDs:               branchIDsB58,
 		AddedBranchIDs:          addedBranchIDsB58,

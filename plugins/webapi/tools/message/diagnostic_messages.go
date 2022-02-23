@@ -151,6 +151,8 @@ var DiagnosticMessagesTableDescription = []string{
 	"LikeParents",
 	"StrongApprovers",
 	"WeakApprovers",
+	"ShallowLikeApprovers",
+	"ShallowDislikeApprovers",
 	"BranchID",
 	"Scheduled",
 	"Booked",
@@ -169,36 +171,38 @@ var DiagnosticMessagesTableDescription = []string{
 
 // DiagnosticMessagesInfo holds the information of a message.
 type DiagnosticMessagesInfo struct {
-	ID                    string
-	IssuerID              string
-	IssuerPublicKey       string
-	IssuanceTimestamp     time.Time
-	ArrivalTime           time.Time
-	SolidTime             time.Time
-	ScheduledTime         time.Time
-	BookedTime            time.Time
-	GradeOfFinality       gof.GradeOfFinality
-	GradeOfFinalityTime   time.Time
-	StrongParents         tangle.MessageIDsSlice
-	WeakParents           tangle.MessageIDsSlice
-	ShallowDislikeParents tangle.MessageIDsSlice
-	ShallowLikeParents    tangle.MessageIDsSlice
-	StrongApprovers       tangle.MessageIDsSlice
-	WeakApprovers         tangle.MessageIDsSlice
-	BranchID              string
-	Scheduled             bool
-	Booked                bool
-	ObjectivelyInvalid    bool
-	Rank                  uint64
-	IsPastMarker          bool
-	PastMarkers           string // PastMarkers
-	PMHI                  uint64 // PastMarkers Highest Index
-	PMLI                  uint64 // PastMarkers Lowest Index
-	FutureMarkers         string // FutureMarkers
-	FMHI                  uint64 // FutureMarkers Highest Index
-	FMLI                  uint64 // FutureMarkers Lowest Index
-	PayloadType           string
-	TransactionID         string
+	ID                      string
+	IssuerID                string
+	IssuerPublicKey         string
+	IssuanceTimestamp       time.Time
+	ArrivalTime             time.Time
+	SolidTime               time.Time
+	ScheduledTime           time.Time
+	BookedTime              time.Time
+	GradeOfFinality         gof.GradeOfFinality
+	GradeOfFinalityTime     time.Time
+	StrongParents           tangle.MessageIDsSlice
+	WeakParents             tangle.MessageIDsSlice
+	ShallowDislikeParents   tangle.MessageIDsSlice
+	ShallowLikeParents      tangle.MessageIDsSlice
+	StrongApprovers         tangle.MessageIDsSlice
+	WeakApprovers           tangle.MessageIDsSlice
+	ShallowLikeApprovers    tangle.MessageIDsSlice
+	ShallowDislikeApprovers tangle.MessageIDsSlice
+	BranchID                string
+	Scheduled               bool
+	Booked                  bool
+	ObjectivelyInvalid      bool
+	Rank                    uint64
+	IsPastMarker            bool
+	PastMarkers             string // PastMarkers
+	PMHI                    uint64 // PastMarkers Highest Index
+	PMLI                    uint64 // PastMarkers Lowest Index
+	FutureMarkers           string // FutureMarkers
+	FMHI                    uint64 // FutureMarkers Highest Index
+	FMLI                    uint64 // FutureMarkers Lowest Index
+	PayloadType             string
+	TransactionID           string
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
@@ -251,6 +255,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 
 	msgInfo.StrongApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)
 	msgInfo.WeakApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover)
+	msgInfo.ShallowLikeApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover)
+	msgInfo.ShallowDislikeApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover)
 
 	return msgInfo
 }
@@ -273,6 +279,8 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		strings.Join(d.ShallowLikeParents.ToStrings(), ";"),
 		strings.Join(d.StrongApprovers.ToStrings(), ";"),
 		strings.Join(d.WeakApprovers.ToStrings(), ";"),
+		strings.Join(d.ShallowLikeApprovers.ToStrings(), ";"),
+		strings.Join(d.ShallowDislikeParents.ToStrings(), ";"),
 		d.BranchID,
 		fmt.Sprint(d.Scheduled),
 		fmt.Sprint(d.Booked),
