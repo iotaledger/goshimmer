@@ -32,7 +32,7 @@ WORKDIR /goshimmer
 
 # If debugging is enabled install Delve binary.
 RUN if [ $REMOTE_DEBUGGING -gt 0 ]; then \
-    CGO_ENABLED=0 go install -ldflags "-s -w -extldflags '-static'" github.com/go-delve/delve/cmd/dlv@latest; \
+    CGO_ENABLED=0 go install -ldflags='-w -s' github.com/go-delve/delve/cmd/dlv@master; \
     fi
 
 # Use Go Modules
@@ -62,6 +62,7 @@ RUN --mount=target=. \
     go build \
     -tags="$BUILD_TAGS" \
     -gcflags="all=-N -l" \
+    -ldflags='-w' \
     -o /go/bin/goshimmer; \
     else  \
     go build \
@@ -130,7 +131,7 @@ EXPOSE 40000
 
 # Copy the Delve binary
 COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /run/dlv
-ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless=true" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json"]
+ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless=true" ,"--api-version=2", "--accept-multiclient", "--continue", "/run/goshimmer", "--", "--config=/config.json"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
 FROM debugger-enabled-${REMOTE_DEBUGGING} as runtime
