@@ -10,7 +10,7 @@ services:
       - DEBUG=${DEBUG}
       - TEST_NAME=${TEST_NAME}
     ports:
-      - 127.0.0.1:40000:40000
+      - "127.0.0.1:50000:40000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../../..:/tmp/goshimmer:rw

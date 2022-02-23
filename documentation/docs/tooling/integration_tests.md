@@ -48,6 +48,28 @@ n := f.CreateNetwork("testnetwork", 6, 3)
 defer n.Shutdown() 
 ```
 
+## Debugging tests
+
+Tests can be run defining a `DEBUG=1` (e.g. `DEBUG=1 ./runTests.sh`) environment variable. The main container driving the tests will be run under a Delve Go debugger listening
+on `localhost:50000`.
+The following launch configuration can be used from the VSCode IDE to attach to the debugger and step through the code:
+
+```
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Connect to Integration tester",
+			"type": "go",
+			"request": "attach",
+			"mode": "remote",
+			"port": 50000,
+			"host": "127.0.0.1"
+		}
+	]
+}
+```
+
 ## Other Tips
 
 Useful for development is to only execute the test you're currently building. For that matter, simply modify the `docker-compose.yml` file as follows:
