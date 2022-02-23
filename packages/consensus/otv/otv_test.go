@@ -913,10 +913,11 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 	var newBranchCreated bool
 	var err error
 	if isAggregated {
-		if len(branchMeta.ParentBranches) == 0 {
-			panic("an aggregated branch must have parents defined")
-		}
-		branchMeta.BranchID = branchDAG.AggregateConflictBranchesID(branchMeta.ParentBranches)
+		// TODO: this doesn't seem to be used/relevant? So can we delete aggregated branches from the scenarios?
+		// if len(branchMeta.ParentBranches) == 0 {
+		// 	panic("an aggregated branch must have parents defined")
+		// }
+		// branchMeta.BranchID = branchDAG.AggregateConflictBranchesID(branchMeta.ParentBranches)
 	} else {
 		if branchMeta.BranchID == UndefinedBranchID {
 			panic("a non aggr. branch must have its ID defined in its BranchMeta")
@@ -924,8 +925,9 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 		cachedBranch, newBranchCreated, err = branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 		require.NoError(t, err)
 		require.True(t, newBranchCreated)
-		defer cachedBranch.Release()
-		branchMeta.BranchID = cachedBranch.ID()
+		cachedBranch.Consume(func(branch *Branch) {
+			branchMeta.BranchID = branch.ID()
+		})
 	}
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated
