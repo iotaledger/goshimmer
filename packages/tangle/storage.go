@@ -565,7 +565,7 @@ func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approver
 		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if approverType = ApproverType(untypedApproverType); approverType < StrongApprover && approverType > ShallowDislikeApprover {
+	if approverType = ApproverType(untypedApproverType); approverType < StrongApprover || approverType > ShallowDislikeApprover {
 		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
 		return
 	}
