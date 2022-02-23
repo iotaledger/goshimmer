@@ -210,16 +210,29 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	return modified
 }
 
-// InclusionState returns the InclusionState of the given Branch.
-func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionState) {
+// InclusionState returns the InclusionState of the given BranchIDs.
+func (b *BranchDAG) InclusionState(branchIDs BranchIDs) (inclusionState InclusionState) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	b.Branch(branchID).Consume(func(branch *Branch) {
-		inclusionState = branch.InclusionState()
-	})
+	allConfirmed := true
+	for branchID := range branchIDs {
+		if !b.Branch(branchID).Consume(func(branch *Branch) {
+			inclusionState = branch.InclusionState()
+		}) {
+			panic(fmt.Sprintf("failed to load %s", branchID))
+		}
+		if inclusionState == Rejected {
+			return Rejected
+		}
+		allConfirmed = allConfirmed && inclusionState == Confirmed
+	}
 
-	return inclusionState
+	if allConfirmed {
+		return Confirmed
+	}
+
+	return Pending
 }
 
 // Prune resets the database and deletes all objects (for testing or "node resets").
