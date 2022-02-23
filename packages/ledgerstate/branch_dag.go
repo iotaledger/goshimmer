@@ -116,6 +116,11 @@ func (b *BranchDAG) AddBranchParent(branchID BranchID, newParentBranchID BranchI
 		if _, exists := parentBranchIDs[newParentBranchID]; !exists {
 			parentBranchIDs.Add(newParentBranchID)
 
+			// make sure that once we add something, MasterBranchID is removed as it is the root of all branches.
+			if parentBranchIDs.Contains(MasterBranchID) {
+				delete(parentBranchIDs, MasterBranchID)
+			}
+
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, branchID)); stored {
 				cachedChildBranch.Release()
 			}

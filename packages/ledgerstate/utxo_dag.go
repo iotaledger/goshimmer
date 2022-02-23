@@ -448,9 +448,9 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
-			for transactionBranch := range transactionMetadata.BranchIDs() {
-				if err := u.ledgerstate.AddBranchParent(transactionBranch, forkedBranchID); err != nil {
-					panic(fmt.Errorf("failed to update Branch with %s: %w", transactionBranch, err))
+			for transactionBranchID := range transactionMetadata.BranchIDs() {
+				if err := u.ledgerstate.AddBranchParent(transactionBranchID, forkedBranchID); err != nil {
+					panic(fmt.Errorf("failed to update Branch with %s: %w", transactionBranchID, err))
 				}
 			}
 
