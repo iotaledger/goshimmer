@@ -32,7 +32,7 @@ WORKDIR /goshimmer
 
 # If debugging is enabled install Delve binary.
 RUN if [ $REMOTE_DEBUGGING -gt 0 ]; then \
-    CGO_ENABLED=0 go install -ldflags='-w -s' github.com/go-delve/delve/cmd/dlv@master; \
+    go install github.com/go-delve/delve/cmd/dlv@master; \
     fi
 
 # Use Go Modules
@@ -62,7 +62,6 @@ RUN --mount=target=. \
     go build \
     -tags="$BUILD_TAGS" \
     -gcflags="all=-N -l" \
-    -ldflags='-w' \
     -o /go/bin/goshimmer; \
     else  \
     go build \
