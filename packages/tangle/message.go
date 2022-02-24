@@ -922,8 +922,10 @@ type MessageMetadata struct {
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
-		messageID:    messageID,
-		receivedTime: clock.SyncedTime(),
+		messageID:           messageID,
+		receivedTime:        clock.SyncedTime(),
+		addedBranchIDs:      ledgerstate.NewBranchIDs(),
+		subtractedBranchIDs: ledgerstate.NewBranchIDs(),
 	}
 }
 
@@ -1095,15 +1097,25 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs == addedBranchIDs {
-		return
-	}
-
-	m.addedBranchIDs = addedBranchIDs
+	m.addedBranchIDs = addedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 
 	return
+}
+
+// AddBranchID sets the BranchIDs of the added Branches.
+func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified bool) {
+	m.addedBranchIDsMutex.Lock()
+	defer m.addedBranchIDsMutex.Unlock()
+
+	if m.addedBranchIDs.Contains(branchID) {
+		return
+	}
+
+	m.addedBranchIDs.Add(branchID)
+	m.SetModified(true)
+	return true
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
@@ -1119,11 +1131,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.subtractedBranchIDs == subtractedBranchIDs {
-		return
-	}
-
-	m.subtractedBranchIDs = subtractedBranchIDs
+	m.subtractedBranchIDs = subtractedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 

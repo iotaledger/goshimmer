@@ -251,6 +251,21 @@ func (b BranchIDs) Slice() (list []BranchID) {
 	return
 }
 
+// Equals returns whether the BranchIDs and other BranchIDs are equal.
+func (b BranchIDs) Equals(o BranchIDs) bool {
+	if len(b) != len(o) {
+		return false
+	}
+
+	for branchID := range b {
+		if _, exists := o[branchID]; !exists {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
