@@ -1,4 +1,4 @@
-# v0.8.6 - 2022-02-11
+# v0.8.7 - 2022-02-24
 
 > This release introduces several small bug fixes and improvements.
 
