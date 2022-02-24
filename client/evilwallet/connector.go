@@ -3,6 +3,8 @@ package evilwallet
 import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
 	"sync"
@@ -18,8 +20,10 @@ type Clients interface {
 	GetClient() *client.GoShimmerAPI
 	AddClient(url string, setters ...client.Option)
 	RemoveClient(index int)
-	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
 	PledgeID() *identity.ID
+	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
+	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
+	GetTransactionGoF(txID string) gof.GradeOfFinality
 	// all API calls
 }
 
@@ -130,6 +134,14 @@ func (c *Connector) RemoveClient(index int) {
 	c.clients = append(c.clients[:index], c.clients[index+1:]...)
 }
 
+func (c *Connector) PledgeID() *identity.ID {
+	return c.pledgeID
+}
+
+func (c *Connector) SetPledgeID(id *identity.ID) {
+	c.pledgeID = id
+}
+
 func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
 	resp, err := clt.PostTransaction(tx.Bytes())
 	if err != nil {
@@ -142,12 +154,26 @@ func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoS
 	return
 }
 
-func (c *Connector) PledgeID() *identity.ID {
-	return c.pledgeID
+func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
+	clt := c.GetClient()
+	resp, err := clt.PostAddressUnspentOutputs([]string{addr.Base58()})
+	if err != nil {
+		return nil
+	}
+	outputs := resp.UnspentOutputs[0].Outputs
+	if len(outputs) > 0 {
+		return &outputs[0]
+	}
+	return nil
 }
 
-func (c *Connector) SetPledgeID(id *identity.ID) {
-	c.pledgeID = id
+func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
+	clt := c.GetClient()
+	resp, err := clt.GetTransactionMetadata(txID)
+	if err != nil {
+		return gof.None
+	}
+	return resp.GradeOfFinality
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

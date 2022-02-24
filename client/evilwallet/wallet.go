@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+const (
+	GoFConfirmed        = 3
+	waitForConfirmation = 60 * time.Second
+)
+
 // region wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EvilWallet interface {
