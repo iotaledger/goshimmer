@@ -10,7 +10,7 @@ const (
 	routeMessage         = "messages/"
 	routeMessageMetadata = "/metadata"
 	routeSendPayload     = "messages/payload"
-	routeSendMessage     = "/tools/message"
+	routeSendMessage     = "tools/message"
 )
 
 // GetMessage is the handler for the /messages/:messageID endpoint.

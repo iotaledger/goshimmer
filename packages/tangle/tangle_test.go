@@ -627,7 +627,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature, err := f.sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.Sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = fmt.Errorf("signing failed failed: %w", err)
 		f.Events.Error.Trigger(err)

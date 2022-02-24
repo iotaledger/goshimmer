@@ -120,7 +120,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 				return nil, err
 			}
 		}
-		issuingTime = f.getIssuingTime(parents)
+		issuingTime = f.GetIssuingTime(parents)
 
 		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
@@ -141,7 +141,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.Sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = errors.Errorf("signing failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -167,7 +167,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
+// GetIssuingTime gets the right issuing time for the message considering ParentAge check.
+func (f *MessageFactory) GetIssuingTime(parents MessageIDsSlice) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
@@ -218,6 +219,10 @@ func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.Transacti
 	return earliestAttachment
 }
 
+func (f *MessageFactory) NextSequenceNumber() (uint64, error) {
+	return f.sequence.Next()
+}
+
 // Shutdown closes the MessageFactory and persists the sequence number.
 func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {
@@ -240,7 +245,8 @@ func (f *MessageFactory) DoPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+// Sign signs a payload and returns the signature.
+func (f *MessageFactory) Sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
 	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	if err != nil {
