@@ -20,7 +20,7 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Tangle *tangle.Tangle `optional:"true"`
 }
 
 var (
@@ -49,7 +49,7 @@ func worker(ctx context.Context) {
 }
 
 func getHealthz(c echo.Context) error {
-	if !deps.Tangle.TimeManager.Synced() {
+	if deps.Tangle != nil && !deps.Tangle.TimeManager.Synced() {
 		return c.NoContent(http.StatusServiceUnavailable)
 	}
 	return c.NoContent(http.StatusOK)
