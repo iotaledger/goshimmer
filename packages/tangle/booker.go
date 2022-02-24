@@ -267,7 +267,13 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	}
 	arithmeticBranchIDs.Subtract(dislikedBranchIDs)
 
-	return parentsStructureDetails, parentsPastMarkersBranchIDs, arithmeticBranchIDs.BranchIDs(), nil
+	// Make sure that we do not return confirmed branches (aka merge to master).
+	inheritedBranchIDs, err = b.tangle.LedgerState.ResolvePendingConflictBranchIDs(arithmeticBranchIDs.BranchIDs())
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("failed to resolve pending Conflict BranchIDs %s for message %s: %w", inheritedBranchIDs, message.ID(), err)
+	}
+
+	return parentsStructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs, nil
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
