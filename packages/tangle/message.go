@@ -891,8 +891,8 @@ type MessageMetadata struct {
 	solid               bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
-	addedBranchIDs      ledgerstate.BranchID
-	subtractedBranchIDs ledgerstate.BranchID
+	addedBranchIDs      ledgerstate.BranchIDs
+	subtractedBranchIDs ledgerstate.BranchIDs
 	scheduled           bool
 	scheduledTime       time.Time
 	discardedTime       time.Time
@@ -960,12 +960,12 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if result.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse added BranchID from MarshalUtil: %w", err)
+	if result.addedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if result.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse subtracted BranchID from MarshalUtil: %w", err)
+	if result.subtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
 		return
 	}
 	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
@@ -1090,52 +1090,52 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	return m.structureDetails
 }
 
-// SetAddedBranchIDs sets the aggregated BranchID of the added Branches.
-func (m *MessageMetadata) SetAddedBranchIDs(aggregatedAddedBranchIDs ledgerstate.BranchID) (modified bool) {
+// SetAddedBranchIDs sets the BranchIDs of the added Branches.
+func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs == aggregatedAddedBranchIDs {
+	if m.addedBranchIDs == addedBranchIDs {
 		return
 	}
 
-	m.addedBranchIDs = aggregatedAddedBranchIDs
+	m.addedBranchIDs = addedBranchIDs
 	m.SetModified(true)
 	modified = true
 
 	return
 }
 
-// AddedBranchIDs returns the aggregated BranchID of the added Branches of the Message.
-func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchID {
+// AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
+func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
-	return m.addedBranchIDs
+	return m.addedBranchIDs.Clone()
 }
 
-// SetSubtractedBranchIDs sets the aggregated BranchID of the added Branches.
-func (m *MessageMetadata) SetSubtractedBranchIDs(aggregatedSubtractedBranchIDs ledgerstate.BranchID) (modified bool) {
+// SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
+func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate.BranchIDs) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.subtractedBranchIDs == aggregatedSubtractedBranchIDs {
+	if m.subtractedBranchIDs == subtractedBranchIDs {
 		return
 	}
 
-	m.subtractedBranchIDs = aggregatedSubtractedBranchIDs
+	m.subtractedBranchIDs = subtractedBranchIDs
 	m.SetModified(true)
 	modified = true
 
 	return
 }
 
-// SubtractedBranchIDs returns the aggregated BranchID of the subtracted Branches of the Message.
-func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchID {
+// SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
+func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchIDs {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 
-	return m.subtractedBranchIDs
+	return m.subtractedBranchIDs.Clone()
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
