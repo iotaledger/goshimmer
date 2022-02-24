@@ -3,6 +3,7 @@
 > This release introduces several small bug fixes and improvements.
 
 The snapshot has been taken at 2022-02-21 17:30 CET.
+- Try to adjust rate limit better (#2053)
 - /healthz to reflect Synced status (#2075)
 - clean test cache (#2045)
 - expose port ES to outside (#2052)
