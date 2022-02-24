@@ -19,13 +19,13 @@ type ParametersDefinition struct {
 }
 
 type messagesLimitParameters struct {
-	Interval time.Duration `default:"1s" usage:"the time interval for which we count the messages rate"`
-	Limit    int           `default:"200" usage:"the base limit of messages per interval"`
+	Interval time.Duration `default:"10s" usage:"the time interval for which we count the messages rate"`
+	Limit    int           `default:"3000" usage:"the base limit of messages per interval"`
 }
 
 type messageRequestsLimitParameters struct {
-	Interval time.Duration `default:"1s" usage:"the time interval for which we count the message requests rate"`
-	Limit    int           `default:"5000" usage:"the base limit of message requests per interval"`
+	Interval time.Duration `default:"10s" usage:"the time interval for which we count the message requests rate"`
+	Limit    int           `default:"50000" usage:"the base limit of message requests per interval"`
 }
 
 // Parameters contains the configuration parameters of the gossip plugin.

@@ -45,12 +45,12 @@ func (fd *FaultinessDetails) toKVList() []interface{} {
 
 // HandleFaultyPeer handles a faulty peer and takes appropriate actions.
 func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetails) {
-	f.log.Info("Peer is faulty, executing firewall logic to handle the peer",
-		"peerId", peerID, details.toKVList())
+	logKVList := append([]interface{}{"peerId", peerID}, details.toKVList()...)
+	f.log.Infow("Peer is faulty, executing firewall logic to handle the peer", logKVList...)
 	f.incrPeerFaultinessCount(peerID)
 	nbr, err := f.gossipMgr.GetNeighbor(peerID)
 	if err != nil {
-		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID)
+		f.log.Errorw("Can't get neighbor info from the gossip manager", "peerId", peerID, "err", err)
 		return
 	}
 	if nbr.Group == gossip.NeighborsGroupAuto {
@@ -63,7 +63,7 @@ func (f *Firewall) HandleFaultyPeer(peerID identity.ID, details *FaultinessDetai
 		}
 	} else if nbr.Group == gossip.NeighborsGroupManual {
 		f.log.Warnw("To the node operator. One of neighbors connected via manual peering acts faulty, no automatic actions taken. Consider removing it from the known peers list.",
-			"neighborId", peerID, details.toKVList())
+			logKVList...)
 	}
 }
 
