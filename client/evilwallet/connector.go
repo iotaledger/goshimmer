@@ -3,16 +3,33 @@ package evilwallet
 import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/identity"
 	"sync"
 )
 
 type ServersStatus []*wallet.ServerStatus
+
+type Clients interface {
+	ServersStatuses() ServersStatus
+	ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error)
+	Clients(...bool) []*client.GoShimmerAPI
+	GetClients(numOfClt int) []*client.GoShimmerAPI
+	GetClient() *client.GoShimmerAPI
+	AddClient(url string, setters ...client.Option)
+	RemoveClient(index int)
+	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
+	PledgeID() *identity.ID
+	// all API calls
+}
 
 // Connector is responsible for handling connections with clients.
 type Connector struct {
 	clients []*client.GoShimmerAPI
 	urls    []string
 
+	// can be used in case we want all mana to be pledge to a specific node
+	pledgeID *identity.ID
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
 
@@ -111,6 +128,26 @@ func (c *Connector) RemoveClient(index int) {
 	defer c.mu.Unlock()
 
 	c.clients = append(c.clients[:index], c.clients[index+1:]...)
+}
+
+func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
+	resp, err := clt.PostTransaction(tx.Bytes())
+	if err != nil {
+		return
+	}
+	txID, err = ledgerstate.TransactionIDFromBase58(resp.TransactionID)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *Connector) PledgeID() *identity.ID {
+	return c.pledgeID
+}
+
+func (c *Connector) SetPledgeID(id *identity.ID) {
+	c.pledgeID = id
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -21,5 +21,7 @@ type Output struct {
 	Status   OutputStatus
 }
 
+type Outputs []*Output
+
 type OutputManager struct {
 }

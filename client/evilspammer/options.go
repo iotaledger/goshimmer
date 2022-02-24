@@ -1,6 +1,9 @@
 package evilspammer
 
-import "time"
+import (
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"time"
+)
 
 type Options func(*Spammer)
 
@@ -25,15 +28,22 @@ func WithSpamDetails(rate int, timeUnit time.Duration, maxDuration time.Duration
 	}
 }
 
-// WithSpamWallet provides initWallet of spammer, if omitted spammer will prepare funds based on maxMsgSent parameter
-func WithSpamWallet(initWallets Wallet) Options {
+// WithSpamWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario
+func WithSpamWallet(initWallets evilwallet.EvilWallet) Options {
 	return func(s *Spammer) {
-		s.InputFunds = initWallets
+		s.SpamWallet = initWallets
+	}
+}
+
+// WithEvilScenario provides initWallet of spammer, if omitted spammer will prepare funds based on maxMsgSent parameter
+func WithEvilScenario(scenario evilwallet.EvilScenario) Options {
+	return func(s *Spammer) {
+		s.EvilScenario = scenario
 	}
 }
 
 // WithClients sets clients that will be used for spam, cannot be omitted, no default options.
-func WithClients(clients Clients) Options {
+func WithClients(clients evilwallet.Clients) Options {
 	return func(s *Spammer) {
 		s.Clients = clients
 	}
@@ -42,14 +52,14 @@ func WithClients(clients Clients) Options {
 // WithErrorCounter allows for setting an error counter object, if not provided a new instance will be created.
 func WithErrorCounter(errCounter ErrorCounter) Options {
 	return func(s *Spammer) {
-		s.errCounter = errCounter
+		s.ErrCounter = errCounter
 	}
 }
 
 // WithLogTickerInterval allows for changing interval between progress spamming logs, default is 30s.
 func WithLogTickerInterval(interval time.Duration) Options {
 	return func(s *Spammer) {
-		s.spammerState.logTickTime = interval
+		s.State.logTickTime = interval
 	}
 }
 
@@ -61,29 +71,17 @@ func WithSpammingFunc(spammerFunc func(s *Spammer)) Options {
 	}
 }
 
-// WithOutputWallets allows to set the output wallets for the spammer, that will gather outputs created during the spam for the future usage
-// SpammingFunc provided to the spammer needs to support this functionality.
-func WithOutputWallets(w Wallet) Options {
-	return func(s *Spammer) {
-		s.OutputFunds = w
-	}
-}
-
 func WithTimeDelayForDoubleSpend(timeDelay time.Duration) Options {
 	return func(s *Spammer) {
 		s.TimeDelayBetweenConflicts = timeDelay
 	}
 }
 
-// WithIssueAPIMethod sets issuing API method for the spammer, default is PostTransaction.
-func WithIssueAPIMethod(methodName string) Options {
+// WithNumberOfSpends sets how many transactions should be created with the same input, e.g 3 for triple spend,
+// 2 for double spend. For this to work user needs to make sure that there is enough number of clients.
+func WithNumberOfSpends(n int) Options {
 	return func(s *Spammer) {
-		switch methodName {
-		case "SendPayload":
-			s.IssuingAPIMethod = "SendPayload"
-		default:
-			s.IssuingAPIMethod = "PostTransaction"
-		}
+		s.NumberOfSpends = n
 	}
 }
 
