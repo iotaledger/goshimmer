@@ -38,12 +38,6 @@ func randomMessageID() MessageID {
 	return result
 }
 
-func randomBranchID() ledgerstate.BranchID {
-	branchBytes := randomBytes(ledgerstate.BranchIDLength)
-	result, _, _ := ledgerstate.BranchIDFromBytes(branchBytes)
-	return result
-}
-
 func randomParents(count int) MessageIDsSlice {
 	parents := make([]MessageID, 0, count)
 	for i := 0; i < count; i++ {
