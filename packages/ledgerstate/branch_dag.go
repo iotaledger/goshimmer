@@ -106,7 +106,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 }
 
 // AddBranchParent changes the parents of a Branch (also updating the references of the ChildBranches).
-func (b *BranchDAG) AddBranchParent(branchID BranchID, newParentBranchID BranchID) (err error) {
+func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err error) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 	fmt.Println("Add parents", branchID, newParentBranchID)

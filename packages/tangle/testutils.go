@@ -72,7 +72,7 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
 // also an alias when printing the BranchID.
-func (m *MessageTestFramework) RegisterBranchID(alias string, messageAlias string) {
+func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
 	branchID := m.BranchIDFromMessage(messageAlias)
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)

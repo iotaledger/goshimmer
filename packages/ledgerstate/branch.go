@@ -559,7 +559,7 @@ type ChildBranch struct {
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
-func NewChildBranch(parentBranchID BranchID, childBranchID BranchID) *ChildBranch {
+func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	return &ChildBranch{
 		parentBranchID: parentBranchID,
 		childBranchID:  childBranchID,
