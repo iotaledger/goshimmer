@@ -413,23 +413,25 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 		// We don't need to propagate updates if the branch did already exist.
 		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
-		// TODO: maybe this should be an Is(forkedBranchID) ?
+		// TODO: this should never happen: a transaction should only be forked once?
 		if transactionMetadata.BranchIDs().Contains(forkedBranchID) {
 			return
 		}
 
+		// Because we are forking the transaction, automatically all the outputs and the transaction itself need to go
+		// into the newly forked branch (own branch) and override all other existing branches. These are now mapped via
+		// the BranchDAG (parents of forked branch).
+		forkedBranchIDs := NewBranchIDs(forkedBranchID)
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
 			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-				// TODO: is add the right operation here? or should we override?
-				outputMetadata.AddBranchID(forkedBranchID)
+				outputMetadata.SetBranchIDs(forkedBranchIDs)
 			}) {
 				panic("failed to load OutputMetadata")
 			}
 		}
 
-		// TODO: is add the right operation here? or should we override?
-		transactionMetadata.AddBranchID(forkedBranchID)
+		transactionMetadata.SetBranchIDs(forkedBranchIDs)
 		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
 			TransactionID:  transactionID,
 			ForkedBranchID: forkedBranchID,
