@@ -902,7 +902,7 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for conflictBranchID := range branchIDs[branchIDString] {
-			voters := approvalWeightManager.VotersOfConflictBranch(conflictBranchID)
+			voters := approvalWeightManager.VotersOfBranch(conflictBranchID)
 			if voters != nil {
 				actualResult = voters.Has(voter)
 			}
