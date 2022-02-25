@@ -88,7 +88,6 @@ type utxoConfirmed struct {
 
 type branchVertex struct {
 	ID          string                                 `json:"ID"`
-	Type        string                                 `json:"type"`
 	Parents     []string                               `json:"parents"`
 	IsConfirmed bool                                   `json:"isConfirmed"`
 	Conflicts   *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`

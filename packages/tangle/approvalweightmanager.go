@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"math"
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
@@ -60,24 +59,10 @@ func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 
 // WeightOfBranch returns the weight of the given Branch that was added by Voters of the given epoch.
 func (a *ApprovalWeightManager) WeightOfBranch(branchID ledgerstate.BranchID) (weight float64) {
-	conflictBranchIDs, err := a.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		panic(err)
-	}
+	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
+		weight = branchWeight.Weight()
+	})
 
-	weight = math.MaxFloat64
-	for conflictBranchID := range conflictBranchIDs {
-		a.tangle.Storage.BranchWeight(conflictBranchID).Consume(func(branchWeight *BranchWeight) {
-			if branchWeight.Weight() <= weight {
-				weight = branchWeight.Weight()
-			}
-		})
-	}
-
-	// We don't have any information stored about this branch, thus we default to weight=0.
-	if weight == math.MaxFloat64 {
-		return 0
-	}
 	return
 }
 
@@ -200,8 +185,8 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgers
 			continue
 		}
 
-		a.tangle.LedgerState.Branch(currentConflictBranchID).ConsumeConflictBranch(func(conflictBranch *ledgerstate.Branch) {
-			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(conflictBranch.Parents(), branchVote)
+		a.tangle.LedgerState.Branch(currentConflictBranchID).Consume(func(branch *ledgerstate.Branch) {
+			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
 			addedBranches.AddAll(addedBranchesOfCurrentBranch)
@@ -236,10 +221,6 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 		revokedBranches.Add(currentVote.BranchID)
 
 		a.tangle.LedgerState.ChildBranches(currentVote.BranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
-			if childBranch.ChildBranchType() == ledgerstate.AggregatedBranchType {
-				return
-			}
-
 			subTractionWalker.Push(childBranch.ChildBranchID())
 		})
 	}
@@ -387,8 +368,8 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID ledgerstate.BranchID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
-			a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
-				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.(*ledgerstate.Branch).Parents(), message.SequenceNumber()) {
+			a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch *ledgerstate.Branch) {
+				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
 					return
 				}
 
@@ -402,11 +383,11 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs ledgerstate.BranchIDs, forkedBranchID ledgerstate.BranchID) {
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch ledgerstate.Branch) {
+		a.tangle.LedgerState.Branch(forkedBranchID).Consume(func(forkedBranch *ledgerstate.Branch) {
 			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
 			// voters of the marker we are forking also voted for all parents of the branch the marker is
 			// being forked into.
-			parentBranchIDs := forkedBranch.(*ledgerstate.Branch).Parents()
+			parentBranchIDs := forkedBranch.Parents()
 
 			for voter, sequenceNumber := range a.markerVotes(marker) {
 				if !a.addSupportToForkedBranchVoters(voter, branchVoters, parentBranchIDs, sequenceNumber) {

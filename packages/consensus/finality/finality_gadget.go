@@ -333,7 +333,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledgerstate.TransactionID, candidateBranchID ledgerstate.BranchID, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker) bool {
 	return s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(candidateTxID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		// we stop if we walk outside our branch
-		if transactionMetadata.BranchID() != candidateBranchID {
+		if !transactionMetadata.BranchIDs().Contains(candidateBranchID) {
 			return
 		}
 
@@ -415,18 +415,15 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 				gradeOfFinality = transactionMetadata.GradeOfFinality()
 			}
 
-			branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(transactionMetadata.BranchID())
-			if err != nil {
-				// TODO: properly handle error
-				panic(err)
-			}
+			lowestBranchGoF := s.getTransactionBranchesGoF(transactionMetadata)
+
 			// This is an invalid invariant and should never happen.
-			if transactionGoF > branchGoF {
-				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branch %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.BranchID(), branchGoF))
+			if transactionGoF > lowestBranchGoF {
+				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branches %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.BranchIDs(), lowestBranchGoF))
 			}
 
-			if branchGoF < gradeOfFinality {
-				gradeOfFinality = branchGoF
+			if lowestBranchGoF < gradeOfFinality {
+				gradeOfFinality = lowestBranchGoF
 			}
 
 			// abort if transaction has GoF already set
@@ -448,4 +445,19 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 			}
 		})
 	})
+}
+
+func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledgerstate.TransactionMetadata) (lowestBranchGoF gof.GradeOfFinality) {
+	lowestBranchGoF = gof.High
+	for txBranchID := range transactionMetadata.BranchIDs() {
+		branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(txBranchID)
+		if err != nil {
+			// TODO: properly handle error
+			panic(err)
+		}
+		if branchGoF < lowestBranchGoF {
+			lowestBranchGoF = branchGoF
+		}
+	}
+	return
 }
