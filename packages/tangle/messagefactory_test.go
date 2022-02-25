@@ -333,7 +333,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.RegisterBranchID("2", "2")
 	testFramework.RegisterBranchID("3", "3")
 
-	nonExistingBranchID := ledgerstate.NewAggregatedBranch(testFramework.BranchIDs("1", "2")).ID()
+	nonExistingBranchID := ledgerstate.BranchIDFromRandomness()
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
