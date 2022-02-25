@@ -108,8 +108,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return res1.BranchID != ledgerstate.MasterBranchID.String() &&
-			res2.BranchID != ledgerstate.MasterBranchID.String()
+		return res1.BranchIDs[0] != ledgerstate.MasterBranchID.Base58() &&
+			res2.BranchIDs[0] != ledgerstate.MasterBranchID.Base58()
 	}, tests.Timeout, tests.Tick)
 
 	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
