@@ -87,8 +87,8 @@ func (a *ApprovalWeightManager) isRelevantVoter(message *Message) bool {
 	return voterWeight/totalWeight >= minVoterWeight
 }
 
-// VotersOfConflictBranch returns the Voters of the given conflictbranch ledgerstate.BranchID.
-func (a *ApprovalWeightManager) VotersOfConflictBranch(branchID ledgerstate.BranchID) (voters *Voters) {
+// VotersOfBranch returns the Voters of the given branch ledgerstate.BranchID.
+func (a *ApprovalWeightManager) VotersOfBranch(branchID ledgerstate.BranchID) (voters *Voters) {
 	if !a.tangle.Storage.BranchVoters(branchID).Consume(func(branchVoters *BranchVoters) {
 		voters = branchVoters.Voters()
 	}) {
@@ -349,7 +349,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID ledgerstate.BranchID
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	var voterWeight float64
-	a.VotersOfConflictBranch(branchID).ForEach(func(voter Voter) {
+	a.VotersOfBranch(branchID).ForEach(func(voter Voter) {
 		voterWeight += activeWeights[voter]
 	})
 

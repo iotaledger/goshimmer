@@ -76,7 +76,6 @@ func (m *MessageTestFramework) RegisterBranchID(alias string, messageAlias strin
 	branchID := m.BranchIDFromMessage(messageAlias)
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
-	return
 }
 
 // BranchID returns the BranchID registered with the given alias.
