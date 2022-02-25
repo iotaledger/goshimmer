@@ -162,6 +162,8 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		SolidificationTime:  metadata.SolidificationTime().Unix(),
 		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
 		BranchIDs:           branchIDs.Base58(),
+		AddedBranchIDs:      metadata.AddedBranchIDs().Base58(),
+		SubtractedBranchIDs: metadata.SubtractedBranchIDs().Base58(),
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		Booked:              metadata.IsBooked(),

@@ -77,7 +77,7 @@ class OutputID {
 
 export class OutputMetadata {
     outputID: OutputID;
-    branchID: string;
+    branchIDs: Array<string>;
     solid: boolean;
     solidificationTime: number;
     consumerCount: number;
