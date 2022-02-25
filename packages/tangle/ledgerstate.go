@@ -64,7 +64,7 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
 func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
-	return l.BranchID(transactionID).Contains(ledgerstate.NewBranchID(transactionID))
+	return l.BranchIDs(transactionID).Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
@@ -113,8 +113,8 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
-// BranchID returns the branchID of the given transactionID.
-func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
+// BranchIDs returns the branchIDs of the given transactionID.
+func (l *LedgerState) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		branchIDs = transactionMetadata.BranchIDs()
 	})

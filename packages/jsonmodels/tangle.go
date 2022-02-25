@@ -33,7 +33,7 @@ type MessageMetadata struct {
 	Solid               bool                `json:"solid"`
 	SolidificationTime  int64               `json:"solidificationTime"`
 	StructureDetails    *StructureDetails   `json:"structureDetails,omitempty"`
-	BranchID            string              `json:"branchID"`
+	BranchIDs           []string            `json:"branchIDs"`
 	AddedBranchIDs      string              `json:"addedBranchIDs"`
 	SubtractedBranchIDs string              `json:"subtractedBranchIDs"`
 	Scheduled           bool                `json:"scheduled"`

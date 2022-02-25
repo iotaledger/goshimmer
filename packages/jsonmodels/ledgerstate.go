@@ -480,7 +480,7 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 // OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
 	OutputID            *OutputID           `json:"outputID"`
-	BranchID            string              `json:"branchID"`
+	BranchIDs           []string            `json:"branchIDs"`
 	Solid               bool                `json:"solid"`
 	SolidificationTime  int64               `json:"solidificationTime"`
 	ConsumerCount       int                 `json:"consumerCount"`
@@ -493,7 +493,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchID:            outputMetadata.BranchID().Base58(),
+		BranchIDs:           outputMetadata.BranchIDs().Base58(),
 		Solid:               outputMetadata.Solid(),
 		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:       outputMetadata.ConsumerCount(),
@@ -547,12 +547,8 @@ func NewBranch(branch *ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, 
 			return parents
 		}(),
 		ConflictIDs: func() []string {
-			if branch.Type() != ledgerstate.ConflictBranchType {
-				return make([]string, 0)
-			}
-
 			conflictIDs := make([]string, 0)
-			for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
+			for conflictID := range branch.Conflicts() {
 				conflictIDs = append(conflictIDs, conflictID.Base58())
 			}
 
@@ -736,7 +732,7 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
 	TransactionID       string              `json:"transactionID"`
-	BranchID            string              `json:"branchID"`
+	BranchIDs           []string            `json:"branchIDs"`
 	Solid               bool                `json:"solid"`
 	SolidificationTime  int64               `json:"solidificationTime"`
 	LazyBooked          bool                `json:"lazyBooked"`
@@ -748,7 +744,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchID:            transactionMetadata.BranchID().Base58(),
+		BranchIDs:           transactionMetadata.BranchIDs().Base58(),
 		Solid:               transactionMetadata.Solid(),
 		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
 		LazyBooked:          transactionMetadata.LazyBooked(),

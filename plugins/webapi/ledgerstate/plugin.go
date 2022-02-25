@@ -266,14 +266,9 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.Type() != ledgerstate.ConflictBranchType {
-			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(fmt.Errorf("the Branch with %s is not a Branch", branchID)))
-			return
-		}
-
+	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		branchIDsPerConflictID := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-		for conflictID := range branch.(*ledgerstate.Branch).Conflicts() {
+		for conflictID := range branch.Conflicts() {
 			branchIDsPerConflictID[conflictID] = make([]ledgerstate.BranchID, 0)
 			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
@@ -299,15 +294,8 @@ func GetBranchVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	conflictBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
-	}
-
 	voters := tangle.NewVoters()
-	for conflictBranchID := range conflictBranchIDs {
-		voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflictBranch(conflictBranchID))
-	}
+	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfBranch(branchID))
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchVotersResponse(branchID, voters))
 }
