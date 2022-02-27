@@ -89,10 +89,6 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		if err = network.createEntryNode(ctx); err != nil {
 			return nil, errors.Wrap(err, "failed to create entry node")
 		}
-		if _, err = network.createSocatContainer(ctx, network.entryNode, 0); err != nil {
-			return nil, errors.Wrap(err, "failed to create socat container")
-		}
-
 	}
 
 	err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...)
@@ -102,8 +98,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 
 	// wrap peers with socat containers
 	for i, peer := range network.peers {
-		// add 1 to never override entry node
-		if _, err = network.createSocatContainer(ctx, peer, i+1); err != nil {
+		if _, err = network.createSocatContainer(ctx, peer, i); err != nil {
 			return nil, errors.Wrap(err, "failed to create socat container")
 		}
 	}
@@ -139,9 +134,6 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	if err = network.createEntryNode(ctx); err != nil {
 		return nil, err
 	}
-	if _, err = network.createSocatContainer(ctx, network.entryNode, 0); err != nil {
-		return nil, errors.Wrap(err, "failed to create socat container")
-	}
 	pumba, err := network.createPumba(ctx, network.entryNode, nil)
 	if err != nil {
 		return nil, err
@@ -155,8 +147,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	}
 	// wrap peers with socat containers
 	for i, peer := range network.peers {
-		// add 1 to never override entry node
-		if _, err = network.createSocatContainer(ctx, peer, i+1); err != nil {
+		if _, err = network.createSocatContainer(ctx, peer, i); err != nil {
 			return nil, errors.Wrap(err, "failed to create socat container")
 		}
 	}
