@@ -6,7 +6,7 @@ TEST_NAMES=${1:-$DEFAULT_TEST_NAMES}
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer image"
-docker build --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer ../../.
+docker build --build-arg REMOTE_DEBUGGING=1 --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer ../../.
 
 echo "Pull additional Docker images"
 docker pull angelocapossele/drand:v1.1.4
