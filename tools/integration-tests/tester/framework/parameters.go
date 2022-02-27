@@ -11,9 +11,10 @@ import (
 
 const (
 	// ports
-	apiPort     = 8080
-	gossipPort  = 14666
-	peeringPort = 14626
+	apiPort       = 8080
+	dashboardPort = 8081
+	gossipPort    = 14666
+	peeringPort   = 14626
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
@@ -62,7 +63,7 @@ func PeerConfig() config.GoShimmer {
 
 	c.Network.Enabled = true
 
-	c.Dashboard.Enabled = false
+	c.Dashboard.Enabled = true
 	c.Dashboard.BindAddress = "0.0.0.0:8081"
 
 	c.Database.Enabled = true
@@ -121,6 +122,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Consensus.Enabled = false
 	c.Activity.Enabled = false
 	c.DRNG.Enabled = false
+	c.Dashboard.Enabled = false
 
 	return c
 }

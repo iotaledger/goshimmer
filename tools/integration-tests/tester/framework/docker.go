@@ -77,9 +77,10 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	containerConfig := &container.Config{
 		Image: conf.Image,
 		ExposedPorts: nat.PortSet{
-			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
-			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
-			nat.Port(fmt.Sprintf("%d/udp", peeringPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):       {},
+			nat.Port(fmt.Sprintf("%d/tcp", dashboardPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):    {},
+			nat.Port(fmt.Sprintf("%d/udp", peeringPort)):   {},
 		},
 		Cmd: cmd,
 	}
