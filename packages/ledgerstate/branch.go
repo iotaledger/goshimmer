@@ -386,112 +386,112 @@ func BranchFromObjectStorage(key, value []byte) (branch objectstorage.StorableOb
 }
 
 // ID returns the identifier of the Branch.
-func (c *Branch) ID() BranchID {
-	return c.id
+func (b *Branch) ID() BranchID {
+	return b.id
 }
 
 // InclusionState returns the InclusionState of the Branch.
-func (c *Branch) InclusionState() (inclusionState InclusionState) {
-	c.inclusionStateMutex.RLock()
-	defer c.inclusionStateMutex.RUnlock()
+func (b *Branch) InclusionState() (inclusionState InclusionState) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
 
-	return c.inclusionState
+	return b.inclusionState
 }
 
 // setInclusionState sets the InclusionState of the Branch (it is private because the InclusionState should be
 // set through the corresponding method in the BranchDAG).
-func (c *Branch) setInclusionState(inclusionState InclusionState) (modified bool) {
-	c.inclusionStateMutex.Lock()
-	defer c.inclusionStateMutex.Unlock()
+func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	b.inclusionStateMutex.Lock()
+	defer b.inclusionStateMutex.Unlock()
 
-	if modified = c.inclusionState != inclusionState; !modified {
+	if modified = b.inclusionState != inclusionState; !modified {
 		return
 	}
 
-	c.inclusionState = inclusionState
-	c.SetModified()
+	b.inclusionState = inclusionState
+	b.SetModified()
 
 	return
 }
 
 // Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-func (c *Branch) Parents() BranchIDs {
-	c.parentsMutex.RLock()
-	defer c.parentsMutex.RUnlock()
+func (b *Branch) Parents() BranchIDs {
+	b.parentsMutex.RLock()
+	defer b.parentsMutex.RUnlock()
 
-	return c.parents.Clone()
+	return b.parents.Clone()
 }
 
 // SetParents updates the parents of the Branch.
-func (c *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
-	c.parentsMutex.Lock()
-	defer c.parentsMutex.Unlock()
+func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
+	b.parentsMutex.Lock()
+	defer b.parentsMutex.Unlock()
 
-	c.parents = parentBranches
-	c.SetModified()
+	b.parents = parentBranches
+	b.SetModified()
 	modified = true
 
 	return
 }
 
 // Conflicts returns the Conflicts that the Branch is part of.
-func (c *Branch) Conflicts() (conflicts ConflictIDs) {
-	c.conflictsMutex.RLock()
-	defer c.conflictsMutex.RUnlock()
+func (b *Branch) Conflicts() (conflicts ConflictIDs) {
+	b.conflictsMutex.RLock()
+	defer b.conflictsMutex.RUnlock()
 
-	conflicts = c.conflicts.Clone()
+	conflicts = b.conflicts.Clone()
 
 	return
 }
 
 // AddConflict registers the membership of the Branch in the given Conflict.
-func (c *Branch) AddConflict(conflictID ConflictID) (added bool) {
-	c.conflictsMutex.Lock()
-	defer c.conflictsMutex.Unlock()
+func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
+	b.conflictsMutex.Lock()
+	defer b.conflictsMutex.Unlock()
 
-	if _, exists := c.conflicts[conflictID]; exists {
+	if _, exists := b.conflicts[conflictID]; exists {
 		return
 	}
 
-	c.conflicts[conflictID] = types.Void
-	c.SetModified()
+	b.conflicts[conflictID] = types.Void
+	b.SetModified()
 	added = true
 
 	return
 }
 
 // Bytes returns a marshaled version of the Branch.
-func (c *Branch) Bytes() []byte {
-	return c.ObjectStorageValue()
+func (b *Branch) Bytes() []byte {
+	return b.ObjectStorageValue()
 }
 
 // String returns a human-readable version of the Branch.
-func (c *Branch) String() string {
+func (b *Branch) String() string {
 	return stringify.Struct("Branch",
-		stringify.StructField("id", c.ID()),
-		stringify.StructField("parents", c.Parents()),
-		stringify.StructField("conflicts", c.Conflicts()),
+		stringify.StructField("id", b.ID()),
+		stringify.StructField("parents", b.Parents()),
+		stringify.StructField("conflicts", b.Conflicts()),
 	)
 }
 
 // Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Branch) Update(objectstorage.StorableObject) {
+func (b *Branch) Update(objectstorage.StorableObject) {
 	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (c *Branch) ObjectStorageKey() []byte {
-	return c.ID().Bytes()
+func (b *Branch) ObjectStorageKey() []byte {
+	return b.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
-func (c *Branch) ObjectStorageValue() []byte {
+func (b *Branch) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(c.Parents()).
-		Write(c.Conflicts()).
-		Write(c.InclusionState()).
+		Write(b.Parents()).
+		Write(b.Conflicts()).
+		Write(b.InclusionState()).
 		Bytes()
 }
 
