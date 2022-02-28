@@ -922,7 +922,7 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 		if branchMeta.BranchID == UndefinedBranchID {
 			panic("a non aggr. branch must have its ID defined in its BranchMeta")
 		}
-		cachedBranch, newBranchCreated, err = branchDAG.CreateConflictBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+		cachedBranch, newBranchCreated, err = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 		require.NoError(t, err)
 		require.True(t, newBranchCreated)
 		cachedBranch.Consume(func(branch *Branch) {

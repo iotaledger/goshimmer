@@ -344,9 +344,9 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 }
 
 // BranchFromBytes unmarshals a Branch from a sequence of bytes.
-func BranchFromBytes(bytes []byte) (conflictBranch *Branch, consumedBytes int, err error) {
+func BranchFromBytes(bytes []byte) (branch *Branch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictBranch, err = BranchFromMarshalUtil(marshalUtil); err != nil {
+	if branch, err = BranchFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
 		return
 	}
@@ -356,21 +356,21 @@ func BranchFromBytes(bytes []byte) (conflictBranch *Branch, consumedBytes int, e
 }
 
 // BranchFromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
-func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *Branch, err error) {
-	conflictBranch = &Branch{}
-	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
+	branch = &Branch{}
+	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if branch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch parents: %w", err)
 		return
 	}
-	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
+	if branch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse conflicts: %w", err)
 		return
 	}
-	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse inclusionState: %w", err)
 		return
 	}
@@ -380,8 +380,8 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch
 
 // BranchFromObjectStorage is a factory method that creates a new Branch instance from a storage key of
 // the object storage. It is used by the object storage, to create new instances of this entity.
-func BranchFromObjectStorage(key, value []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	conflictBranch, _, err = BranchFromBytes(byteutils.ConcatBytes(key, value))
+func BranchFromObjectStorage(key, value []byte) (branch objectstorage.StorableObject, err error) {
+	branch, _, err = BranchFromBytes(byteutils.ConcatBytes(key, value))
 	return
 }
 

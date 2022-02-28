@@ -383,11 +383,11 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new Branch
 	targetBranchID := NewBranchID(transaction.ID())
-	cachedConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(targetBranchID, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedBranch, _, err := u.ledgerstate.CreateBranch(targetBranchID, normalizedBranchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
-	cachedConflictBranch.Release()
+	cachedBranch.Release()
 
 	targetBranchIDs = NewBranchIDs(targetBranchID)
 	transactionMetadata.SetBranchIDs(targetBranchIDs)
@@ -405,14 +405,14 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		forkedBranchID := NewBranchID(transactionID)
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
-		cachedConsumingConflictBranch, _, err := u.ledgerstate.CreateConflictBranch(forkedBranchID, transactionMetadata.BranchIDs(), conflictIDs)
+		cachedConsumingBranch, _, err := u.ledgerstate.CreateBranch(forkedBranchID, transactionMetadata.BranchIDs(), conflictIDs)
 		if err != nil {
 			panic(fmt.Errorf("failed to create Branch when forking Transaction with %s: %w", transactionID, err))
 		}
-		cachedConsumingConflictBranch.Release()
+		cachedConsumingBranch.Release()
 
 		// We don't need to propagate updates if the branch did already exist.
-		// Though CreateConflictBranch needs to be called so that conflict sets and conflict membership are properly updated.
+		// Though CreateBranch needs to be called so that conflict sets and conflict membership are properly updated.
 		// TODO: this should never happen: a transaction should only be forked once?
 		if transactionMetadata.BranchIDs().Contains(forkedBranchID) {
 			return
@@ -529,7 +529,7 @@ func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inher
 		inheritedBranchIDs.AddAll(inputMetadata.BranchIDs())
 	}
 
-	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingConflictBranchIDs(inheritedBranchIDs)
+	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingBranchIDs(inheritedBranchIDs)
 
 	if err != nil {
 		err = errors.Errorf("failed to resolve pending branches: %w", cerrors.ErrFatal)

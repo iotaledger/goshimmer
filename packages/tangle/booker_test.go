@@ -2620,12 +2620,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
 		testFramework.tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).Consume(func(conflictBranch *ledgerstate.Branch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Confirmed)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).Consume(func(branch *ledgerstate.Branch) {
+			assert.Equal(t, branch.InclusionState(), ledgerstate.Confirmed)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).Consume(func(conflictBranch *ledgerstate.Branch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).Consume(func(branch *ledgerstate.Branch) {
+			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
 		testFramework.IssueMessages("Message27").WaitMessagesBooked()
@@ -2952,12 +2952,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).Consume(func(conflictBranch *ledgerstate.Branch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).Consume(func(branch *ledgerstate.Branch) {
+			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).Consume(func(conflictBranch *ledgerstate.Branch) {
-			assert.Equal(t, conflictBranch.InclusionState(), ledgerstate.Rejected)
+		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).Consume(func(branch *ledgerstate.Branch) {
+			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
 		testFramework.IssueMessages("Message30").WaitMessagesBooked()

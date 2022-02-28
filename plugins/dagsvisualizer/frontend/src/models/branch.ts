@@ -1,6 +1,5 @@
 export class branchVertex {
     ID: string;
-    type: string;
     parents: Array<string>;
     isConfirmed: boolean;
     conflicts: conflictBranches;

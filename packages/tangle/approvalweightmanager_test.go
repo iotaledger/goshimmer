@@ -890,7 +890,7 @@ func getSingleBranch(branches map[string]ledgerstate.BranchIDs, alias string) le
 
 func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchIDs, parentBranchIDs ledgerstate.BranchIDs, conflictID ledgerstate.ConflictID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateConflictBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
+	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
 	cachedBranch.Release()
@@ -901,8 +901,8 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchIDs, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		for conflictBranchID := range branchIDs[branchIDString] {
-			voters := approvalWeightManager.VotersOfBranch(conflictBranchID)
+		for branchID := range branchIDs[branchIDString] {
+			voters := approvalWeightManager.VotersOfBranch(branchID)
 			if voters != nil {
 				actualResult = voters.Has(voter)
 			}

@@ -50,21 +50,21 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 
 // region CORE API /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// CreateConflictBranch retrieves the Branch that corresponds to the given details. It automatically creates and
+// CreateBranch retrieves the Branch that corresponds to the given details. It automatically creates and
 // updates the Branch according to the new details if necessary.
-func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *CachedBranch, newBranchCreated bool, err error) {
+func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *CachedBranch, newBranchCreated bool, err error) {
 	b.inclusionStateMutex.RLock()
 
 	// create or load the branch
-	cachedConflictBranch = b.Branch(branchID, func() *Branch {
-		conflictBranch := NewBranch(branchID, parentBranchIDs, conflictIDs)
+	cachedBranch = b.Branch(branchID, func() *Branch {
+		branch := NewBranch(branchID, parentBranchIDs, conflictIDs)
 
 		newBranchCreated = true
 
-		return conflictBranch
+		return branch
 	}).Retain()
 
-	cachedConflictBranch.Consume(func(conflictBranch *Branch) {
+	cachedBranch.Consume(func(branch *Branch) {
 		// If the branch existed already we simply update its conflict members.
 		//
 		// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
@@ -72,7 +72,7 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 		// not change, and we don't need to update and propagate it.
 		if !newBranchCreated {
 			for conflictID := range conflictIDs {
-				if conflictBranch.AddConflict(conflictID) {
+				if branch.AddConflict(conflictID) {
 					b.registerConflictMember(conflictID, branchID)
 				}
 			}
@@ -91,8 +91,8 @@ func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs Bran
 			b.registerConflictMember(conflictID, branchID)
 		}
 
-		if b.anyParentRejected(conflictBranch) || b.anyConflictMemberConfirmed(conflictBranch) {
-			conflictBranch.setInclusionState(Rejected)
+		if b.anyParentRejected(branch) || b.anyConflictMemberConfirmed(branch) {
+			branch.setInclusionState(Rejected)
 		}
 	})
 
@@ -136,15 +136,15 @@ func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err e
 	return nil
 }
 
-// ResolvePendingConflictBranchIDs returns the BranchIDs of the pending and rejected ConflictBranches that are
+// ResolvePendingBranchIDs returns the BranchIDs of the pending and rejected Branches that are
 // addressed by the given BranchIDs.
-func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
+func (b *BranchDAG) ResolvePendingBranchIDs(branchIDs BranchIDs) (pendingBranchIDs BranchIDs, err error) {
 	branchWalker := walker.New()
 	for branchID := range branchIDs {
 		branchWalker.Push(branchID)
 	}
 
-	result := make(BranchIDs)
+	pendingBranchIDs = make(BranchIDs)
 	for branchWalker.HasNext() {
 		currentBranchID := branchWalker.Next().(BranchID)
 
@@ -152,17 +152,17 @@ func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (confli
 			if branch.InclusionState() == Confirmed {
 				return
 			}
-			result.Add(branch.ID())
+			pendingBranchIDs.Add(branch.ID())
 		}) {
 			return nil, errors.Errorf("failed to load Branch with %s: %w", currentBranchID, cerrors.ErrFatal)
 		}
 	}
 
-	if len(result) == 0 {
+	if len(pendingBranchIDs) == 0 {
 		return NewBranchIDs(MasterBranchID), nil
 	}
 
-	return result, nil
+	return
 }
 
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
@@ -345,13 +345,13 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 	traversedBranches := set.New()
 	conflictSetsWalker := walker.New()
 
-	processBranchAndQueueConflictSets := func(conflictBranchID BranchID) {
-		if !traversedBranches.Add(conflictBranchID) {
+	processBranchAndQueueConflictSets := func(branchID BranchID) {
+		if !traversedBranches.Add(branchID) {
 			return
 		}
 
-		b.Branch(conflictBranchID).Consume(func(conflictBranch *Branch) {
-			for conflictID := range conflictBranch.Conflicts() {
+		b.Branch(branchID).Consume(func(branch *Branch) {
+			for conflictID := range branch.Conflicts() {
 				conflictSetsWalker.Push(conflictID)
 			}
 		})
@@ -378,14 +378,14 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(conflictBranch *Branch) {
-			conflictBranch.setInclusionState(Confirmed)
+		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch *Branch) {
+			branch.setInclusionState(Confirmed)
 		})
 	}
 }
 
-func (b *BranchDAG) anyParentRejected(conflictBranch *Branch) (parentRejected bool) {
-	for parentBranchID := range conflictBranch.Parents() {
+func (b *BranchDAG) anyParentRejected(branch *Branch) (parentRejected bool) {
+	for parentBranchID := range branch.Parents() {
 		b.Branch(parentBranchID).Consume(func(parentBranch *Branch) {
 			if parentRejected = parentBranch.InclusionState() == Rejected; parentRejected {
 				return

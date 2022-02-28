@@ -82,19 +82,10 @@ func (b *BranchMarkersMapper) SetMessageID(marker *markers.Marker, messageID Mes
 	b.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
 }
 
-// BranchIDs returns the BranchID that is associated with the given Marker.
-func (b *BranchMarkersMapper) BranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs) {
-	b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
-		branchIDs = markerIndexBranchIDMapping.BranchIDs(marker.Index())
-	})
-
-	return
-}
-
-// ConflictBranchIDs returns the ConflictBranchIDs that are associated with the given Marker.
-func (b *BranchMarkersMapper) ConflictBranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs, err error) {
-	if branchIDs, err = b.tangle.LedgerState.ResolvePendingConflictBranchIDs(b.BranchIDs(marker)); err != nil {
-		err = errors.Errorf("failed to resolve ConflictBranchIDs of marker %s: %w", marker, err)
+// PendingBranchIDs returns the pending BranchIDs that are associated with the given Marker.
+func (b *BranchMarkersMapper) PendingBranchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs, err error) {
+	if branchIDs, err = b.tangle.LedgerState.ResolvePendingBranchIDs(b.branchIDs(marker)); err != nil {
+		err = errors.Errorf("failed to resolve pending BranchIDs of marker %s: %w", marker, err)
 	}
 	return
 }
@@ -114,6 +105,15 @@ func (b *BranchMarkersMapper) SetBranchIDs(marker *markers.Marker, branchIDs led
 	b.setBranchIDMapping(marker, branchIDs)
 
 	return true
+}
+
+// branchIDs returns the BranchID that is associated with the given Marker.
+func (b *BranchMarkersMapper) branchIDs(marker *markers.Marker) (branchIDs ledgerstate.BranchIDs) {
+	b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
+		branchIDs = markerIndexBranchIDMapping.BranchIDs(marker.Index())
+	})
+
+	return
 }
 
 func (b *BranchMarkersMapper) setBranchIDMapping(marker *markers.Marker, branchIDs ledgerstate.BranchIDs) bool {

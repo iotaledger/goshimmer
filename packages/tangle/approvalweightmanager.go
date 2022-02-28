@@ -172,27 +172,27 @@ func (a *ApprovalWeightManager) determineVotes(votedBranchIDs ledgerstate.Branch
 	return
 }
 
-// determineBranchesToAdd iterates through the past cone of the given ConflictBranches and determines the BranchIDs that
+// determineBranchesToAdd iterates through the past cone of the given Branches and determines the BranchIDs that
 // are affected by the Vote.
-func (a *ApprovalWeightManager) determineBranchesToAdd(conflictBranchIDs ledgerstate.BranchIDs, branchVote *BranchVote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
+func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs ledgerstate.BranchIDs, branchVote *BranchVote) (addedBranches ledgerstate.BranchIDs, allParentsAdded bool) {
 	addedBranches = ledgerstate.NewBranchIDs()
 
-	for currentConflictBranchID := range conflictBranchIDs {
-		currentVote := branchVote.WithBranchID(currentConflictBranchID)
+	for currentBranchID := range branchIDs {
+		currentVote := branchVote.WithBranchID(currentBranchID)
 
 		// Do not queue parents if a newer vote exists for this branch for this voter.
 		if a.identicalVoteWithHigherPowerExists(currentVote) {
 			continue
 		}
 
-		a.tangle.LedgerState.Branch(currentConflictBranchID).Consume(func(branch *ledgerstate.Branch) {
+		a.tangle.LedgerState.Branch(currentBranchID).Consume(func(branch *ledgerstate.Branch) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
 			addedBranches.AddAll(addedBranchesOfCurrentBranch)
 		})
 
-		addedBranches.Add(currentConflictBranchID)
+		addedBranches.Add(currentBranchID)
 	}
 
 	return
