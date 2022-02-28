@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
@@ -63,9 +62,6 @@ var (
 			return gof.None
 		}
 	}
-
-	// ErrUnsupportedBranchType is returned when an operation is tried on an unsupported branch type.
-	ErrUnsupportedBranchType = errors.New("unsupported branch type")
 )
 
 // Option is a function setting an option on an Options struct.
