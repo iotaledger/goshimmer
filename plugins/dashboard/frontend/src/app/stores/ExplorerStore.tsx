@@ -105,7 +105,6 @@ class PendingMana {
 
 class Branch {
     id: string;
-    type: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
     gradeOfFinality: number
