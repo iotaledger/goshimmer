@@ -109,7 +109,6 @@ func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, c
 func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err error) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
-	fmt.Println("Add parents", branchID, newParentBranchID)
 
 	if !b.Branch(branchID).Consume(func(branch *Branch) {
 		parentBranchIDs := branch.Parents()
@@ -378,14 +377,14 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 func (b *BranchDAG) init() {
 	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, nil, nil))
 	if stored {
-		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(branch *Branch) {
-			branch.setInclusionState(Confirmed)
+		(&CachedBranch{CachedObject: cachedMasterBranch}).Consume(func(conflictBranch *Branch) {
+			conflictBranch.setInclusionState(Confirmed)
 		})
 	}
 }
 
-func (b *BranchDAG) anyParentRejected(branch *Branch) (parentRejected bool) {
-	for parentBranchID := range branch.Parents() {
+func (b *BranchDAG) anyParentRejected(conflictBranch *Branch) (parentRejected bool) {
+	for parentBranchID := range conflictBranch.Parents() {
 		b.Branch(parentBranchID).Consume(func(parentBranch *Branch) {
 			if parentRejected = parentBranch.InclusionState() == Rejected; parentRejected {
 				return
