@@ -103,7 +103,7 @@ var nodesToPledge = map[string]Pledge{
 	}(),
 }
 
-func anyGenesisNodePledge() bool {
+func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 	for _, pledge := range nodesToPledge {
 		if pledge.Genesis {
 			return true
@@ -132,8 +132,14 @@ func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
 	log.Printf("creating snapshot %s...", snapshotFileName)
 
-	genesis := readGenesisConfig()
-	if anyGenesisNodePledge() {
+	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
+	seedStr := viper.GetString(cfgSnapshotGenesisSeed)
+	CreateSnapshot(genesisTokenAmount, seedStr, nodesToPledge, snapshotFileName)
+}
+
+func CreateSnapshot(genesisTokenAmount uint64, seedStr string, nodesToPledge map[string]Pledge, snapshotFileName string) {
+	genesis := createGenesis(genesisTokenAmount, seedStr)
+	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
 	}
 
@@ -141,15 +147,13 @@ func main() {
 	transactionsMap := make(TransactionMap)
 	accessManaMap := make(AccessManaMap)
 
-	pledgeToDefinedNodes(genesis, viper.GetUint64(cfgPledgeTokenAmount), transactionsMap, accessManaMap)
+	pledgeToDefinedNodes(genesis, viper.GetUint64(cfgPledgeTokenAmount), nodesToPledge, transactionsMap, accessManaMap)
 	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessManaMap, Transactions: transactionsMap}
 	writeSnapshot(snapshotFileName, newSnapshot)
 	verifySnapshot(snapshotFileName)
 }
 
-func readGenesisConfig() *Genesis {
-	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
-	seedStr := viper.GetString(cfgSnapshotGenesisSeed)
+func createGenesis(genesisTokenAmount uint64, seedStr string) *Genesis {
 	if seedStr == "" {
 		log.Fatal("Seed is required. Enter it via --seed=... ")
 	}
@@ -213,7 +217,7 @@ func verifySnapshot(snapshotFileName string) {
 // pledges the amount of tokens given or genesis amount to defined nodes.
 // this function mutates the transaction and access mana maps accordingly.
 // only one node is allowed to have the genesis token amount be pledged to.
-func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, txMap TransactionMap, aManaMap AccessManaMap) {
+func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge map[string]Pledge, txMap TransactionMap, aManaMap AccessManaMap) {
 	randomSeed := seed.NewSeed()
 	balances := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 		ledgerstate.ColorIOTA: tokensToPledge,
