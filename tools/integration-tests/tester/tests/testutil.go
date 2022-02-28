@@ -619,3 +619,52 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	}
 	return true, metadata.GradeOfFinality
 }
+
+// TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
+func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
+	var peers []*framework.Node
+	for _, peer := range n.Peers() {
+		if _, err := peer.GetMessage(msgID); err == nil {
+			peers = append(peers, peer)
+		}
+	}
+	if len(peers) == 0 {
+		log.Println("msg ", msgID, "is not found on any node")
+		t.FailNow()
+	}
+
+	confirmedOnAllPeers := func(msgID string, peers []*framework.Node) bool {
+		for _, peer := range peers {
+			metadata, err := peer.GetMessageMetadata(msgID)
+			require.NoError(t, err)
+			if metadata.GradeOfFinality != gof.High {
+				return false
+			}
+		}
+		return true
+	}
+
+	var i int
+	timer := time.NewTimer(waitFor)
+	ticker := time.NewTicker(tick)
+
+	for {
+		select {
+		case <-timer.C:
+			log.Println("timeout")
+			t.FailNow()
+		case <-ticker.C:
+			if confirmedOnAllPeers(msgID, requiredPeers) {
+				log.Println("msg is confirmed on all required peers")
+				return
+			}
+		default:
+			// sort nodes by cmana before issuing?
+			node := peers[i%len(peers)]
+			if _, err := node.Data([]byte("test")); err != nil {
+				log.Println("send message on node: ", node.ID().String())
+			}
+			i++
+		}
+	}
+}
