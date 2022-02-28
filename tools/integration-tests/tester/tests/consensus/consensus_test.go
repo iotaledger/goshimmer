@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -14,9 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
@@ -73,6 +74,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	const delayBetweenDataMessages = 100 * time.Millisecond
+	dataMessagesAmount := len(n.Peers()) * 3
+
 	var (
 		node1 = n.Peers()[0]
 		node2 = n.Peers()[1]
@@ -101,6 +105,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	// merge partitions
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
+
+	t.Logf("Sending %d data messages to make GoF converge", dataMessagesAmount)
+	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
 
 	// conflicting txs should have spawned branches
 	require.Eventually(t, func() bool {
