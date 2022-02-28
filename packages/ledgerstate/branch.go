@@ -268,7 +268,7 @@ func (b BranchIDs) Equals(o BranchIDs) bool {
 
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(b)*BranchIDLength)
 	marshalUtil.WriteUint64(uint64(len(b)))
 	for branchID := range b {
 		marshalUtil.WriteBytes(branchID.Bytes())
@@ -363,7 +363,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch
 		return
 	}
 	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parents: %w", err)
+		err = errors.Errorf("failed to parse Branch parents: %w", err)
 		return
 	}
 	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
@@ -419,7 +419,7 @@ func (c *Branch) Parents() BranchIDs {
 	c.parentsMutex.RLock()
 	defer c.parentsMutex.RUnlock()
 
-	return c.parents
+	return c.parents.Clone()
 }
 
 // SetParents updates the parents of the Branch.
@@ -489,7 +489,6 @@ func (c *Branch) ObjectStorageKey() []byte {
 // object storage.
 func (c *Branch) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(c.ID()).
 		Write(c.Parents()).
 		Write(c.Conflicts()).
 		Write(c.InclusionState()).
