@@ -352,7 +352,6 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 
 				confirmedMarkerMsg := t.getMarkerMessage(*markers.NewMarker(sequence.ID(), confirmedMarkerIdx))
 				if t.tangle.ConfirmationOracle.IsMessageConfirmed(confirmedMarkerMsg.ID()) && confirmedMarkerMsg.IssuingTime().Before(minSupportedTimestamp) {
-					//fmt.Println("Push message to message walker", t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 					messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 				}
 			}
@@ -364,12 +363,10 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 				// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed message past cone of oldestUnconfirmedMarker
 				referencedMarkerMsg := t.getMarkerMessage(*markers.NewMarker(sequenceID, index))
 				if t.tangle.ConfirmationOracle.IsMessageConfirmed(referencedMarkerMsg.ID()) && referencedMarkerMsg.IssuingTime().Before(minSupportedTimestamp) {
-					//fmt.Println("Push message to message walker", t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 					messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 					return true
 				}
 				// otherwise, process the referenced marker
-				//fmt.Println("add ", referencedMarker.String(), "to marker walker")
 				markerWalker.Push(*referencedMarker)
 				return true
 			})
@@ -384,7 +381,6 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 		markerWalker.StopWalk()
 		return false
 	}
-	//fmt.Println("marker", marker.String(), "is confirmed and older than minSupportedTimestamp")
 
 	// if closest past marker is confirmed and before minSupportedTimestamp, then message should be ok
 	return true
@@ -392,8 +388,6 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 
 func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker *markers.Marker) (tscValid bool) {
 	tscValid = true
-
-	//fmt.Println("Past marker: ", pastMarker.String(), "oldest unconfirmed marker in the sequence: ", oldestUnconfirmedMarker)
 
 	// oldest unconfirmed marker is in the future cone of the past marker, therefore past marker is confirmed and there is no need to check
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {

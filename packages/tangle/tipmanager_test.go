@@ -655,7 +655,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
-// Test based on packages/tangle/images/TSC_scenario.png
+// Test based on packages/tangle/images/TSC_scenario.png.
 func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	tangle := NewTestTangle()
 	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
@@ -691,7 +691,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-0/4", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-0/4").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
+		_ = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -721,7 +721,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-1/3", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-1/3").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
+		_ = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -763,7 +763,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-2/3", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-2/3").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
+		_ = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -796,7 +796,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
 		testFramework.IssueMessages("Marker-2/5").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
+		_ = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -817,7 +817,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-3/2").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
+		_ = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -859,7 +859,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 		testFramework.CreateMessage("Marker-5/2", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-5/2").WaitMessagesBooked()
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
+		_ = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -893,11 +893,11 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
 	// case #5
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
-	//case #6 (attach to unconfirmed message older than TSC)
+	// case #6 (attach to unconfirmed message older than TSC)
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
 	//// case #7
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
-	//case #8
+	// case #8
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
 	// case #9
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
@@ -930,6 +930,7 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 	}
 	return msgAlias
 }
+
 func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
@@ -989,6 +990,7 @@ func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers
 	}
 	return marker.Index() <= confirmedMarkerIndex
 }
+
 func containsMessageID(s MessageIDs, e MessageID) bool {
 	for a := range s {
 		if a == e {
