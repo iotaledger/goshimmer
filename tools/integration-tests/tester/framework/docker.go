@@ -145,7 +145,7 @@ func (d *DockerContainer) createSocatContainer(ctx context.Context, name string,
 	containerConfig := &container.Config{
 		Image:        "alpine/socat:1.7.4.3-r0",
 		Entrypoint:   []string{"/bin/sh"},
-		Cmd:          []string{"-c", cmd + "wait"},
+		Cmd:          []string{"-c", cmd[:len(cmd)-3]},
 		ExposedPorts: exposedPorts,
 	}
 
