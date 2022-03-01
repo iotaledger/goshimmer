@@ -192,21 +192,27 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 	cachedWeakApprovers := u.tangle.Storage.Approvers(approvedMessageID, WeakApprover)
 	defer cachedWeakApprovers.Release()
+	cachedShallowLikeApprovers := u.tangle.Storage.Approvers(approvedMessageID, ShallowLikeApprover)
+	defer cachedShallowLikeApprovers.Release()
+	cachedShallowDislikeApprovers := u.tangle.Storage.Approvers(approvedMessageID, ShallowDislikeApprover)
+	defer cachedShallowDislikeApprovers.Release()
 
-	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
-		if weakApprover == nil {
+	indirectApprovers := append(cachedWeakApprovers.Unwrap(), append(cachedShallowLikeApprovers.Unwrap(), cachedShallowDislikeApprovers.Unwrap()...)...)
+
+	for _, indirectApprover := range indirectApprovers {
+		if indirectApprover == nil {
 			continue
 		}
 
-		var weakApproverBooked bool
-		u.tangle.Storage.MessageMetadata(weakApprover.ApproverMessageID()).Consume(func(weakApproverMetadata *MessageMetadata) {
-			weakApproverBooked = weakApproverMetadata.IsBooked()
+		var indirectApproverBooked bool
+		u.tangle.Storage.MessageMetadata(indirectApprover.ApproverMessageID()).Consume(func(indirectApproverMetadata *MessageMetadata) {
+			indirectApproverBooked = indirectApproverMetadata.IsBooked()
 		})
-		if !weakApproverBooked {
+		if !indirectApproverBooked {
 			continue
 		}
 
-		if u.messageStronglyApprovedBy(weakApprover.ApproverMessageID(), approvingMessageID) {
+		if u.messageStronglyApprovedBy(indirectApprover.ApproverMessageID(), approvingMessageID) {
 			return true
 		}
 	}
