@@ -67,8 +67,8 @@ func PeerConfig() config.GoShimmer {
 	c.Dashboard.Enabled = true
 	c.Dashboard.BindAddress = fmt.Sprintf("0.0.0.0:%d", dashboardPort)
 
-	c.DagsVisualizer.Enabled = true
-	c.DagsVisualizer.BindAddress = fmt.Sprintf("0.0.0.0:%d", dagVizPort)
+	c.Dagsvisualizer.Enabled = true
+	c.Dagsvisualizer.BindAddress = fmt.Sprintf("0.0.0.0:%d", dagVizPort)
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
@@ -127,7 +127,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Activity.Enabled = false
 	c.DRNG.Enabled = false
 	c.Dashboard.Enabled = false
-	c.DagsVisualizer.Enabled = false
+	c.Dagsvisualizer.Enabled = false
 
 	return c
 }

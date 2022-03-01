@@ -53,7 +53,7 @@ type GoShimmer struct {
 	Prometheus
 	Profiling
 	Dashboard
-	DagsVisualizer
+	Dagsvisualizer
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -164,8 +164,8 @@ type Dashboard struct {
 	dashboard.ParametersDefinition
 }
 
-// DagsVisualizer defines the parameters of the Dag Visualizer plugin.
-type DagsVisualizer struct {
+// Dagsvisualizer defines the parameters of the Dag Visualizer plugin.
+type Dagsvisualizer struct {
 	Enabled bool
 
 	dagsvisualizer.ParametersDefinition
