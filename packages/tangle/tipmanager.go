@@ -221,14 +221,11 @@ func (t *TipManager) increaseTipBranchCount(messageID MessageID, branchID ledger
 func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
 	if err != nil {
-		panic("could not determine BranchIDs of added tip.")
+		panic("could not determine BranchIDs of tip.")
 	}
 
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
 	for messageBranchID := range messageBranchIDs {
-		t.tipsBranchCount[messageBranchID]++
+		t.increaseTipBranchCount(messageID, messageBranchID)
 	}
 }
 
@@ -241,6 +238,17 @@ func (t *TipManager) decreaseBranchCount(branchID ledgerstate.BranchID) {
 		if t.tipsBranchCount[branchID] == 0 {
 			delete(t.tipsBranchCount, branchID)
 		}
+	}
+}
+
+func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
+	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
+	if err != nil {
+		panic("could not determine BranchIDs of tip.")
+	}
+
+	for messageBranchID := range messageBranchIDs {
+		t.decreaseBranchCount(messageBranchID)
 	}
 }
 
@@ -270,6 +278,7 @@ func (t *TipManager) removeStrongParents(message *Message) {
 		}
 
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
+			t.decreaseTipBranchesCount(parentMessageID)
 			t.Events.TipRemoved.Trigger(&TipEvent{
 				MessageID: parentMessageID,
 			})
