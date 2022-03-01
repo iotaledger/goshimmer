@@ -2,12 +2,14 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// OutputStatus represents the confirmation status of an output.
 type OutputStatus int8
 
 const (
@@ -16,6 +18,7 @@ const (
 	rejected
 )
 
+// Output contains details of an output ID.
 type Output struct {
 	//*wallet.Output
 	OutputID ledgerstate.OutputID
@@ -24,10 +27,22 @@ type Output struct {
 	Status   OutputStatus
 }
 
+// Outputs is a list of Output.
 type Outputs []*Output
 
+// OutputManager keeps track of the output statuses.
 type OutputManager struct {
-	clients Clients
+	connector Clients
+
+	status map[ledgerstate.OutputID]*Output
+}
+
+// NewOutputManager creates an OutputManager instance.
+func NewOutputManager(connector Clients) *OutputManager {
+	return &OutputManager{
+		connector: connector,
+		status:    make(map[ledgerstate.OutputID]*Output),
+	}
 }
 
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
@@ -56,7 +71,7 @@ func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
-		jsonOutput := o.clients.GetUnspentOutputForAddress(addr)
+		jsonOutput := o.connector.GetUnspentOutputForAddress(addr)
 		outID = jsonOutput.Output.OutputID.Base58
 		confirmed = jsonOutput.GradeOfFinality == GoFConfirmed
 		if outID != "" && confirmed {
@@ -103,7 +118,7 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(2 * time.Second) {
-		if gof := o.clients.GetTransactionGoF(txID); gof == GoFConfirmed {
+		if gof := o.connector.GetTransactionGoF(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
 		}

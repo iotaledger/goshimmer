@@ -1,13 +1,14 @@
 package evilwallet
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/identity"
-	"sync"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -21,10 +22,11 @@ type Clients interface {
 	AddClient(url string, setters ...client.Option)
 	RemoveClient(index int)
 	PledgeID() *identity.ID
+
+	// all API calls
 	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
 	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
 	GetTransactionGoF(txID string) gof.GradeOfFinality
-	// all API calls
 }
 
 // Connector is responsible for handling connections with clients.
@@ -49,7 +51,7 @@ func NewConnector(urls []string, setters ...client.Option) *Connector {
 
 	return &Connector{
 		clients:  clients,
-		urls:     urls[:],
+		urls:     urls,
 		lastUsed: -1,
 	}
 }
@@ -66,7 +68,6 @@ func (c *Connector) ServersStatuses() ServersStatus {
 
 // ServerStatus retrieves the connected server status.
 func (c *Connector) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error) {
-
 	response, err := c.clients[cltIdx].Info()
 	if err != nil {
 		return nil, err
@@ -106,7 +107,6 @@ func (c *Connector) getClient() *client.GoShimmerAPI {
 		c.lastUsed++
 	}
 	return c.clients[c.lastUsed]
-
 }
 
 // GetClient returns the client instance that was used the longest time ago.
@@ -134,14 +134,17 @@ func (c *Connector) RemoveClient(index int) {
 	c.clients = append(c.clients[:index], c.clients[index+1:]...)
 }
 
+// PledgeID returns the node ID that the mana will be pledging to.
 func (c *Connector) PledgeID() *identity.ID {
 	return c.pledgeID
 }
 
+// SetPledgeID sets the node ID that the mana will be pledging to.
 func (c *Connector) SetPledgeID(id *identity.ID) {
 	c.pledgeID = id
 }
 
+// PostTransaction sends a transaction to the Tangle via a given client.
 func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
 	resp, err := clt.PostTransaction(tx.Bytes())
 	if err != nil {
@@ -154,6 +157,7 @@ func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoS
 	return
 }
 
+// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
 	clt := c.GetClient()
 	resp, err := clt.PostAddressUnspentOutputs([]string{addr.Base58()})
@@ -167,6 +171,7 @@ func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmo
 	return nil
 }
 
+// GetTransactionGoF returns the GoF of a given transaction ID.
 func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
 	clt := c.GetClient()
 	resp, err := clt.GetTransactionMetadata(txID)

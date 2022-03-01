@@ -1,10 +1,11 @@
 package evilwallet
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
-	"sync"
 )
 
 type WalletType int8
@@ -19,11 +20,19 @@ const (
 	maxGoroutines = 5
 )
 
-type EvilManager struct {
-	wallets map[WalletType][]Wallet
-	clients Clients
+type Wallets struct {
+	wallets map[WalletType][]*Wallet
 
+	idCounter    atomic.Int64
 	lastWalletID atomic.Int64
+}
+
+func NewWallets() *Wallets {
+	return &Wallets{
+		wallets:      make(map[WalletType][]*Wallet),
+		idCounter:    *atomic.NewInt64(0),
+		lastWalletID: *atomic.NewInt64(0),
+	}
 }
 
 type Wallet struct {
@@ -58,7 +67,7 @@ func NewWallet(id int) *Wallet {
 
 // CreateNFreshFaucet10kWallet creates n new wallets, each wallet is created from one faucet request.
 
-func (e *EvilManager) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
+func (w *Wallets) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 	// channel to block the number of concurrent goroutines
 	semaphore := make(chan bool, maxGoroutines)
 	wg := sync.WaitGroup{}
@@ -72,11 +81,11 @@ func (e *EvilManager) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 			defer func() {
 				<-semaphore
 			}()
-			wallet, err := e.CreateFreshFaucetWallet()
+			wallet, err := w.CreateFreshFaucetWallet()
 			if err != nil {
 				return
 			}
-			e.addWallet(wallet)
+			w.addWallet(wallet)
 		}(reqNum)
 	}
 	wg.Wait()
@@ -85,7 +94,7 @@ func (e *EvilManager) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 
 // CreateFreshFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
 // requested from the Faucet.
-func (e *EvilManager) CreateFreshFaucetWallet() (w *Wallet, err error) {
+func (w *Wallets) CreateFreshFaucetWallet() (wallet *Wallet, err error) {
 	//clt := e.clients.GetClient()
 	//funds, err := requestAndSplitFaucetFunds()
 	//if err != nil {
@@ -104,7 +113,7 @@ func requestAndSplitFaucetFunds() (wallet *Wallet, err error) {
 	return
 }
 
-// addFreshWallet stores newly created wallet
-func (e *EvilManager) addWallet(wallet *Wallet) {
-
+// addWallet stores newly created wallet.
+func (w *Wallets) addWallet(wallet *Wallet) {
+	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
 }
