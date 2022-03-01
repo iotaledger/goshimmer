@@ -620,6 +620,20 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	return true, metadata.GradeOfFinality
 }
 
+// ConfirmedOnAllPeers checks if the msg is confirmed on all supplied peers.
+func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
+	for _, peer := range peers {
+		metadata, err := peer.GetMessageMetadata(msgID)
+		if err != nil {
+			return false
+		}
+		if metadata.GradeOfFinality != gof.High {
+			return false
+		}
+	}
+	return true
+}
+
 // TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
 func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
 	var peers []*framework.Node
@@ -633,20 +647,11 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 		t.FailNow()
 	}
 
-	confirmedOnAllPeers := func(msgID string, peers []*framework.Node) bool {
-		for _, peer := range peers {
-			metadata, err := peer.GetMessageMetadata(msgID)
-			require.NoError(t, err)
-			if metadata.GradeOfFinality != gof.High {
-				return false
-			}
-		}
-		return true
-	}
-
 	var i int
 	timer := time.NewTimer(waitFor)
+	defer timer.Stop()
 	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -654,7 +659,7 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 			log.Println("timeout")
 			t.FailNow()
 		case <-ticker.C:
-			if confirmedOnAllPeers(msgID, requiredPeers) {
+			if ConfirmedOnAllPeers(msgID, requiredPeers) {
 				log.Println("msg is confirmed on all required peers")
 				return
 			}
