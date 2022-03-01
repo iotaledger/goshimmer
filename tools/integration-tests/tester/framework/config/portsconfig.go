@@ -9,6 +9,7 @@ const (
 	DebugPort     GoShimmerPort = 40000
 )
 
+// GoShimmerPorts is the collection of ports that should be exposed by socat
 var GoShimmerPorts = []GoShimmerPort{
 	WebApiPort,
 	DashboardPort,
