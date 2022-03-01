@@ -399,9 +399,9 @@ func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimes
 		tscValid = false
 		return
 	}
-
 	return
 }
+
 func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
 	timestampValid = true
 
