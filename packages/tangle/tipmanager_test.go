@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -657,64 +658,278 @@ func TestTipManager_TransactionTips(t *testing.T) {
 // Test based on packages/tangle/images/Scenario 2.png
 func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	tangle := NewTestTangle()
+	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
+
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
-	confirmedMessageIDs := &MessageIDs{}
-	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 2))
-
-	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
 
 	testFramework := NewMessageTestFramework(
 		tangle,
-		WithGenesisOutput("G", 3),
 	)
 
 	tangle.Setup()
+	var lastMsgAlias string
 
-	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-time.Minute*8)), WithInputs("G"), WithOutput("A", 1), WithOutput("B", 1), WithOutput("C", 1))
-	testFramework.CreateMessage("Message2", WithStrongParents("Genesis", "Message1"), WithIssuingTime(time.Now().Add(-time.Minute*6)), WithInputs("B", "C"), WithOutput("E", 2))
-	testFramework.CreateMessage("Message3", WithStrongParents("Message1", "Message2"), WithReattachment("Message2"))
-	testFramework.CreateMessage("Message4", WithStrongParents("Genesis", "Message1"), WithInputs("A"), WithOutput("D", 1))
-	testFramework.CreateMessage("Message5", WithStrongParents("Message1", "Message2"), WithInputs("A"), WithOutput("F", 1))
-	testFramework.CreateMessage("Message6", WithStrongParents("Message2", "Message5"), WithInputs("E", "F"), WithOutput("L", 3))
-	testFramework.CreateMessage("Message7", WithStrongParents("Message1", "Message4"), WithInputs("C"), WithOutput("H", 1))
-	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message7"), WithInputs("H", "D"), WithOutput("I", 2))
-	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message7"), WithInputs("B"), WithOutput("J", 1))
+	// SEQUENCE 0
+	{
+		testFramework.CreateMessage("Marker-0/1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		testFramework.IssueMessages("Marker-0/1").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSC", 3, []string{lastMsgAlias}, time.Minute)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/2", 5, []string{"Marker-0/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/3", 5, []string{"Marker-0/3"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/4", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/4").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
+		testFramework.PreventNewMarkers(false)
 
-	testFramework.IssueMessages("Message1").WaitMessagesBooked()
-	testFramework.IssueMessages("Message2").WaitMessagesBooked()
-	testFramework.IssueMessages("Message3", "Message4").WaitMessagesBooked()
-	testFramework.IssueMessages("Message5").WaitMessagesBooked()
-	testFramework.IssueMessages("Message6").WaitMessagesBooked()
-	testFramework.IssueMessages("Message7").WaitMessagesBooked()
-	testFramework.IssueMessages("Message8").WaitMessagesBooked()
-	testFramework.IssueMessages("Message9").WaitMessagesBooked()
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-0/2":    markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Marker-0/3":    markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Marker-0/4":    markers.NewMarkers(markers.NewMarker(0, 4)),
+		})
+	}
+	// SEQUENCE 1
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq1", 6, []string{lastMsgAlias}, time.Minute*4)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-1/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueMessages("Marker-1/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "1/2", 5, []string{"Marker-1/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-1/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-1/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
+		testFramework.PreventNewMarkers(false)
 
-	tangle.TimeManager.updateTime(testFramework.Message("Message7").ID())
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq1_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-1/2":        markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_0":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_1":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_2":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_3":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_4":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Marker-1/3":        markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_0":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_1":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_2":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_3":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_4":             markers.NewMarkers(markers.NewMarker(1, 3)),
+		})
+	}
 
-	checkMarkers(t, testFramework, map[string]*markers.Markers{
-		"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
-		"Message4": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Message5": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Message6": markers.NewMarkers(markers.NewMarker(0, 2)),
-		"Message7": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Message8": markers.NewMarkers(markers.NewMarker(0, 1)),
-		"Message9": markers.NewMarkers(markers.NewMarker(0, 1)),
-	})
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message9").ID()))
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message8").ID()))
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message7").ID()))
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message4").ID()))
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message1").ID()))
+	// SEQUENCE 2
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq2", 6, []string{lastMsgAlias}, time.Minute*4)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-2/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueMessages("Marker-2/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/2", 5, []string{"Marker-2/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-2/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-2/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
+		testFramework.PreventNewMarkers(false)
 
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message6").ID()))
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message5").ID()))
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message3").ID()))
-	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Message2").ID()))
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq2_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-2/2":        markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_0":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_1":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_2":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_3":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_4":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Marker-2/3":        markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_0":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_1":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_2":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_3":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_4":             markers.NewMarkers(markers.NewMarker(2, 3)),
+		})
+	}
+
+	// SEQUENCE 2 + 0
+	{
+		testFramework.CreateMessage("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
+		testFramework.IssueMessages("Marker-2/5").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Marker-2/5": markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_0":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_1":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_2":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_3":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_4":      markers.NewMarkers(markers.NewMarker(2, 5)),
+		})
+	}
+
+	// SEQUENCE 3
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 6, []string{"0/1-preTSCSeq2_2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-3/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-postTSCSeq3_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-3/2":        markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_0":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_1":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_2":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_3":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_4":             markers.NewMarkers(markers.NewMarker(3, 2)),
+		})
+	}
+
+	// SEQUENCE 2 + 0 (two past markers) -> SEQUENCE 4
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
+		testFramework.CreateMessage("Marker-4/5", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-4/5").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"2/3+0/4_0":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_1":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_2":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_3":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"Marker-4/5": markers.NewMarkers(markers.NewMarker(4, 5)),
+		})
+	}
+	// SEQUENCE 5
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-5/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-5/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq5_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-5/2":       markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_0":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_1":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_2":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_3":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_4":            markers.NewMarkers(markers.NewMarker(5, 2)),
+		})
+	}
+	confirmedMessageIDsString := []string{"Marker-0/1", "0/1-preTSCSeq1_0", "0/1-preTSCSeq1_1", "0/1-preTSCSeq1_2", "0/1-postTSCSeq1_0", "0/1-postTSCSeq1_1", "0/1-postTSCSeq1_2", "0/1-postTSCSeq1_3", "0/1-postTSCSeq1_4", "0/1-postTSCSeq1_5", "Marker-1/2", "0/1-preTSCSeq2_0", "0/1-preTSCSeq2_1", "0/1-preTSCSeq2_2", "0/1-postTSCSeq2_0", "0/1-postTSCSeq2_1", "0/1-postTSCSeq2_2", "0/1-postTSCSeq2_3", "0/1-postTSCSeq2_4", "0/1-postTSCSeq2_5", "Marker-2/2", "2/2_0", "2/2_1", "2/2_2", "2/2_3", "2/2_4", "Marker-2/3"}
+	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
+	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3))
+
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
+	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3").ID())
+
+	// case #1
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/3_4").ID()))
+	// case #2
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
+	// case #3
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
+	// case #4
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
+	// case #5
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
+	//case #6 (attach to unconfirmed message older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
+	//// case #7
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
+	//case #8
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
+	// case #9
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
+	// case #10 (attach to confirmed message older than TSC)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	// case #11
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
 }
 
+func prepareConfirmedMessageIDs(testFramework *MessageTestFramework, confirmedIDs []string) *MessageIDs {
+	confirmedMessageIDs := &MessageIDs{}
+	for _, id := range confirmedIDs {
+		confirmedMessageIDs.Add(testFramework.Message(id).ID())
+	}
+	return confirmedMessageIDs
+}
+
+func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCount int, parents []string, timestampOffset time.Duration) string {
+	msgAlias := fmt.Sprintf("%s_%d", msgPrefix, 0)
+
+	testFramework.CreateMessage(msgAlias, WithStrongParents(parents...), WithIssuingTime(time.Now().Add(-timestampOffset)))
+	testFramework.IssueMessages(msgAlias).WaitMessagesBooked()
+
+	for i := 1; i < msgCount; i++ {
+		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
+		testFramework.CreateMessage(alias, WithStrongParents(msgAlias), WithIssuingTime(time.Now().Add(-timestampOffset)))
+		testFramework.IssueMessages(alias).WaitMessagesBooked()
+
+		msgAlias = alias
+	}
+	return msgAlias
+}
 func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
@@ -755,6 +970,15 @@ type MockConfirmationOracleTipManagerTest struct {
 // IsMessageConfirmed mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
 	return containsMessageID(*m.confirmedMessageIDs, msgID)
+}
+
+// FirstUnconfirmedMarkerIndex mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(sequenceID)
+	if exists {
+		return confirmedMarkerIndex + 1
+	}
+	return 0
 }
 
 // IsMessageConfirmed mocks its interface function.

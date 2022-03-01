@@ -286,6 +286,7 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 		return
 	}
 
+	// selected message is not confirmed and older than TSC
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		timestampValid = message.IssuingTime().After(minSupportedTimestamp)
 	})
@@ -311,6 +312,21 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 	return timestampValid
 }
 
+func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time) {
+	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
+			// need to walk messages
+			messageWalker.Push(messageID)
+			return
+		}
+		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			pastMarker := markers.NewMarker(sequenceID, index)
+			markerWalker.Push(*pastMarker)
+			return true
+		})
+	})
+}
+
 func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
 	message := t.getMarkerMessage(marker)
 
@@ -321,28 +337,44 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 		}
 
 		// unconfirmed after minSupportedTimestamp
+
+		// check oldest unconfirmed marker time without walking marker DAG
+		oldestUnconfirmedMarker := t.getOldestUnconfirmedMarker(&marker)
+		timestampValid = t.processMarker(&marker, minSupportedTimestamp, oldestUnconfirmedMarker)
+		if !timestampValid {
+			return
+		}
+
 		t.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
-			timestampValid = t.processMarker(&marker, minSupportedTimestamp)
-			if !timestampValid {
-				return
+			// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk message past cone of oldestUnconfirmedMarker.
+			if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
+				confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index())
+
+				confirmedMarkerMsg := t.getMarkerMessage(*markers.NewMarker(sequence.ID(), confirmedMarkerIdx))
+				if t.tangle.ConfirmationOracle.IsMessageConfirmed(confirmedMarkerMsg.ID()) && confirmedMarkerMsg.IssuingTime().Before(minSupportedTimestamp) {
+					//fmt.Println("Push message to message walker", t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
+					messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
+				}
 			}
 
+			// process markers from different sequences that are referenced by current marker's sequence
 			referencedMarkers := sequence.ReferencedMarkers(marker.Index())
 			referencedMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				referencedMarker := markers.NewMarker(sequenceID, index)
-
-				if sequenceID == 0 {
-					// walk past cone of the message in sequence 0
-					if index != 0 {
-						messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(referencedMarker))
-					}
+				// if referenced marker is confirmed and older than minSupportedTimestamp, walk unconfirmed message past cone of oldestUnconfirmedMarker
+				referencedMarkerMsg := t.getMarkerMessage(*markers.NewMarker(sequenceID, index))
+				if t.tangle.ConfirmationOracle.IsMessageConfirmed(referencedMarkerMsg.ID()) && referencedMarkerMsg.IssuingTime().Before(minSupportedTimestamp) {
+					//fmt.Println("Push message to message walker", t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
+					messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 					return true
 				}
-				// fmt.Println("add ", referencedMarker.String(), "to marker walker")
+				// otherwise, process the referenced marker
+				//fmt.Println("add ", referencedMarker.String(), "to marker walker")
 				markerWalker.Push(*referencedMarker)
 				return true
 			})
 		})
+
 		return
 	}
 
@@ -352,18 +384,36 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker, markerWal
 		markerWalker.StopWalk()
 		return false
 	}
-	// fmt.Println("marker", marker.String(), "is confirmed and older than minSupportedTimestamp")
+	//fmt.Println("marker", marker.String(), "is confirmed and older than minSupportedTimestamp")
 
 	// if closest past marker is confirmed and before minSupportedTimestamp, then message should be ok
 	return true
 }
 
-func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
-	timestampValid = true
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker *markers.Marker) (tscValid bool) {
+	tscValid = true
+
+	//fmt.Println("Past marker: ", pastMarker.String(), "oldest unconfirmed marker in the sequence: ", oldestUnconfirmedMarker)
+
+	// oldest unconfirmed marker is in the future cone of the past marker, therefore past marker is confirmed and there is no need to check
+	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
 		return
 	}
 
+	unconfirmedMarkerMessage := t.getMarkerMessage(*oldestUnconfirmedMarker)
+	if unconfirmedMarkerMessage.IssuingTime().Before(minSupportedTimestamp) {
+		tscValid = false
+		return
+	}
+
+	return
+}
+func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
+	timestampValid = true
+
+	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+		return
+	}
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		if message.IssuingTime().Before(minSupportedTimestamp) {
 			timestampValid = false
@@ -375,20 +425,23 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 		for _, parentID := range message.ParentsByType(StrongParentType) {
 			messageWalker.Push(parentID)
 		}
-		// walk through like parents' past cones
-		for _, parentID := range message.ParentsByType(ShallowLikeParentType) {
-			messageWalker.Push(parentID)
-		}
-		// walk through like parents' past cones
-		for _, parentID := range message.ParentsByType(ShallowDislikeParentType) {
-			messageWalker.Push(parentID)
-		}
 	})
 	return
 }
 
-func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time) (tscValid bool) {
-	tscValid = true
+func (t *TipManager) getMarkerMessage(marker markers.Marker) (markerMessage *Message) {
+	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
+	if messageID == EmptyMessageID {
+		panic(fmt.Errorf("failed to retrieve marker message for %s", marker.String()))
+	}
+	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		markerMessage = message
+	})
+	return
+}
+
+// getOldestUnconfirmedMarker is similar to FirstUnconfirmedMarkerIndex, except it skips any marker gaps an existing marker.
+func (t *TipManager) getOldestUnconfirmedMarker(pastMarker *markers.Marker) *markers.Marker {
 	unconfirmedMarkerIdx := t.tangle.ConfirmationOracle.FirstUnconfirmedMarkerIndex(pastMarker.SequenceID())
 
 	// skip any gaps in marker indices
@@ -403,62 +456,21 @@ func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimes
 	}
 
 	oldestUnconfirmedMarker := markers.NewMarker(pastMarker.SequenceID(), unconfirmedMarkerIdx)
-
-	// fmt.Println("Past marker: ", pastMarker.String(), "oldest unconfirmed marker in the sequence: ", oldestUnconfirmedMarker)
-
-	// oldest unconfirmed marker is in the future cone of the past marker, therefore past marker is confirmed and there is no need to check
-	if pastMarker.Index() < unconfirmedMarkerIdx {
-		return
-	}
-
-	unconfirmedMarkerMessage := t.getMarkerMessage(*oldestUnconfirmedMarker)
-	if unconfirmedMarkerMessage.IssuingTime().Before(minSupportedTimestamp) {
-		tscValid = false
-		return
-	}
-
-	return
+	return oldestUnconfirmedMarker
 }
 
-func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time) {
-	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
-			// need to walk messages
-			messageWalker.Push(messageID)
-			return
+func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, markerIndex markers.Index) markers.Index {
+	// skip any gaps in marker indices
+	for ; sequence.LowestIndex() <= markerIndex; markerIndex-- {
+		currentMarker := markers.NewMarker(sequence.ID(), markerIndex)
+
+		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).
+		if t.tangle.Booker.MarkersManager.MessageID(currentMarker) == EmptyMessageID || !t.tangle.ConfirmationOracle.IsMarkerConfirmed(currentMarker) {
+			continue
 		}
-		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-			// Avoid adding and tracking support of markers in sequence 0.
-			if sequenceID == 0 {
-				if index != 0 {
-					messageWalker.Push(messageID)
-				}
-				return true
-			}
-			// TODO: if marker is confirmed and older than maxSupportedTimestamp, then need to walk messages
-			pastMarker := markers.NewMarker(sequenceID, index)
-
-			message := t.getMarkerMessage(*pastMarker)
-			if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) && message.IssuingTime().Before(minSupportedTimestamp) {
-				// fmt.Println("Push message to message walker")
-				messageWalker.Push(message.ID())
-				return true
-			}
-			markerWalker.Push(*pastMarker)
-			return true
-		})
-	})
-}
-
-func (t *TipManager) getMarkerMessage(marker markers.Marker) (markerMessage *Message) {
-	messageID := t.tangle.Booker.MarkersManager.MessageID(&marker)
-	if messageID == EmptyMessageID {
-		panic(fmt.Errorf("failed to retrieve marker message for %s", marker.String()))
+		break
 	}
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		markerMessage = message
-	})
-	return
+	return markerIndex
 }
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
