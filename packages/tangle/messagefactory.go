@@ -76,9 +76,6 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
-	f.tangle.Booker.Lock()
-	defer f.tangle.Booker.Unlock()
-
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
