@@ -655,7 +655,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
-// Test based on packages/tangle/images/Scenario 2.png
+// Test based on packages/tangle/images/TSC_scenario.png
 func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	tangle := NewTestTangle()
 	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
@@ -889,7 +889,7 @@ func TestTipManager_TimeSinceConfirmation(t *testing.T) {
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
 	// case #3
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
-	// case #4
+	// case #4 (marker message)
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
 	// case #5
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))

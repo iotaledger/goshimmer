@@ -298,7 +298,7 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 	markerWalker := walker.New(false)
 	messageWalker := walker.New(false)
 
-	t.processMessage(messageID, messageWalker, markerWalker, minSupportedTimestamp)
+	t.processMessage(messageID, messageWalker, markerWalker)
 
 	for markerWalker.HasNext() && timestampValid {
 		markersVisited++
@@ -312,7 +312,7 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 	return timestampValid
 }
 
-func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time) {
+func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker) {
 	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
 			// need to walk messages
