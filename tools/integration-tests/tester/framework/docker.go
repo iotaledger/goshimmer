@@ -79,6 +79,7 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 		ExposedPorts: nat.PortSet{
 			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):       {},
 			nat.Port(fmt.Sprintf("%d/tcp", dashboardPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", dagVizPort)):    {},
 			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):    {},
 			nat.Port(fmt.Sprintf("%d/udp", peeringPort)):   {},
 		},
