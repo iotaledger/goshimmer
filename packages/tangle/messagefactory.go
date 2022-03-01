@@ -124,7 +124,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
-			err = errors.Errorf("like references could not be prepared: %w", err)
+			err = errors.Errorf("references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
 			f.issuanceMutex.Unlock()
 			return nil, err
