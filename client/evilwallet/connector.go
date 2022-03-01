@@ -27,6 +27,8 @@ type Clients interface {
 	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
 	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
 	GetTransactionGoF(txID string) gof.GradeOfFinality
+	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
+	SendFaucetRequest(address string) error
 }
 
 // Connector is responsible for handling connections with clients.
@@ -144,6 +146,13 @@ func (c *Connector) SetPledgeID(id *identity.ID) {
 	c.pledgeID = id
 }
 
+// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+func (c *Connector) SendFaucetRequest(address string) (err error) {
+	clt := c.GetClient()
+	_, err = clt.SendFaucetRequest(address, -1)
+	return
+}
+
 // PostTransaction sends a transaction to the Tangle via a given client.
 func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
 	resp, err := clt.PostTransaction(tx.Bytes())
@@ -169,6 +178,17 @@ func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmo
 		return &outputs[0]
 	}
 	return nil
+}
+
+// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
+func (c *Connector) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
+	clt := c.GetClient()
+	res, err := clt.GetOutputMetadata(outputID.Base58())
+	if err != nil {
+		return gof.None
+	}
+
+	return res.GradeOfFinality
 }
 
 // GetTransactionGoF returns the GoF of a given transaction ID.
