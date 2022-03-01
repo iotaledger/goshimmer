@@ -843,7 +843,6 @@ type BranchMeta struct {
 	ParentBranches BranchIDs
 	Conflicting    ConflictIDs
 	ApprovalWeight float64
-	IsAggregated   bool
 }
 
 // Scenario is a testing utility representing a branchDAG with additional information such as approval weight for each
@@ -903,32 +902,26 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *BranchDAG) {
 
 	for _, o := range ordered {
 		m := (*s)[o.name]
-		createTestBranch(t, branchDAG, o.name, m, m.IsAggregated)
+		createTestBranch(t, branchDAG, o.name, m)
 	}
 }
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta, isAggregated bool) bool {
+func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta) bool {
 	var cachedBranch *CachedBranch
 	var newBranchCreated bool
 	var err error
-	if isAggregated {
-		// TODO: this doesn't seem to be used/relevant? So can we delete aggregated branches from the scenarios?
-		// if len(branchMeta.ParentBranches) == 0 {
-		// 	panic("an aggregated branch must have parents defined")
-		// }
-		// branchMeta.BranchID = branchDAG.AggregateConflictBranchesID(branchMeta.ParentBranches)
-	} else {
-		if branchMeta.BranchID == UndefinedBranchID {
-			panic("a non aggr. branch must have its ID defined in its BranchMeta")
-		}
-		cachedBranch, newBranchCreated, err = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
-		require.NoError(t, err)
-		require.True(t, newBranchCreated)
-		cachedBranch.Consume(func(branch *Branch) {
-			branchMeta.BranchID = branch.ID()
-		})
+
+	if branchMeta.BranchID == UndefinedBranchID {
+		panic("a branch must have its ID defined in its BranchMeta")
 	}
+	cachedBranch, newBranchCreated, err = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+	require.NoError(t, err)
+	require.True(t, newBranchCreated)
+	cachedBranch.Consume(func(branch *Branch) {
+		branchMeta.BranchID = branch.ID()
+	})
+
 	RegisterBranchIDAlias(branchMeta.BranchID, alias)
 	return newBranchCreated
 }
@@ -1243,13 +1236,6 @@ var (
 			Conflicting:    NewConflictIDs(ConflictID{3}),
 			ApprovalWeight: 0.35,
 		},
-		"C+E": {
-			Order:          1,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: 0.35,
-			IsAggregated:   true,
-		},
 	}
 
 	s13 = Scenario{
@@ -1282,13 +1268,6 @@ var (
 			ParentBranches: NewBranchIDs(MasterBranchID),
 			Conflicting:    NewConflictIDs(ConflictID{3}),
 			ApprovalWeight: 0.35,
-		},
-		"C+E": {
-			Order:          1,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: 0.35,
-			IsAggregated:   true,
 		},
 	}
 
@@ -1323,13 +1302,6 @@ var (
 			Conflicting:    NewConflictIDs(ConflictID{3}),
 			ApprovalWeight: 0.35,
 		},
-		"C+E": {
-			Order:          2,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
-			IsAggregated:   true,
-		},
 		"F": {
 			Order:          1,
 			BranchID:       BranchID{7},
@@ -1343,13 +1315,6 @@ var (
 			ParentBranches: NewBranchIDs(BranchID{2}),
 			Conflicting:    NewConflictIDs(ConflictID{4}),
 			ApprovalWeight: 0.17,
-		},
-		"C+E+G": {
-			Order:          2,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}, BranchID{8}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
-			IsAggregated:   true,
 		},
 		"H": {
 			Order:          1,
@@ -1412,13 +1377,6 @@ var (
 			Conflicting:    NewConflictIDs(ConflictID{3}),
 			ApprovalWeight: 0.35,
 		},
-		"C+E": {
-			Order:          2,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
-			IsAggregated:   true,
-		},
 		"F": {
 			Order:          1,
 			BranchID:       BranchID{7},
@@ -1432,13 +1390,6 @@ var (
 			ParentBranches: NewBranchIDs(BranchID{2}),
 			Conflicting:    NewConflictIDs(ConflictID{4}),
 			ApprovalWeight: 0.17,
-		},
-		"C+E+G": {
-			Order:          2,
-			ParentBranches: NewBranchIDs(BranchID{4}, BranchID{6}, BranchID{8}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
-			IsAggregated:   true,
 		},
 		"H": {
 			Order:          1,
@@ -1641,13 +1592,6 @@ var (
 			Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
 			ApprovalWeight: 0.05,
 		},
-		"J+N": {
-			Order:          3,
-			IsAggregated:   true,
-			ParentBranches: NewBranchIDs(BranchID{15}, BranchID{13}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
-		},
 	}
 
 	s19 = Scenario{
@@ -1736,13 +1680,6 @@ var (
 			ParentBranches: NewBranchIDs(BranchID{9}, BranchID{11}),
 			Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
 			ApprovalWeight: 0.09,
-		},
-		"J+N": {
-			Order:          3,
-			IsAggregated:   true,
-			ParentBranches: NewBranchIDs(BranchID{15}, BranchID{13}),
-			Conflicting:    NewConflictIDs(),
-			ApprovalWeight: -1,
 		},
 	}
 

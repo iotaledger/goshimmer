@@ -64,7 +64,8 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
 func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
-	return l.BranchIDs(transactionID).Contains(ledgerstate.NewBranchID(transactionID))
+	branchIDs := l.BranchIDs(transactionID)
+	return len(branchIDs) == 1 && branchIDs.Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.

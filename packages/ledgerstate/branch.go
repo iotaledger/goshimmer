@@ -643,7 +643,7 @@ func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
-	return nil
+	return []byte{}
 }
 
 // code contract (make sure the struct implements all required methods)

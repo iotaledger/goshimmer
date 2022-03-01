@@ -803,9 +803,7 @@ func (t *TransactionMetadata) AddBranchID(branchID BranchID) (modified bool) {
 		return false
 	}
 
-	if t.branchIDs.Contains(MasterBranchID) {
-		delete(t.branchIDs, MasterBranchID)
-	}
+	delete(t.branchIDs, MasterBranchID)
 
 	t.branchIDs.Add(branchID)
 	t.SetModified()

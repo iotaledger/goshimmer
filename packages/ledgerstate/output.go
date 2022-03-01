@@ -2439,9 +2439,7 @@ func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
 		return false
 	}
 
-	if o.branchIDs.Contains(MasterBranchID) {
-		delete(o.branchIDs, MasterBranchID)
-	}
+	delete(o.branchIDs, MasterBranchID)
 
 	o.branchIDs.Add(branchID)
 	o.SetModified()
