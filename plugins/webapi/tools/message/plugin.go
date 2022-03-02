@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// PluginName is the name of the web API tools messages endpoint plugin.
+// PluginName is the name of the web API snapshottool messages endpoint plugin.
 const PluginName = "WebAPIToolsMessageEndpoint"
 
 var (
-	// Plugin is the plugin instance of the web API tools messages endpoint plugin.
+	// Plugin is the plugin instance of the web API snapshottool messages endpoint plugin.
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 	deps   = new(dependencies)
 )
@@ -32,7 +32,7 @@ type dependencies struct {
 }
 
 const (
-	routeDiagnostics = "tools/diagnostic"
+	routeDiagnostics = "snapshottool/diagnostic"
 	// RouteDiagnosticMessages is the API route for message diagnostics.
 	RouteDiagnosticMessages = routeDiagnostics + "/messages"
 	// RouteDiagnosticsFirstWeakMessageReferences is the API route for first weak message diagnostics.
@@ -48,11 +48,11 @@ const (
 )
 
 func configure(_ *node.Plugin) {
-	deps.Server.GET("tools/message/pastcone", PastconeHandler)
-	deps.Server.GET("tools/message/missing", MissingHandler)
-	deps.Server.GET("tools/message/missingavailable", MissingAvailableHandler)
-	deps.Server.GET("tools/message/approval", ApprovalHandler)
-	deps.Server.GET("tools/message/orphanage", OrphanageHandler)
+	deps.Server.GET("snapshottool/message/pastcone", PastconeHandler)
+	deps.Server.GET("snapshottool/message/missing", MissingHandler)
+	deps.Server.GET("snapshottool/message/missingavailable", MissingAvailableHandler)
+	deps.Server.GET("snapshottool/message/approval", ApprovalHandler)
+	deps.Server.GET("snapshottool/message/orphanage", OrphanageHandler)
 	deps.Server.GET(RouteDiagnosticMessages, DiagnosticMessagesHandler)
 	deps.Server.GET(RouteDiagnosticsFirstWeakMessageReferences, DiagnosticMessagesOnlyFirstWeakReferencesHandler)
 	deps.Server.GET(RouteDiagnosticsMessageRank, DiagnosticMessagesRankHandler)

@@ -8,7 +8,7 @@ type ParametersDefinition struct {
 	ExportPath string `default:"." usage:"default export path"`
 }
 
-// Parameters contains the configuration parameters of the web API tools endpoint plugin.
+// Parameters contains the configuration parameters of the web API snapshottool endpoint plugin.
 var Parameters = &ParametersDefinition{}
 
 func init() {
