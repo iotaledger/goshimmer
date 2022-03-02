@@ -171,40 +171,40 @@ var DiagnosticMessagesTableDescription = []string{
 
 // DiagnosticMessagesInfo holds the information of a message.
 type DiagnosticMessagesInfo struct {
-	ID                    string
-	IssuerID              string
-	IssuerPublicKey       string
-	IssuanceTimestamp     time.Time
-	ArrivalTime           time.Time
-	SolidTime             time.Time
-	ScheduledTime         time.Time
-	BookedTime            time.Time
-	GradeOfFinality       gof.GradeOfFinality
-	GradeOfFinalityTime   time.Time
-	StrongParents         tangle.MessageIDsSlice
-	WeakParents           tangle.MessageIDsSlice
-	ShallowDislikeParents tangle.MessageIDsSlice
-	ShallowLikeParents    tangle.MessageIDsSlice
-	StrongApprovers       tangle.MessageIDsSlice
-	WeakApprovers         tangle.MessageIDsSlice
+	ID                      string
+	IssuerID                string
+	IssuerPublicKey         string
+	IssuanceTimestamp       time.Time
+	ArrivalTime             time.Time
+	SolidTime               time.Time
+	ScheduledTime           time.Time
+	BookedTime              time.Time
+	GradeOfFinality         gof.GradeOfFinality
+	GradeOfFinalityTime     time.Time
+	StrongParents           tangle.MessageIDsSlice
+	WeakParents             tangle.MessageIDsSlice
+	ShallowDislikeParents   tangle.MessageIDsSlice
+	ShallowLikeParents      tangle.MessageIDsSlice
+	StrongApprovers         tangle.MessageIDsSlice
+	WeakApprovers           tangle.MessageIDsSlice
 	ShallowLikeApprovers    tangle.MessageIDsSlice
 	ShallowDislikeApprovers tangle.MessageIDsSlice
-	BranchIDs             []string
-	AddedBranchIDs        []string
-	SubtractedBranchIDs   []string
-	Scheduled             bool
-	Booked                bool
-	ObjectivelyInvalid    bool
-	Rank                  uint64
-	IsPastMarker          bool
-	PastMarkers           string // PastMarkers
-	PMHI                  uint64 // PastMarkers Highest Index
-	PMLI                  uint64 // PastMarkers Lowest Index
-	FutureMarkers         string // FutureMarkers
-	FMHI                  uint64 // FutureMarkers Highest Index
-	FMLI                  uint64 // FutureMarkers Lowest Index
-	PayloadType           string
-	TransactionID         string
+	BranchIDs               []string
+	AddedBranchIDs          []string
+	SubtractedBranchIDs     []string
+	Scheduled               bool
+	Booked                  bool
+	ObjectivelyInvalid      bool
+	Rank                    uint64
+	IsPastMarker            bool
+	PastMarkers             string // PastMarkers
+	PMHI                    uint64 // PastMarkers Highest Index
+	PMLI                    uint64 // PastMarkers Lowest Index
+	FutureMarkers           string // FutureMarkers
+	FMHI                    uint64 // FutureMarkers Highest Index
+	FMLI                    uint64 // FutureMarkers Lowest Index
+	PayloadType             string
+	TransactionID           string
 }
 
 func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInfo {
