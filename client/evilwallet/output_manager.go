@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -32,14 +31,14 @@ type Outputs []*Output
 
 // OutputManager keeps track of the output statuses.
 type OutputManager struct {
-	evilWallet *Wallets
+	connector *Connector
 
 	status map[ledgerstate.OutputID]*Output
 }
 
-func NewOutputManager(ew *Wallets) *OutputManager {
+func NewOutputManager(connector *Connector) *OutputManager {
 	return &OutputManager{
-		evilWallet: ew,
+		connector: connector,
 		status:    make(map[ledgerstate.OutputID]*Output),
 	}
 }
@@ -70,7 +69,7 @@ func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
-		jsonOutput := o.evilWallet.connector.GetUnspentOutputForAddress(addr)
+		jsonOutput := o.connector.GetUnspentOutputForAddress(addr)
 		outID = jsonOutput.Output.OutputID.Base58
 		confirmed = jsonOutput.GradeOfFinality == GoFConfirmed
 		if outID != "" && confirmed {
@@ -117,7 +116,7 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(2 * time.Second) {
-		if gof := o.evilWallet.connector.GetTransactionGoF(txID); gof == GoFConfirmed {
+		if gof := o.connector.GetTransactionGoF(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
 		}
