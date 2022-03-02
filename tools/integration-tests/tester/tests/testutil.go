@@ -47,7 +47,7 @@ type SnapshotInfo struct {
 }
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = &SnapshotInfo{
+var EqualSnapshotDetails = SnapshotInfo{
 	FilePath: "/assets/equal_intgr_snapshot.bin",
 	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
@@ -61,7 +61,7 @@ var EqualSnapshotDetails = &SnapshotInfo{
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
-var ConsensusSnapshotDetails = &SnapshotInfo{
+var ConsensusSnapshotDetails = SnapshotInfo{
 	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
 	PeersSeedBase58: []string{

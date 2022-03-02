@@ -6,6 +6,10 @@ package framework
 import (
 	"context"
 	"encoding/hex"
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshottool"
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
+	"github.com/mr-tron/base58"
 	"log"
 	"os"
 	"sync"
@@ -84,6 +88,11 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		return nil, err
 	}
 
+	n, err2 := createSnapshots(conf)
+	if err2 != nil {
+		return n, err2
+	}
+
 	// an entry node is only required for autopeering
 	if conf.Autopeering {
 		if err = network.createEntryNode(ctx); err != nil {
@@ -109,6 +118,47 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	}
 
 	return network, nil
+}
+
+func createSnapshots(conf CreateNetworkConfig) error {
+	for _, snapshot := range conf.Snapshots {
+		nodesToPledgeMap, err := createNodesToPledgeMap(snapshot)
+		if err != nil {
+			return err
+		}
+		//TODO:
+		// GenesisToken amount should be the sum of all tokens. What we have now is incorrect!
+		// PledgeTokenAmount should be 0 since it is used only if nodesToPledgeMap has missing amounts
+		// Should return error
+		//
+		snapshottool.CreateSnapshot(uint64(snapshot.GenesisTokenAmount), string(GenesisSeed), 0,
+			nodesToPledgeMap, snapshot.FilePath)
+
+	}
+	return nil
+}
+
+func createNodesToPledgeMap(snapshot tests.SnapshotInfo) (map[string]snapshottool.Pledge, error) {
+	numOfNodes := len(snapshot.PeersSeedBase58)
+	nodesToPledge := make(map[string]snapshottool.Pledge, numOfNodes)
+	for i := 0; i < numOfNodes; i++ {
+		seed := snapshot.PeersSeedBase58[i]
+		seedBytes, err := getSeedBytes(seed)
+		if err != nil {
+			return nil, err
+		}
+		nodesToPledge[seed] = snapshottool.Pledge{
+			Address: walletseed.NewSeed(seedBytes).Address(0),
+			Amount:  uint64(snapshot.PeersAmountsPledged[i]),
+		}
+	}
+
+	return nodesToPledge, nil
+}
+
+func getSeedBytes(seed string) ([]byte, error) {
+	seedBytes, err := base58.Decode(seed)
+	return seedBytes, err
 }
 
 // CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes
