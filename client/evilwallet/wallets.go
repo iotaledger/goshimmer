@@ -33,26 +33,13 @@ func NewWallets() *Wallets {
 }
 
 func (w *Wallets) NewWallet(wType WalletType) *Wallet {
-	idxSpent := atomic.NewInt64(-1)
-	addrUsed := atomic.NewInt64(-1)
-	wallet := &Wallet{
-		ID:                int(w.lastWalletID.Load()),
-		walletType:        wType,
-		seed:              seed.NewSeed(),
-		unspentOutputs:    make(map[string]*Output),
-		indexAddrMap:      make(map[uint64]string),
-		inputTransactions: make(map[string]types.Empty),
-		lastAddrSpent:     *idxSpent,
-		lastAddrIdxUsed:   *addrUsed,
-		RWMutex:           &sync.RWMutex{},
-	}
+	wallet := NewWallet(wType)
+	wallet.ID = int(w.lastWalletID.Add(1))
 
-	w.lastWalletID.Add(1)
 	w.addWallet(wallet)
 
 	return wallet
 }
-
 
 func (w *Wallets) GetWallet(wType WalletType) (wallet *Wallet) {
 	return w.wallets[wType][0]
@@ -87,7 +74,6 @@ func (w *Wallets) addWallet(wallet *Wallet) {
 	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
 }
 
-
 type Wallet struct {
 	ID         int
 	walletType WalletType
@@ -101,6 +87,24 @@ type Wallet struct {
 	lastAddrSpent   atomic.Int64 // used during spamming with outputs one by one
 	spent           bool
 	*sync.RWMutex
+}
+
+func NewWallet(wType WalletType) *Wallet {
+	idxSpent := atomic.NewInt64(-1)
+	addrUsed := atomic.NewInt64(-1)
+	wallet := &Wallet{
+		ID:                -1,
+		walletType:        wType,
+		seed:              seed.NewSeed(),
+		unspentOutputs:    make(map[string]*Output),
+		indexAddrMap:      make(map[uint64]string),
+		inputTransactions: make(map[string]types.Empty),
+		lastAddrSpent:     *idxSpent,
+		lastAddrIdxUsed:   *addrUsed,
+		RWMutex:           &sync.RWMutex{},
+	}
+
+	return wallet
 }
 
 func (w *Wallet) Address() address.Address {

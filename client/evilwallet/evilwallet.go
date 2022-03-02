@@ -1,9 +1,8 @@
 package evilwallet
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/faucet"
-	"sync"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -50,7 +49,6 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 	return e.connector.GetClients(num)
 }
 
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EvilWallet Faucet Requests /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -73,7 +71,6 @@ func (e *EvilWallet) RequestFundsFromFaucet(address string) (outputID ledgerstat
 	return outputIDs[0], nil
 }
 
-
 // CreateNFreshFaucet10kWallet creates n new wallets, each wallet is created from one faucet request.
 func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 	// channel to block the number of concurrent goroutines
@@ -89,11 +86,10 @@ func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 			defer func() {
 				<-semaphore
 			}()
-			wallet, err := e.CreateFreshFaucetWallet()
+			err := e.CreateFreshFaucetWallet()
 			if err != nil {
 				return
 			}
-			e.wallets.AddWalletAndAssignID(wallet)
 		}(reqNum)
 	}
 	wg.Wait()
@@ -102,12 +98,12 @@ func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 
 // CreateFreshFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
 // requested from the Faucet.
-func (e *EvilWallet) CreateFreshFaucetWallet() (w *Wallet, err error) {
+func (e *EvilWallet) CreateFreshFaucetWallet() (err error) {
 	funds, err := e.requestAndSplitFaucetFunds()
 	if err != nil {
 		return
 	}
-	w = NewWallet()
+	w := e.NewWallet(fresh)
 	txIDs := e.splitOutputs(funds, w, FaucetRequestSplitNumber)
 
 	e.outputManager.AwaitTransactionsConfirmationAndUpdateWallet(w, txIDs, maxGoroutines)
@@ -115,15 +111,15 @@ func (e *EvilWallet) CreateFreshFaucetWallet() (w *Wallet, err error) {
 }
 
 func (e *EvilWallet) requestAndSplitFaucetFunds() (wallet *Wallet, err error) {
-	reqWallet := NewWallet()
-	addr, idx := reqWallet.GenerateNextAddress()
-	initOutput := e.requestFaucetFunds(addr)
+	reqWallet := NewWallet(fresh)
+	//addr, idx := reqWallet.Address()
+	//initOutput := e.requestFaucetFunds(addr)
 	if err != nil {
 		return
 	}
-	reqWallet.AddUnspentOutput(addr, idx, initOutput, uint64(faucet.Parameters.TokensPerRequest))
+	//reqWallet.AddUnspentOutput(addr, idx, initOutput, uint64(faucet.Parameters.TokensPerRequest))
 	// first split 1 to FaucetRequestSplitNumber outputs
-	wallet = NewWallet()
+	wallet = NewWallet(fresh)
 	e.outputManager.AwaitWalletOutputsToBeConfirmed(reqWallet)
 	txIDs := e.splitOutputs(reqWallet, wallet, FaucetRequestSplitNumber)
 	e.outputManager.AwaitTransactionsConfirmationAndUpdateWallet(wallet, txIDs, maxGoroutines)
@@ -131,15 +127,15 @@ func (e *EvilWallet) requestAndSplitFaucetFunds() (wallet *Wallet, err error) {
 }
 
 func (e *EvilWallet) requestFaucetFunds(addr ledgerstate.Address) (outputID ledgerstate.OutputID) {
-	msgID := e.connector.RequestFaucetFunds(addr)
-	if msgID == "" {
+	err := e.connector.SendFaucetRequest(addr.Base58())
+	if err != nil {
 		return
 	}
 	outputStrID, ok := e.outputManager.AwaitUnspentOutputToBeConfirmed(addr, waitForConfirmation)
 	if !ok {
 		return
 	}
-	outputID, err := ledgerstate.OutputIDFromBase58(outputStrID)
+	outputID, err = ledgerstate.OutputIDFromBase58(outputStrID)
 	if err != nil {
 		return
 	}
@@ -175,7 +171,7 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Evilwallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EvilScenario struct {
 	// todo this should have instructions for evil wallet
