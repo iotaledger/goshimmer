@@ -531,7 +531,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		parents, err := tipManager.Tips(transactions["14"], 4)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, parents, []MessageID{
+		assert.Equal(t, parents, NewMessageIDs(
 			messages["6"].ID(),
 			messages["7"].ID(),
 			messages["8"].ID(),
@@ -540,7 +540,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			messages["11"].ID(),
 			messages["12"].ID(),
 			messages["13"].ID(),
-		})
+		))
 	}
 
 	// Message 18

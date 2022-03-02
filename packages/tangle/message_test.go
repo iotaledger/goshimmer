@@ -840,68 +840,6 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	})
 }
 
-func TestMessage_ForEachStrongParent(t *testing.T) {
-	t.Run("Happy path", func(t *testing.T) {
-		strongParents := randomParents(MaxParentsCount / 2)
-		weakParents := randomParents(MaxParentsCount / 2)
-
-		msg, err := NewMessage(
-			ParentMessageIDs{
-				StrongParentType: strongParents,
-				WeakParentType:   weakParents,
-			},
-			time.Now(),
-			ed25519.PublicKey{},
-			666,
-			payload.NewGenericDataPayload([]byte("This is a test message.")),
-			99,
-			ed25519.Signature{},
-		)
-		assert.NoError(t, err)
-
-		sortedStrongParents := sortParents(strongParents)
-		resultParents := make([]MessageID, 0)
-		checker := func(parent MessageID) bool {
-			resultParents = append(resultParents, parent)
-			return true
-		}
-		msg.ForEachParentByType(StrongParentType, checker)
-
-		assert.Equal(t, sortedStrongParents, resultParents)
-	})
-}
-
-func TestMessage_ForEachWeakParent(t *testing.T) {
-	t.Run("Happy path", func(t *testing.T) {
-		strongParents := randomParents(MaxParentsCount / 2)
-		weakParents := randomParents(MaxParentsCount / 2)
-
-		msg, err := NewMessage(
-			ParentMessageIDs{
-				StrongParentType: strongParents,
-				WeakParentType:   weakParents,
-			},
-			time.Now(),
-			ed25519.PublicKey{},
-			666,
-			payload.NewGenericDataPayload([]byte("This is a test message.")),
-			99,
-			ed25519.Signature{},
-		)
-		assert.NoError(t, err)
-
-		sortedWeakParents := sortParents(weakParents)
-		resultParents := make([]MessageID, 0)
-		checker := func(parent MessageID) bool {
-			resultParents = append(resultParents, parent)
-			return true
-		}
-		msg.ForEachParentByType(WeakParentType, checker)
-
-		assert.Equal(t, sortedWeakParents, resultParents)
-	})
-}
-
 func randomTransaction() *ledgerstate.Transaction {
 	ID, _ := identity.RandomID()
 	input := ledgerstate.NewUTXOInput(ledgerstate.EmptyOutputID)
