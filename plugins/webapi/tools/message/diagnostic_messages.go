@@ -151,6 +151,8 @@ var DiagnosticMessagesTableDescription = []string{
 	"LikeParents",
 	"StrongApprovers",
 	"WeakApprovers",
+	"ShallowLikeApprovers",
+	"ShallowDislikeApprovers",
 	"BranchID",
 	"Scheduled",
 	"Booked",
@@ -185,6 +187,8 @@ type DiagnosticMessagesInfo struct {
 	ShallowLikeParents    tangle.MessageIDsSlice
 	StrongApprovers       tangle.MessageIDsSlice
 	WeakApprovers         tangle.MessageIDsSlice
+	ShallowLikeApprovers    tangle.MessageIDsSlice
+	ShallowDislikeApprovers tangle.MessageIDsSlice
 	BranchIDs             []string
 	AddedBranchIDs        []string
 	SubtractedBranchIDs   []string
@@ -249,6 +253,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 
 	msgInfo.StrongApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover)
 	msgInfo.WeakApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover)
+	msgInfo.ShallowLikeApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover)
+	msgInfo.ShallowDislikeApprovers = deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover)
 
 	return msgInfo
 }
@@ -271,6 +277,8 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		strings.Join(d.ShallowLikeParents.ToStrings(), ";"),
 		strings.Join(d.StrongApprovers.ToStrings(), ";"),
 		strings.Join(d.WeakApprovers.ToStrings(), ";"),
+		strings.Join(d.ShallowLikeApprovers.ToStrings(), ";"),
+		strings.Join(d.ShallowDislikeParents.ToStrings(), ";"),
 		strings.Join(d.BranchIDs, ";"),
 		fmt.Sprint(d.Scheduled),
 		fmt.Sprint(d.Booked),

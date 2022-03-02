@@ -309,6 +309,46 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                             </Col>
                         </Row>
 
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.shallowLikeApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item key={"ShallowLike Approver" + index + 1}
+                                                                className="text-break">
+                                                    ShallowLike Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.shallowLikeApprovers[index]}`}>
+                                                        {msg.shallowLikeApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.shallowDislikeApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item key={"ShallowDislike Approver" + index + 1}
+                                                                className="text-break">
+                                                    ShallowDislike Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.shallowDislikeApprovers[index]}`}>
+                                                        {msg.shallowDislikeApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
                         <Row className={"mb-3"} style={{marginTop: "20px", marginBottom: "20px"}}>
                             <Col>
                                 <h3>Payload</h3>

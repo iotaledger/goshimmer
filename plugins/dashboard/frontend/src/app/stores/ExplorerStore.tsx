@@ -36,6 +36,8 @@ export class Message {
     parentsByType: Map<string, Array<string>>;
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
+    shallowLikeApprovers: Array<string>;
+    shallowDislikeApprovers: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;
