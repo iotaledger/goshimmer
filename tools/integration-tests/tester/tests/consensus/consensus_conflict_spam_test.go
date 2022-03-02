@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -30,6 +29,7 @@ const (
 
 // TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the GoFs are the same across the network
 // and verifies that the Tangle converged to Master
+/*
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -96,6 +96,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ledgerstate.MasterBranchID.Base58(), messageMetadata.BranchID)
 }
+*/
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
 // For each increment of i it will take the next sub-slice so there would be no overlaps with previous sub-slices.

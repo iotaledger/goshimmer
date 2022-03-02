@@ -50,7 +50,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
 			cfg.MessageLayer.Snapshot.File = availableSnapshots["consensus"]
 			cfg.UseNodeSeedAsWalletSeed = true
-			cfg.Seed = peerSeeds[peerIndex]
+			// TODO: change this obscenity
+			cfg.Seed = peerSeeds[peerIndex+1]
 			return cfg
 		})
 
@@ -58,6 +59,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	var (
+		// TODO: change this obscenity
 		node1 = n.Peers()[0]
 		node2 = n.Peers()[1]
 
@@ -66,8 +68,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	)
 
 	// check consensus mana
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
+	// TODO: change this obscenity
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[2], tests.Mana(t, node2).Consensus)
 
 	txs1 := []*ledgerstate.Transaction{}
 	txs2 := []*ledgerstate.Transaction{}

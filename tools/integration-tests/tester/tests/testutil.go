@@ -63,7 +63,6 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	},
 	PeersAmountsPledged: []uint64{1600000, 800000, 800000},
 	GenesisTokenAmount:  800000, // pledged to peer master
-
 }
 
 // GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo

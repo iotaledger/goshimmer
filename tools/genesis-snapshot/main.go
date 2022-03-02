@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshottool"
-	"log"
 
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
@@ -53,7 +54,11 @@ func main() {
 	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
 	pledgeTokenAmount := viper.GetUint64(cfgPledgeTokenAmount)
 	seedStr := viper.GetString(cfgSnapshotGenesisSeed)
-	snapshottool.CreateSnapshot(genesisTokenAmount, seedStr, pledgeTokenAmount, nodesToPledge, snapshotFileName)
+	seedBytes, err := base58.Decode(seedStr)
+	if err != nil {
+		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
+	}
+	snapshottool.CreateSnapshot(genesisTokenAmount, seedBytes, pledgeTokenAmount, nodesToPledge, snapshotFileName)
 }
 
 func init() {
