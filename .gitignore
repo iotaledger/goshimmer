@@ -12,6 +12,7 @@
 
 # cli-wallet config
 tools/cli-wallet/config.json
+tools/cli-wallet/cli-wallet
 
 # Test binary, build with `go test -c`
 *.test
@@ -43,3 +44,6 @@ book
 config.json
 .env
 .vscode
+
+# snapshots created programmatically by tests
+tools/integration-tests/assets/dynamic_snapshots/*

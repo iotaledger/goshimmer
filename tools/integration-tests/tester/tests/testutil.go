@@ -38,16 +38,8 @@ const (
 	FaucetFundingOutputsAddrStart = 127
 )
 
-// SnapshotInfo stores the details about snapshots created for integration tests
-type SnapshotInfo struct {
-	FilePath            string
-	PeersSeedBase58     []string
-	PeersAmountsPledged []int
-	GenesisTokenAmount  int // pledged to peer master
-}
-
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = SnapshotInfo{
+var EqualSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/equal_intgr_snapshot.bin",
 	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
@@ -61,7 +53,7 @@ var EqualSnapshotDetails = SnapshotInfo{
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
-var ConsensusSnapshotDetails = SnapshotInfo{
+var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
 	PeersSeedBase58: []string{
@@ -75,25 +67,25 @@ var ConsensusSnapshotDetails = SnapshotInfo{
 }
 
 // getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
-func getIdentSeeds(t *testing.T) [][]byte {
+func getIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
 	peerSeeds := make([][]byte, 4)
 	peerSeeds[0] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
+		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[0])
 		require.NoError(t, err)
 		return seedBytes
 	}()
 	peerSeeds[1] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
+		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[1])
 		require.NoError(t, err)
 		return seedBytes
 	}()
 	peerSeeds[2] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
+		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[2])
 		require.NoError(t, err)
 		return seedBytes
 	}()
 	peerSeeds[3] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
+		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[3])
 		require.NoError(t, err)
 		return seedBytes
 	}()
@@ -102,9 +94,14 @@ func getIdentSeeds(t *testing.T) [][]byte {
 
 // EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
 var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
+}
+
+// SameSnapshotConfigFunc returns configuration for network that uses the specified Snapshot information for all peers
+var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
-		peerSeeds := getIdentSeeds(t)
+		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		peerSeeds := getIdentSeeds(t, snaphotInfo)
 		offset := 0
 		if skipFirst {
 			offset += 1

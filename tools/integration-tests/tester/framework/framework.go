@@ -5,15 +5,17 @@ package framework
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshottool"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/mr-tron/base58"
+	"fmt"
 	"log"
 	"os"
 	"sync"
 	"time"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshottool"
+	"github.com/mr-tron/base58"
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
@@ -67,6 +69,14 @@ func newFramework(ctx context.Context) (*Framework, error) {
 // CfgAlterFunc is a function called with the given peer's index and its configuration
 type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
 
+// SnapshotInfo stores the details about snapshots created for integration tests
+type SnapshotInfo struct {
+	FilePath            string
+	PeersSeedBase58     []string
+	PeersAmountsPledged []int
+	GenesisTokenAmount  int // pledged to peer master
+}
+
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
 // It blocks until all peers are connected.
 func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
@@ -81,16 +91,15 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 	return network, err
 }
 
-func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, name string, numPeers int,
-	conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
+func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
 	}
 
-	n, err2 := createSnapshots(conf)
-	if err2 != nil {
-		return n, err2
+	errCreateSnapshots := createSnapshots(conf)
+	if errCreateSnapshots != nil {
+		return nil, errCreateSnapshots
 	}
 
 	// an entry node is only required for autopeering
@@ -121,24 +130,36 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 }
 
 func createSnapshots(conf CreateNetworkConfig) error {
-	for _, snapshot := range conf.Snapshots {
-		nodesToPledgeMap, err := createNodesToPledgeMap(snapshot)
+	for _, snapshotInfo := range conf.Snapshots {
+		nodesToPledgeMap, err := createNodesToPledgeMap(snapshotInfo)
 		if err != nil {
 			return err
 		}
+
+		if snapshotInfo.FilePath == "" {
+			snapshotInfo.FilePath = fmt.Sprintf("/assets/dynamic_snapshots/%s.bin", hashStruct(snapshotInfo))
+		}
+
 		//TODO:
 		// GenesisToken amount should be the sum of all tokens. What we have now is incorrect!
 		// PledgeTokenAmount should be 0 since it is used only if nodesToPledgeMap has missing amounts
 		// Should return error
 		//
-		snapshottool.CreateSnapshot(uint64(snapshot.GenesisTokenAmount), string(GenesisSeed), 0,
-			nodesToPledgeMap, snapshot.FilePath)
+		snapshottool.CreateSnapshot(uint64(snapshotInfo.GenesisTokenAmount), string(GenesisSeed), 0,
+			nodesToPledgeMap, snapshotInfo.FilePath)
 
 	}
 	return nil
 }
 
-func createNodesToPledgeMap(snapshot tests.SnapshotInfo) (map[string]snapshottool.Pledge, error) {
+func hashStruct(o interface{}) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", o)))
+
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshottool.Pledge, error) {
 	numOfNodes := len(snapshot.PeersSeedBase58)
 	nodesToPledge := make(map[string]snapshottool.Pledge, numOfNodes)
 	for i := 0; i < numOfNodes; i++ {
@@ -148,7 +169,7 @@ func createNodesToPledgeMap(snapshot tests.SnapshotInfo) (map[string]snapshottoo
 			return nil, err
 		}
 		nodesToPledge[seed] = snapshottool.Pledge{
-			Address: walletseed.NewSeed(seedBytes).Address(0),
+			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
 			Amount:  uint64(snapshot.PeersAmountsPledged[i]),
 		}
 	}

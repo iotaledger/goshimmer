@@ -2,7 +2,6 @@ package framework
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -51,8 +50,8 @@ type CreateNetworkConfig struct {
 	Faucet bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
-	// Snapshots supported by then network
-	Snapshots []tests.SnapshotInfo
+	// Snapshots supported by the network mapped by human-friendly names.
+	Snapshots map[string]SnapshotInfo
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
