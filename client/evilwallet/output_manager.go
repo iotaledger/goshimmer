@@ -2,11 +2,14 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
+// OutputStatus represents the confirmation status of an output.
 type OutputStatus int8
 
 const (
@@ -15,9 +18,8 @@ const (
 	rejected
 )
 
+// Output contains details of an output ID.
 type Output struct {
-	evilWallet *Wallets
-
 	//*wallet.Output
 	OutputID ledgerstate.OutputID
 	Address  ledgerstate.Address
@@ -25,15 +27,20 @@ type Output struct {
 	Status   OutputStatus
 }
 
+// Outputs is a list of Output.
 type Outputs []*Output
 
+// OutputManager keeps track of the output statuses.
 type OutputManager struct {
 	evilWallet *Wallets
+
+	status map[ledgerstate.OutputID]*Output
 }
 
 func NewOutputManager(ew *Wallets) *OutputManager {
 	return &OutputManager{
 		evilWallet: ew,
+		status:    make(map[ledgerstate.OutputID]*Output),
 	}
 }
 
