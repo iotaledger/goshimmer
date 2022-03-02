@@ -1,10 +1,13 @@
 package evilwallet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"sync"
+	"errors"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 const (
@@ -39,9 +42,37 @@ func NewEvilWallet() *EvilWallet {
 	}
 }
 
+func (e *EvilWallet) NewWallet(wType WalletType) *Wallet {
+	return e.wallets.NewWallet(wType)
+}
+
+func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
+	return e.connector.GetClients(num)
+}
+
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EvilWallet Faucet Requests /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (e *EvilWallet) RequestFundsFromFaucet(address string) (outputID ledgerstate.OutputID, err error) {
+	// request funds from faucet
+	err = e.connector.SendFaucetRequest(address)
+	if err != nil {
+		return
+	}
+
+	// track output in output manager
+	outputIDs := e.outputManager.AddOutputsByAddress(address)
+	allConfirmed := e.outputManager.Track(outputIDs)
+	if !allConfirmed {
+		err = errors.New("output not confirmed!")
+		return
+	}
+
+	return outputIDs[0], nil
+}
+
 
 // CreateNFreshFaucet10kWallet creates n new wallets, each wallet is created from one faucet request.
 func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {

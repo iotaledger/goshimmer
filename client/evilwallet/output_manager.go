@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -31,15 +32,89 @@ type Outputs []*Output
 
 // OutputManager keeps track of the output statuses.
 type OutputManager struct {
-	connector *Connector
+	connector Clients
 
 	status map[ledgerstate.OutputID]*Output
 }
 
-func NewOutputManager(connector *Connector) *OutputManager {
+// NewOutputManager creates an OutputManager instance.
+func NewOutputManager(connector Clients) *OutputManager {
 	return &OutputManager{
 		connector: connector,
 		status:    make(map[ledgerstate.OutputID]*Output),
+	}
+}
+
+func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bool) {
+	wg := sync.WaitGroup{}
+
+	for _, ID := range outputIDs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ok := o.AwaitOutputToBeConfirmed(ID, time.Duration(3*time.Second))
+			if ok {
+				o.status[ID].Status = confirmed
+				return
+			}
+		}()
+	}
+	wg.Wait()
+
+	allConfirmed = true
+	for _, ID := range outputIDs {
+		if o.status[ID].Status != confirmed {
+			allConfirmed = false
+			return
+		}
+	}
+	return
+}
+
+func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
+	client := o.connector.GetClient()
+	// add output to map
+	res, err := client.GetAddressUnspentOutputs(address)
+	if err != nil {
+		return
+	}
+
+	outputIDs = o.AddOutputsByJson(res.Outputs)
+	return outputIDs
+}
+
+func (o *OutputManager) AddOutputsByTxID(txID ledgerstate.TransactionID) (outputIDs []ledgerstate.OutputID) {
+	client := o.connector.GetClient()
+	// add output to map
+	tx, err := client.GetTransaction(txID.Base58())
+	if err != nil {
+		return
+	}
+
+	outputIDs = o.AddOutputsByJson(tx.Outputs)
+	return outputIDs
+}
+
+func (o *OutputManager) AddOutputsByJson(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
+	for _, jsonOutput := range outputs {
+		outputBytes, _ := jsonOutput.Output.MarshalJSON()
+		output, _, err := ledgerstate.OutputFromBytes(outputBytes)
+		if err != nil {
+			continue
+		}
+		o.AddOutput(output)
+		outputIDs = append(outputIDs, output.ID())
+	}
+	return outputIDs
+}
+
+func (o *OutputManager) AddOutput(output ledgerstate.Output) {
+	balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
+	o.status[output.ID()] = &Output{
+		OutputID: output.ID(),
+		Address:  output.Address(),
+		Balance:  balance,
+		Status:   pending,
 	}
 }
 
@@ -86,6 +161,25 @@ func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address
 	ok = true
 	return
 }
+
+
+// AwaitOutputToBeConfirmed awaits for output from a provided address is confirmed. Timeout is waitFor.
+// Useful when we have only an address and no transactionID, e.g. faucet funds request.
+func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, waitFor time.Duration) (confirmed bool) {
+	s := time.Now()
+	confirmed = false
+	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
+		gof := o.connector.GetOutputGoF(outputID)
+
+		if gof == GoFConfirmed {
+			confirmed = true
+			break
+		}
+	}
+
+	return confirmed
+}
+
 
 // AwaitTransactionsConfirmationAndUpdateWallet awaits for transaction confirmation and updates wallet with outputIDs.
 func (o *OutputManager) AwaitTransactionsConfirmationAndUpdateWallet(wallet *Wallet, txIDs []string, maxGoroutines int) {

@@ -1,11 +1,13 @@
 package evilwallet
 
 import (
+	"sync"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
-	"sync"
 )
 
 type WalletType int8
@@ -20,20 +22,74 @@ type Wallets struct {
 	wallets map[WalletType][]*Wallet
 	mu      sync.Mutex
 
-	idCounter    atomic.Int64
 	lastWalletID atomic.Int64
 }
 
 func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:      make(map[WalletType][]*Wallet),
-		idCounter:    *atomic.NewInt64(0),
 		lastWalletID: *atomic.NewInt64(0),
 	}
 }
 
+func (w *Wallets) NewWallet(wType WalletType) *Wallet {
+	idxSpent := atomic.NewInt64(-1)
+	addrUsed := atomic.NewInt64(-1)
+	wallet := &Wallet{
+		ID:                int(w.lastWalletID.Load()),
+		walletType:        wType,
+		seed:              seed.NewSeed(),
+		unspentOutputs:    make(map[string]*Output),
+		indexAddrMap:      make(map[uint64]string),
+		inputTransactions: make(map[string]types.Empty),
+		lastAddrSpent:     *idxSpent,
+		lastAddrIdxUsed:   *addrUsed,
+		RWMutex:           &sync.RWMutex{},
+	}
+
+	w.lastWalletID.Add(1)
+	w.addWallet(wallet)
+
+	return wallet
+}
+
+
+func (w *Wallets) GetWallet(wType WalletType) (wallet *Wallet) {
+	return w.wallets[wType][0]
+}
+
+func (w *Wallets) GetWallets(wType WalletType, num int) (wallets []*Wallet) {
+	allWallets := w.wallets[wType]
+	if num > len(allWallets) {
+		return allWallets
+	}
+
+	for i := 0; i < num; i++ {
+		wallets = append(wallets, allWallets[i])
+	}
+	return wallets
+}
+
+func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, idx uint64, outputID ledgerstate.OutputID, balance uint64) {
+	w.Lock()
+	defer w.Unlock()
+
+	w.unspentOutputs[addr.Base58()] = &Output{
+		OutputID: outputID,
+		Address:  addr,
+		Balance:  balance,
+		Status:   pending,
+	}
+}
+
+// addWallet stores newly created wallet.
+func (w *Wallets) addWallet(wallet *Wallet) {
+	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
+}
+
+
 type Wallet struct {
-	ID         int64
+	ID         int
 	walletType WalletType
 
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
@@ -47,51 +103,10 @@ type Wallet struct {
 	*sync.RWMutex
 }
 
-func NewWallet() *Wallet {
-	idxSpent := atomic.NewInt64(-1)
-	addrUsed := atomic.NewInt64(-1)
-	return &Wallet{
-		ID:                -1,
-		seed:              seed.NewSeed(),
-		unspentOutputs:    make(map[string]*Output),
-		indexAddrMap:      make(map[uint64]string),
-		inputTransactions: make(map[string]types.Empty),
-		lastAddrSpent:     *idxSpent,
-		lastAddrIdxUsed:   *addrUsed,
-		RWMutex:           &sync.RWMutex{},
-	}
-}
+func (w *Wallet) Address() address.Address {
+	index := uint64(w.lastAddrIdxUsed.Add(1))
+	addr := w.seed.Address(index)
+	w.indexAddrMap[index] = addr.Base58()
 
-func (w *Wallet) SetID(id int64) {
-	w.ID = id
-}
-
-func (w *Wallet) GenerateNextAddress() (ledgerstate.Address, uint64) {
-	newIdx := uint64(w.lastAddrIdxUsed.Add(1))
-	return w.seed.Address(newIdx).Address(), newIdx
-}
-
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, idx uint64, outputID ledgerstate.OutputID, balance uint64) {
-	w.Lock()
-	defer w.Unlock()
-
-	w.unspentOutputs[addr.Base58()] = &Output{
-		OutputID: outputID,
-		Address:  addr,
-		Balance:  balance,
-		Status:   pending,
-	}
-
-	w.indexAddrMap[idx] = addr.Base58()
-}
-
-// AddWalletAndAssignID adds a new wallet to wallets and sets its ID with the next global numbering.
-func (e *Wallets) AddWalletAndAssignID(wallet *Wallet) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	// set wallet ID
-	id := e.lastWalletID.Add(1)
-	wallet.SetID(id)
-	e.wallets[wallet.walletType] = append(e.wallets[wallet.walletType], wallet)
+	return addr
 }
