@@ -261,7 +261,7 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 		nodeSeed = walletseed.NewSeed(conf.Seed)
 	}
 	if conf.Faucet.Enabled {
-		nodeSeed = walletseed.NewSeed(GenesisSeed)
+		nodeSeed = walletseed.NewSeed(GenesisSeedBytes)
 	}
 
 	// create Docker container
@@ -310,7 +310,7 @@ func (n *Network) createEntryNode(ctx context.Context) error {
 	return nil
 }
 
-func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) error {
+func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig CreateNetworkConfig, availableSnapshots SnapshotFilenames, cfgAlterFunc ...CfgAlterFunc) error {
 	// create a peer conf from the network conf
 	conf := PeerConfig()
 	if networkConfig.StartSynced {
@@ -328,13 +328,13 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 
 	// the first peer is the master peer, it uses a special conf
 	masterConfig := conf
-	masterConfig.Seed = MasterSeed
+	masterConfig.Seed = MasterSeedBytes
 	if networkConfig.Faucet {
 		masterConfig.Faucet.Enabled = true
 	}
 
 	if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-		masterConfig = cfgAlterFunc[0](0, masterConfig)
+		masterConfig = cfgAlterFunc[0](0, masterConfig, availableSnapshots)
 	}
 
 	log.Printf("Starting %d peers...", numPeers)
@@ -344,7 +344,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 
 	for i := 1; i < numPeers; i++ {
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, conf)); err != nil {
+			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, conf, availableSnapshots)); err != nil {
 				return err
 			}
 			continue

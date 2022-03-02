@@ -102,7 +102,7 @@ func TestFirewall(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
 		if peerIndex == 0 {
 			cfg.Gossip.MessagesRateLimit.Limit = 50
 		}

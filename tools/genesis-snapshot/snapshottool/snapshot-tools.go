@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
 )
 
 // Pledge defines a pledge to a node.
@@ -76,8 +75,8 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 type TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
 type AccessManaMap map[identity.ID]ledgerstate.AccessMana
 
-func CreateSnapshot(genesisTokenAmount uint64, seedStr string, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) {
-	genesis := createGenesis(genesisTokenAmount, seedStr)
+func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) {
+	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
 	}
@@ -92,14 +91,7 @@ func CreateSnapshot(genesisTokenAmount uint64, seedStr string, pledgeTokenAmount
 	verifySnapshot(snapshotFileName)
 }
 
-func createGenesis(genesisTokenAmount uint64, seedStr string) *Genesis {
-	if seedStr == "" {
-		log.Fatal("Seed is required. Enter it via --seed=... ")
-	}
-	seedBytes, err := base58.Decode(seedStr)
-	if err != nil {
-		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
-	}
+func createGenesis(genesisTokenAmount uint64, seedBytes []byte) *Genesis {
 	genesisSeed := seed.NewSeed(seedBytes)
 	return &Genesis{
 		Seed:   genesisSeed,

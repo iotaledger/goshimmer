@@ -27,29 +27,14 @@ import (
 // The genesis seed contains 800000 tokens which we will use to issue conflicting transactions from both nodes.
 func TestSimpleDoubleSpend(t *testing.T) {
 	const (
-		peer1SeedBase58                 = "Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8" // peerID jnaC6ZyWuw
-		peer2SeedBase58                 = "HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2" // peerID iNvPFvkfSDp
-		peer1Pledged                    = 800000.0                                       // 40%
-		peer2Pledged                    = 400000.0                                       // 20%
-		actualGenesisTokenAmount uint64 = 800000                                         // 40%
-		numberOfConflictingTxs          = 10
+		numberOfConflictingTxs = 10
 	)
 
-	var (
-		expectedCManaNode1AfterTxConf = float64(tests.ConsensusSnapshotDetails.PeersAmountsPledged[0]) + float64(tests.ConsensusSnapshotDetails.GenesisTokenAmount)
+	expectedCManaNode1AfterTxConf := float64(tests.ConsensusSnapshotDetails.PeersAmountsPledged[0]) + float64(tests.ConsensusSnapshotDetails.GenesisTokenAmount)
+	peerSeeds := tests.GetIdentSeeds(t, tests.ConsensusSnapshotDetails)
 
-		peer1IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[0])
-			require.NoError(t, err)
-			return seedBytes
-		}()
-
-		peer2IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[1])
-			require.NoError(t, err)
-			return seedBytes
-		}()
-	)
+	snapshot := tests.ConsensusSnapshotDetails
+	snapshot.FilePath = ""
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -59,17 +44,16 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-			cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
+			Snapshots: map[string]framework.SnapshotInfo{
+				"consensus": snapshot,
+			},
+		}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
+			cfg.MessageLayer.Snapshot.File = availableSnapshots["consensus"]
 			cfg.UseNodeSeedAsWalletSeed = true
-			switch peerIndex {
-			case 0:
-				cfg.Seed = peer1IdentSeed
-			case 1:
-				cfg.Seed = peer2IdentSeed
-			}
+			cfg.Seed = peerSeeds[peerIndex]
 			return cfg
 		})
+
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -157,5 +141,5 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 
 func createGenesisWallet(node *framework.Node) *wallet.Wallet {
 	webConn := wallet.GenericConnector(wallet.NewWebConnector(node.BaseURL()))
-	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeed), 0, []bitmask.BitMask{}, nil), webConn)
+	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeedBytes), 0, []bitmask.BitMask{}, nil), webConn)
 }

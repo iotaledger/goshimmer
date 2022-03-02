@@ -356,5 +356,5 @@ func (s simpleWallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []
 
 func createGenesisWallet(node *framework.Node) *wallet.Wallet {
 	webConn := wallet.GenericConnector(wallet.NewWebConnector(node.BaseURL()))
-	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeed), 0, []bitmask.BitMask{}, nil), webConn)
+	return wallet.New(wallet.Import(walletseed.NewSeed(framework.GenesisSeedBytes), 0, []bitmask.BitMask{}, nil), webConn)
 }

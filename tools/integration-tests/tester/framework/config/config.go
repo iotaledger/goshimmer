@@ -33,8 +33,6 @@ type GoShimmer struct {
 	Seed []byte
 	// Whether to use the same seed for the node's wallet.
 	UseNodeSeedAsWalletSeed bool
-	// Snapshotfile specifies what snapshot file to use.
-	Snapshotfile string
 
 	// Network specifies network-level configurations
 	Network

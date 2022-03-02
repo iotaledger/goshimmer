@@ -66,16 +66,23 @@ func newFramework(ctx context.Context) (*Framework, error) {
 	return f, nil
 }
 
-// CfgAlterFunc is a function called with the given peer's index and its configuration
-type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
+// CfgAlterFunc is a function called with the given peer's index, its configuration and the available snapshots for the network.
+type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer, availableSnapshots SnapshotFilenames) config.GoShimmer
 
 // SnapshotInfo stores the details about snapshots created for integration tests
 type SnapshotInfo struct {
-	FilePath            string
-	PeersSeedBase58     []string
-	PeersAmountsPledged []int
-	GenesisTokenAmount  int // pledged to peer master
+	// FilePath defines the file path of the snapshot, if specified, the snapshot will not be generated.
+	FilePath string
+	// PeerSeedBase58 is a slice of Seeds encoded in Base58, one entry per peer.
+	PeersSeedBase58 []string
+	// PeersAmountsPledges is a slice of amounts to be pledged to the peers, one entry per peer.
+	PeersAmountsPledged []uint64
+	// GenesisTokenAmount is the amount of tokens left on the Genesis, pledged to Peer Master.
+	GenesisTokenAmount uint64
 }
+
+// SnapshotFilenames maps snapshot human-friendly names to their corresponding file path.
+type SnapshotFilenames map[string]string
 
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
 // It blocks until all peers are connected.
@@ -97,7 +104,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		return nil, err
 	}
 
-	errCreateSnapshots := createSnapshots(conf)
+	availableSnapshots, errCreateSnapshots := createSnapshots(conf.Snapshots)
 	if errCreateSnapshots != nil {
 		return nil, errCreateSnapshots
 	}
@@ -109,7 +116,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		}
 	}
 
-	err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...)
+	err = network.createPeers(ctx, numPeers, conf, availableSnapshots, cfgAlterFunc...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create peers")
 	}
@@ -129,27 +136,35 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createSnapshots(conf CreateNetworkConfig) error {
-	for _, snapshotInfo := range conf.Snapshots {
+func createSnapshots(snapshotInfoMap map[string]SnapshotInfo) (snapshotFilenames SnapshotFilenames, err error) {
+	snapshotFilenames = make(SnapshotFilenames)
+	for snapshotName, snapshotInfo := range snapshotInfoMap {
 		nodesToPledgeMap, err := createNodesToPledgeMap(snapshotInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		if snapshotInfo.FilePath == "" {
-			snapshotInfo.FilePath = fmt.Sprintf("/assets/dynamic_snapshots/%s.bin", hashStruct(snapshotInfo))
+		snapshotFilePath := snapshotInfo.FilePath
+		// SnapshotInfo already contains a filename, which means it is an externally-supplied snapshot and we
+		// don't have to generate it.
+		if snapshotFilePath != "" {
+			snapshotFilenames[snapshotName] = snapshotFilePath
+			continue
 		}
+
+		snapshotFilePath = fmt.Sprintf("/assets/dynamic_snapshots/%s.bin", hashStruct(snapshotInfo))
 
 		//TODO:
 		// GenesisToken amount should be the sum of all tokens. What we have now is incorrect!
 		// PledgeTokenAmount should be 0 since it is used only if nodesToPledgeMap has missing amounts
 		// Should return error
 		//
-		snapshottool.CreateSnapshot(uint64(snapshotInfo.GenesisTokenAmount), string(GenesisSeed), 0,
-			nodesToPledgeMap, snapshotInfo.FilePath)
+		snapshottool.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0, nodesToPledgeMap, snapshotFilePath)
+
+		snapshotFilenames[snapshotName] = snapshotFilePath
 
 	}
-	return nil
+	return
 }
 
 func hashStruct(o interface{}) string {
@@ -170,7 +185,7 @@ func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshottool.Pled
 		}
 		nodesToPledge[seed] = snapshottool.Pledge{
 			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
-			Amount:  uint64(snapshot.PeersAmountsPledged[i]),
+			Amount:  snapshot.PeersAmountsPledged[i],
 		}
 	}
 
@@ -193,6 +208,12 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	// make sure that autopeering is on
 	conf.Autopeering = true
 
+	// Create Snapshots defined in the networkc configuration.
+	availableSnapshots, errCreateSnapshots := createSnapshots(conf.Snapshots)
+	if errCreateSnapshots != nil {
+		return nil, errCreateSnapshots
+	}
+
 	// create an entry node with blocked traffic
 	log.Println("Starting entry node...")
 	if err = network.createEntryNode(ctx); err != nil {
@@ -206,7 +227,7 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	time.Sleep(graceTimePumba)
 	log.Println("Starting entry node... done")
 
-	if err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...); err != nil {
+	if err = network.createPeers(ctx, numPeers, conf, availableSnapshots, cfgAlterFunc...); err != nil {
 		return nil, err
 	}
 

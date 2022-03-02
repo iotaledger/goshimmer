@@ -1,7 +1,7 @@
 #!/bin/bash
 
 DEFAULT_TEST_NAMES='autopeering common consensus drng value faucet mana diagnostics'
-TEST_NAMES='autopeering'
+TEST_NAMES=${1:-$DEFAULT_TEST_NAMES}
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1

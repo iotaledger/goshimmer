@@ -48,7 +48,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
 	},
-	PeersAmountsPledged: []int{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
+	PeersAmountsPledged: []uint64{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
 	GenesisTokenAmount:  2500000000000000,
 }
 
@@ -61,47 +61,32 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
 		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	},
-	PeersAmountsPledged: []int{1600000, 800000, 800000},
+	PeersAmountsPledged: []uint64{1600000, 800000, 800000},
 	GenesisTokenAmount:  800000, // pledged to peer master
 
 }
 
-// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
-func getIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
-	peerSeeds := make([][]byte, 4)
-	peerSeeds[0] = func() []byte {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[0])
+// GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo
+func GetIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
+	peerSeeds := make([][]byte, 0)
+	for _, peerSeed := range snapshotInfo.PeersSeedBase58 {
+		seedBytes, err := base58.Decode(peerSeed)
 		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[1] = func() []byte {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[1])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[2] = func() []byte {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[2])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[3] = func() []byte {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[3])
-		require.NoError(t, err)
-		return seedBytes
-	}()
+		peerSeeds = append(peerSeeds, seedBytes)
+	}
 	return peerSeeds
 }
 
-// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+// EqualDefaultConfigFunc returns peer configurations that uses an equally distributed mana Snapshot for all peers
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
 	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
 }
 
-// SameSnapshotConfigFunc returns configuration for network that uses the specified Snapshot information for all peers
-var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+// SameSnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
+var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
+	return func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
 		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
-		peerSeeds := getIdentSeeds(t, snaphotInfo)
+		peerSeeds := GetIdentSeeds(t, snaphotInfo)
 		offset := 0
 		if skipFirst {
 			offset += 1
