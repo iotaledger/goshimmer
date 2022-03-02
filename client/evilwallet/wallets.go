@@ -1,11 +1,11 @@
 package evilwallet
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 )
@@ -17,6 +17,8 @@ const (
 	noConflicts
 	conflicts
 )
+
+// region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Wallets struct {
 	wallets map[WalletType][]*Wallet
@@ -57,22 +59,14 @@ func (w *Wallets) GetWallets(wType WalletType, num int) (wallets []*Wallet) {
 	return wallets
 }
 
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, idx uint64, outputID ledgerstate.OutputID, balance uint64) {
-	w.Lock()
-	defer w.Unlock()
-
-	w.unspentOutputs[addr.Base58()] = &Output{
-		OutputID: outputID,
-		Address:  addr,
-		Balance:  balance,
-		Status:   pending,
-	}
-}
-
 // addWallet stores newly created wallet.
 func (w *Wallets) addWallet(wallet *Wallet) {
 	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Wallet struct {
 	ID         int
@@ -114,3 +108,17 @@ func (w *Wallet) Address() address.Address {
 
 	return addr
 }
+
+func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate.OutputID, balance uint64) {
+	w.Lock()
+	defer w.Unlock()
+
+	w.unspentOutputs[addr.Base58()] = &Output{
+		OutputID: outputID,
+		Address:  addr,
+		Balance:  balance,
+		Status:   pending,
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -50,14 +50,14 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 
 	for _, ID := range outputIDs {
 		wg.Add(1)
-		go func() {
+		go func(id ledgerstate.OutputID) {
 			defer wg.Done()
-			ok := o.AwaitOutputToBeConfirmed(ID, time.Duration(3*time.Second))
+			ok := o.AwaitOutputToBeConfirmed(id, 3*time.Second)
 			if ok {
-				o.status[ID].Status = confirmed
+				o.status[id].Status = confirmed
 				return
 			}
-		}()
+		}(ID)
 	}
 	wg.Wait()
 
@@ -129,7 +129,8 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		addr := output.Address
 		go func(addr ledgerstate.Address) {
 			defer wg.Done()
-			_, ok := o.AwaitUnspentOutputToBeConfirmed(addr, waitForConfirmation)
+			outputIDs := o.AddOutputsByAddress(addr.Base58())
+			ok := o.Track(outputIDs)
 			if !ok {
 				return
 			}
@@ -138,32 +139,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 	wg.Wait()
 }
 
-// AwaitUnspentOutputToBeConfirmed awaits for output from a provided address is confirmed. Timeout is waitFor.
-// Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address, waitFor time.Duration) (outID string, ok bool) {
-	s := time.Now()
-	var confirmed bool
-	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
-		jsonOutput := o.connector.GetUnspentOutputForAddress(addr)
-		outID = jsonOutput.Output.OutputID.Base58
-		confirmed = jsonOutput.GradeOfFinality == GoFConfirmed
-		if outID != "" && confirmed {
-			break
-		}
-	}
-	if outID == "" {
-		return
-	}
-
-	if !confirmed {
-		return
-	}
-	ok = true
-	return
-}
-
-
-// AwaitOutputToBeConfirmed awaits for output from a provided address is confirmed. Timeout is waitFor.
+// AwaitOutputToBeConfirmed awaits for output from a provided outputID is confirmed. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
 func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, waitFor time.Duration) (confirmed bool) {
 	s := time.Now()
@@ -179,7 +155,6 @@ func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, 
 
 	return confirmed
 }
-
 
 // AwaitTransactionsConfirmationAndUpdateWallet awaits for transaction confirmation and updates wallet with outputIDs.
 func (o *OutputManager) AwaitTransactionsConfirmationAndUpdateWallet(wallet *Wallet, txIDs []string, maxGoroutines int) {

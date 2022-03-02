@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"errors"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"sync"
 	"time"
 
@@ -19,7 +20,7 @@ const (
 
 var clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
 
-// region Evilwallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
@@ -64,7 +65,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(address string) (outputID ledgerstat
 	outputIDs := e.outputManager.AddOutputsByAddress(address)
 	allConfirmed := e.outputManager.Track(outputIDs)
 	if !allConfirmed {
-		err = errors.New("output not confirmed!")
+		err = errors.New("output not confirmed")
 		return
 	}
 
@@ -112,13 +113,13 @@ func (e *EvilWallet) CreateFreshFaucetWallet() (err error) {
 
 func (e *EvilWallet) requestAndSplitFaucetFunds() (wallet *Wallet, err error) {
 	reqWallet := NewWallet(fresh)
-	//addr, idx := reqWallet.Address()
-	//initOutput := e.requestFaucetFunds(addr)
+	addr := reqWallet.Address()
+	initOutput := e.requestFaucetFunds(addr.Address())
 	if err != nil {
 		return
 	}
-	//reqWallet.AddUnspentOutput(addr, idx, initOutput, uint64(faucet.Parameters.TokensPerRequest))
-	// first split 1 to FaucetRequestSplitNumber outputs
+	reqWallet.AddUnspentOutput(addr.Address(), initOutput, uint64(faucet.Parameters.TokensPerRequest))
+	//first split 1 to FaucetRequestSplitNumber outputs
 	wallet = NewWallet(fresh)
 	e.outputManager.AwaitWalletOutputsToBeConfirmed(reqWallet)
 	txIDs := e.splitOutputs(reqWallet, wallet, FaucetRequestSplitNumber)
@@ -131,14 +132,12 @@ func (e *EvilWallet) requestFaucetFunds(addr ledgerstate.Address) (outputID ledg
 	if err != nil {
 		return
 	}
-	outputStrID, ok := e.outputManager.AwaitUnspentOutputToBeConfirmed(addr, waitForConfirmation)
+	outputIDs := e.outputManager.AddOutputsByAddress(addr.Base58())
+	ok := e.outputManager.Track(outputIDs)
 	if !ok {
 		return
 	}
-	outputID, err = ledgerstate.OutputIDFromBase58(outputStrID)
-	if err != nil {
-		return
-	}
+	outputID = outputIDs[0]
 	return
 }
 
@@ -154,7 +153,7 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 		wg.Add(1)
 		go func(inputNum int, out *Output) {
 			defer wg.Done()
-			//tx := e.
+			// todo finish with a new create txs
 			//tx := prepareTransaction([]*UnspentOutput{out}, []*seed.Seed{inputWallet.seed}, outWallet, numOutputs, *pledgeID)
 			//clt := e.connector.GetClient()
 			//txID, err := e.connector.PostTransaction(tx.Bytes(), clt)
