@@ -2,7 +2,6 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 	"time"
@@ -17,9 +16,11 @@ const (
 )
 
 type Output struct {
+	evilWallet *Wallets
+
 	//*wallet.Output
 	OutputID ledgerstate.OutputID
-	Address  address.Address
+	Address  ledgerstate.Address
 	Balance  uint64
 	Status   OutputStatus
 }
@@ -27,7 +28,13 @@ type Output struct {
 type Outputs []*Output
 
 type OutputManager struct {
-	clients Clients
+	evilWallet *Wallets
+}
+
+func NewOutputManager(ew *Wallets) *OutputManager {
+	return &OutputManager{
+		evilWallet: ew,
+	}
 }
 
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
@@ -38,7 +45,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		if output == nil {
 			continue
 		}
-		addr := output.Address.Address()
+		addr := output.Address
 		go func(addr ledgerstate.Address) {
 			defer wg.Done()
 			_, ok := o.AwaitUnspentOutputToBeConfirmed(addr, waitForConfirmation)
@@ -56,7 +63,7 @@ func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
-		jsonOutput := o.clients.GetUnspentOutputForAddress(addr)
+		jsonOutput := o.evilWallet.connector.GetUnspentOutputForAddress(addr)
 		outID = jsonOutput.Output.OutputID.Base58
 		confirmed = jsonOutput.GradeOfFinality == GoFConfirmed
 		if outID != "" && confirmed {
@@ -74,8 +81,8 @@ func (o *OutputManager) AwaitUnspentOutputToBeConfirmed(addr ledgerstate.Address
 	return
 }
 
-// AwaitTransactionsToBeConfirmed awaits for transaction confirmation and updates wallet with outputIDs.
-func (o *OutputManager) AwaitTransactionsToBeConfirmed(wallet *Wallet, txIDs []string, maxGoroutines int) {
+// AwaitTransactionsConfirmationAndUpdateWallet awaits for transaction confirmation and updates wallet with outputIDs.
+func (o *OutputManager) AwaitTransactionsConfirmationAndUpdateWallet(wallet *Wallet, txIDs []string, maxGoroutines int) {
 	wg := sync.WaitGroup{}
 	semaphore := make(chan bool, maxGoroutines)
 
@@ -103,7 +110,7 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 	s := time.Now()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(2 * time.Second) {
-		if gof := o.clients.GetTransactionGoF(txID); gof == GoFConfirmed {
+		if gof := o.evilWallet.connector.GetTransactionGoF(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
 		}

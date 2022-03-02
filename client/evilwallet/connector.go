@@ -24,6 +24,7 @@ type Clients interface {
 	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
 	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
 	GetTransactionGoF(txID string) gof.GradeOfFinality
+	RequestFaucetFunds(addr ledgerstate.Address) string
 	// all API calls
 }
 
@@ -174,6 +175,15 @@ func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
 		return gof.None
 	}
 	return resp.GradeOfFinality
+}
+
+func (c *Connector) RequestFaucetFunds(addr ledgerstate.Address) string {
+	clt := c.GetClient()
+	msgID, err := clt.SendFaucetRequest(addr.Base58(), -1)
+	if err != nil {
+		return ""
+	}
+	return msgID.ID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
