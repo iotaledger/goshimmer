@@ -358,24 +358,24 @@ func TestScheduler_Issue(t *testing.T) {
 	messageScheduled := make(chan MessageID, numMessages)
 	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
 
-	ids := make([]MessageID, numMessages)
-	for i := range ids {
+	ids := NewMessageIDs()
+	for i := 0; i < numMessages; i++ {
 		msg := newMessage(selfNode.PublicKey())
 		tangle.Storage.StoreMessage(msg)
-		ids[i] = msg.ID()
+		ids.Add(msg.ID())
 	}
 
-	var scheduledIDs []MessageID
+	scheduledIDs := NewMessageIDs()
 	assert.Eventually(t, func() bool {
 		select {
 		case id := <-messageScheduled:
-			scheduledIDs = append(scheduledIDs, id)
+			scheduledIDs.Add(id)
 			return len(scheduledIDs) == len(ids)
 		default:
 			return false
 		}
 	}, 10*time.Second, 10*time.Millisecond)
-	assert.ElementsMatch(t, ids, scheduledIDs)
+	assert.Equal(t, ids, scheduledIDs)
 }
 
 func TestSchedulerFlow(t *testing.T) {

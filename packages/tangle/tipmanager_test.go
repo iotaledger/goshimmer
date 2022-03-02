@@ -150,16 +150,16 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Add Message 4-8
 	{
-		tips := make([]MessageID, 0, 9)
-		tips = append(tips, messages["3"].ID())
+		tips := NewMessageIDs()
+		tips.Add(messages["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
 			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID()), NewMessageIDs())
 			tipManager.AddTip(messages[nString])
-			tips = append(tips, messages[nString].ID())
+			tips.Add(messages[nString].ID())
 
 			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips, "Elements in strongTips do not match after adding Message %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
 			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 		}
 	}

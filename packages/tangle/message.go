@@ -169,31 +169,6 @@ func UnregisterMessageIDAliases() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageIDsSlice //////////////////////////////////////////////////////////////////////////////////////////////
-
-// // MessageIDsSlice is a slice of MessageID.
-// type MessageIDsSlice []MessageID
-//
-// // ToStrings converts a slice of MessageIDs to a slice of strings.
-// func (ids MessageIDsSlice) ToStrings() []string {
-// 	result := make([]string, 0, len(ids))
-// 	for _, id := range ids {
-// 		result = append(result, id.Base58())
-// 	}
-// 	return result
-// }
-//
-// // ToMessageIDs converts the slice of MessageIDs into a set of MessageIDs.
-// func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
-// 	msgIDs := make(MessageIDs)
-// 	for _, id := range ids {
-// 		msgIDs[id] = types.Void
-// 	}
-// 	return msgIDs
-// }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageIDs is a set of MessageIDs where every MessageID is stored only once.

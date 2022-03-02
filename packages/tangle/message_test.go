@@ -46,12 +46,6 @@ func randomParents(count int) MessageIDs {
 	return parents
 }
 
-func testAreParentsSorted(parents []MessageID) bool {
-	return sort.SliceIsSorted(parents, func(i, j int) bool {
-		return bytes.Compare(parents[i].Bytes(), parents[j].Bytes()) < 0
-	})
-}
-
 func testSortParents(parents MessageIDs) []MessageID {
 	parentsSorted := parents.Slice()
 	sort.Slice(parentsSorted, func(i, j int) bool {
