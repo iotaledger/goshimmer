@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -669,6 +670,135 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 			if _, err := node.Data([]byte("test")); err != nil {
 				log.Println("send message on node: ", node.ID().String())
 			}
+			i++
+		}
+	}
+}
+
+// IsBranchConfirmedOnAllPeers returns true if the branch is confirmed on all supplied nodes.
+func IsBranchConfirmedOnAllPeers(peers []*framework.Node, branchID string) bool {
+	for _, peer := range peers {
+		branch, err := peer.GetBranch(branchID)
+		if err != nil {
+			return false
+		}
+		if branch.GradeOfFinality != gof.High {
+			return false
+		}
+	}
+	return true
+}
+
+func findAttachmentMsg(peer *framework.Node, branchID string) (tip string, err error) {
+	branch, err := peer.GetBranch(branchID)
+	if err != nil {
+		return
+	}
+	attachments, err := peer.GetTransactionAttachments(branchID)
+	if err != nil {
+		return
+	}
+	children := attachments.MessageIDs
+	seen := make(map[string]struct{})
+	for len(children) > 0 {
+		msgID := children[0]
+		children = children[1:]
+		if _, ok := seen[msgID]; ok {
+			continue
+		}
+		seen[msgID] = struct{}{}
+		tip = msgID
+		var msg *jsonmodels.Message
+		msg, err = peer.GetMessage(msgID)
+		if err != nil {
+			return
+		}
+		for _, approver := range msg.StrongApprovers {
+			if msg, err := peer.GetMessage(approver); err == nil {
+				if metadata, err := peer.GetMessageMetadata(approver); err == nil {
+					if metadata.BranchID == branch.ID {
+						children = append(children, approver)
+						continue
+					}
+
+					approverLikes := false
+					for _, like := range msg.ShallowLikeParents {
+						if like == branch.ID {
+							approverLikes = true
+							break
+						}
+					}
+					if approverLikes {
+						children = append(children, approver)
+						continue
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+// TryConfirmBranch tries to confirm the given branch in the duration specified.
+func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
+	if branchID == ledgerstate.MasterBranchID.Base58() {
+		return
+	}
+
+	// check that the branch exists in the network and fail fast if it does not
+	exists := false
+	for _, peer := range n.Peers() {
+		if _, err := peer.GetBranch(branchID); err == nil {
+			exists = true
+			break
+		}
+	}
+	require.True(t, exists, "branch does not exists on any node")
+
+	// get tip to attach
+	tip, err := findAttachmentMsg(requiredPeers[0], branchID)
+	require.NoError(t, err)
+
+	// issue messages on top of tip.
+	timer := time.NewTimer(waitFor)
+	defer timer.Stop()
+	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
+	once := false
+	var i int
+	peers := n.Peers()
+
+	for {
+		select {
+		case <-timer.C:
+			require.FailNow(t, "timeout")
+		case <-ticker.C:
+			if IsBranchConfirmedOnAllPeers(requiredPeers, branchID) {
+				return
+			}
+		default:
+			var parentMessageIDs []jsonmodels.ParentMessageIDs
+			if ID, err := tangle.NewMessageID(tip); err == nil {
+				if !once {
+					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+						Type:       uint8(tangle.ShallowDislikeParentType),
+						MessageIDs: []string{ID.Base58()},
+					})
+					once = true
+				}
+				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+					Type:       uint8(tangle.StrongParentType),
+					MessageIDs: []string{ID.Base58()},
+				})
+			}
+
+			require.NoError(t, err)
+			tip, err = peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
+				Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
+				ParentMessageIDs: parentMessageIDs,
+			})
+			require.NoError(t, err)
+			time.Sleep(500 * time.Millisecond)
 			i++
 		}
 	}

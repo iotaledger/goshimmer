@@ -105,15 +105,17 @@ func GetMessage(c echo.Context) (err error) {
 
 	if deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
-			ID:              message.ID().Base58(),
-			StrongParents:   message.ParentsByType(tangle.StrongParentType).ToStrings(),
-			WeakParents:     message.ParentsByType(tangle.WeakParentType).ToStrings(),
-			StrongApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
-			WeakApprovers:   deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
-			IssuerPublicKey: message.IssuerPublicKey().String(),
-			IssuingTime:     message.IssuingTime().Unix(),
-			SequenceNumber:  message.SequenceNumber(),
-			PayloadType:     message.Payload().Type().String(),
+			ID:                    message.ID().Base58(),
+			StrongParents:         message.ParentsByType(tangle.StrongParentType).ToStrings(),
+			WeakParents:           message.ParentsByType(tangle.WeakParentType).ToStrings(),
+			ShallowLikeParents:    message.ParentsByType(tangle.ShallowLikeParentType).ToStrings(),
+			ShallowDislikeParents: message.ParentsByType(tangle.ShallowDislikeParentType).ToStrings(),
+			StrongApprovers:       deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
+			WeakApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
+			IssuerPublicKey:       message.IssuerPublicKey().String(),
+			IssuingTime:           message.IssuingTime().Unix(),
+			SequenceNumber:        message.SequenceNumber(),
+			PayloadType:           message.Payload().Type().String(),
 			TransactionID: func() string {
 				if message.Payload().Type() == ledgerstate.TransactionType {
 					return message.Payload().(*ledgerstate.Transaction).ID().Base58()

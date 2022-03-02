@@ -96,6 +96,7 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
+	deps.Server.GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
 }
 
