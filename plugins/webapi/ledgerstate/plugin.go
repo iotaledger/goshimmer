@@ -435,9 +435,9 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	var messageIDs tangle.MessageIDsSlice
+	messageIDs := tangle.NewMessageIDs()
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-		messageIDs = append(messageIDs, attachment.MessageID())
+		messageIDs.Add(attachment.MessageID())
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}

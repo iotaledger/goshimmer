@@ -3,7 +3,6 @@ package tangle
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"runtime"
 	"sync"
@@ -34,8 +33,8 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
-		return []MessageID{EmptyMessageID}, nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+		return NewMessageIDs(EmptyMessageID), nil
 	}), emptyLikeReferences)
 
 	messages := make([][]byte, b.N)
@@ -66,8 +65,8 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDsSlice, err error) {
-		return []MessageID{EmptyMessageID}, nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
+		return NewMessageIDs(EmptyMessageID), nil
 	}), emptyLikeReferences)
 
 	messages := make([]*Message, b.N)
@@ -126,17 +125,17 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 
 	var storedMessages, solidMessages, invalidMessages int32
 
-	newOldParentsMessage := func(strongParents []MessageID) *Message {
+	newOldParentsMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
-	newYoungParentsMessage := func(strongParents []MessageID) *Message {
+	newYoungParentsMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
-	newValidMessage := func(strongParents []MessageID) *Message {
+	newValidMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
@@ -161,9 +160,9 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 
 	messageA := newTestDataMessage("some data")
 	messageB := newTestDataMessage("some data1")
-	messageC := newValidMessage([]MessageID{messageA.ID(), messageB.ID()})
-	messageOldParents := newOldParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
-	messageYoungParents := newYoungParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
+	messageC := newValidMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
+	messageOldParents := newOldParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
+	messageYoungParents := newYoungParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
 
 	wg.Add(5)
 	messageTangle.Storage.StoreMessage(messageA)
@@ -240,14 +239,14 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, nil
+				return NewMessageIDs(EmptyMessageID), nil
 			}
-			parents := make([]MessageID, len(r))
-			for i := range r {
-				parents[i] = r[i].(MessageID)
+			parents := NewMessageIDs()
+			for _, tip := range r {
+				parents.Add(tip.(MessageID))
 			}
 			return parents, nil
 		}),
@@ -262,8 +261,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
-			tips.Delete(msg.ParentsByType(StrongParentType)[index])
+			tips.Delete(msg.ParentsByType(StrongParentType).First())
 		}
 
 		// add current message as a tip
@@ -333,13 +331,13 @@ func TestRetrieveAllTips(t *testing.T) {
 	defer messageTangle.Shutdown()
 
 	messageA := newTestParentsDataMessage("A", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(EmptyMessageID),
 	})
 	messageB := newTestParentsDataMessage("B", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(messageA.ID()),
 	})
 	messageC := newTestParentsDataMessage("C", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(messageA.ID()),
 	})
 
 	var wg sync.WaitGroup
@@ -400,14 +398,15 @@ func TestTangle_Flow(t *testing.T) {
 	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, nil
+				return NewMessageIDs(EmptyMessageID), nil
 			}
-			parents := make([]MessageID, len(r))
-			for i := range r {
-				parents[i] = r[i].(MessageID)
+
+			parents := NewMessageIDs()
+			for _, tip := range r {
+				parents.Add(tip.(MessageID))
 			}
 			return parents, nil
 		}),
@@ -436,8 +435,7 @@ func TestTangle_Flow(t *testing.T) {
 		// remove a tip if the width of the tangle is reached
 		if !invalidTS {
 			if tips.Size() >= tangleWidth {
-				index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
-				tips.Delete(msg.ParentsByType(StrongParentType)[index])
+				tips.Delete(msg.ParentsByType(StrongParentType).First())
 			}
 		}
 

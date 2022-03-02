@@ -277,9 +277,9 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
-func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDsSlice) (areAllTransactions bool) {
+func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTransactions bool) {
 	areAllTransactions = true
-	for _, messageID := range messageIDs {
+	for messageID := range messageIDs {
 		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			if message.Payload().Type() != ledgerstate.TransactionType {
 				areAllTransactions = false
@@ -599,7 +599,7 @@ func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata 
 
 	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), newBranchID)
 
-	for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+	for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 		messageWalker.Push(approvingMessageID)
 	}
 

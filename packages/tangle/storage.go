@@ -230,9 +230,10 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDsSlice) {
+func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+	messageIDs = NewMessageIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		messageIDs = append(messageIDs, attachment.MessageID())
+		messageIDs.Add(attachment.MessageID())
 	})
 	return
 }

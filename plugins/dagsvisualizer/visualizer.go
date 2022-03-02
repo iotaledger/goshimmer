@@ -257,9 +257,9 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
 		branchMap := ledgerstate.NewBranchIDs()
-		entryMsgs := tangle.MessageIDsSlice{}
+		entryMsgs := tangle.NewMessageIDs()
 		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
-			entryMsgs = append(entryMsgs, approver.ApproverMessageID())
+			entryMsgs.Add(approver.ApproverMessageID())
 		})
 
 		deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
@@ -333,10 +333,10 @@ func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
 			}
 			ret = &tangleVertex{
 				ID:                      messageID.Base58(),
-				StrongParentIDs:         msg.ParentsByType(tangle.StrongParentType).ToStrings(),
-				WeakParentIDs:           msg.ParentsByType(tangle.WeakParentType).ToStrings(),
-				ShallowLikeParentIDs:    msg.ParentsByType(tangle.ShallowLikeParentType).ToStrings(),
-				ShallowDislikeParentIDs: msg.ParentsByType(tangle.ShallowDislikeParentType).ToStrings(),
+				StrongParentIDs:         msg.ParentsByType(tangle.StrongParentType).Base58(),
+				WeakParentIDs:           msg.ParentsByType(tangle.WeakParentType).Base58(),
+				ShallowLikeParentIDs:    msg.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+				ShallowDislikeParentIDs: msg.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
 				BranchIDs:               branchIDs.Base58(),
 				IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 				IsTx:                    msg.Payload().Type() == ledgerstate.TransactionType,

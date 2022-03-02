@@ -318,7 +318,7 @@ func TestScheduler_Time(t *testing.T) {
 	assert.NoError(t, tangle.Scheduler.Ready(now.ID()))
 
 	done := make(chan struct{})
-	var scheduledIDs []MessageID
+	scheduledIDs := NewMessageIDs()
 	go func() {
 		defer close(done)
 		timer := time.NewTimer(time.Until(future.IssuingTime()) + 100*time.Millisecond)
@@ -329,14 +329,14 @@ func TestScheduler_Time(t *testing.T) {
 			case id := <-messageScheduled:
 				tangle.Storage.Message(id).Consume(func(msg *Message) {
 					assert.Truef(t, time.Now().After(msg.IssuingTime()), "scheduled too early: %s", time.Until(msg.IssuingTime()))
-					scheduledIDs = append(scheduledIDs, id)
+					scheduledIDs.Add(id)
 				})
 			}
 		}
 	}()
 
 	<-done
-	assert.Equal(t, []MessageID{now.ID(), future.ID()}, scheduledIDs)
+	assert.Equal(t, NewMessageIDs(now.ID(), future.ID()), scheduledIDs)
 }
 
 func TestScheduler_Issue(t *testing.T) {
@@ -405,7 +405,7 @@ func TestSchedulerFlow(t *testing.T) {
 
 	msgC.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
+		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
 
 	msgC.issuingTime = time.Now().Add(5 * time.Second)
@@ -414,14 +414,14 @@ func TestSchedulerFlow(t *testing.T) {
 	msgD := newMessage(peerNode.PublicKey())
 	msgD.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
+		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
 	msgE.parentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
-		References:  MessageIDsSlice{messages["A"].ID(), messages["B"].ID()},
+		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
 	msgE.issuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
@@ -526,7 +526,7 @@ func BenchmarkScheduler(b *testing.B) {
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 	message, _ := NewMessage(
-		emptyLikeReferencesFromStrongParents(MessageIDsSlice{EmptyMessageID}),
+		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
 		time.Now(),
 		issuerPublicKey,
 		0,

@@ -382,69 +382,40 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 // strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	strongParentIDs := make(MessageIDsSlice, 0)
-	for strongParentAlias := range options.strongParents {
-		if strongParentAlias == "Genesis" {
-			strongParentIDs = append(strongParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		strongParentIDs = append(strongParentIDs, m.messagesByAlias[strongParentAlias].ID())
-	}
-
-	return strongParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.strongParents)
 }
 
 // weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	weakParentIDs := make(MessageIDsSlice, 0)
-	for weakParentAlias := range options.weakParents {
-		if weakParentAlias == "Genesis" {
-			weakParentIDs = append(weakParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		weakParentIDs = append(weakParentIDs, m.messagesByAlias[weakParentAlias].ID())
-	}
-
-	return weakParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.weakParents)
 }
 
 // shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	shallowDislikeParentIDs := make(MessageIDsSlice, 0)
-	for shallowDislikeParentAlias := range options.shallowDislikeParents {
-		if shallowDislikeParentAlias == "Genesis" {
-			shallowDislikeParentIDs = append(shallowDislikeParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		shallowDislikeParentIDs = append(shallowDislikeParentIDs, m.messagesByAlias[shallowDislikeParentAlias].ID())
-	}
-
-	return shallowDislikeParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.shallowDislikeParents)
 }
 
 // shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	shallowLikeParentIDs := make(MessageIDsSlice, 0)
-	for shallowLikeParentAlias := range options.shallowLikeParents {
-		if shallowLikeParentAlias == "Genesis" {
-			shallowLikeParentIDs = append(shallowLikeParentIDs, EmptyMessageID)
+	return m.parentIDsByMessageAlias(options.shallowLikeParents)
+}
 
+func (m *MessageTestFramework) parentIDsByMessageAlias(parentAliases map[string]types.Empty) MessageIDs {
+	parentIDs := NewMessageIDs()
+	for parentAlias := range parentAliases {
+		if parentAlias == "Genesis" {
+			parentIDs.Add(EmptyMessageID)
 			continue
 		}
 
-		shallowLikeParentIDs = append(shallowLikeParentIDs, m.messagesByAlias[shallowLikeParentAlias].ID())
+		parentIDs.Add(m.messagesByAlias[parentAlias].ID())
 	}
 
-	return shallowLikeParentIDs.ToMessageIDs()
+	return parentIDs
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -944,12 +915,12 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (b
 	return likedConflictMembers.conflictMembers.Contains(branchID)
 }
 
-func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
+func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
-func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references ParentMessageIDs) {
-	return NewParentMessageIDs().AddAll(StrongParentType, parents.ToMessageIDs())
+func emptyLikeReferencesFromStrongParents(parents MessageIDs) (references ParentMessageIDs) {
+	return NewParentMessageIDs().AddAll(StrongParentType, parents)
 }
 
 // EventMock acts as a container for event mocks.
