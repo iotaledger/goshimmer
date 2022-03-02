@@ -265,9 +265,6 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 	now := clock.SyncedTime()
 	markersVisited := 0
 	messagesVisited := 0
-	//defer func() {
-	//	fmt.Println("Checking past cone took ", clock.Since(now).String(), "markers visited:", markersVisited, "messagesVisited", messagesVisited)
-	//}()
 	minSupportedTimestamp := now.Add(-5 * time.Minute)
 	timestampValid = true
 
@@ -320,6 +317,11 @@ func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWa
 			return
 		}
 		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+			if sequenceID == 0 && index == 0 {
+				// need to walk messages
+				messageWalker.Push(messageID)
+				return false
+			}
 			pastMarker := markers.NewMarker(sequenceID, index)
 			markerWalker.Push(*pastMarker)
 			return true
