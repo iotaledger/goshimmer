@@ -2,12 +2,14 @@ package evilwallet
 
 import (
 	"errors"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/plugins/faucet"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/identity"
 )
 
 const (
@@ -28,6 +30,7 @@ type EvilWallet struct {
 	connector       Clients
 	outputManager   *OutputManager
 	conflictManager *ConflictManager
+	aliasManager    *AliasManager
 }
 
 // NewEvilWallet creates an EvilWallet instance.
@@ -39,13 +42,16 @@ func NewEvilWallet() *EvilWallet {
 		connector:       connector,
 		outputManager:   NewOutputManager(connector),
 		conflictManager: NewConflictManager(),
+		aliasManager:    NewAliasManager(),
 	}
 }
 
+// NewWallet creates a new wallet of theh given wallet type.
 func (e *EvilWallet) NewWallet(wType WalletType) *Wallet {
 	return e.wallets.NewWallet(wType)
 }
 
+// GetClients returns the given number of clients.
 func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 	return e.connector.GetClients(num)
 }
@@ -54,22 +60,36 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 
 // EvilWallet Faucet Requests /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func (e *EvilWallet) RequestFundsFromFaucet(address string) (outputID ledgerstate.OutputID, err error) {
+// RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
+// also register the alias name for the unspent output if provided.
+func (e *EvilWallet) RequestFundsFromFaucet(address string, options ...FaucetRequestOption) (err error) {
+	buildOptions := NewFaucetRequestOptions(options...)
+
 	// request funds from faucet
 	err = e.connector.SendFaucetRequest(address)
 	if err != nil {
 		return
 	}
 
-	// track output in output manager
+	// track output in output manager and make sure it's confirmed
 	outputIDs := e.outputManager.AddOutputsByAddress(address)
+	if len(outputIDs) == 0 {
+		err = errors.New("no outputIDs found on address ")
+		return
+	}
+
 	allConfirmed := e.outputManager.Track(outputIDs)
 	if !allConfirmed {
 		err = errors.New("output not confirmed")
 		return
 	}
 
-	return outputIDs[0], nil
+	if len(buildOptions.aliasName) > 0 {
+		input := ledgerstate.NewUTXOInput(outputIDs[0])
+		err = e.aliasManager.AddInputAlias(input, "1")
+	}
+
+	return
 }
 
 // CreateNFreshFaucet10kWallet creates n new wallets, each wallet is created from one faucet request.
@@ -166,6 +186,90 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 	}
 	wg.Wait()
 	return txIDs
+}
+
+// CreateAlias registers an aliasName for the given data.
+func (e *EvilWallet) CreateAlias(aliasName string, value interface{}) (err error) {
+	switch t := value.(type) {
+	case ledgerstate.Output:
+		err = e.aliasManager.AddOutputAlias(t, aliasName)
+	case ledgerstate.Input:
+		err = e.aliasManager.AddInputAlias(t, aliasName)
+	}
+	return
+}
+
+// ClearAliases remove all registered alias names.
+func (e *EvilWallet) ClearAliases() {
+	e.aliasManager.ClearAliases()
+}
+
+// CreateTransaction creates a transaction with the given aliasName and options.
+func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
+	buildOptions := NewOptions(options...)
+
+	if len(buildOptions.inputs) == 0 || len(buildOptions.outputs) == 0 {
+		return
+	}
+
+	inputs := make([]ledgerstate.Input, 0)
+	// get inputs by alias
+	for inputAlias := range buildOptions.inputs {
+		inputs = append(inputs, e.aliasManager.GetInput(inputAlias))
+	}
+
+	outputs := make([]ledgerstate.Output, 0)
+	addrAliasMap := make(map[ledgerstate.Address]string)
+	for alias, balance := range buildOptions.outputs {
+		addr := buildOptions.issuer.Address().Address()
+		output := ledgerstate.NewSigLockedSingleOutput(balance, addr)
+		if err != nil {
+			return
+		}
+		outputs = append(outputs, output)
+		addrAliasMap[addr] = alias
+	}
+
+	tx, err = e.makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), buildOptions.issuer)
+	if err != nil {
+		return
+	}
+
+	for _, output := range tx.Essence().Outputs() {
+		// register output alias
+		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
+
+		// register output as unspent output(input)
+		input := ledgerstate.NewUTXOInput(output.ID())
+		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
+	}
+
+	e.aliasManager.AddTransactionAlias(tx, aliasName)
+	return
+}
+
+func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w *Wallet) (tx *ledgerstate.Transaction, err error) {
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+	for i, input := range txEssence.Inputs() {
+		index, err := e.getSeedIndexFromInput(input, w)
+		if err != nil {
+			return nil, err
+		}
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(index, txEssence))
+	}
+	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
+}
+
+func (e *EvilWallet) getSeedIndexFromInput(input ledgerstate.Input, w *Wallet) (index uint64, err error) {
+	typeCastedInput, ok := input.(*ledgerstate.UTXOInput)
+	if !ok {
+		err = errors.New("wrong type of input")
+		return
+	}
+	addr := e.outputManager.GetOutput(typeCastedInput.ReferencedOutputID()).Address
+	index = w.addrIndexMap[addr.Base58()]
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

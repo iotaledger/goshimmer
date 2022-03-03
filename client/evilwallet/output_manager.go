@@ -18,6 +18,8 @@ const (
 	rejected
 )
 
+var awaitOutputsByAddress = 3 * time.Second
+
 // Output contains details of an output ID.
 type Output struct {
 	//*wallet.Output
@@ -45,6 +47,7 @@ func NewOutputManager(connector Clients) *OutputManager {
 	}
 }
 
+// Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
 func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bool) {
 	wg := sync.WaitGroup{}
 
@@ -55,7 +58,6 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 			ok := o.AwaitOutputToBeConfirmed(id, 3*time.Second)
 			if ok {
 				o.status[id].Status = confirmed
-				return
 			}
 		}(ID)
 	}
@@ -71,15 +73,27 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 	return
 }
 
+// GetOutput returns the Output of the given outputID.
+func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
+	return o.status[outputID]
+}
+
+// AddOutputsByAddress finds the unspent outputs of a given address and add them to the output status map.
 func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
 	client := o.connector.GetClient()
-	// add output to map
-	res, err := client.GetAddressUnspentOutputs(address)
-	if err != nil {
-		return
+
+	s := time.Now()
+	var outputs []*jsonmodels.Output
+	for ; time.Since(s) < awaitOutputsByAddress; time.Sleep(1 * time.Second) {
+		res, err := client.GetAddressUnspentOutputs(address)
+		if err == nil && len(res.Outputs) > 0 {
+			outputs = res.Outputs
+			break
+		}
 	}
 
-	outputIDs = o.AddOutputsByJson(res.Outputs)
+	outputIDs = o.AddOutputsByJson(outputs)
+
 	return outputIDs
 }
 
@@ -97,8 +111,7 @@ func (o *OutputManager) AddOutputsByTxID(txID ledgerstate.TransactionID) (output
 
 func (o *OutputManager) AddOutputsByJson(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
 	for _, jsonOutput := range outputs {
-		outputBytes, _ := jsonOutput.Output.MarshalJSON()
-		output, _, err := ledgerstate.OutputFromBytes(outputBytes)
+		output, err := jsonOutput.ToLedgerstateOutput()
 		if err != nil {
 			continue
 		}
@@ -146,7 +159,6 @@ func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, 
 	confirmed = false
 	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
 		gof := o.connector.GetOutputGoF(outputID)
-
 		if gof == GoFConfirmed {
 			confirmed = true
 			break

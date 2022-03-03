@@ -1,11 +1,11 @@
 package evilwallet
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 )
@@ -74,6 +74,7 @@ type Wallet struct {
 
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
 	indexAddrMap      map[uint64]string
+	addrIndexMap      map[string]uint64
 	inputTransactions map[string]types.Empty
 	seed              *seed.Seed
 
@@ -92,6 +93,7 @@ func NewWallet(wType WalletType) *Wallet {
 		seed:              seed.NewSeed(),
 		unspentOutputs:    make(map[string]*Output),
 		indexAddrMap:      make(map[uint64]string),
+		addrIndexMap:      make(map[string]uint64),
 		inputTransactions: make(map[string]types.Empty),
 		lastAddrSpent:     *idxSpent,
 		lastAddrIdxUsed:   *addrUsed,
@@ -102,9 +104,11 @@ func NewWallet(wType WalletType) *Wallet {
 }
 
 func (w *Wallet) Address() address.Address {
-	index := uint64(w.lastAddrIdxUsed.Add(1))
+	w.lastAddrIdxUsed.Add(1)
+	index := uint64(w.lastAddrIdxUsed.Load())
 	addr := w.seed.Address(index)
 	w.indexAddrMap[index] = addr.Base58()
+	w.addrIndexMap[addr.Base58()] = index
 
 	return addr
 }
@@ -122,3 +126,7 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
+func (w *Wallet) sign(index uint64, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+	kp := w.seed.KeyPair(index)
+	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+}
