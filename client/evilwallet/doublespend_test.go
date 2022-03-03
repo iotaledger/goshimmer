@@ -11,7 +11,7 @@ func TestDoubleSpend(t *testing.T) {
 	wallet := evilwallet.NewWallet(fresh)
 	clients := evilwallet.GetClients(2)
 
-	err := evilwallet.RequestFundsFromFaucet(wallet.Address().Base58(), WithOutputAlias("1"))
+	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
 	if err != nil {
 		fmt.Println(err)
 		return

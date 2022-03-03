@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -62,17 +63,18 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(address string, options ...FaucetRequestOption) (err error) {
+func (e *EvilWallet) RequestFundsFromFaucet(addr address.Address, options ...FaucetRequestOption) (err error) {
 	buildOptions := NewFaucetRequestOptions(options...)
+	addrStr := addr.Base58()
 
 	// request funds from faucet
-	err = e.connector.SendFaucetRequest(address)
+	err = e.connector.SendFaucetRequest(addrStr)
 	if err != nil {
 		return
 	}
 
 	// track output in output manager and make sure it's confirmed
-	outputIDs := e.outputManager.AddOutputsByAddress(address)
+	outputIDs := e.outputManager.AddOutputsByAddress(addrStr)
 	if len(outputIDs) == 0 {
 		err = errors.New("no outputIDs found on address ")
 		return
