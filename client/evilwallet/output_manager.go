@@ -18,7 +18,10 @@ const (
 	rejected
 )
 
-var awaitOutputsByAddress = 3 * time.Second
+var (
+	awaitOutputsByAddress    = 3 * time.Second
+	awaitOutputToBeConfirmed = 3 * time.Second
+)
 
 // Output contains details of an output ID.
 type Output struct {
@@ -55,7 +58,7 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 		wg.Add(1)
 		go func(id ledgerstate.OutputID) {
 			defer wg.Done()
-			ok := o.AwaitOutputToBeConfirmed(id, 3*time.Second)
+			ok := o.AwaitOutputToBeConfirmed(id, awaitOutputToBeConfirmed)
 			if ok {
 				o.status[id].Status = confirmed
 			}
@@ -92,11 +95,12 @@ func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgers
 		}
 	}
 
-	outputIDs = o.AddOutputsByJson(outputs)
+	outputIDs = o.addOutputsByJSON(outputs)
 
 	return outputIDs
 }
 
+// AddOutputsByTxID adds the outputs of a given transaction to the output status map.
 func (o *OutputManager) AddOutputsByTxID(txID ledgerstate.TransactionID) (outputIDs []ledgerstate.OutputID) {
 	client := o.connector.GetClient()
 	// add output to map
@@ -105,23 +109,23 @@ func (o *OutputManager) AddOutputsByTxID(txID ledgerstate.TransactionID) (output
 		return
 	}
 
-	outputIDs = o.AddOutputsByJson(tx.Outputs)
+	outputIDs = o.addOutputsByJSON(tx.Outputs)
 	return outputIDs
 }
 
-func (o *OutputManager) AddOutputsByJson(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
+func (o *OutputManager) addOutputsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
 	for _, jsonOutput := range outputs {
 		output, err := jsonOutput.ToLedgerstateOutput()
 		if err != nil {
 			continue
 		}
-		o.AddOutput(output)
+		o.addOutput(output)
 		outputIDs = append(outputIDs, output.ID())
 	}
 	return outputIDs
 }
 
-func (o *OutputManager) AddOutput(output ledgerstate.Output) {
+func (o *OutputManager) addOutput(output ledgerstate.Output) {
 	balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 	o.status[output.ID()] = &Output{
 		OutputID: output.ID(),
