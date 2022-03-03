@@ -73,9 +73,19 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 }
 
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
+func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
+	return f.issuePayload(p, nil, parentsCount...)
+}
+
+// IssuePayloadWithReferences creates a new message with the references submit.
+func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, references ParentMessageIDs) (*Message, error) {
+	return f.issuePayload(p, references)
+}
+
+// issuePayload create a new message. If there are any supplied references, it uses them. Otherwise, uses tip selection.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
+func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessageIDs, parentsCount ...int) (*Message, error) {
 	f.tangle.Booker.Lock()
 	defer f.tangle.Booker.Unlock()
 
@@ -85,20 +95,13 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
-
 	f.issuanceMutex.Lock()
-
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
 		f.issuanceMutex.Unlock()
 		return nil, err
-	}
-
-	countParents := 2
-	if len(parentsCount) > 0 {
-		countParents = parentsCount[0]
 	}
 
 	issuerPublicKey := f.localIdentity.PublicKey()
@@ -109,10 +112,17 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	var nonce uint64
 	var parents MessageIDsSlice
 	var issuingTime time.Time
-	var references ParentMessageIDs
+
+	for _, messageIDs := range references {
+		parents = append(parents, messageIDs.Slice()...)
+	}
+	countParents := 2
+	if len(parentsCount) > 0 {
+		countParents = parentsCount[0]
+	}
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		if len(parents) == 0 || p.Type() != ledgerstate.TransactionType {
+		if len(references) == 0 && (len(parents) == 0 || p.Type() != ledgerstate.TransactionType) {
 			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
@@ -120,16 +130,17 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 				return nil, err
 			}
 		}
-		issuingTime = f.GetIssuingTime(parents)
-
-		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
+		issuingTime = f.getIssuingTime(parents)
+		if len(references) == 0 {
+			references, err = f.referencesFunc(parents, issuingTime, f.tangle)
+		}
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
 			f.issuanceMutex.Unlock()
 			return nil, err
 		}
-		nonce, errPoW = f.DoPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if errPoW != nil {
@@ -141,7 +152,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	f.issuanceMutex.Unlock()
 
 	// create the signature
-	signature, err := f.Sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = errors.Errorf("signing failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -167,8 +178,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-// GetIssuingTime gets the right issuing time for the message considering ParentAge check.
-func (f *MessageFactory) GetIssuingTime(parents MessageIDsSlice) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
@@ -219,10 +229,6 @@ func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.Transacti
 	return earliestAttachment
 }
 
-func (f *MessageFactory) NextSequenceNumber() (uint64, error) {
-	return f.sequence.Next()
-}
-
 // Shutdown closes the MessageFactory and persists the sequence number.
 func (f *MessageFactory) Shutdown() {
 	if err := f.sequence.Release(); err != nil {
@@ -230,8 +236,8 @@ func (f *MessageFactory) Shutdown() {
 	}
 }
 
-// DoPOW performs pow on the message and returns a nonce.
-func (f *MessageFactory) DoPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+// doPOW performs pow on the message and returns a nonce.
+func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
 	if err != nil {
@@ -245,8 +251,7 @@ func (f *MessageFactory) DoPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-// Sign signs a payload and returns the signature.
-func (f *MessageFactory) Sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
 	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
 	if err != nil {

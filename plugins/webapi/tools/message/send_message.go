@@ -15,6 +15,7 @@ import (
 
 const maxIssuedAwaitTime = 5 * time.Second
 
+// SendMessage is the handler for tools/message endpoint.
 func SendMessage(c echo.Context) error {
 	if !deps.Tangle.Synced() {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotSynced.Error()})
@@ -35,7 +36,6 @@ func SendMessage(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no parents provided"})
 	}
 
-	var parents tangle.MessageIDsSlice
 	references := tangle.NewParentMessageIDs()
 	for _, p := range request.ParentMessageIDs {
 		for _, ID := range p.MessageIDs {
@@ -44,54 +44,37 @@ func SendMessage(c echo.Context) error {
 				return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: fmt.Sprintf("error decoding messageID: %s", ID)})
 			}
 			references = references.Add(tangle.ParentsType(p.Type), msgID)
-			parents = append(parents, msgID)
 		}
-	}
-
-	// fields set on the node
-	issuerPublicKey := deps.Local.PublicKey()
-	issuingTime := deps.Tangle.MessageFactory.GetIssuingTime(parents)
-	sequenceNumber, err := deps.Tangle.MessageFactory.NextSequenceNumber()
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 	msgPayload, _, err := payload.GenericDataPayloadFromBytes(request.Payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	nonce, err := deps.Tangle.MessageFactory.DoPOW(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
-	}
-	signature, err := deps.Tangle.MessageFactory.Sign(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
-	}
-	msg, err := tangle.NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature)
+	msg, err := deps.Tangle.MessageFactory.IssuePayloadWithReferences(msgPayload, references)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
 
-	go deps.Tangle.MessageFactory.Events.MessageConstructed.Trigger(msg)
-
-	// await messageProcessed event to be triggered.
+	// await MessageScheduled event to be triggered.
 	timer := time.NewTimer(maxIssuedAwaitTime)
 	defer timer.Stop()
-	msgStored := make(chan bool)
+	msgScheduled := make(chan bool)
 
-	messageStoredClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	messageScheduledClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		if messageID.CompareTo(msg.ID()) == 0 {
-			msgStored <- true
+			msgScheduled <- true
 		}
 	})
-	deps.Tangle.Storage.Events.MessageStored.Attach(messageStoredClosure)
-	defer deps.Tangle.Storage.Events.MessageStored.Detach(messageStoredClosure)
+	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(messageScheduledClosure)
+	defer deps.Tangle.Scheduler.Events.MessageScheduled.Detach(messageScheduledClosure)
+
+	go deps.Tangle.MessageFactory.Events.MessageConstructed.Trigger(msg)
 L:
 	for {
 		select {
 		case <-timer.C:
-			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "message not stored in time"})
-		case <-msgStored:
+			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "message not scheduled in time"})
+		case <-msgScheduled:
 			break L
 		}
 	}

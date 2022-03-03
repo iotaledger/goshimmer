@@ -1,6 +1,6 @@
 package jsonmodels
 
-// ParentMessageIDs is a json representation of tangle.ParentMessageIDs
+// ParentMessageIDs is a json representation of tangle.ParentMessageIDs.
 type ParentMessageIDs struct {
 	Type       uint8    `json:"type"`
 	MessageIDs []string `json:"messageIDs"`

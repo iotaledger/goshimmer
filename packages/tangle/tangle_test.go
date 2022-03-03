@@ -619,7 +619,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
 	// do the PoW
-	nonce, err := f.DoPOW(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p)
+	nonce, err := f.doPOW(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p)
 	if err != nil {
 		err = fmt.Errorf("pow failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -627,7 +627,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 	}
 
 	// create the signature
-	signature, err := f.Sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
+	signature, err := f.sign(emptyLikeReferencesFromStrongParents(parents), issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
 		err = fmt.Errorf("signing failed failed: %w", err)
 		f.Events.Error.Trigger(err)
