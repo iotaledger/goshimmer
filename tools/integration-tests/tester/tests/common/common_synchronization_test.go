@@ -133,6 +133,46 @@ func TestFirewall(t *testing.T) {
 	assert.Equal(t, 0, got2)
 }
 
+func TestConfirmMessage(t *testing.T) {
+	peer1IdentSeed := func() []byte {
+		seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[0])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+
+	peer2IdentSeed := func() []byte {
+		seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[1])
+		require.NoError(t, err)
+		return seedBytes
+	}()
+
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		StartSynced: true,
+	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
+		cfg.UseNodeSeedAsWalletSeed = true
+		switch peerIndex {
+		case 0:
+			cfg.Seed = peer1IdentSeed
+		case 1:
+			cfg.Seed = peer2IdentSeed
+		}
+		return cfg
+	})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
+	peers := n.Peers()
+	msgID, err := peers[0].Data([]byte("test"))
+	require.Nil(t, err)
+	metadata, err := peers[0].GetMessageMetadata(msgID)
+	require.Nil(t, err)
+	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
+	tests.TryConfirmMessage(t, n, peers[:], msgID, 5*time.Second, 1*time.Millisecond)
+}
+
 func createNewPeerConfig(t *testing.T) config.GoShimmer {
 	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[3])
 	require.NoError(t, err)
