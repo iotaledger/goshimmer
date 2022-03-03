@@ -31,8 +31,6 @@ type Booker struct {
 	bookerQueue chan MessageID
 	shutdown    chan struct{}
 	shutdownWG  sync.WaitGroup
-
-	sync.RWMutex
 }
 
 // NewBooker is the constructor of a Booker.
@@ -158,9 +156,6 @@ func (b *Booker) Shutdown() {
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	b.RLock()
-	defer b.RUnlock()
-
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
