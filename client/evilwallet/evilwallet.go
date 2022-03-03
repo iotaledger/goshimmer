@@ -206,6 +206,36 @@ func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
+// SendCustomConflicts sends transactions with the given conflictsMaps.
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+	for _, conflictmap := range conflictsMaps {
+		var txs []*ledgerstate.Transaction
+		for txAlias, options := range conflictmap {
+			tx, err := e.CreateTransaction(txAlias, options...)
+			if err != nil {
+				return err
+			}
+			txs = append(txs, tx)
+		}
+
+		if len(txs) > len(clients) {
+			return errors.New("insufficient clients to send double spend")
+		}
+
+		// send transactions in parallel
+		wg := sync.WaitGroup{}
+		for i, tx := range txs {
+			wg.Add(1)
+			go func(clt *client.GoShimmerAPI, tx *ledgerstate.Transaction) {
+				defer wg.Done()
+				clt.PostTransaction(tx.Bytes())
+			}(clients[i], tx)
+		}
+		wg.Wait()
+	}
+	return
+}
+
 // CreateTransaction creates a transaction with the given aliasName and options.
 func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
@@ -244,6 +274,9 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 		// register output as unspent output(input)
 		input := ledgerstate.NewUTXOInput(output.ID())
 		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
+
+		// add output to outputmanager
+		e.outputManager.AddOutput(output)
 	}
 
 	e.aliasManager.AddTransactionAlias(tx, aliasName)

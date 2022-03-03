@@ -119,13 +119,13 @@ func (o *OutputManager) addOutputsByJSON(outputs []*jsonmodels.Output) (outputID
 		if err != nil {
 			continue
 		}
-		o.addOutput(output)
+		o.AddOutput(output)
 		outputIDs = append(outputIDs, output.ID())
 	}
 	return outputIDs
 }
 
-func (o *OutputManager) addOutput(output ledgerstate.Output) {
+func (o *OutputManager) AddOutput(output ledgerstate.Output) {
 	balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 	o.status[output.ID()] = &Output{
 		OutputID: output.ID(),
