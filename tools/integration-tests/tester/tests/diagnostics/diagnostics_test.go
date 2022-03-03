@@ -4,16 +4,13 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -115,29 +112,23 @@ func TestSendMessageAPI(t *testing.T) {
 	api := node.GoShimmerAPI
 
 	sent := tests.SendDataMessages(t, n.Peers()[:1], 5)
-	parentMessageIDs := tangle.NewParentMessageIDs()
-
-	for k := range sent {
-		parentID, _ := tangle.NewMessageID(k)
-		parentMessageIDs = parentMessageIDs.Add(tangle.StrongParentType, parentID)
+	var parentMessageIDs []jsonmodels.ParentMessageIDs
+	var messageIDS []string
+	for pID := range sent {
+		messageIDS = append(messageIDS, pID)
 	}
-	msg, err := tangle.NewMessage(
-		parentMessageIDs,
-		time.Time{},
-		ed25519.PublicKey{},
-		0,
-		payload.NewGenericDataPayload([]byte("test")),
-		0,
-		ed25519.Signature{},
-	)
-	require.NoError(t, err)
-	msgID, err := api.SendMessage(msg.Bytes())
-	require.NoError(t, err)
+	parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+		Type:       uint8(tangle.StrongParentType),
+		MessageIDs: messageIDS,
+	})
 
-	// pow is being done on the node
+	msgID, err := api.SendMessage(&jsonmodels.SendMessageRequest{
+		Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
+		ParentMessageIDs: parentMessageIDs,
+	})
+	require.NoError(t, err)
 	require.Eventually(t, func() bool {
 		_, err = node.GetMessage(msgID)
 		return err == nil
-	}, 5*time.Second, 1*time.Second)
-	require.NoError(t, err)
+	}, tests.Timeout, tests.Tick)
 }

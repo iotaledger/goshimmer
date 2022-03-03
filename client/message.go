@@ -57,10 +57,9 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 }
 
 // SendMessage sends the given message to the backend.
-func (api *GoShimmerAPI) SendMessage(data []byte) (string, error) {
+func (api *GoShimmerAPI) SendMessage(req *jsonmodels.SendMessageRequest) (string, error) {
 	res := &jsonmodels.DataResponse{}
-	if err := api.do(http.MethodPost, routeSendMessage,
-		&jsonmodels.DataRequest{Data: data}, res); err != nil {
+	if err := api.do(http.MethodPost, routeSendMessage, req, res); err != nil {
 		return "", err
 	}
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -18,54 +19,55 @@ func SendMessage(c echo.Context) error {
 	if !deps.Tangle.Synced() {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotSynced.Error()})
 	}
-	deps.Tangle.Booker.Lock()
-	defer deps.Tangle.Booker.Unlock()
 
 	if c.Request().Body == nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "invalid message, error: request body is missing"})
 	}
 
-	var request jsonmodels.DataRequest
+	var request jsonmodels.SendMessageRequest
 	if err := c.Bind(&request); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	if len(request.Data) == 0 {
+	if len(request.Payload) == 0 {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
 	}
-
-	msg, _, err := tangle.MessageFromBytes(request.Data)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: fmt.Sprintf("error: %s", err.Error())})
+	if len(request.ParentMessageIDs) == 0 {
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no parents provided"})
 	}
 
-	if msg.Version() != tangle.MessageVersion {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "invalid message version"})
-	}
+	var parents tangle.MessageIDsSlice
 	references := tangle.NewParentMessageIDs()
-	msg.ForEachParent(func(parent tangle.Parent) {
-		references = references.Add(parent.Type, parent.ID)
-	})
+	for _, p := range request.ParentMessageIDs {
+		for _, ID := range p.MessageIDs {
+			msgID, err := tangle.NewMessageID(ID)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: fmt.Sprintf("error decoding messageID: %s", ID)})
+			}
+			references = references.Add(tangle.ParentsType(p.Type), msgID)
+			parents = append(parents, msgID)
+		}
+	}
 
 	// fields set on the node
 	issuerPublicKey := deps.Local.PublicKey()
-	var parents tangle.MessageIDsSlice
-	msg.ForEachParent(func(parent tangle.Parent) {
-		parents = append(parents, parent.ID)
-	})
 	issuingTime := deps.Tangle.MessageFactory.GetIssuingTime(parents)
 	sequenceNumber, err := deps.Tangle.MessageFactory.NextSequenceNumber()
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	nonce, err := deps.Tangle.MessageFactory.DoPOW(references, issuingTime, issuerPublicKey, sequenceNumber, msg.Payload())
+	msgPayload, _, err := payload.GenericDataPayloadFromBytes(request.Payload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	signature, err := deps.Tangle.MessageFactory.Sign(references, issuingTime, issuerPublicKey, sequenceNumber, msg.Payload(), nonce)
+	nonce, err := deps.Tangle.MessageFactory.DoPOW(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
-	msg, err = tangle.NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msg.Payload(), nonce, signature)
+	signature, err := deps.Tangle.MessageFactory.Sign(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
+	}
+	msg, err := tangle.NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: err.Error()})
 	}
@@ -74,19 +76,21 @@ func SendMessage(c echo.Context) error {
 
 	// await messageProcessed event to be triggered.
 	timer := time.NewTimer(maxIssuedAwaitTime)
-	msgStored := make(chan bool)
 	defer timer.Stop()
+	msgStored := make(chan bool)
 
-	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	messageStoredClosure := events.NewClosure(func(messageID tangle.MessageID) {
 		if messageID.CompareTo(msg.ID()) == 0 {
 			msgStored <- true
 		}
-	}))
+	})
+	deps.Tangle.Storage.Events.MessageStored.Attach(messageStoredClosure)
+	defer deps.Tangle.Storage.Events.MessageStored.Detach(messageStoredClosure)
 L:
 	for {
 		select {
 		case <-timer.C:
-			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "message not processed in time"})
+			return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "message not stored in time"})
 		case <-msgStored:
 			break L
 		}
