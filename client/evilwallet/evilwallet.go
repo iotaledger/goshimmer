@@ -252,23 +252,22 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
-		index, err := e.getSeedIndexFromInput(input, w)
+		address, err := e.getAddressFromInput(input)
 		if err != nil {
 			return nil, err
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(index, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(address, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }
 
-func (e *EvilWallet) getSeedIndexFromInput(input ledgerstate.Input, w *Wallet) (index uint64, err error) {
+func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerstate.Address, err error) {
 	typeCastedInput, ok := input.(*ledgerstate.UTXOInput)
 	if !ok {
 		err = errors.New("wrong type of input")
 		return
 	}
-	addr := e.outputManager.GetOutput(typeCastedInput.ReferencedOutputID()).Address
-	index = w.addrIndexMap[addr.Base58()]
+	addr = e.outputManager.GetOutput(typeCastedInput.ReferencedOutputID()).Address
 	return
 }
 

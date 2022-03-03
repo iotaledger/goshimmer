@@ -84,6 +84,7 @@ type Wallet struct {
 	*sync.RWMutex
 }
 
+// NewWallet creates a wallet of a given type.
 func NewWallet(wType WalletType) *Wallet {
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
@@ -103,6 +104,7 @@ func NewWallet(wType WalletType) *Wallet {
 	return wallet
 }
 
+// Address returns a new and unused address of a given wallet.
 func (w *Wallet) Address() address.Address {
 	w.lastAddrIdxUsed.Add(1)
 	index := uint64(w.lastAddrIdxUsed.Load())
@@ -113,6 +115,7 @@ func (w *Wallet) Address() address.Address {
 	return addr
 }
 
+// AddUnspentOutput adds an unspentoutput of a given wallet.
 func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate.OutputID, balance uint64) {
 	w.Lock()
 	defer w.Unlock()
@@ -126,7 +129,8 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
-func (w *Wallet) sign(index uint64, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+	index := w.addrIndexMap[addr.Base58()]
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
