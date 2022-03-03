@@ -150,7 +150,7 @@ func TestConfirmMessage(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
 		cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
 		cfg.UseNodeSeedAsWalletSeed = true
 		switch peerIndex {
