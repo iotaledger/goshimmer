@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	routeDiagnostics = "snapshottool/diagnostic"
+	routeDiagnostics = "tools/diagnostic"
 	// RouteDiagnosticMessages is the API route for message diagnostics.
 	RouteDiagnosticMessages = routeDiagnostics + "/messages"
 	// RouteDiagnosticsFirstWeakMessageReferences is the API route for first weak message diagnostics.

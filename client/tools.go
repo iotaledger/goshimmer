@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	routePastCone = "snapshottool/message/pastcone"
-	routeMissing  = "snapshottool/message/missing"
+	routePastCone = "tools/message/pastcone"
+	routeMissing  = "tools/message/missing"
 )
 
 // ------------------- Communication layer -----------------------------

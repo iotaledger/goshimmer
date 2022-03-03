@@ -250,9 +250,9 @@ Depending on where you install Grafana from, the configuration directories will 
    ```
    We copy a couple configuration files from the repository into Grafana's directory:
    ```shell
-   $ cp -R goshimmer/snapshottool/monitoring/grafana/dashboards/local_dashboard.json grafana-7.0.4/public/dashboards/
-   $ cp goshimmer/snapshottool/monitoring/grafana/provisioning/datasources/datasources.yaml grafana-7.0.4/conf/provisioning/datasources/datasources.yaml
-   $ cp goshimmer/snapshottool/monitoring/grafana/provisioning/dashboards/dashboards.yaml grafana-7.0.4/conf/provisioning/dashboards/dashboards.yaml
+   $ cp -R goshimmer/tools/monitoring/grafana/dashboards/local_dashboard.json grafana-7.0.4/public/dashboards/
+   $ cp goshimmer/tools/monitoring/grafana/provisioning/datasources/datasources.yaml grafana-7.0.4/conf/provisioning/datasources/datasources.yaml
+   $ cp goshimmer/tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml grafana-7.0.4/conf/provisioning/dashboards/dashboards.yaml
    ```
 
 3. Run Grafana.
@@ -278,15 +278,15 @@ then Grafana is configured to run as a system service without any modification. 
 1. Copy [datasource yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/datasources/datasources.yaml) to `/etc/grafana`:
    (assuming you are at the root of the cloned GoShimmer repository)
    ```shell
-   $ sudo cp snapshottool/monitoring/grafana/provisioning/datasources/datasources.yaml /etc/grafana/provisioning/datasources
+   $ sudo cp tools/monitoring/grafana/provisioning/datasources/datasources.yaml /etc/grafana/provisioning/datasources
    ```
 2. Copy [dashboard yaml config](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml) to `/etc/grafana`:
    ```shell
-   $ sudo cp snapshottool/monitoring/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards
+   $ sudo cp tools/monitoring/grafana/provisioning/dashboards/dashboards.yaml /etc/grafana/provisioning/dashboards
    ``` 
 3. Copy [GoShimmer Local Metrics](https://github.com/iotaledger/goshimmer/blob/develop/tools/monitoring/grafana/dashboards/local_dashboard.json) dashboard to `/var/lib/grafana/`:
    ```shell
-   $ sudo cp -R snapshottool/monitoring/grafana/dashboards /var/lib/grafana/
+   $ sudo cp -R tools/monitoring/grafana/dashboards /var/lib/grafana/
    ```
 4. Reload daemon and start Grafana.
    ```shell

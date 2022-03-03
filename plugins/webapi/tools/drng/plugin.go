@@ -8,11 +8,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// PluginName is the name of the web API snapshottool DRNG endpoint plugin.
+// PluginName is the name of the web API tools DRNG endpoint plugin.
 const PluginName = "WebAPIToolsDRNGEndpoint"
 
 var (
-	// Plugin is the plugin instance of the web API snapshottool messages endpoint plugin.
+	// Plugin is the plugin instance of the web API tools messages endpoint plugin.
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 	deps   = new(dependencies)
 )
@@ -25,7 +25,7 @@ type dependencies struct {
 }
 
 const (
-	routeDiagnostics = "snapshottool/diagnostic"
+	routeDiagnostics = "tools/diagnostic"
 	// RouteDiagnosticsDRNG is the API route for DRNG diagnostics.
 	RouteDiagnosticsDRNG = routeDiagnostics + "/drng"
 )

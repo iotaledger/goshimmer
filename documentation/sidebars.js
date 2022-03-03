@@ -285,7 +285,7 @@ module.exports = {
       {
         type: 'doc',
         label: 'Tools',
-        id: 'apis/snapshottool',
+        id: 'apis/tools',
       },
     ],
   },

@@ -1,4 +1,4 @@
-package snapshottool
+package tools
 
 import (
 	"fmt"

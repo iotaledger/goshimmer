@@ -31,7 +31,7 @@ Prerequisites:
 
 ```shell
 # Mac & Linux
-cd snapshottool/integration-tests
+cd tools/integration-tests
 ./runTests.sh
 ```
 
