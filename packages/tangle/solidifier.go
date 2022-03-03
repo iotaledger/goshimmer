@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
@@ -66,7 +66,7 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *genericwalker.Walker[MessageID]) {
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
 	if !s.isMessageSolid(message, messageMetadata) {
 		return
 	}

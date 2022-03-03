@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -15,7 +15,7 @@ import (
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 	ManaType        Type
 	BaseValues      []float64
 	EffectiveValues []float64
@@ -36,7 +36,7 @@ func (persistableBaseMana *PersistableBaseMana) String() string {
 	)
 }
 
-var _ genericobjectstorage.StorableObject = &PersistableBaseMana{}
+var _ objectstorage.StorableObject = &PersistableBaseMana{}
 
 // Bytes  marshals the persistable mana into a sequence of bytes.
 func (persistableBaseMana *PersistableBaseMana) Bytes() []byte {
@@ -72,12 +72,12 @@ func (persistableBaseMana *PersistableBaseMana) ObjectStorageValue() []byte {
 }
 
 // FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
-func (persistableBaseMana *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (persistableBaseMana *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return persistableBaseMana.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.
-func (persistableBaseMana *PersistableBaseMana) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (persistableBaseMana *PersistableBaseMana) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil)
 	return

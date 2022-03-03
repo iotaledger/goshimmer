@@ -5,11 +5,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/hive.go/typeutils"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -37,12 +36,12 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *genericwalker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
+func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		return
 	}
 
-	messageIDWalker := genericwalker.New[MessageID](walker.New(revisitElements...))
+	messageIDWalker := walker.New[MessageID](revisitElements...)
 	for _, messageID := range entryPoints {
 		messageIDWalker.Push(messageID)
 	}
@@ -56,8 +55,8 @@ func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *generic
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessage(callback func(message *Message, walker *genericwalker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *genericwalker.Walker[MessageID]) {
+func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			callback(message, walker)
 		})
@@ -69,8 +68,8 @@ func (u *Utils) WalkMessage(callback func(message *Message, walker *genericwalke
 // should be visited more than once following different paths. The callback receives a Walker object as the last
 // parameter which can be used to control the behavior of the walk similar to how a "Context" is used in some parts of
 // the stdlib.
-func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *genericwalker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *genericwalker.Walker[MessageID]) {
+func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			callback(messageMetadata, walker)
 		})
@@ -82,8 +81,8 @@ func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetada
 // true if a Message should be visited more than once following different paths. The callback receives a Walker object
 // as the last parameter which can be used to control the behavior of the walk similar to how a "Context" is used in
 // some parts of the stdlib.
-func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *genericwalker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *genericwalker.Walker[MessageID]) {
+func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDsSlice, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				callback(message, messageMetadata, walker)
@@ -266,7 +265,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 	case types.False:
 		stronglyApproved = false
 	case types.Maybe:
-		u.WalkMessageID(func(messageID MessageID, walker *genericwalker.Walker[MessageID]) {
+		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 			if messageID == approvingMessageID {
 				stronglyApproved = true
 				walker.StopWalk()

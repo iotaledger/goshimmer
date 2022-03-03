@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -254,7 +254,7 @@ const (
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
 	version         uint8
@@ -430,12 +430,12 @@ func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
 }
 
 // FromObjectStorage parses the given key and bytes into a message.
-func (m *Message) FromObjectStorage(_, data []byte) (result genericobjectstorage.StorableObject, err error) {
+func (m *Message) FromObjectStorage(_, data []byte) (result objectstorage.StorableObject, err error) {
 	return m.FromBytes(data)
 }
 
 // FromBytes parses the given bytes into a message.
-func (*Message) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageFromMarshalUtil(marshalUtil)
 	if err != nil {
@@ -741,7 +741,7 @@ func (m *Message) String() string {
 	return builder.String()
 }
 
-var _ genericobjectstorage.StorableObject = &Message{}
+var _ objectstorage.StorableObject = &Message{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -825,7 +825,7 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 
 	messageID           MessageID
 	receivedTime        time.Time
@@ -869,12 +869,12 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (*MessageMetadata) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*MessageMetadata) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MessageMetadataFromMarshalUtil(marshalUtil)
 
@@ -1318,7 +1318,7 @@ func (m *MessageMetadata) String() string {
 	)
 }
 
-var _ genericobjectstorage.StorableObject = &MessageMetadata{}
+var _ objectstorage.StorableObject = &MessageMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

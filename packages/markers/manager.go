@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/types"
@@ -24,7 +23,7 @@ import (
 type Manager struct {
 	Options *ManagerOptions
 
-	sequenceStore          *genericobjectstorage.ObjectStorage[*Sequence]
+	sequenceStore          *objectstorage.ObjectStorage[*Sequence]
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 	shutdownOnce           sync.Once
@@ -189,7 +188,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 }
 
 // Sequence retrieves a Sequence from the object storage.
-func (m *Manager) Sequence(sequenceID SequenceID) *genericobjectstorage.CachedObject[*Sequence] {
+func (m *Manager) Sequence(sequenceID SequenceID) *objectstorage.CachedObject[*Sequence] {
 	return m.sequenceStore.Load(sequenceID.Bytes())
 }
 
@@ -222,7 +221,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 
 // initObjectStorage sets up the object storage for the Sequences.
 func (m *Manager) initObjectStorage() (self *Manager) {
-	m.sequenceStore = genericobjectstorage.New[*Sequence](m.Options.Store.WithRealm([]byte{database.PrefixMarkers, 0}), genericobjectstorage.CacheTime(m.Options.CacheTime))
+	m.sequenceStore = objectstorage.New[*Sequence](m.Options.Store.WithRealm([]byte{database.PrefixMarkers, 0}), objectstorage.CacheTime(m.Options.CacheTime))
 
 	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()
@@ -264,7 +263,7 @@ func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*Stru
 func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
 	normalizedMarkers = markers.Clone()
 
-	normalizeWalker := genericwalker.New[*Marker](walker.New())
+	normalizeWalker := walker.New[*Marker]()
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizeWalker.Push(NewMarker(sequenceID, index))
 
@@ -349,7 +348,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 // the earlier Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid
 // reference.
 func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
-	referenceWalker := genericwalker.New[*Marker](walker.New())
+	referenceWalker := walker.New[*Marker]()
 	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referenceWalker.Push(NewMarker(sequenceID, index))
 		return true

@@ -5,12 +5,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
-	genericset "github.com/iotaledger/hive.go/generics/set"
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
@@ -23,10 +21,10 @@ const BranchDAGCacheSize = 1024
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
-	branchStorage         *genericobjectstorage.ObjectStorage[Branch]
-	childBranchStorage    *genericobjectstorage.ObjectStorage[*ChildBranch]
-	conflictStorage       *genericobjectstorage.ObjectStorage[*Conflict]
-	conflictMemberStorage *genericobjectstorage.ObjectStorage[*ConflictMember]
+	branchStorage         *objectstorage.ObjectStorage[Branch]
+	childBranchStorage    *objectstorage.ObjectStorage[*ChildBranch]
+	conflictStorage       *objectstorage.ObjectStorage[*Conflict]
+	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
 	shutdownOnce          sync.Once
 	Events                *BranchDAGEvents
 
@@ -37,10 +35,10 @@ type BranchDAG struct {
 func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	newBranchDAG = &BranchDAG{
-		branchStorage:         genericobjectstorage.NewWithObjectFactory[Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), BranchFromObjectStorage, options.branchStorageOptions...),
-		childBranchStorage:    genericobjectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
-		conflictStorage:       genericobjectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
-		conflictMemberStorage: genericobjectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),
+		branchStorage:         objectstorage.NewWithObjectFactory[Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), BranchFromObjectStorage, options.branchStorageOptions...),
+		childBranchStorage:    objectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
+		conflictStorage:       objectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
+		conflictMemberStorage: objectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),
 		Events: &BranchDAGEvents{
 			BranchCreated:        events.NewEvent(BranchIDEventHandler),
 			BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),
@@ -55,7 +53,7 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 
 // CreateConflictBranch retrieves the ConflictBranch that corresponds to the given details. It automatically creates and
 // updates the ConflictBranch according to the new details if necessary.
-func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *genericobjectstorage.CachedObject[Branch], newBranchCreated bool, err error) {
+func (b *BranchDAG) CreateConflictBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedConflictBranch *objectstorage.CachedObject[Branch], newBranchCreated bool, err error) {
 	b.inclusionStateMutex.RLock()
 
 	resolvedParentBranchIDs, err := b.ResolveConflictBranchIDs(parentBranchIDs)
@@ -164,7 +162,7 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 	result := make(BranchIDs)
 
 	// iterate through parameters and collect the conflict branches
-	seenBranches := genericset.New[BranchID](set.New())
+	seenBranches := set.New[BranchID]()
 	for branchID := range branchIDs {
 		// abort if branch was processed already
 		if !seenBranches.Add(branchID) {
@@ -192,7 +190,7 @@ func (b *BranchDAG) ResolveConflictBranchIDs(branchIDs BranchIDs) (conflictBranc
 // ResolvePendingConflictBranchIDs returns the BranchIDs of the pending and rejected ConflictBranches that are
 // addressed by the given BranchIDs.
 func (b *BranchDAG) ResolvePendingConflictBranchIDs(branchIDs BranchIDs) (conflictBranchIDs BranchIDs, err error) {
-	branchWalker := genericwalker.New[BranchID](walker.New())
+	branchWalker := walker.New[BranchID]()
 	for branchID := range branchIDs {
 		branchWalker.Push(branchID)
 	}
@@ -236,11 +234,11 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 		panic(err)
 	}
 
-	confirmationWalker := genericwalker.New[BranchID](walker.New())
+	confirmationWalker := walker.New[BranchID]()
 	for conflictBranchID := range conflictBranchIDs {
 		confirmationWalker.Push(conflictBranchID)
 	}
-	rejectedWalker := genericwalker.New[BranchID](walker.New())
+	rejectedWalker := walker.New[BranchID]()
 
 	for confirmationWalker.HasNext() {
 		currentBranchID := confirmationWalker.Next()
@@ -356,7 +354,7 @@ func (b *BranchDAG) Shutdown() {
 // region STORAGE API //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() Branch) (cachedBranch *genericobjectstorage.CachedObject[Branch]) {
+func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() Branch) (cachedBranch *objectstorage.CachedObject[Branch]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return b.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) Branch {
 			return computeIfAbsentCallback[0]()
@@ -367,20 +365,20 @@ func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() 
 }
 
 // ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
-func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches genericobjectstorage.CachedObjects[*ChildBranch]) {
-	cachedChildBranches = make(genericobjectstorage.CachedObjects[*ChildBranch], 0)
-	b.childBranchStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*ChildBranch]) bool {
+func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
+	cachedChildBranches = make(objectstorage.CachedObjects[*ChildBranch], 0)
+	b.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch]) bool {
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
 
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(branchID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
 
 	return
 }
 
 // ForEachBranch iterates over all the branches and executes consumer.
 func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
-	b.branchStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[Branch]) bool {
+	b.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[Branch]) bool {
 		cachedObject.Consume(func(branch Branch) {
 			consumer(branch)
 		})
@@ -390,18 +388,18 @@ func (b *BranchDAG) ForEachBranch(consumer func(branch Branch)) {
 }
 
 // Conflict loads a Conflict from the object storage.
-func (b *BranchDAG) Conflict(conflictID ConflictID) *genericobjectstorage.CachedObject[*Conflict] {
+func (b *BranchDAG) Conflict(conflictID ConflictID) *objectstorage.CachedObject[*Conflict] {
 	return b.conflictStorage.Load(conflictID.Bytes())
 }
 
 // ConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
-func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMembers genericobjectstorage.CachedObjects[*ConflictMember]) {
-	cachedConflictMembers = make(genericobjectstorage.CachedObjects[*ConflictMember], 0)
-	b.conflictMemberStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*ConflictMember]) bool {
+func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember]) {
+	cachedConflictMembers = make(objectstorage.CachedObjects[*ConflictMember], 0)
+	b.conflictMemberStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ConflictMember]) bool {
 		cachedConflictMembers = append(cachedConflictMembers, cachedObject)
 
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(conflictID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
 
 	return
 }
@@ -444,8 +442,8 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 		panic(err)
 	}
 
-	traversedBranches := genericset.New[BranchID](set.New())
-	conflictSetsWalker := genericwalker.New[ConflictID](walker.New())
+	traversedBranches := set.New[BranchID]()
+	conflictSetsWalker := walker.New[ConflictID]()
 
 	processBranchAndQueueConflictSets := func(conflictBranchID BranchID) {
 		if !traversedBranches.Add(conflictBranchID) {

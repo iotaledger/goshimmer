@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
@@ -50,7 +50,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		return err
 	}
 
-	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *genericwalker.Walker[tangle.MessageID]) {
+	deps.Tangle.Utils.WalkMessageID(func(msgID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
 		approverInfo, err := firstApprovers(msgID)
 		// firstApprovers returns an error when the msgID is a tip, thus
 		// we want to stop the computation but continue with the future cone iteration.

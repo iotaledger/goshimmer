@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/randommap"
 	"github.com/iotaledger/hive.go/events"
-	genericrandommap "github.com/iotaledger/hive.go/generics/randommap"
+	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 	"github.com/iotaledger/hive.go/types"
@@ -105,7 +104,7 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
 	tangle      *Tangle
-	tips        *genericrandommap.RandomMap[MessageID, MessageID]
+	tips        *randommap.RandomMap[MessageID, MessageID]
 	tipsCleaner *TimedTaskExecutor
 	Events      *TipManagerEvents
 }
@@ -114,7 +113,7 @@ type TipManager struct {
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
 		tangle:      tangle,
-		tips:        genericrandommap.New[MessageID, MessageID](randommap.New()),
+		tips:        randommap.New[MessageID, MessageID](),
 		tipsCleaner: NewTimedTaskExecutor(1),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
@@ -328,7 +327,7 @@ func (t *TipManager) AllTips() MessageIDsSlice {
 	return retrieveAllTips(t.tips)
 }
 
-func retrieveAllTips(tipsMap *genericrandommap.RandomMap[MessageID, MessageID]) MessageIDsSlice {
+func retrieveAllTips(tipsMap *randommap.RandomMap[MessageID, MessageID]) MessageIDsSlice {
 	mapKeys := tipsMap.Keys()
 	tips := make(MessageIDsSlice, len(mapKeys))
 	for i, key := range mapKeys {

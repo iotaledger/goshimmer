@@ -9,9 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
-	genericorderedmap "github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
@@ -46,7 +45,7 @@ var (
 	preparingWorkerQueueSize = MaxFaucetOutputsCount + 1
 	targetPoWDifficulty      int
 	// blacklist makes sure that an address might only request tokens once.
-	blacklist         *genericorderedmap.OrderedMap[string, bool]
+	blacklist         *orderedmap.OrderedMap[string, bool]
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
@@ -103,7 +102,7 @@ func newFaucet() *StateManager {
 
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	blacklist = genericorderedmap.New[string, bool](orderedmap.New())
+	blacklist = orderedmap.New[string, bool]()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	_faucet = newFaucet()
 

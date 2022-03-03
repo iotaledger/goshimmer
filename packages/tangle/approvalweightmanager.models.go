@@ -6,10 +6,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
-	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -29,7 +28,7 @@ type BranchWeight struct {
 
 	weightMutex sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewBranchWeight creates a new BranchWeight.
@@ -45,12 +44,12 @@ func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight)
 }
 
 // FromObjectStorage creates an BranchWeight from sequences of key and bytes.
-func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return b.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a BranchWeight object from a sequence of bytes.
-func (*BranchWeight) FromBytes(bytes []byte) (branchWeight genericobjectstorage.StorableObject, err error) {
+func (*BranchWeight) FromBytes(bytes []byte) (branchWeight objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchWeight, err = BranchWeightFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
@@ -132,7 +131,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ genericobjectstorage.StorableObject = &BranchWeight{}
+var _ objectstorage.StorableObject = &BranchWeight{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -147,42 +146,20 @@ type Voter = identity.ID
 
 // Voters is a set of node identities that votes for a particular Branch.
 type Voters struct {
-	set.Set
+	set.Set[Voter]
 }
 
 // NewVoters is the constructor of the Voters type.
 func NewVoters() (voters *Voters) {
 	return &Voters{
-		Set: set.New(),
+		Set: set.New[Voter](),
 	}
-}
-
-// Add adds a new Voter to the Set and returns true if the Voter was not present in the set before.
-func (v *Voters) Add(voter Voter) (added bool) {
-	return v.Set.Add(voter)
 }
 
 // AddAll adds all new Voters to the Set.
 func (v *Voters) AddAll(voters *Voters) {
 	voters.ForEach(func(voter Voter) {
 		v.Set.Add(voter)
-	})
-}
-
-// Delete removes the Voter from the Set and returns true if it did exist.
-func (v *Voters) Delete(voter Voter) (deleted bool) {
-	return v.Set.Delete(voter)
-}
-
-// Has returns true if the Voter exists in the Set.
-func (v *Voters) Has(voter Voter) (has bool) {
-	return v.Set.Has(voter)
-}
-
-// ForEach iterates through the Voters and calls the callback for every element.
-func (v *Voters) ForEach(callback func(voter Voter)) {
-	v.Set.ForEach(func(element interface{}) {
-		callback(element.(Voter))
 	})
 }
 
@@ -204,7 +181,6 @@ func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
 			intersection.Add(voter)
 		}
 	})
-
 	return
 }
 
@@ -229,7 +205,7 @@ type BranchVoters struct {
 
 	votersMutex sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewBranchVoters is the constructor for the BranchVoters object.
@@ -246,12 +222,12 @@ func NewBranchVoters(branchID ledgerstate.BranchID) (branchVoters *BranchVoters)
 }
 
 // FromObjectStorage creates an BranchVoters from sequences of key and bytes.
-func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return b.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func (*BranchVoters) FromBytes(bytes []byte) (branchVoters genericobjectstorage.StorableObject, err error) {
+func (*BranchVoters) FromBytes(bytes []byte) (branchVoters objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchVoters, err = BranchVotersFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
@@ -385,7 +361,7 @@ func (b *BranchVoters) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ genericobjectstorage.StorableObject = &BranchVoters{}
+var _ objectstorage.StorableObject = &BranchVoters{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -416,7 +392,7 @@ const (
 type VotePower = uint64
 
 // LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.
-var LatestMarkerVotesKeyPartition = genericobjectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
+var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
 
 // LatestMarkerVotes keeps track of the most up-to-date for a certain Voter casted on a specific Marker SequenceID.
 // Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
@@ -425,10 +401,10 @@ var LatestMarkerVotesKeyPartition = genericobjectstorage.PartitionKey(markers.Se
 type LatestMarkerVotes struct {
 	sequenceID        markers.SequenceID
 	voter             Voter
-	latestMarkerVotes *genericthresholdmap.ThresholdMap[markers.Index, VotePower]
+	latestMarkerVotes *thresholdmap.ThresholdMap[markers.Index, VotePower]
 
 	sync.RWMutex
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
@@ -436,7 +412,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	newLatestMarkerVotes = &LatestMarkerVotes{
 		sequenceID:        sequenceID,
 		voter:             voter,
-		latestMarkerVotes: genericthresholdmap.New[markers.Index, VotePower](thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)),
+		latestMarkerVotes: thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator),
 	}
 
 	newLatestMarkerVotes.SetModified()
@@ -446,12 +422,12 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 }
 
 // FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
-func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return l.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
-func (*LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes genericobjectstorage.StorableObject, err error) {
+func (*LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = LatestMarkerVotesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -475,7 +451,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
 	}
 
-	latestMarkerVotes.latestMarkerVotes = genericthresholdmap.New[markers.Index, VotePower](thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator))
+	latestMarkerVotes.latestMarkerVotes = thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)
 	for i := uint64(0); i < mapSize; i++ {
 		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if markerIndexErr != nil {
@@ -547,7 +523,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
-	l.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, VotePower]) bool {
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
 		builder.AddField(stringify.StructField(node.Key().String(), node.Value()))
 
 		return true
@@ -573,7 +549,7 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(l.latestMarkerVotes.Size()))
-	l.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, VotePower]) bool {
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
 		marshalUtil.Write(node.Key())
 		marshalUtil.WriteUint64(node.Value())
 
@@ -583,14 +559,14 @@ func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-var _ genericobjectstorage.StorableObject = &LatestMarkerVotes{}
+var _ objectstorage.StorableObject = &LatestMarkerVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region CachedLatestMarkerVotesByVoter ///////////////////////////////////////////////////////////////////////////////
 
 // CachedLatestMarkerVotesByVoter represents a cached LatestMarkerVotesByVoter mapped by Voter.
-type CachedLatestMarkerVotesByVoter map[Voter]*genericobjectstorage.CachedObject[*LatestMarkerVotes]
+type CachedLatestMarkerVotesByVoter map[Voter]*objectstorage.CachedObject[*LatestMarkerVotes]
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
@@ -612,7 +588,7 @@ type LatestBranchVotes struct {
 	latestBranchVotes map[ledgerstate.BranchID]*BranchVote
 
 	sync.RWMutex
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // Vote returns the Vote for the LatestBranchVotes.
@@ -654,12 +630,12 @@ func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 }
 
 // FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
-func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return l.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func (*LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes genericobjectstorage.StorableObject, err error) {
+func (*LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestBranchVotes, err = LatestBranchVotesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -737,7 +713,7 @@ func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ genericobjectstorage.StorableObject = &LatestBranchVotes{}
+var _ objectstorage.StorableObject = &LatestBranchVotes{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

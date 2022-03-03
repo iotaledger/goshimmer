@@ -6,8 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
-	genericorderedmap "github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -77,7 +76,7 @@ func (c Color) Base58() string {
 	return base58.Encode(c.Bytes())
 }
 
-// String creates a human readable string of the Color.
+// String creates a human-readable string of the Color.
 func (c Color) String() string {
 	switch c {
 	case ColorIOTA:
@@ -102,12 +101,12 @@ func (c Color) Compare(otherColor Color) int {
 // ColoredBalances represents a collection of balances associated to their respective Color that maintains a
 // deterministic order of the present Colors.
 type ColoredBalances struct {
-	balances *genericorderedmap.OrderedMap[Color, uint64]
+	balances *orderedmap.OrderedMap[Color, uint64]
 }
 
 // NewColoredBalances returns a new deterministically ordered collection of ColoredBalances.
 func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBalances) {
-	coloredBalances = &ColoredBalances{balances: genericorderedmap.New[Color, uint64](orderedmap.New())}
+	coloredBalances = &ColoredBalances{balances: orderedmap.New[Color, uint64]()}
 
 	// deterministically sort colors
 	sortedColors := make([]Color, 0, len(balances))
@@ -204,7 +203,7 @@ func (c *ColoredBalances) Size() int {
 
 // Clone returns a copy of the ColoredBalances.
 func (c *ColoredBalances) Clone() *ColoredBalances {
-	copiedBalances := genericorderedmap.New[Color, uint64](orderedmap.New())
+	copiedBalances := orderedmap.New[Color, uint64]()
 	c.balances.ForEach(copiedBalances.Set)
 
 	return &ColoredBalances{

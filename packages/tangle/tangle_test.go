@@ -17,8 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/randommap"
-	genericrandommap "github.com/iotaledger/hive.go/generics/randommap"
+	"github.com/iotaledger/hive.go/generics/randommap"
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
@@ -237,7 +236,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, tangle.Prune())
 
 	// map to keep track of the tips
-	tips := genericrandommap.New[MessageID, MessageID](randommap.New())
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory
@@ -387,7 +386,7 @@ func TestTangle_Flow(t *testing.T) {
 	require.NoError(t, err)
 
 	// map to keep track of the tips
-	tips := genericrandommap.New[MessageID, MessageID](randommap.New())
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle

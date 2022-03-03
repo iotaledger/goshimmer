@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
@@ -1297,7 +1297,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		immutableData:       []byte("some data"),
 		isGovernanceUpdate:  false,
 		governingAddress:    randAliasAddress(),
-		StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 	aliasStateWallet := genRandomWallet()
 	alias := &AliasOutput{
@@ -1311,7 +1311,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		immutableData:       []byte("some data"),
 		isGovernanceUpdate:  false,
 		governingAddress:    governingAlias.GetAliasAddress(),
-		StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		// unlocked for gov transition
@@ -1412,7 +1412,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		immutableData:       []byte("some immutable data"),
 		isGovernanceUpdate:  false,
 		governingAddress:    governingWallet.address,
-		StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 
 	t.Run("CASE: Alias unlocked by signature", func(t *testing.T) {
@@ -1565,7 +1565,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 			immutableData:       []byte("some data"),
 			isGovernanceUpdate:  false,
 			governingAddress:    randAliasAddress(),
-			StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+			StorableObjectFlags: objectstorage.StorableObjectFlags{},
 		}
 		aliasStateWallet := genRandomWallet()
 		governedAlias := &AliasOutput{
@@ -1579,7 +1579,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 			immutableData:       []byte("some data"),
 			isGovernanceUpdate:  false,
 			governingAddress:    governingAlias.GetAliasAddress(),
-			StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+			StorableObjectFlags: objectstorage.StorableObjectFlags{},
 		}
 		// unlocked for gov transition
 		nextAlias := governedAlias.NewAliasOutputNext(true)
@@ -2357,7 +2357,7 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 		isDelegated:         false,
 		governingAddress:    randAliasAddress(),
 		delegationTimelock:  time.Time{},
-		StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 }
 
@@ -2371,7 +2371,7 @@ func dummyExtendedLockedOutput() *ExtendedLockedOutput {
 		fallbackDeadline:    time.Unix(1001, 0),
 		timelock:            time.Unix(2000, 0),
 		payload:             []byte("a payload"),
-		StorableObjectFlags: genericobjectstorage.StorableObjectFlags{},
+		StorableObjectFlags: objectstorage.StorableObjectFlags{},
 	}
 }
 

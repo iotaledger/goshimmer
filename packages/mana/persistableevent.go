@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
@@ -17,7 +17,7 @@ import (
 
 // PersistableEvent is a persistable event.
 type PersistableEvent struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 	Type          byte // pledge or revoke
 	NodeID        identity.ID
 	Amount        float64
@@ -130,13 +130,13 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 }
 
 // FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
-func (p *PersistableEvent) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (p *PersistableEvent) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return p.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
-func (p *PersistableEvent) FromBytes(data []byte) (result genericobjectstorage.StorableObject, err error) {
+func (p *PersistableEvent) FromBytes(data []byte) (result objectstorage.StorableObject, err error) {
 	return parseEvent(marshalutil.New(data))
 }
 
-var _ genericobjectstorage.StorableObject = &PersistableEvent{}
+var _ objectstorage.StorableObject = &PersistableEvent{}

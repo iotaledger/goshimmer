@@ -5,11 +5,9 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
-	genericset "github.com/iotaledger/hive.go/generics/set"
-	genericwalker "github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -270,8 +268,8 @@ func (s *SimpleFinalityGadget) setMarkerConfirmed(marker *markers.Marker) (updat
 
 // propagateGoFToMessagePastCone propagates the given GradeOfFinality to the past cone of the Message.
 func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
-	strongParentWalker := genericwalker.New[tangle.MessageID](walker.New(false)).Push(messageID)
-	weakParentsSet := genericset.New[tangle.MessageID](set.New())
+	strongParentWalker := walker.New[tangle.MessageID](false).Push(messageID)
+	weakParentsSet := set.New[tangle.MessageID]()
 
 	for strongParentWalker.HasNext() {
 		strongParentMessageID := strongParentWalker.Next()
@@ -316,7 +314,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
 
 	// update GoF of txs within the same branch
-	txGoFPropWalker := genericwalker.New[ledgerstate.TransactionID](walker.New())
+	txGoFPropWalker := walker.New[ledgerstate.TransactionID]()
 	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
 	})
@@ -331,7 +329,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	return err
 }
 
-func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledgerstate.TransactionID, candidateBranchID ledgerstate.BranchID, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *genericwalker.Walker[ledgerstate.TransactionID]) bool {
+func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledgerstate.TransactionID, candidateBranchID ledgerstate.BranchID, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) bool {
 	return s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(candidateTxID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		// we stop if we walk outside our branch
 		if transactionMetadata.BranchID() != candidateBranchID {
@@ -356,7 +354,7 @@ func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledg
 	})
 }
 
-func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgerstate.TransactionMetadata, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *genericwalker.Walker[ledgerstate.TransactionID]) {
+func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgerstate.TransactionMetadata, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) {
 	// abort if the grade of finality did not change
 	if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
 		return
@@ -377,7 +375,7 @@ func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgers
 	}
 }
 
-func (s *SimpleFinalityGadget) adjustOutputGoF(output ledgerstate.Output, newGradeOfFinality gof.GradeOfFinality, consumerTxs ledgerstate.TransactionIDs, txGoFPropWalker *genericwalker.Walker[ledgerstate.TransactionID]) bool {
+func (s *SimpleFinalityGadget) adjustOutputGoF(output ledgerstate.Output, newGradeOfFinality gof.GradeOfFinality, consumerTxs ledgerstate.TransactionIDs, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) bool {
 	return s.tangle.LedgerState.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		outputMetadata.SetGradeOfFinality(newGradeOfFinality)
 		s.tangle.LedgerState.Consumers(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {

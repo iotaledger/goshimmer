@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -857,7 +857,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotes.ForEach(func(node *genericthresholdmap.Element[markers.Index, uint64]) bool {
+	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
 		index := node.Key()
 		seq := node.Value()
 

@@ -9,9 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
-	genericthresholdmap "github.com/iotaledger/hive.go/generics/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -24,17 +23,17 @@ import (
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
 	sequenceID   markers.SequenceID
-	mapping      *genericthresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchID]
+	mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchID]
 	mappingMutex sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
-		mapping:    genericthresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator)),
+		mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
 	markerBranchMapping.SetModified()
@@ -44,12 +43,12 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
-func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (*MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping genericobjectstorage.StorableObject, err error) {
+func (*MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if markerIndexBranchIDMapping, err = MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
@@ -72,7 +71,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = genericthresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator))
+	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.LowerThresholdMode, markerIndexComparator)
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
@@ -166,7 +165,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchID)
-	m.mapping.ForEach(func(node *genericthresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -213,7 +212,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *genericthresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
 		marshalUtil.Write(node.Key())
 		marshalUtil.Write(node.Value())
 
@@ -239,7 +238,7 @@ func markerIndexComparator(a, b interface{}) int {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ genericobjectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
+var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -247,14 +246,14 @@ var _ genericobjectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var MarkerMessageMappingPartitionKeys = genericobjectstorage.PartitionKey(markers.SequenceIDLength, markers.IndexLength)
+var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceIDLength, markers.IndexLength)
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
 	marker    *markers.Marker
 	messageID MessageID
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
@@ -266,12 +265,12 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
-func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (*MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage genericobjectstorage.StorableObject, err error) {
+func (*MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
@@ -332,6 +331,6 @@ func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ genericobjectstorage.StorableObject = &MarkerMessageMapping{}
+var _ objectstorage.StorableObject = &MarkerMessageMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

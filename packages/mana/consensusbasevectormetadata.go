@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/byteutils"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -15,7 +15,7 @@ const (
 
 // ConsensusBasePastManaVectorMetadata holds metadata for the past consensus mana vector.
 type ConsensusBasePastManaVectorMetadata struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 	Timestamp time.Time `json:"timestamp"`
 	bytes     []byte
 }
@@ -58,13 +58,13 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 }
 
 // FromObjectStorage creates an ConsensusBasePastManaVectorMetadata from sequences of key and bytes.
-func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmsarshalls bytes into a metadata.
-func (*ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result objectstorage.StorableObject, err error) {
 	return parseMetadata(marshalutil.New(data))
 }
 
-var _ genericobjectstorage.StorableObject = &ConsensusBasePastManaVectorMetadata{}
+var _ objectstorage.StorableObject = &ConsensusBasePastManaVectorMetadata{}

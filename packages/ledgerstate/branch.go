@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -358,7 +358,7 @@ type Branch interface {
 	String() string
 
 	// StorableObject enables the Branch to be stored in the object storage.
-	genericobjectstorage.StorableObject
+	objectstorage.StorableObject
 }
 
 // BranchFromBytes unmarshals a Branch from a sequence of bytes.
@@ -401,7 +401,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 }
 
 // BranchFromObjectStorage restores a Branch that was stored in the object storage.
-func BranchFromObjectStorage(_ []byte, data []byte) (branch genericobjectstorage.StorableObject, err error) {
+func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 		return
@@ -424,7 +424,7 @@ type ConflictBranch struct {
 	conflictsMutex      sync.RWMutex
 	inclusionState      InclusionState
 	inclusionStateMutex sync.RWMutex
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewConflictBranch creates a new ConflictBranch from the given details.
@@ -442,12 +442,12 @@ func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *C
 }
 
 // FromObjectStorage creates an ConflictBranch from sequences of key and bytes.
-func (c *ConflictBranch) FromObjectStorage(key, bytes []byte) (conflictBranch genericobjectstorage.StorableObject, err error) {
+func (c *ConflictBranch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
 	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an ConflictBranch from a sequence of bytes.
-func (*ConflictBranch) FromBytes(bytes []byte) (conflictBranch genericobjectstorage.StorableObject, err error) {
+func (*ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictBranch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
@@ -616,7 +616,7 @@ type AggregatedBranch struct {
 	parents      BranchIDs
 	parentsMutex sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewAggregatedBranch creates a new AggregatedBranch from the given details.
@@ -641,12 +641,12 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 }
 
 // FromObjectStorage creates an AggregatedBranch from sequences of key and bytes.
-func (a *AggregatedBranch) FromObjectStorage(key, bytes []byte) (aggregatedBranch genericobjectstorage.StorableObject, err error) {
+func (a *AggregatedBranch) FromObjectStorage(key, bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
 	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an AggregatedBranch from a sequence of bytes.
-func (*AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch genericobjectstorage.StorableObject, err error) {
+func (*AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
@@ -736,7 +736,7 @@ var _ Branch = &AggregatedBranch{}
 // region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ChildBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
-var ChildBranchKeyPartition = genericobjectstorage.PartitionKey(BranchIDLength, BranchIDLength)
+var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
 
 // ChildBranch represents the relationship between a Branch and its children. Since a Branch can have a potentially
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
@@ -746,7 +746,7 @@ type ChildBranch struct {
 	childBranchID   BranchID
 	childBranchType BranchType
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
@@ -759,12 +759,12 @@ func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranch
 }
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
-func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch genericobjectstorage.StorableObject, err error) {
+func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
 	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (*ChildBranch) FromBytes(bytes []byte) (childBranch genericobjectstorage.StorableObject, err error) {
+func (*ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
@@ -838,7 +838,7 @@ func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ genericobjectstorage.StorableObject = &ChildBranch{}
+var _ objectstorage.StorableObject = &ChildBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

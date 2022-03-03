@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -237,7 +237,7 @@ type Output interface {
 	Compare(other Output) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
-	genericobjectstorage.StorableObject
+	objectstorage.StorableObject
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
@@ -291,7 +291,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (output genericobjectstorage.StorableObject, err error) {
+func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	if output, _, err = OutputFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return
@@ -537,7 +537,7 @@ type SigLockedSingleOutput struct {
 	balance uint64
 	address Address
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
@@ -549,12 +549,12 @@ func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleO
 }
 
 // FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
-func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
-func (*SigLockedSingleOutput) FromBytes(bytes []byte) (output genericobjectstorage.StorableObject, err error) {
+func (*SigLockedSingleOutput) FromBytes(bytes []byte) (output objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedSingleOutput from MarshalUtil: %w", err)
@@ -741,7 +741,7 @@ type SigLockedColoredOutput struct {
 	balances *ColoredBalances
 	address  Address
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
@@ -753,12 +753,12 @@ func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigL
 }
 
 // FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
-func (s *SigLockedColoredOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (s *SigLockedColoredOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
-func (*SigLockedColoredOutput) FromBytes(bytes []byte) (output genericobjectstorage.StorableObject, err error) {
+func (*SigLockedColoredOutput) FromBytes(bytes []byte) (output objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput from MarshalUtil: %w", err)
@@ -992,7 +992,7 @@ type AliasOutput struct {
 	// governance transition
 	delegationTimelock time.Time
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewAliasOutputMint creates new AliasOutput as minting output, i.e. the one which does not contain corresponding input.
@@ -1045,12 +1045,12 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 }
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
-func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func (*AliasOutput) FromBytes(data []byte) (output genericobjectstorage.StorableObject, err error) {
+func (*AliasOutput) FromBytes(data []byte) (output objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(data)
 	if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
@@ -1862,7 +1862,7 @@ type ExtendedLockedOutput struct {
 	// any attached data (subject to size limits)
 	payload []byte
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 const (
@@ -1907,12 +1907,12 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 }
 
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
-func (e *ExtendedLockedOutput) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (e *ExtendedLockedOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return e.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func (*ExtendedLockedOutput) FromBytes(data []byte) (output genericobjectstorage.StorableObject, err error) {
+func (*ExtendedLockedOutput) FromBytes(data []byte) (output objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(data)
 	if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
@@ -2230,7 +2230,7 @@ type OutputMetadata struct {
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewOutputMetadata creates a new empty OutputMetadata object.
@@ -2241,12 +2241,12 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 }
 
 // FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
-func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return o.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func (*OutputMetadata) FromBytes(bytes []byte) (outputMetadata genericobjectstorage.StorableObject, err error) {
+func (*OutputMetadata) FromBytes(bytes []byte) (outputMetadata objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if outputMetadata, err = OutputMetadataFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
@@ -2450,7 +2450,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ genericobjectstorage.StorableObject = &OutputMetadata{}
+var _ objectstorage.StorableObject = &OutputMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

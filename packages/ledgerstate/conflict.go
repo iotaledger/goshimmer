@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -176,7 +176,7 @@ type Conflict struct {
 	memberCount      int
 	memberCountMutex sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewConflict is the constructor for new Conflicts.
@@ -186,13 +186,13 @@ func NewConflict(conflictID ConflictID) *Conflict {
 	}
 }
 
-// FromObjectStorage creates an Conflict from sequences of key and bytes.
-func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict genericobjectstorage.StorableObject, err error) {
+// FromObjectStorage creates a Conflict from sequences of key and bytes.
+func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
 	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
-func (*Conflict) FromBytes(bytes []byte) (conflict genericobjectstorage.StorableObject, err error) {
+func (*Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
@@ -294,14 +294,14 @@ func (c *Conflict) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ genericobjectstorage.StorableObject = &Conflict{}
+var _ objectstorage.StorableObject = &Conflict{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
-var ConflictMemberKeyPartition = genericobjectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
+var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
 
 // ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
 // potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
@@ -310,7 +310,7 @@ type ConflictMember struct {
 	conflictID ConflictID
 	branchID   BranchID
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewConflictMember is the constructor of the ConflictMember reference.
@@ -322,12 +322,12 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
-func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember genericobjectstorage.StorableObject, err error) {
+func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
 	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (*ConflictMember) FromBytes(bytes []byte) (conflictMember genericobjectstorage.StorableObject, err error) {
+func (*ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictMember, err = ConflictMemberFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
@@ -388,6 +388,6 @@ func (c *ConflictMember) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ genericobjectstorage.StorableObject = &ConflictMember{}
+var _ objectstorage.StorableObject = &ConflictMember{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

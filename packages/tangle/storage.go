@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -67,17 +67,17 @@ const (
 // Storage represents the storage of messages.
 type Storage struct {
 	tangle                            *Tangle
-	messageStorage                    *genericobjectstorage.ObjectStorage[*Message]
-	messageMetadataStorage            *genericobjectstorage.ObjectStorage[*MessageMetadata]
-	approverStorage                   *genericobjectstorage.ObjectStorage[*Approver]
-	missingMessageStorage             *genericobjectstorage.ObjectStorage[*MissingMessage]
-	attachmentStorage                 *genericobjectstorage.ObjectStorage[*Attachment]
-	markerIndexBranchIDMappingStorage *genericobjectstorage.ObjectStorage[*MarkerIndexBranchIDMapping]
-	branchVotersStorage               *genericobjectstorage.ObjectStorage[*BranchVoters]
-	latestBranchVotesStorage          *genericobjectstorage.ObjectStorage[*LatestBranchVotes]
-	latestMarkerVotesStorage          *genericobjectstorage.ObjectStorage[*LatestMarkerVotes]
-	branchWeightStorage               *genericobjectstorage.ObjectStorage[*BranchWeight]
-	markerMessageMappingStorage       *genericobjectstorage.ObjectStorage[*MarkerMessageMapping]
+	messageStorage                    *objectstorage.ObjectStorage[*Message]
+	messageMetadataStorage            *objectstorage.ObjectStorage[*MessageMetadata]
+	approverStorage                   *objectstorage.ObjectStorage[*Approver]
+	missingMessageStorage             *objectstorage.ObjectStorage[*MissingMessage]
+	attachmentStorage                 *objectstorage.ObjectStorage[*Attachment]
+	markerIndexBranchIDMappingStorage *objectstorage.ObjectStorage[*MarkerIndexBranchIDMapping]
+	branchVotersStorage               *objectstorage.ObjectStorage[*BranchVoters]
+	latestBranchVotesStorage          *objectstorage.ObjectStorage[*LatestBranchVotes]
+	latestMarkerVotesStorage          *objectstorage.ObjectStorage[*LatestMarkerVotes]
+	branchWeightStorage               *objectstorage.ObjectStorage[*BranchWeight]
+	markerMessageMappingStorage       *objectstorage.ObjectStorage[*MarkerMessageMapping]
 
 	Events   *StorageEvents
 	shutdown chan struct{}
@@ -90,17 +90,17 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    genericobjectstorage.New[*Message](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMessage}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.LeakDetectionEnabled(false), genericobjectstorage.StoreOnCreation(true)),
-		messageMetadataStorage:            genericobjectstorage.New[*MessageMetadata](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMessageMetadata}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   genericobjectstorage.New[*Approver](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixApprovers}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), genericobjectstorage.LeakDetectionEnabled(false), genericobjectstorage.StoreOnCreation(true)),
-		missingMessageStorage:             genericobjectstorage.New[*MissingMessage](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMissingMessage}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.LeakDetectionEnabled(false), genericobjectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 genericobjectstorage.New[*Attachment](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixAttachments}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), genericobjectstorage.LeakDetectionEnabled(false), genericobjectstorage.StoreOnCreation(true)),
-		markerIndexBranchIDMappingStorage: genericobjectstorage.New[*MarkerIndexBranchIDMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerBranchIDMapping}), cacheProvider.CacheTime(cacheTime), genericobjectstorage.LeakDetectionEnabled(false)),
-		branchVotersStorage:               genericobjectstorage.New[*BranchVoters](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchVoters}), cacheProvider.CacheTime(approvalWeightCacheTime), genericobjectstorage.LeakDetectionEnabled(false)),
-		latestBranchVotesStorage:          genericobjectstorage.New[*LatestBranchVotes](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixLatestBranchVotes}), cacheProvider.CacheTime(approvalWeightCacheTime), genericobjectstorage.LeakDetectionEnabled(false)),
-		latestMarkerVotesStorage:          genericobjectstorage.New[*LatestMarkerVotes](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixLatestMarkerVotes}), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, genericobjectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               genericobjectstorage.New[*BranchWeight](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchWeight}), cacheProvider.CacheTime(approvalWeightCacheTime), genericobjectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       genericobjectstorage.New[*MarkerMessageMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerMessageMapping}), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, genericobjectstorage.StoreOnCreation(true)),
+		messageStorage:                    objectstorage.New[*Message](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMessage}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            objectstorage.New[*MessageMetadata](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMessageMetadata}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   objectstorage.New[*Approver](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixApprovers}), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             objectstorage.New[*MissingMessage](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMissingMessage}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.New[*Attachment](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixAttachments}), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: objectstorage.New[*MarkerIndexBranchIDMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerBranchIDMapping}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchVotersStorage:               objectstorage.New[*BranchVoters](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchVoters}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestBranchVotesStorage:          objectstorage.New[*LatestBranchVotes](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixLatestBranchVotes}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:          objectstorage.New[*LatestMarkerVotes](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixLatestMarkerVotes}), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               objectstorage.New[*BranchWeight](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchWeight}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       objectstorage.New[*MarkerMessageMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerMessageMapping}), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: &StorageEvents{
 			MessageStored:        events.NewEvent(MessageIDCaller),
@@ -166,12 +166,12 @@ func (s *Storage) StoreMessage(message *Message) {
 }
 
 // Message retrieves a message from the message store.
-func (s *Storage) Message(messageID MessageID) *genericobjectstorage.CachedObject[*Message] {
+func (s *Storage) Message(messageID MessageID) *objectstorage.CachedObject[*Message] {
 	return s.messageStorage.Load(messageID[:])
 }
 
 // MessageMetadata retrieves the MessageMetadata with the given MessageID.
-func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback ...func() *MessageMetadata) *genericobjectstorage.CachedObject[*MessageMetadata] {
+func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback ...func() *MessageMetadata) *objectstorage.CachedObject[*MessageMetadata] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.messageMetadataStorage.ComputeIfAbsent(messageID.Bytes(), func(key []byte) *MessageMetadata {
 			return computeIfAbsentCallback[0]()
@@ -183,7 +183,7 @@ func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback .
 
 // Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
 // ApproverType to only return the corresponding Approvers.
-func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers genericobjectstorage.CachedObjects[*Approver]) {
+func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...ApproverType) (cachedApprovers objectstorage.CachedObjects[*Approver]) {
 	var iterationPrefix []byte
 	if len(optionalApproverType) >= 1 {
 		iterationPrefix = byteutils.ConcatBytes(messageID.Bytes(), optionalApproverType[0].Bytes())
@@ -191,17 +191,17 @@ func (s *Storage) Approvers(messageID MessageID, optionalApproverType ...Approve
 		iterationPrefix = messageID.Bytes()
 	}
 
-	cachedApprovers = make(genericobjectstorage.CachedObjects[*Approver], 0)
-	s.approverStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*Approver]) bool {
+	cachedApprovers = make(objectstorage.CachedObjects[*Approver], 0)
+	s.approverStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Approver]) bool {
 		cachedApprovers = append(cachedApprovers, cachedObject)
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(iterationPrefix))
+	}, objectstorage.WithIteratorPrefix(iterationPrefix))
 
 	return
 }
 
 // StoreMissingMessage stores a new MissingMessage entry in the object storage.
-func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *genericobjectstorage.CachedObject[*MissingMessage], stored bool) {
+func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMissingMessage *objectstorage.CachedObject[*MissingMessage], stored bool) {
 	cachedObject, stored := s.missingMessageStorage.StoreIfAbsent(missingMessage)
 	cachedMissingMessage = cachedObject
 
@@ -210,7 +210,7 @@ func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMis
 
 // MissingMessages return the ids of messages in missingMessageStorage
 func (s *Storage) MissingMessages() (ids []MessageID) {
-	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*MissingMessage]) bool {
+	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
 		cachedObject.Consume(func(object *MissingMessage) {
 			ids = append(ids, object.messageID)
 		})
@@ -221,7 +221,7 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *genericobjectstorage.CachedObject[*Attachment], stored bool) {
+func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
 	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 	if !stored {
 		return
@@ -230,11 +230,11 @@ func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messa
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
-func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments genericobjectstorage.CachedObjects[*Attachment]) {
-	s.attachmentStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*Attachment]) bool {
+func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
+	s.attachmentStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Attachment]) bool {
 		cachedAttachments = append(cachedAttachments, cachedObject)
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(transactionID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(transactionID.Bytes()))
 	return
 }
 
@@ -281,7 +281,7 @@ func (s *Storage) DeleteMissingMessage(messageID MessageID) {
 // MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional
 // computeIfAbsent callback that can be used to dynamically create a MarkerIndexBranchIDMapping if it doesn't exist,
 // yet.
-func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *genericobjectstorage.CachedObject[*MarkerIndexBranchIDMapping] {
+func (s *Storage) MarkerIndexBranchIDMapping(sequenceID markers.SequenceID, computeIfAbsentCallback ...func(sequenceID markers.SequenceID) *MarkerIndexBranchIDMapping) *objectstorage.CachedObject[*MarkerIndexBranchIDMapping] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.markerIndexBranchIDMappingStorage.ComputeIfAbsent(sequenceID.Bytes(), func(key []byte) *MarkerIndexBranchIDMapping {
 			return computeIfAbsentCallback[0](sequenceID)
@@ -302,21 +302,21 @@ func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, mess
 }
 
 // MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
-func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *genericobjectstorage.CachedObject[*MarkerMessageMapping]) {
+func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
 	return s.markerMessageMappingStorage.Load(marker.Bytes())
 }
 
 // MarkerMessageMappings retrieves the MarkerMessageMappings of a Sequence in the object storage.
-func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMarkerMessageMappings genericobjectstorage.CachedObjects[*MarkerMessageMapping]) {
-	s.markerMessageMappingStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*MarkerMessageMapping]) bool {
+func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMarkerMessageMappings objectstorage.CachedObjects[*MarkerMessageMapping]) {
+	s.markerMessageMappingStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MarkerMessageMapping]) bool {
 		cachedMarkerMessageMappings = append(cachedMarkerMessageMappings, cachedObject)
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(sequenceID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
 	return
 }
 
 // BranchVoters retrieves the BranchVoters with the given ledgerstate.BranchID.
-func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *genericobjectstorage.CachedObject[*BranchVoters] {
+func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
 			return computeIfAbsentCallback[0](branchID)
@@ -327,7 +327,7 @@ func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCal
 }
 
 // LatestBranchVotes retrieves the LatestBranchVotes of the given Voter.
-func (s *Storage) LatestBranchVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *genericobjectstorage.CachedObject[*LatestBranchVotes] {
+func (s *Storage) LatestBranchVotes(voter Voter, computeIfAbsentCallback ...func(voter Voter) *LatestBranchVotes) *objectstorage.CachedObject[*LatestBranchVotes] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.latestBranchVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(voter.Bytes()), func(key []byte) *LatestBranchVotes {
 			return computeIfAbsentCallback[0](voter)
@@ -338,7 +338,7 @@ func (s *Storage) LatestBranchVotes(voter Voter, computeIfAbsentCallback ...func
 }
 
 // LatestMarkerVotes retrieves the LatestMarkerVotes of the given voter for the named Sequence.
-func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markers.SequenceID, voter Voter) *LatestMarkerVotes) *genericobjectstorage.CachedObject[*LatestMarkerVotes] {
+func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, computeIfAbsentCallback ...func(sequenceID markers.SequenceID, voter Voter) *LatestMarkerVotes) *objectstorage.CachedObject[*LatestMarkerVotes] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.latestMarkerVotesStorage.ComputeIfAbsent(byteutils.ConcatBytes(sequenceID.Bytes(), voter.Bytes()), func(key []byte) *LatestMarkerVotes {
 			return computeIfAbsentCallback[0](sequenceID, voter)
@@ -352,19 +352,19 @@ func (s *Storage) LatestMarkerVotes(sequenceID markers.SequenceID, voter Voter, 
 func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLatestMarkerVotesByVoter CachedLatestMarkerVotesByVoter) {
 	cachedLatestMarkerVotesByVoter = make(CachedLatestMarkerVotesByVoter)
 
-	s.latestMarkerVotesStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*LatestMarkerVotes]) bool {
+	s.latestMarkerVotesStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*LatestMarkerVotes]) bool {
 		cachedLatestMarkerVotes := cachedObject
 		latestMarkerVotes, _ := cachedLatestMarkerVotes.Unwrap()
 		cachedLatestMarkerVotesByVoter[latestMarkerVotes.Voter()] = cachedLatestMarkerVotes
 
 		return true
-	}, genericobjectstorage.WithIteratorPrefix(sequenceID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(sequenceID.Bytes()))
 
 	return cachedLatestMarkerVotesByVoter
 }
 
 // BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *genericobjectstorage.CachedObject[*BranchWeight] {
+func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
 			return computeIfAbsentCallback[0](branchID)
@@ -467,7 +467,7 @@ type DBStatsResult struct {
 // that should contain the messages as messageStorage), the number of messages in missingMessageStorage, furthermore
 // the average time it takes to solidify messages.
 func (s *Storage) DBStats() (res DBStatsResult) {
-	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*MessageMetadata]) bool {
+	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedObject.Consume(func(object *MessageMetadata) {
 			msgMetaData := object
 			res.StoredCount++
@@ -489,7 +489,7 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 		return true
 	})
 
-	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*MissingMessage]) bool {
+	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
 		cachedObject.Consume(func(object *MissingMessage) {
 			res.MissingMessageCount++
 		})
@@ -502,7 +502,7 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 // It iterates over the messageMetadataStorage, thus only use this method if necessary.
 // TODO: improve this function.
 func (s *Storage) RetrieveAllTips() (tips []MessageID) {
-	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *genericobjectstorage.CachedObject[*MessageMetadata]) bool {
+	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedMessage.Consume(func(object *MessageMetadata) {
 			messageMetadata := object
 			if messageMetadata != nil && messageMetadata.IsSolid() {
@@ -553,18 +553,6 @@ const ApproverTypeLength = 1
 // strong and weak parents.
 type ApproverType uint8
 
-// ApproverTypeFromBytes unmarshals an ApproverType from a sequence of bytes.
-func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // ApproverTypeFromMarshalUtil unmarshals an ApproverType using a MarshalUtil (for easier unmarshaling).
 func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
 	untypedApproverType, err := marshalUtil.ReadUint8()
@@ -612,7 +600,7 @@ type Approver struct {
 	// the message which approved/referenced the given referenced message.
 	approverMessageID MessageID
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewApprover creates a new approver relation to the given approved/referenced message.
@@ -626,12 +614,12 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 }
 
 // FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (a *Approver) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes parses the given bytes into an approver.
-func (*Approver) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*Approver) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ApproverFromMarshalUtil(marshalUtil)
 	return
@@ -700,7 +688,7 @@ func (a *Approver) ObjectStorageValue() (result []byte) {
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ genericobjectstorage.StorableObject = &Approver{}
+var _ objectstorage.StorableObject = &Approver{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -709,7 +697,7 @@ var _ genericobjectstorage.StorableObject = &Approver{}
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 
 	transactionID ledgerstate.TransactionID
 	messageID     MessageID
@@ -724,13 +712,13 @@ func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID)
 }
 
 // FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (a *Attachment) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func (*Attachment) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*Attachment) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = ParseAttachment(marshalUtil)
 	return
@@ -787,7 +775,7 @@ func (a *Attachment) ObjectStorageValue() (data []byte) {
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ genericobjectstorage.StorableObject = &Attachment{}
+var _ objectstorage.StorableObject = &Attachment{}
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
 const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
@@ -798,7 +786,7 @@ const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 
 	messageID    MessageID
 	missingSince time.Time
@@ -813,12 +801,12 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
-func (*MissingMessage) FromBytes(bytes []byte) (result genericobjectstorage.StorableObject, err error) {
+func (*MissingMessage) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = MissingMessageFromMarshalUtil(marshalUtil)
 
@@ -873,6 +861,6 @@ func (m *MissingMessage) ObjectStorageValue() (result []byte) {
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ genericobjectstorage.StorableObject = &MissingMessage{}
+var _ objectstorage.StorableObject = &MissingMessage{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -11,7 +11,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -163,7 +163,7 @@ type Transaction struct {
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewTransaction creates a new Transaction from the given details.
@@ -200,12 +200,12 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 }
 
 // FromObjectStorage creates a Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(_, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (t *Transaction) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
 	return t.FromBytes(bytes)
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (*Transaction) FromBytes(bytes []byte) (transaction genericobjectstorage.StorableObject, err error) {
+func (*Transaction) FromBytes(bytes []byte) (transaction objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
@@ -391,7 +391,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 var _ payload.Payload = &Transaction{}
 
 // code contract (make sure the struct implements all required methods)
-var _ genericobjectstorage.StorableObject = &Transaction{}
+var _ objectstorage.StorableObject = &Transaction{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -566,18 +566,6 @@ func (t *TransactionEssence) String() string {
 // compatibility if the structure ever needs to get changed.
 type TransactionEssenceVersion uint8
 
-// TransactionEssenceVersionFromBytes unmarshals a TransactionEssenceVersion from a sequence of bytes.
-func TransactionEssenceVersionFromBytes(bytes []byte) (version TransactionEssenceVersion, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse version TransactionEssenceVersion from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
 // unmarshaling).
 func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
@@ -638,7 +626,7 @@ type TransactionMetadata struct {
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
 
-	genericobjectstorage.StorableObjectFlags
+	objectstorage.StorableObjectFlags
 }
 
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
@@ -649,12 +637,12 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 }
 
 // FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
-func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (genericobjectstorage.StorableObject, error) {
+func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
 }
 
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (*TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata genericobjectstorage.StorableObject, err error) {
+func (*TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transactionMetadata, err = TransactionMetadataFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
@@ -867,6 +855,6 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ genericobjectstorage.StorableObject = &TransactionMetadata{}
+var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

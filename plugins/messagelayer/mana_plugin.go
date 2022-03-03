@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
-	genericobjectstorage "github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
@@ -35,7 +35,7 @@ var (
 	ManaPlugin         = node.NewPlugin(PluginName, nil, node.Enabled, configureManaPlugin, runManaPlugin)
 	manaLogger         *logger.Logger
 	baseManaVectors    map[mana.Type]mana.BaseManaVector
-	storages           map[mana.Type]*genericobjectstorage.ObjectStorage[*mana.PersistableBaseMana]
+	storages           map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana]
 	allowedPledgeNodes map[mana.Type]AllowedPledge
 	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
@@ -70,13 +70,13 @@ func configureManaPlugin(*node.Plugin) {
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
 
 	// configure storage for each vector type
-	storages = make(map[mana.Type]*genericobjectstorage.ObjectStorage[*mana.PersistableBaseMana])
+	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccess}))
-	storages[mana.ConsensusMana] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensus}))
+	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccess}))
+	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensus}))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccessResearch}))
-		storages[mana.ResearchConsensus] = genericobjectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensusResearch}))
+		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccessResearch}))
+		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensusResearch}))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -239,7 +239,7 @@ func runManaPlugin(_ *node.Plugin) {
 
 func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
-		storages[vectorType].ForEach(func(key []byte, cachedObject *genericobjectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
+		storages[vectorType].ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
 			cachedObject.Consume(func(p *mana.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
@@ -426,7 +426,7 @@ func verifyPledgeNodes() error {
 		IsFilterEnabled: ManaParameters.AllowedConsensusFilterEnabled,
 	}
 
-	access.Allowed = set.New(false)
+	access.Allowed = set.New[identity.ID](false)
 	// own ID is allowed by default
 	access.Allowed.Add(deps.Local.ID())
 	if access.IsFilterEnabled {
@@ -439,7 +439,7 @@ func verifyPledgeNodes() error {
 		}
 	}
 
-	consensus.Allowed = set.New(false)
+	consensus.Allowed = set.New[identity.ID](false)
 	// own ID is allowed by default
 	consensus.Allowed.Add(deps.Local.ID())
 	if consensus.IsFilterEnabled {
@@ -773,7 +773,7 @@ func cleanupManaVectors() {
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
 type AllowedPledge struct {
 	IsFilterEnabled bool
-	Allowed         set.Set
+	Allowed         set.Set[identity.ID]
 }
 
 //// EventsLogs represents the events logs.
