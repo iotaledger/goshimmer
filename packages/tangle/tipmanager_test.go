@@ -495,7 +495,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
-// Test based on packages/tangle/images/TSC_scenario.png except nothing is confirmed.
+// Test based on packages/tangle/images/TSC_test_scenario.png except nothing is confirmed.
 func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	t.Skip("Skip this test.")
 	tangle := NewTestTangle()
@@ -547,7 +547,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
 }
 
-// Test based on packages/tangle/images/TSC_scenario.png.
+// Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	time.Sleep(30 * time.Second)
 	tangle := NewTestTangle()
