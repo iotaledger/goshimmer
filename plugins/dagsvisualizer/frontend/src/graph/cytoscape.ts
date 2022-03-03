@@ -165,9 +165,6 @@ const drawSingleBranch = function (
 
     if (v) {
         graph.layoutApi.placeNewNodes(v);
-        if (branch.type == 'AggregatedBranchType') {
-            v.addClass('aggregated');
-        }
         if (branch.isConfirmed) {
             v.addClass('confirmed');
         }
@@ -234,6 +231,8 @@ export function updateConfirmedTransaction(
     tx: utxoVertex,
     graph: cytoscapeLib
 ) {
+    if (!tx) return;
+
     const node = graph.cy.getElementById(tx.ID);
     if (!node) return;
     if (tx.isConfirmed) {
@@ -245,6 +244,8 @@ export function updateConfirmedBranch(
     branch: branchVertex,
     graph: cytoscapeLib
 ): void {
+    if (!branch)  return;
+
     const node = graph.cy.getElementById(branch.ID);
     if (!node) return;
     if (branch.isConfirmed) {
@@ -378,9 +379,7 @@ export function initBranchDAG() {
             },
             {
                 selector: '.search',
-                style: {
-                    'background-color': BRANCH.SEARCHED_COLOR
-                }
+                style: {}
             },
             {
                 selector: '.search:selected',
@@ -392,12 +391,6 @@ export function initBranchDAG() {
                 selector: '.confirmed',
                 style: {
                     'background-color': BRANCH.COLOR_CONFIRMED
-                }
-            },
-            {
-                selector: '.aggregated',
-                style: {
-                    'background-color': BRANCH.COLOR_AGGR
                 }
             }
         ],

@@ -32,9 +32,8 @@ type MessageFactory struct {
 
 	powTimeout time.Duration
 
-	worker        Worker
-	workerMutex   sync.RWMutex
-	issuanceMutex sync.Mutex
+	worker      Worker
+	workerMutex sync.RWMutex
 }
 
 // NewMessageFactory creates a new message factory.
@@ -76,9 +75,6 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
-	f.tangle.Booker.Lock()
-	defer f.tangle.Booker.Unlock()
-
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -86,13 +82,10 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	f.issuanceMutex.Lock()
-
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
@@ -116,7 +109,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
-				f.issuanceMutex.Unlock()
 				return nil, err
 			}
 		}
@@ -126,7 +118,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		if err != nil {
 			err = errors.Errorf("like references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
 			return nil, err
 		}
 		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
@@ -135,10 +126,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if errPoW != nil {
 		err = errors.Errorf("pow failed: %w", errPoW)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-	f.issuanceMutex.Unlock()
 
 	// create the signature
 	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
