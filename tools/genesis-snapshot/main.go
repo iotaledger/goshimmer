@@ -5,8 +5,7 @@ import (
 	"log"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/tools"
-
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/mr-tron/base58"
 	flag "github.com/spf13/pflag"
@@ -22,7 +21,7 @@ const (
 )
 
 // Equally distributed snapshot internal testnet.
-var nodesToPledge = map[string]tools.Pledge{
+var nodesToPledge = map[string]snapshotcreator.Pledge{
 	"e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ":  {}, // entrynode
 	"EGgbUaAnfXG2mBtGQwSPPVxLa8uC1hnNsxtnLYbHkm8B": {}, // bootstrap_01
 	"7PS8tJSjhyFMbUqbVE2pUideT6DQc2ovNv5hBDTkvUtm": {}, // vanilla_01
@@ -31,13 +30,13 @@ var nodesToPledge = map[string]tools.Pledge{
 	"7Hk4Airu42Gcqm3JZDAL69DSdaksF9qfahppez9LZTJr": {}, // drng_03
 	"E3RmVjQHsisxxLY36AuRkV7Uceo1FReYWLMsCTEbDBeC": {}, // drng_04
 	"GRbfN6HDzFxWNwN6q4ixmTjDR5oS8XQc5zWbxxFFkBmw": {}, // drng_05
-	"12rLUHyF67rzqHgYR6Jxbi3GD5CTU7DaxwDQfmVYcwnV": func() tools.Pledge { // faucet_01
+	"12rLUHyF67rzqHgYR6Jxbi3GD5CTU7DaxwDQfmVYcwnV": func() snapshotcreator.Pledge { // faucet_01
 		seedBase58 := "D29LzzhHYGPjxtnx3LXFicmLhDVXyhW6379MugJHzSoH" // faucet seed
 		seedBytes, err := base58.Decode(seedBase58)
 		must(err)
 		address := seed.NewSeed(seedBytes).Address(0).Address()
 		fmt.Printf("Faucet addr %s", address)
-		return tools.Pledge{
+		return snapshotcreator.Pledge{
 			Address: address,
 		}
 	}(),
@@ -59,7 +58,7 @@ func main() {
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
 	}
-	tools.CreateSnapshot(genesisTokenAmount, seedBytes, pledgeTokenAmount, nodesToPledge, snapshotFileName)
+	snapshotcreator.CreateSnapshot(genesisTokenAmount, seedBytes, pledgeTokenAmount, nodesToPledge, snapshotFileName)
 }
 
 func init() {

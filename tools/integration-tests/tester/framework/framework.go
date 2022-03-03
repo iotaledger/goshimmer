@@ -13,12 +13,14 @@ import (
 	"sync"
 	"time"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshottool"
 	"github.com/mr-tron/base58"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
+
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 )
@@ -159,7 +161,7 @@ func createSnapshots(snapshotInfoMap map[string]SnapshotInfo) (snapshotFilenames
 		// PledgeTokenAmount should be 0 since it is used only if nodesToPledgeMap has missing amounts
 		// Should return error
 		//
-		snapshottool.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0, nodesToPledgeMap, snapshotFilePath)
+		snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0, nodesToPledgeMap, snapshotFilePath)
 
 		snapshotFilenames[snapshotName] = snapshotFilePath
 
@@ -174,16 +176,16 @@ func hashStruct(o interface{}) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
-func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshottool.Pledge, error) {
+func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
 	numOfNodes := len(snapshot.PeersSeedBase58)
-	nodesToPledge := make(map[string]snapshottool.Pledge, numOfNodes)
+	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfNodes)
 	for i := 0; i < numOfNodes; i++ {
 		seed := snapshot.PeersSeedBase58[i]
 		seedBytes, err := getSeedBytes(seed)
 		if err != nil {
 			return nil, err
 		}
-		nodesToPledge[seed] = snapshottool.Pledge{
+		nodesToPledge[seed] = snapshotcreator.Pledge{
 			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
 			Amount:  snapshot.PeersAmountsPledged[i],
 		}
