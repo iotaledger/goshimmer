@@ -249,7 +249,7 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
-	transaction = t
+	transaction = &Transaction{}
 	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
