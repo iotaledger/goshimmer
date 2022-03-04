@@ -19,7 +19,7 @@ jobs:
           go-version: "1.18"
 
       - name: Run golangci-lint
-        uses: reviewdog/action-golangci-lint@latest
+        uses: docker://reviewdog/action-golangci-lint:latest
         with:
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"
