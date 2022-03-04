@@ -188,7 +188,11 @@ func NewConflict(conflictID ConflictID) *Conflict {
 
 // FromObjectStorage creates a Conflict from sequences of key and bytes.
 func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
-	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
+	}
+	return
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
@@ -323,7 +327,11 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
 func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
+	}
+	return
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.

@@ -614,8 +614,12 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 }
 
 // FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
+	result, err := a.FromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes parses the given bytes into an approver.
@@ -712,8 +716,12 @@ func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID)
 }
 
 // FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
+	result, err := a.FromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
@@ -802,7 +810,11 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
 func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes parses the given bytes into a MissingMessage.

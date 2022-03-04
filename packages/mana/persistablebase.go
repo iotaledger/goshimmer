@@ -6,7 +6,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -73,7 +72,10 @@ func (persistableBaseMana *PersistableBaseMana) ObjectStorageValue() []byte {
 
 // FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
 func (persistableBaseMana *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return persistableBaseMana.FromBytes(byteutils.ConcatBytes(key, bytes))
+	res, err := persistableBaseMana.FromBytes(bytes)
+	copy(res.(*PersistableBaseMana).NodeID[:], key)
+	return res, err
+
 }
 
 // FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.

@@ -430,8 +430,27 @@ func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
 }
 
 // FromObjectStorage parses the given key and bytes into a message.
-func (m *Message) FromObjectStorage(_, data []byte) (result objectstorage.StorableObject, err error) {
-	return m.FromBytes(data)
+func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+
+	// parse the message
+	message, err := m.FromBytes(data)
+	if err != nil {
+		err = fmt.Errorf("failed to parse message from object storage: %w", err)
+		return
+	}
+
+	// parse the ID from they key
+	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
+		return
+	}
+	message.(*Message).id = &id
+
+	// assign result
+	result = message
+
+	return
 }
 
 // FromBytes parses the given bytes into a message.
@@ -870,7 +889,11 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
 func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.

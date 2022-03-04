@@ -2242,7 +2242,11 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 
 // FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
 func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return o.FromBytes(byteutils.ConcatBytes(key, bytes))
+	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
+	}
+	return outputMetadata, err
 }
 
 // FromBytes unmarshals an OutputMetadata object from a sequence of bytes.

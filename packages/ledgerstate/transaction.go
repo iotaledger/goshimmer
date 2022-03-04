@@ -200,8 +200,20 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 }
 
 // FromObjectStorage creates a Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
-	return t.FromBytes(bytes)
+func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	transaction, err := t.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
+		return transaction, err
+	}
+
+	transactionID, _, err := TransactionIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
+		return transaction, err
+	}
+	transaction.(*Transaction).id = &transactionID
+	return transaction, err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
@@ -638,7 +650,13 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 
 // FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
 func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return t.FromBytes(byteutils.ConcatBytes(key, bytes))
+	transactionMetadata, err := t.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
+		return transactionMetadata, err
+	}
+
+	return transactionMetadata, err
 }
 
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.

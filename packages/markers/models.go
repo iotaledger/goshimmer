@@ -1101,7 +1101,11 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 
 // FromObjectStorage creates a Sequence from sequences of key and bytes.
 func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
+	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
+	}
+	return sequence, err
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.

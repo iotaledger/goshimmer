@@ -824,8 +824,12 @@ func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputM
 }
 
 // FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
-func (a *AddressOutputMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
+	result, err := a.FromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse AddressOutputMapping from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
@@ -921,7 +925,11 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
 func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a Consumer from a sequence of bytes.

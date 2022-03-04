@@ -45,7 +45,11 @@ func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight)
 
 // FromObjectStorage creates an BranchWeight from sequences of key and bytes.
 func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a BranchWeight object from a sequence of bytes.
@@ -223,7 +227,11 @@ func NewBranchVoters(branchID ledgerstate.BranchID) (branchVoters *BranchVoters)
 
 // FromObjectStorage creates an BranchVoters from sequences of key and bytes.
 func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
@@ -423,7 +431,11 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 
 // FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
 func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
@@ -631,7 +643,11 @@ func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 
 // FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
 func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.

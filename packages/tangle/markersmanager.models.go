@@ -44,7 +44,12 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
 func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
+	}
+
+	return markerIndexBranchIDMapping, err
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
@@ -266,7 +271,11 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
 func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.

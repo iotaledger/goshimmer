@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -130,8 +129,8 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 }
 
 // FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
-func (p *PersistableEvent) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return p.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (p *PersistableEvent) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
+	return p.FromBytes(bytes)
 }
 
 // FromBytes unmarshalls bytes into a persistable event.

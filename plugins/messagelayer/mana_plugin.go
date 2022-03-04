@@ -243,7 +243,7 @@ func readStoredManaVectors() (read bool) {
 			cachedObject.Consume(func(p *mana.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
-					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
+					manaLogger.Errorf("error while restoring %s mana vector: %s", vectorType.String(), err.Error())
 				}
 				read = true
 			})

@@ -404,9 +404,7 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
 	if branch, _, err = BranchFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
-		return
 	}
-
 	return
 }
 
@@ -442,8 +440,12 @@ func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *C
 }
 
 // FromObjectStorage creates an ConflictBranch from sequences of key and bytes.
-func (c *ConflictBranch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *ConflictBranch) FromObjectStorage(_, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+	result, err := c.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictBranch from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals an ConflictBranch from a sequence of bytes.
@@ -641,8 +643,12 @@ func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
 }
 
 // FromObjectStorage creates an AggregatedBranch from sequences of key and bytes.
-func (a *AggregatedBranch) FromObjectStorage(key, bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (a *AggregatedBranch) FromObjectStorage(_, bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
+	result, err := a.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse AggregatedBranch from bytes: %w", err)
+	}
+	return result, err
 }
 
 // FromBytes unmarshals an AggregatedBranch from a sequence of bytes.
@@ -760,7 +766,12 @@ func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranch
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
 func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	return c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
+		return result, err
+	}
+	return result, err
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
