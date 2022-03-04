@@ -219,7 +219,7 @@ func (msg *MsgPostTransaction) Write(w *marshalutil.MarshalUtil) {
 
 func (msg *MsgPostTransaction) Read(m *marshalutil.MarshalUtil) error {
 	var err error
-	if msg.Tx, err = ledgerstate.TransactionFromMarshalUtil(m); err != nil {
+	if msg.Tx, err = (&ledgerstate.Transaction{}).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return nil
@@ -346,7 +346,7 @@ func (msg *MsgTransaction) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
 		return err
 	}
-	if msg.Tx, err = ledgerstate.TransactionFromMarshalUtil(m); err != nil {
+	if msg.Tx, err = (&ledgerstate.Transaction{}).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return nil

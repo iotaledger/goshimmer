@@ -34,7 +34,7 @@ var TransactionType payload.Type
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
 		marshalUtil := marshalutil.New(data)
-		tx, err := TransactionFromMarshalUtil(marshalUtil)
+		tx, err := (&Transaction{}).FromMarshalUtil(marshalUtil)
 		if err != nil {
 			return nil, err
 		}
@@ -217,17 +217,17 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (*Transaction) FromBytes(bytes []byte) (transaction objectstorage.StorableObject, err error) {
+func (t *Transaction) FromBytes(bytes []byte) (transaction objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if transaction, err = TransactionFromMarshalUtil(marshalUtil); err != nil {
+	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
 		return
 	}
 	return
 }
 
-// TransactionFromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshaling).
-func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
+// FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
+func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
 	readStartOffset := marshalUtil.ReadOffset()
 
 	payloadSize, err := marshalUtil.ReadUint32()
@@ -249,7 +249,7 @@ func TransactionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transacti
 		return
 	}
 
-	transaction = &Transaction{}
+	transaction = t
 	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
