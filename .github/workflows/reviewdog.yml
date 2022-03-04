@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-go@v2
         with:
-          go-version: "^1.16.2"
+          go-version: "^1.18"
 
       - name: Run golangci-lint
         uses: reviewdog/action-golangci-lint@c9fac889cce0d374dc2700eb2bd28987d443fdf9
