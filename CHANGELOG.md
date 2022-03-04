@@ -1,3 +1,10 @@
+# v0.8.9 - 2022-03-04
+
+> This release introduces a critical bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-03-02 20:30 UTC.
+- CRITICAL Fix: HandleMarker Confirmation (#2090)
+
 # v0.8.8 - 2022-03-01
 
 > This release introduces a major bug fix that could prevent nodes from running out of sync.
