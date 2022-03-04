@@ -1,8 +1,6 @@
 package ledgerstate
 
 import (
-	"bytes"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,14 +22,14 @@ var (
 	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
 	UndefinedBranchID = BranchID{}
 
-	// MasterBranchID is the identifier of the MasterBranch (root of the ConflictBranch DAG).
+	// MasterBranchID is the identifier of the MasterBranch (root of the Branch DAG).
 	MasterBranchID = BranchID{1}
 )
 
 // BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
 const BranchIDLength = 32
 
-// BranchID is the data type that represents the identifier of a ConflictBranch.
+// BranchID is the data type that represents the identifier of a Branch.
 type BranchID [BranchIDLength]byte
 
 // NewBranchID creates a new BranchID from a TransactionID.
@@ -242,6 +239,11 @@ func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
 	return
 }
 
+// Is checks if the given target BranchID is the only BranchID within BranchIDs.
+func (b BranchIDs) Is(targetBranch BranchID) (is bool) {
+	return len(b) == 1 && b.Contains(targetBranch)
+}
+
 // Slice creates a slice of BranchIDs from the collection.
 func (b BranchIDs) Slice() (list []BranchID) {
 	list = make([]BranchID, len(b))
@@ -254,9 +256,24 @@ func (b BranchIDs) Slice() (list []BranchID) {
 	return
 }
 
+// Equals returns whether the BranchIDs and other BranchIDs are equal.
+func (b BranchIDs) Equals(o BranchIDs) bool {
+	if len(b) != len(o) {
+		return false
+	}
+
+	for branchID := range b {
+		if _, exists := o[branchID]; !exists {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(b)*BranchIDLength)
+	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(b)*BranchIDLength)
 	marshalUtil.WriteUint64(uint64(len(b)))
 	for branchID := range b {
 		marshalUtil.WriteBytes(branchID.Bytes())
@@ -267,6 +284,7 @@ func (b BranchIDs) Bytes() []byte {
 
 // Base58 returns a slice of base58 BranchIDs.
 func (b BranchIDs) Base58() (result []string) {
+	result = make([]string, 0)
 	for id := range b {
 		result = append(result, id.Base58())
 	}
@@ -301,136 +319,185 @@ func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchType ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// BranchType represents the type of a Branch which can either be a ConflictBranch or an AggregatedBranch.
-type BranchType uint8
-
-const (
-	// ConflictBranchType represents the type of a Branch that was created by a Transaction spending conflicting Outputs.
-	ConflictBranchType BranchType = iota
-
-	// AggregatedBranchType represents the type of a Branch that was created by combining Outputs of multiple
-	// non-conflicting Branches.
-	AggregatedBranchType
-)
-
-// BranchTypeFromBytes unmarshals a BranchType from a sequence of bytes.
-func BranchTypeFromBytes(branchTypeBytes []byte) (branchType BranchType, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(branchTypeBytes)
-	if branchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchType from MarshalUtil: %w", err)
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// BranchTypeFromMarshalUtil unmarshals a BranchType using a MarshalUtil (for easier unmarshaling).
-func BranchTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchType BranchType, err error) {
-	branchTypeByte, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	switch branchType = BranchType(branchTypeByte); branchType {
-	case ConflictBranchType:
-		return
-	case AggregatedBranchType:
-		return
-	default:
-		err = errors.Errorf("invalid BranchType (%X): %w", branchTypeByte, cerrors.ErrParseBytesFailed)
-		return
-	}
-}
-
-// Bytes returns a marshaled version of the BranchType.
-func (b BranchType) Bytes() []byte {
-	return []byte{byte(b)}
-}
-
-// String returns a human readable representation of the BranchType.
-func (b BranchType) String() string {
-	return [...]string{
-		"ConflictBranchType",
-		"AggregatedBranchType",
-	}[b]
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch is an interface for a container for Transactions and Outputs representing a certain perception of the ledger
-// state.
-type Branch interface {
-	// ID returns the identifier of the Branch.
-	ID() BranchID
+// Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+type Branch struct {
+	id                  BranchID
+	parents             BranchIDs
+	parentsMutex        sync.RWMutex
+	conflicts           ConflictIDs
+	conflictsMutex      sync.RWMutex
+	inclusionState      InclusionState
+	inclusionStateMutex sync.RWMutex
 
-	// Type returns the type of the Branch.
-	Type() BranchType
+	objectstorage.StorableObjectFlags
+}
 
-	// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-	Parents() BranchIDs
+// NewBranch creates a new Branch from the given details.
+func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
+	c := &Branch{
+		id:        id,
+		parents:   parents.Clone(),
+		conflicts: conflicts.Clone(),
+	}
 
-	// Bytes returns a marshaled version of the Branch.
-	Bytes() []byte
+	c.SetModified()
+	c.Persist()
 
-	// String returns a human-readable version of the Branch.
-	String() string
-
-	// StorableObject enables the Branch to be stored in the object storage.
-	objectstorage.StorableObject
+	return c
 }
 
 // BranchFromBytes unmarshals a Branch from a sequence of bytes.
-func BranchFromBytes(bytes []byte) (branch Branch, consumedBytes int, err error) {
+func BranchFromBytes(bytes []byte) (branch *Branch, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branch, err = BranchFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
+		return
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// BranchFromMarshalUtil unmarshals a Branch using a MarshalUtil (for easier unmarshaling).
-func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch, err error) {
-	branchType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
+// BranchFromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
+func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
+	branch = &Branch{}
+	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	marshalUtil.ReadSeek(-1)
-
-	switch BranchType(branchType) {
-	case ConflictBranchType:
-		if branch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse ConflictBranch: %w", err)
-			return
-		}
-	case AggregatedBranchType:
-		if branch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse AggregatedBranch: %w", err)
-			return
-		}
-	default:
-		err = errors.Errorf("unsupported BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
+	if branch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Branch parents: %w", err)
+		return
+	}
+	if branch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse conflicts: %w", err)
+		return
+	}
+	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse inclusionState: %w", err)
 		return
 	}
 
 	return
 }
 
-// BranchFromObjectStorage restores a Branch that was stored in the object storage.
-func BranchFromObjectStorage(_ []byte, data []byte) (branch objectstorage.StorableObject, err error) {
-	if branch, _, err = BranchFromBytes(data); err != nil {
-		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
+// BranchFromObjectStorage is a factory method that creates a new Branch instance from a storage key of
+// the object storage. It is used by the object storage, to create new instances of this entity.
+func BranchFromObjectStorage(key, value []byte) (branch objectstorage.StorableObject, err error) {
+	branch, _, err = BranchFromBytes(byteutils.ConcatBytes(key, value))
+	return
+}
+
+// ID returns the identifier of the Branch.
+func (b *Branch) ID() BranchID {
+	return b.id
+}
+
+// InclusionState returns the InclusionState of the Branch.
+func (b *Branch) InclusionState() (inclusionState InclusionState) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
+
+	return b.inclusionState
+}
+
+// setInclusionState sets the InclusionState of the Branch (it is private because the InclusionState should be
+// set through the corresponding method in the BranchDAG).
+func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	b.inclusionStateMutex.Lock()
+	defer b.inclusionStateMutex.Unlock()
+
+	if modified = b.inclusionState != inclusionState; !modified {
 		return
 	}
 
+	b.inclusionState = inclusionState
+	b.SetModified()
+
 	return
+}
+
+// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
+func (b *Branch) Parents() BranchIDs {
+	b.parentsMutex.RLock()
+	defer b.parentsMutex.RUnlock()
+
+	return b.parents.Clone()
+}
+
+// SetParents updates the parents of the Branch.
+func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
+	b.parentsMutex.Lock()
+	defer b.parentsMutex.Unlock()
+
+	b.parents = parentBranches
+	b.SetModified()
+	modified = true
+
+	return
+}
+
+// Conflicts returns the Conflicts that the Branch is part of.
+func (b *Branch) Conflicts() (conflicts ConflictIDs) {
+	b.conflictsMutex.RLock()
+	defer b.conflictsMutex.RUnlock()
+
+	conflicts = b.conflicts.Clone()
+
+	return
+}
+
+// AddConflict registers the membership of the Branch in the given Conflict.
+func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
+	b.conflictsMutex.Lock()
+	defer b.conflictsMutex.Unlock()
+
+	if _, exists := b.conflicts[conflictID]; exists {
+		return
+	}
+
+	b.conflicts[conflictID] = types.Void
+	b.SetModified()
+	added = true
+
+	return
+}
+
+// Bytes returns a marshaled version of the Branch.
+func (b *Branch) Bytes() []byte {
+	return b.ObjectStorageValue()
+}
+
+// String returns a human-readable version of the Branch.
+func (b *Branch) String() string {
+	return stringify.Struct("Branch",
+		stringify.StructField("id", b.ID()),
+		stringify.StructField("parents", b.Parents()),
+		stringify.StructField("conflicts", b.Conflicts()),
+	)
+}
+
+// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
+func (b *Branch) Update(objectstorage.StorableObject) {
+	panic("updates disabled")
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *Branch) ObjectStorageKey() []byte {
+	return b.ID().Bytes()
+}
+
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (b *Branch) ObjectStorageValue() []byte {
+	return marshalutil.New().
+		Write(b.Parents()).
+		Write(b.Conflicts()).
+		Write(b.InclusionState()).
+		Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -443,29 +510,19 @@ type CachedBranch struct {
 	objectstorage.CachedObject
 }
 
-// ID returns the BranchID of the requested Branch.
-func (c *CachedBranch) ID() (branchID BranchID) {
-	branchID, _, err := BranchIDFromBytes(c.Key())
-	if err != nil {
-		panic(err)
-	}
-
-	return
-}
-
 // Retain marks the CachedObject to still be in use by the program.
 func (c *CachedBranch) Retain() *CachedBranch {
 	return &CachedBranch{c.CachedObject.Retain()}
 }
 
 // Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedBranch) Unwrap() Branch {
+func (c *CachedBranch) Unwrap() *Branch {
 	untypedObject := c.Get()
 	if untypedObject == nil {
 		return nil
 	}
 
-	typedObject := untypedObject.(Branch)
+	typedObject := untypedObject.(*Branch)
 	if typedObject == nil || typedObject.IsDeleted() {
 		return nil
 	}
@@ -473,392 +530,20 @@ func (c *CachedBranch) Unwrap() Branch {
 	return typedObject
 }
 
-// UnwrapConflictBranch is a more specialized Unwrap method that returns a ConflictBranch instead of the more generic interface.
-func (c *CachedBranch) UnwrapConflictBranch() (conflictBranch *ConflictBranch, err error) {
-	branch := c.Unwrap()
-	if branch == nil {
-		return
-	}
-
-	conflictBranch, typeCastOK := branch.(*ConflictBranch)
-	if !typeCastOK {
-		err = errors.Errorf("CachedBranch does not contain a ConflictBranch: %w", cerrors.ErrFatal)
-		return
-	}
-
-	return
-}
-
-// UnwrapAggregatedBranch is a more specialized Unwrap method that returns an AggregatedBranch instead of the more generic interface.
-func (c *CachedBranch) UnwrapAggregatedBranch() (aggregatedBranch *AggregatedBranch, err error) {
-	branch := c.Unwrap()
-	if branch == nil {
-		return
-	}
-
-	aggregatedBranch, typeCastOK := branch.(*AggregatedBranch)
-	if !typeCastOK {
-		err = errors.Errorf("CachedBranch does not contain an AggregatedBranch: %w", cerrors.ErrFatal)
-		return
-	}
-
-	return
-}
-
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranch) Consume(consumer func(branch Branch), forceRelease ...bool) (consumed bool) {
+func (c *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
 	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(Branch))
+		consumer(object.(*Branch))
 	}, forceRelease...)
 }
 
-// ConsumeConflictBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not
-// empty - it exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranch) ConsumeConflictBranch(consumer func(conflictBranch *ConflictBranch), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*ConflictBranch))
-	}, forceRelease...)
-}
-
-// ConsumeAggregatedBranch unwraps the CachedObject and passes a type-casted version to the consumer (if the object is
-// not empty - it exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranch) ConsumeAggregatedBranch(consumer func(aggregatedBranch *AggregatedBranch), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*AggregatedBranch))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedBranch.
+// String returns a human-readable version of the CachedBranch.
 func (c *CachedBranch) String() string {
 	return stringify.Struct("CachedBranch",
 		stringify.StructField("CachedObject", c.Unwrap()),
 	)
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictBranch ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
-// state.
-type ConflictBranch struct {
-	id                  BranchID
-	parents             BranchIDs
-	parentsMutex        sync.RWMutex
-	conflicts           ConflictIDs
-	conflictsMutex      sync.RWMutex
-	inclusionState      InclusionState
-	inclusionStateMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewConflictBranch creates a new ConflictBranch from the given details.
-func NewConflictBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *ConflictBranch {
-	c := &ConflictBranch{
-		id:        id,
-		parents:   parents.Clone(),
-		conflicts: conflicts.Clone(),
-	}
-
-	c.SetModified()
-	c.Persist()
-
-	return c
-}
-
-// ConflictBranchFromBytes unmarshals an ConflictBranch from a sequence of bytes.
-func ConflictBranchFromBytes(bytes []byte) (conflictBranch *ConflictBranch, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictBranch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ConflictBranchFromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
-func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
-	branchType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if BranchType(branchType) != ConflictBranchType {
-		err = errors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	conflictBranch = &ConflictBranch{}
-	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse id: %w", err)
-		return
-	}
-	if conflictBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parents: %w", err)
-		return
-	}
-	if conflictBranch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse conflicts: %w", err)
-		return
-	}
-	if conflictBranch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse inclusionState: %w", err)
-		return
-	}
-
-	return
-}
-
-// ID returns the identifier of the Branch.
-func (c *ConflictBranch) ID() BranchID {
-	return c.id
-}
-
-// Type returns the type of the Branch.
-func (c *ConflictBranch) Type() BranchType {
-	return ConflictBranchType
-}
-
-// InclusionState returns the InclusionState of the ConflictBranch.
-func (c *ConflictBranch) InclusionState() (inclusionState InclusionState) {
-	c.inclusionStateMutex.RLock()
-	defer c.inclusionStateMutex.RUnlock()
-
-	return c.inclusionState
-}
-
-// setInclusionState sets the InclusionState of the ConflictBranch (it is private because the InclusionState should be
-// set through the corresponding method in the BranchDAG).
-func (c *ConflictBranch) setInclusionState(inclusionState InclusionState) (modified bool) {
-	c.inclusionStateMutex.Lock()
-	defer c.inclusionStateMutex.Unlock()
-
-	if modified = c.inclusionState != inclusionState; !modified {
-		return
-	}
-
-	c.inclusionState = inclusionState
-	c.SetModified()
-
-	return
-}
-
-// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-func (c *ConflictBranch) Parents() BranchIDs {
-	c.parentsMutex.RLock()
-	defer c.parentsMutex.RUnlock()
-
-	return c.parents
-}
-
-// SetParents updates the parents of the ConflictBranch.
-func (c *ConflictBranch) SetParents(parentBranches BranchIDs) (modified bool) {
-	c.parentsMutex.Lock()
-	defer c.parentsMutex.Unlock()
-
-	c.parents = parentBranches
-	c.SetModified()
-	modified = true
-
-	return
-}
-
-// Conflicts returns the Conflicts that the ConflictBranch is part of.
-func (c *ConflictBranch) Conflicts() (conflicts ConflictIDs) {
-	c.conflictsMutex.RLock()
-	defer c.conflictsMutex.RUnlock()
-
-	conflicts = c.conflicts.Clone()
-
-	return
-}
-
-// AddConflict registers the membership of the ConflictBranch in the given Conflict.
-func (c *ConflictBranch) AddConflict(conflictID ConflictID) (added bool) {
-	c.conflictsMutex.Lock()
-	defer c.conflictsMutex.Unlock()
-
-	if _, exists := c.conflicts[conflictID]; exists {
-		return
-	}
-
-	c.conflicts[conflictID] = types.Void
-	c.SetModified()
-	added = true
-
-	return
-}
-
-// Bytes returns a marshaled version of the Branch.
-func (c *ConflictBranch) Bytes() []byte {
-	return c.ObjectStorageValue()
-}
-
-// String returns a human-readable version of the Branch.
-func (c *ConflictBranch) String() string {
-	return stringify.Struct("ConflictBranch",
-		stringify.StructField("id", c.ID()),
-		stringify.StructField("parents", c.Parents()),
-		stringify.StructField("conflicts", c.Conflicts()),
-	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ConflictBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *ConflictBranch) ObjectStorageKey() []byte {
-	return c.ID().Bytes()
-}
-
-// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (c *ConflictBranch) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteByte(byte(c.Type())).
-		Write(c.ID()).
-		Write(c.Parents()).
-		Write(c.Conflicts()).
-		Write(c.InclusionState()).
-		Bytes()
-}
-
-// code contract (make sure the struct implements all required methods)
-var _ Branch = &ConflictBranch{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region AggregatedBranch /////////////////////////////////////////////////////////////////////////////////////////////
-
-// AggregatedBranch represents a container for Transactions and Outputs representing a certain perception of the ledger
-// state.
-type AggregatedBranch struct {
-	id           BranchID
-	parents      BranchIDs
-	parentsMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewAggregatedBranch creates a new AggregatedBranch from the given details.
-func NewAggregatedBranch(parents BranchIDs) *AggregatedBranch {
-	// sort parents
-	parentBranchIDs := parents.Slice()
-	sort.Slice(parentBranchIDs, func(i, j int) bool {
-		return bytes.Compare(parentBranchIDs[i].Bytes(), parentBranchIDs[j].Bytes()) < 0
-	})
-
-	// concatenate sorted parent bytes
-	marshalUtil := marshalutil.New(BranchIDLength * len(parentBranchIDs))
-	for _, branchID := range parentBranchIDs {
-		marshalUtil.WriteBytes(branchID.Bytes())
-	}
-
-	// return result
-	return &AggregatedBranch{
-		id:      blake2b.Sum256(marshalUtil.Bytes()),
-		parents: parents.Clone(),
-	}
-}
-
-// AggregatedBranchFromBytes unmarshals an AggregatedBranch from a sequence of bytes.
-func AggregatedBranchFromBytes(bytes []byte) (aggregatedBranch *AggregatedBranch, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// AggregatedBranchFromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
-func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
-	branchType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if BranchType(branchType) != AggregatedBranchType {
-		err = errors.Errorf("invalid BranchType (%X): %w", branchType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	aggregatedBranch = &AggregatedBranch{}
-	if aggregatedBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse id: %w", err)
-		return
-	}
-	if aggregatedBranch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parents: %w", err)
-		return
-	}
-
-	return
-}
-
-// ID returns the identifier of the Branch.
-func (a *AggregatedBranch) ID() BranchID {
-	return a.id
-}
-
-// Type returns the type of the Branch.
-func (a *AggregatedBranch) Type() BranchType {
-	return AggregatedBranchType
-}
-
-// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
-func (a *AggregatedBranch) Parents() BranchIDs {
-	a.parentsMutex.RLock()
-	defer a.parentsMutex.RUnlock()
-
-	return a.parents
-}
-
-// Bytes returns a marshaled version of the Branch.
-func (a *AggregatedBranch) Bytes() []byte {
-	return a.ObjectStorageValue()
-}
-
-// String returns a human readable version of the Branch.
-func (a *AggregatedBranch) String() string {
-	return stringify.Struct("AggregatedBranch",
-		stringify.StructField("id", a.ID()),
-		stringify.StructField("parents", a.Parents()),
-	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (a *AggregatedBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *AggregatedBranch) ObjectStorageKey() []byte {
-	return a.ID().Bytes()
-}
-
-// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (a *AggregatedBranch) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteByte(byte(a.Type())).
-		WriteBytes(a.ID().Bytes()).
-		WriteBytes(a.Parents().Bytes()).
-		Bytes()
-}
-
-// code contract (make sure the struct implements all required methods)
-var _ Branch = &AggregatedBranch{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -871,19 +556,17 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	parentBranchID  BranchID
-	childBranchID   BranchID
-	childBranchType BranchType
+	parentBranchID BranchID
+	childBranchID  BranchID
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
-func NewChildBranch(parentBranchID BranchID, childBranchID BranchID, childBranchType BranchType) *ChildBranch {
+func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	return &ChildBranch{
-		parentBranchID:  parentBranchID,
-		childBranchID:   childBranchID,
-		childBranchType: childBranchType,
+		parentBranchID: parentBranchID,
+		childBranchID:  childBranchID,
 	}
 }
 
@@ -908,10 +591,6 @@ func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBran
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
-		return
-	}
-	if childBranch.childBranchType, err = BranchTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse child BranchType from MarshalUtil: %w", err)
 		return
 	}
 
@@ -939,11 +618,6 @@ func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
 	return c.childBranchID
 }
 
-// ChildBranchType returns the BranchType of the child Branch in the BranchDAG.
-func (c *ChildBranch) ChildBranchType() BranchType {
-	return c.childBranchType
-}
-
 // Bytes returns a marshaled version of the ChildBranch.
 func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
@@ -954,7 +628,6 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	return stringify.Struct("ChildBranch",
 		stringify.StructField("parentBranchID", c.ParentBranchID()),
 		stringify.StructField("childBranchID", c.ChildBranchID()),
-		stringify.StructField("childBranchType", c.ChildBranchType()),
 	)
 }
 
@@ -975,7 +648,7 @@ func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
-	return c.childBranchType.Bytes()
+	return []byte{}
 }
 
 // code contract (make sure the struct implements all required methods)

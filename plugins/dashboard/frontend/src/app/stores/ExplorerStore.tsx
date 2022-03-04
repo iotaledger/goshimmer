@@ -79,7 +79,7 @@ class OutputID {
 
 export class OutputMetadata {
     outputID: OutputID;
-    branchID: string;
+    branchIDs: Array<string>;
     solid: boolean;
     solidificationTime: number;
     consumerCount: number;
@@ -107,7 +107,6 @@ class PendingMana {
 
 class Branch {
     id: string;
-    type: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
     gradeOfFinality: number

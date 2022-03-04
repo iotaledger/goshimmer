@@ -72,20 +72,8 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
 // also an alias when printing the BranchID.
-func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
-	if len(messageAliases) == 1 {
-		branchID := m.BranchIDFromMessage(messageAliases[0])
-		m.branchIDs[alias] = branchID
-		ledgerstate.RegisterBranchIDAlias(branchID, alias)
-		return
-	}
-
-	aggregation := ledgerstate.NewBranchIDs()
-	for _, messageAlias := range messageAliases {
-		branch := m.BranchIDFromMessage(messageAlias)
-		aggregation.Add(branch)
-	}
-	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
+func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
+	branchID := m.BranchIDFromMessage(messageAlias)
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
@@ -253,10 +241,10 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerst
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledgerstate.ConflictBranch.
+// This function thus only works on the message creating ledgerstate.Branch.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b ledgerstate.Branch) {
-	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch ledgerstate.Branch) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *ledgerstate.Branch) {
+	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *ledgerstate.Branch) {
 		b = branch
 	})
 	return

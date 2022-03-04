@@ -134,11 +134,15 @@ func registerUTXOEvents() {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
 				deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+					branchIDs := make([]string, 0)
+					for branchID := range txMetadata.BranchIDs() {
+						branchIDs = append(branchIDs, branchID.Base58())
+					}
 					wsMsg := &wsMessage{
 						Type: MsgTypeUTXOBooked,
 						Data: &utxoBooked{
-							ID:       tx.ID().Base58(),
-							BranchID: txMetadata.BranchID().Base58(),
+							ID:        tx.ID().Base58(),
+							BranchIDs: branchIDs,
 						},
 					}
 					visualizerWorkerPool.TrySubmit(wsMsg)
@@ -362,11 +366,11 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 
 	var gof string
 	var confirmedTime int64
-	var branchID string
+	var branchIDs []string
 	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchID = txMetadata.BranchID().Base58()
+		branchIDs = txMetadata.BranchIDs().Base58()
 	})
 
 	ret = &utxoVertex{
@@ -375,7 +379,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 		Inputs:        inputs,
 		Outputs:       outputs,
 		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
-		BranchID:      branchID,
+		BranchIDs:     branchIDs,
 		GoF:           gof,
 		ConfirmedTime: confirmedTime,
 	}
@@ -384,22 +388,19 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 }
 
 func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-		// get conflicts of a Conflict branch
-		if branch.Type() == ledgerstate.ConflictBranchType {
-			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
-				conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
-				deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-					conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
-				})
-			}
+		// get conflicts of a branch
+		for conflictID := range branch.Conflicts() {
+			conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
+			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+			})
 		}
 
 		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
-			Type:        branch.Type().String(),
 			Parents:     branch.Parents().Base58(),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),

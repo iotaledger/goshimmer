@@ -189,7 +189,9 @@ type DiagnosticMessagesInfo struct {
 	WeakApprovers           tangle.MessageIDsSlice
 	ShallowLikeApprovers    tangle.MessageIDsSlice
 	ShallowDislikeApprovers tangle.MessageIDsSlice
-	BranchID                string
+	BranchIDs               []string
+	AddedBranchIDs          []string
+	SubtractedBranchIDs     []string
 	Scheduled               bool
 	Booked                  bool
 	ObjectivelyInvalid      bool
@@ -224,16 +226,12 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		}
 	})
 
-	var branchID ledgerstate.BranchID
-	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
-	if err == nil {
-		branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
-	}
+	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
 
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
-		msgInfo.BranchID = branchID.String()
+		msgInfo.BranchIDs = branchIDs.Base58()
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()
@@ -281,7 +279,7 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		strings.Join(d.WeakApprovers.ToStrings(), ";"),
 		strings.Join(d.ShallowLikeApprovers.ToStrings(), ";"),
 		strings.Join(d.ShallowDislikeParents.ToStrings(), ";"),
-		d.BranchID,
+		strings.Join(d.BranchIDs, ";"),
 		fmt.Sprint(d.Scheduled),
 		fmt.Sprint(d.Booked),
 		fmt.Sprint(d.ObjectivelyInvalid),
