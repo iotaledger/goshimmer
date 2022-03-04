@@ -789,6 +789,10 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) 
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
+	if t.branchIDs.Equals(branchIDs) {
+		return false
+	}
+
 	t.branchIDs = branchIDs.Clone()
 	t.SetModified()
 	return true

@@ -1103,6 +1103,10 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
+	if m.addedBranchIDs.Equals(addedBranchIDs) {
+		return false
+	}
+
 	m.addedBranchIDs = addedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
@@ -1136,6 +1140,10 @@ func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
 func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate.BranchIDs) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
+
+	if m.subtractedBranchIDs.Equals(subtractedBranchIDs) {
+		return false
+	}
 
 	m.subtractedBranchIDs = subtractedBranchIDs.Clone()
 	m.SetModified(true)

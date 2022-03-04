@@ -525,10 +525,14 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 			return
 		}
 
-		if err = b.propagateForkedTransactionToMetadataFutureCone(messageMetadata, forkedBranchID, messageWalker); err != nil {
-			err = errors.Errorf("failed to propagate conflict%s to MessageMetadata future cone of %s: %w", forkedBranchID, messageMetadata.ID(), err)
-			messageWalker.StopWalk()
+		if !messageMetadata.AddBranchID(forkedBranchID) {
 			return
+		}
+
+		b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), forkedBranchID)
+
+		for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+			messageWalker.Push(approvingMessageID)
 		}
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
 
@@ -561,8 +565,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 		return errors.Errorf("failed to retrieve pending BranchIDs of %s: %w", currentMarker, err)
 	}
 
-	_, newBranchIDExists := oldBranchIDs[newBranchID]
-	if newBranchIDExists {
+	if oldBranchIDs.Contains(newBranchID) {
 		return nil
 	}
 
@@ -582,26 +585,6 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID led
 	b.MarkersManager.ForEachMarkerReferencingMarker(currentMarker, func(referencingMarker *markers.Marker) {
 		markerWalker.Push(referencingMarker)
 	})
-
-	return
-}
-
-// propagateForkedTransactionToMetadataFutureCone updates the future cone of a Message to belong to the given conflict BranchID.
-func (b *Booker) propagateForkedTransactionToMetadataFutureCone(messageMetadata *MessageMetadata, newBranchID ledgerstate.BranchID, messageWalker *walker.Walker) (err error) {
-	branchIDAdded := messageMetadata.AddBranchID(newBranchID)
-	if err != nil {
-		return errors.Errorf("failed to add conflict %s to addedBranchIDs of Message with %s: %w", newBranchID, messageMetadata.ID(), err)
-	}
-
-	if !branchIDAdded {
-		return nil
-	}
-
-	b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), newBranchID)
-
-	for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
-		messageWalker.Push(approvingMessageID)
-	}
 
 	return
 }

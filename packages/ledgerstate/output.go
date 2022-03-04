@@ -2425,6 +2425,10 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
+	if o.branchIDs.Equals(branchIDs) {
+		return false
+	}
+
 	o.branchIDs = branchIDs.Clone()
 	o.SetModified()
 	return true
