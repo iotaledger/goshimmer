@@ -239,6 +239,11 @@ func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
 	return
 }
 
+// Is checks if the given target BranchID is the only BranchID within BranchIDs.
+func (b BranchIDs) Is(targetBranch BranchID) (is bool) {
+	return len(b) == 1 && b.Contains(targetBranch)
+}
+
 // Slice creates a slice of BranchIDs from the collection.
 func (b BranchIDs) Slice() (list []BranchID) {
 	list = make([]BranchID, len(b))

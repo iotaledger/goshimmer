@@ -361,19 +361,19 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
-func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs) (targetBranchIDs BranchIDs) {
-	transactionMetadata.SetBranchIDs(normalizedBranchIDs)
+func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs BranchIDs) (targetBranchIDs BranchIDs) {
+	transactionMetadata.SetBranchIDs(branchIDs)
 	transactionMetadata.SetSolid(true)
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
-	u.bookOutputs(transaction, normalizedBranchIDs)
+	u.bookOutputs(transaction, branchIDs)
 
-	return normalizedBranchIDs
+	return branchIDs
 }
 
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It creates a new Branch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, normalizedBranchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranchIDs BranchIDs) {
+func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranchIDs BranchIDs) {
 	// fork existing consumers
 	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
 		u.forkConsumer(transactionID, conflictingInputs)
@@ -383,7 +383,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 
 	// create new Branch
 	targetBranchID := NewBranchID(transaction.ID())
-	cachedBranch, _, err := u.ledgerstate.CreateBranch(targetBranchID, normalizedBranchIDs, conflictingInputs.ConflictIDs())
+	cachedBranch, _, err := u.ledgerstate.CreateBranch(targetBranchID, branchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
@@ -413,8 +413,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 		// We don't need to propagate updates if the branch did already exist.
 		// Though CreateBranch needs to be called so that conflict sets and conflict membership are properly updated.
-		// TODO: this should never happen: a transaction should only be forked once?
-		if transactionMetadata.BranchIDs().Contains(forkedBranchID) {
+		if transactionMetadata.BranchIDs().Is(forkedBranchID) {
 			return
 		}
 
