@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,31 +169,6 @@ func UnregisterMessageIDAliases() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region MessageIDsSlice //////////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageIDsSlice is a slice of MessageID.
-type MessageIDsSlice []MessageID
-
-// ToStrings converts a slice of MessageIDs to a slice of strings.
-func (ids MessageIDsSlice) ToStrings() []string {
-	result := make([]string, 0, len(ids))
-	for _, id := range ids {
-		result = append(result, id.Base58())
-	}
-	return result
-}
-
-// ToMessageIDs converts the slice of MessageIDs into a set of MessageIDs.
-func (ids MessageIDsSlice) ToMessageIDs() MessageIDs {
-	msgIDs := make(MessageIDs)
-	for _, id := range ids {
-		msgIDs[id] = types.Void
-	}
-	return msgIDs
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region MessageIDs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageIDs is a set of MessageIDs where every MessageID is stored only once.
@@ -209,8 +185,8 @@ func NewMessageIDs(msgIDs ...MessageID) MessageIDs {
 }
 
 // Slice converts the set of MessageIDs into a slice of MessageIDs.
-func (m MessageIDs) Slice() MessageIDsSlice {
-	ids := make(MessageIDsSlice, 0)
+func (m MessageIDs) Slice() []MessageID {
+	ids := make([]MessageID, 0)
 	for key := range m {
 		ids = append(ids, key)
 	}
@@ -240,6 +216,46 @@ func (m MessageIDs) AddAll(messageIDs MessageIDs) MessageIDs {
 	}
 
 	return m
+}
+
+// Contains checks if the given target MessageID is part of the MessageIDs.
+func (m MessageIDs) Contains(target MessageID) (contains bool) {
+	_, contains = m[target]
+	return
+}
+
+// First returns the first element in MessageIDs (not ordered). This method only makes sense if there is exactly one
+// element in the collection.
+func (m MessageIDs) First() MessageID {
+	for messageID := range m {
+		return messageID
+	}
+	return EmptyMessageID
+}
+
+// Base58 returns a string slice of base58 MessageID.
+func (m MessageIDs) Base58() (result []string) {
+	result = make([]string, 0, len(m))
+	for id := range m {
+		result = append(result, id.Base58())
+	}
+
+	return
+}
+
+// String returns a human-readable version of the MessageIDs.
+func (m MessageIDs) String() string {
+	if len(m) == 0 {
+		return "MessageIDs{}"
+	}
+
+	result := "MessageIDs{\n"
+	for messageID := range m {
+		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + messageID.String() + ",\n"
+	}
+	result += "}"
+
+	return result
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -277,10 +293,10 @@ type Message struct {
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
 	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(references[StrongParentType].Slice())
-	sortedWeakParents := sortParents(references[WeakParentType].Slice())
-	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType].Slice())
-	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType].Slice())
+	sortedStrongParents := sortParents(references[StrongParentType])
+	sortedWeakParents := sortParents(references[WeakParentType])
+	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType])
+	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType])
 
 	weakParentsCount := len(sortedWeakParents)
 	shallowDislikeParentsCount := len(sortedShallowDislikeParents)
@@ -408,18 +424,8 @@ func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
 }
 
 // filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents MessageIDsSlice) (sorted MessageIDsSlice) {
-	seen := make(map[MessageID]types.Empty)
-	sorted = make(MessageIDsSlice, 0, len(parents))
-
-	// filter duplicates
-	for _, parent := range parents {
-		if _, seenAlready := seen[parent]; seenAlready {
-			continue
-		}
-		seen[parent] = types.Void
-		sorted = append(sorted, parent)
-	}
+func sortParents(parents MessageIDs) (sorted []MessageID) {
+	sorted = parents.Slice()
 
 	// sort parents
 	sort.Slice(sorted, func(i, j int) bool {
@@ -475,7 +481,7 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
 			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
 		}
-		references := make(MessageIDsSlice, parentsCount)
+		references := make([]MessageID, parentsCount)
 		for j := 0; j < int(parentsCount); j++ {
 			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
@@ -602,13 +608,13 @@ func (m *Message) Version() uint8 {
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
-func (m *Message) ParentsByType(parentType ParentsType) MessageIDsSlice {
+func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
 	for _, parentBlock := range m.parentsBlocks {
 		if parentBlock.ParentsType == parentType {
-			return parentBlock.References
+			return NewMessageIDs(parentBlock.References...)
 		}
 	}
-	return MessageIDsSlice{}
+	return NewMessageIDs()
 }
 
 // ForEachParent executes a consumer func for each parent.
@@ -625,7 +631,7 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 
 // ForEachParentByType executes a consumer func for each strong parent.
 func (m *Message) ForEachParentByType(parentType ParentsType, consumer func(parentMessageID MessageID) bool) {
-	for _, parentID := range m.ParentsByType(parentType) {
+	for parentID := range m.ParentsByType(parentType) {
 		if !consumer(parentID) {
 			return
 		}
@@ -689,7 +695,7 @@ func (m *Message) Bytes() []byte {
 		parentBlock := m.parentsBlocks[x]
 		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
 		marshalUtil.WriteByte(byte(len(parentBlock.References)))
-		sortedParents := sortParents(parentBlock.References)
+		sortedParents := sortParents(NewMessageIDs(parentBlock.References...))
 		for _, parent := range sortedParents {
 			marshalUtil.Write(parent)
 		}
@@ -732,25 +738,25 @@ func (m *Message) Update(objectstorage.StorableObject) {
 
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
-	parents := m.ParentsByType(StrongParentType)
+	parents := sortParents(m.ParentsByType(StrongParentType))
 	if len(parents) > 0 {
 		for index, parent := range parents {
 			builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(WeakParentType)
+	parents = sortParents(m.ParentsByType(WeakParentType))
 	if len(parents) > 0 {
 		for index, parent := range parents {
 			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(ShallowDislikeParentType)
+	parents = sortParents(m.ParentsByType(ShallowDislikeParentType))
 	if len(parents) > 0 {
 		for index, parent := range parents {
 			builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 		}
 	}
-	parents = m.ParentsByType(ShallowLikeParentType)
+	parents = sortParents(m.ParentsByType(ShallowLikeParentType))
 	if len(parents) > 0 {
 		for index, parent := range parents {
 			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
@@ -799,7 +805,7 @@ type Parent struct {
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType
-	References MessageIDsSlice
+	References []MessageID
 }
 
 // ParentMessageIDs is a map of ParentType to MessageIDs.

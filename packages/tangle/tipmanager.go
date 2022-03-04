@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -220,7 +219,7 @@ func (t *TipManager) removeStrongParents(message *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -235,7 +234,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 		transaction := p.(*ledgerstate.Transaction)
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents...) {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents) {
 			if tries == 0 {
 				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips")
 				return nil, err
@@ -251,9 +250,8 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 
 // selectTips returns a list of parents. In case of a transaction, it references young enough attachments
 // of consumed transactions directly. Otherwise/additionally count tips are randomly selected.
-func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDsSlice) {
-	parents = make([]MessageID, 0, MaxParentsCount)
-	parentsMap := make(map[MessageID]types.Empty)
+func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
+	parents = NewMessageIDs()
 
 	// if transaction: reference young parents directly
 	if p != nil && p.Type() == ledgerstate.TransactionType {
@@ -265,15 +263,12 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 				// only one attachment needs to be added
 				added := false
 
-				for _, attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(transactionID) {
+				for attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(transactionID) {
 					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
 						// check if message is too old
 						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
 						if timeDifference <= maxParentsTimeDifference {
-							if _, ok := parentsMap[attachmentMessageID]; !ok {
-								parentsMap[attachmentMessageID] = types.Void
-								parents = append(parents, attachmentMessageID)
-							}
+							parents.Add(attachmentMessageID)
 							added = true
 						}
 					})
@@ -305,33 +300,30 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 	if len(tips) == 0 {
 		// only add genesis if no tip was found and not previously referenced (in case of a transaction)
 		if len(parents) == 0 {
-			parents = append(parents, EmptyMessageID)
+			parents.Add(EmptyMessageID)
 		}
 		return
 	}
 	// at least one tip is returned
 	for _, tip := range tips {
 		messageID := tip.(MessageID)
-
-		if _, ok := parentsMap[messageID]; !ok {
-			parentsMap[messageID] = types.Void
-			parents = append(parents, messageID)
-		}
+		parents.Add(messageID)
 	}
 
 	return
 }
 
 // AllTips returns a list of all tips that are stored in the TipManger.
-func (t *TipManager) AllTips() MessageIDsSlice {
+func (t *TipManager) AllTips() MessageIDs {
 	return retrieveAllTips(t.tips)
 }
 
-func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDsSlice {
+func retrieveAllTips(tipsMap *randommap.RandomMap) MessageIDs {
 	mapKeys := tipsMap.Keys()
-	tips := make(MessageIDsSlice, len(mapKeys))
-	for i, key := range mapKeys {
-		tips[i] = key.(MessageID)
+	tips := NewMessageIDs()
+
+	for _, key := range mapKeys {
+		tips.Add(key.(MessageID))
 	}
 	return tips
 }

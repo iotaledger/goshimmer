@@ -46,7 +46,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
+	}, tangle.NewMessageIDs(tangle.EmptyMessageID))
 
 	c.Response().Flush()
 }
@@ -101,7 +101,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Outputs = transaction.Essence().Outputs()
 	})
 
-	for _, messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
+	for messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
 		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 

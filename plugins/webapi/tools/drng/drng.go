@@ -52,7 +52,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
+	}, tangle.NewMessageIDs(tangle.EmptyMessageID))
 
 	if writeErr != nil {
 		return writeErr

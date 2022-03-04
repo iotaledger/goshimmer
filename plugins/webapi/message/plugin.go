@@ -106,12 +106,12 @@ func GetMessage(c echo.Context) (err error) {
 	if deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
 			ID:                      message.ID().Base58(),
-			StrongParents:           message.ParentsByType(tangle.StrongParentType).ToStrings(),
-			WeakParents:             message.ParentsByType(tangle.WeakParentType).ToStrings(),
-			StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
-			WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
-			ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).ToStrings(),
-			ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowDislikeApprover).ToStrings(),
+			StrongParents:           message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParents:             message.ParentsByType(tangle.WeakParentType).Base58(),
+			StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).Base58(),
+			WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).Base58(),
+			ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).Base58(),
+			ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowDislikeApprover).Base58(),
 			IssuerPublicKey:         message.IssuerPublicKey().String(),
 			IssuingTime:             message.IssuingTime().Unix(),
 			SequenceNumber:          message.SequenceNumber(),
