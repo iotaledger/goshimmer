@@ -128,9 +128,30 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate
 	}
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
+func (w *Wallet) UnspentOutputBalance(outputID string) uint64 {
+	if out, ok := w.unspentOutputs[outputID]; ok {
+		return out.Balance
+	}
+	return 0
+}
+
+func (w *Wallet) createOutputs(nOutputs int, inputBalance uint64) (outputs []ledgerstate.Output) {
+	outputBalances := SplitBalanceEqually(nOutputs, inputBalance)
+	for i := 0; i < nOutputs; i++ {
+		idx := uint64(w.lastAddrIdxUsed.Add(1))
+		addr := w.seed.Address(idx)
+		output := ledgerstate.NewSigLockedSingleOutput(outputBalances[i], addr.Address())
+		outputs = append(outputs, output)
+		// correct ID will be updated after txn confirmation
+		w.AddUnspentOutput(addr.Address(), output.ID(), outputBalances[i])
+	}
+	return
+}
+
 func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	index := w.addrIndexMap[addr.Base58()]
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////

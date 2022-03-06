@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -27,11 +28,12 @@ var clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
-	wallets         *Wallets
-	connector       Clients
-	outputManager   *OutputManager
-	conflictManager *ConflictManager
-	aliasManager    *AliasManager
+	wallets              *Wallets
+	connector            Clients
+	outputManager        *OutputManager
+	conflictManager      *ConflictManager
+	aliasManager         *AliasManager
+	internalAliasManager *InternalAliasManager
 }
 
 // NewEvilWallet creates an EvilWallet instance.
@@ -39,11 +41,12 @@ func NewEvilWallet() *EvilWallet {
 	connector := NewConnector(clientsURL)
 
 	return &EvilWallet{
-		wallets:         NewWallets(),
-		connector:       connector,
-		outputManager:   NewOutputManager(connector),
-		conflictManager: NewConflictManager(),
-		aliasManager:    NewAliasManager(),
+		wallets:              NewWallets(),
+		connector:            connector,
+		outputManager:        NewOutputManager(connector),
+		conflictManager:      NewConflictManager(),
+		aliasManager:         NewAliasManager(),
+		internalAliasManager: NewEvilAliasManager(),
 	}
 }
 
@@ -94,13 +97,13 @@ func (e *EvilWallet) RequestFundsFromFaucet(addr address.Address, options ...Fau
 	return
 }
 
-// CreateNFreshFaucet10kWallet creates n new wallets, each wallet is created from one faucet request.
-func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
+// RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 10000 outputs.
+func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 	// channel to block the number of concurrent goroutines
 	semaphore := make(chan bool, maxGoroutines)
 	wg := sync.WaitGroup{}
 
-	for reqNum := 0; reqNum < numberOf10kWallets; reqNum++ {
+	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
 		wg.Add(1)
 		go func(reqNum int) {
 			defer wg.Done()
@@ -109,7 +112,8 @@ func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 			defer func() {
 				<-semaphore
 			}()
-			err := e.CreateFreshFaucetWallet()
+
+			err := e.RequestFreshBigFaucetWallet()
 			if err != nil {
 				return
 			}
@@ -119,10 +123,11 @@ func (e *EvilWallet) CreateNFreshFaucet10kWallet(numberOf10kWallets int) {
 	return
 }
 
-// CreateFreshFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
+// RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
 // requested from the Faucet.
-func (e *EvilWallet) CreateFreshFaucetWallet() (err error) {
-	funds, err := e.requestAndSplitFaucetFunds()
+func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
+	initWallet := NewWallet(fresh)
+	funds, err := e.requestAndSplitFaucetFunds(initWallet)
 	if err != nil {
 		return
 	}
@@ -133,18 +138,29 @@ func (e *EvilWallet) CreateFreshFaucetWallet() (err error) {
 	return
 }
 
-func (e *EvilWallet) requestAndSplitFaucetFunds() (wallet *Wallet, err error) {
-	reqWallet := NewWallet(fresh)
-	addr := reqWallet.Address()
+// RequestFreshFaucetWallet creates a new wallet and fills the wallet with 100 outputs created from funds
+// requested from the Faucet.
+func (e *EvilWallet) RequestFreshFaucetWallet() (wallet *Wallet, err error) {
+	initWallet := e.NewWallet(fresh)
+	wallet, err = e.requestAndSplitFaucetFunds(initWallet)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wallet, err error) {
+	addr := initWallet.Address()
 	initOutput := e.requestFaucetFunds(addr.Address())
 	if err != nil {
 		return
 	}
-	reqWallet.AddUnspentOutput(addr.Address(), initOutput, uint64(faucet.Parameters.TokensPerRequest))
+	initWallet.AddUnspentOutput(addr.Address(), initOutput, uint64(faucet.Parameters.TokensPerRequest))
 	//first split 1 to FaucetRequestSplitNumber outputs
 	wallet = NewWallet(fresh)
-	e.outputManager.AwaitWalletOutputsToBeConfirmed(reqWallet)
-	txIDs := e.splitOutputs(reqWallet, wallet, FaucetRequestSplitNumber)
+	e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
+	txIDs := e.splitOutputs(initWallet, wallet, FaucetRequestSplitNumber)
 	e.outputManager.AwaitTransactionsConfirmationAndUpdateWallet(wallet, txIDs, maxGoroutines)
 	return
 }
@@ -171,19 +187,21 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 		return []string{}
 	}
 	inputNum := 0
-	for _, output := range inputWallet.unspentOutputs {
+	for _, input := range inputWallet.unspentOutputs {
 		wg.Add(1)
-		go func(inputNum int, out *Output) {
+		go func(inputNum int, input *Output) {
 			defer wg.Done()
-			// todo finish with a new create txs
-			//tx := prepareTransaction([]*UnspentOutput{out}, []*seed.Seed{inputWallet.seed}, outWallet, numOutputs, *pledgeID)
-			//clt := e.connector.GetClient()
-			//txID, err := e.connector.PostTransaction(tx.Bytes(), clt)
-			//if err != nil {
-			//	return
-			//}
-			//txIDs[inputNum] = txID.TransactionID
-		}(inputNum, output)
+			inputAliases := e.internalAliasManager.CreateAliasesForInputs([]*Output{input})
+			outputs := outputWallet.createOutputs(splitNumber, input.Balance)
+			outputAliases := e.internalAliasManager.CreateAliasesForOutputs(outputs)
+			tx, err := e.CreateTransaction("A", WithInputs(inputAliases...), WithOutputs(outputAliases), WithIssuer(inputWallet))
+			clt := e.connector.GetClient()
+			txID, err := e.connector.PostTransaction(tx, clt)
+			if err != nil {
+				return
+			}
+			txIDs[inputNum] = txID.Base58()
+		}(inputNum, input)
 		inputNum++
 	}
 	wg.Wait()
@@ -228,7 +246,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []
 			wg.Add(1)
 			go func(clt *client.GoShimmerAPI, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				clt.PostTransaction(tx.Bytes())
+				_, _ = clt.PostTransaction(tx.Bytes())
 			}(clients[i], tx)
 		}
 		wg.Wait()
@@ -244,42 +262,88 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 		return
 	}
 
-	inputs := make([]ledgerstate.Input, 0)
-	// get inputs by alias
-	for inputAlias := range buildOptions.inputs {
-		inputs = append(inputs, e.aliasManager.GetInput(inputAlias))
-	}
-
-	outputs := make([]ledgerstate.Output, 0)
-	addrAliasMap := make(map[ledgerstate.Address]string)
-	for alias, balance := range buildOptions.outputs {
-		addr := buildOptions.issuer.Address().Address()
-		output := ledgerstate.NewSigLockedSingleOutput(balance, addr)
-		if err != nil {
-			return
-		}
-		outputs = append(outputs, output)
-		addrAliasMap[addr] = alias
+	inputs := e.prepareInputs(buildOptions)
+	outputs, addrAliasMap, err := e.prepareOutputs(buildOptions)
+	if err != nil {
+		return nil, err
 	}
 
 	tx, err = e.makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), buildOptions.issuer)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	for _, output := range tx.Essence().Outputs() {
 		// register output alias
-		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
+		err = e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
+		if err != nil {
+			return nil, err
+		}
 
 		// register output as unspent output(input)
 		input := ledgerstate.NewUTXOInput(output.ID())
-		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
+		err = e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
+		if err != nil {
+			return nil, err
+		}
 
 		// add output to outputmanager
 		e.outputManager.AddOutput(output)
 	}
 
-	e.aliasManager.AddTransactionAlias(tx, aliasName)
+	err = e.aliasManager.AddTransactionAlias(tx, aliasName)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+func (e *EvilWallet) prepareInputs(buildOptions *Options) []ledgerstate.Input {
+	inputs := make([]ledgerstate.Input, 0)
+	// get inputs by alias
+	for inputAlias := range buildOptions.inputs {
+		in := e.aliasManager.GetInput(inputAlias)
+		inputs = append(inputs, in)
+	}
+	return inputs
+}
+
+func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output, addrAliasMap map[ledgerstate.Address]string, err error) {
+	err = e.updateOutputBalances(buildOptions)
+	if err != nil {
+		return nil, nil, err
+	}
+	addrAliasMap = make(map[ledgerstate.Address]string)
+	for alias, balance := range buildOptions.outputs {
+		addr := buildOptions.outputWallet.Address().Address()
+		output := ledgerstate.NewSigLockedSingleOutput(balance, addr)
+		if err != nil {
+			return nil, nil, err
+		}
+		outputs = append(outputs, output)
+		addrAliasMap[addr] = alias
+	}
+	return
+}
+
+func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
+	if !buildOptions.isBalanceProvided() {
+		totalBalance := uint64(0)
+		for inputAlias := range buildOptions.inputs {
+			in := e.aliasManager.GetInput(inputAlias)
+			if in == nil {
+				err = errors.New("could not get input by input alias")
+				return
+			}
+			totalBalance += buildOptions.issuer.UnspentOutputBalance(in.Base58())
+		}
+		balances := SplitBalanceEqually(len(buildOptions.outputs), totalBalance)
+		i := 0
+		for out := range buildOptions.outputs {
+			buildOptions.outputs[out] = balances[i]
+			i += 1
+		}
+	}
 	return
 }
 
@@ -287,11 +351,11 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
-		address, err := e.getAddressFromInput(input)
+		addr, err := e.getAddressFromInput(input)
 		if err != nil {
 			return nil, err
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(address, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(addr, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }

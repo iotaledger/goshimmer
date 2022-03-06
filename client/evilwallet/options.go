@@ -17,6 +17,7 @@ type Options struct {
 	shallowLikeParents       map[string]types.Empty
 	shallowDislikeParents    map[string]types.Empty
 	issuer                   *Wallet
+	outputWallet             *Wallet
 	issuingTime              time.Time
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
@@ -38,6 +39,10 @@ func NewOptions(options ...Option) (messageOptions *Options) {
 		option(messageOptions)
 	}
 
+	if messageOptions.outputWallet == nil {
+		messageOptions.outputWallet = messageOptions.issuer
+	}
+
 	return
 }
 
@@ -45,7 +50,16 @@ func NewOptions(options ...Option) (messageOptions *Options) {
 // behavior.
 type Option func(*Options)
 
-// WithInputs returns a Option that is used to provide the Inputs of the Transaction.
+func (o *Options) isBalanceProvided() bool {
+	for _, balance := range o.outputs {
+		if balance == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// WithInputs returns an Option that is used to provide the Inputs of the Transaction.
 func WithInputs(inputAliases ...string) Option {
 	return func(options *Options) {
 		for _, inputAlias := range inputAliases {
@@ -54,14 +68,29 @@ func WithInputs(inputAliases ...string) Option {
 	}
 }
 
-// WithOutput returns a Option that is used to define a non-colored Output for the Transaction in the Message.
-func WithOutput(alias string, balance uint64) Option {
+// WithOutput returns an Option that is used to define a non-colored Output for the Transaction in the Message.
+func WithOutput(outputAlias string, balance uint64) Option {
 	return func(options *Options) {
-		options.outputs[alias] = balance
+		options.outputs[outputAlias] = balance
 	}
 }
 
-// WithStrongParents returns a Option that is used to define the strong parents of the Message.
+// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Message.
+func WithOutputs(outputAliases []string, balances ...uint64) Option {
+
+	return func(options *Options) {
+		for i, inputAlias := range outputAliases {
+			if len(balances) > 0 {
+				options.outputs[inputAlias] = balances[i]
+			} else {
+				options.outputs[inputAlias] = 0
+			}
+
+		}
+	}
+}
+
+// WithStrongParents returns an Option that is used to define the strong parents of the Message.
 func WithStrongParents(messageAliases ...string) Option {
 	return func(options *Options) {
 		for _, messageAlias := range messageAliases {
@@ -70,7 +99,7 @@ func WithStrongParents(messageAliases ...string) Option {
 	}
 }
 
-// WithWeakParents returns a Option that is used to define the weak parents of the Message.
+// WithWeakParents returns an Option that is used to define the weak parents of the Message.
 func WithWeakParents(messageAliases ...string) Option {
 	return func(options *Options) {
 		for _, messageAlias := range messageAliases {
@@ -101,6 +130,13 @@ func WithShallowDislikeParents(messageAliases ...string) Option {
 func WithIssuer(issuer *Wallet) Option {
 	return func(options *Options) {
 		options.issuer = issuer
+	}
+}
+
+// WithOutputWallet returns a MessageOption that is used to define the issuer of the Message.
+func WithOutputWallet(wallet *Wallet) Option {
+	return func(options *Options) {
+		options.outputWallet = wallet
 	}
 }
 
@@ -136,7 +172,7 @@ func NewFaucetRequestOptions(options ...FaucetRequestOption) *FaucetRequestOptio
 
 type FaucetRequestOption func(*FaucetRequestOptions)
 
-// WithInputs returns a Option that is used to provide the Inputs of the Transaction.
+// WithOutputAlias returns an Option that is used to provide the Output of the Transaction.
 func WithOutputAlias(aliasName string) FaucetRequestOption {
 	return func(options *FaucetRequestOptions) {
 		options.aliasName = aliasName
