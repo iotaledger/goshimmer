@@ -30,6 +30,7 @@ func TestCommonSynchronization(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -102,7 +103,7 @@ func TestFirewall(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
+	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
 			cfg.Gossip.MessagesRateLimit.Limit = 50
 		}
@@ -134,14 +135,15 @@ func TestFirewall(t *testing.T) {
 }
 
 func TestConfirmMessage(t *testing.T) {
+	snapshotDetails := tests.ConsensusSnapshotDetails2
 	peer1IdentSeed := func() []byte {
-		seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[0])
+		seedBytes, err := base58.Decode(snapshotDetails.PeersSeedBase58[0])
 		require.NoError(t, err)
 		return seedBytes
 	}()
 
 	peer2IdentSeed := func() []byte {
-		seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[1])
+		seedBytes, err := base58.Decode(snapshotDetails.PeersSeedBase58[1])
 		require.NoError(t, err)
 		return seedBytes
 	}()
@@ -150,8 +152,9 @@ func TestConfirmMessage(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
+		Snapshots:   []framework.SnapshotInfo{snapshotDetails},
+	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		cfg.MessageLayer.Snapshot.File = snapshotDetails.FilePath
 		cfg.UseNodeSeedAsWalletSeed = true
 		switch peerIndex {
 		case 0:

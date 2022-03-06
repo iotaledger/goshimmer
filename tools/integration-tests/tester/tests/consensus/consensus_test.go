@@ -5,6 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/hive.go/bitmask"
+
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -14,9 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/require"
 )
 
 // TestSimpleDoubleSpend tests whether consensus is able to resolve a simple double spend.
@@ -30,11 +32,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		numberOfConflictingTxs = 10
 	)
 
-	expectedCManaNode1AfterTxConf := float64(tests.ConsensusSnapshotDetails.PeersAmountsPledged[0]) + float64(tests.ConsensusSnapshotDetails.GenesisTokenAmount)
-	peerSeeds := tests.GetIdentSeeds(t, tests.ConsensusSnapshotDetails)
-
-	snapshot := tests.ConsensusSnapshotDetails
-	snapshot.FilePath = ""
+	snapshotInfo := tests.ConsensusSnapshotDetails2
+	expectedCManaNode1AfterTxConf := float64(snapshotInfo.PeersAmountsPledged[0]) + float64(snapshotInfo.GenesisTokenAmount)
+	peerSeeds := tests.GetIdentSeeds(t, snapshotInfo)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -44,14 +44,16 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-			Snapshots: map[string]framework.SnapshotInfo{
-				"consensus": snapshot,
-			},
-		}, func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
-			cfg.MessageLayer.Snapshot.File = availableSnapshots["consensus"]
+			Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+			cfg.MessageLayer.Snapshot.File = snapshotInfo.FilePath
 			cfg.UseNodeSeedAsWalletSeed = true
-			// TODO: change this obscenity
-			cfg.Seed = peerSeeds[peerIndex+1]
+			switch peerIndex {
+			case 0:
+				cfg.Seed = peerSeeds[0]
+			case 1:
+				cfg.Seed = peerSeeds[1]
+			}
 			return cfg
 		})
 
@@ -68,9 +70,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	)
 
 	// check consensus mana
-	// TODO: change this obscenity
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node1).Consensus)
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[2], tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
 
 	txs1 := []*ledgerstate.Transaction{}
 	txs2 := []*ledgerstate.Transaction{}

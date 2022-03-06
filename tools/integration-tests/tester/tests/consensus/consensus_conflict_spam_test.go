@@ -1,16 +1,18 @@
 package consensus
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/stretchr/testify/require"
 )
 
 // constant var, shouldn't be changed
@@ -29,7 +31,6 @@ const (
 
 // TestConflictSpamAndMergeToMaster spams a node with conflicts and makes sure the GoFs are the same across the network
 // and verifies that the Tangle converged to Master
-/*
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -37,6 +38,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    false,
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -96,7 +98,6 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ledgerstate.MasterBranchID.Base58(), messageMetadata.BranchID)
 }
-*/
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
 // For each increment of i it will take the next sub-slice so there would be no overlaps with previous sub-slices.

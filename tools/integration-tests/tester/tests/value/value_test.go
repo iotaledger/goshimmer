@@ -32,6 +32,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

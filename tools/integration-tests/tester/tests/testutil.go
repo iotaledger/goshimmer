@@ -40,7 +40,7 @@ const (
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
-	FilePath: "/assets/equal_intgr_snapshot.bin",
+	FilePath: "/assets/dynamic_snapshots/equal_snapshot.bin",
 	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
 		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
@@ -50,19 +50,34 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 	},
 	PeersAmountsPledged: []uint64{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
 	GenesisTokenAmount:  2500000000000000,
+	FirstPeerIsFaucet:   true,
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
-	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
+	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
 		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	},
-	PeersAmountsPledged: []uint64{1600000, 800000, 800000},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000},
 	GenesisTokenAmount:  800000, // pledged to peer master
+	FirstPeerIsFaucet:   false,
+}
+
+// ConsensusSnapshotDetails2 defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
+var ConsensusSnapshotDetails2 = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/consensus_snapshot2.bin",
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
+	PeersSeedBase58: []string{
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+	},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000},
+	GenesisTokenAmount:  800_000, // pledged to peer master
+	FirstPeerIsFaucet:   false,
 }
 
 // GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo
@@ -77,13 +92,13 @@ func GetIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
 }
 
 // EqualDefaultConfigFunc returns peer configurations that uses an equally distributed mana Snapshot for all peers
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
 }
 
 // SameSnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
-var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
-	return func(peerIndex int, cfg config.GoShimmer, availableSnapshots framework.SnapshotFilenames) config.GoShimmer {
+var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
 		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
 		peerSeeds := GetIdentSeeds(t, snaphotInfo)
 		offset := 0

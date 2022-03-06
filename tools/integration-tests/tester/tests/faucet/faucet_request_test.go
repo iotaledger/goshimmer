@@ -24,6 +24,7 @@ func TestFaucetRequest(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

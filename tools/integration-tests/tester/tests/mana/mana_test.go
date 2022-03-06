@@ -35,6 +35,7 @@ func TestManaPersistence(t *testing.T) {
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    true,
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -71,6 +72,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Activity:    true,
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, true))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -143,6 +145,7 @@ func TestManaApis(t *testing.T) {
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
+		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
 	}, tests.EqualDefaultConfigFunc(t, false))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

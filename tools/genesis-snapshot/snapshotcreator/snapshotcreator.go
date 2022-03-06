@@ -1,10 +1,13 @@
 package snapshotcreator
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
+
+	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -13,9 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 // Pledge defines a pledge to a node.
@@ -75,7 +75,7 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 type TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
 type AccessManaMap map[identity.ID]ledgerstate.AccessMana
 
-func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) {
+func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) error {
 	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
@@ -87,8 +87,11 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmou
 
 	pledgeToDefinedNodes(genesis, pledgeTokenAmount, nodesToPledge, transactionsMap, accessManaMap)
 	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessManaMap, Transactions: transactionsMap}
-	writeSnapshot(snapshotFileName, newSnapshot)
-	verifySnapshot(snapshotFileName)
+	err := writeSnapshot(snapshotFileName, newSnapshot)
+	if err != nil {
+		return err
+	}
+	return verifySnapshot(snapshotFileName)
 }
 
 func createGenesis(genesisTokenAmount uint64, seedBytes []byte) *Genesis {
@@ -99,50 +102,58 @@ func createGenesis(genesisTokenAmount uint64, seedBytes []byte) *Genesis {
 	}
 }
 
-func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) {
+func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) error {
 	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatal("unable to create snapshot file", err)
+		log.Println("unable to create snapshot file", err)
+		return err
 	}
 
 	n, err := newSnapshot.WriteTo(snapshotFile)
 	if err != nil {
-		log.Fatal("unable to write snapshot content to file", err)
+		log.Println("unable to write snapshot content to file", err)
+		return err
 	}
 
 	log.Printf("Bytes written %d", n)
 	if err := snapshotFile.Close(); err != nil {
-		panic(err)
+		log.Println("unable to close snapshot file")
+		return err
 	}
 
 	log.Printf("created %s, bye", snapshotFileName)
+	return nil
 }
 
-func verifySnapshot(snapshotFileName string) {
+func verifySnapshot(snapshotFileName string) error {
 	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		log.Fatal("unable to create snapshot file ", err)
+		log.Println("unable to create snapshot file ", err)
+		return err
 	}
 
 	readSnapshot := &ledgerstate.Snapshot{}
 	if _, err = readSnapshot.ReadFrom(snapshotFile); err != nil {
-		log.Fatal("unable to read snapshot file ", err)
+		log.Println("unable to read snapshot file ", err)
+		return err
 	}
-	if err := snapshotFile.Close(); err != nil {
-		panic(err)
+	if err = snapshotFile.Close(); err != nil {
+		log.Println("unable to close snapshot file ", err)
+		return err
 	}
+	return nil
 
-	fmt.Println("\n================= read Snapshot ===============")
-	fmt.Printf("\n================= %d Snapshot Txs ===============\n", len(readSnapshot.Transactions))
-	for key, txRecord := range readSnapshot.Transactions {
-		fmt.Println("===== key =", key)
-		fmt.Println(txRecord)
-	}
-	fmt.Printf("\n================= %d Snapshot Access Manas ===============\n", len(readSnapshot.AccessManaByNode))
-	for key, accessManaNode := range readSnapshot.AccessManaByNode {
-		fmt.Println("===== key =", key)
-		fmt.Println(accessManaNode)
-	}
+	//fmt.Println("\n================= read Snapshot ===============")
+	//fmt.Printf("\n================= %d Snapshot Txs ===============\n", len(readSnapshot.Transactions))
+	//for key, txRecord := range readSnapshot.Transactions {
+	//	fmt.Println("===== key =", key)
+	//	fmt.Println(txRecord)
+	//}
+	//fmt.Printf("\n================= %d Snapshot Access Manas ===============\n", len(readSnapshot.AccessManaByNode))
+	//for key, accessManaNode := range readSnapshot.AccessManaByNode {
+	//	fmt.Println("===== key =", key)
+	//	fmt.Println(accessManaNode)
+	//}
 }
 
 // pledges the amount of tokens given or genesis amount to defined nodes.

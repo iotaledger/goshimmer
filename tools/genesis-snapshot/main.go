@@ -42,6 +42,14 @@ var nodesToPledge = map[string]snapshotcreator.Pledge{
 	}(),
 }
 
+func init() {
+	flag.Uint64(cfgGenesisTokenAmount, 800000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
+	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
+	// Most recent seed when checking ../integration-tests/assets :
+	flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
+	flag.Uint(cfgPledgeTokenAmount, 1000000000000000, "the amount of tokens to pledge to defined nodes (other than genesis)")
+}
+
 func main() {
 	flag.Parse()
 	if err := viper.BindPFlags(flag.CommandLine); err != nil {
@@ -58,15 +66,10 @@ func main() {
 	if err != nil {
 		log.Fatal(fmt.Errorf("failed to decode base58 seed: %w", err))
 	}
-	snapshotcreator.CreateSnapshot(genesisTokenAmount, seedBytes, pledgeTokenAmount, nodesToPledge, snapshotFileName)
-}
-
-func init() {
-	flag.Uint64(cfgGenesisTokenAmount, 800000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
-	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
-	// Most recent seed when checking ../integration-tests/assets :
-	flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
-	flag.Uint(cfgPledgeTokenAmount, 1000000000000000, "the amount of tokens to pledge to defined nodes (other than genesis)")
+	err = snapshotcreator.CreateSnapshot(genesisTokenAmount, seedBytes, pledgeTokenAmount, nodesToPledge, snapshotFileName)
+	if err != nil {
+		log.Fatal("Failed to create snapshot %w", err)
+	}
 }
 
 func must(err error) {

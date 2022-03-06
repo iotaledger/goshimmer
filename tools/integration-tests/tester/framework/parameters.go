@@ -51,7 +51,7 @@ type CreateNetworkConfig struct {
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
 	// Snapshots to be generated or rendered available for the network mapped by human-friendly names.
-	Snapshots map[string]SnapshotInfo
+	Snapshots []SnapshotInfo
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
