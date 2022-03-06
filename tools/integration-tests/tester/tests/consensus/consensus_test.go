@@ -5,10 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/hive.go/bitmask"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -61,7 +60,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	var (
-		// TODO: change this obscenity
 		node1 = n.Peers()[0]
 		node2 = n.Peers()[1]
 
