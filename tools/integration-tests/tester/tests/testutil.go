@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
 	"github.com/cockroachdb/errors"
@@ -676,7 +678,7 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 }
 
 // IsBranchConfirmedOnAllPeers returns true if the branch is confirmed on all supplied nodes.
-func IsBranchConfirmedOnAllPeers(peers []*framework.Node, branchID string) bool {
+func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool {
 	for _, peer := range peers {
 		branch, err := peer.GetBranch(branchID)
 		if err != nil {
@@ -698,38 +700,34 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip string, err e
 	if err != nil {
 		return
 	}
-	children := attachments.MessageIDs
-	seen := make(map[string]struct{})
-	for len(children) > 0 {
-		msgID := children[0]
-		children = children[1:]
-		if _, ok := seen[msgID]; ok {
-			continue
-		}
-		seen[msgID] = struct{}{}
-		tip = msgID
+	approversWalker := walker.New(false)
+	for _, msgID := range attachments.MessageIDs {
+		approversWalker.Push(msgID)
+	}
+	for approversWalker.HasNext() {
+		tip = approversWalker.Next().(string)
 		var msg *jsonmodels.Message
-		msg, err = peer.GetMessage(msgID)
+		msg, err = peer.GetMessage(tip)
 		if err != nil {
 			return
 		}
-		for _, approver := range msg.StrongApprovers {
-			if msg, err := peer.GetMessage(approver); err == nil {
-				if metadata, err := peer.GetMessageMetadata(approver); err == nil {
+		for _, approverMsgID := range msg.StrongApprovers {
+			if approverMsg, err := peer.GetMessage(approverMsgID); err == nil {
+				if metadata, err := peer.GetMessageMetadata(approverMsgID); err == nil {
 					if metadata.BranchID == branch.ID {
-						children = append(children, approver)
+						approversWalker.Push(approverMsgID)
 						continue
 					}
 
 					approverLikes := false
-					for _, like := range msg.ShallowLikeParents {
+					for _, like := range approverMsg.ShallowLikeParents {
 						if like == branch.ID {
 							approverLikes = true
 							break
 						}
 					}
 					if approverLikes {
-						children = append(children, approver)
+						approversWalker.Push(approverMsgID)
 						continue
 					}
 				}
@@ -773,7 +771,7 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 		case <-timer.C:
 			require.FailNow(t, "timeout")
 		case <-ticker.C:
-			if IsBranchConfirmedOnAllPeers(requiredPeers, branchID) {
+			if IsBranchConfirmedOnAllPeers(branchID, requiredPeers) {
 				return
 			}
 		default:
@@ -781,7 +779,7 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 			if ID, err := tangle.NewMessageID(tip); err == nil {
 				if !once {
 					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
-						Type:       uint8(tangle.ShallowDislikeParentType),
+						Type:       uint8(tangle.ShallowLikeParentType),
 						MessageIDs: []string{ID.Base58()},
 					})
 					once = true
