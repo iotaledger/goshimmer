@@ -96,11 +96,11 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 	f.issuanceMutex.Lock()
+	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
@@ -126,19 +126,17 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
-				f.issuanceMutex.Unlock()
 				return nil, err
 			}
 		}
 		issuingTime = f.getIssuingTime(parents)
 		if len(references) == 0 {
 			references, err = f.referencesFunc(parents, issuingTime, f.tangle)
-		}
-		if err != nil {
-			err = errors.Errorf("like references could not be prepared: %w", err)
-			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
-			return nil, err
+			if err != nil {
+				err = errors.Errorf("like references could not be prepared: %w", err)
+				f.Events.Error.Trigger(err)
+				return nil, err
+			}
 		}
 		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
@@ -146,10 +144,8 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	if errPoW != nil {
 		err = errors.Errorf("pow failed: %w", errPoW)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-	f.issuanceMutex.Unlock()
 
 	// create the signature
 	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
