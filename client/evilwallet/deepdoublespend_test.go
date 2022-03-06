@@ -1,7 +1,7 @@
 package evilwallet
 
 import (
-	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -11,15 +11,12 @@ func TestDeepDoubleSpend(t *testing.T) {
 	wallet := evilwallet.NewWallet(fresh)
 
 	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	require.NoError(t, err)
 
-	evilwallet.SendCustomConflicts([]ConflictMap{
+	err = evilwallet.SendCustomConflicts([]ConflictMap{
 		{
 			// split funds
-			"A": []Option{WithInputs("1"), WithOutput("2", 500000), WithOutput("3", 500000), WithIssuer(wallet)},
+			"A": []Option{WithInputs("1"), WithOutputs([]string{"2", "3"}, 500000, 500000), WithIssuer(wallet)},
 		},
 		{
 			"B": []Option{WithInputs("2"), WithOutput("4", 500000), WithIssuer(wallet)},
@@ -34,4 +31,6 @@ func TestDeepDoubleSpend(t *testing.T) {
 			"F": []Option{WithInputs("5", "6"), WithOutput("8", 1000000), WithIssuer(wallet)},
 		},
 	}, evilwallet.GetClients(2))
+
+	require.NoError(t, err)
 }

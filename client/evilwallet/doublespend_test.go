@@ -1,7 +1,7 @@
 package evilwallet
 
 import (
-	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -12,22 +12,19 @@ func TestDoubleSpend(t *testing.T) {
 	clients := evilwallet.GetClients(2)
 
 	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	require.NoError(t, err)
 
 	txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))
-	if err != nil {
-		fmt.Println(err)
-	}
-	txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutput("3", 1000000), WithIssuer(wallet))
-	if err != nil {
-		fmt.Println(err)
-	}
+	require.NoError(t, err)
 
-	clients[0].PostTransaction(txA.Bytes())
-	clients[1].PostTransaction(txB.Bytes())
+	txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutput("3", 1000000), WithIssuer(wallet))
+	require.NoError(t, err)
+
+	_, err = clients[0].PostTransaction(txA.Bytes())
+	require.NoError(t, err)
+
+	_, err = clients[1].PostTransaction(txB.Bytes())
+	require.NoError(t, err)
 
 	evilwallet.ClearAliases()
 	//EvilWallet.ConflictManager.AddConflict(WithConflictID("1"), WithConflictMembers("2", "3"))
