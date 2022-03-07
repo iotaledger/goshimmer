@@ -32,12 +32,6 @@ var (
 		95, 76, 224, 164, 168, 80, 141, 174, 133, 77, 153, 100, 4, 202, 113, 104,
 		71, 130, 88, 200, 46, 56, 243, 121, 216, 236, 70, 146, 234, 158, 206, 230,
 	}
-
-	// MasterSeedBytes denotes the identity seed of the master peer.
-	MasterSeedBytes = []byte{
-		37, 202, 104, 245, 5, 80, 107, 111, 131, 48, 156, 82, 158, 253, 215, 219,
-		229, 168, 205, 88, 39, 177, 106, 25, 78, 47, 62, 28, 242, 12, 6, 237,
-	}
 )
 
 // CreateNetworkConfig is the config for optional plugins passed through NewNetwork.
