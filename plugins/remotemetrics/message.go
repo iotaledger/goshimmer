@@ -38,6 +38,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		issuerID := identity.NewID(message.IssuerPublicKey())
 		record.IssuedTimestamp = message.IssuingTime()
+		record.IssuerID = issuerID.String()
 		record.AccessMana = deps.Tangle.Scheduler.GetManaFromCache(issuerID)
 		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
 		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
@@ -120,7 +121,9 @@ func onMessageFinalized(messageID tangle.MessageID) {
 	}
 
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		issuerID := identity.NewID(message.IssuerPublicKey())
 		record.IssuedTimestamp = message.IssuingTime()
+		record.IssuerID = issuerID.String()
 		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
 		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
 			record.WeakEdgeCount = weakParentsCount

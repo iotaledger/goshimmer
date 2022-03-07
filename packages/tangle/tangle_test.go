@@ -596,8 +596,6 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	f.issuanceMutex.Lock()
-	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = fmt.Errorf("could not create sequence number: %w", err)
