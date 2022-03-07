@@ -29,8 +29,7 @@ following requirements must be satisfied:
   in the allocation of some other node with an equal or smaller allocation (max-min fairness).
 * _Security_. Malicious nodes shall be unable to interfere with either of the above requirements.
 
-[![Congestion Control](/img/protocol_specification/congestion_control_algorithm_infographic.png)]
-(/img/protocol_specification/congestion_control_algorithm_infographic.png)
+[![Congestion Control](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)
 
 Further information can be found in the paper [Access Control for Distributed Ledgers in the Internet of Things: A
 Networking Approach](https://arxiv.org/abs/2005.07778).
