@@ -140,9 +140,21 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(t.decreaseBranchCount))
+	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		t.tangle.LedgerState.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+			t.decreaseBranchCount(conflictingBranchID)
+			return true
+		})
+		t.decreaseBranchCount(branchID)
+	}))
 
-	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(t.increaseTipBranchCount))
+	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(func(messageID MessageID, branchID ledgerstate.BranchID) {
+		if _, exists := t.tips.Get(messageID); !exists {
+			return
+		}
+
+		t.increaseTipBranchCount(branchID)
+	}))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
@@ -207,8 +219,8 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 	return approverScheduledConfirmed
 }
 
-func (t *TipManager) increaseTipBranchCount(messageID MessageID, branchID ledgerstate.BranchID) {
-	if _, exists := t.tips.Get(messageID); !exists {
+func (t *TipManager) increaseTipBranchCount(branchID ledgerstate.BranchID) {
+	if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(branchID)) != ledgerstate.Pending {
 		return
 	}
 
@@ -225,7 +237,7 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	}
 
 	for messageBranchID := range messageBranchIDs {
-		t.increaseTipBranchCount(messageID, messageBranchID)
+		t.increaseTipBranchCount(messageBranchID)
 	}
 }
 
