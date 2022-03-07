@@ -73,10 +73,12 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 }
 
 type (
-	TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
-	AccessManaMap  map[identity.ID]ledgerstate.AccessMana
+	transactionMap map[ledgerstate.TransactionID]ledgerstate.Record
+	accessManaMap  map[identity.ID]ledgerstate.AccessMana
 )
 
+// CreateSnapshot writes a new snapshot file to the path declared by snapshot name. Genesis is defined by genesisTokenAmount
+// and seedBytes. The amount pledge to each node is defined by nodesToPledge map. Whenever the amount is 0 in the map pledgeTokenAmount is used.
 func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge,
 	snapshotFileName string,
 ) (*ledgerstate.Snapshot, error) {
@@ -86,8 +88,8 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmou
 	}
 
 	// define maps for snapshot
-	transactionsMap := make(TransactionMap)
-	accessManaMap := make(AccessManaMap)
+	transactionsMap := make(transactionMap)
+	accessManaMap := make(accessManaMap)
 
 	pledgeToDefinedNodes(genesis, pledgeTokenAmount, nodesToPledge, transactionsMap, accessManaMap)
 	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessManaMap, Transactions: transactionsMap}
@@ -151,7 +153,7 @@ func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
 // pledges the amount of tokens given or genesis amount to defined nodes.
 // this function mutates the transaction and access mana maps accordingly.
 // only one node is allowed to have the genesis token amount be pledged to.
-func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge map[string]Pledge, txMap TransactionMap, aManaMap AccessManaMap) {
+func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge map[string]Pledge, txMap transactionMap, aManaMap accessManaMap) {
 	randomSeed := seed.NewSeed()
 	balances := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 		ledgerstate.ColorIOTA: tokensToPledge,
@@ -197,7 +199,7 @@ func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge
 // pledges the amount defined by output to the node ID derived from the given public key.
 // the transaction doing the pledging uses the given inputIndex to define the index of the output used in the genesis transaction.
 // the corresponding txs and mana maps are mutated with the generated records.
-func pledge(pubKeyStr string, tokensPledged uint64, inputIndex uint16, output *ledgerstate.SigLockedColoredOutput, txMap TransactionMap, aManaMap AccessManaMap) (identity.ID, ledgerstate.Record, *ledgerstate.Transaction) {
+func pledge(pubKeyStr string, tokensPledged uint64, inputIndex uint16, output *ledgerstate.SigLockedColoredOutput, txMap transactionMap, aManaMap accessManaMap) (identity.ID, ledgerstate.Record, *ledgerstate.Transaction) {
 	pubKey, err := ed25519.PublicKeyFromString(pubKeyStr)
 	if err != nil {
 		panic(err)
