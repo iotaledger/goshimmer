@@ -75,7 +75,8 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 type TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
 type AccessManaMap map[identity.ID]ledgerstate.AccessMana
 
-func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) error {
+func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge,
+	snapshotFileName string) (*ledgerstate.Snapshot, error) {
 	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
@@ -89,7 +90,7 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmou
 	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessManaMap, Transactions: transactionsMap}
 	err := writeSnapshot(snapshotFileName, newSnapshot)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return verifySnapshot(snapshotFileName)
 }
@@ -125,35 +126,23 @@ func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) e
 	return nil
 }
 
-func verifySnapshot(snapshotFileName string) error {
+func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
 	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		log.Println("unable to create snapshot file ", err)
-		return err
+		return nil, err
 	}
 
 	readSnapshot := &ledgerstate.Snapshot{}
 	if _, err = readSnapshot.ReadFrom(snapshotFile); err != nil {
 		log.Println("unable to read snapshot file ", err)
-		return err
+		return nil, err
 	}
 	if err = snapshotFile.Close(); err != nil {
 		log.Println("unable to close snapshot file ", err)
-		return err
+		return nil, err
 	}
-	return nil
-
-	//fmt.Println("\n================= read Snapshot ===============")
-	//fmt.Printf("\n================= %d Snapshot Txs ===============\n", len(readSnapshot.Transactions))
-	//for key, txRecord := range readSnapshot.Transactions {
-	//	fmt.Println("===== key =", key)
-	//	fmt.Println(txRecord)
-	//}
-	//fmt.Printf("\n================= %d Snapshot Access Manas ===============\n", len(readSnapshot.AccessManaByNode))
-	//for key, accessManaNode := range readSnapshot.AccessManaByNode {
-	//	fmt.Println("===== key =", key)
-	//	fmt.Println(accessManaNode)
-	//}
+	return readSnapshot, nil
 }
 
 // pledges the amount of tokens given or genesis amount to defined nodes.

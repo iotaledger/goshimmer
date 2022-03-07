@@ -144,7 +144,7 @@ func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
 			return err
 		}
 
-		err = snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0,
+		_, err = snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0,
 			nodesToPledgeMap, snapshotInfo.FilePath)
 		if err != nil {
 			return err
