@@ -691,7 +691,7 @@ func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool 
 	return true
 }
 
-func findAttachmentMsg(peer *framework.Node, branchID string) (tip string, err error) {
+func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.Message, err error) {
 	branch, err := peer.GetBranch(branchID)
 	if err != nil {
 		return
@@ -705,15 +705,17 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip string, err e
 		approversWalker.Push(msgID)
 	}
 	for approversWalker.HasNext() {
-		tip = approversWalker.Next().(string)
-		var msg *jsonmodels.Message
-		msg, err = peer.GetMessage(tip)
+		tip, err = peer.GetMessage(approversWalker.Next().(string))
 		if err != nil {
 			return
 		}
-		for _, approverMsgID := range msg.StrongApprovers {
-			if approverMsg, err := peer.GetMessage(approverMsgID); err == nil {
-				if metadata, err := peer.GetMessageMetadata(approverMsgID); err == nil {
+		for _, approverMsgID := range tip.StrongApprovers {
+			var (
+				approverMsg *jsonmodels.Message
+				metadata    *jsonmodels.MessageMetadata
+			)
+			if approverMsg, err = peer.GetMessage(approverMsgID); err == nil {
+				if metadata, err = peer.GetMessageMetadata(approverMsgID); err == nil {
 					if metadata.BranchID == branch.ID {
 						approversWalker.Push(approverMsgID)
 						continue
@@ -762,7 +764,6 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 	defer timer.Stop()
 	ticker := time.NewTicker(tick)
 	defer ticker.Stop()
-	once := false
 	var i int
 	peers := n.Peers()
 
@@ -776,13 +777,12 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 			}
 		default:
 			var parentMessageIDs []jsonmodels.ParentMessageIDs
-			if ID, err := tangle.NewMessageID(tip); err == nil {
-				if !once {
+			if ID, err := tangle.NewMessageID(tip.ID); err == nil {
+				if tip.PayloadType == ledgerstate.TransactionType.String() {
 					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
 						Type:       uint8(tangle.ShallowLikeParentType),
 						MessageIDs: []string{ID.Base58()},
 					})
-					once = true
 				}
 				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
 					Type:       uint8(tangle.StrongParentType),
@@ -791,10 +791,12 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 			}
 
 			require.NoError(t, err)
-			tip, err = peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
+			tipMsgID, err := peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
 				Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
 				ParentMessageIDs: parentMessageIDs,
 			})
+			require.NoError(t, err)
+			tip, err = peers[i%len(peers)].GetMessage(tipMsgID)
 			require.NoError(t, err)
 			time.Sleep(500 * time.Millisecond)
 			i++
