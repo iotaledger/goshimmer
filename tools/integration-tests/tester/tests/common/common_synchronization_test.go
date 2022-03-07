@@ -135,7 +135,7 @@ func TestFirewall(t *testing.T) {
 }
 
 func TestConfirmMessage(t *testing.T) {
-	snapshotDetails := tests.ConsensusSnapshotDetails2
+	snapshotDetails := tests.ConsensusSnapshotDetails
 	peer1IdentSeed := func() []byte {
 		seedBytes, err := base58.Decode(snapshotDetails.PeersSeedBase58[0])
 		require.NoError(t, err)

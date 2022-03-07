@@ -31,7 +31,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		numberOfConflictingTxs = 10
 	)
 
-	snapshotInfo := tests.ConsensusSnapshotDetails2
+	snapshotInfo := tests.ConsensusSnapshotDetails
 	expectedCManaNode1AfterTxConf := float64(snapshotInfo.PeersAmountsPledged[0]) + float64(snapshotInfo.GenesisTokenAmount)
 	peerSeeds := tests.GetIdentSeeds(t, snapshotInfo)
 

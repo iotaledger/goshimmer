@@ -67,17 +67,9 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	PledgeMapFunc:       framework.GenesisIsPledgedToLastPeer,
 }
 
-// ConsensusSnapshotDetails2 defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
-var ConsensusSnapshotDetails2 = framework.SnapshotInfo{
-	FilePath: "/assets/dynamic_snapshots/consensus_snapshot2.bin",
-	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
-	PeersSeedBase58: []string{
-		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
-		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
-	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000},
-	GenesisTokenAmount:  800_000, // pledged to peer master
-	PledgeMapFunc:       framework.GenesisIsPledgedToLastPeer,
+// EqualDefaultConfigFunc returns peer configurations that uses an equally distributed mana Snapshot for all peers
+var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
 }
 
 // GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo
@@ -89,11 +81,6 @@ func GetIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
 		peerSeeds = append(peerSeeds, seedBytes)
 	}
 	return peerSeeds
-}
-
-// EqualDefaultConfigFunc returns peer configurations that uses an equally distributed mana Snapshot for all peers
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
 }
 
 // SameSnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
