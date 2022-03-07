@@ -17,7 +17,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -185,9 +184,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),
 	)
 
-	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
-	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget
