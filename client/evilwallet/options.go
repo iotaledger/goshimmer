@@ -77,7 +77,6 @@ func WithOutput(outputAlias string, balance uint64) Option {
 
 // WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Message.
 func WithOutputs(outputAliases []string, balances ...uint64) Option {
-
 	return func(options *Options) {
 		for i, inputAlias := range outputAliases {
 			if len(balances) > 0 {
@@ -85,7 +84,6 @@ func WithOutputs(outputAliases []string, balances ...uint64) Option {
 			} else {
 				options.outputs[inputAlias] = 0
 			}
-
 		}
 	}
 }
