@@ -5,15 +5,18 @@ import (
 	"testing"
 )
 
-func TestDoubleSpend(t *testing.T) {
+func TestFaucetRequests(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(custom)
+	wallet := evilwallet.NewWallet(fresh)
 	clients := evilwallet.GetClients(2)
 
-	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
+	_, err := evilwallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
+	for i := 0; i < 10; i++ {
+
+	}
 	txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))
 	require.NoError(t, err)
 
