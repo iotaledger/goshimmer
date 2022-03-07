@@ -72,11 +72,14 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 	return false
 }
 
-type TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
-type AccessManaMap map[identity.ID]ledgerstate.AccessMana
+type (
+	TransactionMap map[ledgerstate.TransactionID]ledgerstate.Record
+	AccessManaMap  map[identity.ID]ledgerstate.AccessMana
+)
 
 func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge,
-	snapshotFileName string) (*ledgerstate.Snapshot, error) {
+	snapshotFileName string,
+) (*ledgerstate.Snapshot, error) {
 	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
@@ -104,7 +107,7 @@ func createGenesis(genesisTokenAmount uint64, seedBytes []byte) *Genesis {
 }
 
 func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) error {
-	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		log.Println("unable to create snapshot file", err)
 		return err
@@ -127,7 +130,7 @@ func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) e
 }
 
 func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
-	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0666)
+	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		log.Println("unable to create snapshot file ", err)
 		return nil, err
