@@ -242,7 +242,7 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 			return
 		}
 
-		if gradeOfFinality > s.opts.MessageGoFReachedLevel {
+		if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
 			s.setMarkerConfirmed(marker)
 		}
 
