@@ -44,6 +44,3 @@ book
 config.json
 .env
 .vscode
-
-# snapshots created programmatically by tests
-tools/integration-tests/assets/dynamic_snapshots/*
