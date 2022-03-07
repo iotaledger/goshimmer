@@ -67,7 +67,7 @@ func newFramework(ctx context.Context) (*Framework, error) {
 	return f, nil
 }
 
-// CfgAlterFunc is a function called with the given peer's index, its configuration and the available snapshots for the network.
+// CfgAlterFunc is a function called with the given peer's index, its configuration, and the available snapshots for the network.
 type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
 
 // SnapshotInfo stores the details about snapshots created for integration tests
