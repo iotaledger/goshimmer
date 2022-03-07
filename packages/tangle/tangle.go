@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
@@ -96,7 +95,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
 	tangle.Dispatcher = NewDispatcher(tangle)
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 

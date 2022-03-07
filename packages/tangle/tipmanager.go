@@ -107,18 +107,16 @@ type TipManager struct {
 	tipsCleaner          *TimedTaskExecutor
 	tipsBranchCount      map[ledgerstate.BranchID]uint
 	tipsBranchCountMutex sync.RWMutex
-	ForgottenBranchIDs   ledgerstate.BranchIDs
 	Events               *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
-		tangle:             tangle,
-		tips:               randommap.New(),
-		tipsCleaner:        NewTimedTaskExecutor(1),
-		tipsBranchCount:    make(map[ledgerstate.BranchID]uint),
-		ForgottenBranchIDs: ledgerstate.NewBranchIDs(),
+		tangle:          tangle,
+		tips:            randommap.New(),
+		tipsCleaner:     NewTimedTaskExecutor(1),
+		tipsBranchCount: make(map[ledgerstate.BranchID]uint),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -144,12 +142,7 @@ func (t *TipManager) Setup() {
 
 	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(t.decreaseBranchCount))
 
-	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(func(messageID MessageID, branchID ledgerstate.BranchID) {
-		if _, exists := t.tips.Get(messageID); !exists {
-			return
-		}
-		t.increaseTipBranchCount(branchID)
-	}))
+	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(t.increaseTipBranchCount))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
@@ -214,7 +207,11 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 	return approverScheduledConfirmed
 }
 
-func (t *TipManager) increaseTipBranchCount(branchID ledgerstate.BranchID) {
+func (t *TipManager) increaseTipBranchCount(messageID MessageID, branchID ledgerstate.BranchID) {
+	if _, exists := t.tips.Get(messageID); !exists {
+		return
+	}
+
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
@@ -228,7 +225,7 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	}
 
 	for messageBranchID := range messageBranchIDs {
-		t.increaseTipBranchCount(messageBranchID)
+		t.increaseTipBranchCount(messageID, messageBranchID)
 	}
 }
 
@@ -240,7 +237,6 @@ func (t *TipManager) decreaseBranchCount(branchID ledgerstate.BranchID) {
 		t.tipsBranchCount[branchID]--
 		if t.tipsBranchCount[branchID] == 0 {
 			delete(t.tipsBranchCount, branchID)
-			t.ForgottenBranchIDs.Add(branchID)
 		}
 	}
 }
@@ -256,8 +252,31 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	}
 }
 
+func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
+	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
+	if err != nil {
+		panic("could not determine BranchIDs of message.")
+	}
+
+	t.tipsBranchCountMutex.RLock()
+	defer t.tipsBranchCountMutex.RUnlock()
+
+	for messageBranchID := range messageBranchIDs {
+		if t.tipsBranchCount[messageBranchID] == 1 {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (t *TipManager) removeStrongParents(message *Message) {
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
+		// We do not want to remove the tip if it is the last one representing a pending branch.
+		if t.isLastTipForBranch(parentMessageID) {
+			return true
+		}
+
 		if _, deleted := t.tips.Delete(parentMessageID); deleted {
 			t.decreaseTipBranchesCount(parentMessageID)
 			t.Events.TipRemoved.Trigger(&TipEvent{

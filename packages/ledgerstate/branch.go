@@ -205,12 +205,6 @@ func (b BranchIDs) AddAll(branchIDs BranchIDs) BranchIDs {
 	return b
 }
 
-// Delete deletes the specified branch from the collection.
-func (b BranchIDs) Delete(branchID BranchID) BranchIDs {
-	delete(b, branchID)
-	return b
-}
-
 // Subtract removes all other from the collection and returns the collection to enable chaining.
 func (b BranchIDs) Subtract(other BranchIDs) BranchIDs {
 	for branchID := range other {
