@@ -1,7 +1,5 @@
 ---
-description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control
-algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes
-per second) and minimizing delays.
+description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays.
 image: /img/protocol_specification/congestion_control_algorithm_infographic_new.png
 keywords:
 
