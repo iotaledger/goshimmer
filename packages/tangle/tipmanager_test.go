@@ -653,6 +653,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	}
 	// SEQUENCE 1
 	{
+		//nolint:dupl
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq1", 6, []string{lastMsgAlias}, time.Minute*4)
@@ -695,6 +696,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 
 	// SEQUENCE 2
 	{
+		//nolint:dupl
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq2", 6, []string{lastMsgAlias}, time.Minute*4)
