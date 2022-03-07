@@ -11,9 +11,11 @@ import (
 
 const (
 	// ports
-	apiPort     = 8080
-	gossipPort  = 14666
-	peeringPort = 14626
+	apiPort       = 8080
+	dagVizPort    = 8061
+	dashboardPort = 8081
+	gossipPort    = 14666
+	peeringPort   = 14626
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
@@ -62,8 +64,11 @@ func PeerConfig() config.GoShimmer {
 
 	c.Network.Enabled = true
 
-	c.Dashboard.Enabled = false
-	c.Dashboard.BindAddress = "0.0.0.0:8081"
+	c.Dashboard.Enabled = true
+	c.Dashboard.BindAddress = fmt.Sprintf("0.0.0.0:%d", dashboardPort)
+
+	c.Dagsvisualizer.Enabled = true
+	c.Dagsvisualizer.BindAddress = fmt.Sprintf("0.0.0.0:%d", dagVizPort)
 
 	c.Database.Enabled = true
 	c.Database.ForceCacheTime = 0 // disable caching for tests
@@ -121,6 +126,8 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Consensus.Enabled = false
 	c.Activity.Enabled = false
 	c.DRNG.Enabled = false
+	c.Dashboard.Enabled = false
+	c.Dagsvisualizer.Enabled = false
 
 	return c
 }

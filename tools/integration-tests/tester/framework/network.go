@@ -24,8 +24,9 @@ type Network struct {
 	Id   string
 	name string
 
-	docker *client.Client
-	tester *DockerContainer
+	docker          *client.Client
+	tester          *DockerContainer
+	socatContainers []*DockerContainer
 
 	entryNode *Node
 	peers     []*Node
@@ -205,6 +206,18 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		return err
 	}
 
+	// stop all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			err := container.Kill(ctx, "SIGTERM")
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	// delete all partitions
 	if err := n.DeletePartitions(ctx); err != nil {
 		return err
@@ -222,6 +235,17 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		peer := peer // capture range variable
 		eg.Go(func() error {
 			return peer.Remove(ctx)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// remove all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			return container.Remove(ctx)
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -278,6 +302,35 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 		return nil, err
 	}
 	return node, nil
+}
+
+// creates socat container to access node's ports while debugging
+func (n *Network) createSocatContainer(ctx context.Context, targetNode *Node, containerNum int) (*DockerContainer, error) {
+	offset := 100 * containerNum
+
+	container := NewDockerContainer(n.docker)
+
+	portMapping := make(map[int]config.GoShimmerPort, len(config.GoShimmerPorts))
+	for _, port := range config.GoShimmerPorts {
+		portMapping[int(port)+offset] = port
+	}
+
+	err := container.createSocatContainer(ctx, "socat_"+targetNode.Name(), targetNode.Name(), portMapping)
+	if err != nil {
+		return nil, err
+	}
+	if err := container.ConnectToNetwork(ctx, n.Id); err != nil {
+		return nil, err
+	}
+
+	err = container.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	n.socatContainers = append(n.socatContainers, container)
+
+	return container, err
 }
 
 // createPumba creates and starts a Pumba Docker container.
