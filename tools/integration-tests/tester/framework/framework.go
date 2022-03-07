@@ -80,8 +80,9 @@ type SnapshotInfo struct {
 	PeersAmountsPledged []uint64
 	// GenesisTokenAmount is the amount of tokens left on the Genesis, pledged to Peer Master.
 	GenesisTokenAmount uint64
-	// FirstPeerIsFaucet specifies whether to pledge the genesis output to the first peer
-	FirstPeerIsFaucet bool
+	// PledgeMapFunction is a factory for a function that will create the pledge map that specifies how much mana each
+	// node gets
+	PledgeMapFunc func(snapshot SnapshotInfo) (map[string]snapshotcreator.Pledge, error)
 }
 
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
@@ -138,7 +139,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 
 func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
 	for _, snapshotInfo := range snapshotInfos {
-		nodesToPledgeMap, err := createNodesToPledgeMap(snapshotInfo)
+		nodesToPledgeMap, err := snapshotInfo.PledgeMapFunc(snapshotInfo)
 		if err != nil {
 			return err
 		}
@@ -152,13 +153,37 @@ func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
 	return
 }
 
-func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
+// GenesisIsPledgedToLastPeer will create a pledge map that will allow the last peer to act as faucet
+func GenesisIsPledgedToLastPeer(snapshot SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
 	numOfPeers := len(snapshot.PeersSeedBase58)
 	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfPeers)
-	if !snapshot.FirstPeerIsFaucet {
-		genesisPK := ed25519.PrivateKeyFromSeed(GenesisSeedBytes).Public()
-		nodesToPledge[genesisPK.String()] = snapshotcreator.Pledge{Genesis: true}
+	for i := 0; i < numOfPeers; i++ {
+		seed := snapshot.PeersSeedBase58[i]
+		seedBytes, err := getSeedBytes(seed)
+		if err != nil {
+			return nil, err
+		}
+		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
+		switch i {
+		case numOfPeers - 1:
+			nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
+				Genesis: true,
+			}
+		default:
+			nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
+				Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
+				Amount:  snapshot.PeersAmountsPledged[i],
+			}
+		}
 	}
+
+	return nodesToPledge, nil
+}
+
+// GenesisIsPledgedToFirstPeer will create a pledge map that will allow the first peer to act as faucet
+func GenesisIsPledgedToFirstPeer(snapshot SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
+	numOfPeers := len(snapshot.PeersSeedBase58)
+	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfPeers)
 	for i := 0; i < numOfPeers; i++ {
 		seed := snapshot.PeersSeedBase58[i]
 		seedBytes, err := getSeedBytes(seed)
@@ -168,15 +193,8 @@ func createNodesToPledgeMap(snapshot SnapshotInfo) (map[string]snapshotcreator.P
 		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
 		switch i {
 		case 0:
-			if snapshot.FirstPeerIsFaucet {
-				nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-					Genesis: true,
-				}
-			} else {
-				nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-					Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
-					Amount:  snapshot.PeersAmountsPledged[i],
-				}
+			nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
+				Genesis: true,
 			}
 		default:
 			nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{

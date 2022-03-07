@@ -50,7 +50,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 	},
 	PeersAmountsPledged: []uint64{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
 	GenesisTokenAmount:  2500000000000000,
-	FirstPeerIsFaucet:   true,
+	PledgeMapFunc:       framework.GenesisIsPledgedToFirstPeer,
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
@@ -64,7 +64,7 @@ var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	},
 	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000},
 	GenesisTokenAmount:  800000, // pledged to peer master
-	FirstPeerIsFaucet:   false,
+	PledgeMapFunc:       framework.GenesisIsPledgedToLastPeer,
 }
 
 // ConsensusSnapshotDetails2 defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
@@ -77,7 +77,7 @@ var ConsensusSnapshotDetails2 = framework.SnapshotInfo{
 	},
 	PeersAmountsPledged: []uint64{1_600_000, 800_000},
 	GenesisTokenAmount:  800_000, // pledged to peer master
-	FirstPeerIsFaucet:   false,
+	PledgeMapFunc:       framework.GenesisIsPledgedToLastPeer,
 }
 
 // GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo
