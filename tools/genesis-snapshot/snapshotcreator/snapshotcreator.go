@@ -88,11 +88,11 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmou
 	}
 
 	// define maps for snapshot
-	transactionsMap := make(transactionMap)
-	accessManaMap := make(accessManaMap)
+	transactions := make(transactionMap)
+	accessMana := make(accessManaMap)
 
-	pledgeToDefinedNodes(genesis, pledgeTokenAmount, nodesToPledge, transactionsMap, accessManaMap)
-	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessManaMap, Transactions: transactionsMap}
+	pledgeToDefinedNodes(genesis, pledgeTokenAmount, nodesToPledge, transactions, accessMana)
+	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessMana, Transactions: transactions}
 	err := writeSnapshot(snapshotFileName, newSnapshot)
 	if err != nil {
 		return nil, err
