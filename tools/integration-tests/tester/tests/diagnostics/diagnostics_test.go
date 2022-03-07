@@ -8,6 +8,9 @@ import (
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -95,4 +98,37 @@ func TestDiagnosticApis(t *testing.T) {
 	records, err = drng.ReadAll()
 	require.NoError(t, err, "error while reading tools/diagnostic/drng csv")
 	require.Equal(t, drngHeader, records[0], "unexpected drngHeader header")
+}
+
+func TestSendMessageAPI(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 1, framework.CreateNetworkConfig{
+		StartSynced: true,
+	})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+	node := n.Peers()[0]
+	api := node.GoShimmerAPI
+
+	sent := tests.SendDataMessages(t, n.Peers()[:1], 5)
+	var parentMessageIDs []jsonmodels.ParentMessageIDs
+	var messageIDS []string
+	for pID := range sent {
+		messageIDS = append(messageIDS, pID)
+	}
+	parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+		Type:       uint8(tangle.StrongParentType),
+		MessageIDs: messageIDS,
+	})
+
+	msgID, err := api.SendMessage(&jsonmodels.SendMessageRequest{
+		Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
+		ParentMessageIDs: parentMessageIDs,
+	})
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		_, err = node.GetMessage(msgID)
+		return err == nil
+	}, tests.Timeout, tests.Tick)
 }
