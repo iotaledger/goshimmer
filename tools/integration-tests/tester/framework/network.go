@@ -210,14 +210,7 @@ func (n *Network) Shutdown(ctx context.Context) error {
 	for _, sc := range n.socatContainers {
 		container := sc // capture range variable
 		eg.Go(func() error {
-			status, err := container.Shutdown(ctx)
-			// it happens because of background running jobs
-			// we allow socat to exit with this code
-			if status == 143 {
-				status = 0
-				err = nil
-			}
-			exitStatus[container.Id] = status
+			err := container.Kill(ctx, "SIGTERM")
 			return err
 		})
 	}

@@ -146,7 +146,7 @@ func (d *DockerContainer) createSocatContainer(ctx context.Context, name string,
 	containerConfig := &container.Config{
 		Image:        "alpine/socat:1.7.4.3-r0",
 		Entrypoint:   []string{"/bin/sh"},
-		Cmd:          []string{"-c", cmd[:len(cmd)-3]},
+		Cmd:          []string{"-c", cmd + "wait"},
 		ExposedPorts: exposedPorts,
 	}
 
@@ -228,6 +228,11 @@ func (d *DockerContainer) Stop(ctx context.Context, optionalTimeout ...time.Dura
 		duration = optionalTimeout[0]
 	}
 	return d.client.ContainerStop(ctx, d.Id, &duration)
+}
+
+// Kill sends a signal to the container
+func (d *DockerContainer) Kill(ctx context.Context, signal string) error {
+	return d.client.ContainerKill(ctx, d.Id, signal)
 }
 
 // ExitStatus returns the exit status according to the container information.
