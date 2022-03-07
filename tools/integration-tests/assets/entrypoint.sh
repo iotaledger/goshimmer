@@ -3,6 +3,7 @@ echo "copying assets into shared volume..."
 rm -rf /assets/*
 cp -rp /tmp/assets/* /assets
 chmod 777 /assets/*
+mkdir /assets/dynamic_snapshots
 echo "assets:"
 ls /assets
 if [ "x$DEBUG" = "x1" ]; then
