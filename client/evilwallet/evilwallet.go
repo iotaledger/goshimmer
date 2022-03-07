@@ -2,7 +2,6 @@ package evilwallet
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
