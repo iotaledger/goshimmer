@@ -445,7 +445,7 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
 		return
 	}
-	message.(*Message).id = &id
+	message.id = &id
 
 	// assign result
 	result = message
@@ -454,9 +454,9 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromBytes parses the given bytes into a message.
-func (m *Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = m.FromMarshalUtil(marshalUtil)
+	message, err = m.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}

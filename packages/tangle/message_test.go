@@ -210,9 +210,9 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 		ed25519.Signature{})
 	assert.NoError(t, err)
 
-	restoredMessage, err := (&Message{}).FromBytes(testMessage.Bytes())
+	restoredMessage, err := new(Message).FromBytes(testMessage.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, testMessage.ID(), restoredMessage.(*Message).ID())
+	assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 }
 
 func TestMessage_MarshalUnmarshal(t *testing.T) {
@@ -227,8 +227,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 
 	t.Log(testMessage)
 
-	restoredMessageRaw, err := (&Message{}).FromBytes(testMessage.Bytes())
-	restoredMessage := restoredMessageRaw.(*Message)
+	restoredMessage, err := new(Message).FromBytes(testMessage.Bytes())
 	if assert.NoError(t, err, err) {
 		assert.Equal(t, testMessage.ID(), restoredMessage.ID())
 		assert.ElementsMatch(t, testMessage.ParentsByType(StrongParentType), restoredMessage.ParentsByType(StrongParentType))
@@ -699,7 +698,7 @@ func TestMessage_Bytes(t *testing.T) {
 		copy(tmp, msgBytes[3:35])
 		copy(msgBytes[3:35], msgBytes[3+32:35+32])
 		copy(msgBytes[3+32:35+32], tmp)
-		_, err = (&Message{}).FromBytes(msgBytes)
+		_, err = new(Message).FromBytes(msgBytes)
 		assert.Error(t, err)
 	})
 
@@ -765,8 +764,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgBytes := msg.Bytes()
-		resultRaw, err := (&Message{}).FromBytes(msgBytes)
-		result := resultRaw.(*Message)
+		result, err := (&Message{}).FromBytes(msgBytes)
 		assert.NoError(t, err)
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))

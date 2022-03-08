@@ -238,7 +238,7 @@ func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 }
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters objectstorage.StorableObject, err error) {
+func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters *BranchVoters, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)

@@ -52,10 +52,10 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if msg, err := (&Message{}).FromBytes(messages[currentIndex]); err != nil {
+			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
-				msg.(*Message).VerifySignature()
+				msg.VerifySignature()
 			}
 		})
 	}

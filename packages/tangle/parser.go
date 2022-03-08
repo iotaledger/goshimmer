@@ -145,13 +145,13 @@ func (p *Parser) setupMessageFilterDataFlow() {
 
 // parses the given message and emits
 func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
-	if parsedMessage, err := (&Message{}).FromBytes(bytes); err != nil {
+	if parsedMessage, err := new(Message).FromBytes(bytes); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer,
 		}, err)
 	} else {
-		p.messageFilters[0].Filter(parsedMessage.(*Message), peer)
+		p.messageFilters[0].Filter(parsedMessage, peer)
 	}
 }
 
