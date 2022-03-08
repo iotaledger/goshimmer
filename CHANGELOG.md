@@ -1,3 +1,36 @@
+# v0.8.9 - 2022-03-04
+
+> This release introduces a critical bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-03-02 20:30 UTC.
+- CRITICAL Fix: HandleMarker Confirmation (#2090)
+
+# v0.8.8 - 2022-03-01
+
+> This release introduces a major bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-02-26 19:30 CET.
+- Remove booker & issuance locks (#2084)
+- Build(deps): bump url-parse from 1.5.7 to 1.5.10 in /plugins/dashboard/frontend (#2081)
+- Add issuerID to remote metrics (#2042)
+
+# v0.8.7 - 2022-02-24
+
+> This release introduces several small bug fixes and improvements.
+
+The snapshot has been taken at 2022-02-21 17:30 CET.
+- Try to adjust rate limit better (#2053)
+- /healthz to reflect Synced status (#2075)
+- clean test cache (#2045)
+- expose port ES to outside (#2052)
+- Build(deps): bump url-parse from 1.5.3 to 1.5.7 in dashboards and DAGs visualizer (#2059)
+- DAGs Vis: Add legend (#2056)
+- Check vertex data before accessing it in graphs (#2054)
+- Build(deps): bump follow-redirects from 1.14.7 to 1.14.8 in /plugins/analysis/dashboard/frontend (#2041)
+- Build(deps): bump follow-redirects from 1.14.7 to 1.14.8 in /plugins/dashboard/frontend (#2040)
+- DAGs Vis: color dags on confirmation and hide aggr branches (#2037)
+- Fix output link to dashboard (#2044)
+
 # v0.8.6 - 2022-02-11
 
 > This release introduces the "Merge to Master" functionality to avoid propagation of Confirmed branches to the future cone and introduces an amazing new DAGs Visualizer tool! The new visualizer is exposed on port 8061 by default, check it out!

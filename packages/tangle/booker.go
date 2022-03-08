@@ -30,8 +30,6 @@ type Booker struct {
 	bookerQueue chan MessageID
 	shutdown    chan struct{}
 	shutdownWG  sync.WaitGroup
-
-	sync.RWMutex
 }
 
 // NewBooker is the constructor of a Booker.
@@ -157,9 +155,6 @@ func (b *Booker) Shutdown() {
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
 func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	b.RLock()
-	defer b.RUnlock()
-
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
@@ -277,9 +272,9 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
-func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDsSlice) (areAllTransactions bool) {
+func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTransactions bool) {
 	areAllTransactions = true
-	for _, messageID := range messageIDs {
+	for messageID := range messageIDs {
 		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			if message.Payload().Type() != ledgerstate.TransactionType {
 				areAllTransactions = false
@@ -531,7 +526,7 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 
 		b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), forkedBranchID)
 
-		for _, approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
+		for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 			messageWalker.Push(approvingMessageID)
 		}
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)

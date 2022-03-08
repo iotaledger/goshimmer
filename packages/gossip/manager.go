@@ -236,7 +236,8 @@ func (m *Manager) RequestMessage(messageID []byte, to ...identity.ID) {
 	recipients := m.send(packet, to...)
 	if m.messagesRateLimiter != nil {
 		for _, nbr := range recipients {
-			m.messagesRateLimiter.ExtendLimit(nbr.Peer)
+			// Increase the limit by 2 for every message request to make rate limiter more forgiving during node sync.
+			m.messagesRateLimiter.ExtendLimit(nbr.Peer, 2)
 		}
 	}
 }

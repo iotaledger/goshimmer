@@ -32,9 +32,8 @@ type MessageFactory struct {
 
 	powTimeout time.Duration
 
-	worker        Worker
-	workerMutex   sync.RWMutex
-	issuanceMutex sync.Mutex
+	worker      Worker
+	workerMutex sync.RWMutex
 }
 
 // NewMessageFactory creates a new message factory.
@@ -76,9 +75,6 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
-	f.tangle.Booker.Lock()
-	defer f.tangle.Booker.Unlock()
-
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
@@ -86,13 +82,10 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		return nil, err
 	}
 
-	f.issuanceMutex.Lock()
-
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = errors.Errorf("could not create sequence number: %w", err)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
 
@@ -107,7 +100,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	startTime := time.Now()
 	var errPoW error
 	var nonce uint64
-	var parents MessageIDsSlice
+	var parents MessageIDs
 	var issuingTime time.Time
 	var references ParentMessageIDs
 
@@ -116,7 +109,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 			if parents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
-				f.issuanceMutex.Unlock()
 				return nil, err
 			}
 		}
@@ -126,7 +118,6 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 		if err != nil {
 			err = errors.Errorf("references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
-			f.issuanceMutex.Unlock()
 			return nil, err
 		}
 		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
@@ -135,10 +126,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	if errPoW != nil {
 		err = errors.Errorf("pow failed: %w", errPoW)
 		f.Events.Error.Trigger(err)
-		f.issuanceMutex.Unlock()
 		return nil, err
 	}
-	f.issuanceMutex.Unlock()
 
 	// create the signature
 	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
@@ -167,12 +156,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
-	for _, parent := range parents {
+	for parent := range parents {
 		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
 			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
 				issuingTime = msg.IssuingTime()
@@ -183,7 +172,7 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
 	return issuingTime
 }
 
-func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDsSlice, err error) {
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
@@ -274,7 +263,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -282,10 +271,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 	return f(p, countParents)
 }
 
@@ -322,13 +311,13 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
+type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
 
 // PrepareReferences is an implementation of LikeReferencesFunc.
-func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
+func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
 	references = NewParentMessageIDs()
 
-	for _, strongParent := range strongParents {
+	for strongParent := range strongParents {
 		if strongParent == EmptyMessageID {
 			references.AddStrong(strongParent)
 			continue

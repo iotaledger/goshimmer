@@ -190,7 +190,7 @@ func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInh
 		}
 		if inheritFurther {
 			b.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
-				for _, strongParentMessageID := range message.ParentsByType(StrongParentType) {
+				for strongParentMessageID := range message.ParentsByType(StrongParentType) {
 					walker.Push(strongParentMessageID)
 				}
 			})

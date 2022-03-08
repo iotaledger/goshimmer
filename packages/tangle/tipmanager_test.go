@@ -56,7 +56,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -65,7 +65,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -74,7 +74,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID, messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -108,7 +108,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -122,7 +122,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -136,7 +136,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -150,16 +150,16 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Add Message 4-8
 	{
-		tips := make([]MessageID, 0, 9)
-		tips = append(tips, messages["3"].ID())
+		tips := NewMessageIDs()
+		tips.Add(messages["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
+			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID()), NewMessageIDs())
 			tipManager.AddTip(messages[nString])
-			tips = append(tips, messages[nString].ID())
+			tips.Add(messages[nString].ID())
 
 			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips, "Elements in strongTips do not match after adding Message %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
 			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 		}
 	}
@@ -292,7 +292,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		// make sure that message is too old and cannot be directly referenced
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
 		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(EmptyMessageID),
 		}, issueTime)
 
 		storeAndBookMessage(t, tangle, messages["1"])
@@ -310,7 +310,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
 		messages["2"] = newTestParentsPayloadMessage(transactions["2"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(EmptyMessageID),
 		})
 
 		storeAndBookMessage(t, tangle, messages["2"])
@@ -329,7 +329,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
 		messages["3"] = newTestParentsPayloadMessage(transactions["3"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(messages["1"].ID(), EmptyMessageID),
 		})
 
 		storeAndBookMessage(t, tangle, messages["3"])
@@ -363,7 +363,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			walletsByAddress,
 		)
 		messages["4"] = newTestParentsPayloadMessage(transactions["4"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["2"].ID(), EmptyMessageID}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(messages["2"].ID(), EmptyMessageID),
 		})
 
 		storeAndBookMessage(t, tangle, messages["4"])
@@ -375,7 +375,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	// Message 5
 	{
 		messages["5"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(messages["1"].ID(), EmptyMessageID),
 		})
 
 		storeAndBookMessage(t, tangle, messages["5"])
@@ -384,14 +384,14 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
-	createScenarioMessageWith1Input1Output := func(messageStringID, transactionStringID, consumedTransactionStringID, inputStringID, outputStringID string, strongParents []MessageID) {
+	createScenarioMessageWith1Input1Output := func(messageStringID, transactionStringID, consumedTransactionStringID, inputStringID, outputStringID string, strongParents MessageIDs) {
 		inputs[inputStringID] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions[consumedTransactionStringID].ID(), selectIndex(transactions[consumedTransactionStringID], wallets[inputStringID])))
 		outputsByID[inputs[inputStringID].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs[inputStringID])[0]
 		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
 
 		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
 		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice(strongParents).ToMessageIDs(),
+			StrongParentType: strongParents,
 		})
 
 		storeAndBookMessage(t, tangle, messages[messageStringID])
@@ -399,63 +399,63 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 	// Message 6
 	{
-		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", NewMessageIDs(messages["3"].ID(), messages["5"].ID()))
 		tipManager.AddTip(messages["6"])
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 7
 	{
-		createScenarioMessageWith1Input1Output("7", "6", "3", "I", "R", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		createScenarioMessageWith1Input1Output("7", "6", "3", "I", "R", NewMessageIDs(messages["3"].ID(), messages["5"].ID()))
 		tipManager.AddTip(messages["7"])
 		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
 	// Message 8
 	{
-		createScenarioMessageWith1Input1Output("8", "7", "3", "J", "S", []MessageID{messages["3"].ID(), messages["5"].ID()})
+		createScenarioMessageWith1Input1Output("8", "7", "3", "J", "S", NewMessageIDs(messages["3"].ID(), messages["5"].ID()))
 		tipManager.AddTip(messages["8"])
 		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 9
 	{
-		createScenarioMessageWith1Input1Output("9", "8", "4", "K", "T", []MessageID{messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("9", "8", "4", "K", "T", NewMessageIDs(messages["4"].ID()))
 		tipManager.AddTip(messages["9"])
 		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 10
 	{
-		createScenarioMessageWith1Input1Output("10", "9", "4", "L", "U", []MessageID{messages["2"].ID(), messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("10", "9", "4", "L", "U", NewMessageIDs(messages["2"].ID(), messages["4"].ID()))
 		tipManager.AddTip(messages["10"])
 		assert.Equal(t, 5, tipManager.TipCount())
 	}
 
 	// Message 11
 	{
-		createScenarioMessageWith1Input1Output("11", "10", "4", "M", "V", []MessageID{messages["2"].ID(), messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("11", "10", "4", "M", "V", NewMessageIDs(messages["2"].ID(), messages["4"].ID()))
 		tipManager.AddTip(messages["11"])
 		assert.Equal(t, 6, tipManager.TipCount())
 	}
 
 	// Message 12
 	{
-		createScenarioMessageWith1Input1Output("12", "11", "4", "N", "X", []MessageID{messages["3"].ID(), messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("12", "11", "4", "N", "X", NewMessageIDs(messages["3"].ID(), messages["4"].ID()))
 		tipManager.AddTip(messages["12"])
 		assert.Equal(t, 7, tipManager.TipCount())
 	}
 
 	// Message 13
 	{
-		createScenarioMessageWith1Input1Output("13", "12", "4", "O", "Y", []MessageID{messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("13", "12", "4", "O", "Y", NewMessageIDs(messages["4"].ID()))
 		tipManager.AddTip(messages["13"])
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
 
 	// Message 14
 	{
-		createScenarioMessageWith1Input1Output("14", "13", "4", "P", "Z", []MessageID{messages["4"].ID()})
+		createScenarioMessageWith1Input1Output("14", "13", "4", "P", "Z", NewMessageIDs(messages["4"].ID()))
 		tipManager.AddTip(messages["14"])
 		assert.Equal(t, 9, tipManager.TipCount())
 	}
@@ -463,7 +463,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	// Message 15
 	{
 		messages["15"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID()}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(messages["10"].ID(), messages["11"].ID()),
 		})
 
 		storeAndBookMessage(t, tangle, messages["15"])
@@ -475,7 +475,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	// Message 16
 	{
 		messages["16"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}.ToMessageIDs(),
+			StrongParentType: NewMessageIDs(messages["10"].ID(), messages["11"].ID(), messages["14"].ID()),
 		})
 
 		storeAndBookMessage(t, tangle, messages["16"])
@@ -531,7 +531,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 
 		parents, err := tipManager.Tips(transactions["14"], 4)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, parents, []MessageID{
+		assert.Equal(t, parents, NewMessageIDs(
 			messages["6"].ID(),
 			messages["7"].ID(),
 			messages["8"].ID(),
@@ -540,7 +540,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			messages["11"].ID(),
 			messages["12"].ID(),
 			messages["13"].ID(),
-		})
+		))
 	}
 
 	// Message 18
@@ -663,10 +663,10 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	})
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
-		StrongParentType: strongParents.ToMessageIDs(),
-		WeakParentType:   weakParents.ToMessageIDs(),
+		StrongParentType: strongParents,
+		WeakParentType:   weakParents,
 	})
 	tangle.Storage.StoreMessage(message)
 
