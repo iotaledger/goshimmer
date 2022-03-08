@@ -140,21 +140,7 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		t.tangle.LedgerState.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
-			t.deleteBranchCount(conflictingBranchID)
-			return true
-		})
-		t.deleteBranchCount(branchID)
-	}))
-
-	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(func(messageID MessageID, branchID ledgerstate.BranchID) {
-		if _, exists := t.tips.Get(messageID); !exists {
-			return
-		}
-
-		t.increaseTipBranchCount(branchID)
-	}))
+	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(t.deleteConfirmedBranchCount))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
@@ -219,25 +205,21 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 	return approverScheduledConfirmed
 }
 
-func (t *TipManager) increaseTipBranchCount(branchID ledgerstate.BranchID) {
-	if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(branchID)) != ledgerstate.Pending {
-		return
-	}
-
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	t.tipsBranchCount[branchID]++
-}
-
 func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
 	if err != nil {
 		panic("could not determine BranchIDs of tip.")
 	}
 
+	t.tipsBranchCountMutex.Lock()
+	defer t.tipsBranchCountMutex.Unlock()
+
 	for messageBranchID := range messageBranchIDs {
-		t.increaseTipBranchCount(messageBranchID)
+		if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+			continue
+		}
+
+		t.tipsBranchCount[messageBranchID]++
 	}
 }
 
@@ -247,20 +229,27 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 		panic("could not determine BranchIDs of tip.")
 	}
 
+	t.tipsBranchCountMutex.Lock()
+	defer t.tipsBranchCountMutex.Unlock()
+
 	for messageBranchID := range messageBranchIDs {
 		if _, exists := t.tipsBranchCount[messageBranchID]; exists {
 			t.tipsBranchCount[messageBranchID]--
 			if t.tipsBranchCount[messageBranchID] == 0 {
-				t.deleteBranchCount(messageBranchID)
+				delete(t.tipsBranchCount, messageBranchID)
 			}
 		}
 	}
 }
 
-func (t *TipManager) deleteBranchCount(branchID ledgerstate.BranchID) {
+func (t *TipManager) deleteConfirmedBranchCount(branchID ledgerstate.BranchID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
+	t.tangle.LedgerState.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		delete(t.tipsBranchCount, conflictingBranchID)
+		return true
+	})
 	delete(t.tipsBranchCount, branchID)
 }
 
@@ -270,11 +259,20 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 		panic("could not determine BranchIDs of message.")
 	}
 
-	t.tipsBranchCountMutex.RLock()
-	defer t.tipsBranchCountMutex.RUnlock()
+	t.tipsBranchCountMutex.Lock()
+	defer t.tipsBranchCountMutex.Unlock()
 
 	for messageBranchID := range messageBranchIDs {
-		if t.tipsBranchCount[messageBranchID] == 1 {
+		// Lazily introduce a counter for Pending branches only.
+		if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+			continue
+		}
+		count, exists := t.tipsBranchCount[messageBranchID]
+		if !exists {
+			t.tipsBranchCount[messageBranchID] = 1
+			return true
+		}
+		if count == 1 {
 			return true
 		}
 	}
