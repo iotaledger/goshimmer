@@ -196,7 +196,7 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
-func (c *Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObject, err error) {
+func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
@@ -208,8 +208,7 @@ func (c *Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObjec
 
 // FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
 func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
-	conflict = c
-	if c == nil {
+	if conflict = c; conflict == nil {
 		conflict = &Conflict{}
 	}
 	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
@@ -338,7 +337,7 @@ func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember ob
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
@@ -350,8 +349,7 @@ func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.S
 
 // FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
 func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
-	conflictMember = c
-	if c == nil {
+	if conflictMember = c; conflictMember == nil {
 		conflictMember = &ConflictMember{}
 	}
 	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
