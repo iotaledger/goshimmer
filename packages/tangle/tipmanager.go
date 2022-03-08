@@ -285,7 +285,7 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 
 	// selected message is not confirmed and older than TSC
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		timestampValid = message.IssuingTime().After(minSupportedTimestamp)
+		timestampValid = minSupportedTimestamp.Before(message.IssuingTime())
 	})
 	if !timestampValid {
 		// timestamp of the selected message is invalid
