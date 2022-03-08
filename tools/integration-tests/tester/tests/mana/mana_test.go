@@ -36,6 +36,7 @@ func TestManaPersistence(t *testing.T) {
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    true,
+		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
 	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
@@ -86,7 +87,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	accessPeerID := fullID(accessPeer.ID())
 	consensusPeer := peers[1]
 	consensusPeerID := fullID(consensusPeer.ID())
-	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[0])
+	seedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
 	require.NoError(t, err)
 
 	faucetConfig := framework.PeerConfig()
