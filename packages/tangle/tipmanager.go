@@ -142,10 +142,10 @@ func (t *TipManager) Setup() {
 
 	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		t.tangle.LedgerState.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
-			t.decreaseBranchCount(conflictingBranchID)
+			t.deleteBranchCount(conflictingBranchID)
 			return true
 		})
-		t.decreaseBranchCount(branchID)
+		t.deleteBranchCount(branchID)
 	}))
 
 	t.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(func(messageID MessageID, branchID ledgerstate.BranchID) {
@@ -241,18 +241,6 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	}
 }
 
-func (t *TipManager) decreaseBranchCount(branchID ledgerstate.BranchID) {
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	if _, exists := t.tipsBranchCount[branchID]; exists {
-		t.tipsBranchCount[branchID]--
-		if t.tipsBranchCount[branchID] == 0 {
-			delete(t.tipsBranchCount, branchID)
-		}
-	}
-}
-
 func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
 	if err != nil {
@@ -260,8 +248,20 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	}
 
 	for messageBranchID := range messageBranchIDs {
-		t.decreaseBranchCount(messageBranchID)
+		if _, exists := t.tipsBranchCount[messageBranchID]; exists {
+			t.tipsBranchCount[messageBranchID]--
+			if t.tipsBranchCount[messageBranchID] == 0 {
+				t.deleteBranchCount(messageBranchID)
+			}
+		}
 	}
+}
+
+func (t *TipManager) deleteBranchCount(branchID ledgerstate.BranchID) {
+	t.tipsBranchCountMutex.Lock()
+	defer t.tipsBranchCountMutex.Unlock()
+
+	delete(t.tipsBranchCount, branchID)
 }
 
 func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
