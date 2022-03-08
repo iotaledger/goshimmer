@@ -53,7 +53,7 @@ func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 }
 
 // FromBytes unmarshals a BranchWeight object from a sequence of bytes.
-func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight objectstorage.StorableObject, err error) {
+func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight *BranchWeight, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchWeight, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
@@ -165,7 +165,7 @@ func NewVoters() (voters *Voters) {
 
 // AddAll adds all new Voters to the Set.
 func (v *Voters) AddAll(voters *Voters) {
-	voters.ForEach(func(voter Voter) {
+	voters.Set.ForEach(func(voter Voter) {
 		v.Set.Add(voter)
 	})
 }

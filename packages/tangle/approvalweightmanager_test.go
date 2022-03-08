@@ -67,8 +67,7 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
 	branchWeight.SetWeight(5.1234)
 
-	branchWeightFromBytesRaw, err := (&BranchWeight{}).FromBytes(branchWeight.Bytes())
-	branchWeightFromBytes := branchWeightFromBytesRaw.(*BranchWeight)
+	branchWeightFromBytes, err := new(BranchWeight).FromBytes(branchWeight.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
