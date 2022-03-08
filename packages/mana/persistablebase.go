@@ -44,7 +44,7 @@ func (p *PersistableBaseMana) Bytes() []byte {
 	}
 	// create marshal helper
 	marshalUtil := marshalutil.New()
-	marshalUtil.Write(p.ManaType)
+	marshalUtil.WriteByte(byte(p.ManaType))
 	marshalUtil.WriteUint16(uint16(len(p.BaseValues)))
 	for _, baseValue := range p.BaseValues {
 		marshalUtil.WriteUint64(math.Float64bits(baseValue))
@@ -94,7 +94,7 @@ func (p *PersistableBaseMana) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if err != nil {
 		return
 	}
-	persistableBaseMana.ManaType = Type(manaType)
+	persistableBaseMana.ManaType = manaType
 
 	baseValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
