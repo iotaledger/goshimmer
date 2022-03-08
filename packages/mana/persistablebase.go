@@ -94,7 +94,7 @@ func (p *PersistableBaseMana) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if err != nil {
 		return
 	}
-	persistableBaseMana.ManaType = manaType
+	persistableBaseMana.ManaType = Type(manaType)
 
 	baseValuesLength, err := marshalUtil.ReadUint16()
 	if err != nil {
