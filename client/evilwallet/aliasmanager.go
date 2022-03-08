@@ -3,6 +3,7 @@ package evilwallet
 import (
 	"errors"
 	"fmt"
+	"go.uber.org/atomic"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -15,14 +16,16 @@ type AliasManager struct {
 	inputMap  map[string]ledgerstate.Input
 	txMap     map[string]*ledgerstate.Transaction
 
-	mu sync.RWMutex
+	outputAliasCount *atomic.Uint64
+	mu               sync.RWMutex
 }
 
 func NewAliasManager() *AliasManager {
 	return &AliasManager{
-		outputMap: make(map[string]ledgerstate.Output),
-		inputMap:  make(map[string]ledgerstate.Input),
-		txMap:     make(map[string]*ledgerstate.Transaction),
+		outputMap:        make(map[string]ledgerstate.Output),
+		inputMap:         make(map[string]ledgerstate.Input),
+		txMap:            make(map[string]*ledgerstate.Transaction),
+		outputAliasCount: atomic.NewUint64(0),
 	}
 }
 
@@ -65,11 +68,11 @@ func (a *AliasManager) AddTransactionAlias(tx *ledgerstate.Transaction, aliasNam
 	return nil
 }
 
-func (a *AliasManager) GetInput(aliasName string) ledgerstate.Input {
+func (a *AliasManager) GetInput(aliasName string) (ledgerstate.Input, bool) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-
-	return a.inputMap[aliasName]
+	in, ok := a.inputMap[aliasName]
+	return in, ok
 }
 
 func (a *AliasManager) GetOutput(aliasName string) ledgerstate.Output {
@@ -88,31 +91,44 @@ func (a *AliasManager) ClearAliases() {
 	a.txMap = make(map[string]*ledgerstate.Transaction)
 }
 
-// endregion /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region InternalAliasManager /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// InternalAliasManager extends AliasManager functionality to handel automated tasks during an EvilScenarios creation.
-type InternalAliasManager struct {
-	*AliasManager
+func (a *AliasManager) AddOutputAliases(outputs []ledgerstate.Output, aliases []string) {
+	for i, out := range outputs {
+		err := a.AddOutputAlias(out, aliases[i])
+		if err != nil {
+			return
+		}
+	}
+	return
 }
 
-func NewEvilAliasManager() *InternalAliasManager {
-	return &InternalAliasManager{
-		NewAliasManager(),
+func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) {
+	for i, out := range inputs {
+		input := ledgerstate.NewUTXOInput(out.OutputID)
+		err := a.AddInputAlias(input, aliases[i])
+		if err != nil {
+			return
+		}
 	}
+	return
 }
 
-func (a *InternalAliasManager) CreateOutputAlias(output ledgerstate.Output) string {
-	aliasName := fmt.Sprintf("out%s", output.ID().Base58())
-	err := a.AddOutputAlias(output, aliasName)
-	if err != nil {
-		return ""
-	}
+func (a *AliasManager) CreateAliasForTransaction(outWalletID, inWalletID int, outID string) string {
+	aliasName := fmt.Sprintf("txO%dI%dOut%s", outWalletID, inWalletID, outID)
 	return aliasName
 }
 
-func (a *InternalAliasManager) CreateInputAlias(input ledgerstate.Input) string {
+func (a *AliasManager) CreateAliasesForOutputs(walletID, aliasesNum int) (aliases []string) {
+	for i := 0; i < aliasesNum; i++ {
+		aliases = append(aliases, a.createAliasForOutput(walletID))
+	}
+	return
+}
+
+func (a *AliasManager) createAliasForOutput(walletID int) string {
+	return fmt.Sprintf("outW%dCount%d", walletID, a.outputAliasCount.Add(1))
+}
+
+func (a *AliasManager) createAliasForInput(input ledgerstate.Input) string {
 	aliasName := fmt.Sprintf("in%s", input.Base58())
 	err := a.AddInputAlias(input, aliasName)
 	if err != nil {
@@ -121,26 +137,10 @@ func (a *InternalAliasManager) CreateInputAlias(input ledgerstate.Input) string 
 	return aliasName
 }
 
-func (a *InternalAliasManager) CreateTransactionAlias(tx *ledgerstate.Transaction) string {
-	aliasName := fmt.Sprintf("tx%s", tx.ID().Base58())
-	err := a.AddTransactionAlias(tx, aliasName)
-	if err != nil {
-		return ""
-	}
-	return aliasName
-}
-
-func (a *InternalAliasManager) CreateAliasesForOutputs(outputs ledgerstate.Outputs) (aliases []string) {
-	for _, out := range outputs {
-		aliases = append(aliases, a.CreateOutputAlias(out))
-	}
-	return
-}
-
-func (a *InternalAliasManager) CreateAliasesForInputs(inputs []*Output) (aliases []string) {
+func (a *AliasManager) CreateAliasesForInputs(inputs []*Output) (aliases []string) {
 	for _, in := range inputs {
 		input := ledgerstate.NewUTXOInput(in.OutputID)
-		aliases = append(aliases, a.CreateInputAlias(input))
+		aliases = append(aliases, a.createAliasForInput(input))
 	}
 	return
 }

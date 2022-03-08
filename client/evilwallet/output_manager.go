@@ -28,6 +28,8 @@ type Output struct {
 	//*wallet.Output
 	OutputID ledgerstate.OutputID
 	Address  ledgerstate.Address
+	Index    uint64
+	WalletID int
 	Balance  uint64
 	Status   OutputStatus
 }
@@ -101,15 +103,14 @@ func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgers
 }
 
 // AddOutputsByTxID adds the outputs of a given transaction to the output status map.
-func (o *OutputManager) AddOutputsByTxID(txID ledgerstate.TransactionID) (outputIDs []ledgerstate.OutputID) {
-	client := o.connector.GetClient()
-	// add output to map
-	tx, err := client.GetTransaction(txID.Base58())
+func (o *OutputManager) AddOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
+	resp, err := o.connector.GetTransaction(txID)
 	if err != nil {
 		return
 	}
 
-	outputIDs = o.addOutputsByJSON(tx.Outputs)
+	outputIDs = o.addOutputsByJSON(resp.Outputs)
+
 	return outputIDs
 }
 
@@ -172,8 +173,8 @@ func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, 
 	return confirmed
 }
 
-// AwaitTransactionsConfirmationAndUpdateWallet awaits for transaction confirmation and updates wallet with outputIDs.
-func (o *OutputManager) AwaitTransactionsConfirmationAndUpdateWallet(wallet *Wallet, txIDs []string, maxGoroutines int) {
+// AwaitTransactionsConfirmation awaits for transaction confirmation and updates wallet with outputIDs.
+func (o *OutputManager) AwaitTransactionsConfirmation(txIDs []string, maxGoroutines int) {
 	wg := sync.WaitGroup{}
 	semaphore := make(chan bool, maxGoroutines)
 
@@ -189,8 +190,6 @@ func (o *OutputManager) AwaitTransactionsConfirmationAndUpdateWallet(wallet *Wal
 			if err != nil {
 				return
 			}
-			// fill in wallet with outputs from confirmed transaction
-			// todo finish when we will have wallet structure ready: o.getOutputsFromTransaction(wallet, txID)
 		}(txID)
 	}
 	wg.Wait()

@@ -53,10 +53,10 @@ type Option func(*Options)
 func (o *Options) isBalanceProvided() bool {
 	for _, balance := range o.outputs {
 		if balance == 0 {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // WithInputs returns an Option that is used to provide the Inputs of the Transaction.

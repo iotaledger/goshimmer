@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"github.com/cockroachdb/errors"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
@@ -13,8 +14,10 @@ import (
 type WalletType int8
 
 const (
+	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	fresh WalletType = iota
-	noConflicts
+	// custom is used for manual handling of unspent outputs
+	custom
 	conflicts
 )
 
@@ -22,7 +25,7 @@ const (
 
 type Wallets struct {
 	wallets map[WalletType][]*Wallet
-	mu      sync.Mutex
+	mu      sync.RWMutex
 
 	lastWalletID atomic.Int64
 }
@@ -61,7 +64,29 @@ func (w *Wallets) GetWallets(wType WalletType, num int) (wallets []*Wallet) {
 
 // addWallet stores newly created wallet.
 func (w *Wallets) addWallet(wallet *Wallet) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
+}
+
+// GetNonEmptyWallet returns first non-empty wallet.
+func (w *Wallets) GetNonEmptyWallet(walletType WalletType) *Wallet {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	for _, wallet := range w.wallets[walletType] {
+		if !wallet.IsEmpty() {
+			return wallet
+		}
+	}
+	return nil
+}
+
+// GetUnspentOutput gets first found unspent output for a given walletType
+func (w *Wallets) GetUnspentOutput(walletType WalletType) *Output {
+	wallet := w.GetNonEmptyWallet(walletType)
+	return wallet.GetUnspentOutput()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +105,7 @@ type Wallet struct {
 
 	lastAddrIdxUsed atomic.Int64 // used during filling in wallet with new outputs
 	lastAddrSpent   atomic.Int64 // used during spamming with outputs one by one
-	spent           bool
+
 	*sync.RWMutex
 }
 
@@ -115,35 +140,74 @@ func (w *Wallet) Address() address.Address {
 	return addr
 }
 
-// AddUnspentOutput adds an unspentoutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, outputID ledgerstate.OutputID, balance uint64) {
+// AddressIndex returns a new and unused address of a given wallet along with address index.
+func (w *Wallet) AddressIndex() (addr address.Address, index uint64) {
+	w.lastAddrIdxUsed.Add(1)
+	index = uint64(w.lastAddrIdxUsed.Load())
+	addr = w.seed.Address(index)
+	w.indexAddrMap[index] = addr.Base58()
+	w.addrIndexMap[addr.Base58()] = index
+
+	return
+}
+
+func (w *Wallet) UnspentOutput(addr string) *Output {
+	w.RLock()
+	defer w.RUnlock()
+	return w.unspentOutputs[addr]
+
+}
+
+func (w *Wallet) IndexAddrMap(outIndex uint64) string {
+	w.RLock()
+	defer w.RUnlock()
+
+	return w.indexAddrMap[outIndex]
+}
+
+// AddUnspentOutput adds an unspentOutput of a given wallet.
+func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance uint64) {
 	w.Lock()
 	defer w.Unlock()
 
 	w.unspentOutputs[addr.Base58()] = &Output{
 		OutputID: outputID,
 		Address:  addr,
+		Index:    addrIdx,
+		WalletID: w.ID,
 		Balance:  balance,
 		Status:   pending,
 	}
 }
 
-func (w *Wallet) UnspentOutputBalance(outputID string) uint64 {
-	if out, ok := w.unspentOutputs[outputID]; ok {
+func (w *Wallet) UnspentOutputBalance(addr string) uint64 {
+	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
 	return 0
 }
 
+func (w *Wallet) IsEmpty() bool {
+	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load()
+}
+
+func (w *Wallet) GetUnspentOutput() *Output {
+	if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
+		idx := w.lastAddrSpent.Add(1)
+		addr := w.IndexAddrMap(uint64(idx))
+		return w.UnspentOutput(addr)
+	}
+	return nil
+}
+
 func (w *Wallet) createOutputs(nOutputs int, inputBalance uint64) (outputs []ledgerstate.Output) {
 	outputBalances := SplitBalanceEqually(nOutputs, inputBalance)
 	for i := 0; i < nOutputs; i++ {
-		idx := uint64(w.lastAddrIdxUsed.Add(1))
-		addr := w.seed.Address(idx)
+		addr, idx := w.AddressIndex()
 		output := ledgerstate.NewSigLockedSingleOutput(outputBalances[i], addr.Address())
 		outputs = append(outputs, output)
 		// correct ID will be updated after txn confirmation
-		w.AddUnspentOutput(addr.Address(), output.ID(), outputBalances[i])
+		w.AddUnspentOutput(addr.Address(), idx, output.ID(), outputBalances[i])
 	}
 	return
 }
@@ -152,6 +216,19 @@ func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.Transacti
 	index := w.addrIndexMap[addr.Base58()]
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+}
+
+func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputID) error {
+	w.RLock()
+	walletOutput, ok := w.unspentOutputs[addr]
+	w.RUnlock()
+	if !ok {
+		return errors.Newf("could not find unspent output ander provided address in the wallet, outIdx:%d, addr: %s", outputID, addr)
+	}
+	w.Lock()
+	walletOutput.OutputID = outputID
+	w.Unlock()
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////

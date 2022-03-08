@@ -29,6 +29,8 @@ type Clients interface {
 	GetTransactionGoF(txID string) gof.GradeOfFinality
 	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
 	SendFaucetRequest(address string) error
+	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
+	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 }
 
 // Connector is responsible for handling connections with clients.
@@ -199,6 +201,31 @@ func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
 		return gof.None
 	}
 	return resp.GradeOfFinality
+}
+
+func (c *Connector) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
+	clt := c.GetClient()
+	resp, err := clt.GetTransaction(txID)
+	if err != nil {
+		return
+	}
+	for _, output := range resp.Outputs {
+		out, err2 := output.ToLedgerstateOutput()
+		if err2 != nil {
+			return
+		}
+		outputs = append(outputs, out)
+	}
+	return
+}
+
+func (c *Connector) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
+	clt := c.GetClient()
+	resp, err = clt.GetTransaction(txID)
+	if err != nil {
+		return
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
