@@ -106,7 +106,7 @@ func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err
 
 // MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshalling).
 func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
-	marker = &Marker{}
+	marker = new(Marker)
 	if marker.sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
@@ -1109,7 +1109,7 @@ func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence objectstorage.StorableObject, err error) {
+func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence *Sequence, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = s.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
@@ -1121,9 +1121,8 @@ func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence objectstorage.Stora
 
 // FromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshalling).
 func (s *Sequence) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
-	sequence = s
-	if s == nil {
-		sequence = &Sequence{}
+	if sequence = s; sequence == nil {
+		sequence = new(Sequence)
 	}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
@@ -1277,7 +1276,7 @@ func (s *Sequence) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ objectstorage.StorableObject = &Sequence{}
+var _ objectstorage.StorableObject = new(Sequence)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1394,7 +1393,7 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 		return
 	}
 
-	structureDetails = &StructureDetails{}
+	structureDetails = new(StructureDetails)
 	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
