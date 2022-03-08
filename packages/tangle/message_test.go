@@ -764,7 +764,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.NoError(t, err)
 
 		msgBytes := msg.Bytes()
-		result, err := (&Message{}).FromBytes(msgBytes)
+		result, err := new(Message).FromBytes(msgBytes)
 		assert.NoError(t, err)
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
@@ -798,7 +798,7 @@ func TestMessageFromBytes(t *testing.T) {
 		msgBytes := msg.Bytes()
 		// put some bytes at the end
 		msgBytes = append(msgBytes, []byte{0, 1, 2, 3, 4}...)
-		_, err = (&Message{}).FromBytes(msgBytes)
+		_, err = new(Message).FromBytes(msgBytes)
 		assert.Error(t, err)
 		assert.True(t, errors.Is(err, cerrors.ErrParseBytesFailed))
 	})
@@ -825,7 +825,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Missing version", func(t *testing.T) {
 		marshaller := marshalutil.New([]byte{})
 		// missing version
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse message version"))
 	})
@@ -834,7 +834,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		// missing parentsCount
 		marshaller := marshalutil.New(msgBytes[:1])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
 	})
@@ -843,7 +843,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		msgBytes[1] = MinParentsCount - 1
 		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MinParentsCount-1))
 	})
@@ -852,7 +852,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		msgBytes[1] = MaxParentsCount + 1
 		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MaxParentsCount+1))
 	})
@@ -860,7 +860,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Missing parent types", func(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
 	})
@@ -868,7 +868,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		marshaller := marshalutil.New(msgBytes[:3])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
 	})
@@ -876,7 +876,7 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Missing parents (one)", func(t *testing.T) {
 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
 		marshaller := marshalutil.New(msgBytes[:3+(MaxParentsCount-1)*32])
-		_, err := (&Message{}).FromMarshalUtil(marshaller)
+		_, err := new(Message).FromMarshalUtil(marshaller)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
 	})
