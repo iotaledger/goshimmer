@@ -1109,9 +1109,9 @@ func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
-func (*Sequence) FromBytes(sequenceBytes []byte) (sequence objectstorage.StorableObject, err error) {
+func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
-	if sequence, err = SequenceFromMarshalUtil(marshalUtil); err != nil {
+	if sequence, err = s.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
 		return
 	}
@@ -1119,9 +1119,12 @@ func (*Sequence) FromBytes(sequenceBytes []byte) (sequence objectstorage.Storabl
 	return
 }
 
-// SequenceFromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshalling).
-func SequenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
-	sequence = &Sequence{}
+// FromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshalling).
+func (s *Sequence) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
+	sequence = s
+	if s == nil {
+		sequence = &Sequence{}
+	}
 	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 	}

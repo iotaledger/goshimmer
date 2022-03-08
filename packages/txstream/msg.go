@@ -435,7 +435,7 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 		return err
 	}
 	msg.Output.SetID(id)
-	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+	if msg.OutputMetadata, err = (&ledgerstate.OutputMetadata{}).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return err
@@ -459,7 +459,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.AliasAddress, err = ledgerstate.AliasAddressFromMarshalUtil(m); err != nil {
 		return err
 	}
-	if msg.AliasOutput, err = ledgerstate.AliasOutputFromMarshalUtil(m); err != nil {
+	if msg.AliasOutput, err = (&ledgerstate.AliasOutput{}).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	id, err := ledgerstate.OutputIDFromMarshalUtil(m)
@@ -470,7 +470,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Timestamp, err = m.ReadTime(); err != nil {
 		return err
 	}
-	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+	if msg.OutputMetadata, err = (&ledgerstate.OutputMetadata{}).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return err

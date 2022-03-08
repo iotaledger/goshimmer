@@ -383,12 +383,12 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 
 	switch BranchType(branchType) {
 	case ConflictBranchType:
-		if branch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
+		if branch, err = (&ConflictBranch{}).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse ConflictBranch: %w", err)
 			return
 		}
 	case AggregatedBranchType:
-		if branch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
+		if branch, err = (&AggregatedBranch{}).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse AggregatedBranch: %w", err)
 			return
 		}
@@ -449,9 +449,9 @@ func (c *ConflictBranch) FromObjectStorage(_, bytes []byte) (conflictBranch obje
 }
 
 // FromBytes unmarshals an ConflictBranch from a sequence of bytes.
-func (*ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+func (c *ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictBranch, err = ConflictBranchFromMarshalUtil(marshalUtil); err != nil {
+	if conflictBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
 		return
 	}
@@ -459,8 +459,13 @@ func (*ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.Sto
 	return
 }
 
-// ConflictBranchFromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
-func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
+// FromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
+func (c *ConflictBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
+	conflictBranch = c
+	if c == nil {
+		conflictBranch = &ConflictBranch{}
+	}
+
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -471,7 +476,6 @@ func ConflictBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 		return
 	}
 
-	conflictBranch = &ConflictBranch{}
 	if conflictBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
@@ -652,9 +656,9 @@ func (a *AggregatedBranch) FromObjectStorage(_, bytes []byte) (aggregatedBranch 
 }
 
 // FromBytes unmarshals an AggregatedBranch from a sequence of bytes.
-func (*AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
+func (a *AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if aggregatedBranch, err = AggregatedBranchFromMarshalUtil(marshalUtil); err != nil {
+	if aggregatedBranch, err = a.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AggregatedBranch from MarshalUtil: %w", err)
 		return
 	}
@@ -662,8 +666,13 @@ func (*AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstorage
 	return
 }
 
-// AggregatedBranchFromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
-func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
+// FromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
+func (a *AggregatedBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
+	aggregatedBranch = a
+	if a == nil {
+		aggregatedBranch = &AggregatedBranch{}
+	}
+
 	branchType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -674,7 +683,6 @@ func AggregatedBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggr
 		return
 	}
 
-	aggregatedBranch = &AggregatedBranch{}
 	if aggregatedBranch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
@@ -775,9 +783,9 @@ func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectst
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (*ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
+	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
 		return
 	}
@@ -785,9 +793,13 @@ func (*ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableO
 	return
 }
 
-// ChildBranchFromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
-func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	childBranch = &ChildBranch{}
+// FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
+func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
+	childBranch = c
+	if c == nil {
+		childBranch = &ChildBranch{}
+	}
+
 	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
 		return

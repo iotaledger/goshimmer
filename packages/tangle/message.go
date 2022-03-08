@@ -454,9 +454,9 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromBytes parses the given bytes into a message.
-func (*Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageFromMarshalUtil(marshalUtil)
+	result, err = m.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -468,8 +468,8 @@ func (*Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, er
 	return
 }
 
-// MessageFromMarshalUtil parses a message from the given marshal util.
-func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
+// FromMarshalUtil parses a message from the given marshal util.
+func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
 
@@ -897,16 +897,19 @@ func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.St
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (*MessageMetadata) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *MessageMetadata) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageMetadataFromMarshalUtil(marshalUtil)
+	result, err = m.FromMarshalUtil(marshalUtil)
 
 	return
 }
 
-// MessageMetadataFromMarshalUtil parses a Message from the given MarshalUtil.
-func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
-	result = &MessageMetadata{}
+// FromMarshalUtil parses a Message from the given MarshalUtil.
+func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
+	result = m
+	if m == nil {
+		result = &MessageMetadata{}
+	}
 
 	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)

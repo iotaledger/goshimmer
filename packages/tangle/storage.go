@@ -623,15 +623,18 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 }
 
 // FromBytes parses the given bytes into an approver.
-func (*Approver) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (a *Approver) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ApproverFromMarshalUtil(marshalUtil)
+	result, err = a.FromMarshalUtil(marshalUtil)
 	return
 }
 
-// ApproverFromMarshalUtil parses a new approver from the given marshal util.
-func ApproverFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
-	result = &Approver{}
+// FromMarshalUtil parses a new approver from the given marshal util.
+func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
+	result = a
+	if a == nil {
+		result = &Approver{}
+	}
 	if result.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
@@ -726,16 +729,19 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func (*Attachment) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (a *Attachment) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = ParseAttachment(marshalUtil)
+	result, err = a.FromMarshalUtil(marshalUtil)
 	return
 }
 
-// ParseAttachment is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
+// FromMarshalUtil is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
 // package.
-func ParseAttachment(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
-	result = &Attachment{}
+func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
+	result = a
+	if a == nil {
+		result = &Attachment{}
+	}
 	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
@@ -818,16 +824,19 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
-func (*MissingMessage) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *MissingMessage) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MissingMessageFromMarshalUtil(marshalUtil)
+	result, err = m.FromMarshalUtil(marshalUtil)
 
 	return
 }
 
-// MissingMessageFromMarshalUtil parses a MissingMessage from the given MarshalUtil.
-func MissingMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
-	result = &MissingMessage{}
+// FromMarshalUtil parses a MissingMessage from the given MarshalUtil.
+func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
+	result = m
+	if m == nil {
+		result = &MissingMessage{}
+	}
 
 	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)

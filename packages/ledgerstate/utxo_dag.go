@@ -41,7 +41,7 @@ type IUTXODAG interface {
 	// Transactions returns all the transactions, consumed.
 	Transactions() (transactions map[TransactionID]*Transaction)
 	// CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata **objectstorage.CachedObject[*TransactionMetadata])
+	CachedTransactionMetadata(transactionID TransactionID) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata])
 	// CachedOutput retrieves the Output with the given OutputID from the object storage.
 	CachedOutput(outputID OutputID) (cachedOutput *objectstorage.CachedObject[Output])
 	// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
@@ -833,18 +833,21 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.S
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (*AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
+func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if addressOutputMapping, err = AddressOutputMappingFromMarshalUtil(marshalUtil); err != nil {
+	if addressOutputMapping, err = a.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
 		return
 	}
 	return
 }
 
-// AddressOutputMappingFromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshalling).
-func AddressOutputMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
-	addressOutputMapping = &AddressOutputMapping{}
+// FromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshalling).
+func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
+	addressOutputMapping = a
+	if a == nil {
+		addressOutputMapping = &AddressOutputMapping{}
+	}
 	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
 		return
@@ -933,9 +936,9 @@ func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Consumer from a sequence of bytes.
-func (*Consumer) FromBytes(bytes []byte) (consumer objectstorage.StorableObject, err error) {
+func (c *Consumer) FromBytes(bytes []byte) (consumer objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if consumer, err = ConsumerFromMarshalUtil(marshalUtil); err != nil {
+	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
 		return
 	}
@@ -943,9 +946,12 @@ func (*Consumer) FromBytes(bytes []byte) (consumer objectstorage.StorableObject,
 	return
 }
 
-// ConsumerFromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
-func ConsumerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
-	consumer = &Consumer{}
+// FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
+func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
+	consumer = c
+	if c == nil {
+		consumer = &Consumer{}
+	}
 	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
 		return

@@ -53,9 +53,9 @@ func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objec
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (*MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if markerIndexBranchIDMapping, err = MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil); err != nil {
+	if markerIndexBranchIDMapping, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
 		return
 	}
@@ -63,10 +63,12 @@ func (*MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDM
 	return
 }
 
-// MarkerIndexBranchIDMappingFromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier
-// unmarshalling).
-func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
-	markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
+// FromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier unmarshalling).
+func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
+	markerIndexBranchIDMapping = m
+	if m == nil {
+		markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
+	}
 	if markerIndexBranchIDMapping.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
@@ -279,9 +281,9 @@ func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstora
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (*MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
+func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
+	if individuallyMappedMessage, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
 		return
 	}
@@ -289,9 +291,12 @@ func (*MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage 
 	return
 }
 
-// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
-func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
-	markerMessageMapping = &MarkerMessageMapping{}
+// FromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
+func (m *MarkerMessageMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
+	markerMessageMapping = m
+	if m == nil {
+		markerMessageMapping = &MarkerMessageMapping{}
+	}
 	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return

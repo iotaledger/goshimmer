@@ -485,7 +485,7 @@ func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 			f.getRejectCallback()(msg, err, peer)
 			return
 		}
-		if !isMessageAndTransactionTimestampsValid(transaction.(*ledgerstate.Transaction), msg) {
+		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
 			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
 			return
 		}

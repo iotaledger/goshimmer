@@ -22,7 +22,7 @@ func TestTransaction_Bytes(t *testing.T) {
 	bytes := tx.Bytes()
 	_tx, err := (&Transaction{}).FromBytes(bytes)
 	assert.NoError(t, err)
-	assert.Equal(t, tx.ID(), _tx.(*Transaction).ID())
+	assert.Equal(t, tx.ID(), _tx.ID())
 }
 
 func TestTransaction_Complex(t *testing.T) {

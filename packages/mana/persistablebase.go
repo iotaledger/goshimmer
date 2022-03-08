@@ -81,13 +81,16 @@ func (persistableBaseMana *PersistableBaseMana) FromObjectStorage(key, bytes []b
 // FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.
 func (persistableBaseMana *PersistableBaseMana) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
+	result, err = persistableBaseMana.FromMarshalUtil(marshalUtil)
 	return
 }
 
-// Parse unmarshals a persistableBaseMana using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, err error) {
-	result = &PersistableBaseMana{}
+// FromMarshalUtil unmarshals a persistableBaseMana using the given marshalUtil (for easier marshaling/unmarshaling).
+func (persistableBaseMana *PersistableBaseMana) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *PersistableBaseMana, err error) {
+	result = persistableBaseMana
+	if persistableBaseMana == nil {
+		result = &PersistableBaseMana{}
+	}
 	manaType, err := marshalUtil.ReadByte()
 	if err != nil {
 		return

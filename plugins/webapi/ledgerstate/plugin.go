@@ -492,11 +492,10 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	txRaw, err := (&ledgerstate.Transaction{}).FromBytes(request.TransactionBytes)
+	tx, err := (&ledgerstate.Transaction{}).FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
-	tx := txRaw.(*ledgerstate.Transaction)
 
 	// check if it would introduce a double spend known to the node locally
 	has, conflictingID := doubleSpendFilter.HasConflict(tx.Essence().Inputs())

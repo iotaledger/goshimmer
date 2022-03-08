@@ -212,12 +212,12 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return transaction, err
 	}
-	transaction.(*Transaction).id = &transactionID
+	transaction.id = &transactionID
 	return transaction, err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytes(bytes []byte) (transaction objectstorage.StorableObject, err error) {
+func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
@@ -228,6 +228,11 @@ func (t *Transaction) FromBytes(bytes []byte) (transaction objectstorage.Storabl
 
 // FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
 func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
+	transaction = t
+	if t == nil {
+		transaction = &Transaction{}
+	}
+
 	readStartOffset := marshalUtil.ReadOffset()
 
 	payloadSize, err := marshalUtil.ReadUint32()
@@ -249,7 +254,6 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
-	transaction = &Transaction{}
 	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
@@ -660,18 +664,21 @@ func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorag
 }
 
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (*TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata objectstorage.StorableObject, err error) {
+func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if transactionMetadata, err = TransactionMetadataFromMarshalUtil(marshalUtil); err != nil {
+	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
 		return
 	}
 	return
 }
 
-// TransactionMetadataFromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
-func TransactionMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
-	transactionMetadata = &TransactionMetadata{}
+// FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
+func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
+	transactionMetadata = t
+	if t == nil {
+		transactionMetadata = &TransactionMetadata{}
+	}
 	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return

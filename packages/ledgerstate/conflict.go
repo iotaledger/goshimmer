@@ -196,9 +196,9 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
-func (*Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObject, err error) {
+func (c *Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
+	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
 		return
 	}
@@ -206,9 +206,12 @@ func (*Conflict) FromBytes(bytes []byte) (conflict objectstorage.StorableObject,
 	return
 }
 
-// ConflictFromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
-func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
-	conflict = &Conflict{}
+// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
+func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
+	conflict = c
+	if c == nil {
+		conflict = &Conflict{}
+	}
 	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
@@ -335,9 +338,9 @@ func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember ob
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (*ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictMember, err = ConflictMemberFromMarshalUtil(marshalUtil); err != nil {
+	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
 		return
 	}
@@ -345,9 +348,12 @@ func (*ConflictMember) FromBytes(bytes []byte) (conflictMember objectstorage.Sto
 	return
 }
 
-// ConflictMemberFromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
-func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
-	conflictMember = &ConflictMember{}
+// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
+func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
+	conflictMember = c
+	if c == nil {
+		conflictMember = &ConflictMember{}
+	}
 	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return

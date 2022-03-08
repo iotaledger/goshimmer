@@ -60,12 +60,11 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 	defer u.mutex.Unlock()
 
 	// serialize/deserialize for proper semantic check
-	storableObject, err := (&ledgerstate.Transaction{}).FromBytes(tx.Bytes())
+	tx, err := (&ledgerstate.Transaction{}).FromBytes(tx.Bytes())
 	if err != nil {
 		return err
 	}
-	tx = storableObject.(*ledgerstate.Transaction)
-	if err := u.CheckNewTransaction(tx, false); err != nil {
+	if err = u.CheckNewTransaction(tx, false); err != nil {
 		return err
 	}
 	// delete consumed (referenced) outputs from the ledger
