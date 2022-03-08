@@ -165,7 +165,7 @@ func NewVoters() (voters *Voters) {
 
 // AddAll adds all new Voters to the Set.
 func (v *Voters) AddAll(voters *Voters) {
-	voters.Set.ForEach(func(voter Voter) {
+	voters.ForEach(func(voter Voter) {
 		v.Set.Add(voter)
 	})
 }
