@@ -408,7 +408,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 		u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
 		u.bookOutputs(transaction, targetBranch)
 	}) {
-		panic(fmt.Errorf("failed to load ConflictBranch with %s", targetBranch.String()))
+		panic(fmt.Errorf("failed to load ConflictBranch with %s", targetBranch))
 	}
 
 	return
@@ -844,9 +844,8 @@ func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping obj
 
 // FromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshalling).
 func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
-	addressOutputMapping = a
-	if a == nil {
-		addressOutputMapping = &AddressOutputMapping{}
+	if addressOutputMapping = a; addressOutputMapping == nil {
+		addressOutputMapping = new(AddressOutputMapping)
 	}
 	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
@@ -896,7 +895,7 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &AddressOutputMapping{}
+var _ objectstorage.StorableObject = new(AddressOutputMapping)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -936,7 +935,7 @@ func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer objectstorage.StorableObject, err error) {
+func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
@@ -948,9 +947,8 @@ func (c *Consumer) FromBytes(bytes []byte) (consumer objectstorage.StorableObjec
 
 // FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
 func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
-	consumer = c
-	if c == nil {
-		consumer = &Consumer{}
+	if consumer = c; consumer == nil {
+		consumer = new(Consumer)
 	}
 	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
@@ -1030,6 +1028,6 @@ func (c *Consumer) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &Consumer{}
+var _ objectstorage.StorableObject = new(Consumer)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
