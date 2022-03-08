@@ -723,7 +723,7 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 
 					approverLikes := false
 					for _, like := range approverMsg.ShallowLikeParents {
-						if like == branch.ID {
+						if like == tip.ID {
 							approverLikes = true
 							break
 						}
