@@ -461,7 +461,7 @@ func (c *ConflictBranch) FromBytes(bytes []byte) (conflictBranch *ConflictBranch
 
 // FromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
 func (c *ConflictBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
-	if conflictBranch = c; c == nil {
+	if conflictBranch = c; conflictBranch == nil {
 		conflictBranch = new(ConflictBranch)
 	}
 
@@ -667,7 +667,7 @@ func (a *AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstora
 
 // FromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
 func (a *AggregatedBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
-	if aggregatedBranch = a; a == nil {
+	if aggregatedBranch = a; aggregatedBranch == nil {
 		aggregatedBranch = new(AggregatedBranch)
 	}
 
@@ -793,7 +793,7 @@ func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.Storabl
 
 // FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
 func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	if childBranch = c; c == nil {
+	if childBranch = c; childBranch == nil {
 		childBranch = new(ChildBranch)
 	}
 
