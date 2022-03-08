@@ -28,12 +28,14 @@ import (
 func TestValueTransactionPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
-	}, tests.EqualDefaultConfigFunc(t, false))
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		PeerMaster:  true,
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -48,12 +50,12 @@ func TestValueTransactionPersistence(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 	// the rest of the nodes should have mana as in snapshot
 	for i, peer := range n.Peers()[1:] {
-		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
 			}, tests.Timeout, tests.Tick)
 		}
-		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
@@ -115,11 +117,14 @@ func TestValueTransactionPersistence(t *testing.T) {
 func TestValueAliasPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -130,12 +135,12 @@ func TestValueAliasPersistence(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 	// the rest of the nodes should have mana as in snapshot
 	for i, peer := range n.Peers()[1:] {
-		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
 			}, tests.Timeout, tests.Tick)
 		}
-		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]
@@ -196,13 +201,16 @@ func TestValueAliasPersistence(t *testing.T) {
 // TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
 func TestValueAliasDelegation(t *testing.T) {
 	t.Skip("Value Alias Delegation test needs to be fixed.")
+	snapshotInfo := tests.EqualSnapshotDetails
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -213,12 +221,12 @@ func TestValueAliasDelegation(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 	// the rest of the nodes should have mana as in snapshot
 	for i, peer := range n.Peers()[1:] {
-		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
 			}, tests.Timeout, tests.Tick)
 		}
-		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	faucet, peer := n.Peers()[0], n.Peers()[1]

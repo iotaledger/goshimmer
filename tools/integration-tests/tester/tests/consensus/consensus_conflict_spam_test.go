@@ -34,12 +34,14 @@ const (
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    false,
-		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

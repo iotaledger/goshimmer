@@ -326,25 +326,27 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		conf.Activity.Enabled = true
 	}
 
-	// the first peer is the master peer, it uses a special conf
-	masterConfig := conf
-	masterConfig.Seed = MasterSeedBytes
-	if networkConfig.Faucet {
-		masterConfig.Faucet.Enabled = true
-	}
+	// the first peer is the peer master, it uses a special conf
+	if networkConfig.PeerMaster {
+		masterConfig := conf
+		if networkConfig.Faucet {
+			masterConfig.Faucet.Enabled = true
+		}
 
-	if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-		masterConfig = cfgAlterFunc[0](0, masterConfig)
-	}
-
-	log.Printf("Starting %d peers...", numPeers)
-	if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
-		return err
-	}
-
-	for i := 1; i < numPeers; i++ {
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, conf)); err != nil {
+			masterConfig = cfgAlterFunc[0](0, true, masterConfig)
+		}
+		log.Printf("Starting peer master...")
+		if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
+			return err
+		}
+		// peer master counts as peer
+		numPeers--
+	}
+	log.Printf("Starting %d peers...", numPeers)
+	for i := 0; i < numPeers; i++ {
+		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
+			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, false, conf)); err != nil {
 				return err
 			}
 			continue

@@ -31,12 +31,13 @@ var (
 func TestManaPersistence(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    true,
-		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
-	}, tests.EqualDefaultConfigFunc(t, false))
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -67,13 +68,15 @@ func TestManaPledgeFilter(t *testing.T) {
 		numPeers         = 3
 		tokensPerRequest = 100
 	)
+	snapshotInfo := tests.EqualSnapshotDetails
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Activity:    true,
-		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
-	}, tests.EqualDefaultConfigFunc(t, true))
+		PeerMaster:  false,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -83,7 +86,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	accessPeerID := fullID(accessPeer.ID())
 	consensusPeer := peers[1]
 	consensusPeerID := fullID(consensusPeer.ID())
-	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[0])
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[0])
 	require.NoError(t, err)
 
 	faucetConfig := framework.PeerConfig()
@@ -96,7 +99,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	faucetConfig.Mana.AllowedConsensusFilterEnabled = true
 	faucetConfig.Activity.Enabled = true
 	faucetConfig.Seed = seedBytes
-	faucetConfig.MessageLayer.Snapshot.File = tests.EqualSnapshotDetails.FilePath
+	faucetConfig.MessageLayer.Snapshot.File = snapshotInfo.FilePath
 
 	faucet, err := n.CreatePeer(ctx, faucetConfig)
 	require.NoError(t, err)
@@ -140,13 +143,15 @@ func TestManaPledgeFilter(t *testing.T) {
 func TestManaApis(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
-		Snapshots:   []framework.SnapshotInfo{tests.EqualSnapshotDetails},
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

@@ -41,60 +41,58 @@ const (
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/equal_snapshot.bin",
-	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+	// node ID: dAnF7pQ6k7a
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+	GenesisTokenAmount: 2_500_000_000_000_000, // pledged to peer master
+	// peer IDs: H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
-		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
 	},
-	PeersAmountsPledged: []uint64{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
-	GenesisTokenAmount:  2500000000000000,
-	PledgeMapFunc:       framework.GenesisIsPledgedToFirstPeer,
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
+	// node ID: 4AeXyZ26e4G
+	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	GenesisTokenAmount: 800_000, // pledged to peer master
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
-		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	},
-	PeersAmountsPledged: []uint64{1_600_000, 800_000, 800_000},
-	GenesisTokenAmount:  800000, // pledged to peer master
-	PledgeMapFunc:       framework.GenesisIsPledgedToLastPeer,
+	PeersAmountsPledged: []uint64{1_600_000, 800_000},
 }
 
-// EqualDefaultConfigFunc returns peer configurations that uses an equally distributed mana Snapshot for all peers
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return SameSnapshotConfigFunc(t, skipFirst, EqualSnapshotDetails)
+// GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
+func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) []byte {
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+	require.NoError(t, err)
+	return seedBytes
 }
 
-// GetIdentSeeds returns decoded seed bytes for the supplied SnapshotInfo
-func GetIdentSeeds(t *testing.T, snapshotInfo framework.SnapshotInfo) [][]byte {
-	peerSeeds := make([][]byte, 0)
-	for _, peerSeed := range snapshotInfo.PeersSeedBase58 {
-		seedBytes, err := base58.Decode(peerSeed)
-		require.NoError(t, err)
-		peerSeeds = append(peerSeeds, seedBytes)
-	}
-	return peerSeeds
-}
-
-// SameSnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
-var SameSnapshotConfigFunc = func(t *testing.T, skipFirst bool, snaphotInfo framework.SnapshotInfo) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
-		peerSeeds := GetIdentSeeds(t, snaphotInfo)
-		offset := 0
-		if skipFirst {
-			offset += 1
+// SnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
+// allows farther manipulation on the config with cfgFunc
+var SnapshotConfigFunc = func(t *testing.T, snaphotInfo framework.SnapshotInfo,
+	cfgFunc func(conf *config.GoShimmer)) func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
+	return func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
+		if cfgFunc != nil {
+			cfgFunc(&cfg)
 		}
-		i := peerIndex + offset
-		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
-		cfg.Seed = peerSeeds[i]
+		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		if peerMaster {
+			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
+			require.NoError(t, err)
+			cfg.Seed = seedBytes
+			return cfg
+		}
+
+		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d",
+			peerIndex, len(snaphotInfo.PeersSeedBase58))
+		cfg.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
 
 		return cfg
 	}

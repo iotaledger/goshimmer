@@ -33,7 +33,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 
 	snapshotInfo := tests.ConsensusSnapshotDetails
 	expectedCManaNode1AfterTxConf := float64(snapshotInfo.PeersAmountsPledged[0]) + float64(snapshotInfo.GenesisTokenAmount)
-	peerSeeds := tests.GetIdentSeeds(t, snapshotInfo)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
@@ -43,18 +42,11 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
+			PeerMaster:  false,
 			Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-			cfg.MessageLayer.Snapshot.File = snapshotInfo.FilePath
-			cfg.UseNodeSeedAsWalletSeed = true
-			switch peerIndex {
-			case 0:
-				cfg.Seed = peerSeeds[0]
-			case 1:
-				cfg.Seed = peerSeeds[1]
-			}
-			return cfg
-		})
+		}, tests.SnapshotConfigFunc(t, snapshotInfo, func(conf *config.GoShimmer) {
+			conf.UseNodeSeedAsWalletSeed = true
+		}))
 
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -68,8 +60,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	)
 
 	// check consensus mana
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
-	require.EqualValues(t, tests.ConsensusSnapshotDetails.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
+	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
 
 	txs1 := []*ledgerstate.Transaction{}
 	txs2 := []*ledgerstate.Transaction{}
@@ -78,10 +70,10 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		t.Logf("issuing conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the first partition.
 		// Funds move from address 1 -> address 2 -> address 3...
-		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node1, gof.Medium))
+		txs1 = append(txs1, sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node1, gof.Medium))
 		t.Logf("issuing other conflict %d", i+1)
 		// This builds transactions that move the genesis funds on the second partition
-		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node2, gof.Low))
+		txs2 = append(txs2, sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(i+1)), snapshotInfo.GenesisTokenAmount, node2, gof.Low))
 	}
 
 	// merge partitions
