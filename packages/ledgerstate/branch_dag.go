@@ -15,9 +15,6 @@ import (
 
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchDAGCacheSize defines how many elements are stored in the internal LRUCaches.
-const BranchDAGCacheSize = 1024
-
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
@@ -265,12 +262,11 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 
 	for rejectedWalker.HasNext() {
 		b.Branch(rejectedWalker.Next()).Consume(func(branch Branch) {
-			conflictBranch := branch.(*ConflictBranch)
-			if modified = conflictBranch.setInclusionState(Rejected); !modified {
+			if modified = branch.(*ConflictBranch).setInclusionState(Rejected); !modified {
 				return
 			}
 
-			b.ChildBranches(conflictBranch.ID()).Consume(func(childBranch *ChildBranch) {
+			b.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				if childBranch.ChildBranchType() == ConflictBranchType {
 					rejectedWalker.Push(childBranch.ChildBranchID())
 				}
@@ -296,8 +292,7 @@ func (b *BranchDAG) InclusionState(branchID BranchID) (inclusionState InclusionS
 		isParentPending := false
 		for parentBranchID := range branch.Parents() {
 			b.Branch(parentBranchID).Consume(func(branch Branch) {
-				parentBranch := branch.(*ConflictBranch)
-				parentInclusionState := parentBranch.InclusionState()
+				parentInclusionState := branch.(*ConflictBranch).InclusionState()
 
 				isParentRejected = parentInclusionState == Rejected
 				isParentPending = isParentPending || parentInclusionState == Pending
@@ -451,8 +446,7 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callb
 		}
 
 		b.Branch(conflictBranchID).Consume(func(branch Branch) {
-			conflictBranch := branch.(*ConflictBranch)
-			for conflictID := range conflictBranch.Conflicts() {
+			for conflictID := range branch.(*ConflictBranch).Conflicts() {
 				conflictSetsWalker.Push(conflictID)
 			}
 		})
