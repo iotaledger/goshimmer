@@ -3,6 +3,7 @@ package evilwallet
 import (
 	"errors"
 	"fmt"
+	"go.uber.org/atomic"
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -15,14 +16,16 @@ type AliasManager struct {
 	inputMap  map[string]ledgerstate.Input
 	txMap     map[string]*ledgerstate.Transaction
 
-	mu sync.RWMutex
+	outputAliasCount *atomic.Uint64
+	mu               sync.RWMutex
 }
 
 func NewAliasManager() *AliasManager {
 	return &AliasManager{
-		outputMap: make(map[string]ledgerstate.Output),
-		inputMap:  make(map[string]ledgerstate.Input),
-		txMap:     make(map[string]*ledgerstate.Transaction),
+		outputMap:        make(map[string]ledgerstate.Output),
+		inputMap:         make(map[string]ledgerstate.Input),
+		txMap:            make(map[string]*ledgerstate.Transaction),
+		outputAliasCount: atomic.NewUint64(0),
 	}
 }
 
@@ -114,15 +117,15 @@ func (a *AliasManager) CreateAliasForTransaction(outWalletID, inWalletID int, ou
 	return aliasName
 }
 
-func (a *AliasManager) CreateAliasesForOutputs(walletID int, outputs []ledgerstate.Output) (aliases []string) {
-	for _, out := range outputs {
-		aliases = append(aliases, a.createAliasForOutput(walletID, out.Address().Base58()))
+func (a *AliasManager) CreateAliasesForOutputs(walletID, aliasesNum int) (aliases []string) {
+	for i := 0; i < aliasesNum; i++ {
+		aliases = append(aliases, a.createAliasForOutput(walletID))
 	}
 	return
 }
 
-func (a *AliasManager) createAliasForOutput(walletID int, addr string) string {
-	return fmt.Sprintf("outW%dA%s", walletID, addr)
+func (a *AliasManager) createAliasForOutput(walletID int) string {
+	return fmt.Sprintf("outW%dCount%d", walletID, a.outputAliasCount.Add(1))
 }
 
 func (a *AliasManager) createAliasForInput(input ledgerstate.Input) string {

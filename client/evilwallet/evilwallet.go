@@ -47,7 +47,7 @@ func NewEvilWallet() *EvilWallet {
 	}
 }
 
-// NewWallet creates a new wallet of theh given wallet type.
+// NewWallet creates a new wallet of the given wallet type.
 func (e *EvilWallet) NewWallet(wType WalletType) *Wallet {
 	return e.wallets.NewWallet(wType)
 }
@@ -160,7 +160,7 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wal
 	initWallet.AddUnspentOutput(addr.Address(), idx, initOutput, uint64(faucet.Parameters.TokensPerRequest))
 	//first split 1 to FaucetRequestSplitNumber outputs
 	wallet = NewWallet(fresh)
-	e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
+	//e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
 	txIDs := e.splitOutputs(initWallet, wallet, FaucetRequestSplitNumber)
 	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
 	err = e.UpdateWalletsWithOutputsFromTxs(wallet, txIDs)
@@ -191,21 +191,17 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 	if inputWallet.unspentOutputs == nil {
 		return []string{}
 	}
+	// Add all aliases before creating txs
+	allInputAliases, allOutputAliases, txAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
 	inputNum := 0
+
 	for _, input := range inputWallet.unspentOutputs {
 		wg.Add(1)
 		go func(inputNum int, input *Output) {
 			defer wg.Done()
-			inputs := []*Output{input}
-			inputAliases := e.aliasManager.CreateAliasesForInputs(inputs)
-			e.aliasManager.AddInputAliases(inputs, inputAliases)
+			tx, err := e.CreateTransaction(txAliases[inputNum], WithInputs(allInputAliases[inputNum]...), WithOutputs(allOutputAliases[inputNum]),
+				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 
-			outputs := outputWallet.createOutputs(splitNumber, input.Balance)
-			outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, outputs)
-			e.aliasManager.AddOutputAliases(outputs, outputAliases)
-
-			txAlias := e.aliasManager.CreateAliasForTransaction(outputWallet.ID, inputWallet.ID, input.OutputID.Base58())
-			tx, err := e.CreateTransaction(txAlias, WithInputs(inputAliases...), WithOutputs(outputAliases), WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 			clt := e.connector.GetClient()
 			txID, err := e.connector.PostTransaction(tx, clt)
 			if err != nil {
@@ -217,6 +213,24 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 	}
 	wg.Wait()
 	return txIDs
+}
+
+func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) ([][]string, [][]string, []string) {
+	allInputAliases, allOutputAliases, txAliases := make([][]string, 0), make([][]string, 0), make([]string, 0)
+	for _, input := range inputWallet.unspentOutputs {
+		inputs := []*Output{input}
+
+		inputAliases := e.aliasManager.CreateAliasesForInputs(inputs)
+		e.aliasManager.AddInputAliases(inputs, inputAliases)
+		outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, splitNumber)
+		txAlias := e.aliasManager.CreateAliasForTransaction(outputWallet.ID, inputWallet.ID, input.OutputID.Base58())
+
+		allInputAliases = append(allInputAliases, inputAliases)
+		allOutputAliases = append(allOutputAliases, outputAliases)
+		txAliases = append(txAliases, txAlias)
+	}
+
+	return allInputAliases, allOutputAliases, txAliases
 }
 
 // CreateAlias registers an aliasName for the given data.
@@ -298,7 +312,7 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 			return nil, err
 		}
 
-		// add output to outputmanager
+		// add output to outputManager
 		e.outputManager.AddOutput(output)
 	}
 
@@ -353,7 +367,13 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 				err = errors.New("could not get input by input alias")
 				return
 			}
-			totalBalance += buildOptions.issuer.UnspentOutputBalance(in.Base58())
+			addr, err2 := e.getAddressFromInput(in)
+			if err2 != nil {
+				err = err2
+				return
+			}
+			bal := buildOptions.issuer.UnspentOutputBalance(addr.Base58())
+			totalBalance += bal
 		}
 		balances := SplitBalanceEqually(len(buildOptions.outputs), totalBalance)
 		i := 0

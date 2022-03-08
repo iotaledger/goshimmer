@@ -180,8 +180,8 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 	}
 }
 
-func (w *Wallet) UnspentOutputBalance(outputID string) uint64 {
-	if out, ok := w.unspentOutputs[outputID]; ok {
+func (w *Wallet) UnspentOutputBalance(addr string) uint64 {
+	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
 	return 0
