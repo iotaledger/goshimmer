@@ -643,6 +643,110 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
+func TestTSABranchCensoring(t *testing.T) {
+	tangle := NewTestTangle()
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("A", 500),
+		WithGenesisOutput("B", 500),
+		WithGenesisOutput("C", 500),
+	)
+
+	tangle.Setup()
+
+	var msg *Message
+
+	// ISSUE Message1
+	{
+		msg = testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("G", 500))
+		testFramework.IssueMessages("Message1").WaitMessagesBooked()
+
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
+			"Message1": ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+		})
+	}
+
+	testFramework.tangle.TipManager.AddTip(msg)
+
+	// ISSUE Message2
+	{
+		msg = testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithInputs("A"), WithOutput("E", 500))
+
+		testFramework.RegisterBranchID("A", "Message1")
+		testFramework.RegisterBranchID("B", "Message2")
+
+		testFramework.IssueMessages("Message2").WaitMessagesBooked()
+
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
+			"Message1": testFramework.BranchIDs("A"),
+			"Message2": testFramework.BranchIDs("B"),
+		})
+	}
+
+	testFramework.tangle.TipManager.AddTip(msg)
+
+	// ISSUE Message2.1
+	{
+		msg = testFramework.CreateMessage("Message2.1", WithStrongParents("Message2"))
+
+		testFramework.IssueMessages("Message2.1").WaitMessagesBooked()
+
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
+			"Message1":   testFramework.BranchIDs("A"),
+			"Message2":   testFramework.BranchIDs("B"),
+			"Message2.1": testFramework.BranchIDs("B"),
+		})
+	}
+
+	testFramework.tangle.TipManager.AddTip(msg)
+
+	// ISSUE Message3
+	{
+		msg = testFramework.CreateMessage("Message3", WithStrongParents("Message1", "Message2.1"), WithShallowDislikeParents("Message2"))
+
+		testFramework.IssueMessages("Message3").WaitMessagesBooked()
+
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
+			"Message1":   testFramework.BranchIDs("A"),
+			"Message2":   testFramework.BranchIDs("B"),
+			"Message2.1": testFramework.BranchIDs("B"),
+			"Message3":   ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+		})
+	}
+
+	testFramework.tangle.TipManager.AddTip(msg)
+
+	// Tip Messag2 has been removed as no branch was censored, but 1 and 2.1 could not be removed.
+	assert.Equal(t, 3, tangle.TipManager.tips.Size(), NewMessageIDs())
+	assert.Contains(t, tangle.TipManager.AllTips(), testFramework.Message("Message1").ID())
+	assert.Contains(t, tangle.TipManager.AllTips(), testFramework.Message("Message2.1").ID())
+	assert.Contains(t, tangle.TipManager.AllTips(), testFramework.Message("Message3").ID())
+
+	// We confirm a branch and we should be now able to drop tips corresponding to the A/B conflict.
+	testFramework.tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("A"))
+
+	// ISSUE Message4
+	{
+		msg = testFramework.CreateMessage("Message4", WithStrongParents("Message1", "Message2.1", "Message3"))
+		testFramework.IssueMessages("Message4").WaitMessagesBooked()
+
+		checkBranchIDs(t, testFramework, map[string]ledgerstate.BranchIDs{
+			"Message1":   ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+			"Message2":   testFramework.BranchIDs("B"),
+			"Message2.1": testFramework.BranchIDs("B"),
+			"Message3":   ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID),
+			"Message4":   testFramework.BranchIDs("B"),
+		})
+	}
+
+	testFramework.tangle.TipManager.AddTip(msg)
+
+	assert.Equal(t, 1, tangle.TipManager.tips.Size())
+	assert.Contains(t, tangle.TipManager.AllTips(), testFramework.Message("Message4").ID())
+}
+
 func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// we need to store and book transactions so that we also have attachments of transactions available
 	tangle.Storage.StoreMessage(message)
