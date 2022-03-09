@@ -589,7 +589,6 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 		if !parents.Contains(messageID) && t.isPastConeTimestampCorrect(messageID) {
 			parents.Add(messageID)
 		}
-
 	}
 
 	return
