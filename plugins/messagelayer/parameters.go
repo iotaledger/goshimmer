@@ -10,7 +10,8 @@ import (
 type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
-
+	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed messages in its past cone will not be selected.
+	TimeSinceConfirmationThreshold time.Duration `default:"5m" usage:"Time Since Confirmation (TSC) threshold"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
