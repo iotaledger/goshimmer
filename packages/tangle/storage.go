@@ -622,9 +622,7 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 
 // FromBytes parses the given bytes into an approver.
 func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = a.FromMarshalUtil(marshalUtil)
-	return
+	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
 // FromMarshalUtil parses a new approver from the given marshal util.
@@ -727,9 +725,7 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = a.FromMarshalUtil(marshalUtil)
-	return
+	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
 // FromMarshalUtil is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
