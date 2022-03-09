@@ -48,7 +48,7 @@ func NewEvilWallet() *EvilWallet {
 	}
 }
 
-// NewWallet creates a new wallet of theh given wallet type.
+// NewWallet creates a new wallet of the given wallet type.
 func (e *EvilWallet) NewWallet(wType WalletType) *Wallet {
 	return e.wallets.NewWallet(wType)
 }
