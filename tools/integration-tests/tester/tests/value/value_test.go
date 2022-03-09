@@ -35,7 +35,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 		Activity:    true, // we need to issue regular activity messages
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
 		PeerMaster:  true,
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -124,7 +124,7 @@ func TestValueAliasPersistence(t *testing.T) {
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -210,7 +210,7 @@ func TestValueAliasDelegation(t *testing.T) {
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

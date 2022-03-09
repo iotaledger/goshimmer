@@ -22,7 +22,7 @@ func TestFaucetPrepare(t *testing.T) {
 		Activity:    true,
 		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

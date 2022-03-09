@@ -74,27 +74,26 @@ func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex i
 	return seedBytes
 }
 
-// SnapshotConfigFunc returns peer configurations that uses the specified Snapshot information for all peers
-// allows farther manipulation on the config with cfgFunc
-var SnapshotConfigFunc = func(t *testing.T, snaphotInfo framework.SnapshotInfo,
-	cfgFunc func(conf *config.GoShimmer)) func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
-	return func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
-		if cfgFunc != nil {
-			cfgFunc(&cfg)
-		}
-		cfg.MessageLayer.Snapshot.File = snaphotInfo.FilePath
-		if peerMaster {
+// CommonSnapshotConfigFunc returns a peer configuration altering function that uses the specified Snapshot information for all peers.
+// If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
+func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
+	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+		conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		if isPeerMaster {
 			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
 			require.NoError(t, err)
-			cfg.Seed = seedBytes
-			return cfg
+			conf.Seed = seedBytes
+			return conf
 		}
 
-		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d",
-			peerIndex, len(snaphotInfo.PeersSeedBase58))
-		cfg.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
+		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
+		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
 
-		return cfg
+		if len(cfgFunc) > 0 {
+			conf = cfgFunc[0](peerIndex, isPeerMaster, conf)
+		}
+
+		return conf
 	}
 }
 

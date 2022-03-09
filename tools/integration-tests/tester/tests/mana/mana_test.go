@@ -38,7 +38,7 @@ func TestManaPersistence(t *testing.T) {
 		Activity:    true,
 		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -77,7 +77,7 @@ func TestManaPledgeFilter(t *testing.T) {
 		Activity:    true,
 		PeerMaster:  false,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -152,7 +152,7 @@ func TestManaApis(t *testing.T) {
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

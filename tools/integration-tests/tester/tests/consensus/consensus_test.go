@@ -44,8 +44,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Autopeering: false,
 			PeerMaster:  false,
 			Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-		}, tests.SnapshotConfigFunc(t, snapshotInfo, func(conf *config.GoShimmer) {
+		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
+			return conf
 		}))
 
 	require.NoError(t, err)

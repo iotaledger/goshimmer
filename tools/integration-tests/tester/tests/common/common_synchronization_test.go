@@ -33,7 +33,7 @@ func TestCommonSynchronization(t *testing.T) {
 		StartSynced: true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
 		PeerMaster:  true,
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, nil))
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -144,8 +144,9 @@ func TestConfirmMessage(t *testing.T) {
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
-	}, tests.SnapshotConfigFunc(t, snapshotInfo, func(conf *config.GoShimmer) {
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
+		return conf
 	}))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
