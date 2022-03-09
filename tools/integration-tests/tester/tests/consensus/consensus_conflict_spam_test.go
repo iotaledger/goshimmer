@@ -98,7 +98,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterBranch", msgID)
 	messageMetadata, err := peer1.GetMessageMetadata(msgID)
 	require.NoError(t, err)
-	require.Equal(t, ledgerstate.MasterBranchID.Base58(), messageMetadata.BranchID)
+	require.Equal(t, []string{ledgerstate.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.

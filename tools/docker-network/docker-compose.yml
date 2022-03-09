@@ -64,9 +64,6 @@ services:
       --webAPI.exportPath=/tmp/
     deploy:
       replicas: ${SHIMMER_PEER_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
-        max_attempts: 5
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -147,7 +144,6 @@ services:
       - peer_master
   grafana:
     image: grafana/grafana:latest
-    restart: unless-stopped
     profiles:
       - grafana
     environment:

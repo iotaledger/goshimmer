@@ -8,6 +8,7 @@ import {ExplorerStore, ExplorerOutput, OutputMetadata} from "app/stores/Explorer
 import Spinner from "react-bootstrap/Spinner";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
+import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
 import {outputToComponent, totalBalanceFromExplorerOutputs} from "app/utils/output";
 import {Badge, Button, ListGroupItem} from "react-bootstrap";
@@ -238,7 +239,20 @@ class OutputMeta extends React.Component<omProps, any> {
         return (
             <ListGroup>
                 <ListGroup.Item>Grade of Finality: {deriveSolid(metadata)} {metadata.gradeOfFinality}</ListGroup.Item>
-                <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${metadata.branchID}`}>{resolveBase58BranchID(metadata.branchID)}</a> </ListGroup.Item>
+                BranchIDs: 
+                <ListGroup>
+                    {
+                        metadata.branchIDs.map((value, index) => {
+                            return (
+                                <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
+                                    <Link to={`/explorer/branch/${value}`}>
+                                        {resolveBase58BranchID(value)}
+                                    </Link>
+                                </ListGroup.Item>
+                            )
+                        })
+                    }
+                </ListGroup>
                 <ListGroup.Item>Pending mana: {displayManaUnit(pendingMana)}</ListGroup.Item>
                 <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
