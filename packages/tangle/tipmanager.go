@@ -590,7 +590,6 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 			parents.Add(messageID)
 		}
 	}
-
 	return
 }
 
