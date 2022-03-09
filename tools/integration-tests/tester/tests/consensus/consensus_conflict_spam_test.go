@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/stretchr/testify/require"
 )
 
 // constant var, shouldn't be changed
@@ -33,11 +34,14 @@ const (
 func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		Faucet:      true,
 		StartSynced: true,
 		Activity:    false,
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
