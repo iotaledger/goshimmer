@@ -549,7 +549,6 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 
 // Test based on packages/tangle/images/TSC_test_scenario.png.
 func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
-	time.Sleep(30 * time.Second)
 	tangle := NewTestTangle()
 	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
 

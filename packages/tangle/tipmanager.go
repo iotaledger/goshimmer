@@ -378,10 +378,10 @@ func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWa
 func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker *markers.Marker) (tscValid bool) {
 	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
-		return
+		return true
 	}
 
-	return !t.getMarkerMessage(oldestUnconfirmedMarker).IssuingTime().Before(minSupportedTimestamp)
+	return t.getMarkerMessage(oldestUnconfirmedMarker).IssuingTime().After(minSupportedTimestamp)
 }
 
 func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
