@@ -61,7 +61,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -70,7 +70,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -79,7 +79,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID, messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -116,7 +116,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 		tangle.TimeManager.updateTime(messages["1"].ID())
 
@@ -131,7 +131,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -145,7 +145,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -159,16 +159,16 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Add Message 4-8
 	{
-		tips := make([]MessageID, 0, 9)
-		tips = append(tips, messages["3"].ID())
+		tips := NewMessageIDs()
+		tips.Add(messages["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
+			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID()), NewMessageIDs())
 			tipManager.AddTip(messages[nString])
-			tips = append(tips, messages[nString].ID())
+			tips.Add(messages[nString].ID())
 
 			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips, "Elements in strongTips do not match after adding Message %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
 			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 		}
 	}
@@ -199,7 +199,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
-	confirmedMessageIDs := &MessageIDs{}
+	confirmedMessageIDs := NewMessageIDs()
 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: markers.NewMarkers(markers.NewMarker(0, 1))}
 
 	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 5), WithGenesisOutput("G2", 8))
@@ -414,7 +414,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		parents, err := tipManager.Tips(testFramework.Message("Message17").Payload(), 4)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, parents, []MessageID{
+		assert.Equal(t, parents, NewMessageIDs(
 			testFramework.Message("Message6").ID(),
 			testFramework.Message("Message7").ID(),
 			testFramework.Message("Message8").ID(),
@@ -423,7 +423,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 			testFramework.Message("Message11").ID(),
 			testFramework.Message("Message12").ID(),
 			testFramework.Message("Message13").ID(),
-		})
+		))
 	}
 
 	// Message 18
@@ -821,8 +821,8 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	}
 }
 
-func prepareConfirmedMessageIDs(testFramework *MessageTestFramework, confirmedIDs []string) *MessageIDs {
-	confirmedMessageIDs := &MessageIDs{}
+func prepareConfirmedMessageIDs(testFramework *MessageTestFramework, confirmedIDs []string) MessageIDs {
+	confirmedMessageIDs := NewMessageIDs()
 	for _, id := range confirmedIDs {
 		confirmedMessageIDs.Add(testFramework.Message(id).ID())
 	}
@@ -864,10 +864,10 @@ func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	})
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
-		StrongParentType: strongParents.ToMessageIDs(),
-		WeakParentType:   weakParents.ToMessageIDs(),
+		StrongParentType: strongParents,
+		WeakParentType:   weakParents,
 	})
 	tangle.Storage.StoreMessage(message)
 
@@ -875,7 +875,7 @@ func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParent
 }
 
 type MockConfirmationOracleTipManagerTest struct {
-	confirmedMessageIDs *MessageIDs
+	confirmedMessageIDs MessageIDs
 	confirmedMarkers    *markers.Markers
 
 	MockConfirmationOracle
@@ -883,7 +883,7 @@ type MockConfirmationOracleTipManagerTest struct {
 
 // IsMessageConfirmed mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
-	return containsMessageID(*m.confirmedMessageIDs, msgID)
+	return m.confirmedMessageIDs.Contains(msgID)
 }
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
@@ -905,13 +905,4 @@ func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers
 		return false
 	}
 	return marker.Index() <= confirmedMarkerIndex
-}
-
-func containsMessageID(s MessageIDs, e MessageID) bool {
-	for a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

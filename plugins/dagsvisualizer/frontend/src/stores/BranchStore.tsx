@@ -294,7 +294,6 @@ export class BranchStore {
     addMasterBranch = (): branchVertex => {
         const master: branchVertex = {
             ID: '4uQeVj5tqViQh7yWWGStvkEG1Zmhx6uasJtWCJziofM',
-            type: 'ConflictBranchType',
             parents: [],
             isConfirmed: true,
             conflicts: null,

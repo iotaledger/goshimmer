@@ -111,15 +111,6 @@ module.exports = {
         label: 'Object storage',
         id: 'implementation_design/object_storage',
       },
-
-
-      {
-        type: 'category',
-        label: 'Components',
-        items: [
-
-        ],
-      },
     ],
   },
   {
