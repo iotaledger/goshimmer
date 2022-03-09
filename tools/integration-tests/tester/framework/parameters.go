@@ -42,11 +42,11 @@ type CreateNetworkConfig struct {
 	Autopeering bool
 	// Faucet specifies whether the first peer should have the faucet enabled.
 	Faucet bool
-	// PeerMaster specifies whether the network should include the peer master
+	// PeerMaster specifies whether the network should include the peer master.
 	PeerMaster bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
-	// Snapshots to be generated or rendered available for the network mapped by human-friendly names.
+	// Snapshots to be generated and rendered available for the network.
 	Snapshots []SnapshotInfo
 }
 

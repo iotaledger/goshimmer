@@ -79,9 +79,7 @@ type (
 
 // CreateSnapshot writes a new snapshot file to the path declared by snapshot name. Genesis is defined by genesisTokenAmount
 // and seedBytes. The amount pledge to each node is defined by nodesToPledge map. Whenever the amount is 0 in the map pledgeTokenAmount is used.
-func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge,
-	snapshotFileName string,
-) (*ledgerstate.Snapshot, error) {
+func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) (*ledgerstate.Snapshot, error) {
 	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
@@ -147,6 +145,13 @@ func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
 		log.Println("unable to close snapshot file ", err)
 		return nil, err
 	}
+
+	log.Printf("\n================= %d Snapshot Access Manas ===============\n", len(readSnapshot.AccessManaByNode))
+	for key, accessManaNode := range readSnapshot.AccessManaByNode {
+		log.Println("===== key =", key)
+		log.Println(accessManaNode)
+	}
+	log.Println("\n==========================================================")
 	return readSnapshot, nil
 }
 
@@ -244,11 +249,12 @@ func printGenesisInfo(genesis *Genesis) {
 	genesisWallet := wallet.New(wallet.Import(genesis.Seed, 1, []bitmask.BitMask{}, wallet.NewAssetRegistry("test")), wallet.GenericConnector(mockedConnector))
 	genesisAddress := genesisWallet.Seed().Address(0).Address()
 
-	log.Println("genesis:")
-	log.Printf("-> seed (base58): %s", genesisWallet.Seed().String())
-	log.Printf("-> output address (base58): %s", genesisAddress.Base58())
-	log.Printf("-> output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
-	log.Printf("-> token amount: %d", genesis.Amount)
+	log.Println("\n================= Genesis ===============")
+	log.Printf("Seed (base58): %s", genesisWallet.Seed().String())
+	log.Printf("Output address (base58): %s", genesisAddress.Base58())
+	log.Printf("Output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	log.Printf("Token amount: %d", genesis.Amount)
+	log.Println("\n=========================================")
 }
 
 type mockConnector struct {
