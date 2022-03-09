@@ -32,7 +32,7 @@ type BranchDAG struct {
 func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	newBranchDAG = &BranchDAG{
-		branchStorage:         objectstorage.NewWithObjectFactory[Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), BranchFromObjectStorage, options.branchStorageOptions...),
+		branchStorage:         objectstorage.New[Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), options.branchStorageOptions...),
 		childBranchStorage:    objectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
 		conflictStorage:       objectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),

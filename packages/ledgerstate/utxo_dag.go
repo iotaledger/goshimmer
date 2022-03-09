@@ -92,7 +92,7 @@ func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 		ledgerstate:                 ledgerstate,
 		transactionStorage:          objectstorage.New[*Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionStorage}), options.transactionStorageOptions...),
 		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
-		outputStorage:               objectstorage.NewWithObjectFactory[Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputStorage}), OutputFromObjectStorage, options.outputStorageOptions...),
+		outputStorage:               objectstorage.New[Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputStorage}), options.outputStorageOptions...),
 		outputMetadataStorage:       objectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
 		consumerStorage:             objectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConsumerStorage}), options.consumerStorageOptions...),
 		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),

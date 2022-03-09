@@ -88,6 +88,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	options.branchStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.WithObjectFactory(BranchFromObjectStorage),
 	}
 
 	options.childBranchStorageOptions = []objectstorage.Option{
@@ -124,6 +125,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
+		objectstorage.WithObjectFactory(OutputFromObjectStorage),
 	}
 
 	options.outputMetadataStorageOptions = []objectstorage.Option{

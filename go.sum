@@ -518,6 +518,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/iotaledger/hive.go v0.0.0-20220308134016-069d85ce0194 h1:BKNyYT7fjDbsOYfqZKTpQUmNYwWAWvdlDAbNWqw7RhI=
 github.com/iotaledger/hive.go v0.0.0-20220308134016-069d85ce0194/go.mod h1:MQK0iFxckY/JnEJKmxtOehkVDGI5kBStTYWM8T++Lv4=
+github.com/iotaledger/hive.go v0.0.0-20220309102941-5c4478c40a91 h1:sMu0dTjCYIISTuyr6fZ9byItNTLzoF2z36UiE4XUvvI=
+github.com/iotaledger/hive.go v0.0.0-20220309102941-5c4478c40a91/go.mod h1:MQK0iFxckY/JnEJKmxtOehkVDGI5kBStTYWM8T++Lv4=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
