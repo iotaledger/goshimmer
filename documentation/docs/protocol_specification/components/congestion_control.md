@@ -1,5 +1,7 @@
 ---
-description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control algorithm to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and minimizing delays.
+description: Every network has to deal with its intrinsic limited resources. GoShimmer uses congestion control algorithm
+to regulate the influx of messages in the network with the goal of maximizing throughput (messages/bytes per second) and
+minimizing delays.
 image: /img/protocol_specification/congestion_control_algorithm_infographic_new.png
 keywords:
 
@@ -29,7 +31,11 @@ following requirements must be satisfied:
 
 [![Congestion Control](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)](/img/protocol_specification/congestion_control_algorithm_infographic_new.png)
 
-Further information can be found in the paper [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
+You can find more information in the following papers:
+
+* [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778)
+  .
+* [Secure Access Control for DAG-based Distributed Ledgers](https://arxiv.org/abs/2107.10238).
 
 ## Detailed Design
 
@@ -38,7 +44,7 @@ Our algorithm has three core components:
 * A scheduling algorithm which ensures fair access for all nodes according to their access Mana.
 * A TCP-inspired algorithm for decentralized rate setting to efficiently utilize the available bandwidth while
   preventing large delays.
-* An algorithm to check Time Since Confirmation of a tip, performed when creating a new message.
+* A buffer management policy to deal with malicious flows.
 
 ### Prerequirements
 
@@ -49,9 +55,7 @@ Our algorithm has three core components:
   to fairly share the available throughput. Without access Mana the network would be subject to Sybil attacks, which
   would incentivise even honest actors to artificially increase its own number of nodes.
 
-* _Timestamp_. Before scheduling a new message, the scheduler verifies whether the message timestamp is valid or not.
-
-* _Message weight_. Weight of a message is used to priority messages over the others and it is calculated depending
+* _Message weight_. Weight of a message is used to priority messages over the others, and it is calculated depending
   on the type of message and of the message length.
 
 ### Outbox Buffer Management
@@ -68,8 +72,10 @@ The enqueuing mechanism includes the following components:
   the message issuer.
 * _Message enqueuing_. The message is actually enqueued, queue is sorted by message timestamps in increasing order
   and counters are updated (e.g., counters for the total number of bytes in the queue).
-* _Message skipping_. The message is skipped when they are confirmed while still waiting to be scheduled in the
-  outbox. Skipped message doesn't decrease issuing node's deficit, it is not gossipped or added to the tip pool.
+* __Message skipping__. A message is skipped when it is confirmed while still waiting to be scheduled in the
+  outbox. A skipped message is removed from the outbox buffer, and it does not decrease the issuing node's deficit.
+  It is not gossipped or added to the tip pool as confirmation indicates that the message already has approvers and
+  is replicated on enough nodes in the network.
 * _Message drop_. In some circumstances, due to network congestion or to ongoing attacks, some messages shall be
   dropped to guarantee bounded delays and isolate attacker's messages. Specifically, a node shall drop messages in
   the following situation:
@@ -83,8 +89,8 @@ The dequeue mechanism includes the following components:
 
 * _Queue selection_. A queue is selected according to round-robin scheduling algorithm. In particular, we use a
   modified version of the deficit round-robin (DRR) algorithm.
-* _Message dequeuing_. The first (oldest) message of the queue, that satisfies certain conditions is dequeued, and
-  list of active nodes is updated. Conditions a message must satisfy:
+* _Message dequeuing_. The first (oldest) message of the queue, that satisfies certain conditions is dequeued. A message
+  must satisfy the following conditions:
     * Message has a ready flag assigned. Ready flag is assigned when all of its parents have been scheduled or
       confirmed (are eligible).
     * Message timestamp is not in the future.
