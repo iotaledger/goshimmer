@@ -347,7 +347,7 @@ func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWa
 				}
 			}
 
-			// process markers from different sequences that are referenced by current marker's sequence
+			// process markers from different sequences that are referenced by current marker's sequence, i.e., walk the sequence DAG
 			referencedMarkers := sequence.ReferencedMarkers(marker.Index())
 			referencedMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 				referencedMarker := markers.NewMarker(sequenceID, index)
@@ -378,7 +378,7 @@ func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWa
 }
 
 func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker *markers.Marker) (tscValid bool) {
-	// oldest unconfirmed marker is in the future cone of the past marker, therefore past marker is confirmed and there is no need to check
+	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
 		return
 	}
