@@ -165,7 +165,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 
 // processTransactionPayload handles Value payload
 func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
-	tx, err := (&ledgerstate.Transaction{}).FromBytes(p.Bytes())
+	tx, err := new(ledgerstate.Transaction).FromBytes(p.Bytes())
 	if err != nil {
 		return
 	}
