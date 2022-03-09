@@ -100,7 +100,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	startTime := time.Now()
 	var errPoW error
 	var nonce uint64
-	var parents MessageIDsSlice
+	var parents MessageIDs
 	var issuingTime time.Time
 	var references ParentMessageIDs
 
@@ -116,7 +116,7 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 
 		references, err = f.referencesFunc(parents, issuingTime, f.tangle)
 		if err != nil {
-			err = errors.Errorf("like references could not be prepared: %w", err)
+			err = errors.Errorf("references could not be prepared: %w", err)
 			f.Events.Error.Trigger(err)
 			return nil, err
 		}
@@ -156,12 +156,12 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 	return msg, nil
 }
 
-func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
+func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
 	// due to the ParentAge check we must ensure that we set the right issuing time.
 
-	for _, parent := range parents {
+	for parent := range parents {
 		f.tangle.Storage.Message(parent).Consume(func(msg *Message) {
 			if msg.ID() != EmptyMessageID && !msg.IssuingTime().Before(issuingTime) {
 				issuingTime = msg.IssuingTime()
@@ -172,7 +172,7 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDsSlice) time.Time {
 	return issuingTime
 }
 
-func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDsSlice, err error) {
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
@@ -263,7 +263,7 @@ func messageEventHandler(handler interface{}, params ...interface{}) {
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -271,10 +271,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 	return f(p, countParents)
 }
 
@@ -311,13 +311,13 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
+type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
 
 // PrepareReferences is an implementation of LikeReferencesFunc.
-func PrepareReferences(strongParents MessageIDsSlice, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
+func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
 	references = NewParentMessageIDs()
 
-	for _, strongParent := range strongParents {
+	for strongParent := range strongParents {
 		if strongParent == EmptyMessageID {
 			references.AddStrong(strongParent)
 			continue

@@ -16,9 +16,9 @@ var (
 	messageHeader = []string{
 		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
 		"ScheduledTime", "BookedTime", "GradeOfFinality", "GradeOfFinalityTime", "StrongParents", "WeakParents",
-		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "BranchID", "Scheduled", "Booked",
-		"Invalid", "Rank", "IsPastMarker", "PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI",
-		"PayloadType", "TransactionID",
+		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "ShallowLikeApprovers",
+		"ShallowDislikeApprovers", "BranchID", "Scheduled", "Booked", "Invalid", "Rank", "IsPastMarker",
+		"PastMarkers", "PMHI", "PMLI", "FutureMarkers", "FMHI", "FMLI", "PayloadType", "TransactionID",
 	}
 
 	tipsHeader = messageHeader

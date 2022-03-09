@@ -2324,8 +2324,8 @@ func (c CachedOutputs) String() string {
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
 	id                      OutputID
-	branchID                BranchID
-	branchIDMutex           sync.RWMutex
+	branchIDs               BranchIDs
+	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
@@ -2342,7 +2342,8 @@ type OutputMetadata struct {
 // NewOutputMetadata creates a new empty OutputMetadata object.
 func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 	return &OutputMetadata{
-		id: outputID,
+		id:        outputID,
+		branchIDs: NewBranchIDs(),
 	}
 }
 
@@ -2365,8 +2366,8 @@ func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
+	if outputMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse BranchIDs: %w", err)
 		return
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -2411,24 +2412,40 @@ func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) BranchID() BranchID {
-	o.branchIDMutex.RLock()
-	defer o.branchIDMutex.RUnlock()
+// BranchIDs returns the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) BranchIDs() BranchIDs {
+	o.branchIDsMutex.RLock()
+	defer o.branchIDsMutex.RUnlock()
 
-	return o.branchID
+	return o.branchIDs.Clone()
 }
 
-// SetBranchID sets the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
-	o.branchIDMutex.Lock()
-	defer o.branchIDMutex.Unlock()
+// SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
 
-	if o.branchID == branchID {
-		return
+	if o.branchIDs.Equals(branchIDs) {
+		return false
 	}
 
-	o.branchID = branchID
+	o.branchIDs = branchIDs.Clone()
+	o.SetModified()
+	return true
+}
+
+// AddBranchID adds an identifier of the Branch that the Output was booked in.
+func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
+
+	if o.branchIDs.Contains(branchID) {
+		return false
+	}
+
+	delete(o.branchIDs, MasterBranchID)
+
+	o.branchIDs.Add(branchID)
 	o.SetModified()
 	modified = true
 
@@ -2533,7 +2550,7 @@ func (o *OutputMetadata) Bytes() []byte {
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("branchID", o.BranchID()),
+		stringify.StructField("branchIDs", o.BranchIDs()),
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("consumerCount", o.ConsumerCount()),
@@ -2557,7 +2574,7 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 // used as a key in the ObjectStorage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
-		Write(o.BranchID()).
+		Write(o.BranchIDs()).
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
 		WriteUint64(uint64(o.ConsumerCount())).
@@ -2605,16 +2622,6 @@ func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
 	}
 
 	return
-}
-
-// BranchIDs returns the BranchIDs that are contained in the list of OutputsMetadata objects.
-func (o OutputsMetadata) BranchIDs() (branchIDs BranchIDs) {
-	branchIDs = NewBranchIDs()
-	for _, inputMetadata := range o {
-		branchIDs.Add(inputMetadata.BranchID())
-	}
-
-	return branchIDs
 }
 
 // SpentOutputsMetadata returns the spent elements of the list of OutputsMetadata objects.
