@@ -383,12 +383,12 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch Branch,
 
 	switch BranchType(branchType) {
 	case ConflictBranchType:
-		if branch, err = (&ConflictBranch{}).FromMarshalUtil(marshalUtil); err != nil {
+		if branch, err = new(ConflictBranch).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse ConflictBranch: %w", err)
 			return
 		}
 	case AggregatedBranchType:
-		if branch, err = (&AggregatedBranch{}).FromMarshalUtil(marshalUtil); err != nil {
+		if branch, err = new(AggregatedBranch).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse AggregatedBranch: %w", err)
 			return
 		}
@@ -449,7 +449,7 @@ func (c *ConflictBranch) FromObjectStorage(_, bytes []byte) (conflictBranch obje
 }
 
 // FromBytes unmarshals an ConflictBranch from a sequence of bytes.
-func (c *ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+func (c *ConflictBranch) FromBytes(bytes []byte) (conflictBranch *ConflictBranch, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictBranch from MarshalUtil: %w", err)
@@ -461,9 +461,8 @@ func (c *ConflictBranch) FromBytes(bytes []byte) (conflictBranch objectstorage.S
 
 // FromMarshalUtil unmarshals an ConflictBranch using a MarshalUtil (for easier unmarshaling).
 func (c *ConflictBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictBranch *ConflictBranch, err error) {
-	conflictBranch = c
-	if c == nil {
-		conflictBranch = &ConflictBranch{}
+	if conflictBranch = c; conflictBranch == nil {
+		conflictBranch = new(ConflictBranch)
 	}
 
 	branchType, err := marshalUtil.ReadByte()
@@ -609,7 +608,7 @@ func (c *ConflictBranch) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ Branch = &ConflictBranch{}
+var _ Branch = new(ConflictBranch)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -668,9 +667,8 @@ func (a *AggregatedBranch) FromBytes(bytes []byte) (aggregatedBranch objectstora
 
 // FromMarshalUtil unmarshals an AggregatedBranch using a MarshalUtil (for easier unmarshaling).
 func (a *AggregatedBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (aggregatedBranch *AggregatedBranch, err error) {
-	aggregatedBranch = a
-	if a == nil {
-		aggregatedBranch = &AggregatedBranch{}
+	if aggregatedBranch = a; aggregatedBranch == nil {
+		aggregatedBranch = new(AggregatedBranch)
 	}
 
 	branchType, err := marshalUtil.ReadByte()
@@ -795,9 +793,8 @@ func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.Storabl
 
 // FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
 func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	childBranch = c
-	if c == nil {
-		childBranch = &ChildBranch{}
+	if childBranch = c; childBranch == nil {
+		childBranch = new(ChildBranch)
 	}
 
 	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
@@ -861,7 +858,7 @@ func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &ChildBranch{}
+var _ objectstorage.StorableObject = new(ChildBranch)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

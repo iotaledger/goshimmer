@@ -82,8 +82,7 @@ func TestBranchVotersMarshalling(t *testing.T) {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 
-	branchVotersFromBytesRaw, err := (&BranchVoters{}).FromBytes(branchVoters.Bytes())
-	branchVotersFromBytes := branchVotersFromBytesRaw.(*BranchVoters)
+	branchVotersFromBytes, err := new(BranchVoters).FromBytes(branchVoters.Bytes())
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters

@@ -163,7 +163,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 
 // PostAddressUnspentOutputs is the handler for the /ledgerstate/addresses/unspentOutputs endpoint.
 func PostAddressUnspentOutputs(c echo.Context) error {
-	req := &jsonmodels.PostAddressesUnspentOutputsRequest{}
+	req := new(jsonmodels.PostAddressesUnspentOutputsRequest)
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -180,7 +180,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		UnspentOutputs: make([]*jsonmodels.WalletOutputsOnAddress, len(addresses)),
 	}
 	for i, addy := range addresses {
-		res.UnspentOutputs[i] = &jsonmodels.WalletOutputsOnAddress{}
+		res.UnspentOutputs[i] = new(jsonmodels.WalletOutputsOnAddress)
 		cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(addy)
 		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
@@ -318,18 +318,18 @@ func GetBranchVoters(c echo.Context) (err error) {
 
 // GetBranchSequenceIDs is the handler for the /ledgerstate/branch/:branchID endpoint.
 func GetBranchSequenceIDs(c echo.Context) (err error) {
-	//branchID, err := branchIDFromContext(c)
-	//if err != nil {
+	// branchID, err := branchIDFromContext(c)
+	// if err != nil {
 	//	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	//}
+	// }
 	//
-	//sequenceIDs := make([]string, 0)
-	//deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	// sequenceIDs := make([]string, 0)
+	// deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
 	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
 	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
 	//		return true
 	//	})
-	//})
+	// })
 
 	return c.JSON(http.StatusOK, "ok")
 }
@@ -492,7 +492,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx, err := (&ledgerstate.Transaction{}).FromBytes(request.TransactionBytes)
+	tx, err := new(ledgerstate.Transaction).FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}

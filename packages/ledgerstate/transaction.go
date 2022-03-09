@@ -228,9 +228,8 @@ func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err err
 
 // FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
 func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	transaction = t
-	if t == nil {
-		transaction = &Transaction{}
+	if transaction = t; transaction == nil {
+		transaction = new(Transaction)
 	}
 
 	readStartOffset := marshalUtil.ReadOffset()
@@ -675,8 +674,7 @@ func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *Tran
 
 // FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
 func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
-	transactionMetadata = t
-	if t == nil {
+	if transactionMetadata = t; transactionMetadata == nil {
 		transactionMetadata = &TransactionMetadata{}
 	}
 	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {

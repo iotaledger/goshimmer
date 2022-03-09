@@ -60,7 +60,7 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 	defer u.mutex.Unlock()
 
 	// serialize/deserialize for proper semantic check
-	tx, err := (&ledgerstate.Transaction{}).FromBytes(tx.Bytes())
+	tx, err := new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return err
 	}

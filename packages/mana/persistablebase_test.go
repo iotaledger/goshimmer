@@ -44,9 +44,9 @@ func TestPersistableBaseMana_ObjectStorageValue(t *testing.T) {
 
 func TestPersistableBaseMana_FromBytes(t *testing.T) {
 	p1 := newPersistableMana()
-	p2, err := (&PersistableBaseMana{}).FromBytes(p1.Bytes())
+	p2, err := new(PersistableBaseMana).FromBytes(p1.Bytes())
 	assert.Nil(t, err, "should not have returned error")
-	assert.Equal(t, p1.Bytes(), p2.(*PersistableBaseMana).Bytes(), "should be equal")
+	assert.Equal(t, p1.Bytes(), p2.Bytes(), "should be equal")
 }
 
 func newPersistableMana() *PersistableBaseMana {

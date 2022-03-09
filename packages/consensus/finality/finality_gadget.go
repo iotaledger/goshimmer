@@ -295,11 +295,10 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 	}
 
 	weakParentsSet.ForEach(func(weakParent tangle.MessageID) {
-		weakParentMessageID := weakParent
-		if strongParentWalker.Pushed(weakParentMessageID) {
+		if strongParentWalker.Pushed(weakParent) {
 			return
 		}
-		s.tangle.Storage.MessageMetadata(weakParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
+		s.tangle.Storage.MessageMetadata(weakParent).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
 				return
 			}

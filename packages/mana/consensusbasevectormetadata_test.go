@@ -33,8 +33,7 @@ func TestConsensusBasePastManaVectorMetadata_FromBytes(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{
 		Timestamp: timestamp,
 	}
-	res, err := (&ConsensusBasePastManaVectorMetadata{}).FromBytes(c.Bytes())
+	c1, err := new(ConsensusBasePastManaVectorMetadata).FromBytes(c.Bytes())
 	assert.NoError(t, err)
-	c1 := res.(*ConsensusBasePastManaVectorMetadata)
 	assert.Equal(t, c.Bytes(), c1.Bytes(), "should be equal")
 }

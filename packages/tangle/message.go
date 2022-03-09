@@ -445,7 +445,7 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
 		return
 	}
-	message.(*Message).id = &id
+	message.id = &id
 
 	// assign result
 	result = message
@@ -454,9 +454,9 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromBytes parses the given bytes into a message.
-func (m *Message) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = m.FromMarshalUtil(marshalUtil)
+	message, err = m.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
@@ -760,7 +760,7 @@ func (m *Message) String() string {
 	return builder.String()
 }
 
-var _ objectstorage.StorableObject = &Message{}
+var _ objectstorage.StorableObject = new(Message)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -897,7 +897,7 @@ func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.St
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
+func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = m.FromMarshalUtil(marshalUtil)
 
@@ -905,57 +905,56 @@ func (m *MessageMetadata) FromBytes(bytes []byte) (result objectstorage.Storable
 }
 
 // FromMarshalUtil parses a Message from the given MarshalUtil.
-func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
-	result = m
-	if m == nil {
-		result = &MessageMetadata{}
+func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
+	if messageMetadata = m; messageMetadata == nil {
+		messageMetadata = new(MessageMetadata)
 	}
 
-	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
-	if result.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
 		return
 	}
-	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
-	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
 		return
 	}
-	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if result.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.addedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse added BranchID from MarshalUtil: %w", err)
 		return
 	}
-	if result.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.subtractedBranchIDs, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse subtracted BranchID from MarshalUtil: %w", err)
 		return
 	}
-	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.scheduled, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
-	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
 		return
 	}
-	if result.booked, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
-	if result.bookedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.bookedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
@@ -964,8 +963,8 @@ func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
 		return
 	}
-	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if result.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+	messageMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if messageMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
 		return
 	}
@@ -1344,7 +1343,7 @@ func (m *MessageMetadata) String() string {
 	)
 }
 
-var _ objectstorage.StorableObject = &MessageMetadata{}
+var _ objectstorage.StorableObject = new(MessageMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

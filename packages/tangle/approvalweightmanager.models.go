@@ -64,9 +64,8 @@ func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight *BranchWeight, err 
 
 // FromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshalling).
 func (b *BranchWeight) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
-	branchWeight = b
-	if b == nil {
-		branchWeight = &BranchWeight{}
+	if branchWeight = b; branchWeight == nil {
+		branchWeight = new(BranchWeight)
 	}
 	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
@@ -138,7 +137,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &BranchWeight{}
+var _ objectstorage.StorableObject = new(BranchWeight)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -238,7 +237,7 @@ func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 }
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters objectstorage.StorableObject, err error) {
+func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters *BranchVoters, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
@@ -249,9 +248,8 @@ func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters objectstorage.Stora
 
 // FromMarshalUtil unmarshals a BranchVoters object using a MarshalUtil (for easier unmarshalling).
 func (b *BranchVoters) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
-	branchVoters = b
-	if b == nil {
-		branchVoters = &BranchVoters{}
+	if branchVoters = b; branchVoters == nil {
+		branchVoters = new(BranchVoters)
 	}
 	if branchVoters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
@@ -375,7 +373,7 @@ func (b *BranchVoters) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &BranchVoters{}
+var _ objectstorage.StorableObject = new(BranchVoters)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -445,7 +443,7 @@ func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 }
 
 // FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
-func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes objectstorage.StorableObject, err error) {
+func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -456,9 +454,8 @@ func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes objectsto
 
 // FromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshalling).
 func (l *LatestMarkerVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
-	latestMarkerVotes = l
-	if l == nil {
-		latestMarkerVotes = &LatestMarkerVotes{}
+	if latestMarkerVotes = l; latestMarkerVotes == nil {
+		latestMarkerVotes = new(LatestMarkerVotes)
 	}
 
 	if latestMarkerVotes.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
@@ -581,7 +578,7 @@ func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-var _ objectstorage.StorableObject = &LatestMarkerVotes{}
+var _ objectstorage.StorableObject = new(LatestMarkerVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -661,7 +658,7 @@ func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 }
 
 // FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes objectstorage.StorableObject, err error) {
+func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if latestBranchVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -673,9 +670,8 @@ func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes objectsto
 
 // FromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
 func (l *LatestBranchVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestBranchVotes *LatestBranchVotes, err error) {
-	latestBranchVotes = l
-	if l == nil {
-		latestBranchVotes = &LatestBranchVotes{}
+	if latestBranchVotes = l; l == nil {
+		latestBranchVotes = new(LatestBranchVotes)
 	}
 	if latestBranchVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
@@ -742,7 +738,7 @@ func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &LatestBranchVotes{}
+var _ objectstorage.StorableObject = new(LatestBranchVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -758,7 +754,7 @@ type BranchVote struct {
 
 // VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshalling).
 func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *BranchVote, err error) {
-	vote = &BranchVote{}
+	vote = new(BranchVote)
 
 	if vote.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)

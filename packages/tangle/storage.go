@@ -468,8 +468,7 @@ type DBStatsResult struct {
 // the average time it takes to solidify messages.
 func (s *Storage) DBStats() (res DBStatsResult) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MessageMetadata]) bool {
-		cachedObject.Consume(func(object *MessageMetadata) {
-			msgMetaData := object
+		cachedObject.Consume(func(msgMetaData *MessageMetadata) {
 			res.StoredCount++
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
@@ -503,14 +502,13 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 // TODO: improve this function.
 func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
-		cachedMessage.Consume(func(object *MessageMetadata) {
-			messageMetadata := object
+		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
 			if messageMetadata != nil && messageMetadata.IsSolid() {
 				cachedApprovers := s.Approvers(messageMetadata.messageID)
 				if len(cachedApprovers) == 0 {
 					tips = append(tips, messageMetadata.messageID)
 				}
-				cachedApprovers.Consume(func(approver *Approver) {})
+				cachedApprovers.Release()
 			}
 		})
 		return true
@@ -623,27 +621,24 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 }
 
 // FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = a.FromMarshalUtil(marshalUtil)
-	return
+func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
+	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
 // FromMarshalUtil parses a new approver from the given marshal util.
-func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Approver, err error) {
-	result = a
-	if a == nil {
-		result = &Approver{}
+func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approver *Approver, err error) {
+	if approver = a; approver == nil {
+		approver = new(Approver)
 	}
-	if result.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if approver.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
-	if result.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+	if approver.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
-	if result.approverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if approver.approverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -695,7 +690,7 @@ func (a *Approver) ObjectStorageValue() (result []byte) {
 }
 
 // interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ objectstorage.StorableObject = &Approver{}
+var _ objectstorage.StorableObject = new(Approver)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -729,24 +724,21 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func (a *Attachment) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = a.FromMarshalUtil(marshalUtil)
-	return
+func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
+	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
 // FromMarshalUtil is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
 // package.
-func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *Attachment, err error) {
-	result = a
-	if a == nil {
-		result = &Attachment{}
+func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (attachment *Attachment, err error) {
+	if attachment = a; attachment == nil {
+		attachment = new(Attachment)
 	}
-	if result.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if attachment.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
-	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if attachment.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
@@ -789,7 +781,7 @@ func (a *Attachment) ObjectStorageValue() (data []byte) {
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = &Attachment{}
+var _ objectstorage.StorableObject = new(Attachment)
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
 const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
@@ -824,18 +816,15 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytes(bytes []byte) (result objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = m.FromMarshalUtil(marshalUtil)
-
-	return
+func (m *MissingMessage) FromBytes(bytes []byte) (result *MissingMessage, err error) {
+	return m.FromMarshalUtil(marshalutil.New(bytes))
 }
 
 // FromMarshalUtil parses a MissingMessage from the given MarshalUtil.
 func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
 	result = m
 	if m == nil {
-		result = &MissingMessage{}
+		result = new(MissingMessage)
 	}
 
 	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
@@ -882,6 +871,6 @@ func (m *MissingMessage) ObjectStorageValue() (result []byte) {
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = &MissingMessage{}
+var _ objectstorage.StorableObject = new(MissingMessage)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

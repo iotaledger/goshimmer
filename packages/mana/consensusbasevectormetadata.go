@@ -41,7 +41,7 @@ func (c *ConsensusBasePastManaVectorMetadata) ObjectStorageValue() []byte {
 	return c.Bytes()
 }
 
-// parseMetadata unmarshals a metadata using the given marshalUtil (for easier marshaling/unmarshaling).
+// parseMetadata unmarshals a metadata using the given marshalUtil (for easier marshaling/unmarshalling).
 func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBasePastManaVectorMetadata, err error) {
 	timestamp, err := marshalUtil.ReadTime()
 	if err != nil {
@@ -61,9 +61,9 @@ func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(_, bytes []byte)
 	return c.FromBytes(bytes)
 }
 
-// FromBytes unmsarshalls bytes into a metadata.
-func (*ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result objectstorage.StorableObject, err error) {
+// FromBytes unmarshalls bytes into a metadata.
+func (*ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result *ConsensusBasePastManaVectorMetadata, err error) {
 	return parseMetadata(marshalutil.New(data))
 }
 
-var _ objectstorage.StorableObject = &ConsensusBasePastManaVectorMetadata{}
+var _ objectstorage.StorableObject = new(ConsensusBasePastManaVectorMetadata)
