@@ -104,28 +104,26 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	startTime := time.Now()
 	var errPoW error
 	var nonce uint64
-	var parents MessageIDs
 	var issuingTime time.Time
 
-	for _, messageIDs := range references {
-		parents = append(parents, messageIDs.Slice()...)
-	}
+	strongParents := references[StrongParentType]
+
 	countParents := 2
 	if len(parentsCount) > 0 {
 		countParents = parentsCount[0]
 	}
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		if len(references) == 0 && (len(parents) == 0 || p.Type() != ledgerstate.TransactionType) {
-			if parents, err = f.tips(p, countParents); err != nil {
+		if len(references) == 0 && (len(strongParents) == 0 || p.Type() != ledgerstate.TransactionType) {
+			if strongParents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
 				return nil, err
 			}
 		}
-		issuingTime = f.getIssuingTime(parents)
+		issuingTime = f.getIssuingTime(strongParents)
 		if len(references) == 0 {
-			references, err = f.referencesFunc(parents, issuingTime, f.tangle)
+			references, err = f.referencesFunc(strongParents, issuingTime, f.tangle)
 			if err != nil {
 				err = errors.Errorf("references could not be prepared: %w", err)
 				f.Events.Error.Trigger(err)
