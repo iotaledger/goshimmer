@@ -103,7 +103,8 @@ the _consistency_ requirement.
 Another possible problem is that a node schedules a message that the rest of the network drops, causing a _false
 negative drop_. The message is gossiped and added to the tip pool. However, it will never accumulate enough approval
 weight to be _Confirmed_. Eventually, the node will orphan the message node as
-the [Time Since Confirmation check](#tip-pool-and-time-since-confirmation-check)  during tip selection will fail.
+the [Time Since Confirmation check](tangle.md#tip-pool-and-time-since-confirmation-check)  during tip selection will 
+fail.
 
 ### Scheduler
 
