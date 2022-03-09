@@ -53,8 +53,8 @@ The algorithm has three core components:
   throughput fairly. Without access Mana, the network would be subject to Sybil attacks, which would incentivize actors
   to artificially split (or aggregate) onto multiple identities.
 
-* _Message weight_. Weight of a message is used to priority messages over the others, and it is calculated depending
-  on the type of message and on the message length.
+* __Message weight__. The weight of a message is used to prioritize messages over the others, and it is calculated
+  based on the type and length of a message.
 
 ### Outbox Buffer Management
 
@@ -83,10 +83,10 @@ The enqueuing mechanism includes the following components:
 
 The dequeuing mechanism includes the following components:
 
-__Queue selection__: A queue is selected according to a round-robin scheduling algorithm. In particular, the mechanism uses a
-  modified version of the deficit round-robin (DRR) algorithm.
-* _Message dequeuing_. The first (oldest) message of the queue, that satisfies certain conditions is dequeued. A message
-  must satisfy the following conditions:
+* __Queue selection__: A queue is selected according to a round-robin scheduling algorithm. In particular, the 
+mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
+* __Message dequeuing__. The first (oldest) message of the queue, that satisfies certain conditions is dequeued. A 
+  message must satisfy the following conditions:
     * The message has a ready flag assigned. Ready flag is assigned to a message when all of its parents are eligible (parents have been scheduled or confirmed).
     * The message timestamp is not in the future.
 * __Scheduler management__: The scheduler counters and pointers are updated.
