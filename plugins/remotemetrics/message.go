@@ -100,7 +100,7 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 		return
 	}
 
-	onMessageFinalized(messageIDs[0])
+	onMessageFinalized(messageIDs.First())
 }
 
 func onMessageFinalized(messageID tangle.MessageID) {

@@ -65,7 +65,8 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
 func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
-	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+	branchIDs := l.BranchIDs(transactionID)
+	return len(branchIDs) == 1 && branchIDs.Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
@@ -80,8 +81,8 @@ func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *obje
 
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
-func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
+func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranches ledgerstate.BranchIDs, err error) {
+	targetBranches, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
 		err = errors.Errorf("failed to book Transaction: %w", err)
 
@@ -101,8 +102,8 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	conflictIDs := make(ledgerstate.ConflictIDs)
 	conflictSet = make(ledgerstate.TransactionIDs)
 
-	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
-		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch *ledgerstate.Branch) {
+		conflictIDs = branch.Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
@@ -114,10 +115,10 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
-// BranchID returns the branchID of the given transactionID.
-func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
+// BranchIDs returns the branchIDs of the given transactionID.
+func (l *LedgerState) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		branchID = transactionMetadata.BranchID()
+		branchIDs = transactionMetadata.BranchIDs()
 	})
 	return
 }
@@ -164,8 +165,11 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
-				isUnconfirmed = true
+			for branchID := range transactionMetadata.BranchIDs() {
+				if !l.tangle.ConfirmationOracle.IsBranchConfirmed(branchID) {
+					isUnconfirmed = true
+					break
+				}
 			}
 		})
 

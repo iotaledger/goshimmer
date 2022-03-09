@@ -140,24 +140,12 @@ func (s *Storage) StoreMessage(message *Message) {
 	cachedMessage := s.messageStorage.Store(message)
 	defer cachedMessage.Release()
 
-	// store approvers
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
-		s.approverStorage.Store(NewApprover(StrongApprover, parentMessageID, messageID)).Release()
-
-		return true
+	message.ForEachParent(func(parent Parent) {
+		s.approverStorage.Store(NewApprover(ParentTypeToApproverType[parent.Type], parent.ID, messageID)).Release()
 	})
-	for _, parentType := range []ParentsType{ShallowLikeParentType, ShallowDislikeParentType, WeakParentType} {
-		message.ForEachParentByType(parentType, func(parentMessageID MessageID) bool {
-			if cachedObject, likeStored := s.approverStorage.StoreIfAbsent(NewApprover(WeakApprover, parentMessageID, messageID)); likeStored {
-				cachedObject.Release()
-			}
-
-			return true
-		})
-	}
 
 	// trigger events
-	if s.missingMessageStorage.DeleteIfPresent(messageID[:]) {
+	if s.missingMessageStorage.DeleteIfPresent(messageID.Bytes()) {
 		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
 	}
 
@@ -239,9 +227,10 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDsSlice) {
+func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+	messageIDs = NewMessageIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
-		messageIDs = append(messageIDs, attachment.MessageID())
+		messageIDs.Add(attachment.MessageID())
 	})
 	return
 }
@@ -255,15 +244,8 @@ func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.Trans
 // message as an approver.
 func (s *Storage) DeleteMessage(messageID MessageID) {
 	s.Message(messageID).Consume(func(currentMsg *Message) {
-		currentMsg.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
-			s.deleteStrongApprover(parentMessageID, messageID)
-
-			return true
-		})
-		currentMsg.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) bool {
-			s.deleteWeakApprover(parentMessageID, messageID)
-
-			return true
+		currentMsg.ForEachParent(func(parent Parent) {
+			s.deleteApprover(parent, messageID)
 		})
 
 		s.messageMetadataStorage.Delete(messageID[:])
@@ -397,14 +379,9 @@ func (s *Storage) storeGenesis() {
 	}).Release()
 }
 
-// deleteStrongApprover deletes an Approver from the object storage that was created by a strong parent.
-func (s *Storage) deleteStrongApprover(approvedMessageID MessageID, approvingMessage MessageID) {
-	s.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), StrongApprover.Bytes(), approvingMessage.Bytes()))
-}
-
-// deleteWeakApprover deletes an Approver from the object storage that was created by a weak parent.
-func (s *Storage) deleteWeakApprover(approvedMessageID MessageID, approvingMessage MessageID) {
-	s.approverStorage.Delete(byteutils.ConcatBytes(approvedMessageID.Bytes(), WeakApprover.Bytes(), approvingMessage.Bytes()))
+// deleteApprover deletes the Approver from the object storage that was created by the specified parent.
+func (s *Storage) deleteApprover(parent Parent, approvingMessage MessageID) {
+	s.approverStorage.Delete(byteutils.ConcatBytes(parent.ID.Bytes(), ParentTypeToApproverType[parent.Type].Bytes(), approvingMessage.Bytes()))
 }
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
@@ -542,6 +519,12 @@ const (
 
 	// WeakApprover is the ApproverType that represents references formed by weak parents.
 	WeakApprover
+
+	// ShallowLikeApprover is the ApproverType that represents references formed by shallow like parents.
+	ShallowLikeApprover
+
+	// ShallowDislikeApprover is the ApproverType that represents references formed by shallow dislike parents.
+	ShallowDislikeApprover
 )
 
 // ApproverTypeLength contains the amount of bytes that a marshaled version of the ApproverType contains.
@@ -551,6 +534,26 @@ const ApproverTypeLength = 1
 // strong and weak parents.
 type ApproverType uint8
 
+// ParentTypeToApproverType represents a convenient mapping between a parent type and the approver type.
+var ParentTypeToApproverType = map[ParentsType]ApproverType{
+	StrongParentType:         StrongApprover,
+	WeakParentType:           WeakApprover,
+	ShallowLikeParentType:    ShallowLikeApprover,
+	ShallowDislikeParentType: ShallowDislikeApprover,
+}
+
+// ApproverTypeFromBytes unmarshals an ApproverType from a sequence of bytes.
+func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
+		return
+	}
+	consumedBytes = marshalUtil.ReadOffset()
+
+	return
+}
+
 // ApproverTypeFromMarshalUtil unmarshals an ApproverType using a MarshalUtil (for easier unmarshaling).
 func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
 	untypedApproverType, err := marshalUtil.ReadUint8()
@@ -558,7 +561,7 @@ func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approver
 		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if approverType = ApproverType(untypedApproverType); approverType != StrongApprover && approverType != WeakApprover {
+	if approverType = ApproverType(untypedApproverType); approverType < StrongApprover || approverType > ShallowDislikeApprover {
 		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -578,6 +581,10 @@ func (a ApproverType) String() string {
 		return "ApproverType(StrongApprover)"
 	case WeakApprover:
 		return "ApproverType(WeakApprover)"
+	case ShallowLikeApprover:
+		return "ApproverType(ShallowLikeApprover)"
+	case ShallowDislikeApprover:
+		return "ApproverType(ShallowDislikeApprover)"
 	default:
 		return fmt.Sprintf("ApproverType(%X)", uint8(a))
 	}
@@ -589,7 +596,7 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	// approverType defines if the reference was create by a strong or a weak parent reference.
+	// approverType defines if the reference was create by a strong, weak, shallowlike or shallowdislike parent reference.
 	approverType ApproverType
 
 	// the message which got referenced by the approver message.

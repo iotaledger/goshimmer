@@ -125,7 +125,7 @@ func measureInitialBranchCounts() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return

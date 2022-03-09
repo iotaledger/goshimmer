@@ -78,7 +78,7 @@ func firstApprovalAnalysis(nodeID string, filePath string) (err error) {
 		deps.Tangle.Storage.Approvers(msgID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
+	}, tangle.NewMessageIDs(tangle.EmptyMessageID))
 
 	return
 }

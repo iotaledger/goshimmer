@@ -86,13 +86,13 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 			return
 		}
 
-		branchID, branchIDErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
+		branchIDs, branchIDErr := ledgerstate.BranchIDsFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
 			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
 			return
 		}
 
-		markerIndexBranchIDMapping.mapping.Set(markers.Index(index), branchID)
+		markerIndexBranchIDMapping.mapping.Set(markers.Index(index), branchIDs)
 	}
 
 	return
@@ -103,8 +103,8 @@ func (m *MarkerIndexBranchIDMapping) SequenceID() markers.SequenceID {
 	return m.sequenceID
 }
 
-// BranchID returns the BranchID that is associated to the given marker Index.
-func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branchID ledgerstate.BranchID) {
+// BranchIDs returns the BranchID that is associated to the given marker Index.
+func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs ledgerstate.BranchIDs) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -116,12 +116,12 @@ func (m *MarkerIndexBranchIDMapping) BranchID(markerIndex markers.Index) (branch
 	return value
 }
 
-// SetBranchID creates a mapping between the given marker Index and the given BranchID.
-func (m *MarkerIndexBranchIDMapping) SetBranchID(index markers.Index, branchID ledgerstate.BranchID) {
+// SetBranchIDs creates a mapping between the given marker Index and the given BranchID.
+func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs ledgerstate.BranchIDs) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.mapping.Set(index, branchID)
+	m.mapping.Set(index, branchIDs)
 	m.SetModified()
 }
 
@@ -136,28 +136,28 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs ledgerstate.BranchIDs, exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchID, exists := m.mapping.Floor(index); exists {
-		return untypedIndex, untypedBranchID, true
+	if untypedIndex, untypedBranchIDs, exists := m.mapping.Floor(index); exists {
+		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, ledgerstate.UndefinedBranchID, false
+	return 0, ledgerstate.NewBranchIDs(), false
 }
 
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchID ledgerstate.BranchID, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs ledgerstate.BranchIDs, exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchID, exists := m.mapping.Ceiling(index); exists {
-		return untypedIndex, untypedBranchID, true
+	if untypedIndex, untypedBranchIDs, exists := m.mapping.Ceiling(index); exists {
+		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, ledgerstate.UndefinedBranchID, false
+	return 0, ledgerstate.NewBranchIDs(), false
 }
 
 // Bytes returns a marshaled version of the MarkerIndexBranchIDMapping.
@@ -171,7 +171,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	defer m.mappingMutex.RUnlock()
 
 	indexes := make([]markers.Index, 0)
-	branchIDs := make(map[markers.Index]ledgerstate.BranchID)
+	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
 	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
@@ -211,7 +211,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
 	return m.sequenceID.Bytes()
 }
 
-// ObjectStorageValue marshals the ConflictBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	m.mappingMutex.RLock()

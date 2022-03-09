@@ -71,14 +71,12 @@ func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 
 // GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high.
 func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
-	found = false
-	t.tangleInstance.LedgerState.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
-		if t.tangleInstance.ConfirmationOracle.IsBranchConfirmed(txmeta.BranchID()) {
-			found = true
-			t.tangleInstance.LedgerState.Transaction(txid).Consume(f)
-		}
-	})
-	return
+	if !t.tangleInstance.ConfirmationOracle.IsTransactionConfirmed(txid) {
+		return false
+	}
+
+	t.tangleInstance.LedgerState.Transaction(txid).Consume(f)
+	return true
 }
 
 // PostTransaction posts a transaction to the ledger.

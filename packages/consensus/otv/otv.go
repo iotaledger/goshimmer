@@ -28,9 +28,9 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 }
 
 // LikedConflictMember returns the liked BranchID across the members of its conflict sets.
-func (o *OnTangleVoting) LikedConflictMember(conflictBranchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
+func (o *OnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
 	conflictMembers = ledgerstate.NewBranchIDs()
-	o.branchDAG.ForEachConflictingBranchID(conflictBranchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+	o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		if likedBranchID == ledgerstate.UndefinedBranchID && o.BranchLiked(conflictingBranchID) {
 			likedBranchID = conflictingBranchID
 		}
@@ -65,7 +65,7 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 	}
 
 	o.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		currentBranch := branch.(*ledgerstate.ConflictBranch)
+		currentBranch := branch.(*ledgerstate.Branch)
 		switch currentBranch.InclusionState() {
 		case ledgerstate.Rejected:
 			preferred = false
@@ -103,9 +103,7 @@ func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID le
 			dislikedBranches.Add(rejectedBranchID)
 
 			o.branchDAG.ChildBranches(rejectedBranchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
-				if childBranch.ChildBranchType() == ledgerstate.ConflictBranchType {
-					rejectionWalker.Push(childBranch.ChildBranchID())
-				}
+				rejectionWalker.Push(childBranch.ChildBranchID())
 			})
 		}
 	})

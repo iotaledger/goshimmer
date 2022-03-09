@@ -46,7 +46,7 @@ func (s *Solidifier) Setup() {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDsSlice{messageID}, true)
+	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, NewMessageIDs(messageID), true)
 }
 
 // RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
