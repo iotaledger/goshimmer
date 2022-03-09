@@ -409,6 +409,24 @@ Consequently, a node keeps track of the tips by using two distinct tips sets:
 
 Tips of both sets must be managed according to the local perception of the node. Hence, a strong tip loses its tip status if it gets referenced (via strong parent) by a strong message. Similarly, a weak tip loses its tip status if it gets referenced (via weak parent) by a strong message. This means that weak messages approving via either strong or weak parents, do not have an impact on the tip status of the messages they reference.
 
+#### Time Since Confirmation Check
+
+When a message is scheduled, it is gossiped to the node's neighbors and, normally, added to the tip pool except in the following situations:
+
+* a confirmed message shall not be added to the tip pool (it shall be skipped by the scheduler)
+* a message that has confirmed or scheduled approvers shall not be added to the tip pool
+  Additionally, strong parents of a message are removed from the tip pool, when the message is added and unused tips are removed from the tip pool after a certain amount of time.
+
+When selecting tips from the tip pool an additional check shall be performed to make sure that the timestamp and a
+past cone of a selected message is valid. For a selected tip, the algorithm needs to find a timestamp of the oldest
+unconfirmed message in the past cone of the tip (`TS_oum`) . If the difference between current clock time `now` and the
+timestamp of the oldest unconfirmed message is greater than a certain threshold (`now - TS_oum > TSC_threshold`), then
+the tip cannot be selected and another one needs to be found. The tip shall stay in the tip pool until it is
+automatically removed because of its age.
+
+The Time Since Confirmation check solves the mention problem of false negative drops by eventually orphaning messages
+that were dropped by the network.
+
 ### Branch Management
 
 A message inherits the branch of its strong parents, while it does not inherit the branch of its weak parents.

@@ -93,8 +93,8 @@ mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
 
 #### False positive drop
 
-During an attack or congestion, a node may drop a message already scheduled by the rest of the network, causing a _
-false positive drop_. This means that the message’s future cone will not be marked as _ready_ as its past cone is not
+During an attack or congestion, a node may drop a message already scheduled by the rest of the network, causing a  
+_false positive drop_. This means that the message’s future cone will not be marked as _ready_ as its past cone is not
 eligible. This will be resolved when the rest of the network confirms the message, making it eligible and satisfying
 the _consistency_ requirement.
 
@@ -170,21 +170,3 @@ At each update, the node checks how many of its own messages are in its outbox q
 decrease if this number is above a threshold,
 `backoff(node)`, which is proportional to the node's access Mana. If the number of the node's messages in the outbox is
 below the threshold, the node's issuance rate is incremented by its local increase variable, `localIncrease(node)`.
-
-### Tip Pool and Time Since Confirmation Check
-
-When a message is scheduled, it is gossiped to the node's neighbors and, normally, added to the tip pool except in the following situations:
-
-* a confirmed message shall not be added to the tip pool (it shall be skipped by the scheduler)
-* a message that has confirmed or scheduled approvers shall not be added to the tip pool
-Additionally, strong parents of a message are removed from the tip pool, when the message is added and unused tips are removed from the tip pool after a certain amount of time.
-
-When selecting tips from the tip pool an additional check shall be performed to make sure that the timestamp and a
-past cone of a selected message is valid. For a selected tip, the algorithm needs to find a timestamp of the oldest
-unconfirmed message in the past cone of the tip (`TS_oum`) . If the difference between current clock time `now` and the
-timestamp of the oldest unconfirmed message is greater than a certain threshold (`now - TS_oum > TSC_threshold`), then
-the tip cannot be selected and another one needs to be found. The tip shall stay in the tip pool until it is
-automatically removed because of its age.
-
-The Time Since Confirmation check solves the mention problem of false negative drops by eventually orphaning messages
-that were dropped by the network. 
