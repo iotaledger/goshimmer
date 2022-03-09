@@ -847,7 +847,7 @@ func mockTotalAccessManaRetriever() float64 {
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(5*time.Minute))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
