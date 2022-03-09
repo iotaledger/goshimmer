@@ -809,6 +809,7 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
+	tscThreshold        = 5 * time.Minute
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
@@ -847,7 +848,7 @@ func mockTotalAccessManaRetriever() float64 {
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(5*time.Minute))
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}

@@ -372,9 +372,7 @@ func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWa
 			return true
 		})
 	})
-
 	return true
-
 }
 
 func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker *markers.Marker) (tscValid bool) {
@@ -383,11 +381,7 @@ func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimes
 		return
 	}
 
-	unconfirmedMarkerMessage := t.getMarkerMessage(oldestUnconfirmedMarker)
-	if unconfirmedMarkerMessage.IssuingTime().Before(minSupportedTimestamp) {
-		return false
-	}
-	return true
+	return !t.getMarkerMessage(oldestUnconfirmedMarker).IssuingTime().Before(minSupportedTimestamp)
 }
 
 func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {

@@ -277,6 +277,8 @@ func Width(width int) Option {
 		options.TangleWidth = width
 	}
 }
+
+// TimeSinceConfirmationThreshold is an Option for the Tangle that allows to set threshold for Time Since Confirmation check.
 func TimeSinceConfirmationThreshold(tscThreshold time.Duration) Option {
 	return func(options *Options) {
 		options.TimeSinceConfirmationThreshold = tscThreshold
