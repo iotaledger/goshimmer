@@ -30,7 +30,7 @@ type Output struct {
 	Address  ledgerstate.Address
 	Index    uint64
 	WalletID int
-	Balance  uint64
+	Balance  *ledgerstate.ColoredBalances
 	Status   OutputStatus
 }
 
@@ -127,11 +127,10 @@ func (o *OutputManager) addOutputsByJSON(outputs []*jsonmodels.Output) (outputID
 }
 
 func (o *OutputManager) AddOutput(output ledgerstate.Output) {
-	balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
 	o.status[output.ID()] = &Output{
 		OutputID: output.ID(),
 		Address:  output.Address(),
-		Balance:  balance,
+		Balance:  output.Balances(),
 		Status:   pending,
 	}
 }

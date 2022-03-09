@@ -3,8 +3,9 @@ package evilwallet
 import (
 	"errors"
 	"fmt"
-	"go.uber.org/atomic"
 	"sync"
+
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -29,30 +30,21 @@ func NewAliasManager() *AliasManager {
 	}
 }
 
-func (a *AliasManager) AddOutputAlias(output ledgerstate.Output, aliasName string) (err error) {
+// AddOutputAlias maps the given aliasName to output, if there's duplicate aliasName, it will be overwritten.
+func (a *AliasManager) AddOutputAlias(output ledgerstate.Output, aliasName string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-
-	if _, exists := a.outputMap[aliasName]; exists {
-		err = errors.New("duplicate alias name in output alias")
-		return
-	}
 
 	a.outputMap[aliasName] = output
-	return nil
+	return
 }
 
-func (a *AliasManager) AddInputAlias(input ledgerstate.Input, aliasName string) (err error) {
+func (a *AliasManager) AddInputAlias(input ledgerstate.Input, aliasName string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	if _, exists := a.inputMap[aliasName]; exists {
-		err = errors.New("duplicate alias name in input alias")
-		return
-	}
-
 	a.inputMap[aliasName] = input
-	return nil
+	return
 }
 
 func (a *AliasManager) AddTransactionAlias(tx *ledgerstate.Transaction, aliasName string) (err error) {
@@ -93,10 +85,7 @@ func (a *AliasManager) ClearAliases() {
 
 func (a *AliasManager) AddOutputAliases(outputs []ledgerstate.Output, aliases []string) {
 	for i, out := range outputs {
-		err := a.AddOutputAlias(out, aliases[i])
-		if err != nil {
-			return
-		}
+		a.AddOutputAlias(out, aliases[i])
 	}
 	return
 }
@@ -104,10 +93,7 @@ func (a *AliasManager) AddOutputAliases(outputs []ledgerstate.Output, aliases []
 func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) {
 	for i, out := range inputs {
 		input := ledgerstate.NewUTXOInput(out.OutputID)
-		err := a.AddInputAlias(input, aliases[i])
-		if err != nil {
-			return
-		}
+		a.AddInputAlias(input, aliases[i])
 	}
 	return
 }
@@ -130,10 +116,7 @@ func (a *AliasManager) createAliasForOutput(walletID int) string {
 
 func (a *AliasManager) createAliasForInput(input ledgerstate.Input) string {
 	aliasName := fmt.Sprintf("in%s", input.Base58())
-	err := a.AddInputAlias(input, aliasName)
-	if err != nil {
-		return ""
-	}
+	a.AddInputAlias(input, aliasName)
 	return aliasName
 }
 

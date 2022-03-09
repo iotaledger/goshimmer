@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/cockroachdb/errors"
 	"sync"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -166,7 +167,7 @@ func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance uint64) {
+func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance *ledgerstate.ColoredBalances) {
 	w.Lock()
 	defer w.Unlock()
 
@@ -180,11 +181,11 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 	}
 }
 
-func (w *Wallet) UnspentOutputBalance(addr string) uint64 {
+func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
 	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
-	return 0
+	return &ledgerstate.ColoredBalances{}
 }
 
 func (w *Wallet) IsEmpty() bool {
@@ -200,14 +201,17 @@ func (w *Wallet) GetUnspentOutput() *Output {
 	return nil
 }
 
-func (w *Wallet) createOutputs(nOutputs int, inputBalance uint64) (outputs []ledgerstate.Output) {
-	outputBalances := SplitBalanceEqually(nOutputs, inputBalance)
+func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBalances) (outputs []ledgerstate.Output) {
+	amount, _ := inputBalance.Get(ledgerstate.ColorIOTA)
+	outputBalances := SplitBalanceEqually(nOutputs, amount)
 	for i := 0; i < nOutputs; i++ {
 		addr, idx := w.AddressIndex()
 		output := ledgerstate.NewSigLockedSingleOutput(outputBalances[i], addr.Address())
 		outputs = append(outputs, output)
 		// correct ID will be updated after txn confirmation
-		w.AddUnspentOutput(addr.Address(), idx, output.ID(), outputBalances[i])
+		w.AddUnspentOutput(addr.Address(), idx, output.ID(), ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			ledgerstate.ColorIOTA: outputBalances[i],
+		}))
 	}
 	return
 }
