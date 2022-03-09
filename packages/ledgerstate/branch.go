@@ -336,8 +336,8 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 }
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
-func (b *Branch) FromObjectStorage(_, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	result, err := b.FromBytes(bytes)
+func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}

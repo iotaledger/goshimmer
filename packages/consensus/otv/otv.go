@@ -64,9 +64,8 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 		return
 	}
 
-	o.branchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		currentBranch := branch.(*ledgerstate.Branch)
-		switch currentBranch.InclusionState() {
+	o.branchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
+		switch branch.InclusionState() {
 		case ledgerstate.Rejected:
 			preferred = false
 			return
@@ -75,7 +74,7 @@ func (o *OnTangleVoting) branchPreferred(branchID ledgerstate.BranchID, likeWalk
 		}
 
 		if preferred = !o.dislikedConnectedConflictingBranches(branchID).Has(branchID); preferred {
-			for parentBranchID := range currentBranch.Parents() {
+			for parentBranchID := range branch.Parents() {
 				likeWalker.Push(parentBranchID)
 			}
 		}

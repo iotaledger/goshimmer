@@ -282,7 +282,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				if structureDetails := messageMetadata.StructureDetails(); structureDetails != nil && !structureDetails.IsPastMarker {
-					for _, approvingMessageID := range u.tangle.Utils.ApprovingMessageIDs(messageID, StrongApprover) {
+					for approvingMessageID := range u.tangle.Utils.ApprovingMessageIDs(messageID, StrongApprover) {
 						walker.Push(approvingMessageID)
 					}
 				}

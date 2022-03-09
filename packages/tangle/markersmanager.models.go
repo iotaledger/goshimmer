@@ -23,7 +23,7 @@ import (
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
 	sequenceID   markers.SequenceID
-	mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchID]
+	mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs]
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -33,7 +33,7 @@ type MarkerIndexBranchIDMapping struct {
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
-		mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.LowerThresholdMode, markerIndexComparator),
+		mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
 	markerBranchMapping.SetModified()
@@ -78,7 +78,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, ledgerstate.BranchID](thresholdmap.LowerThresholdMode, markerIndexComparator)
+	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
@@ -172,7 +172,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -219,7 +219,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchID]) bool {
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
 		marshalUtil.Write(node.Key())
 		marshalUtil.Write(node.Value())
 

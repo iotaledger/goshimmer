@@ -88,7 +88,7 @@ func orphanageAnalysis(targetMessageID tangle.MessageID, filePath string) error 
 		}
 
 		// continue walking
-		for _, approverMessageID := range approverMessageIDs {
+		for approverMessageID := range approverMessageIDs {
 			walker.Push(approverMessageID)
 		}
 	}, tangle.NewMessageIDs(targetMessageID))

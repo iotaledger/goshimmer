@@ -19,7 +19,7 @@ import (
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
-	branchStorage         *objectstorage.ObjectStorage[Branch]
+	branchStorage         *objectstorage.ObjectStorage[*Branch]
 	childBranchStorage    *objectstorage.ObjectStorage[*ChildBranch]
 	conflictStorage       *objectstorage.ObjectStorage[*Conflict]
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
@@ -33,7 +33,7 @@ type BranchDAG struct {
 func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	newBranchDAG = &BranchDAG{
-		branchStorage:         objectstorage.New[Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), options.branchStorageOptions...),
+		branchStorage:         objectstorage.New[*Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), options.branchStorageOptions...),
 		childBranchStorage:    objectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
 		conflictStorage:       objectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),
@@ -51,7 +51,7 @@ func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 
 // CreateBranch retrieves the Branch that corresponds to the given details. It automatically creates and
 // updates the Branch according to the new details if necessary.
-func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *objectstorage.CachedObject[Branch], newBranchCreated bool, err error) {
+func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *objectstorage.CachedObject[*Branch], newBranchCreated bool, err error) {
 	b.inclusionStateMutex.RLock()
 
 	// create or load the branch
@@ -174,17 +174,16 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	for confirmationWalker.HasNext() {
 		currentBranchID := confirmationWalker.Next()
 
-		b.Branch(currentBranchID).Consume(func(branch Branch) {
-			conflictBranch := branch.(*Branch)
-			if modified = conflictBranch.setInclusionState(Confirmed); !modified {
+		b.Branch(currentBranchID).Consume(func(branch *Branch) {
+			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
 
-			for parentBranchID := range conflictBranch.Parents() {
+			for parentBranchID := range branch.Parents() {
 				confirmationWalker.Push(parentBranchID)
 			}
 
-			for conflictID := range conflictBranch.Conflicts() {
+			for conflictID := range branch.Conflicts() {
 				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
 					if conflictMember.BranchID() != currentBranchID {
 						rejectedWalker.Push(conflictMember.BranchID())
@@ -272,9 +271,9 @@ func (b *BranchDAG) Shutdown() {
 // region STORAGE API //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[Branch]) {
+func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return b.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) Branch {
+		return b.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Branch {
 			return computeIfAbsentCallback[0]()
 		})
 	}
@@ -296,7 +295,7 @@ func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches object
 
 // ForEachBranch iterates over all the branches and executes consumer.
 func (b *BranchDAG) ForEachBranch(consumer func(branch *Branch)) {
-	b.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[Branch]) bool {
+	b.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Branch]) bool {
 		cachedObject.Consume(func(branch *Branch) {
 			consumer(branch)
 		})
