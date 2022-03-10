@@ -135,6 +135,9 @@ func NewWallet(wType WalletType) *Wallet {
 
 // Address returns a new and unused address of a given wallet.
 func (w *Wallet) Address() address.Address {
+	w.Lock()
+	defer w.Unlock()
+
 	index := uint64(w.lastAddrIdxUsed.Add(1))
 	addr := w.seed.Address(index)
 	w.indexAddrMap[index] = addr.Base58()
@@ -147,6 +150,17 @@ func (w *Wallet) UnspentOutput(addr string) *Output {
 	w.RLock()
 	defer w.RUnlock()
 	return w.unspentOutputs[addr]
+
+}
+
+func (w *Wallet) UnspentOutputs() (outputs map[string]*Output) {
+	w.RLock()
+	outputs = make(map[string]*Output)
+	for addr, out := range w.unspentOutputs {
+		outputs[addr] = out
+	}
+	defer w.RUnlock()
+	return outputs
 
 }
 
@@ -175,6 +189,9 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 }
 
 func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
+	w.RLock()
+	defer w.RUnlock()
+
 	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
@@ -182,7 +199,7 @@ func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances 
 }
 
 func (w *Wallet) IsEmpty() bool {
-	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load()
+	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
 }
 
 func (w *Wallet) GetUnspentOutput() *Output {
@@ -239,6 +256,10 @@ func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) err
 	walletOutput.Status = status
 	w.Unlock()
 	return nil
+}
+
+func (w *Wallet) UnspentOutputsLength() int {
+	return len(w.unspentOutputs)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -45,6 +45,8 @@ type OutputManager struct {
 	wallets           *Wallets
 	outputIDWalletMap map[ledgerstate.OutputID]*Wallet
 	outputIDAddrMap   map[ledgerstate.OutputID]string
+
+	sync.RWMutex
 }
 
 // NewOutputManager creates an OutputManager instance.
@@ -78,7 +80,7 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 
 // CreateEmptyOutput creates output without outputID, stores it in wallet w and return output instance.
 // OutputManager maps are not updated, as outputID is not known yet.
-func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance uint64) *Output {
+func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance *ledgerstate.ColoredBalances) *Output {
 	addr := w.Address()
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, ledgerstate.OutputID{}, balance)
 	return out
@@ -86,34 +88,36 @@ func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance uint64) *Output {
 
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance uint64) *Output {
+func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *ledgerstate.ColoredBalances) *Output {
 	outputIDs := o.GetOutputsByAddress(addr.Base58())
 	if len(outputIDs) == 0 {
 		return nil
 	}
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
+	o.Lock()
 	o.outputIDWalletMap[outputID] = w
 	o.outputIDAddrMap[outputID] = addr.Base58()
+	o.Unlock()
 	return out
-}
-
-func (o *OutputManager) CreateInput(w *Wallet) {
-
 }
 
 func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
 	err := w.UpdateUnspentOutputID(addr, outID)
+	o.Lock()
 	o.outputIDWalletMap[outID] = w
 	o.outputIDAddrMap[outID] = addr
+	o.Unlock()
 	return err
 }
 
 func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status OutputStatus) error {
+	o.RLock()
 	addr := o.outputIDAddrMap[outID]
 	w := o.outputIDWalletMap[outID]
+	o.RUnlock()
 	err := w.UpdateUnspentOutputStatus(addr, status)
-	o.outputIDAddrMap[outID] = addr
+
 	return err
 }
 
@@ -139,6 +143,8 @@ func (o *OutputManager) UpdateOutputsFromTxs(wallet *Wallet, txIDs []string) err
 
 // GetOutput returns the Output of the given outputID.
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
+	o.RLock()
+	defer o.RUnlock()
 	w, ok := o.outputIDWalletMap[outputID]
 	if !ok {
 		return nil
@@ -193,7 +199,7 @@ func (o *OutputManager) getOutputIDsByJSON(outputs []*jsonmodels.Output) (output
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
 func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 	wg := sync.WaitGroup{}
-	for _, output := range wallet.unspentOutputs {
+	for _, output := range wallet.UnspentOutputs() {
 		wg.Add(1)
 		if output == nil {
 			continue

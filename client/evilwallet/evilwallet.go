@@ -2,7 +2,6 @@ package evilwallet
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -174,9 +173,9 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wal
 	return
 }
 
-func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.OutputID) {
+func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.OutputID, err error) {
 	addr := wallet.Address()
-	err := e.connector.SendFaucetRequest(addr.Base58())
+	err = e.connector.SendFaucetRequest(addr.Base58())
 	if err != nil {
 		return
 	}
@@ -197,15 +196,15 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, splitNumber int) []string {
 	wg := sync.WaitGroup{}
 
-	txIDs := make([]string, len(inputWallet.unspentOutputs))
-	if inputWallet.unspentOutputs == nil {
+	txIDs := make([]string, inputWallet.UnspentOutputsLength())
+	if inputWallet.IsEmpty() {
 		return []string{}
 	}
 	// Add all aliases before creating txs
 	allInputAliases, allOutputAliases, txAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
 	inputNum := 0
 
-	for _, input := range inputWallet.unspentOutputs {
+	for _, input := range inputWallet.UnspentOutputs() {
 		wg.Add(1)
 		go func(inputNum int, input *Output) {
 			defer wg.Done()
@@ -227,7 +226,7 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 
 func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) ([][]string, [][]string, []string) {
 	allInputAliases, allOutputAliases, txAliases := make([][]string, 0), make([][]string, 0), make([]string, 0)
-	for _, input := range inputWallet.unspentOutputs {
+	for _, input := range inputWallet.UnspentOutputs() {
 		inputs := []*Output{input}
 
 		inputAliases := e.aliasManager.CreateAliasesForInputs(len(inputs))
