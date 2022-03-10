@@ -23,6 +23,9 @@ const (
 )
 
 var clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
+var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+	ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
+})
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -76,7 +79,8 @@ func (e *EvilWallet) RequestFundsFromFaucet(wallet *Wallet, options ...FaucetReq
 		return
 	}
 	// track output in output manager and make sure it's confirmed
-	out := e.outputManager.CreateOutputFromAddress(wallet, addr, uint64(faucet.Parameters.TokensPerRequest))
+
+	out := e.outputManager.CreateOutputFromAddress(wallet, addr, faucetBalance)
 	if out == nil {
 		err = errors.New("no outputIDs found on address ")
 		return
@@ -90,7 +94,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(wallet *Wallet, options ...FaucetReq
 
 	if len(buildOptions.aliasName) > 0 {
 		input := ledgerstate.NewUTXOInput(out.OutputID)
-		err = e.aliasManager.AddInputAlias(input, "1")
+		e.aliasManager.AddInputAlias(input, "1")
 	}
 
 	return
@@ -154,8 +158,10 @@ func (e *EvilWallet) RequestFreshFaucetWallet() (wallet *Wallet, err error) {
 }
 
 func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wallet, err error) {
-	_ = e.requestFaucetFunds(initWallet)
-
+	_, err = e.requestFaucetFunds(initWallet)
+	if err != nil {
+		return
+	}
 	//first split 1 to FaucetRequestSplitNumber outputs
 	wallet = NewWallet(fresh)
 	//e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
@@ -174,9 +180,14 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 	if err != nil {
 		return
 	}
-	output := e.outputManager.CreateOutputFromAddress(wallet, addr, uint64(faucet.Parameters.TokensPerRequest))
+	output := e.outputManager.CreateOutputFromAddress(wallet, addr, faucetBalance)
+	if output == nil {
+		err = errors.New("could not get output from a given address")
+		return
+	}
 	ok := e.outputManager.Track([]ledgerstate.OutputID{output.OutputID})
 	if !ok {
+		err = errors.New("not all outputs has been confirmed")
 		return
 	}
 	outputID = output.OutputID
@@ -314,14 +325,14 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 	for _, output := range outputs {
 		// register output alias
 		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
-		err = e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
+		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
 		if err != nil {
 			return
 		}
 
 		// register output as unspent output(input)
 		input := ledgerstate.NewUTXOInput(output.ID())
-		err = e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
+		e.aliasManager.AddInputAlias(input, addrAliasMap[output.Address()])
 		if err != nil {
 			return
 		}
