@@ -168,6 +168,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.Store(deps.Storage),
 		tangle.Identity(deps.Local.LocalIdentity()),
 		tangle.Width(Parameters.TangleWidth),
+		tangle.TimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
 			MaxBufferSize:                     SchedulerParameters.MaxBufferSize,
