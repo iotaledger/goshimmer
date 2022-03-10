@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -177,8 +177,8 @@ func (b *BranchMarkersMapper) ForEachMarkerReferencingMarker(referencedMarker *m
 
 // propagatePastMarkerToFutureMarkers updates the FutureMarkers of the strong parents of a given message when a new
 // PastMaster was assigned.
-func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker) {
-	return func(messageMetadata *MessageMetadata, walker *walker.Walker) {
+func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
+	return func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
 		updated, inheritFurther := b.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
 		if updated {
 			messageMetadata.SetModified(true)

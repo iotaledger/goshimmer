@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -277,7 +276,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	cachedTxMetadata := ledgerstate.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
+	txMetadata, _ := cachedTxMetadata.Unwrap()
 
 	inputsMetadata := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
@@ -308,7 +307,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	cachedTxMetadata := ledgerstate.CachedTransactionMetadata(tx1.ID())
 	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
+	txMetadata, _ := cachedTxMetadata.Unwrap()
 
 	inputsMetadata := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx1).Consume(func(metadata *OutputMetadata) {
@@ -324,7 +323,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	cachedTxMetadata2 := ledgerstate.CachedTransactionMetadata(tx2.ID())
 	defer cachedTxMetadata2.Release()
-	txMetadata2 := cachedTxMetadata2.Unwrap()
+	txMetadata2, _ := cachedTxMetadata2.Unwrap()
 
 	inputsMetadata2 := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx2).Consume(func(metadata *OutputMetadata) {
@@ -765,11 +764,11 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 		transactionMetadata.SetGradeOfFinality(gof.Low)
 	}
 
-	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *TransactionMetadata {
 		transactionMetadata.Persist()
 		transactionMetadata.SetModified()
 		return transactionMetadata
-	})}
+	})
 	defer cachedTransactionMetadata.Release()
 
 	ledgerstate.transactionStorage.Store(tx).Release()
@@ -807,11 +806,11 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 // 		transactionMetadata.SetGradeOfFinality(gof.Low)
 // 	}
 //
-// 	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+// 	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *TransactionMetadata {
 // 		transactionMetadata.Persist()
 // 		transactionMetadata.SetModified()
 // 		return transactionMetadata
-// 	})}
+// 	})
 // 	defer cachedTransactionMetadata.Release()
 //
 // 	ledgerstate.transactionStorage.Store(tx).Release()

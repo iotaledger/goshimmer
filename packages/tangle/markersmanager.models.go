@@ -9,9 +9,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -23,7 +23,7 @@ import (
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
 	sequenceID   markers.SequenceID
-	mapping      *thresholdmap.ThresholdMap
+	mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs]
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -33,7 +33,7 @@ type MarkerIndexBranchIDMapping struct {
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
-		mapping:    thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator),
+		mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
 	markerBranchMapping.SetModified()
@@ -42,22 +42,33 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 	return
 }
 
-// MarkerIndexBranchIDMappingFromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func MarkerIndexBranchIDMappingFromBytes(bytes []byte) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, consumedBytes int, err error) {
+// FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
+func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
+	}
+
+	return markerIndexBranchIDMapping, err
+}
+
+// FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
+func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if markerIndexBranchIDMapping, err = MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil); err != nil {
+	if markerIndexBranchIDMapping, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// MarkerIndexBranchIDMappingFromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier
-// unmarshalling).
-func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
-	markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
+// FromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier unmarshalling).
+func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
+	markerIndexBranchIDMapping = m
+	if m == nil {
+		markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
+	}
 	if markerIndexBranchIDMapping.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
@@ -67,7 +78,7 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = thresholdmap.New(thresholdmap.LowerThresholdMode, markerIndexComparator)
+	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
@@ -82,17 +93,6 @@ func MarkerIndexBranchIDMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalU
 		}
 
 		markerIndexBranchIDMapping.mapping.Set(markers.Index(index), branchIDs)
-	}
-
-	return
-}
-
-// MarkerIndexBranchIDMappingFromObjectStorage restores a MarkerIndexBranchIDMapping that was stored in the object
-// storage.
-func MarkerIndexBranchIDMappingFromObjectStorage(key, data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
-	if markerIndexBranchIDMapping, _, err = MarkerIndexBranchIDMappingFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
-		return
 	}
 
 	return
@@ -113,7 +113,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
 
-	return value.(ledgerstate.BranchIDs)
+	return value
 }
 
 // SetBranchIDs creates a mapping between the given marker Index and the given BranchID.
@@ -141,7 +141,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	defer m.mappingMutex.RUnlock()
 
 	if untypedIndex, untypedBranchIDs, exists := m.mapping.Floor(index); exists {
-		return untypedIndex.(markers.Index), untypedBranchIDs.(ledgerstate.BranchIDs), true
+		return untypedIndex, untypedBranchIDs, true
 	}
 
 	return 0, ledgerstate.NewBranchIDs(), false
@@ -154,7 +154,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	defer m.mappingMutex.RUnlock()
 
 	if untypedIndex, untypedBranchIDs, exists := m.mapping.Ceiling(index); exists {
-		return untypedIndex.(markers.Index), untypedBranchIDs.(ledgerstate.BranchIDs), true
+		return untypedIndex, untypedBranchIDs, true
 	}
 
 	return 0, ledgerstate.NewBranchIDs(), false
@@ -172,10 +172,10 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		index := node.Key().(markers.Index)
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+		index := node.Key()
 		indexes = append(indexes, index)
-		branchIDs[index] = node.Value().(ledgerstate.BranchIDs)
+		branchIDs[index] = node.Value()
 
 		return true
 	})
@@ -205,11 +205,6 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (m *MarkerIndexBranchIDMapping) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
@@ -224,9 +219,9 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *thresholdmap.Element) bool {
-		marshalUtil.Write(node.Key().(markers.Index))
-		marshalUtil.Write(node.Value().(ledgerstate.BranchIDs))
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+		marshalUtil.Write(node.Key())
+		marshalUtil.Write(node.Value())
 
 		return true
 	})
@@ -254,51 +249,6 @@ var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedMarkerIndexBranchIDMapping /////////////////////////////////////////////////////////////////////////////
-
-// CachedMarkerIndexBranchIDMapping is a wrapper for the generic CachedObject returned by the object storage that
-// overrides the accessor methods with a type-casted one.
-type CachedMarkerIndexBranchIDMapping struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedMarkerIndexBranchIDMapping) Retain() *CachedMarkerIndexBranchIDMapping {
-	return &CachedMarkerIndexBranchIDMapping{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedMarkerIndexBranchIDMapping) Unwrap() *MarkerIndexBranchIDMapping {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*MarkerIndexBranchIDMapping)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedMarkerIndexBranchIDMapping) Consume(consumer func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*MarkerIndexBranchIDMapping))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedMarkerIndexBranchIDMapping.
-func (c *CachedMarkerIndexBranchIDMapping) String() string {
-	return stringify.Struct("CachedMarkerIndexBranchIDMapping",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region MarkerMessageMapping /////////////////////////////////////////////////////////////////////////////////////////
 
 // MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
@@ -321,38 +271,38 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 	}
 }
 
-// MarkerMessageMappingFromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func MarkerMessageMappingFromBytes(bytes []byte) (individuallyMappedMessage *MarkerMessageMapping, consumedBytes int, err error) {
+// FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
+func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
+func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if individuallyMappedMessage, err = MarkerMessageMappingFromMarshalUtil(marshalUtil); err != nil {
+	if individuallyMappedMessage, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// MarkerMessageMappingFromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
-func MarkerMessageMappingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
-	markerMessageMapping = &MarkerMessageMapping{}
+// FromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
+func (m *MarkerMessageMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
+	markerMessageMapping = m
+	if m == nil {
+		markerMessageMapping = &MarkerMessageMapping{}
+	}
 	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
 	if markerMessageMapping.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// MarkerMessageMappingFromObjectStorage is a factory method that creates a new MarkerMessageMapping instance
-// from a storage key of the object storage. It is used by the object storage, to create new instances of this entity.
-func MarkerMessageMappingFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = MarkerMessageMappingFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
 		return
 	}
 
@@ -382,11 +332,6 @@ func (m *MarkerMessageMapping) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (m *MarkerMessageMapping) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
@@ -401,106 +346,5 @@ func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &MarkerMessageMapping{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedMarkerMessageMapping ///////////////////////////////////////////////////////////////////////////////////
-
-// CachedMarkerMessageMapping is a wrapper for the generic CachedObject returned by the object storage that overrides
-// the accessor methods with a type-casted one.
-type CachedMarkerMessageMapping struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedMarkerMessageMapping) Retain() *CachedMarkerMessageMapping {
-	return &CachedMarkerMessageMapping{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedMarkerMessageMapping) Unwrap() *MarkerMessageMapping {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*MarkerMessageMapping)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedMarkerMessageMapping) Consume(consumer func(markerMessageMapping *MarkerMessageMapping), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*MarkerMessageMapping))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedMarkerMessageMapping.
-func (c *CachedMarkerMessageMapping) String() string {
-	return stringify.Struct("CachedMarkerMessageMapping",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedMarkerMessageMappings //////////////////////////////////////////////////////////////////////////////////
-
-// CachedMarkerMessageMappings defines a slice of *CachedMarkerMessageMapping.
-type CachedMarkerMessageMappings []*CachedMarkerMessageMapping
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedMarkerMessageMappings) Unwrap() (unwrappedMarkerMessageMappings []*MarkerMessageMapping) {
-	unwrappedMarkerMessageMappings = make([]*MarkerMessageMapping, len(c))
-	for i, cachedMarkerMessageMapping := range c {
-		untypedObject := cachedMarkerMessageMapping.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*MarkerMessageMapping)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedMarkerMessageMappings[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedMarkerMessageMappings) Consume(consumer func(markerMessageMapping *MarkerMessageMapping), forceRelease ...bool) (consumed bool) {
-	for _, cachedMarkerMessageMapping := range c {
-		consumed = cachedMarkerMessageMapping.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedMarkerMessageMappings) Release(force ...bool) {
-	for _, cachedMarkerMessageMapping := range c {
-		cachedMarkerMessageMapping.Release(force...)
-	}
-}
-
-// String returns a human-readable version of the CachedMarkerMessageMappings.
-func (c CachedMarkerMessageMappings) String() string {
-	structBuilder := stringify.StructBuilder("CachedMarkerMessageMappings")
-	for i, cachedMarkerMessageMapping := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedMarkerMessageMapping))
-	}
-
-	return structBuilder.String()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

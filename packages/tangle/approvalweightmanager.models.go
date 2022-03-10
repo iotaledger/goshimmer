@@ -6,11 +6,11 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/set"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -43,21 +43,30 @@ func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight)
 	return
 }
 
-// BranchWeightFromBytes unmarshals a BranchWeight object from a sequence of bytes.
-func BranchWeightFromBytes(bytes []byte) (branchWeight *BranchWeight, consumedBytes int, err error) {
+// FromObjectStorage creates an BranchWeight from sequences of key and bytes.
+func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals a BranchWeight object from a sequence of bytes.
+func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight *BranchWeight, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if branchWeight, err = BranchWeightFromMarshalUtil(marshalUtil); err != nil {
+	if branchWeight, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
-// BranchWeightFromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshalling).
-func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
-	branchWeight = &BranchWeight{}
+// FromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshalling).
+func (b *BranchWeight) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
+	if branchWeight = b; branchWeight == nil {
+		branchWeight = new(BranchWeight)
+	}
 	if branchWeight.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
@@ -65,16 +74,6 @@ func BranchWeightFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWe
 
 	if branchWeight.weight, err = marshalUtil.ReadFloat64(); err != nil {
 		err = errors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// BranchWeightFromObjectStorage restores a BranchWeight object from the object storage.
-func BranchWeightFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = BranchWeightFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
 		return
 	}
 
@@ -123,11 +122,6 @@ func (b *BranchWeight) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *BranchWeight) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *BranchWeight) ObjectStorageKey() []byte {
@@ -143,52 +137,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &BranchWeight{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedBranchWeight ///////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedBranchWeight is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedBranchWeight struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedBranchWeight) Retain() *CachedBranchWeight {
-	return &CachedBranchWeight{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedBranchWeight) Unwrap() *BranchWeight {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*BranchWeight)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranchWeight) Consume(consumer func(branchWeight *BranchWeight), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*BranchWeight))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedBranchWeight.
-func (c *CachedBranchWeight) String() string {
-	return stringify.Struct("CachedBranchWeight",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ objectstorage.StorableObject = new(BranchWeight)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -203,42 +152,20 @@ type Voter = identity.ID
 
 // Voters is a set of node identities that votes for a particular Branch.
 type Voters struct {
-	set.Set
+	set.Set[Voter]
 }
 
 // NewVoters is the constructor of the Voters type.
 func NewVoters() (voters *Voters) {
 	return &Voters{
-		Set: set.New(),
+		Set: set.New[Voter](),
 	}
-}
-
-// Add adds a new Voter to the Set and returns true if the Voter was not present in the set before.
-func (v *Voters) Add(voter Voter) (added bool) {
-	return v.Set.Add(voter)
 }
 
 // AddAll adds all new Voters to the Set.
 func (v *Voters) AddAll(voters *Voters) {
 	voters.ForEach(func(voter Voter) {
 		v.Set.Add(voter)
-	})
-}
-
-// Delete removes the Voter from the Set and returns true if it did exist.
-func (v *Voters) Delete(voter Voter) (deleted bool) {
-	return v.Set.Delete(voter)
-}
-
-// Has returns true if the Voter exists in the Set.
-func (v *Voters) Has(voter Voter) (has bool) {
-	return v.Set.Has(voter)
-}
-
-// ForEach iterates through the Voters and calls the callback for every element.
-func (v *Voters) ForEach(callback func(voter Voter)) {
-	v.Set.ForEach(func(element interface{}) {
-		callback(element.(Voter))
 	})
 }
 
@@ -260,7 +187,6 @@ func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
 			intersection.Add(voter)
 		}
 	})
-
 	return
 }
 
@@ -301,21 +227,30 @@ func NewBranchVoters(branchID ledgerstate.BranchID) (branchVoters *BranchVoters)
 	return
 }
 
-// BranchVotersFromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func BranchVotersFromBytes(bytes []byte) (branchVoters *BranchVoters, consumedBytes int, err error) {
+// FromObjectStorage creates an BranchVoters from sequences of key and bytes.
+func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals a BranchVoters object from a sequence of bytes.
+func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters *BranchVoters, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if branchVoters, err = BranchVotersFromMarshalUtil(marshalUtil); err != nil {
+	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
-// BranchVotersFromMarshalUtil unmarshals a BranchVoters object using a MarshalUtil (for easier unmarshalling).
-func BranchVotersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
-	branchVoters = &BranchVoters{}
+// FromMarshalUtil unmarshals a BranchVoters object using a MarshalUtil (for easier unmarshalling).
+func (b *BranchVoters) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
+	if branchVoters = b; branchVoters == nil {
+		branchVoters = new(BranchVoters)
+	}
 	if branchVoters.branchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 		return
@@ -335,16 +270,6 @@ func BranchVotersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVo
 		}
 
 		branchVoters.voters.Add(voter)
-	}
-
-	return
-}
-
-// BranchVotersFromObjectStorage restores a BranchVoters object from the object storage.
-func BranchVotersFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = BranchVotersFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
-		return
 	}
 
 	return
@@ -425,11 +350,6 @@ func (b *BranchVoters) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *BranchVoters) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *BranchVoters) ObjectStorageKey() []byte {
@@ -453,52 +373,7 @@ func (b *BranchVoters) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &BranchVoters{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedBranchVoters ///////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedBranchVoters is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedBranchVoters struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedBranchVoters) Retain() *CachedBranchVoters {
-	return &CachedBranchVoters{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedBranchVoters) Unwrap() *BranchVoters {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*BranchVoters)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranchVoters) Consume(consumer func(branchVoters *BranchVoters), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*BranchVoters))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedBranchVoters.
-func (c *CachedBranchVoters) String() string {
-	return stringify.Struct("CachedBranchVoters",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ objectstorage.StorableObject = new(BranchVoters)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -538,7 +413,7 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 type LatestMarkerVotes struct {
 	sequenceID        markers.SequenceID
 	voter             Voter
-	latestMarkerVotes *thresholdmap.ThresholdMap
+	latestMarkerVotes *thresholdmap.ThresholdMap[markers.Index, VotePower]
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
@@ -549,7 +424,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	newLatestMarkerVotes = &LatestMarkerVotes{
 		sequenceID:        sequenceID,
 		voter:             voter,
-		latestMarkerVotes: thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator),
+		latestMarkerVotes: thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator),
 	}
 
 	newLatestMarkerVotes.SetModified()
@@ -558,21 +433,31 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	return
 }
 
-// LatestMarkerVotesFromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
-func LatestMarkerVotesFromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, consumedBytes int, err error) {
+// FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
+func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
+func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if latestMarkerVotes, err = LatestMarkerVotesFromMarshalUtil(marshalUtil); err != nil {
+	if latestMarkerVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
-// LatestMarkerVotesFromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshalling).
-func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
-	latestMarkerVotes = &LatestMarkerVotes{}
+// FromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshalling).
+func (l *LatestMarkerVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
+	if latestMarkerVotes = l; latestMarkerVotes == nil {
+		latestMarkerVotes = new(LatestMarkerVotes)
+	}
+
 	if latestMarkerVotes.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 	}
@@ -585,7 +470,7 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
 	}
 
-	latestMarkerVotes.latestMarkerVotes = thresholdmap.New(thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	latestMarkerVotes.latestMarkerVotes = thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)
 	for i := uint64(0); i < mapSize; i++ {
 		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if markerIndexErr != nil {
@@ -603,16 +488,6 @@ func LatestMarkerVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 	return latestMarkerVotes, nil
 }
 
-// LatestMarkerVotesFromObjectStorage restores a LatestMarkerVotes that was stored in the ObjectStorage.
-func LatestMarkerVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = LatestMarkerVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
 // Voter returns the Voter for the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Voter() Voter {
 	return l.voter
@@ -628,7 +503,7 @@ func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists 
 		return 0, exists
 	}
 
-	return key.(VotePower), exists
+	return key, exists
 }
 
 // Store stores the vote with the given marker Index and votePower.
@@ -638,12 +513,12 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 	defer l.Unlock()
 
 	if maxElement := l.latestMarkerVotes.MaxElement(); maxElement != nil {
-		previousHighestIndex = maxElement.Key().(markers.Index)
+		previousHighestIndex = maxElement.Key()
 	}
 
 	// abort if we already have a higher value on an Index that is larger or equal
 	_, ceilingValue, ceilingExists := l.latestMarkerVotes.Ceiling(index)
-	if ceilingExists && power < ceilingValue.(VotePower) {
+	if ceilingExists && power < ceilingValue {
 		return false, previousHighestIndex
 	}
 
@@ -652,7 +527,7 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 
 	// remove all predecessors that are lower than the newly set value
 	floorKey, floorValue, floorExists := l.latestMarkerVotes.Floor(index - 1)
-	for floorExists && floorValue.(VotePower) < power {
+	for floorExists && floorValue < power {
 		l.latestMarkerVotes.Delete(floorKey)
 
 		floorKey, floorValue, floorExists = l.latestMarkerVotes.Floor(index - 1)
@@ -667,8 +542,8 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 func (l *LatestMarkerVotes) String() string {
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
-	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		builder.AddField(stringify.StructField(node.Key().(markers.Index).String(), node.Value()))
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
+		builder.AddField(stringify.StructField(node.Key().String(), node.Value()))
 
 		return true
 	})
@@ -679,11 +554,6 @@ func (l *LatestMarkerVotes) String() string {
 // Bytes returns a marshaled version of the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
-}
-
-// Update panics as updates are not supported for this object.
-func (l *LatestMarkerVotes) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the storage key for this instance of LatestMarkerVotes.
@@ -698,9 +568,9 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(l.latestMarkerVotes.Size()))
-	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		marshalUtil.Write(node.Key().(markers.Index))
-		marshalUtil.WriteUint64(node.Value().(uint64))
+	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
+		marshalUtil.Write(node.Key())
+		marshalUtil.WriteUint64(node.Value())
 
 		return true
 	})
@@ -708,59 +578,14 @@ func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 	return marshalUtil.Bytes()
 }
 
-var _ objectstorage.StorableObject = &LatestMarkerVotes{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedLatestMarkerVotes //////////////////////////////////////////////////////////////////////////////////////
-
-// CachedLatestMarkerVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedLatestMarkerVotes struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedLatestMarkerVotes) Retain() *CachedLatestMarkerVotes {
-	return &CachedLatestMarkerVotes{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedLatestMarkerVotes) Unwrap() *LatestMarkerVotes {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*LatestMarkerVotes)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedLatestMarkerVotes) Consume(consumer func(latestMarkerVotes *LatestMarkerVotes), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*LatestMarkerVotes))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedLatestMarkerVotes.
-func (c *CachedLatestMarkerVotes) String() string {
-	return stringify.Struct("CachedLatestMarkerVotes",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ objectstorage.StorableObject = new(LatestMarkerVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region CachedLatestMarkerVotesByVoter ///////////////////////////////////////////////////////////////////////////////
 
 // CachedLatestMarkerVotesByVoter represents a cached LatestMarkerVotesByVoter mapped by Voter.
-type CachedLatestMarkerVotesByVoter map[Voter]*CachedLatestMarkerVotes
+type CachedLatestMarkerVotesByVoter map[Voter]*objectstorage.CachedObject[*LatestMarkerVotes]
 
 // Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
 // exists). It automatically releases the object when the consumer finishes.
@@ -823,21 +648,31 @@ func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 	return
 }
 
-// LatestBranchVotesFromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func LatestBranchVotesFromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, consumedBytes int, err error) {
+// FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
+func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
+func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if latestBranchVotes, err = LatestBranchVotesFromMarshalUtil(marshalUtil); err != nil {
+	if latestBranchVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// LatestBranchVotesFromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
-func LatestBranchVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestBranchVotes *LatestBranchVotes, err error) {
-	latestBranchVotes = &LatestBranchVotes{}
+// FromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
+func (l *LatestBranchVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestBranchVotes *LatestBranchVotes, err error) {
+	if latestBranchVotes = l; l == nil {
+		latestBranchVotes = new(LatestBranchVotes)
+	}
 	if latestBranchVotes.voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
 	}
@@ -866,16 +701,6 @@ func LatestBranchVotesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lat
 	return latestBranchVotes, nil
 }
 
-// LatestBranchVotesFromObjectStorage restores a LatestBranchVotes object from the object storage.
-func LatestBranchVotesFromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = LatestBranchVotesFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
 // Bytes returns a marshaled version of the LatestBranchVotes.
 func (l *LatestBranchVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
@@ -886,11 +711,6 @@ func (l *LatestBranchVotes) String() string {
 	return stringify.Struct("LatestBranchVotes",
 		stringify.StructField("voter", l.voter),
 	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (l *LatestBranchVotes) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
@@ -918,52 +738,7 @@ func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = &LatestBranchVotes{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedLatestBranchVotes //////////////////////////////////////////////////////////////////////////////////////
-
-// CachedLatestBranchVotes is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedLatestBranchVotes struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedLatestBranchVotes) Retain() *CachedLatestBranchVotes {
-	return &CachedLatestBranchVotes{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedLatestBranchVotes) Unwrap() *LatestBranchVotes {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*LatestBranchVotes)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedLatestBranchVotes) Consume(consumer func(latestBranchVotes *LatestBranchVotes), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*LatestBranchVotes))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedLatestBranchVotes.
-func (c *CachedLatestBranchVotes) String() string {
-	return stringify.Struct("CachedLatestBranchVotes",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
+var _ objectstorage.StorableObject = new(LatestBranchVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -979,7 +754,7 @@ type BranchVote struct {
 
 // VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshalling).
 func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *BranchVote, err error) {
-	vote = &BranchVote{}
+	vote = new(BranchVote)
 
 	if vote.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)

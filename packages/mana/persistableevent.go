@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -61,11 +61,6 @@ func (p *PersistableEvent) Bytes() []byte {
 	marshalUtil.WriteBytes(p.InputID.Bytes())
 	p.bytes = marshalUtil.Bytes()
 	return p.bytes
-}
-
-// Update updates the event in storage.
-func (p *PersistableEvent) Update(objectstorage.StorableObject) {
-	panic("should not be updated")
 }
 
 // ObjectStorageKey returns the key of the persistable mana.
@@ -133,42 +128,14 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 	return
 }
 
-// FromEventObjectStorage unmarshalls bytes into a persistable event.
-func FromEventObjectStorage(_ []byte, data []byte) (result objectstorage.StorableObject, err error) {
+// FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
+func (p *PersistableEvent) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
+	return p.FromBytes(bytes)
+}
+
+// FromBytes unmarshalls bytes into a persistable event.
+func (p *PersistableEvent) FromBytes(data []byte) (result *PersistableEvent, err error) {
 	return parseEvent(marshalutil.New(data))
 }
 
-// CachedPersistableEvent represents cached persistable event.
-type CachedPersistableEvent struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks this CachedObject to still be in use by the program.
-func (c *CachedPersistableEvent) Retain() *CachedPersistableEvent {
-	return &CachedPersistableEvent{c.CachedObject.Retain()}
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedPersistableEvent) Consume(consumer func(pbm *PersistableEvent)) bool {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*PersistableEvent))
-	})
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedPersistableEvent) Unwrap() *PersistableEvent {
-	untypedPbm := c.Get()
-	if untypedPbm == nil {
-		return nil
-	}
-
-	typeCastedPbm := untypedPbm.(*PersistableEvent)
-	if typeCastedPbm == nil || typeCastedPbm.IsDeleted() {
-		return nil
-	}
-
-	return typeCastedPbm
-}
-
-var _ objectstorage.StorableObject = &PersistableEvent{}
+var _ objectstorage.StorableObject = new(PersistableEvent)
