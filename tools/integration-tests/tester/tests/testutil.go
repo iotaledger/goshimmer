@@ -696,7 +696,7 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 			)
 			if approverMsg, err = peer.GetMessage(approverMsgID); err == nil {
 				if metadata, err = peer.GetMessageMetadata(approverMsgID); err == nil {
-					if metadata.BranchID == branch.ID {
+					if metadata.BranchIDs[0] == branch.ID {
 						approversWalker.Push(approverMsgID)
 						continue
 					}

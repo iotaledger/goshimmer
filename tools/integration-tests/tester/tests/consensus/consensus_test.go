@@ -141,7 +141,7 @@ func TestConfirmBranch(t *testing.T) {
 			Faucet:      false,
 			Activity:    false,
 			Autopeering: false,
-		}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+		}, func(peerIndex int, isPeerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 			cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
 			cfg.UseNodeSeedAsWalletSeed = true
 			switch peerIndex {
@@ -177,7 +177,7 @@ func TestConfirmBranch(t *testing.T) {
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(tx2.ID().Base58())
 		require.NoError(t, err)
-		branch1, branch2 = res1.BranchID, res2.BranchID
+		branch1, branch2 = res1.BranchIDs[0], res2.BranchIDs[0]
 		return res1.GradeOfFinality == gof.High && res2.GradeOfFinality == gof.None
 	}, tests.Timeout, tests.Tick)
 
