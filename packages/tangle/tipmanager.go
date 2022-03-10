@@ -429,7 +429,7 @@ func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWa
 	t.tangle.Booker.MarkersManager.Manager.Sequence(marker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		// If there is a confirmed marker before the oldest unconfirmed marker, and it's older than minSupportedTimestamp, need to walk message past cone of oldestUnconfirmedMarker.
 		if sequence.LowestIndex() < oldestUnconfirmedMarker.Index() {
-			confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index()-1)
+			confirmedMarkerIdx := t.getPreviousConfirmedIndex(sequence, oldestUnconfirmedMarker.Index())
 			if t.isMarkerOldAndConfirmed(markers.NewMarker(sequence.ID(), confirmedMarkerIdx), minSupportedTimestamp) {
 				messageWalker.Push(t.tangle.Booker.MarkersManager.MessageID(oldestUnconfirmedMarker))
 			}
@@ -524,7 +524,7 @@ func (t *TipManager) getOldestUnconfirmedMarker(pastMarker *markers.Marker) *mar
 
 func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, markerIndex markers.Index) markers.Index {
 	// skip any gaps in marker indices
-	for ; sequence.LowestIndex() <= markerIndex; markerIndex-- {
+	for ; sequence.LowestIndex() < markerIndex; markerIndex-- {
 		currentMarker := markers.NewMarker(sequence.ID(), markerIndex)
 
 		// Skip if there is no marker at the given index, i.e., the sequence has a gap or marker is not yet confirmed (should not be the case).
