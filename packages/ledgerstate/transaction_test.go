@@ -20,7 +20,7 @@ func TestTransaction_Bytes(t *testing.T) {
 	input := generateOutput(ledgerstate, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
 	bytes := tx.Bytes()
-	_tx, _, err := TransactionFromBytes(bytes)
+	_tx, err := new(Transaction).FromBytes(bytes)
 	assert.NoError(t, err)
 	assert.Equal(t, tx.ID(), _tx.ID())
 }

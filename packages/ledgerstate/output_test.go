@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
@@ -84,7 +83,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetAliasAddress().Equals(nextAlias.GetAliasAddress()))
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
-		// outputid is actually irrelevant here
+		// OutputID is actually irrelevant here
 		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
@@ -99,7 +98,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetAliasAddress().Equals(nextAlias.GetAliasAddress()))
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
-		// outputid is actually irrelevant here
+		// OutputID is actually irrelevant here
 		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
@@ -119,7 +118,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetAliasAddress().Equals(nextAlias.GetAliasAddress()))
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
-		// outputid is actually irrelevant here
+		// OutputID is actually irrelevant here
 		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
@@ -138,7 +137,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetAliasAddress().Equals(nextAlias.GetAliasAddress()))
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
-		// outputid is actually irrelevant here
+		// OutputID is actually irrelevant here
 		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
@@ -164,7 +163,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		// manually change output type byte
 		originBytes[0] = 1
 		marshalUtil := marshalutil.New(originBytes)
-		_, err := AliasOutputFromMarshalUtil(marshalUtil)
+		_, err := new(AliasOutput).FromMarshalUtil(marshalUtil)
 		assert.Error(t, err)
 	})
 
@@ -383,7 +382,7 @@ func TestAliasOutput_Bytes(t *testing.T) {
 		alias := dummyAliasOutput()
 		aBytes := alias.Bytes()
 		mUtil := marshalutil.New(aBytes)
-		restoredAlias, err := AliasOutputFromMarshalUtil(mUtil)
+		restoredAlias, err := new(AliasOutput).FromMarshalUtil(mUtil)
 		assert.NoError(t, err)
 		assert.True(t, alias.GetAliasAddress().Equals(restoredAlias.GetAliasAddress()))
 		assert.True(t, alias.GetStateAddress().Equals(restoredAlias.GetStateAddress()))
@@ -402,7 +401,7 @@ func TestAliasOutput_Compare(t *testing.T) {
 		alias := dummyAliasOutput()
 		aBytes := alias.Bytes()
 		mUtil := marshalutil.New(aBytes)
-		restoredAlias, err := AliasOutputFromMarshalUtil(mUtil)
+		restoredAlias, err := new(AliasOutput).FromMarshalUtil(mUtil)
 		assert.NoError(t, err)
 		assert.True(t, alias.Compare(restoredAlias) == 0)
 	})
@@ -590,57 +589,57 @@ func TestAliasOutput_ObjectStorageValue(t *testing.T) {
 	// same as Bytes()
 }
 
-func TestAliasOutput_DelegationTimelock(t *testing.T) {
+func TestAliasOutput_DelegationTimeLock(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		// not a delegated aliasoutput,
+		// not a delegated AliasOutput,
 		assert.True(t, alias.DelegationTimelock().IsZero())
-		// is a delegated output, but no timelock set
+		// is a delegated output, but no time-lock set
 		alias.isDelegated = true
 		assert.True(t, alias.DelegationTimelock().IsZero())
-		// delegated output, timelock set
-		timelock := time.Now()
-		alias.delegationTimelock = timelock
-		assert.True(t, timelock.Equal(alias.DelegationTimelock()))
+		// delegated output, time-lock set
+		timeLock := time.Now()
+		alias.delegationTimelock = timeLock
+		assert.True(t, timeLock.Equal(alias.DelegationTimelock()))
 	})
 }
 
 func TestAliasOutput_DelegationTimeLockedNow(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		timelock := time.Now()
+		timeLock := time.Now()
 		alias := dummyAliasOutput()
 		alias.isDelegated = true
-		err := alias.SetDelegationTimelock(timelock)
+		err := alias.SetDelegationTimelock(timeLock)
 		assert.NoError(t, err)
 
-		assert.True(t, alias.DelegationTimeLockedNow(timelock.Add(-time.Second)))
-		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
+		assert.True(t, alias.DelegationTimeLockedNow(timeLock.Add(-time.Second)))
+		assert.False(t, alias.DelegationTimeLockedNow(timeLock.Add(time.Second)))
 	})
 
-	t.Run("CASE: Delegation without timelock", func(t *testing.T) {
-		timelock := time.Now()
+	t.Run("CASE: Delegation without time-lock", func(t *testing.T) {
+		timeLock := time.Now()
 		alias := dummyAliasOutput()
 		alias.isDelegated = true
 
-		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(-time.Second)))
-		assert.False(t, alias.DelegationTimeLockedNow(timelock.Add(time.Second)))
+		assert.False(t, alias.DelegationTimeLockedNow(timeLock.Add(-time.Second)))
+		assert.False(t, alias.DelegationTimeLockedNow(timeLock.Add(time.Second)))
 	})
 }
 
-func TestAliasOutput_SetDelegationTimelock(t *testing.T) {
+func TestAliasOutput_SetDelegationTimeLock(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		timelock := time.Now()
+		timeLock := time.Now()
 		alias := dummyAliasOutput()
 		// not delegated,
-		err := alias.SetDelegationTimelock(timelock)
+		err := alias.SetDelegationTimelock(timeLock)
 		t.Log(err)
 		assert.Error(t, err)
 		assert.True(t, alias.DelegationTimelock().IsZero())
 		// delegated
 		alias.isDelegated = true
-		err = alias.SetDelegationTimelock(timelock)
+		err = alias.SetDelegationTimelock(timeLock)
 		assert.NoError(t, err)
-		assert.True(t, alias.DelegationTimelock().Equal(timelock))
+		assert.True(t, alias.DelegationTimelock().Equal(timeLock))
 	})
 }
 
@@ -718,9 +717,8 @@ func TestAliasOutput_SetIsOrigin(t *testing.T) {
 func TestAliasOutput_SetIsDelegated(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		isDelegated := true
-		alias.SetIsDelegated(isDelegated)
-		assert.Equal(t, alias.isDelegated, isDelegated)
+		alias.SetIsDelegated(true)
+		assert.Equal(t, alias.isDelegated, true)
 	})
 }
 
@@ -766,16 +764,6 @@ func TestAliasOutput_Type(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		assert.Equal(t, alias.Type(), AliasOutputType)
-	})
-}
-
-func TestAliasOutput_Update(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		alias := dummyAliasOutput()
-		other := dummyAliasOutput()
-		assert.Panics(t, func() {
-			alias.Update(other)
-		})
 	})
 }
 
@@ -848,7 +836,7 @@ func TestAliasOutput_checkBasicValidity(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: delegation timelock for non delegated output", func(t *testing.T) {
+	t.Run("CASE: delegation time-lock for non delegated output", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		alias.isDelegated = false
 		alias.delegationTimelock = time.Now()
@@ -872,14 +860,14 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: Happy path, state transition", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
 	t.Run("CASE: Happy path, governance transition", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -887,7 +875,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.aliasAddress = *randAliasAddress()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -896,7 +884,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.immutableData = []byte("something new")
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -905,7 +893,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateData = []byte("something new")
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -914,7 +902,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateIndex = prev.stateIndex + 1
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -925,7 +913,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -934,7 +922,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.stateAddress = randEd25119Address()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -942,7 +930,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -950,7 +938,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.governanceMetadata = []byte("chain is run by another VM")
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -958,7 +946,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(true)
 		next.isDelegated = true
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -971,40 +959,40 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	})
 
 	t.Run("CASE: Gov update, delegation with delegation lock", func(t *testing.T) {
-		timelock := time.Now()
-		prev := dummyAliasOutput().WithDelegationAndTimelock(timelock)
+		timeLock := time.Now()
+		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
-		// happy case, timelock expired
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(time.Second)}})
+		// happy case, time-lock expired
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
 		assert.NoError(t, err)
-		// not happy case, timelock is still active
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(-time.Second)}})
+		// not happy case, time-lock is still active
+		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update, delegation without timelock", func(t *testing.T) {
+	t.Run("CASE: State update, delegation without time-lock", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: State update, delegation with timelock", func(t *testing.T) {
-		timelock := time.Now()
-		prev := dummyAliasOutput().WithDelegationAndTimelock(timelock)
+	t.Run("CASE: State update, delegation with time-lock", func(t *testing.T) {
+		timeLock := time.Now()
+		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(false)
-		// timelock is active state transition allowed
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(-time.Second)}})
+		// time-lock is active state transition allowed
+		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
 		assert.NoError(t, err)
-		// timelock expired, state transition should fail
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timelock.Add(time.Second)}})
+		// time-lock expired, state transition should fail
+		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: State update, delegated, delegation timelock changed", func(t *testing.T) {
+	t.Run("CASE: State update, delegated, delegation time-lock changed", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
@@ -1017,7 +1005,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.isDelegated = true
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1029,7 +1017,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		bal := next.balances.Map()
 		bal[ColorIOTA]++
 		next.balances = NewColoredBalances(bal)
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1038,7 +1026,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateIndex = prev.GetStateIndex() + 2
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1047,7 +1035,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateAddress = randEd25119Address()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1056,7 +1044,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1065,7 +1053,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governanceMetadata = []byte("chain is run by another VM")
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1075,7 +1063,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev.governingAddress = nil
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = randAliasAddress()
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1084,7 +1072,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.governingAddress = nil
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1093,7 +1081,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput()
 		next := prev.NewAliasOutputNext(false)
 		next.stateData = []byte("new state data")
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 
@@ -1103,7 +1091,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		newBalance := prev.Balances().Map()
 		newBalance[ColorIOTA]++
 		next.balances = NewColoredBalances(newBalance)
-		err := prev.validateTransition(next, &Transaction{})
+		err := prev.validateTransition(next, new(Transaction))
 		assert.NoError(t, err)
 	})
 }
@@ -1153,34 +1141,34 @@ func TestAliasOutput_validateDestroyTransition(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: Can destroy delegation if not-timelocked", func(t *testing.T) {
+	t.Run("CASE: Can destroy delegation if not-time-locked", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		prev.SetIsDelegated(true)
 		err := prev.validateDestroyTransitionNow(time.Now())
 		assert.NoError(t, err)
 	})
 
-	t.Run("CASE: Can't destroy timelocked delegation", func(t *testing.T) {
+	t.Run("CASE: Can't destroy time-locked delegation", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		deadline := time.Now()
-		nowis := deadline.Add(-1 * time.Nanosecond)
+		nowIs := deadline.Add(-1 * time.Nanosecond)
 		prev.SetIsDelegated(true)
 		err := prev.SetDelegationTimelock(deadline)
 		assert.NoError(t, err)
-		assert.True(t, prev.DelegationTimeLockedNow(nowis))
-		err = prev.validateDestroyTransitionNow(nowis)
+		assert.True(t, prev.DelegationTimeLockedNow(nowIs))
+		err = prev.validateDestroyTransitionNow(nowIs)
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: Can destroy timeUNlocked delegation", func(t *testing.T) {
+	t.Run("CASE: Can destroy timeUnlocked delegation", func(t *testing.T) {
 		prev := dummyAliasOutput()
 		deadline := time.Now()
-		nowis := deadline.Add(1 * time.Nanosecond)
+		nowIs := deadline.Add(1 * time.Nanosecond)
 		prev.SetIsDelegated(true)
 		err := prev.SetDelegationTimelock(deadline)
 		assert.NoError(t, err)
-		assert.False(t, prev.DelegationTimeLockedNow(nowis))
-		err = prev.validateDestroyTransitionNow(nowis)
+		assert.False(t, prev.DelegationTimeLockedNow(nowIs))
+		err = prev.validateDestroyTransitionNow(nowIs)
 		assert.NoError(t, err)
 	})
 }
@@ -1191,7 +1179,7 @@ func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
 		chained := prev.NewAliasOutputNext(false)
 		outputs := Outputs{chained}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		found, err := prev.findChainedOutputAndCheckFork(tx)
@@ -1203,7 +1191,7 @@ func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
 		prev := dummyAliasOutput()
 		outputs := Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		// not found means that returned output is nil, no error
@@ -1217,7 +1205,7 @@ func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
 		chained2 := prev.NewAliasOutputNext(true)
 		outputs := Outputs{chained1, chained2}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		found, err := prev.findChainedOutputAndCheckFork(tx)
@@ -1233,7 +1221,7 @@ func TestAliasOutput_findChainedOutputAndCheckFork(t *testing.T) {
 		chainedFake.aliasAddress = *randAliasAddress()
 		outputs := Outputs{chained, chainedFake}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		found, err := prev.findChainedOutputAndCheckFork(tx)
@@ -1248,7 +1236,7 @@ func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
 		chained := prev.NewAliasOutputNext(true)
 		outputs := Outputs{chained}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -1260,7 +1248,7 @@ func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
 		chained := prev.NewAliasOutputNext(false)
 		outputs := Outputs{chained}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -1274,7 +1262,7 @@ func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
 		chainedDuplicate.stateData = []byte("duplicated")
 		outputs := Outputs{chained, chainedDuplicate}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -1286,7 +1274,7 @@ func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
 		next := NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())
 		outputs := Outputs{next}
 		essence := NewTransactionEssence(0, time.Time{}, identity.ID{}, identity.ID{}, NewInputs(NewUTXOInput(prev.ID())), NewOutputs(outputs...))
-		// unlockblocks are irrelevant now
+		// unlock blocks are irrelevant now
 		tx := NewTransaction(essence, UnlockBlocks{NewReferenceUnlockBlock(0)})
 
 		ok := prev.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -1297,31 +1285,29 @@ func TestAliasOutput_hasToBeUnlockedForGovernanceUpdate(t *testing.T) {
 func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	governingAliasStateWallet := genRandomWallet()
 	governingAlias := &AliasOutput{
-		outputID:            randOutputID(),
-		outputIDMutex:       sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-		aliasAddress:        *randAliasAddress(),
-		stateAddress:        governingAliasStateWallet.address,
-		stateIndex:          10,
-		stateData:           []byte("some data"),
-		immutableData:       []byte("some data"),
-		isGovernanceUpdate:  false,
-		governingAddress:    randAliasAddress(),
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		outputID:           randOutputID(),
+		outputIDMutex:      sync.RWMutex{},
+		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:       *randAliasAddress(),
+		stateAddress:       governingAliasStateWallet.address,
+		stateIndex:         10,
+		stateData:          []byte("some data"),
+		immutableData:      []byte("some data"),
+		isGovernanceUpdate: false,
+		governingAddress:   randAliasAddress(),
 	}
 	aliasStateWallet := genRandomWallet()
 	alias := &AliasOutput{
-		outputID:            randOutputID(),
-		outputIDMutex:       sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-		aliasAddress:        *randAliasAddress(),
-		stateAddress:        aliasStateWallet.address,
-		stateIndex:          10,
-		stateData:           []byte("some data"),
-		immutableData:       []byte("some data"),
-		isGovernanceUpdate:  false,
-		governingAddress:    governingAlias.GetAliasAddress(),
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		outputID:           randOutputID(),
+		outputIDMutex:      sync.RWMutex{},
+		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:       *randAliasAddress(),
+		stateAddress:       aliasStateWallet.address,
+		stateIndex:         10,
+		stateData:          []byte("some data"),
+		immutableData:      []byte("some data"),
+		isGovernanceUpdate: false,
+		governingAddress:   governingAlias.GetAliasAddress(),
 	}
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		// unlocked for gov transition
@@ -1363,7 +1349,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyAlias.governingAddress = nil
 
-		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(new(Transaction), 0, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1373,7 +1359,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyAlias.governingAddress = randEd25119Address()
 
-		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(new(Transaction), 0, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1382,7 +1368,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	t.Run("CASE: Invalid referenced index", func(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 1, Outputs{})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(new(Transaction), 1, Outputs{})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1391,7 +1377,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	t.Run("CASE: Referenced output is not an alias", func(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(new(Transaction), 0, Outputs{NewSigLockedSingleOutput(DustThresholdAliasOutputIOTA, randEd25119Address())})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1401,7 +1387,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		dummyAlias := dummyAliasOutput()
 		dummyGoverningAlias := dummyAliasOutput()
 
-		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(&Transaction{}, 0, Outputs{dummyGoverningAlias})
+		ok, err := dummyAlias.unlockedGovernanceTransitionByAliasIndex(new(Transaction), 0, Outputs{dummyGoverningAlias})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, ok)
@@ -1412,17 +1398,16 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 	w := genRandomWallet()
 	governingWallet := genRandomWallet()
 	alias := &AliasOutput{
-		outputID:            randOutputID(),
-		outputIDMutex:       sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-		aliasAddress:        *randAliasAddress(),
-		stateAddress:        w.address,
-		stateIndex:          10,
-		stateData:           []byte("some data"),
-		immutableData:       []byte("some immutable data"),
-		isGovernanceUpdate:  false,
-		governingAddress:    governingWallet.address,
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		outputID:           randOutputID(),
+		outputIDMutex:      sync.RWMutex{},
+		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:       *randAliasAddress(),
+		stateAddress:       w.address,
+		stateIndex:         10,
+		stateData:          []byte("some data"),
+		immutableData:      []byte("some immutable data"),
+		isGovernanceUpdate: false,
+		governingAddress:   governingWallet.address,
 	}
 
 	t.Run("CASE: Alias unlocked by signature", func(t *testing.T) {
@@ -1565,31 +1550,29 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 	t.Run("CASE: Unlocked by other alias", func(t *testing.T) {
 		governingAliasStateWallet := genRandomWallet()
 		governingAlias := &AliasOutput{
-			outputID:            randOutputID(),
-			outputIDMutex:       sync.RWMutex{},
-			balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-			aliasAddress:        *randAliasAddress(),
-			stateAddress:        governingAliasStateWallet.address,
-			stateIndex:          10,
-			stateData:           []byte("some data"),
-			immutableData:       []byte("some data"),
-			isGovernanceUpdate:  false,
-			governingAddress:    randAliasAddress(),
-			StorableObjectFlags: objectstorage.StorableObjectFlags{},
+			outputID:           randOutputID(),
+			outputIDMutex:      sync.RWMutex{},
+			balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:       *randAliasAddress(),
+			stateAddress:       governingAliasStateWallet.address,
+			stateIndex:         10,
+			stateData:          []byte("some data"),
+			immutableData:      []byte("some data"),
+			isGovernanceUpdate: false,
+			governingAddress:   randAliasAddress(),
 		}
 		aliasStateWallet := genRandomWallet()
 		governedAlias := &AliasOutput{
-			outputID:            randOutputID(),
-			outputIDMutex:       sync.RWMutex{},
-			balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-			aliasAddress:        *randAliasAddress(),
-			stateAddress:        aliasStateWallet.address,
-			stateIndex:          10,
-			stateData:           []byte("some data"),
-			immutableData:       []byte("some data"),
-			isGovernanceUpdate:  false,
-			governingAddress:    governingAlias.GetAliasAddress(),
-			StorableObjectFlags: objectstorage.StorableObjectFlags{},
+			outputID:           randOutputID(),
+			outputIDMutex:      sync.RWMutex{},
+			balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+			aliasAddress:       *randAliasAddress(),
+			stateAddress:       aliasStateWallet.address,
+			stateIndex:         10,
+			stateData:          []byte("some data"),
+			immutableData:      []byte("some data"),
+			isGovernanceUpdate: false,
+			governingAddress:   governingAlias.GetAliasAddress(),
 		}
 		// unlocked for gov transition
 		nextAlias := governedAlias.NewAliasOutputNext(true)
@@ -1715,7 +1698,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.Equal(t, o.payload, castedRestored.payload)
 	})
 
-	t.Run("CASE: Happy path, optional timelock", func(t *testing.T) {
+	t.Run("CASE: Happy path, optional time-lock", func(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
 			WithTimeLock(time.Now().Add(1 * time.Hour))
 		oBytes := o.Bytes()
@@ -1840,7 +1823,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
-		// serialized form of output doesn't have outputid
+		// serialized form of output doesn't have OutputID
 		output, _, err := OutputFromBytes(dummyExtendedLockedOutput().Bytes())
 		assert.NoError(t, err)
 		assert.Panics(t, func() {
@@ -1905,18 +1888,18 @@ func TestExtendedLockedOutput_TimeLock(t *testing.T) {
 func TestExtendedLockedOutput_TimeLockedNow(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
-		timelockDate := time.Now()
-		output.timelock = timelockDate
-		assert.True(t, output.TimeLockedNow(timelockDate.Add(-time.Minute)))
-		assert.True(t, output.TimeLockedNow(timelockDate.Add(-time.Nanosecond)))
-		assert.False(t, output.TimeLockedNow(timelockDate))
-		assert.False(t, output.TimeLockedNow(timelockDate.Add(time.Second)))
+		timeLockDate := time.Now()
+		output.timelock = timeLockDate
+		assert.True(t, output.TimeLockedNow(timeLockDate.Add(-time.Minute)))
+		assert.True(t, output.TimeLockedNow(timeLockDate.Add(-time.Nanosecond)))
+		assert.False(t, output.TimeLockedNow(timeLockDate))
+		assert.False(t, output.TimeLockedNow(timeLockDate.Add(time.Second)))
 	})
 }
 
 func TestExtendedLockedOutput_Type(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		output := &ExtendedLockedOutput{}
+		output := new(ExtendedLockedOutput)
 		assert.Equal(t, ExtendedLockedOutputType, output.Type())
 	})
 }
@@ -1935,15 +1918,6 @@ func TestExtendedLockedOutput_UnlockAddressNow(t *testing.T) {
 		output := dummyExtendedLockedOutput().WithFallbackOptions(nil, fallbackDeadline)
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(-time.Minute)).Equals(output.Address()))
 		assert.True(t, output.UnlockAddressNow(fallbackDeadline.Add(time.Minute)).Equals(output.Address()))
-	})
-}
-
-func TestExtendedLockedOutput_Update(t *testing.T) {
-	t.Run("CASE: Update panics", func(t *testing.T) {
-		output := &ExtendedLockedOutput{}
-		assert.Panics(t, func() {
-			output.Update(&ExtendedLockedOutput{})
-		})
 	})
 }
 
@@ -1995,24 +1969,24 @@ func TestExtendedLockedOutput_WithFallbackOptions(t *testing.T) {
 	fallbackAddress := randEd25119Address()
 
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		output := (&ExtendedLockedOutput{}).WithFallbackOptions(fallbackAddress, fallbackDeadline)
+		output := new(ExtendedLockedOutput).WithFallbackOptions(fallbackAddress, fallbackDeadline)
 		assert.True(t, fallbackAddress.Equals(output.FallbackAddress()))
 		assert.True(t, fallbackDeadline.Equal(output.fallbackDeadline))
 	})
 
 	t.Run("CASE: nil fallback address", func(t *testing.T) {
-		output := (&ExtendedLockedOutput{}).WithFallbackOptions(nil, fallbackDeadline)
+		output := new(ExtendedLockedOutput).WithFallbackOptions(nil, fallbackDeadline)
 		assert.Nil(t, output.FallbackAddress())
 		assert.True(t, fallbackDeadline.Equal(output.fallbackDeadline))
 	})
 }
 
 func TestExtendedLockedOutput_WithTimeLock(t *testing.T) {
-	timelock := time.Now()
+	timeLock := time.Now()
 
 	t.Run("CASE: Happy path", func(t *testing.T) {
-		output := (&ExtendedLockedOutput{}).WithTimeLock(timelock)
-		assert.True(t, timelock.Equal(output.TimeLock()))
+		output := new(ExtendedLockedOutput).WithTimeLock(timeLock)
+		assert.True(t, timeLock.Equal(output.TimeLock()))
 	})
 }
 
@@ -2031,7 +2005,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		outputBytes := output.Bytes()
 		marshalUtil := marshalutil.New(outputBytes)
-		restored, err := ExtendedOutputFromMarshalUtil(marshalUtil)
+		restored, err := new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil)
 		assert.NoError(t, err)
 		assert.Equal(t, len(outputBytes), marshalUtil.ReadOffset())
 		assert.Equal(t, outputBytes, restored.Bytes())
@@ -2042,7 +2016,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		outputBytes := output.Bytes()
 		outputBytes[0] = byte(AliasOutputType)
 		marshalUtil := marshalutil.New(outputBytes)
-		_, err := ExtendedOutputFromMarshalUtil(marshalUtil)
+		_, err := new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -2058,7 +2032,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("CASE: Timelock flag provided, missing data", func(t *testing.T) {
+	t.Run("CASE: Time-lock flag provided, missing data", func(t *testing.T) {
 		output := dummyExtendedLockedOutput().WithTimeLock(time.Time{})
 		err := output.SetPayload(nil)
 		assert.NoError(t, err)
@@ -2099,7 +2073,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		assert.NotEqual(t, len(outputBytes), consumedBytes)
 	})
 
-	t.Run("CASE: Timelock present, wrong flag", func(t *testing.T) {
+	t.Run("CASE: Time-lock present, wrong flag", func(t *testing.T) {
 		output := dummyExtendedLockedOutput().WithTimeLock(time.Now()).WithFallbackOptions(nil, time.Time{})
 		err := output.SetPayload(nil)
 		assert.NoError(t, err)
@@ -2198,11 +2172,11 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 
 	t.Run("CASE: Referenced input not alias", func(t *testing.T) {
 		w := genRandomWallet()
-		nowis := time.Now()
+		nowIs := time.Now()
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address)
 		input.SetID(randOutputID())
 		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
-		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		essence := NewTransactionEssence(0, nowIs, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock := NewAliasUnlockBlock(0)
 		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2221,11 +2195,11 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 			stateAddress:  randEd25119Address(), // alias state controller is our wallet
 			stateIndex:    10,
 		}
-		nowis := time.Now()
+		nowIs := time.Now()
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
 		input.SetID(randOutputID())
 		// for the sake of this test, tx doesn't have to be valid
-		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(alias.Input()), NewOutputs(input))
+		essence := NewTransactionEssence(0, nowIs, identity.ID{}, identity.ID{}, NewInputs(alias.Input()), NewOutputs(input))
 		// important is that we reference an alias that has different aliasAddress
 		unlockBlock := NewAliasUnlockBlock(0)
 		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
@@ -2236,14 +2210,14 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.False(t, valid)
 	})
 
-	t.Run("CASE: Output is timelocked, can't spend", func(t *testing.T) {
+	t.Run("CASE: Output is time-locked, can't spend", func(t *testing.T) {
 		w := genRandomWallet()
-		nowis := time.Now()
-		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowis.Add(time.Hour))
+		nowIs := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowIs.Add(time.Hour))
 		input.SetID(randOutputID())
 		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
-		// tx timestamp before timelock
-		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// tx timestamp before time-lock
+		essence := NewTransactionEssence(0, nowIs, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock := NewSignatureUnlockBlock(w.sign(essence))
 		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2252,14 +2226,14 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.False(t, valid)
 	})
 
-	t.Run("CASE: Output is timelocked, spend after", func(t *testing.T) {
+	t.Run("CASE: Output is time-locked, spend after", func(t *testing.T) {
 		w := genRandomWallet()
-		nowis := time.Now()
-		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowis.Add(time.Hour))
+		nowIs := time.Now()
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowIs.Add(time.Hour))
 		input.SetID(randOutputID())
 		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
-		// tx timestamp is exactly timelock, output is allowed to be spent from that moment on
-		essence := NewTransactionEssence(0, nowis.Add(time.Hour), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// tx timestamp is exactly time-lock, output is allowed to be spent from that moment on
+		essence := NewTransactionEssence(0, nowIs.Add(time.Hour), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock := NewSignatureUnlockBlock(w.sign(essence))
 		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2272,7 +2246,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
 		unlockBlock := NewReferenceUnlockBlock(0)
 
-		valid, err := input.UnlockValid(&Transaction{essence: &TransactionEssence{}}, unlockBlock, Outputs{input})
+		valid, err := input.UnlockValid(&Transaction{essence: new(TransactionEssence)}, unlockBlock, Outputs{input})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, valid)
@@ -2281,14 +2255,14 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 	t.Run("CASE: Fallback address present", func(t *testing.T) {
 		destWallet := genRandomWallet()
 		myWallet := genRandomWallet()
-		nowis := time.Now()
-		// until nowis+30 minutes, only w wallet can spend it, after that, only myWallet
-		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, destWallet.address).WithFallbackOptions(myWallet.address, nowis.Add(30*time.Minute))
+		nowIs := time.Now()
+		// until now is +30 minutes, only w wallet can spend it, after that, only myWallet
+		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, destWallet.address).WithFallbackOptions(myWallet.address, nowIs.Add(30*time.Minute))
 		input.SetID(randOutputID())
 		output := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: 1}), randEd25119Address())
 
-		// t =< nowis + 30 mins, destWallet can spend it
-		essence := NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// t =< now is + 30 minutes, destWallet can spend it
+		essence := NewTransactionEssence(0, nowIs, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock := NewSignatureUnlockBlock(destWallet.sign(essence))
 		tx := NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2296,8 +2270,8 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, valid)
 
-		// t =< nowis + 30 mins, myWallet can't spend it
-		essence = NewTransactionEssence(0, nowis, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// t =< now is + 30 minutes, myWallet can't spend it
+		essence = NewTransactionEssence(0, nowIs, identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock = NewSignatureUnlockBlock(myWallet.sign(essence))
 		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2305,8 +2279,8 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, valid)
 
-		// t > nowis + 30 mins, destWallet can't spend it
-		essence = NewTransactionEssence(0, nowis.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// t > now is + 30 minutes, destWallet can't spend it
+		essence = NewTransactionEssence(0, nowIs.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock = NewSignatureUnlockBlock(destWallet.sign(essence))
 		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2314,8 +2288,8 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.NoError(t, err)
 		assert.False(t, valid)
 
-		// t > nowis + 30 mins, myWallet can spend it
-		essence = NewTransactionEssence(0, nowis.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
+		// t > now is + 30 minutes, myWallet can spend it
+		essence = NewTransactionEssence(0, nowIs.Add(30*time.Minute).Add(time.Nanosecond), identity.ID{}, identity.ID{}, NewInputs(input.Input()), NewOutputs(output))
 		unlockBlock = NewSignatureUnlockBlock(myWallet.sign(essence))
 		tx = NewTransaction(essence, UnlockBlocks{unlockBlock})
 
@@ -2362,35 +2336,33 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 		orig = origin[0]
 	}
 	return &AliasOutput{
-		outputID:            randOutputID(),
-		outputIDMutex:       sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
-		aliasAddress:        *randAliasAddress(),
-		stateAddress:        randEd25119Address(),
-		stateIndex:          0,
-		stateData:           []byte("initial"),
-		governanceMetadata:  []byte("This chain runs EVM v0.0.0"),
-		immutableData:       []byte("don't touch this"),
-		isGovernanceUpdate:  false,
-		isOrigin:            orig,
-		isDelegated:         false,
-		governingAddress:    randAliasAddress(),
-		delegationTimelock:  time.Time{},
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		outputID:           randOutputID(),
+		outputIDMutex:      sync.RWMutex{},
+		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
+		aliasAddress:       *randAliasAddress(),
+		stateAddress:       randEd25119Address(),
+		stateIndex:         0,
+		stateData:          []byte("initial"),
+		governanceMetadata: []byte("This chain runs EVM v0.0.0"),
+		immutableData:      []byte("don't touch this"),
+		isGovernanceUpdate: false,
+		isOrigin:           orig,
+		isDelegated:        false,
+		governingAddress:   randAliasAddress(),
+		delegationTimelock: time.Time{},
 	}
 }
 
 func dummyExtendedLockedOutput() *ExtendedLockedOutput {
 	return &ExtendedLockedOutput{
-		id:                  randOutputID(),
-		idMutex:             sync.RWMutex{},
-		balances:            NewColoredBalances(map[Color]uint64{ColorIOTA: 1}),
-		address:             randEd25119Address(),
-		fallbackAddress:     randEd25119Address(),
-		fallbackDeadline:    time.Unix(1001, 0),
-		timelock:            time.Unix(2000, 0),
-		payload:             []byte("a payload"),
-		StorableObjectFlags: objectstorage.StorableObjectFlags{},
+		id:               randOutputID(),
+		idMutex:          sync.RWMutex{},
+		balances:         NewColoredBalances(map[Color]uint64{ColorIOTA: 1}),
+		address:          randEd25119Address(),
+		fallbackAddress:  randEd25119Address(),
+		fallbackDeadline: time.Unix(1001, 0),
+		timelock:         time.Unix(2000, 0),
+		payload:          []byte("a payload"),
 	}
 }
 

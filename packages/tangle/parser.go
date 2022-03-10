@@ -145,7 +145,7 @@ func (p *Parser) setupMessageFilterDataFlow() {
 
 // parses the given message and emits
 func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
-	if parsedMessage, _, err := MessageFromBytes(bytes); err != nil {
+	if parsedMessage, err := new(Message).FromBytes(bytes); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer,
@@ -273,7 +273,7 @@ type MessageSignatureFilter struct {
 
 // NewMessageSignatureFilter creates a new message signature filter.
 func NewMessageSignatureFilter() *MessageSignatureFilter {
-	return &MessageSignatureFilter{}
+	return new(MessageSignatureFilter)
 }
 
 // Filter filters up on the given bytes and peer and calls the acceptance callback
@@ -465,7 +465,7 @@ func (r *RecentlySeenBytesFilter) getRejectCallback() (result func(bytes []byte,
 
 // NewTransactionFilter creates a new transaction filter.
 func NewTransactionFilter() *TransactionFilter {
-	return &TransactionFilter{}
+	return new(TransactionFilter)
 }
 
 // TransactionFilter filters messages based on their timestamps and transaction timestamp.
@@ -480,7 +480,7 @@ type TransactionFilter struct {
 // Filter compares the timestamps between the message, and it's transaction payload and calls the corresponding callback.
 func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
-		transaction, _, err := ledgerstate.TransactionFromBytes(payload.Bytes())
+		transaction, err := new(ledgerstate.Transaction).FromBytes(payload.Bytes())
 		if err != nil {
 			f.getRejectCallback()(msg, err, peer)
 			return

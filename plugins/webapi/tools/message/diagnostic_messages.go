@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
@@ -57,7 +57,7 @@ func runDiagnosticMessages(c echo.Context, rank ...uint64) (err error) {
 		startRank = rank[0]
 	}
 	var writeErr error
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if messageInfo.Rank >= startRank {
@@ -92,7 +92,7 @@ func runDiagnosticMessagesOnFirstWeakReferences(c echo.Context) (err error) {
 		return errors.Errorf("failed to write table description row: %w", err)
 	}
 	var writeErr error
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
 		messageInfo := getDiagnosticMessageInfo(messageID)
 
 		if len(messageInfo.WeakApprovers) > 0 {
