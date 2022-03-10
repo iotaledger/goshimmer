@@ -14,7 +14,7 @@ import (
 )
 
 func TestPersistableEvent_Bytes(t *testing.T) {
-	ev := &PersistableEvent{}
+	ev := new(PersistableEvent)
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(ev.Type)
 	marshalUtil.WriteByte(byte(ev.ManaType))
@@ -29,25 +29,18 @@ func TestPersistableEvent_Bytes(t *testing.T) {
 }
 
 func TestPersistableEvent_ObjectStorageKey(t *testing.T) {
-	ev := &PersistableEvent{}
+	ev := new(PersistableEvent)
 	key := ev.Bytes()
 	assert.Equal(t, key, ev.ObjectStorageKey(), "should be equal")
 }
 
 func TestPersistableEvent_ObjectStorageValue(t *testing.T) {
-	ev := &PersistableEvent{}
+	ev := new(PersistableEvent)
 	val := ev.ObjectStorageValue()
 	assert.Equal(t, ev.Bytes(), val, "should be equal")
 }
 
-func TestPersistableEvent_Update(t *testing.T) {
-	ev := &PersistableEvent{}
-	assert.Panics(t, func() {
-		ev.Update(nil)
-	}, "should have paniced")
-}
-
-func TestFromEventObjectStorage(t *testing.T) {
+func TestPersistableEvent_FromBytes(t *testing.T) {
 	ev := &PersistableEvent{
 		Type:          EventTypePledge,
 		NodeID:        identity.ID{},
@@ -56,8 +49,7 @@ func TestFromEventObjectStorage(t *testing.T) {
 		ManaType:      ConsensusMana,
 		TransactionID: ledgerstate.TransactionID{},
 	}
-	res, err := FromEventObjectStorage([]byte{}, ev.Bytes())
-	ev1 := res.(*PersistableEvent)
+	ev1, err := new(PersistableEvent).FromBytes(ev.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, ev.Bytes(), ev1.Bytes(), "should be equal")
 }

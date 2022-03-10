@@ -6,8 +6,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -507,7 +507,7 @@ func (b *Booker) bookPayload(message *Message) (branchIDs ledgerstate.BranchIDs,
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, forkedBranchID ledgerstate.BranchID) (err error) {
-	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker) {
+	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
 		if !messageMetadata.IsBooked() {
 			return
 		}
@@ -536,11 +536,11 @@ func (b *Booker) PropagateForkedBranch(transactionID ledgerstate.TransactionID, 
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
 func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID ledgerstate.BranchID) (err error) {
-	markerWalker := walker.New(false)
+	markerWalker := walker.New[*markers.Marker](false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
-		currentMarker := markerWalker.Next().(*markers.Marker)
+		currentMarker := markerWalker.Next()
 
 		if err = b.forkSingleMarker(currentMarker, branchID, markerWalker); err != nil {
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
@@ -553,7 +553,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID ledgerstate.BranchID, markerWalker *walker.Walker[*markers.Marker]) (err error) {
 	// update BranchID mapping
 	oldBranchIDs, err := b.MarkersManager.PendingBranchIDs(currentMarker)
 	if err != nil {

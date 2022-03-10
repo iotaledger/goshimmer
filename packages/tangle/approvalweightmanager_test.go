@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -66,7 +66,7 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
 	branchWeight.SetWeight(5.1234)
 
-	branchWeightFromBytes, _, err := BranchWeightFromBytes(branchWeight.Bytes())
+	branchWeightFromBytes, err := new(BranchWeight).FromBytes(branchWeight.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
@@ -81,7 +81,7 @@ func TestBranchVotersMarshalling(t *testing.T) {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 
-	branchVotersFromBytes, _, err := BranchVotersFromBytes(branchVoters.Bytes())
+	branchVotersFromBytes, err := new(BranchVoters).FromBytes(branchVoters.Bytes())
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters
@@ -829,9 +829,9 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		index := node.Key().(markers.Index)
-		seq := node.Value().(uint64)
+	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+		index := node.Key()
+		seq := node.Value()
 
 		_, exists := expectedVotes[index]
 		assert.Truef(t, exists, "%s:%d does not exist in latestMarkerVotes", index, seq)

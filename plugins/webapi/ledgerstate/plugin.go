@@ -148,7 +148,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 	cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
@@ -163,7 +163,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 
 // PostAddressUnspentOutputs is the handler for the /ledgerstate/addresses/unspentOutputs endpoint.
 func PostAddressUnspentOutputs(c echo.Context) error {
-	req := &jsonmodels.PostAddressesUnspentOutputsRequest{}
+	req := new(jsonmodels.PostAddressesUnspentOutputsRequest)
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -180,7 +180,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		UnspentOutputs: make([]*jsonmodels.WalletOutputsOnAddress, len(addresses)),
 	}
 	for i, addy := range addresses {
-		res.UnspentOutputs[i] = &jsonmodels.WalletOutputsOnAddress{}
+		res.UnspentOutputs[i] = new(jsonmodels.WalletOutputsOnAddress)
 		cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(addy)
 		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
@@ -188,7 +188,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+		for _, output := range ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				isUnspent = outputMetadata.ConsumerCount() == 0
 			})
@@ -480,7 +480,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
+	tx, err := new(ledgerstate.Transaction).FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}

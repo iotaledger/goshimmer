@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -151,18 +151,6 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	for _, branchID := range branches {
 		branchIDs[branchID] = types.Void
 	}
-
-	return
-}
-
-// BranchIDsFromBytes unmarshals a collection of BranchIDs from a sequence of bytes.
-func BranchIDsFromBytes(bytes []byte) (branchIDs BranchIDs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -330,7 +318,6 @@ type Branch struct {
 	conflictsMutex      sync.RWMutex
 	inclusionState      InclusionState
 	inclusionStateMutex sync.RWMutex
-
 	objectstorage.StorableObjectFlags
 }
 
@@ -348,21 +335,31 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 	return c
 }
 
-// BranchFromBytes unmarshals a Branch from a sequence of bytes.
-func BranchFromBytes(bytes []byte) (branch *Branch, consumedBytes int, err error) {
+// FromObjectStorage creates an Branch from sequences of key and bytes.
+func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals an Branch from a sequence of bytes.
+func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if branch, err = BranchFromMarshalUtil(marshalUtil); err != nil {
+	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// BranchFromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
-func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
-	branch = &Branch{}
+// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
+func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
+	if branch = b; b == nil {
+		branch = &Branch{}
+	}
 	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
@@ -380,13 +377,6 @@ func BranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch
 		return
 	}
 
-	return
-}
-
-// BranchFromObjectStorage is a factory method that creates a new Branch instance from a storage key of
-// the object storage. It is used by the object storage, to create new instances of this entity.
-func BranchFromObjectStorage(key, value []byte) (branch objectstorage.StorableObject, err error) {
-	branch, _, err = BranchFromBytes(byteutils.ConcatBytes(key, value))
 	return
 }
 
@@ -479,11 +469,6 @@ func (b *Branch) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (b *Branch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *Branch) ObjectStorageKey() []byte {
@@ -498,51 +483,6 @@ func (b *Branch) ObjectStorageValue() []byte {
 		Write(b.Conflicts()).
 		Write(b.InclusionState()).
 		Bytes()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedBranch /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
-// methods with a type-casted one.
-type CachedBranch struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedBranch) Retain() *CachedBranch {
-	return &CachedBranch{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedBranch) Unwrap() *Branch {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Branch)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedBranch) Consume(consumer func(branch *Branch), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Branch))
-	}, forceRelease...)
-}
-
-// String returns a human-readable version of the CachedBranch.
-func (c *CachedBranch) String() string {
-	return stringify.Struct("CachedBranch",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -570,38 +510,39 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	}
 }
 
-// ChildBranchFromBytes unmarshals a ChildBranch from a sequence of bytes.
-func ChildBranchFromBytes(bytes []byte) (childBranch *ChildBranch, consumedBytes int, err error) {
+// FromObjectStorage creates an ChildBranch from sequences of key and bytes.
+func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
+		return result, err
+	}
+	return result, err
+}
+
+// FromBytes unmarshals a ChildBranch from a sequence of bytes.
+func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if childBranch, err = ChildBranchFromMarshalUtil(marshalUtil); err != nil {
+	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ChildBranchFromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
-func ChildBranchFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	childBranch = &ChildBranch{}
+// FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
+func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
+	if childBranch = c; childBranch == nil {
+		childBranch = new(ChildBranch)
+	}
+
 	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
 		return
 	}
 	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// ChildBranchFromObjectStorage is a factory method that creates a new ChildBranch instance from a storage key of the
-// object storage. It is used by the object storage, to create new instances of this entity.
-func ChildBranchFromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ChildBranchFromBytes(byteutils.ConcatBytes(key, value)); err != nil {
-		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return
 	}
 
@@ -631,11 +572,6 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ChildBranch) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
@@ -652,108 +588,7 @@ func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &ChildBranch{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedChildBranch ////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedChildBranch is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedChildBranch struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedChildBranch) Retain() *CachedChildBranch {
-	return &CachedChildBranch{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedChildBranch) Unwrap() *ChildBranch {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*ChildBranch)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedChildBranch) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*ChildBranch))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedChildBranch.
-func (c *CachedChildBranch) String() string {
-	return stringify.Struct("CachedChildBranch",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedChildBranches //////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedChildBranches represents a collection of CachedChildBranch objects.
-type CachedChildBranches []*CachedChildBranch
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedChildBranches) Unwrap() (unwrappedChildBranches []*ChildBranch) {
-	unwrappedChildBranches = make([]*ChildBranch, len(c))
-	for i, cachedChildBranch := range c {
-		untypedObject := cachedChildBranch.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*ChildBranch)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedChildBranches[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedChildBranches) Consume(consumer func(childBranch *ChildBranch), forceRelease ...bool) (consumed bool) {
-	for _, cachedChildBranch := range c {
-		consumed = cachedChildBranch.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedChildBranches) Release(force ...bool) {
-	for _, cachedChildBranch := range c {
-		cachedChildBranch.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedChildBranches.
-func (c CachedChildBranches) String() string {
-	structBuilder := stringify.StructBuilder("CachedChildBranches")
-	for i, cachedChildBranch := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedChildBranch))
-	}
-
-	return structBuilder.String()
-}
+var _ objectstorage.StorableObject = new(ChildBranch)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -242,9 +242,8 @@ func TestSequence(t *testing.T) {
 	assert.Equal(t, Index(7), sequence.HighestIndex())
 
 	marshaledSequence := sequence.Bytes()
-	unmarshalledSequence, consumedBytes, err := SequenceFromBytes(marshaledSequence)
+	unmarshalledSequence, err := new(Sequence).FromBytes(marshaledSequence)
 	require.NoError(t, err)
-	assert.Equal(t, len(marshaledSequence), consumedBytes)
 	assert.Equal(t, sequence.ID(), unmarshalledSequence.ID())
 	assert.Equal(t, sequence.HighestIndex(), unmarshalledSequence.HighestIndex())
 }

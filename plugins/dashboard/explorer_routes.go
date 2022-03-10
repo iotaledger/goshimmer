@@ -72,7 +72,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
-	messageMetadata := cachedMessageMetadata.Unwrap()
+	messageMetadata, _ := cachedMessageMetadata.Unwrap()
 
 	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
 

@@ -12,8 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -435,14 +435,38 @@ func sortParents(parents MessageIDs) (sorted []MessageID) {
 	return
 }
 
-// MessageFromBytes parses the given bytes into a message.
-func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err error) {
+// FromObjectStorage parses the given key and bytes into a message.
+func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+
+	// parse the message
+	message, err := m.FromBytes(data)
+	if err != nil {
+		err = fmt.Errorf("failed to parse message from object storage: %w", err)
+		return
+	}
+
+	// parse the ID from they key
+	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
+		return
+	}
+	message.id = &id
+
+	// assign result
+	result = message
+
+	return
+}
+
+// FromBytes parses the given bytes into a message.
+func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageFromMarshalUtil(marshalUtil)
+	message, err = m.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
+	consumedBytes := marshalUtil.ReadOffset()
 
 	if len(bytes) != consumedBytes {
 		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
@@ -450,8 +474,8 @@ func MessageFromBytes(bytes []byte) (result *Message, consumedBytes int, err err
 	return
 }
 
-// MessageFromMarshalUtil parses a message from the given marshal util.
-func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
+// FromMarshalUtil parses a message from the given marshal util.
+func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
 	// determine read offset before starting to parse
 	readOffsetStart := marshalUtil.ReadOffset()
 
@@ -537,29 +561,6 @@ func MessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, err
 	msg.bytes = msgBytes
 
 	return msg, nil
-}
-
-// MessageFromObjectStorage restores a Message from the ObjectStorage.
-func MessageFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	// parse the message
-	message, err := MessageFromMarshalUtil(marshalutil.New(data))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message from object storage: %w", err)
-		return
-	}
-
-	// parse the ID from they key
-	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
-		return
-	}
-	message.id = &id
-
-	// assign result
-	result = message
-
-	return
 }
 
 // VerifySignature verifies the signature of the message.
@@ -730,12 +731,6 @@ func (m *Message) ObjectStorageValue() []byte {
 	return m.Bytes()
 }
 
-// Update updates the object with the values of another object.
-// Since a Message is immutable, this function is not implemented and panics.
-func (m *Message) Update(objectstorage.StorableObject) {
-	panic("messages should never be overwritten and only stored once to optimize IO")
-}
-
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
 	parents := sortParents(m.ParentsByType(StrongParentType))
@@ -770,6 +765,8 @@ func (m *Message) String() string {
 	builder.AddField(stringify.StructField("signature", m.Signature()))
 	return builder.String()
 }
+
+var _ objectstorage.StorableObject = new(Message)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -849,43 +846,6 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region CachedMessage ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedMessage defines a cached message.
-// A wrapper for a cached object.
-type CachedMessage struct {
-	objectstorage.CachedObject
-}
-
-// Retain registers a new consumer for the cached message.
-func (c *CachedMessage) Retain() *CachedMessage {
-	return &CachedMessage{c.CachedObject.Retain()}
-}
-
-// Consume consumes the cached object and releases it when the callback is done.
-// It returns true if the callback was called.
-func (c *CachedMessage) Consume(consumer func(message *Message)) bool {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Message))
-	})
-}
-
-// Unwrap returns the message wrapped by the cached message.
-// If the wrapped object cannot be cast to a Message or has been deleted, it returns nil.
-func (c *CachedMessage) Unwrap() *Message {
-	untypedMessage := c.Get()
-	if untypedMessage == nil {
-		return nil
-	}
-	typeCastedMessage := untypedMessage.(*Message)
-	if typeCastedMessage == nil || typeCastedMessage.IsDeleted() {
-		return nil
-	}
-	return typeCastedMessage
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region MessageMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageMetadata defines the metadata for a message.
@@ -935,64 +895,74 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	}
 }
 
-// MessageMetadataFromBytes unmarshals the given bytes into a MessageMetadata.
-func MessageMetadataFromBytes(bytes []byte) (result *MessageMetadata, consumedBytes int, err error) {
+// FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
+func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+	}
+	return result, err
+}
+
+// FromBytes unmarshals the given bytes into a MessageMetadata.
+func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	result, err = MessageMetadataFromMarshalUtil(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
+	result, err = m.FromMarshalUtil(marshalUtil)
 
 	return
 }
 
-// MessageMetadataFromMarshalUtil parses a Message from the given MarshalUtil.
-func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MessageMetadata, err error) {
-	result = &MessageMetadata{}
+// FromMarshalUtil parses a Message from the given MarshalUtil.
+func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
+	if messageMetadata = m; messageMetadata == nil {
+		messageMetadata = new(MessageMetadata)
+	}
 
-	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
-	if result.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
 		return
 	}
-	if result.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
-	if result.solid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
 		return
 	}
-	if result.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if result.addedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.addedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if result.subtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.subtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if result.scheduled, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.scheduled, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
-	if result.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
 		return
 	}
-	if result.booked, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
-	if result.bookedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.bookedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if result.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
@@ -1001,19 +971,9 @@ func MessageMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (resul
 		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
 		return
 	}
-	result.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if result.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+	messageMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if messageMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
-		return
-	}
-
-	return
-}
-
-// MessageMetadataFromObjectStorage restores a MessageMetadata object from the ObjectStorage.
-func MessageMetadataFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = MessageMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 		return
 	}
 
@@ -1382,12 +1342,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Update updates the message metadata.
-// This should never happen and will panic if attempted.
-func (m *MessageMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // String returns a human readable version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
@@ -1411,49 +1365,7 @@ func (m *MessageMetadata) String() string {
 	)
 }
 
-var _ objectstorage.StorableObject = &MessageMetadata{}
-
-// CachedMessageMetadata is a wrapper for stored cached object that represents a message metadata.
-type CachedMessageMetadata struct {
-	objectstorage.CachedObject
-}
-
-// ID returns the MessageID of the CachedMessageMetadata.
-func (c *CachedMessageMetadata) ID() (messageID MessageID) {
-	messageID, _, err := MessageIDFromBytes(c.Key())
-	if err != nil {
-		panic(err)
-	}
-
-	return
-}
-
-// Retain registers a new consumer for the cached message metadata.
-func (c *CachedMessageMetadata) Retain() *CachedMessageMetadata {
-	return &CachedMessageMetadata{c.CachedObject.Retain()}
-}
-
-// Unwrap returns the underlying stored message metadata wrapped by the CachedMessageMetadata.
-// If the stored object cannot be cast to MessageMetadata or is deleted, it returns nil.
-func (c *CachedMessageMetadata) Unwrap() *MessageMetadata {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-	typedObject := untypedObject.(*MessageMetadata)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedMessageMetadata) Consume(consumer func(messageMetadata *MessageMetadata), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*MessageMetadata))
-	}, forceRelease...)
-}
+var _ objectstorage.StorableObject = new(MessageMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

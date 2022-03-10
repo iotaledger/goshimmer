@@ -14,7 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/randommap"
+	"github.com/iotaledger/hive.go/generics/randommap"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -49,7 +50,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if msg, _, err := MessageFromBytes(messages[currentIndex]); err != nil {
+			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
 				msg.VerifySignature()
@@ -233,7 +234,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, tangle.Prune())
 
 	// map to keep track of the tips
-	tips := randommap.New()
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory
@@ -246,7 +247,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 			}
 			parents := NewMessageIDs()
 			for _, tip := range r {
-				parents.Add(tip.(MessageID))
+				parents.Add(tip)
 			}
 			return parents, nil
 		}),
@@ -315,7 +316,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { tangle.Storage.StoreMessage(messages[key.(MessageID)]) })
+	tips.ForEach(func(key MessageID, _ MessageID) { tangle.Storage.StoreMessage(messages[key]) })
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
@@ -382,7 +383,7 @@ func TestTangle_Flow(t *testing.T) {
 	require.NoError(t, err)
 
 	// map to keep track of the tips
-	tips := randommap.New()
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
@@ -406,7 +407,7 @@ func TestTangle_Flow(t *testing.T) {
 
 			parents := NewMessageIDs()
 			for _, tip := range r {
-				parents.Add(tip.(MessageID))
+				parents.Add(tip)
 			}
 			return parents, nil
 		}),
@@ -560,11 +561,11 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Setup()
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) {
-		if key.(MessageID) == EmptyMessageID {
+	tips.ForEach(func(key MessageID, _ MessageID) {
+		if key == EmptyMessageID {
 			return
 		}
-		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
+		inboxWP.TrySubmit(messages[key].Bytes(), localPeer)
 	})
 	// incoming invalid messages
 	for _, msg := range invalidmsgs {
