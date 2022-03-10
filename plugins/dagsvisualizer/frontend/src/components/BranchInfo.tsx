@@ -31,9 +31,6 @@ export class BranchInfo extends React.Component<Props, any> {
                             </Card.Title>
                             <ListGroup variant="flush">
                                 <ListGroup.Item>
-                                    Type: {selectedBranch.type}
-                                </ListGroup.Item>
-                                <ListGroup.Item>
                                     Parent:
                                     <ListGroup>
                                         {selectedBranch.parents ? (
@@ -62,8 +59,7 @@ export class BranchInfo extends React.Component<Props, any> {
                                 <ListGroup.Item>
                                     AW: {selectedBranch.aw}
                                 </ListGroup.Item>
-                                {selectedBranch.type === 'ConflictBranchType' &&
-                                    selectedBranch.conflicts && (
+                                {selectedBranch.conflicts && (
                                     <ListGroup.Item>
                                             Conflicts:
                                         {selectedBranch.conflicts.conflicts.map(

@@ -45,4 +45,4 @@ docker run --rm -it \
     -e YARN_CACHE_FOLDER=/tmp/ \
     -e HOME=/tmp/ \
     -w /tmp/mnt/ \
-    golang:1.16.2 bash -c "go get github.com/markbates/pkger/cmd/pkger && pkger"
+    golang:1.18-rc bash -c "go install github.com/markbates/pkger/cmd/pkger@latest && pkger"

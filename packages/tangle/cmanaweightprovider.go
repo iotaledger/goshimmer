@@ -9,7 +9,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/set"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -210,7 +210,7 @@ func timeToUnixGranularity(t time.Time) int64 {
 // ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	setTimes set.Set
+	setTimes set.Set[int64]
 	times    *minHeap
 }
 
@@ -219,7 +219,7 @@ func NewActivityLog() *ActivityLog {
 	var mh minHeap
 
 	a := &ActivityLog{
-		setTimes: set.New(),
+		setTimes: set.New[int64](),
 		times:    &mh,
 	}
 	heap.Init(a.times)

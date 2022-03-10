@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -23,7 +23,7 @@ import (
 type Manager struct {
 	Options *ManagerOptions
 
-	sequenceStore          *objectstorage.ObjectStorage
+	sequenceStore          *objectstorage.ObjectStorage[*Sequence]
 	sequenceIDCounter      SequenceID
 	sequenceIDCounterMutex sync.Mutex
 	shutdownOnce           sync.Once
@@ -188,8 +188,8 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 }
 
 // Sequence retrieves a Sequence from the object storage.
-func (m *Manager) Sequence(sequenceID SequenceID) *CachedSequence {
-	return &CachedSequence{CachedObject: m.sequenceStore.Load(sequenceID.Bytes())}
+func (m *Manager) Sequence(sequenceID SequenceID) *objectstorage.CachedObject[*Sequence] {
+	return m.sequenceStore.Load(sequenceID.Bytes())
 }
 
 // Shutdown shuts down the Manager and persists its state.
@@ -221,7 +221,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 
 // initObjectStorage sets up the object storage for the Sequences.
 func (m *Manager) initObjectStorage() (self *Manager) {
-	m.sequenceStore = objectstorage.NewFactory(m.Options.Store, database.PrefixMarkers).New(0, SequenceFromObjectStorage, objectstorage.CacheTime(m.Options.CacheTime))
+	m.sequenceStore = objectstorage.New[*Sequence](m.Options.Store.WithRealm([]byte{database.PrefixMarkers}), objectstorage.CacheTime(m.Options.CacheTime))
 
 	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()
@@ -263,7 +263,7 @@ func (m *Manager) mergeParentStructureDetails(referencedStructureDetails []*Stru
 func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers) {
 	normalizedMarkers = markers.Clone()
 
-	normalizeWalker := walker.New()
+	normalizeWalker := walker.New[*Marker]()
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		normalizeWalker.Push(NewMarker(sequenceID, index))
 
@@ -272,7 +272,7 @@ func (m *Manager) normalizeMarkers(markers *Markers) (normalizedMarkers *Markers
 
 	seenMarkers := NewMarkers()
 	for i := 0; normalizeWalker.HasNext(); i++ {
-		currentMarker := normalizeWalker.Next().(*Marker)
+		currentMarker := normalizeWalker.Next()
 
 		if i >= markers.Size() {
 			if added, updated := seenMarkers.Set(currentMarker.SequenceID(), currentMarker.Index()); !added && !updated {
@@ -335,7 +335,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 	newSequence := NewSequence(m.sequenceIDCounter, structureDetails.PastMarkers)
 	m.sequenceIDCounterMutex.Unlock()
 
-	(&CachedSequence{CachedObject: m.sequenceStore.Store(newSequence)}).Release()
+	m.sequenceStore.Store(newSequence).Release()
 
 	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
 
@@ -348,7 +348,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 // the earlier Markers. If requireBiggerMarkers is false then a Marker with an equal Index is considered to be a valid
 // reference.
 func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarkers *Markers, requireBiggerMarkers bool) (result bool) {
-	referenceWalker := walker.New()
+	referenceWalker := walker.New[*Marker]()
 	laterMarkers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		referenceWalker.Push(NewMarker(sequenceID, index))
 		return true
@@ -356,7 +356,7 @@ func (m *Manager) laterMarkersReferenceEarlierMarkers(laterMarkers, earlierMarke
 
 	seenMarkers := NewMarkers()
 	for i := 0; referenceWalker.HasNext(); i++ {
-		laterMarker := referenceWalker.Next().(*Marker)
+		laterMarker := referenceWalker.Next()
 		if added, updated := seenMarkers.Set(laterMarker.SequenceID(), laterMarker.Index()); !added && !updated {
 			continue
 		}

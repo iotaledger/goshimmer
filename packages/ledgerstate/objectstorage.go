@@ -3,9 +3,9 @@ package ledgerstate
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 
-	"github.com/iotaledger/hive.go/objectstorage"
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 const (
@@ -124,6 +124,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
+		objectstorage.WithObjectFactory(OutputFromObjectStorage),
 	}
 
 	options.outputMetadataStorageOptions = []objectstorage.Option{

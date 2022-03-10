@@ -166,43 +166,43 @@ func DecodeMsg(data []byte, expectedFlags uint8) (interface{}, error) {
 
 	switch msgType {
 	case msgTypeChunk:
-		ret = &MsgChunk{}
+		ret = new(MsgChunk)
 
 	case msgTypePostTransaction:
-		ret = &MsgPostTransaction{}
+		ret = new(MsgPostTransaction)
 
 	case msgTypeSubscribe:
-		ret = &MsgUpdateSubscriptions{}
+		ret = new(MsgUpdateSubscriptions)
 
 	case msgTypeGetConfirmedTransaction:
-		ret = &MsgGetConfirmedTransaction{}
+		ret = new(MsgGetConfirmedTransaction)
 
 	case msgTypeGetTxInclusionState:
-		ret = &MsgGetTxInclusionState{}
+		ret = new(MsgGetTxInclusionState)
 
 	case msgTypeGetBacklog:
-		ret = &MsgGetBacklog{}
+		ret = new(MsgGetBacklog)
 
 	case msgTypeSetID:
-		ret = &MsgSetID{}
+		ret = new(MsgSetID)
 
 	case msgTypeTransaction:
-		ret = &MsgTransaction{}
+		ret = new(MsgTransaction)
 
 	case msgTypeTxGoF:
-		ret = &MsgTxGoF{}
+		ret = new(MsgTxGoF)
 
 	case msgTypeGetConfirmedOutput:
-		ret = &MsgGetConfirmedOutput{}
+		ret = new(MsgGetConfirmedOutput)
 
 	case msgTypeGetUnspentAliasOutput:
-		ret = &MsgGetUnspentAliasOutput{}
+		ret = new(MsgGetUnspentAliasOutput)
 
 	case msgTypeOutput:
-		ret = &MsgOutput{}
+		ret = new(MsgOutput)
 
 	case msgTypeUnspentAliasOutput:
-		ret = &MsgUnspentAliasOutput{}
+		ret = new(MsgUnspentAliasOutput)
 
 	default:
 		return nil, fmt.Errorf("unknown message type %d", msgType)
@@ -219,7 +219,7 @@ func (msg *MsgPostTransaction) Write(w *marshalutil.MarshalUtil) {
 
 func (msg *MsgPostTransaction) Read(m *marshalutil.MarshalUtil) error {
 	var err error
-	if msg.Tx, err = ledgerstate.TransactionFromMarshalUtil(m); err != nil {
+	if msg.Tx, err = new(ledgerstate.Transaction).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return nil
@@ -346,7 +346,7 @@ func (msg *MsgTransaction) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Address, err = ledgerstate.AddressFromMarshalUtil(m); err != nil {
 		return err
 	}
-	if msg.Tx, err = ledgerstate.TransactionFromMarshalUtil(m); err != nil {
+	if msg.Tx, err = new(ledgerstate.Transaction).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return nil
@@ -435,7 +435,7 @@ func (msg *MsgOutput) Read(m *marshalutil.MarshalUtil) error {
 		return err
 	}
 	msg.Output.SetID(id)
-	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+	if msg.OutputMetadata, err = new(ledgerstate.OutputMetadata).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return err
@@ -459,7 +459,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.AliasAddress, err = ledgerstate.AliasAddressFromMarshalUtil(m); err != nil {
 		return err
 	}
-	if msg.AliasOutput, err = ledgerstate.AliasOutputFromMarshalUtil(m); err != nil {
+	if msg.AliasOutput, err = new(ledgerstate.AliasOutput).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	id, err := ledgerstate.OutputIDFromMarshalUtil(m)
@@ -470,7 +470,7 @@ func (msg *MsgUnspentAliasOutput) Read(m *marshalutil.MarshalUtil) error {
 	if msg.Timestamp, err = m.ReadTime(); err != nil {
 		return err
 	}
-	if msg.OutputMetadata, err = ledgerstate.OutputMetadataFromMarshalUtil(m); err != nil {
+	if msg.OutputMetadata, err = new(ledgerstate.OutputMetadata).FromMarshalUtil(m); err != nil {
 		return err
 	}
 	return err

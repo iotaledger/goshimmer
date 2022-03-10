@@ -30,7 +30,7 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -42,28 +42,6 @@ func runDiagnosticBranches(c echo.Context) {
 			}
 			c.Response().Flush()
 		}
-	})
-
-	c.Response().Flush()
-}
-
-func runDiagnosticChildBranches(c echo.Context, branchID ledgerstate.BranchID) {
-	// write Header and table description
-	c.Response().Header().Set(echo.HeaderContentType, "text/csv")
-	c.Response().WriteHeader(http.StatusOK)
-
-	_, err := fmt.Fprintln(c.Response(), strings.Join(DiagnosticBranchesTableDescription, ","))
-	if err != nil {
-		panic(err)
-	}
-
-	deps.Tangle.LedgerState.BranchDAG.ChildBranches(branchID).Consume(func(childBranch *ledgerstate.ChildBranch) {
-		conflictInfo := getDiagnosticConflictsInfo(childBranch.ChildBranchID())
-		_, err = fmt.Fprintln(c.Response(), conflictInfo.toCSV())
-		if err != nil {
-			panic(err)
-		}
-		c.Response().Flush()
 	})
 
 	c.Response().Flush()
@@ -94,12 +72,8 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
-
-		if branch.Type() == ledgerstate.AggregatedBranchType {
-			return
-		}
 
 		transactionID := ledgerstate.TransactionID(branchID)
 

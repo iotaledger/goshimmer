@@ -1,3 +1,19 @@
+# v0.8.9 - 2022-03-04
+
+> This release introduces a critical bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-03-02 20:30 UTC.
+- CRITICAL Fix: HandleMarker Confirmation (#2090)
+
+# v0.8.8 - 2022-03-01
+
+> This release introduces a major bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-02-26 19:30 CET.
+- Remove booker & issuance locks (#2084)
+- Build(deps): bump url-parse from 1.5.7 to 1.5.10 in /plugins/dashboard/frontend (#2081)
+- Add issuerID to remote metrics (#2042)
+
 # v0.8.7 - 2022-02-24
 
 > This release introduces several small bug fixes and improvements.

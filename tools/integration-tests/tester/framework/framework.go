@@ -13,8 +13,14 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/mr-tron/base58"
+
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+
+	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
 
 var (
@@ -60,8 +66,23 @@ func newFramework(ctx context.Context) (*Framework, error) {
 	return f, nil
 }
 
-// CfgAlterFunc is a function called with the given peer's index and its configuration
-type CfgAlterFunc func(peerIndex int, cfg config.GoShimmer) config.GoShimmer
+// CfgAlterFunc is a function that alters the configuration for a given peer. To identify the peer the function gets
+// called with the peer's index and its the master peer status. It should returned an updated config for the peer.
+type CfgAlterFunc func(peerIndex int, isPeerMaster bool, cfg config.GoShimmer) config.GoShimmer
+
+// SnapshotInfo stores the details about snapshots created for integration tests
+type SnapshotInfo struct {
+	// FilePath defines the file path of the snapshot, if specified, the snapshot will not be generated.
+	FilePath string
+	// MasterSeed is the seed of the PeerMaster node where the genesis pledge goes to.
+	MasterSeed string
+	// GenesisTokenAmount is the amount of tokens left on the Genesis, pledged to Peer Master.
+	GenesisTokenAmount uint64
+	// PeerSeedBase58 is a slice of Seeds encoded in Base58, one entry per peer.
+	PeersSeedBase58 []string
+	// PeersAmountsPledges is a slice of amounts to be pledged to the peers, one entry per peer.
+	PeersAmountsPledged []uint64
+}
 
 // CreateNetwork creates and returns a network that contains numPeers GoShimmer peers.
 // It blocks until all peers are connected.
@@ -77,11 +98,15 @@ func (f *Framework) CreateNetwork(ctx context.Context, name string, numPeers int
 	return network, err
 }
 
-func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, name string, numPeers int,
-	conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
+func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, name string, numPeers int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
 	network, err := NewNetwork(ctx, f.docker, name, f.tester)
 	if err != nil {
 		return nil, err
+	}
+
+	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	if errCreateSnapshots != nil {
+		return nil, errors.Wrap(errCreateSnapshots, "failed to create snapshot")
 	}
 
 	// an entry node is only required for autopeering
@@ -94,6 +119,13 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create peers")
+	}
+
+	// wrap peers with socat containers
+	for i, peer := range network.peers {
+		if _, err = network.createSocatContainer(ctx, peer, i); err != nil {
+			return nil, errors.Wrap(err, "failed to create socat container")
+		}
 	}
 
 	// wait for peering to complete
@@ -111,6 +143,53 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
+func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
+	for _, snapshotInfo := range snapshotInfos {
+		nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
+		if err != nil {
+			return err
+		}
+
+		_, err = snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0,
+			nodesToPledgeMap, snapshotInfo.FilePath)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
+// createPledgeMap will create a pledge map according to snapshotInfo
+func createPledgeMap(snapshotInfo SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
+	numOfPeers := len(snapshotInfo.PeersSeedBase58)
+	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfPeers)
+	if snapshotInfo.MasterSeed != "" {
+		masterSeedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
+		if err != nil {
+			return nil, err
+		}
+		publicKey := ed25519.PrivateKeyFromSeed(masterSeedBytes).Public()
+		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
+			Genesis: true,
+		}
+	}
+
+	for i := 0; i < numOfPeers; i++ {
+		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[i])
+		if err != nil {
+			return nil, err
+		}
+		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
+
+		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
+			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
+			Amount:  snapshotInfo.PeersAmountsPledged[i],
+		}
+	}
+
+	return nodesToPledge, nil
+}
+
 // CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes
 // distributed over numPartitions partitions. It blocks until all peers are connected.
 func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string, numPeers, numPartitions int, conf CreateNetworkConfig, cfgAlterFunc ...CfgAlterFunc) (*Network, error) {
@@ -121,6 +200,12 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 
 	// make sure that autopeering is on
 	conf.Autopeering = true
+
+	// Create Snapshots defined in the networkc configuration.
+	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	if errCreateSnapshots != nil {
+		return nil, errCreateSnapshots
+	}
 
 	// create an entry node with blocked traffic
 	log.Println("Starting entry node...")
@@ -137,6 +222,12 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 
 	if err = network.createPeers(ctx, numPeers, conf, cfgAlterFunc...); err != nil {
 		return nil, err
+	}
+	// wrap peers with socat containers
+	for i, peer := range network.peers {
+		if _, err = network.createSocatContainer(ctx, peer, i); err != nil {
+			return nil, errors.Wrap(err, "failed to create socat container")
+		}
 	}
 
 	log.Printf("Creating %d partitions for %d peers...", numPartitions, numPeers)

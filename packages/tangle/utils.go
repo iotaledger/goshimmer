@@ -5,10 +5,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/hive.go/typeutils"
-
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -36,18 +34,18 @@ func NewUtils(tangle *Tangle) (utils *Utils) {
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
+func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
 	if len(entryPoints) == 0 {
 		return
 	}
 
-	messageIDWalker := walker.New(revisitElements...)
-	for _, messageID := range entryPoints {
+	messageIDWalker := walker.New[MessageID](revisitElements...)
+	for messageID := range entryPoints {
 		messageIDWalker.Push(messageID)
 	}
 
 	for messageIDWalker.HasNext() {
-		callback(messageIDWalker.Next().(MessageID), messageIDWalker)
+		callback(messageIDWalker.Next(), messageIDWalker)
 	}
 }
 
@@ -55,8 +53,8 @@ func (u *Utils) WalkMessageID(callback func(messageID MessageID, walker *walker.
 // the given entry points. It accepts an optional boolean parameter which can be set to true if a Message should be
 // visited more than once following different paths. The callback receives a Walker object as the last parameter which
 // can be used to control the behavior of the walk similar to how a "Context" is used in some parts of the stdlib.
-func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
+func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			callback(message, walker)
 		})
@@ -68,8 +66,8 @@ func (u *Utils) WalkMessage(callback func(message *Message, walker *walker.Walke
 // should be visited more than once following different paths. The callback receives a Walker object as the last
 // parameter which can be used to control the behavior of the walk similar to how a "Context" is used in some parts of
 // the stdlib.
-func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
+func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			callback(messageMetadata, walker)
 		})
@@ -81,8 +79,8 @@ func (u *Utils) WalkMessageMetadata(callback func(messageMetadata *MessageMetada
 // true if a Message should be visited more than once following different paths. The callback receives a Walker object
 // as the last parameter which can be used to control the behavior of the walk similar to how a "Context" is used in
 // some parts of the stdlib.
-func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker), entryPoints MessageIDsSlice, revisitElements ...bool) {
-	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
+func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]), entryPoints MessageIDs, revisitElements ...bool) {
+	u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				callback(message, messageMetadata, walker)
@@ -97,10 +95,10 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 
 // AllTransactionsApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
 // or indirectly approved by the given Message.
-func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs ...MessageID) (approved bool) {
+func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs MessageIDs) (approved bool) {
 	transactionIDs = transactionIDs.Clone()
 
-	for _, messageID := range messageIDs {
+	for messageID := range messageIDs {
 		for transactionID := range transactionIDs {
 			if u.TransactionApprovedByMessage(transactionID, messageID) {
 				delete(transactionIDs, transactionID)
@@ -115,39 +113,43 @@ func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.Tra
 // indirectly approved by the given Message.
 func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
 	attachmentMessageIDs := u.tangle.Storage.AttachmentMessageIDs(transactionID)
-	for i := range attachmentMessageIDs {
-		if attachmentMessageIDs[i] == messageID {
+	for attachmentMessageID := range attachmentMessageIDs {
+		if attachmentMessageID == messageID {
 			return true
 		}
 
 		var attachmentBooked bool
-		u.tangle.Storage.MessageMetadata(attachmentMessageIDs[i]).Consume(func(attachmentMetadata *MessageMetadata) {
+		u.tangle.Storage.MessageMetadata(attachmentMessageID).Consume(func(attachmentMetadata *MessageMetadata) {
 			attachmentBooked = attachmentMetadata.IsBooked()
 		})
 		if !attachmentBooked {
 			continue
 		}
 
-		bookedParents := make(MessageIDsSlice, 0)
+		bookedParents := NewMessageIDs()
 
 		u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDsSlice {
+			var tmpParents MessageIDs
+			approved, tmpParents = u.checkBookedParents(message, attachmentMessageID, func(message *Message) MessageIDs {
 				return message.ParentsByType(WeakParentType)
-			}, nil)
+			})
+			bookedParents.AddAll(tmpParents)
 			if approved {
 				return
 			}
-			approved = u.checkBookedParents(message, &attachmentMessageIDs[i], func(message *Message) MessageIDsSlice {
+
+			approved, tmpParents = u.checkBookedParents(message, attachmentMessageID, func(message *Message) MessageIDs {
 				return message.ParentsByType(StrongParentType)
-			}, &bookedParents)
+			})
+			bookedParents.AddAll(tmpParents)
 		})
 		if approved {
 			return
 		}
 
 		// Only now check all parents.
-		for _, bookedParent := range bookedParents {
-			if u.MessageApprovedBy(attachmentMessageIDs[i], bookedParent) {
+		for bookedParent := range bookedParents {
+			if u.MessageApprovedBy(attachmentMessageID, bookedParent) {
 				approved = true
 				return
 			}
@@ -161,8 +163,10 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 }
 
 // checkBookedParents check if message parents are booked and add then to bookedParents. If we find attachmentMessageId in the parents we stop and return true.
-func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *MessageID, getParents func(*Message) MessageIDsSlice, bookedParents *MessageIDsSlice) bool {
-	for _, parentID := range getParents(message) {
+func (u *Utils) checkBookedParents(message *Message, attachmentMessageID MessageID, getParents func(*Message) MessageIDs) (bool, MessageIDs) {
+	bookedParents := NewMessageIDs()
+
+	for parentID := range getParents(message) {
 		var parentBooked bool
 		u.tangle.Storage.MessageMetadata(parentID).Consume(func(parentMetadata *MessageMetadata) {
 			parentBooked = parentMetadata.IsBooked()
@@ -172,15 +176,13 @@ func (u *Utils) checkBookedParents(message *Message, attachmentMessageID *Messag
 		}
 
 		// First check all of the parents to avoid unnecessary checks and possible walking.
-		if *attachmentMessageID == parentID {
-			return true
+		if attachmentMessageID == parentID {
+			return true, bookedParents
 		}
 
-		if !typeutils.IsInterfaceNil(bookedParents) {
-			*bookedParents = append(*bookedParents, parentID)
-		}
+		bookedParents.Add(parentID)
 	}
-	return false
+	return false, bookedParents
 }
 
 // MessageApprovedBy checks if the Message given by approvedMessageID is directly or indirectly approved by the
@@ -192,21 +194,27 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 	cachedWeakApprovers := u.tangle.Storage.Approvers(approvedMessageID, WeakApprover)
 	defer cachedWeakApprovers.Release()
+	cachedShallowLikeApprovers := u.tangle.Storage.Approvers(approvedMessageID, ShallowLikeApprover)
+	defer cachedShallowLikeApprovers.Release()
+	cachedShallowDislikeApprovers := u.tangle.Storage.Approvers(approvedMessageID, ShallowDislikeApprover)
+	defer cachedShallowDislikeApprovers.Release()
 
-	for _, weakApprover := range cachedWeakApprovers.Unwrap() {
-		if weakApprover == nil {
+	indirectApprovers := append(cachedWeakApprovers.Unwrap(), append(cachedShallowLikeApprovers.Unwrap(), cachedShallowDislikeApprovers.Unwrap()...)...)
+
+	for _, indirectApprover := range indirectApprovers {
+		if indirectApprover == nil {
 			continue
 		}
 
-		var weakApproverBooked bool
-		u.tangle.Storage.MessageMetadata(weakApprover.ApproverMessageID()).Consume(func(weakApproverMetadata *MessageMetadata) {
-			weakApproverBooked = weakApproverMetadata.IsBooked()
+		var indirectApproverBooked bool
+		u.tangle.Storage.MessageMetadata(indirectApprover.ApproverMessageID()).Consume(func(indirectApproverMetadata *MessageMetadata) {
+			indirectApproverBooked = indirectApproverMetadata.IsBooked()
 		})
-		if !weakApproverBooked {
+		if !indirectApproverBooked {
 			continue
 		}
 
-		if u.messageStronglyApprovedBy(weakApprover.ApproverMessageID(), approvingMessageID) {
+		if u.messageStronglyApprovedBy(indirectApprover.ApproverMessageID(), approvingMessageID) {
 			return true
 		}
 	}
@@ -216,10 +224,10 @@ func (u *Utils) MessageApprovedBy(approvedMessageID MessageID, approvingMessageI
 
 // ApprovingMessageIDs returns the MessageIDs that approve a given Message. It accepts an optional ApproverType to
 // filter the Approvers.
-func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDsSlice) {
-	approvingMessageIDs = make(MessageIDsSlice, 0)
+func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ...ApproverType) (approvingMessageIDs MessageIDs) {
+	approvingMessageIDs = NewMessageIDs()
 	u.tangle.Storage.Approvers(messageID, optionalApproverType...).Consume(func(approver *Approver) {
-		approvingMessageIDs = append(approvingMessageIDs, approver.ApproverMessageID())
+		approvingMessageIDs.Add(approver.ApproverMessageID())
 	})
 
 	return
@@ -265,7 +273,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 	case types.False:
 		stronglyApproved = false
 	case types.Maybe:
-		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker) {
+		u.WalkMessageID(func(messageID MessageID, walker *walker.Walker[MessageID]) {
 			if messageID == approvingMessageID {
 				stronglyApproved = true
 				walker.StopWalk()
@@ -274,7 +282,7 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 
 			u.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				if structureDetails := messageMetadata.StructureDetails(); structureDetails != nil && !structureDetails.IsPastMarker {
-					for _, approvingMessageID := range u.tangle.Utils.ApprovingMessageIDs(messageID, StrongApprover) {
+					for approvingMessageID := range u.tangle.Utils.ApprovingMessageIDs(messageID, StrongApprover) {
 						walker.Push(approvingMessageID)
 					}
 				}

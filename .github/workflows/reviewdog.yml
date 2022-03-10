@@ -14,12 +14,12 @@ jobs:
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v1
         with:
-          go-version: "^1.16.2"
+          go-version: "1.18"
 
       - name: Run golangci-lint
-        uses: reviewdog/action-golangci-lint@c9fac889cce0d374dc2700eb2bd28987d443fdf9
+        uses: docker://reviewdog/action-golangci-lint:latest
         with:
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"

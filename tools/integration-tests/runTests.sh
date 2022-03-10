@@ -12,6 +12,7 @@ echo "Pull additional Docker images"
 docker pull angelocapossele/drand:v1.1.4
 docker pull gaiaadm/pumba:0.7.2
 docker pull gaiadocker/iproute2:latest
+docker pull alpine/socat:1.7.4.3-r0
 
 echo "Run integration tests"
 

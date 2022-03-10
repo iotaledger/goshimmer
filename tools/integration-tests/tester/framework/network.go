@@ -24,8 +24,9 @@ type Network struct {
 	Id   string
 	name string
 
-	docker *client.Client
-	tester *DockerContainer
+	docker          *client.Client
+	tester          *DockerContainer
+	socatContainers []*DockerContainer
 
 	entryNode *Node
 	peers     []*Node
@@ -205,6 +206,18 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		return err
 	}
 
+	// stop all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			err := container.Kill(ctx, "SIGTERM")
+			return err
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
 	// delete all partitions
 	if err := n.DeletePartitions(ctx); err != nil {
 		return err
@@ -222,6 +235,17 @@ func (n *Network) Shutdown(ctx context.Context) error {
 		peer := peer // capture range variable
 		eg.Go(func() error {
 			return peer.Remove(ctx)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	// remove all socat containers in parallel.
+	for _, sc := range n.socatContainers {
+		container := sc // capture range variable
+		eg.Go(func() error {
+			return container.Remove(ctx)
 		})
 	}
 	if err := eg.Wait(); err != nil {
@@ -261,7 +285,7 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 		nodeSeed = walletseed.NewSeed(conf.Seed)
 	}
 	if conf.Faucet.Enabled {
-		nodeSeed = walletseed.NewSeed(GenesisSeed)
+		nodeSeed = walletseed.NewSeed(GenesisSeedBytes)
 	}
 
 	// create Docker container
@@ -278,6 +302,35 @@ func (n *Network) createNode(ctx context.Context, name string, conf config.GoShi
 		return nil, err
 	}
 	return node, nil
+}
+
+// creates socat container to access node's ports while debugging
+func (n *Network) createSocatContainer(ctx context.Context, targetNode *Node, containerNum int) (*DockerContainer, error) {
+	offset := 100 * containerNum
+
+	container := NewDockerContainer(n.docker)
+
+	portMapping := make(map[int]config.GoShimmerPort, len(config.GoShimmerPorts))
+	for _, port := range config.GoShimmerPorts {
+		portMapping[int(port)+offset] = port
+	}
+
+	err := container.createSocatContainer(ctx, "socat_"+targetNode.Name(), targetNode.Name(), portMapping)
+	if err != nil {
+		return nil, err
+	}
+	if err := container.ConnectToNetwork(ctx, n.Id); err != nil {
+		return nil, err
+	}
+
+	err = container.Start(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	n.socatContainers = append(n.socatContainers, container)
+
+	return container, err
 }
 
 // createPumba creates and starts a Pumba Docker container.
@@ -326,25 +379,27 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		conf.Activity.Enabled = true
 	}
 
-	// the first peer is the master peer, it uses a special conf
-	masterConfig := conf
-	masterConfig.Seed = MasterSeed
-	if networkConfig.Faucet {
-		masterConfig.Faucet.Enabled = true
-	}
+	// the first peer is the peer master, it uses a special conf
+	if networkConfig.PeerMaster {
+		masterConfig := conf
+		if networkConfig.Faucet {
+			masterConfig.Faucet.Enabled = true
+		}
 
-	if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-		masterConfig = cfgAlterFunc[0](0, masterConfig)
-	}
-
-	log.Printf("Starting %d peers...", numPeers)
-	if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
-		return err
-	}
-
-	for i := 1; i < numPeers; i++ {
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
-			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, conf)); err != nil {
+			masterConfig = cfgAlterFunc[0](0, true, masterConfig)
+		}
+		log.Printf("Starting peer master...")
+		if _, err := n.CreatePeer(ctx, masterConfig); err != nil {
+			return err
+		}
+		// peer master counts as peer
+		numPeers--
+	}
+	log.Printf("Starting %d peers...", numPeers)
+	for i := 0; i < numPeers; i++ {
+		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
+			if _, err := n.CreatePeer(ctx, cfgAlterFunc[0](i, false, conf)); err != nil {
 				return err
 			}
 			continue

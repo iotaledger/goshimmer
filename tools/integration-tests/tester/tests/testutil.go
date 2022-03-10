@@ -41,82 +41,62 @@ const (
 	FaucetFundingOutputsAddrStart = 127
 )
 
-// SnapshotInfo stores the details about snapshots created for integration tests
-type SnapshotInfo struct {
-	FilePath            string
-	PeersSeedBase58     []string
-	PeersAmountsPledged []int
-	GenesisTokenAmount  int // pledged to peer master
-}
-
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = &SnapshotInfo{
-	FilePath: "/assets/equal_intgr_snapshot.bin",
-	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+var EqualSnapshotDetails = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/equal_snapshot.bin",
+	// node ID: dAnF7pQ6k7a
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+	GenesisTokenAmount: 2_500_000_000_000_000, // pledged to peer master
+	// peer IDs: H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
-		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
 	},
-	PeersAmountsPledged: []int{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
-	GenesisTokenAmount:  2500000000000000,
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
-var ConsensusSnapshotDetails = &SnapshotInfo{
-	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
-	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
+var ConsensusSnapshotDetails = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	// node ID: 4AeXyZ26e4G
+	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	GenesisTokenAmount: 800_000, // pledged to peer master
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
-		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	},
-	PeersAmountsPledged: []int{1600000, 800000, 800000},
-	GenesisTokenAmount:  800000, // pledged to peer master
-
+	PeersAmountsPledged: []uint64{1_600_000, 800_000},
 }
 
-// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
-func getIdentSeeds(t *testing.T) [][]byte {
-	peerSeeds := make([][]byte, 4)
-	peerSeeds[0] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[1] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[2] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[3] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	return peerSeeds
+// GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
+func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) []byte {
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+	require.NoError(t, err)
+	return seedBytes
 }
 
-// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
-		peerSeeds := getIdentSeeds(t)
-		offset := 0
-		if skipFirst {
-			offset += 1
+// CommonSnapshotConfigFunc returns a peer configuration altering function that uses the specified Snapshot information for all peers.
+// If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
+func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
+	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+		conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		if isPeerMaster {
+			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
+			require.NoError(t, err)
+			conf.Seed = seedBytes
+			return conf
 		}
-		i := peerIndex + offset
-		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
-		cfg.Seed = peerSeeds[i]
 
-		return cfg
+		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
+		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
+
+		if len(cfgFunc) > 0 {
+			conf = cfgFunc[0](peerIndex, isPeerMaster, conf)
+		}
+
+		return conf
 	}
 }
 
