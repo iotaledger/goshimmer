@@ -34,7 +34,7 @@ type Wallets struct {
 func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:      make(map[WalletType][]*Wallet),
-		lastWalletID: *atomic.NewInt64(0),
+		lastWalletID: *atomic.NewInt64(-1),
 	}
 }
 
@@ -47,8 +47,11 @@ func (w *Wallets) NewWallet(wType WalletType) *Wallet {
 	return wallet
 }
 
-func (w *Wallets) GetWallet(wType WalletType) (wallet *Wallet) {
-	return w.wallets[wType][0]
+func (w *Wallets) GetWallet(walletType WalletType, walletID int) *Wallet {
+	if len(w.wallets[walletType]) > walletID {
+		return w.wallets[walletType][walletID]
+	}
+	return nil
 }
 
 func (w *Wallets) GetWallets(wType WalletType, num int) (wallets []*Wallet) {
@@ -132,24 +135,12 @@ func NewWallet(wType WalletType) *Wallet {
 
 // Address returns a new and unused address of a given wallet.
 func (w *Wallet) Address() address.Address {
-	w.lastAddrIdxUsed.Add(1)
-	index := uint64(w.lastAddrIdxUsed.Load())
+	index := uint64(w.lastAddrIdxUsed.Add(1))
 	addr := w.seed.Address(index)
 	w.indexAddrMap[index] = addr.Base58()
 	w.addrIndexMap[addr.Base58()] = index
 
 	return addr
-}
-
-// AddressIndex returns a new and unused address of a given wallet along with address index.
-func (w *Wallet) AddressIndex() (addr address.Address, index uint64) {
-	w.lastAddrIdxUsed.Add(1)
-	index = uint64(w.lastAddrIdxUsed.Load())
-	addr = w.seed.Address(index)
-	w.indexAddrMap[index] = addr.Base58()
-	w.addrIndexMap[addr.Base58()] = index
-
-	return
 }
 
 func (w *Wallet) UnspentOutput(addr string) *Output {
@@ -167,11 +158,11 @@ func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance *ledgerstate.ColoredBalances) {
+func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance *ledgerstate.ColoredBalances) *Output {
 	w.Lock()
 	defer w.Unlock()
 
-	w.unspentOutputs[addr.Base58()] = &Output{
+	out := &Output{
 		OutputID: outputID,
 		Address:  addr,
 		Index:    addrIdx,
@@ -179,6 +170,8 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 		Balance:  balance,
 		Status:   pending,
 	}
+	w.unspentOutputs[addr.Base58()] = out
+	return out
 }
 
 func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
@@ -205,11 +198,11 @@ func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBa
 	amount, _ := inputBalance.Get(ledgerstate.ColorIOTA)
 	outputBalances := SplitBalanceEqually(nOutputs, amount)
 	for i := 0; i < nOutputs; i++ {
-		addr, idx := w.AddressIndex()
+		addr := w.Address()
 		output := ledgerstate.NewSigLockedSingleOutput(outputBalances[i], addr.Address())
 		outputs = append(outputs, output)
 		// correct ID will be updated after txn confirmation
-		w.AddUnspentOutput(addr.Address(), idx, output.ID(), ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		w.AddUnspentOutput(addr.Address(), addr.Index, output.ID(), ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 			ledgerstate.ColorIOTA: outputBalances[i],
 		}))
 	}
@@ -227,10 +220,23 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()
 	if !ok {
-		return errors.Newf("could not find unspent output ander provided address in the wallet, outIdx:%d, addr: %s", outputID, addr)
+		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%d, addr: %s", outputID, addr)
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID
+	w.Unlock()
+	return nil
+}
+
+func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) error {
+	w.RLock()
+	walletOutput, ok := w.unspentOutputs[addr]
+	w.RUnlock()
+	if !ok {
+		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%d, addr: %s", addr)
+	}
+	w.Lock()
+	walletOutput.Status = status
 	w.Unlock()
 	return nil
 }

@@ -9,9 +9,9 @@ import (
 func TestDeepDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(custom)
+	wallet := evilwallet.NewWallet(fresh)
 
-	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
+	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
 	require.NoError(t, err)
 
 	err = evilwallet.SendCustomConflicts([]ConflictMap{

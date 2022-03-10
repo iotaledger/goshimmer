@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"fmt"
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"sync"
 	"time"
 
@@ -41,50 +42,114 @@ type Outputs []*Output
 type OutputManager struct {
 	connector Clients
 
-	status map[ledgerstate.OutputID]*Output
+	wallets           *Wallets
+	outputIDWalletMap map[ledgerstate.OutputID]*Wallet
+	outputIDAddrMap   map[ledgerstate.OutputID]string
 }
 
 // NewOutputManager creates an OutputManager instance.
-func NewOutputManager(connector Clients) *OutputManager {
+func NewOutputManager(connector Clients, wallets *Wallets) *OutputManager {
 	return &OutputManager{
-		connector: connector,
-		status:    make(map[ledgerstate.OutputID]*Output),
+		connector:         connector,
+		wallets:           wallets,
+		outputIDWalletMap: make(map[ledgerstate.OutputID]*Wallet),
+		outputIDAddrMap:   make(map[ledgerstate.OutputID]string),
 	}
 }
 
 // Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
 func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bool) {
 	wg := sync.WaitGroup{}
-
-	for _, ID := range outputIDs {
-		wg.Add(1)
-		go func(id ledgerstate.OutputID) {
-			defer wg.Done()
-			ok := o.AwaitOutputToBeConfirmed(id, awaitOutputToBeConfirmed)
-			if ok {
-				o.status[id].Status = confirmed
-			}
-		}(ID)
-	}
-	wg.Wait()
-
 	allConfirmed = true
 	for _, ID := range outputIDs {
-		if o.status[ID].Status != confirmed {
-			allConfirmed = false
-			return
-		}
+		wg.Add(1)
+		go func(id ledgerstate.OutputID, allConfirmed bool) {
+			defer wg.Done()
+			ok := o.AwaitOutputToBeConfirmed(id, awaitOutputToBeConfirmed)
+			if !ok {
+				allConfirmed = false
+				return
+			}
+			_ = o.UpdateOutputStatus(id, confirmed)
+		}(ID, allConfirmed)
 	}
 	return
 }
 
-// GetOutput returns the Output of the given outputID.
-func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
-	return o.status[outputID]
+// CreateEmptyOutput creates output without outputID, stores it in wallet w and return output instance.
+// OutputManager maps are not updated, as outputID is not known yet.
+func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance uint64) *Output {
+	addr := w.Address()
+	out := w.AddUnspentOutput(addr.Address(), addr.Index, ledgerstate.OutputID{}, balance)
+	return out
 }
 
-// AddOutputsByAddress finds the unspent outputs of a given address and add them to the output status map.
-func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
+// CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
+// Provided address should be generated from provided wallet. Considers only first output found on address.
+func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance uint64) *Output {
+	outputIDs := o.GetOutputsByAddress(addr.Base58())
+	if len(outputIDs) == 0 {
+		return nil
+	}
+	outputID := outputIDs[0]
+	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
+	o.outputIDWalletMap[outputID] = w
+	o.outputIDAddrMap[outputID] = addr.Base58()
+	return out
+}
+
+func (o *OutputManager) CreateInput(w *Wallet) {
+
+}
+
+func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
+	err := w.UpdateUnspentOutputID(addr, outID)
+	o.outputIDWalletMap[outID] = w
+	o.outputIDAddrMap[outID] = addr
+	return err
+}
+
+func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status OutputStatus) error {
+	addr := o.outputIDAddrMap[outID]
+	w := o.outputIDWalletMap[outID]
+	err := w.UpdateUnspentOutputStatus(addr, status)
+	o.outputIDAddrMap[outID] = addr
+	return err
+}
+
+func (o *OutputManager) UpdateOutputsFromTxs(wallet *Wallet, txIDs []string) error {
+	for _, txID := range txIDs {
+		outputs, err := o.connector.GetTransactionOutputs(txID)
+		if err != nil {
+			return err
+		}
+		for _, out := range outputs {
+			err = o.UpdateOutputID(wallet, out.Address().Base58(), out.ID())
+			if err != nil {
+				return err
+			}
+			err = o.UpdateOutputStatus(out.ID(), confirmed)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// GetOutput returns the Output of the given outputID.
+func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
+	w, ok := o.outputIDWalletMap[outputID]
+	if !ok {
+		return nil
+	}
+	addr := o.outputIDAddrMap[outputID]
+	out := w.UnspentOutput(addr)
+	return out
+}
+
+// GetOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
+func (o *OutputManager) GetOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
 	client := o.connector.GetClient()
 
 	s := time.Now()
@@ -97,42 +162,32 @@ func (o *OutputManager) AddOutputsByAddress(address string) (outputIDs []ledgers
 		}
 	}
 
-	outputIDs = o.addOutputsByJSON(outputs)
+	outputIDs = o.getOutputIDsByJSON(outputs)
 
 	return outputIDs
 }
 
-// AddOutputsByTxID adds the outputs of a given transaction to the output status map.
-func (o *OutputManager) AddOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
+// GetOutputsByTxID adds the outputs of a given transaction to the output status map.
+func (o *OutputManager) GetOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
 	resp, err := o.connector.GetTransaction(txID)
 	if err != nil {
 		return
 	}
 
-	outputIDs = o.addOutputsByJSON(resp.Outputs)
+	outputIDs = o.getOutputIDsByJSON(resp.Outputs)
 
 	return outputIDs
 }
 
-func (o *OutputManager) addOutputsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
+func (o *OutputManager) getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
 	for _, jsonOutput := range outputs {
 		output, err := jsonOutput.ToLedgerstateOutput()
 		if err != nil {
 			continue
 		}
-		o.AddOutput(output)
 		outputIDs = append(outputIDs, output.ID())
 	}
 	return outputIDs
-}
-
-func (o *OutputManager) AddOutput(output ledgerstate.Output) {
-	o.status[output.ID()] = &Output{
-		OutputID: output.ID(),
-		Address:  output.Address(),
-		Balance:  output.Balances(),
-		Status:   pending,
-	}
 }
 
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
@@ -146,7 +201,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		addr := output.Address
 		go func(addr ledgerstate.Address) {
 			defer wg.Done()
-			outputIDs := o.AddOutputsByAddress(addr.Base58())
+			outputIDs := o.GetOutputsByAddress(addr.Base58())
 			ok := o.Track(outputIDs)
 			if !ok {
 				return

@@ -114,16 +114,14 @@ func (a *AliasManager) createAliasForOutput(walletID int) string {
 	return fmt.Sprintf("outW%dCount%d", walletID, a.outputAliasCount.Add(1))
 }
 
-func (a *AliasManager) createAliasForInput(input ledgerstate.Input) string {
-	aliasName := fmt.Sprintf("in%s", input.Base58())
-	a.AddInputAlias(input, aliasName)
+func (a *AliasManager) createAliasForInput() string {
+	aliasName := fmt.Sprintf("InputCount%d", a.outputAliasCount.Add(1))
 	return aliasName
 }
 
-func (a *AliasManager) CreateAliasesForInputs(inputs []*Output) (aliases []string) {
-	for _, in := range inputs {
-		input := ledgerstate.NewUTXOInput(in.OutputID)
-		aliases = append(aliases, a.createAliasForInput(input))
+func (a *AliasManager) CreateAliasesForInputs(aliasesNum int) (aliases []string) {
+	for i := 0; i < aliasesNum; i++ {
+		aliases = append(aliases, a.createAliasForInput())
 	}
 	return
 }
