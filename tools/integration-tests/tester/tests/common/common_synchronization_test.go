@@ -25,12 +25,15 @@ func TestCommonSynchronization(t *testing.T) {
 		numMessages     = 100
 		numSyncMessages = 5 * initialPeers
 	)
+	snapshotInfo := tests.EqualSnapshotDetails
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, tests.EqualDefaultConfigFunc(t, false))
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		PeerMaster:  true,
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -42,7 +45,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 2. spawn peer without knowledge of previous messages
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t)
+	cfg := createNewPeerConfig(t, snapshotInfo, 2)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -102,7 +105,7 @@ func TestFirewall(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
+	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
 			cfg.Gossip.MessagesRateLimit.Limit = 50
 		}
@@ -133,12 +136,36 @@ func TestFirewall(t *testing.T) {
 	assert.Equal(t, 0, got2)
 }
 
-func createNewPeerConfig(t *testing.T) config.GoShimmer {
-	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[3])
+func TestConfirmMessage(t *testing.T) {
+	snapshotInfo := tests.ConsensusSnapshotDetails
+
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		StartSynced: true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+		conf.UseNodeSeedAsWalletSeed = true
+		return conf
+	}))
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
+	peers := n.Peers()
+	msgID, err := peers[0].Data([]byte("test"))
+	require.Nil(t, err)
+	metadata, err := peers[0].GetMessageMetadata(msgID)
+	require.Nil(t, err)
+	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
+	tests.TryConfirmMessage(t, n, peers[:], msgID, 5*time.Second, 1*time.Millisecond)
+}
+
+func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.MessageLayer.Snapshot.File = tests.EqualSnapshotDetails.FilePath
+	conf.MessageLayer.Snapshot.File = snapshotInfo.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
 	return conf

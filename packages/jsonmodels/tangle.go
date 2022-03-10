@@ -11,6 +11,8 @@ type Message struct {
 	ID                      string   `json:"id"`
 	StrongParents           []string `json:"strongParents"`
 	WeakParents             []string `json:"weakParents"`
+	ShallowLikeParents      []string `json:"shallowLikeParents"`
+	ShallowDislikeParents   []string `json:"shallowDislikeParents"`
 	StrongApprovers         []string `json:"strongApprovers"`
 	WeakApprovers           []string `json:"weakApprovers"`
 	ShallowLikeApprovers    []string `json:"shallowLikeApprovers"`
