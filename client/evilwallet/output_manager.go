@@ -31,7 +31,7 @@ type Output struct {
 	Address  ledgerstate.Address
 	Index    uint64
 	WalletID int
-	Balance  uint64
+	Balance  *ledgerstate.ColoredBalances
 	Status   OutputStatus
 }
 
