@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/randommap"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
@@ -360,23 +361,23 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 		return
 	}
 
-	markerWalker := walker.New(false)
-	messageWalker := walker.New(false)
+	markerWalker := walker.New[markers.Marker](false)
+	messageWalker := walker.New[MessageID](false)
 
 	t.processMessage(messageID, messageWalker, markerWalker)
 
 	for markerWalker.HasNext() && timestampValid {
-		marker := markerWalker.Next().(markers.Marker)
+		marker := markerWalker.Next()
 		timestampValid = t.checkMarker(&marker, messageWalker, markerWalker, minSupportedTimestamp)
 	}
 
 	for messageWalker.HasNext() && timestampValid {
-		timestampValid = t.checkMessage(messageWalker.Next().(MessageID), messageWalker, minSupportedTimestamp)
+		timestampValid = t.checkMessage(messageWalker.Next(), messageWalker, minSupportedTimestamp)
 	}
 	return timestampValid
 }
 
-func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWalker *walker.Walker) {
+func (t *TipManager) processMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker]) {
 	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
 			// need to walk messages
@@ -396,7 +397,7 @@ func (t *TipManager) processMessage(messageID MessageID, messageWalker, markerWa
 	})
 }
 
-func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker, markerWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkMarker(marker *markers.Marker, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (timestampValid bool) {
 	messageID, messageIssuingTime := t.getMarkerMessage(marker)
 
 	// should never enter this condition as other checks before already cover this case, but leaving it just for safety
@@ -469,7 +470,7 @@ func (t *TipManager) processMarker(pastMarker *markers.Marker, minSupportedTimes
 	return oldestUnconfirmedMarkerMsgIssuingTime.After(minSupportedTimestamp)
 }
 
-func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker, minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], minSupportedTimestamp time.Time) (timestampValid bool) {
 	timestampValid = true
 
 	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
