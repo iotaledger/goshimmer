@@ -88,6 +88,9 @@ func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance uint64) *Output {
 // Provided address should be generated from provided wallet. Considers only first output found on address.
 func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance uint64) *Output {
 	outputIDs := o.GetOutputsByAddress(addr.Base58())
+	if len(outputIDs) == 0 {
+		return nil
+	}
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
 	o.outputIDWalletMap[outputID] = w
@@ -136,10 +139,13 @@ func (o *OutputManager) UpdateOutputsFromTxs(wallet *Wallet, txIDs []string) err
 
 // GetOutput returns the Output of the given outputID.
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
-	w := o.outputIDWalletMap[outputID]
+	w, ok := o.outputIDWalletMap[outputID]
+	if !ok {
+		return nil
+	}
 	addr := o.outputIDAddrMap[outputID]
-
-	return w.UnspentOutput(addr)
+	out := w.UnspentOutput(addr)
+	return out
 }
 
 // GetOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.

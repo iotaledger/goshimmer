@@ -11,7 +11,7 @@ func TestDoubleSpend(t *testing.T) {
 	wallet := evilwallet.NewWallet(custom)
 	clients := evilwallet.GetClients(2)
 
-	err := evilwallet.RequestFundsFromFaucet(wallet.Address(), WithOutputAlias("1"))
+	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
 	require.NoError(t, err)
 
 	txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))

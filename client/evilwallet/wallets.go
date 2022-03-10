@@ -33,7 +33,7 @@ type Wallets struct {
 func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:      make(map[WalletType][]*Wallet),
-		lastWalletID: *atomic.NewInt64(0),
+		lastWalletID: *atomic.NewInt64(-1),
 	}
 }
 
@@ -134,8 +134,7 @@ func NewWallet(wType WalletType) *Wallet {
 
 // Address returns a new and unused address of a given wallet.
 func (w *Wallet) Address() address.Address {
-	w.lastAddrIdxUsed.Add(1)
-	index := uint64(w.lastAddrIdxUsed.Load())
+	index := uint64(w.lastAddrIdxUsed.Add(1))
 	addr := w.seed.Address(index)
 	w.indexAddrMap[index] = addr.Base58()
 	w.addrIndexMap[addr.Base58()] = index

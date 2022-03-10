@@ -2,10 +2,10 @@ package evilwallet
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -16,7 +16,7 @@ import (
 const (
 	GoFConfirmed             = 3
 	waitForConfirmation      = 60 * time.Second
-	FaucetRequestSplitNumber = 2
+	FaucetRequestSplitNumber = 100
 
 	maxGoroutines = 5
 )
@@ -63,8 +63,10 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(addr address.Address, options ...FaucetRequestOption) (err error) {
+func (e *EvilWallet) RequestFundsFromFaucet(wallet *Wallet, options ...FaucetRequestOption) (err error) {
+	addr := wallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
+
 	addrStr := addr.Base58()
 
 	// request funds from faucet
@@ -72,22 +74,21 @@ func (e *EvilWallet) RequestFundsFromFaucet(addr address.Address, options ...Fau
 	if err != nil {
 		return
 	}
-
 	// track output in output manager and make sure it's confirmed
-	outputIDs := e.outputManager.GetOutputsByAddress(addrStr)
-	if len(outputIDs) == 0 {
+	out := e.outputManager.CreateOutputFromAddress(wallet, addr, uint64(faucet.Parameters.TokensPerRequest))
+	if out == nil {
 		err = errors.New("no outputIDs found on address ")
 		return
 	}
 
-	allConfirmed := e.outputManager.Track(outputIDs)
+	allConfirmed := e.outputManager.Track([]ledgerstate.OutputID{out.OutputID})
 	if !allConfirmed {
 		err = errors.New("output not confirmed")
 		return
 	}
 
 	if len(buildOptions.aliasName) > 0 {
-		input := ledgerstate.NewUTXOInput(outputIDs[0])
+		input := ledgerstate.NewUTXOInput(out.OutputID)
 		err = e.aliasManager.AddInputAlias(input, "1")
 	}
 
@@ -217,7 +218,7 @@ func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, split
 	for _, input := range inputWallet.unspentOutputs {
 		inputs := []*Output{input}
 
-		inputAliases := e.aliasManager.CreateAliasesForInputs(inputs)
+		inputAliases := e.aliasManager.CreateAliasesForInputs(len(inputs))
 		e.aliasManager.AddInputAliases(inputs, inputAliases)
 		outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, splitNumber)
 		txAlias := e.aliasManager.CreateAliasForTransaction(outputWallet.ID, inputWallet.ID, input.OutputID.Base58())
@@ -294,8 +295,7 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 	for _, out := range outputs {
 		e.outputManager.CreateEmptyOutput(buildOptions.issuer, buildOptions.outputs[out.ID().Base58()])
 	}
-	inputsUTXO := ledgerstate.NewInputs(inputs...)
-	tx, err = e.makeTransaction(inputsUTXO, ledgerstate.NewOutputs(outputs...), buildOptions.issuer)
+	tx, err = e.makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), buildOptions.issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -411,8 +411,13 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 		err = errors.New("wrong type of input")
 		return
 	}
+
 	refOut := typeCastedInput.ReferencedOutputID()
 	out := e.outputManager.GetOutput(refOut)
+	if out == nil {
+		err = errors.New("output not found in output manager")
+		return
+	}
 	addr = out.Address
 	return
 }
