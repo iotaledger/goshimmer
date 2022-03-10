@@ -61,6 +61,48 @@ n := f.CreateNetwork("testnetwork", 6, 3)
 defer n.Shutdown() 
 ```
 
+### Using Custom Snapshots
+
+When creating a test's network, you can specify a set of `Snapshots` in the `CreateNetworkConfig` struct. The framework will proceed to create and render the snapshot available to the peers.
+An example of a snaphot used in the code is as such:
+
+```
+var ConsensusSnapshotDetails = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	// node ID: 4AeXyZ26e4G
+	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	GenesisTokenAmount: 800_000, // pledged to peer master
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
+	PeersSeedBase58: []string{
+		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
+		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
+	},
+	PeersAmountsPledged: []uint64{1_600_000, 800_000},
+}
+```
+
+The last parameter to the `CreateNetwork` function can be used to alter peers' configuration to use a generated snapshot file (e.g. `conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath`).
+
+The `CommonSnapshotConfigFunc` function can be used for the average scenario: it will use the same `SnapshotInfo` for all peers. 
+
+## Nodes' Debug Tools
+
+Every node in the test's network has their ports exposed on the host as follows: `service_port + 100*n` where `n` is the index of the peer you want to connect to.
+
+Service ports:
+
+* API `8080`
+* Dashboard `8081`
+* DAGs Visualizer `8061`
+* Delve Debugger `40000`
+
+For example for `peer_replica_2` the following ports are exposed:
+
+* API [http://localhost:8280](http://localhost:8280)
+* Dashboard  [http://localhost:8261](http://localhost:8261)
+* DAGs Visualizer  [http://localhost:8281](http://localhost:8281)
+* Delve Debugger  [http://localhost:40200](http://localhost:40200)
+
 ## Debugging tests
 
 Tests can be run defining a `DEBUG=1` (e.g. `DEBUG=1 ./runTests.sh`) environment variable. The main container driving the tests will be run under a Delve Go debugger listening
@@ -82,6 +124,12 @@ The following launch configuration can be used from the VSCode IDE to attach to 
 	]
 }
 ```
+
+> When the tester container gets connected to the test network the debugger will suffer a sudden disconnection: it is a caveat of Docker's way of doing networking. Just attach the debugger again and you are ready to go again.
+
+### Preventing Network shutdown
+
+When the test completes for either a PASS or a FAIL, the underlying test network is destroyed. To prevent this and give you a chance to do your thing you will have to place the breakpoint on the `tests.ShutdownNetwork` method.
 
 ## Other Tips
 
