@@ -201,14 +201,14 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 		return []string{}
 	}
 	// Add all aliases before creating txs
-	allInputAliases, allOutputAliases, txAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
+	allInputAliases, allOutputAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
 	inputNum := 0
 
 	for _, input := range inputWallet.UnspentOutputs() {
 		wg.Add(1)
 		go func(inputNum int, input *Output) {
 			defer wg.Done()
-			tx, err := e.CreateTransaction(txAliases[inputNum], WithInputs(allInputAliases[inputNum]...), WithOutputs(allOutputAliases[inputNum]),
+			tx, err := e.CreateTransaction(WithInputs(allInputAliases[inputNum]...), WithOutputs(allOutputAliases[inputNum]),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 
 			clt := e.connector.GetClient()
@@ -224,22 +224,20 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 	return txIDs
 }
 
-func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) ([][]string, [][]string, []string) {
-	allInputAliases, allOutputAliases, txAliases := make([][]string, 0), make([][]string, 0), make([]string, 0)
+func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) ([][]string, [][]string) {
+	allInputAliases, allOutputAliases := make([][]string, 0), make([][]string, 0)
 	for _, input := range inputWallet.UnspentOutputs() {
 		inputs := []*Output{input}
 
 		inputAliases := e.aliasManager.CreateAliasesForInputs(len(inputs))
 		e.aliasManager.AddInputAliases(inputs, inputAliases)
 		outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, splitNumber)
-		txAlias := e.aliasManager.CreateAliasForTransaction(outputWallet.ID, inputWallet.ID, input.OutputID.Base58())
 
 		allInputAliases = append(allInputAliases, inputAliases)
 		allOutputAliases = append(allOutputAliases, outputAliases)
-		txAliases = append(txAliases, txAlias)
 	}
 
-	return allInputAliases, allOutputAliases, txAliases
+	return allInputAliases, allOutputAliases
 }
 
 // ClearAliases remove all registered alias names.
@@ -251,8 +249,8 @@ func (e *EvilWallet) ClearAliases() {
 func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
-		for txAlias, options := range conflictMap {
-			tx, err := e.CreateTransaction(txAlias, options...)
+		for _, options := range conflictMap {
+			tx, err := e.CreateTransaction(options...)
 			if err != nil {
 				return err
 			}
@@ -281,7 +279,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []
 }
 
 // CreateTransaction creates a transaction with the given aliasName and options.
-func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
+func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
 
 	if len(buildOptions.inputs) == 0 || len(buildOptions.outputs) == 0 {
@@ -313,10 +311,6 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 		return nil, err
 	}
 
-	err = e.aliasManager.AddTransactionAlias(tx, aliasName)
-	if err != nil {
-		return nil, err
-	}
 	return
 }
 

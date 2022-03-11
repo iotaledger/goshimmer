@@ -181,7 +181,7 @@ func WithIssuingTime(issuingTime time.Time) Option {
 // region ConflictMap ///////////////////////////////////////////////////////////////////////////
 
 // ConflictMap represents a set of conflict transactions.
-type ConflictMap map[string][]Option
+type ConflictMap [][]Option
 
 // region FaucetRequestOptions ///////////////////////////////////////////////////////////////////////////
 

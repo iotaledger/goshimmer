@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFaucetRequests(t *testing.T) {
@@ -19,7 +20,7 @@ func TestFaucetRequests(t *testing.T) {
 
 	evilwallet.RequestFreshBigFaucetWallets(5)
 
-	txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))
+	txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))
 	require.NoError(t, err)
 
 	_, err = clients[0].PostTransaction(txA.Bytes())

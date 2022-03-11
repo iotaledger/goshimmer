@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 
@@ -15,7 +14,6 @@ import (
 type AliasManager struct {
 	outputMap map[string]ledgerstate.Output
 	inputMap  map[string]ledgerstate.Input
-	txMap     map[string]*ledgerstate.Transaction
 
 	outputAliasCount *atomic.Uint64
 	mu               sync.RWMutex
@@ -25,7 +23,6 @@ func NewAliasManager() *AliasManager {
 	return &AliasManager{
 		outputMap:        make(map[string]ledgerstate.Output),
 		inputMap:         make(map[string]ledgerstate.Input),
-		txMap:            make(map[string]*ledgerstate.Transaction),
 		outputAliasCount: atomic.NewUint64(0),
 	}
 }
@@ -45,19 +42,6 @@ func (a *AliasManager) AddInputAlias(input ledgerstate.Input, aliasName string) 
 
 	a.inputMap[aliasName] = input
 	return
-}
-
-func (a *AliasManager) AddTransactionAlias(tx *ledgerstate.Transaction, aliasName string) (err error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	if _, exists := a.txMap[aliasName]; exists {
-		err = errors.New("duplicate alias name in input alias")
-		return
-	}
-
-	a.txMap[aliasName] = tx
-	return nil
 }
 
 func (a *AliasManager) GetInput(aliasName string) (ledgerstate.Input, bool) {
@@ -80,7 +64,6 @@ func (a *AliasManager) ClearAliases() {
 
 	a.inputMap = make(map[string]ledgerstate.Input)
 	a.outputMap = make(map[string]ledgerstate.Output)
-	a.txMap = make(map[string]*ledgerstate.Transaction)
 }
 
 func (a *AliasManager) AddOutputAliases(outputs []ledgerstate.Output, aliases []string) {
@@ -96,11 +79,6 @@ func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) {
 		a.AddInputAlias(input, aliases[i])
 	}
 	return
-}
-
-func (a *AliasManager) CreateAliasForTransaction(outWalletID, inWalletID int, outID string) string {
-	aliasName := fmt.Sprintf("txO%dI%dOut%s", outWalletID, inWalletID, outID)
-	return aliasName
 }
 
 func (a *AliasManager) CreateAliasesForOutputs(walletID, aliasesNum int) (aliases []string) {
