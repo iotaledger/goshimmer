@@ -70,8 +70,9 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(wallet *Wallet, options ...FaucetRequestOption) (err error) {
-	addr := wallet.Address()
+func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error) {
+	initWallet := e.NewWallet(fresh)
+	addr := initWallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
 
 	addrStr := addr.Base58()
@@ -83,7 +84,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(wallet *Wallet, options ...FaucetReq
 	}
 	// track output in output manager and make sure it's confirmed
 
-	out := e.outputManager.CreateOutputFromAddress(wallet, addr, faucetBalance)
+	out := e.outputManager.CreateOutputFromAddress(initWallet, addr, faucetBalance)
 	if out == nil {
 		err = errors.New("no outputIDs found on address ")
 		return
