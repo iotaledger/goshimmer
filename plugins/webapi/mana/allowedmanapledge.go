@@ -16,8 +16,8 @@ import (
 func allowedManaPledgeHandler(c echo.Context) error {
 	access := manaPlugin.GetAllowedPledgeNodes(mana.AccessMana)
 	var accessNodes []string
-	access.Allowed.ForEach(func(element interface{}) {
-		accessNodes = append(accessNodes, base58.Encode(element.(identity.ID).Bytes()))
+	access.Allowed.ForEach(func(element identity.ID) {
+		accessNodes = append(accessNodes, base58.Encode(element.Bytes()))
 	})
 	if len(accessNodes) == 0 {
 		return c.JSON(http.StatusNotFound, jsonmodels.AllowedManaPledgeResponse{Error: "No access mana pledge IDs are accepted"})
@@ -25,8 +25,8 @@ func allowedManaPledgeHandler(c echo.Context) error {
 
 	consensus := manaPlugin.GetAllowedPledgeNodes(mana.ConsensusMana)
 	var consensusNodes []string
-	consensus.Allowed.ForEach(func(element interface{}) {
-		consensusNodes = append(consensusNodes, base58.Encode(element.(identity.ID).Bytes()))
+	consensus.Allowed.ForEach(func(element identity.ID) {
+		consensusNodes = append(consensusNodes, base58.Encode(element.Bytes()))
 	})
 	if len(consensusNodes) == 0 {
 		return c.JSON(http.StatusNotFound, jsonmodels.AllowedManaPledgeResponse{Error: "No consensus mana pledge IDs are accepted"})

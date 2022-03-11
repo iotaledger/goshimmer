@@ -160,9 +160,9 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDsSlice) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
-	for _, messageID := range messageIDs {
+	for messageID := range messageIDs {
 		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())
 	}
 

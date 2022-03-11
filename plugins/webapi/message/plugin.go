@@ -105,15 +105,19 @@ func GetMessage(c echo.Context) (err error) {
 
 	if deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
-			ID:              message.ID().Base58(),
-			StrongParents:   message.ParentsByType(tangle.StrongParentType).ToStrings(),
-			WeakParents:     message.ParentsByType(tangle.WeakParentType).ToStrings(),
-			StrongApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).ToStrings(),
-			WeakApprovers:   deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).ToStrings(),
-			IssuerPublicKey: message.IssuerPublicKey().String(),
-			IssuingTime:     message.IssuingTime().Unix(),
-			SequenceNumber:  message.SequenceNumber(),
-			PayloadType:     message.Payload().Type().String(),
+			ID:                      message.ID().Base58(),
+			StrongParents:           message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParents:             message.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParents:      message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			ShallowDislikeParents:   message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
+			StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).Base58(),
+			WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).Base58(),
+			ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).Base58(),
+			ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowDislikeApprover).Base58(),
+			IssuerPublicKey:         message.IssuerPublicKey().String(),
+			IssuingTime:             message.IssuingTime().Unix(),
+			SequenceNumber:          message.SequenceNumber(),
+			PayloadType:             message.Payload().Type().String(),
 			TransactionID: func() string {
 				if message.Payload().Type() == ledgerstate.TransactionType {
 					return message.Payload().(*ledgerstate.Transaction).ID().Base58()
@@ -153,15 +157,7 @@ func GetMessageMetadata(c echo.Context) (err error) {
 
 // NewMessageMetadata returns MessageMetadata from the given tangle.MessageMetadata.
 func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMetadata {
-	var branchID ledgerstate.BranchID
-	branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(metadata.ID())
-	if err == nil {
-		if len(branchIDs) > 1 {
-			branchID = ledgerstate.NewAggregatedBranch(branchIDs).ID()
-		} else {
-			branchID = branchIDs.Slice()[0]
-		}
-	}
+	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(metadata.ID())
 
 	return jsonmodels.MessageMetadata{
 		ID:                  metadata.ID().Base58(),
@@ -169,7 +165,9 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Solid:               metadata.IsSolid(),
 		SolidificationTime:  metadata.SolidificationTime().Unix(),
 		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchID:            branchID.Base58(),
+		BranchIDs:           branchIDs.Base58(),
+		AddedBranchIDs:      metadata.AddedBranchIDs().Base58(),
+		SubtractedBranchIDs: metadata.SubtractedBranchIDs().Base58(),
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		Booked:              metadata.IsBooked(),

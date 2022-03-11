@@ -71,13 +71,13 @@ type utxoVertex struct {
 	Outputs       []string            `json:"outputs"`
 	IsConfirmed   bool                `json:"isConfirmed"`
 	GoF           string              `json:"gof"`
-	BranchID      string              `json:"branchID"`
+	BranchIDs     []string            `json:"branchIDs"`
 	ConfirmedTime int64               `json:"confirmedTime"`
 }
 
 type utxoBooked struct {
-	ID       string `json:"ID"`
-	BranchID string `json:"branchID"`
+	ID        string   `json:"ID"`
+	BranchIDs []string `json:"branchIDs"`
 }
 
 type utxoConfirmed struct {
@@ -88,7 +88,6 @@ type utxoConfirmed struct {
 
 type branchVertex struct {
 	ID          string                                 `json:"ID"`
-	Type        string                                 `json:"type"`
 	Parents     []string                               `json:"parents"`
 	IsConfirmed bool                                   `json:"isConfirmed"`
 	Conflicts   *jsonmodels.GetBranchConflictsResponse `json:"conflicts"`

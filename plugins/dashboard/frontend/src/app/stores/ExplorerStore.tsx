@@ -36,6 +36,8 @@ export class Message {
     parentsByType: Map<string, Array<string>>;
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
+    shallowLikeApprovers: Array<string>;
+    shallowDislikeApprovers: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;
@@ -77,7 +79,7 @@ class OutputID {
 
 export class OutputMetadata {
     outputID: OutputID;
-    branchID: string;
+    branchIDs: Array<string>;
     solid: boolean;
     solidificationTime: number;
     consumerCount: number;
@@ -105,7 +107,6 @@ class PendingMana {
 
 class Branch {
     id: string;
-    type: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
     gradeOfFinality: number

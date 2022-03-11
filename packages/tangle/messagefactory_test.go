@@ -37,8 +37,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
-			return []MessageID{EmptyMessageID}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+			return NewMessageIDs(EmptyMessageID), nil
 		}),
 		emptyLikeReferences,
 	)
@@ -131,8 +131,8 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	msgFactory := NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
-			return []MessageID{EmptyMessageID}, nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+			return NewMessageIDs(EmptyMessageID), nil
 		}),
 		emptyLikeReferences,
 	)
@@ -201,7 +201,7 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	references, err := PrepareReferences(MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	references, err := PrepareReferences(NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
 
 	require.NoError(t, err)
 
@@ -266,25 +266,25 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
 	// Test first set of parents
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, map[ParentsType]MessageIDs{
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), map[ParentsType]MessageIDs{
 		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void},
 	}, time.Now())
 
 	// Test second set of parents
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("2").ID(), testFramework.Message("1").ID()}, map[ParentsType]MessageIDs{}, time.Now())
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("2").ID(), testFramework.Message("1").ID()), map[ParentsType]MessageIDs{}, time.Now())
 
 	// Test third set of parents
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, map[ParentsType]MessageIDs{
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
 		ShallowLikeParentType: {testFramework.Message("1").ID(): types.Void, testFramework.Message("2").ID(): types.Void},
 	}, time.Now())
 
 	// Test fourth set of parents
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()}, map[ParentsType]MessageIDs{
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
 		ShallowLikeParentType: {testFramework.Message("1").ID(): types.Void, testFramework.Message("2").ID(): types.Void},
 	}, time.Now())
 
 	// Test empty set of parents
-	checkReferences(t, tangle, MessageIDsSlice{}, map[ParentsType]MessageIDs{}, time.Now(), true)
+	checkReferences(t, tangle, NewMessageIDs(), map[ParentsType]MessageIDs{}, time.Now(), true)
 
 	// Add reattachment that is older than the original message
 	// Message 5 (reattachment)
@@ -292,12 +292,12 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.IssueMessages("5").WaitMessagesBooked()
 
 	// Select oldest attachment of the message.
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, map[ParentsType]MessageIDs{
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
 		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void, testFramework.Message("5").ID(): types.Void},
 	}, time.Now())
 
 	// Do not return too old like reference
-	checkReferences(t, tangle, MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("4").ID()}, map[ParentsType]MessageIDs{
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
 		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void},
 	}, time.Now().Add(maxParentsTimeDifference), true)
 }
@@ -333,7 +333,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.RegisterBranchID("2", "2")
 	testFramework.RegisterBranchID("3", "3")
 
-	nonExistingBranchID := ledgerstate.NewAggregatedBranch(testFramework.BranchIDs("1", "2")).ID()
+	nonExistingBranchID := ledgerstate.BranchIDFromRandomness()
 
 	mockOTV := &SimpleMockOnTangleVoting{
 		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
@@ -346,11 +346,11 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	_, err := PrepareReferences(MessageIDsSlice{testFramework.Message("3").ID(), testFramework.Message("2").ID()}, time.Now(), tangle)
+	_, err := PrepareReferences(NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
 	require.Error(t, err)
 }
 
-func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDsSlice, expectedReferences map[ParentsType]MessageIDs, issuingTime time.Time, errorExpected ...bool) {
+func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDs, expectedReferences map[ParentsType]MessageIDs, issuingTime time.Time, errorExpected ...bool) {
 	actualReferences, err := PrepareReferences(parents, issuingTime, tangle)
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
@@ -358,7 +358,7 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDsSlice, expe
 	}
 	require.NoError(t, err)
 
-	assert.Equal(t, parents.ToMessageIDs(), actualReferences[StrongParentType])
+	assert.Equal(t, parents, actualReferences[StrongParentType])
 
 	for _, referenceType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
 		if expectedReferences[referenceType] == nil {

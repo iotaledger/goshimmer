@@ -6,7 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -54,7 +54,7 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 	return
 }
 
-// ColorFromMarshalUtil unmarshals a Color using a MarshalUtil (for easier unmarshaling).
+// ColorFromMarshalUtil unmarshals a Color using a MarshalUtil (for easier unmarshalling).
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
@@ -76,7 +76,7 @@ func (c Color) Base58() string {
 	return base58.Encode(c.Bytes())
 }
 
-// String creates a human readable string of the Color.
+// String creates a human-readable string of the Color.
 func (c Color) String() string {
 	switch c {
 	case ColorIOTA:
@@ -101,12 +101,12 @@ func (c Color) Compare(otherColor Color) int {
 // ColoredBalances represents a collection of balances associated to their respective Color that maintains a
 // deterministic order of the present Colors.
 type ColoredBalances struct {
-	balances *orderedmap.OrderedMap
+	balances *orderedmap.OrderedMap[Color, uint64]
 }
 
 // NewColoredBalances returns a new deterministically ordered collection of ColoredBalances.
 func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBalances) {
-	coloredBalances = &ColoredBalances{balances: orderedmap.New()}
+	coloredBalances = &ColoredBalances{balances: orderedmap.New[Color, uint64]()}
 
 	// deterministically sort colors
 	sortedColors := make([]Color, 0, len(balances))
@@ -139,7 +139,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 	return
 }
 
-// ColoredBalancesFromMarshalUtil unmarshals ColoredBalances using a MarshalUtil (for easier unmarshaling).
+// ColoredBalancesFromMarshalUtil unmarshals ColoredBalances using a MarshalUtil (for easier unmarshalling).
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
@@ -186,19 +186,12 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 
 // Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
 func (c *ColoredBalances) Get(color Color) (uint64, bool) {
-	balance, exists := c.balances.Get(color)
-	ret, ok := balance.(uint64)
-	if !ok {
-		return 0, false
-	}
-	return ret, exists
+	return c.balances.Get(color)
 }
 
 // ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
 func (c *ColoredBalances) ForEach(consumer func(color Color, balance uint64) bool) {
-	c.balances.ForEach(func(key, value interface{}) bool {
-		return consumer(key.(Color), value.(uint64))
-	})
+	c.balances.ForEach(consumer)
 }
 
 // Size returns the amount of individual balances in the ColoredBalances.
@@ -208,7 +201,7 @@ func (c *ColoredBalances) Size() int {
 
 // Clone returns a copy of the ColoredBalances.
 func (c *ColoredBalances) Clone() *ColoredBalances {
-	copiedBalances := orderedmap.New()
+	copiedBalances := orderedmap.New[Color, uint64]()
 	c.balances.ForEach(copiedBalances.Set)
 
 	return &ColoredBalances{
@@ -245,7 +238,7 @@ func (c *ColoredBalances) Map() (balances map[Color]uint64) {
 	return
 }
 
-// String returns a human readable version of the ColoredBalances.
+// String returns a human-readable version of the ColoredBalances.
 func (c *ColoredBalances) String() string {
 	structBuilder := stringify.StructBuilder("ColoredBalances")
 	c.ForEach(func(color Color, balance uint64) bool {
