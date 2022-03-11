@@ -31,8 +31,7 @@ following requirements must be satisfied:
 
 You can find more information in the following papers:
 
-* [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778)
-  .
+* [Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach](https://arxiv.org/abs/2005.07778).
 * [Secure Access Control for DAG-based Distributed Ledgers](https://arxiv.org/abs/2107.10238).
 
 ## Detailed Design
@@ -69,17 +68,6 @@ The enqueuing mechanism includes the following components:
   the message issuer.
 * __Message enqueuing__: The message is actually enqueued, the queue is sorted by message timestamps in increasing order
   and counters are updated (e.g., counters for the total number of bytes in the queue).
-* __Message skipping__. A message is skipped when it is confirmed while still waiting to be scheduled in the
-  outbox. A skipped message is removed from the outbox buffer, and it does not decrease the issuing node's deficit.
-  It is not gossipped or added to the tip pool as confirmation indicates that the message already has approvers and
-  is replicated on enough nodes in the network.
-* __Message drop__: In some circumstances, due to network congestion or ongoing attacks, some messages shall be dropped
-  to guarantee bounded delays and isolate the attacker's messages. Specifically, a node shall drop messages in the
-  following situations:
-    - Since the total outbox buffer has a limited size, if the total number of bytes in all queues exceeds the current
-      buffer size is smaller than the maximum size. The Mana scaled length of a queue is calculated by dividing the number
-      of bytes in the queue by the amount of access Mana of the corresponding node:
-    - `Mana-scaled queue size = queue size / node aMana`;
 
 The dequeuing mechanism includes the following components:
 
@@ -89,22 +77,25 @@ mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
   message must satisfy the following conditions:
     * The message has a ready flag assigned. Ready flag is assigned to a message when all of its parents are eligible (parents have been scheduled or confirmed).
     * The message timestamp is not in the future.
+* __Message skipping__. Once a message in the outbox becomes confirmed, that is we receive another message approving it, it gets removed from the outbox buffer. Since the message already has approvers and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
+* __Message drop__: Message drop: Due to node's bootstrapping, network congestion or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and/or isolate attacker's spam a node shall drop some messages if the total number of bytes in all queues exceeds the maximum buffer size; in particular, messages are dropped from queue with the largest mana-scaled length, computed by dividing the number of bytes in the queue by the amount of access Mana of the corresponding node.
+  - `Mana-scaled queue size = queue size / node aMana`;
 * __Scheduler management__: The scheduler counters and pointers are updated.
 
 #### False positive drop
 
 During an attack or congestion, a node may drop a message already scheduled by the rest of the network, causing a  
 _false positive drop_. This means that the message’s future cone will not be marked as _ready_ as its past cone is not
-eligible. This will be resolved when the rest of the network confirms the message, making it eligible and satisfying
-the _consistency_ requirement.
+eligible. This is not a problem because messages dropped from the outbox are already booked and confirmation comes 
+eventually due to messages received from the rest of the network which approve the dropped ones.
 
-#### False negative drop
+#### False positive schedule
 
 Another possible problem is that a node schedules a message that the rest of the network drops, causing a _false
-negative drop_. The message is gossiped and added to the tip pool. However, it will never accumulate enough approval
-weight to be _Confirmed_. Eventually, the node will orphan the message node as
-the [Time Since Confirmation check](tangle.md#tip-pool-and-time-since-confirmation-check)  during tip selection will 
-fail.
+positive_. The message is gossiped and added to the tip pool. However, it will never accumulate enough approval
+weight to be _Confirmed_. Eventually, the node will orphan this part of tangle as the messages in the future-cone 
+will not pass the [Time Since Confirmation check](tangle.md#tip-pool-and-time-since-confirmation-check) during tip 
+selection.
 
 ### Scheduler
 
@@ -113,7 +104,7 @@ an honest node `node` meets the following requirements:
 
 * __Consistency__: The node's messages will not accumulate indefinitely at any node, and so, starvation is avoided.
 * __Fairness__: The node's fair share of the network resources are allocated to it according to its access Mana.
-* __security__: Malicious nodes sending above their allowed rate will not interrupt a node's throughput requirement.
+* __Security__: Malicious nodes sending above their allowed rate will not interrupt a node's throughput requirement.
 
 Although nodes in our setting are capable of more complex and customised behaviour than a typical router in a
 packet-switched network, our scheduler must still be lightweight and scalable due to the potentially large number of

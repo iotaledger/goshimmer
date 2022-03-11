@@ -410,9 +410,8 @@ timestamp of the oldest unconfirmed message is greater than a certain threshold 
 the tip cannot be selected and another one needs to be found. The tip stays in the tip pool until it is
 automatically removed because of its age.
 
-The Time Since Confirmation check solves the mention problem of [false negative drop](congestion_control.md#false-negative-drop)
-by eventually orphaning messages
-that were dropped by the network.
+The Time Since Confirmation check solves the mention problem of [false positive schedule](congestion_control.md#false-positive-schedule)
+by eventually orphaning messages that were dropped by the network.
 
 ### Branch Management
 
