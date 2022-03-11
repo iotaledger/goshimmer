@@ -98,19 +98,26 @@ func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) {
 	return
 }
 
-func (a *AliasManager) CreateAliasForTransaction(outWalletID, inWalletID int, outID string) string {
-	aliasName := fmt.Sprintf("txO%dI%dOut%s", outWalletID, inWalletID, outID)
+func (a *AliasManager) CreateAliasForTransaction(outWalletID, inWalletID walletID) string {
+	aliasName := fmt.Sprintf("txO%dI%dCount%d", outWalletID, inWalletID, a.outputAliasCount.Add(1))
 	return aliasName
 }
 
-func (a *AliasManager) CreateAliasesForOutputs(walletID, aliasesNum int) (aliases []string) {
+func (a *AliasManager) CreateAliasesForTransactions(aliasesNum int, outWalletID, inWalletID walletID) (aliases []string) {
+	for i := 0; i < aliasesNum; i++ {
+		aliases = append(aliases, a.CreateAliasForTransaction(outWalletID, inWalletID))
+	}
+	return
+}
+
+func (a *AliasManager) CreateAliasesForOutputs(walletID walletID, aliasesNum int) (aliases []string) {
 	for i := 0; i < aliasesNum; i++ {
 		aliases = append(aliases, a.createAliasForOutput(walletID))
 	}
 	return
 }
 
-func (a *AliasManager) createAliasForOutput(walletID int) string {
+func (a *AliasManager) createAliasForOutput(walletID walletID) string {
 	return fmt.Sprintf("outW%dCount%d", walletID, a.outputAliasCount.Add(1))
 }
 

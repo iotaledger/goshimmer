@@ -30,7 +30,6 @@ type Output struct {
 	OutputID ledgerstate.OutputID
 	Address  ledgerstate.Address
 	Index    uint64
-	WalletID int
 	Balance  *ledgerstate.ColoredBalances
 	Status   OutputStatus
 }
@@ -89,7 +88,7 @@ func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance *ledgerstate.Colore
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
 func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *ledgerstate.ColoredBalances) *Output {
-	outputIDs := o.GetOutputsByAddress(addr.Base58())
+	outputIDs := o.RequestOutputsByAddress(addr.Base58())
 	if len(outputIDs) == 0 {
 		return nil
 	}
@@ -121,17 +120,13 @@ func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status Ou
 	return err
 }
 
-func (o *OutputManager) UpdateOutputsFromTxs(wallet *Wallet, txIDs []string) error {
+func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 	for _, txID := range txIDs {
 		outputs, err := o.connector.GetTransactionOutputs(txID)
 		if err != nil {
 			return err
 		}
 		for _, out := range outputs {
-			err = o.UpdateOutputID(wallet, out.Address().Base58(), out.ID())
-			if err != nil {
-				return err
-			}
 			err = o.UpdateOutputStatus(out.ID(), confirmed)
 			if err != nil {
 				return err
@@ -154,8 +149,8 @@ func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output
 	return out
 }
 
-// GetOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
-func (o *OutputManager) GetOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
+// RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
+func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
 	client := o.connector.GetClient()
 
 	s := time.Now()
@@ -173,8 +168,8 @@ func (o *OutputManager) GetOutputsByAddress(address string) (outputIDs []ledgers
 	return outputIDs
 }
 
-// GetOutputsByTxID adds the outputs of a given transaction to the output status map.
-func (o *OutputManager) GetOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
+// RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
+func (o *OutputManager) RequestOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
 	resp, err := o.connector.GetTransaction(txID)
 	if err != nil {
 		return
@@ -207,7 +202,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		addr := output.Address
 		go func(addr ledgerstate.Address) {
 			defer wg.Done()
-			outputIDs := o.GetOutputsByAddress(addr.Base58())
+			outputIDs := o.RequestOutputsByAddress(addr.Base58())
 			ok := o.Track(outputIDs)
 			if !ok {
 				return

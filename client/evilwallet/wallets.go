@@ -12,85 +12,80 @@ import (
 	"go.uber.org/atomic"
 )
 
+type walletID int
 type WalletType int8
 
 const (
 	// fresh is used for automatic Faucet Requests, outputs are returned one by one
-	fresh WalletType = iota
-	// custom is used for manual handling of unspent outputs
-	custom
-	conflicts
+	other WalletType = iota
+	fresh
 )
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Wallets struct {
-	wallets map[WalletType][]*Wallet
-	mu      sync.RWMutex
+	wallets map[walletID]*Wallet
+	// we store here non-empty wallets ids of wallets with fresh faucet outputs.
+	faucetWallets []walletID
+	mu            sync.RWMutex
 
 	lastWalletID atomic.Int64
 }
 
 func NewWallets() *Wallets {
 	return &Wallets{
-		wallets:      make(map[WalletType][]*Wallet),
-		lastWalletID: *atomic.NewInt64(-1),
+		wallets:       make(map[walletID]*Wallet),
+		faucetWallets: make([]walletID, 0),
+		lastWalletID:  *atomic.NewInt64(-1),
 	}
 }
 
-func (w *Wallets) NewWallet(wType WalletType) *Wallet {
-	wallet := NewWallet(wType)
-	wallet.ID = int(w.lastWalletID.Add(1))
+func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
+	wallet := NewWallet()
+	wallet.ID = walletID(w.lastWalletID.Add(1))
 
-	w.addWallet(wallet)
+	w.addWallet(wallet, walletType)
 
 	return wallet
 }
 
-func (w *Wallets) GetWallet(walletType WalletType, walletID int) *Wallet {
-	if len(w.wallets[walletType]) > walletID {
-		return w.wallets[walletType][walletID]
-	}
-	return nil
-}
-
-func (w *Wallets) GetWallets(wType WalletType, num int) (wallets []*Wallet) {
-	allWallets := w.wallets[wType]
-	if num > len(allWallets) {
-		return allWallets
-	}
-
-	for i := 0; i < num; i++ {
-		wallets = append(wallets, allWallets[i])
-	}
-	return wallets
+func (w *Wallets) GetWallet(walletID walletID) *Wallet {
+	return w.wallets[walletID]
 }
 
 // addWallet stores newly created wallet.
-func (w *Wallets) addWallet(wallet *Wallet) {
+func (w *Wallets) addWallet(wallet *Wallet, wType WalletType) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.wallets[wallet.walletType] = append(w.wallets[wallet.walletType], wallet)
+	w.wallets[wallet.ID] = wallet
+	switch wType {
+	case fresh:
+		w.faucetWallets = append(w.faucetWallets, wallet.ID)
+	}
 }
 
-// GetNonEmptyWallet returns first non-empty wallet.
-func (w *Wallets) GetNonEmptyWallet(walletType WalletType) *Wallet {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+// GetUnspentOutput gets first found unspent output for a given walletType
+func (w *Wallets) GetUnspentOutput(wallet *Wallet) *Output {
+	if wallet == nil {
+		return nil
+	}
+	return wallet.GetUnspentOutput()
+}
 
-	for _, wallet := range w.wallets[walletType] {
-		if !wallet.IsEmpty() {
-			return wallet
-		}
+func (w *Wallets) FreshWallet() *Wallet {
+	if len(w.faucetWallets) > 0 {
+		return w.wallets[w.faucetWallets[0]]
 	}
 	return nil
 }
 
-// GetUnspentOutput gets first found unspent output for a given walletType
-func (w *Wallets) GetUnspentOutput(walletType WalletType) *Output {
-	wallet := w.GetNonEmptyWallet(walletType)
-	return wallet.GetUnspentOutput()
+func (w *Wallets) RemoveWallet() *Wallet {
+
+	if len(w.faucetWallets) > 0 {
+		return w.wallets[w.faucetWallets[0]]
+	}
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -98,8 +93,7 @@ func (w *Wallets) GetUnspentOutput(walletType WalletType) *Output {
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Wallet struct {
-	ID         int
-	walletType WalletType
+	ID walletID
 
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
 	indexAddrMap      map[uint64]string
@@ -114,12 +108,11 @@ type Wallet struct {
 }
 
 // NewWallet creates a wallet of a given type.
-func NewWallet(wType WalletType) *Wallet {
+func NewWallet() *Wallet {
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
 	wallet := &Wallet{
 		ID:                -1,
-		walletType:        wType,
 		seed:              seed.NewSeed(),
 		unspentOutputs:    make(map[string]*Output),
 		indexAddrMap:      make(map[uint64]string),
@@ -180,7 +173,6 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 		OutputID: outputID,
 		Address:  addr,
 		Index:    addrIdx,
-		WalletID: w.ID,
 		Balance:  balance,
 		Status:   pending,
 	}

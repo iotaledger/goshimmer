@@ -9,7 +9,7 @@ import (
 func TestDeepDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(fresh)
+	wallet := evilwallet.NewWallet()
 
 	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
 	require.NoError(t, err)

@@ -8,7 +8,7 @@ import (
 func TestDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(custom)
+	wallet := evilwallet.NewWallet()
 	clients := evilwallet.GetClients(2)
 
 	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
