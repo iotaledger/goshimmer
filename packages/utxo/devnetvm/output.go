@@ -1,8 +1,7 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"sort"
 	"strconv"
@@ -18,11 +17,9 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -43,165 +40,18 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputType represents the type of an Output. Outputs of different types can have different unlock rules and allow for
-// some relatively basic smart contract logic.
-type OutputType uint8
-
-const (
-	// SigLockedSingleOutputType represents an Output holding vanilla IOTA tokens that gets unlocked by a signature.
-	SigLockedSingleOutputType OutputType = iota
-
-	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
-	SigLockedColoredOutputType
-
-	// AliasOutputType represents an Output which makes a chain with optional governance.
-	AliasOutputType
-
-	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback.
-	ExtendedLockedOutputType
-)
-
-// String returns a human readable representation of the OutputType.
-func (o OutputType) String() string {
-	return [...]string{
-		"SigLockedSingleOutputType",
-		"SigLockedColoredOutputType",
-		"AliasOutputType",
-		"ExtendedLockedOutputType",
-	}[o]
-}
-
-// OutputTypeFromString returns the output type from a string.
-func OutputTypeFromString(ot string) (OutputType, error) {
-	res, ok := map[string]OutputType{
-		"SigLockedSingleOutputType":  SigLockedSingleOutputType,
-		"SigLockedColoredOutputType": SigLockedColoredOutputType,
-		"AliasOutputType":            AliasOutputType,
-		"ExtendedLockedOutputType":   ExtendedLockedOutputType,
-	}[ot]
-	if !ok {
-		return res, errors.New(fmt.Sprintf("unsupported output type: %s", ot))
-	}
-	return res, nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputIDLength contains the amount of bytes that a marshaled version of the OutputID contains.
-const OutputIDLength = TransactionIDLength + marshalutil.Uint16Size
-
-// OutputID is the data type that represents the identifier of an Output (which consists of a TransactionID and the
-// index of the Output in the Transaction that created it).
-type OutputID [OutputIDLength]byte
-
-// EmptyOutputID represents the zero-value of an OutputID.
-var EmptyOutputID OutputID
-
-// NewOutputID is the constructor for the OutputID.
-func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID OutputID) {
-	if outputIndex >= MaxOutputCount {
-		panic(fmt.Sprintf("output index exceeds threshold defined by MaxOutputCount (%d)", MaxOutputCount))
-	}
-
-	copy(outputID[:TransactionIDLength], transactionID.Bytes())
-	binary.LittleEndian.PutUint16(outputID[TransactionIDLength:], outputIndex)
-
-	return
-}
-
-// OutputIDFromBytes unmarshals an OutputID from a sequence of bytes.
-func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// OutputIDFromBase58 creates an OutputID from a base58 encoded string.
-func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
-	decodedBytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded OutputID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if outputID, _, err = OutputIDFromBytes(decodedBytes); err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// OutputIDFromMarshalUtil unmarshals an OutputID using a MarshalUtil (for easier unmarshaling).
-func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(outputID[:], outputIDBytes)
-
-	if outputID.OutputIndex() >= MaxOutputCount {
-		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// TransactionID returns the TransactionID part of an OutputID.
-func (o OutputID) TransactionID() (transactionID TransactionID) {
-	copy(transactionID[:], o[:TransactionIDLength])
-
-	return
-}
-
-// OutputIndex returns the Output index part of an OutputID.
-func (o OutputID) OutputIndex() uint16 {
-	return binary.LittleEndian.Uint16(o[TransactionIDLength:])
-}
-
-// Bytes marshals the OutputID into a sequence of bytes.
-func (o OutputID) Bytes() []byte {
-	return o[:]
-}
-
-// Base58 returns a base58 encoded version of the OutputID.
-func (o OutputID) Base58() string {
-	return base58.Encode(o[:])
-}
-
-// String creates a human readable version of the OutputID.
-func (o OutputID) String() string {
-	return stringify.Struct("OutputID",
-		stringify.StructField("transactionID", o.TransactionID()),
-		stringify.StructField("outputIndex", o.OutputIndex()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Output is a generic interface for the different types of Outputs (with different unlock behaviors).
 type Output interface {
 	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-	ID() OutputID
+	ID() utxo.OutputID
 
 	// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the Output is supposed to be persisted.
-	SetID(outputID OutputID) Output
+	SetID(outputID utxo.OutputID) Output
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
@@ -297,7 +147,7 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 		return
 	}
 
-	outputID, _, err := OutputIDFromBytes(key)
+	outputID, _, err := utxo.OutputIDFromBytes(key)
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
 		return
@@ -462,7 +312,7 @@ func (o Outputs) String() string {
 // Strings returns the Outputs in the form []transactionID:index.
 func (o Outputs) Strings() (result []string) {
 	for _, output := range o {
-		result = append(result, fmt.Sprintf("%s:%d", output.ID().TransactionID().Base58(), output.ID().OutputIndex()))
+		result = append(result, fmt.Sprintf("%s", output.ID()))
 	}
 
 	return
@@ -473,7 +323,7 @@ func (o Outputs) Strings() (result []string) {
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
-type OutputsByID map[OutputID]Output
+type OutputsByID map[utxo.OutputID]Output
 
 // NewOutputsByID returns a map of Outputs where every Output is stored with its corresponding OutputID as the key.
 func NewOutputsByID(optionalOutputs ...Output) (outputsByID OutputsByID) {
@@ -532,7 +382,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	id      OutputID
+	id      utxo.OutputID
 	idMutex sync.RWMutex
 	balance uint64
 	address Address
@@ -601,7 +451,7 @@ func (s *SigLockedSingleOutput) FromMarshalUtil(marshalUtil *marshalutil.Marshal
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedSingleOutput) ID() OutputID {
+func (s *SigLockedSingleOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
@@ -612,7 +462,7 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
+func (s *SigLockedSingleOutput) SetID(outputID utxo.OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
@@ -672,7 +522,7 @@ func (s *SigLockedSingleOutput) Address() Address {
 
 // Input returns an Input that references the Output.
 func (s *SigLockedSingleOutput) Input() Input {
-	if s.ID() == EmptyOutputID {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
@@ -739,7 +589,7 @@ var _ Output = new(SigLockedSingleOutput)
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	id       OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address
@@ -800,7 +650,7 @@ func (s *SigLockedColoredOutput) FromMarshalUtil(marshalUtil *marshalutil.Marsha
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedColoredOutput) ID() OutputID {
+func (s *SigLockedColoredOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
@@ -811,7 +661,7 @@ func (s *SigLockedColoredOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID OutputID) Output {
+func (s *SigLockedColoredOutput) SetID(outputID utxo.OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
@@ -867,7 +717,7 @@ func (s *SigLockedColoredOutput) Address() Address {
 
 // Input returns an Input that references the Output.
 func (s *SigLockedColoredOutput) Input() Input {
-	if s.ID() == EmptyOutputID {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -963,7 +813,7 @@ const (
 // It can only be used in a chained manner.
 type AliasOutput struct {
 	// common for all outputs
-	outputID      OutputID
+	outputID      utxo.OutputID
 	outputIDMutex sync.RWMutex
 	balances      *ColoredBalances
 
@@ -1359,7 +1209,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 }
 
 // ID is the ID of the output.
-func (a *AliasOutput) ID() OutputID {
+func (a *AliasOutput) ID() utxo.OutputID {
 	a.outputIDMutex.RLock()
 	defer a.outputIDMutex.RUnlock()
 
@@ -1367,7 +1217,7 @@ func (a *AliasOutput) ID() OutputID {
 }
 
 // SetID set the output ID after unmarshalling.
-func (a *AliasOutput) SetID(outputID OutputID) Output {
+func (a *AliasOutput) SetID(outputID utxo.OutputID) Output {
 	a.outputIDMutex.Lock()
 	defer a.outputIDMutex.Unlock()
 
@@ -1392,7 +1242,7 @@ func (a *AliasOutput) Address() Address {
 
 // Input makes input from the output.
 func (a *AliasOutput) Input() Input {
-	if a.ID() == EmptyOutputID {
+	if a.ID() == (utxo.OutputID{}) {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -1854,7 +1704,7 @@ var _ Output = new(AliasOutput)
 // - can be time locked until deadline
 // - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
-	id       OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
@@ -2008,7 +1858,7 @@ func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
 }
 
 // ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (o *ExtendedLockedOutput) ID() OutputID {
+func (o *ExtendedLockedOutput) ID() utxo.OutputID {
 	o.idMutex.RLock()
 	defer o.idMutex.RUnlock()
 
@@ -2019,7 +1869,7 @@ func (o *ExtendedLockedOutput) ID() OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the Output is supposed to be persisted by the node.
-func (o *ExtendedLockedOutput) SetID(outputID OutputID) Output {
+func (o *ExtendedLockedOutput) SetID(outputID utxo.OutputID) Output {
 	o.idMutex.Lock()
 	defer o.idMutex.Unlock()
 
@@ -2087,7 +1937,7 @@ func (o *ExtendedLockedOutput) FallbackAddress() (addy Address) {
 
 // Input returns an Input that references the Output.
 func (o *ExtendedLockedOutput) Input() Input {
-	if o.ID() == EmptyOutputID {
+	if o.ID() == (utxo.OutputID{}) {
 		panic("ExtendedLockedOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -2221,381 +2071,5 @@ func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 
 // code contract (make sure the type implements all required methods).
 var _ Output = new(ExtendedLockedOutput)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputMetadata contains additional Output information that are derived from the local perception of the node.
-type OutputMetadata struct {
-	id                      OutputID
-	branchIDs               BranchIDs
-	branchIDsMutex          sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
-	solidificationTimeMutex sync.RWMutex
-	consumerCount           int
-	consumerMutex           sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
-	gradeOfFinalityMutex    sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewOutputMetadata creates a new empty OutputMetadata object.
-func NewOutputMetadata(outputID OutputID) *OutputMetadata {
-	return &OutputMetadata{
-		id:        outputID,
-		branchIDs: NewBranchIDs(),
-	}
-}
-
-// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
-func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
-	}
-	return outputMetadata, err
-}
-
-// FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputMetadata, err = o.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
-func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
-	if outputMetadata = o; outputMetadata == nil {
-		outputMetadata = new(OutputMetadata)
-	}
-
-	if outputMetadata.id, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID: %w", err)
-		return
-	}
-	if outputMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchIDs: %w", err)
-		return
-	}
-	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	consumerCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	outputMetadata.consumerCount = int(consumerCount)
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	return
-}
-
-// ID returns the OutputID of the Output that the OutputMetadata belongs to.
-func (o *OutputMetadata) ID() OutputID {
-	return o.id
-}
-
-// BranchIDs returns the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) BranchIDs() BranchIDs {
-	o.branchIDsMutex.RLock()
-	defer o.branchIDsMutex.RUnlock()
-
-	return o.branchIDs.Clone()
-}
-
-// SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
-	o.branchIDsMutex.Lock()
-	defer o.branchIDsMutex.Unlock()
-
-	if o.branchIDs.Equals(branchIDs) {
-		return false
-	}
-
-	o.branchIDs = branchIDs.Clone()
-	o.SetModified()
-	return true
-}
-
-// AddBranchID adds an identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
-	o.branchIDsMutex.Lock()
-	defer o.branchIDsMutex.Unlock()
-
-	if o.branchIDs.Contains(branchID) {
-		return false
-	}
-
-	delete(o.branchIDs, MasterBranchID)
-
-	o.branchIDs.Add(branchID)
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Solid returns true if the Output has been marked as solid.
-func (o *OutputMetadata) Solid() bool {
-	o.solidMutex.RLock()
-	defer o.solidMutex.RUnlock()
-
-	return o.solid
-}
-
-// SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
-// solidification time if the Output was marked as solid.
-func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
-	o.solidMutex.Lock()
-	defer o.solidMutex.Unlock()
-
-	if o.solid == solid {
-		return
-	}
-
-	if solid {
-		o.solidificationTimeMutex.Lock()
-		o.solidificationTime = time.Now()
-		o.solidificationTimeMutex.Unlock()
-	}
-
-	o.solid = solid
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// SolidificationTime returns the time when the Output was marked as solid.
-func (o *OutputMetadata) SolidificationTime() time.Time {
-	o.solidificationTimeMutex.RLock()
-	defer o.solidificationTimeMutex.RUnlock()
-
-	return o.solidificationTime
-}
-
-// ConsumerCount returns the number of transactions that have spent the Output.
-func (o *OutputMetadata) ConsumerCount() int {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
-
-	return o.consumerCount
-}
-
-// RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
-// returns the previous consumer count.
-func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsumerCount int) {
-	o.consumerMutex.Lock()
-	defer o.consumerMutex.Unlock()
-
-	o.consumerCount++
-	o.SetModified()
-
-	return
-}
-
-// GradeOfFinality returns the grade of finality.
-func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
-	o.gradeOfFinalityMutex.RLock()
-	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinality
-}
-
-// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
-func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	o.gradeOfFinalityMutex.Lock()
-	defer o.gradeOfFinalityMutex.Unlock()
-
-	if o.gradeOfFinality == gradeOfFinality {
-		return
-	}
-
-	o.gradeOfFinality = gradeOfFinality
-	o.gradeOfFinalityTime = clock.SyncedTime()
-	o.SetModified()
-	modified = true
-	return
-}
-
-// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
-func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
-	o.gradeOfFinalityMutex.RLock()
-	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinalityTime
-}
-
-// Bytes marshals the OutputMetadata into a sequence of bytes.
-func (o *OutputMetadata) Bytes() []byte {
-	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
-}
-
-// String returns a human readable version of the OutputMetadata.
-func (o *OutputMetadata) String() string {
-	return stringify.Struct("OutputMetadata",
-		stringify.StructField("id", o.ID()),
-		stringify.StructField("branchIDs", o.BranchIDs()),
-		stringify.StructField("solid", o.Solid()),
-		stringify.StructField("solidificationTime", o.SolidificationTime()),
-		stringify.StructField("consumerCount", o.ConsumerCount()),
-		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
-		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (o *OutputMetadata) ObjectStorageKey() []byte {
-	return o.id.Bytes()
-}
-
-// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
-func (o *OutputMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		Write(o.BranchIDs()).
-		WriteBool(o.Solid()).
-		WriteTime(o.SolidificationTime()).
-		WriteUint64(uint64(o.ConsumerCount())).
-		WriteUint8(uint8(o.GradeOfFinality())).
-		WriteTime(o.GradeOfFinalityTime()).
-		Bytes()
-}
-
-// code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = new(OutputMetadata)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputsMetadata represents a list of OutputMetadata objects.
-type OutputsMetadata []*OutputMetadata
-
-// OutputIDs returns the OutputIDs of the Outputs in the list.
-func (o OutputsMetadata) OutputIDs() (outputIDs []OutputID) {
-	outputIDs = make([]OutputID, len(o))
-	for i, outputMetadata := range o {
-		outputIDs[i] = outputMetadata.ID()
-	}
-
-	return
-}
-
-// ConflictIDs returns the ConflictIDs that are the equivalent of the OutputIDs in the list.
-func (o OutputsMetadata) ConflictIDs() (conflictIDs ConflictIDs) {
-	conflictIDsSlice := make([]ConflictID, len(o))
-	for i, input := range o {
-		conflictIDsSlice[i] = NewConflictID(input.ID())
-	}
-	conflictIDs = NewConflictIDs(conflictIDsSlice...)
-
-	return
-}
-
-// ByID returns a map of OutputsMetadata where the key is the OutputID.
-func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
-	outputsMetadataByID = make(OutputsMetadataByID)
-	for _, outputMetadata := range o {
-		outputsMetadataByID[outputMetadata.ID()] = outputMetadata
-	}
-
-	return
-}
-
-// SpentOutputsMetadata returns the spent elements of the list of OutputsMetadata objects.
-func (o OutputsMetadata) SpentOutputsMetadata() (spentOutputsMetadata OutputsMetadata) {
-	spentOutputsMetadata = make(OutputsMetadata, 0)
-	for _, inputMetadata := range o {
-		if inputMetadata.ConsumerCount() >= 1 {
-			spentOutputsMetadata = append(spentOutputsMetadata, inputMetadata)
-		}
-	}
-
-	return spentOutputsMetadata
-}
-
-// String returns a human-readable version of the OutputsMetadata.
-func (o OutputsMetadata) String() string {
-	structBuilder := stringify.StructBuilder("OutputsMetadata")
-	for i, outputMetadata := range o {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), outputMetadata))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputsMetadataByID //////////////////////////////////////////////////////////////////////////////////////////
-
-// OutputsMetadataByID represents a map of OutputMetadatas where every OutputMetadata is stored with its corresponding
-// OutputID as the key.
-type OutputsMetadataByID map[OutputID]*OutputMetadata
-
-// IDs returns the OutputIDs that are used as keys in the collection.
-func (o OutputsMetadataByID) IDs() (outputIDs []OutputID) {
-	outputIDs = make([]OutputID, 0, len(o))
-	for outputID := range o {
-		outputIDs = append(outputIDs, outputID)
-	}
-
-	return
-}
-
-// ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
-func (o OutputsMetadataByID) ConflictIDs() (conflictIDs ConflictIDs) {
-	conflictIDsSlice := make([]ConflictID, 0, len(o))
-	for inputID := range o {
-		conflictIDsSlice = append(conflictIDsSlice, NewConflictID(inputID))
-	}
-	conflictIDs = NewConflictIDs(conflictIDsSlice...)
-
-	return
-}
-
-// Filter returns the OutputsMetadataByID that are sharing a set membership with the given Inputs.
-func (o OutputsMetadataByID) Filter(outputIDsToInclude []OutputID) (intersectionOfInputs OutputsMetadataByID) {
-	intersectionOfInputs = make(OutputsMetadataByID)
-	for _, outputID := range outputIDsToInclude {
-		if output, exists := o[outputID]; exists {
-			intersectionOfInputs[outputID] = output
-		}
-	}
-
-	return
-}
-
-// String returns a human readable version of the OutputsMetadataByID.
-func (o OutputsMetadataByID) String() string {
-	structBuilder := stringify.StructBuilder("OutputsMetadataByID")
-	for id, output := range o {
-		structBuilder.AddField(stringify.StructField(id.String(), output))
-	}
-
-	return structBuilder.String()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

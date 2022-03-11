@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"testing"
@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 var sampleColor = Color{2}
@@ -28,12 +30,12 @@ func TestTransaction_Bytes(t *testing.T) {
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
 	party1KeyChain, party1SrcAddress, party1DestAddress, party1RemainderAddress := setupKeyChainAndAddresses(t)
-	party1ControlledOutputID := NewOutputID(GenesisTransactionID, 1)
+	party1ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 1, []byte(""))
 	party2KeyChain, party2SrcAddress, party2DestAddress, party2RemainderAddress := setupKeyChainAndAddresses(t)
-	party2ControlledOutputID := NewOutputID(GenesisTransactionID, 2)
+	party2ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 2, []byte(""))
 
 	// initialize fake ledger state with unspent Outputs
-	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[OutputID]map[Color]uint64{
+	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[utxo.OutputID]map[Color]uint64{
 		party1SrcAddress: {
 			party1ControlledOutputID: {
 				sampleColor: 200,
@@ -121,7 +123,7 @@ func setupKeyChainAndAddresses(t *testing.T) (keyChain map[Address]ed25519.KeyPa
 }
 
 // setupUnspentOutputsDB creates a fake database with Outputs.
-func setupUnspentOutputsDB(outputs map[Address]map[OutputID]map[Color]uint64) (unspentOutputsDB OutputsByID) {
+func setupUnspentOutputsDB(outputs map[Address]map[utxo.OutputID]map[Color]uint64) (unspentOutputsDB OutputsByID) {
 	unspentOutputsDB = make(OutputsByID)
 	for address, outputs := range outputs {
 		for outputID, balances := range outputs {

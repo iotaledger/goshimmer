@@ -1,5 +1,9 @@
 package utxo
 
 type Output interface {
-	ID() OutputID
+	ID() (id OutputID)
+
+	Bytes() (serializedOutput []byte)
+
+	String() (humanReadableOutput string)
 }

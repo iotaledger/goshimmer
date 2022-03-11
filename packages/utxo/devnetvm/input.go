@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"bytes"
@@ -13,6 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
+	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -230,7 +233,7 @@ func (i Inputs) Strings() (result []string) {
 	for _, input := range i {
 		if input.Type() == UTXOInputType {
 			outputID := input.(*UTXOInput).ReferencedOutputID()
-			result = append(result, fmt.Sprintf("%s:%d", outputID.TransactionID().Base58(), outputID.OutputIndex()))
+			result = append(result, fmt.Sprintf("%s", outputID))
 		}
 	}
 
@@ -243,11 +246,11 @@ func (i Inputs) Strings() (result []string) {
 
 // UTXOInput represents a reference to an Output in the UTXODAG.
 type UTXOInput struct {
-	referencedOutputID OutputID
+	referencedOutputID utxo.OutputID
 }
 
 // NewUTXOInput is the constructor for UTXOInputs.
-func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
+func NewUTXOInput(referencedOutputID utxo.OutputID) *UTXOInput {
 	return &UTXOInput{
 		referencedOutputID: referencedOutputID,
 	}
@@ -266,7 +269,7 @@ func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXO
 	}
 
 	input = &UTXOInput{}
-	if input.referencedOutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+	if input.referencedOutputID, err = utxo.OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced OutputID from MarshalUtil: %w", err)
 		return
 	}
@@ -280,7 +283,7 @@ func (u *UTXOInput) Type() InputType {
 }
 
 // ReferencedOutputID returns the OutputID that this Input references.
-func (u *UTXOInput) ReferencedOutputID() OutputID {
+func (u *UTXOInput) ReferencedOutputID() utxo.OutputID {
 	return u.referencedOutputID
 }
 
@@ -291,7 +294,7 @@ func (u *UTXOInput) Bytes() []byte {
 
 // Base58 returns the base58 encoded referenced output ID of this input.
 func (u *UTXOInput) Base58() string {
-	return u.referencedOutputID.Base58()
+	return base58.Encode(u.referencedOutputID.Bytes())
 }
 
 // Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they

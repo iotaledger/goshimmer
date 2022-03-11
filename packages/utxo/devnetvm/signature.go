@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"bytes"

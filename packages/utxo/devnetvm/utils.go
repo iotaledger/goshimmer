@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"math"
@@ -55,32 +55,6 @@ func UnlockBlocksValid(inputs Outputs, transaction *Transaction) (valid bool) {
 	unlockValid, unlockErr := UnlockBlocksValidWithError(inputs, transaction)
 
 	return unlockValid && unlockErr == nil
-}
-
-// UnlockBlocksValidWithError is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
-// In case an unlockblock is invalid, it returns the error that caused it.
-func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool, error) {
-	unlockBlocks := transaction.UnlockBlocks()
-	cyclePresent, err := checkReferenceCycle(unlockBlocks)
-	if err != nil {
-		return false, errors.Errorf("unlock blocks are semantically invalid: %w", err)
-	}
-	if cyclePresent {
-		return false, errors.New("unlock blocks contain cyclic dependency, no signature present for an unlock path")
-	}
-	for i, input := range inputs {
-		currentUnlockBlock := unlockBlocks[i]
-		if currentUnlockBlock.Type() == ReferenceUnlockBlockType {
-			currentUnlockBlock = unlockBlocks[unlockBlocks[i].(*ReferenceUnlockBlock).ReferencedIndex()]
-		}
-
-		unlockValid, unlockErr := input.UnlockValid(transaction, currentUnlockBlock, inputs)
-		if !unlockValid || unlockErr != nil {
-			return false, unlockErr
-		}
-	}
-
-	return true, nil
 }
 
 // AliasInitialStateValid is an internal utility function that checks if aliases are created by the transaction with
@@ -163,6 +137,32 @@ func SafeSubUint64(a uint64, b uint64) (result uint64, valid bool) {
 	valid = b <= a
 	result = a - b
 	return
+}
+
+// UnlockBlocksValidWithError is an internal utility function that checks if the UnlockBlocks are matching the referenced Inputs.
+// In case an unlockblock is invalid, it returns the error that caused it.
+func UnlockBlocksValidWithError(inputs Outputs, transaction *Transaction) (bool, error) {
+	unlockBlocks := transaction.UnlockBlocks()
+	cyclePresent, err := checkReferenceCycle(unlockBlocks)
+	if err != nil {
+		return false, errors.Errorf("unlock blocks are semantically invalid: %w", err)
+	}
+	if cyclePresent {
+		return false, errors.New("unlock blocks contain cyclic dependency, no signature present for an unlock path")
+	}
+	for i, input := range inputs {
+		currentUnlockBlock := unlockBlocks[i]
+		if currentUnlockBlock.Type() == ReferenceUnlockBlockType {
+			currentUnlockBlock = unlockBlocks[unlockBlocks[i].(*ReferenceUnlockBlock).ReferencedIndex()]
+		}
+
+		unlockValid, unlockErr := input.UnlockValid(transaction, currentUnlockBlock, inputs)
+		if !unlockValid || unlockErr != nil {
+			return false, unlockErr
+		}
+	}
+
+	return true, nil
 }
 
 // checkReferenceCycle builds a graph from the unlock block references and detects circular referencing. It returns an error

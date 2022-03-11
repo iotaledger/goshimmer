@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"encoding/binary"
@@ -8,11 +8,13 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
-	Transactions     map[TransactionID]Record
+	Transactions     map[utxo.TransactionID]Record
 	AccessManaByNode map[identity.ID]AccessMana
 }
 
@@ -45,7 +47,7 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		if err := binary.Write(writer, binary.LittleEndian, transactionID.Bytes()); err != nil {
 			return 0, fmt.Errorf("unable to write transactionID with %s: %w", transactionID, err)
 		}
-		bytesWritten += TransactionIDLength
+		bytesWritten += utxo.TransactionIDLength
 
 		if err := binary.Write(writer, binary.LittleEndian, record.Essence.Bytes()); err != nil {
 			return 0, fmt.Errorf("unable to write transaction with %s: %w", transactionID, err)
@@ -117,7 +119,7 @@ func (s *Snapshot) ReadFrom(reader io.Reader) (int64, error) {
 
 // readTransactions reads the transactions from the snapshot.
 func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
-	s.Transactions = make(map[TransactionID]Record)
+	s.Transactions = make(map[utxo.TransactionID]Record)
 	var bytesRead int64
 	var transactionCount uint32
 
@@ -134,12 +136,12 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		}
 		bytesRead += 4
 
-		transactionIDBytes := make([]byte, TransactionIDLength)
+		transactionIDBytes := make([]byte, utxo.TransactionIDLength)
 		if err := binary.Read(reader, binary.LittleEndian, &transactionIDBytes); err != nil {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
 
-		txID, n, e := TransactionIDFromBytes(transactionIDBytes)
+		txID, n, e := utxo.TransactionIDFromBytes(transactionIDBytes)
 		if e != nil {
 			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, e)
 		}

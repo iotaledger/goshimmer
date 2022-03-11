@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"bytes"
@@ -54,7 +54,7 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 	return
 }
 
-// ColorFromMarshalUtil unmarshals a Color using a MarshalUtil (for easier unmarshalling).
+// ColorFromMarshalUtil unmarshals a Color using a MarshalUtil (for easier unmarshaling).
 func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
 	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
 	if err != nil {
@@ -139,7 +139,7 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 	return
 }
 
-// ColoredBalancesFromMarshalUtil unmarshals ColoredBalances using a MarshalUtil (for easier unmarshalling).
+// ColoredBalancesFromMarshalUtil unmarshals ColoredBalances using a MarshalUtil (for easier unmarshaling).
 func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
 	balancesCount, err := marshalUtil.ReadUint32()
 	if err != nil {
@@ -191,7 +191,9 @@ func (c *ColoredBalances) Get(color Color) (uint64, bool) {
 
 // ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
 func (c *ColoredBalances) ForEach(consumer func(color Color, balance uint64) bool) {
-	c.balances.ForEach(consumer)
+	c.balances.ForEach(func(key Color, value uint64) bool {
+		return consumer(key, value)
+	})
 }
 
 // Size returns the amount of individual balances in the ColoredBalances.

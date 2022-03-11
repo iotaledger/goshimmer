@@ -9,6 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
@@ -17,9 +19,9 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	manaPledgeID := identity.GenerateIdentity().ID()
 	wallets := make(map[string]wallet)
-	outputs := make(map[string]Output)
-	inputs := make(map[string]Input)
-	transactions := make(map[string]*Transaction)
+	outputs := make(map[string]utxo.Output)
+	inputs := make(map[string]utxo.Input)
+	transactions := make(map[string]utxo.Transaction)
 	branches := make(map[string]BranchIDs)
 
 	setupScenarioBottomLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
@@ -160,7 +162,7 @@ func assertBranchIDs(t *testing.T, ledgerstate *Ledgerstate, transaction *Transa
 	}
 }
 
-func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
+func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]utxo.Output, ledgerstate *Ledgerstate, inputs map[string]utxo.Input, manaPledgeID identity.ID, transactions map[string]utxo.Transaction, branches map[string]BranchIDs) {
 	// create genesis outputs
 	{
 		wallets["GENESIS_1"] = createWallets(1)[0]

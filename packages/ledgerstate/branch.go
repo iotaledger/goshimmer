@@ -14,6 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +35,7 @@ const BranchIDLength = 32
 type BranchID [BranchIDLength]byte
 
 // NewBranchID creates a new BranchID from a TransactionID.
-func NewBranchID(transactionID TransactionID) (branchID BranchID) {
+func NewBranchID(transactionID utxo.TransactionID) (branchID BranchID) {
 	copy(branchID[:], transactionID[:])
 
 	return
@@ -92,7 +94,7 @@ func BranchIDFromRandomness() (branchID BranchID) {
 }
 
 // TransactionID returns the TransactionID of its underlying conflicting Transaction.
-func (b BranchID) TransactionID() (transactionID TransactionID) {
+func (b BranchID) TransactionID() (transactionID utxo.TransactionID) {
 	copy(transactionID[:], b[:])
 
 	return

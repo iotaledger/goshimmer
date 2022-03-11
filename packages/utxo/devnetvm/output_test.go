@@ -1,4 +1,4 @@
-package ledgerstate
+package devnetvm
 
 import (
 	"bytes"
@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region AliasOutput Tests
@@ -559,7 +561,7 @@ func TestAliasOutput_IsOrigin(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, out.IsOrigin())
 		// imitate booking
-		out.SetID(OutputID{})
+		out.SetID(utxo.OutputID{})
 		outUpd := out.UpdateMintingColor().(*AliasOutput)
 		require.True(t, outUpd.IsOrigin())
 	})
@@ -2377,10 +2379,10 @@ func randAliasAddress() *AliasAddress {
 	return NewAliasAddress(randOutputIDBytes)
 }
 
-func randOutputID() OutputID {
+func randOutputID() utxo.OutputID {
 	randOutputIDBytes := make([]byte, 34)
 	_, _ = rand.Read(randOutputIDBytes)
-	outputID, _, _ := OutputIDFromBytes(randOutputIDBytes)
+	outputID, _, _ := utxo.OutputIDFromBytes(randOutputIDBytes)
 	return outputID
 }
 

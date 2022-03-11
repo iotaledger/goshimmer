@@ -13,24 +13,26 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
+
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDLength contains the amount of bytes that a marshaled version of the ConflictID contains.
-const ConflictIDLength = OutputIDLength
+const ConflictIDLength = utxo.OutputIDLength
 
 // ConflictID is the data type that represents the identifier of a Conflict.
 type ConflictID [ConflictIDLength]byte
 
 // NewConflictID creates a new ConflictID from an OutputID.
-func NewConflictID(outputID OutputID) (conflictID ConflictID) {
+func NewConflictID(outputID utxo.OutputID) (conflictID ConflictID) {
 	copy(conflictID[:], outputID[:])
 
 	return
 }
 
-// ConflictIDFromMarshalUtil unmarshals a ConflictID using a MarshalUtil (for easier unmarshaling).
+// ConflictIDFromMarshalUtil unmarshals a ConflictID using a MarshalUtil (for easier unmarshalling).
 func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	conflictIDBytes, err := marshalUtil.ReadBytes(ConflictIDLength)
 	if err != nil {
@@ -50,8 +52,8 @@ func ConflictIDFromRandomness() (conflictID ConflictID) {
 }
 
 // OutputID returns the OutputID that the ConflictID represents.
-func (c ConflictID) OutputID() (outputID OutputID) {
-	outputID, _, err := OutputIDFromBytes(c.Bytes())
+func (c ConflictID) OutputID() (outputID utxo.OutputID) {
+	outputID, _, err := utxo.OutputIDFromBytes(c.Bytes())
 	if err != nil {
 		panic(err)
 	}
@@ -69,7 +71,7 @@ func (c ConflictID) Base58() string {
 	return base58.Encode(c.Bytes())
 }
 
-// String returns a human readable version of the ConflictID.
+// String returns a human-readable version of the ConflictID.
 func (c ConflictID) String() string {
 	return "ConflictID(" + c.Base58() + ")"
 }
@@ -91,7 +93,7 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 	return
 }
 
-// ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshaling).
+// ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshalling).
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
 	conflictIDsCount, err := marshalUtil.ReadUint64()
 	if err != nil {
@@ -141,7 +143,7 @@ func (c ConflictIDs) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the ConflictIDs.
+// String returns a human-readable version of the ConflictIDs.
 func (c ConflictIDs) String() string {
 	if len(c) == 0 {
 		return "ConflictIDs{}"
@@ -206,7 +208,7 @@ func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
 	return
 }
 
-// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
+// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshalling).
 func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
 	if conflict = c; conflict == nil {
 		conflict = &Conflict{}
@@ -277,7 +279,7 @@ func (c *Conflict) Bytes() []byte {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
-// String returns a human readable version of the Conflict.
+// String returns a human-readable version of the Conflict.
 func (c *Conflict) String() string {
 	return stringify.Struct("Conflict",
 		stringify.StructField("id", c.ID()),
@@ -347,7 +349,7 @@ func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember
 	return
 }
 
-// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
+// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshalling).
 func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
 	if conflictMember = c; conflictMember == nil {
 		conflictMember = &ConflictMember{}
@@ -379,7 +381,7 @@ func (c *ConflictMember) Bytes() []byte {
 	return c.ObjectStorageKey()
 }
 
-// String returns a human readable version of this ConflictMember.
+// String returns a human-readable version of this ConflictMember.
 func (c *ConflictMember) String() string {
 	return stringify.Struct("ConflictMember",
 		stringify.StructField("conflictID", c.conflictID),

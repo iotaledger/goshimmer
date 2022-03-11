@@ -1,7 +1,6 @@
-package ledgerstate
+package devnetvm
 
 import (
-	"crypto/rand"
 	"fmt"
 	"strconv"
 	"strings"
@@ -17,12 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/utxo"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
@@ -47,85 +44,10 @@ func init() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionIDLength contains the amount of bytes that a marshaled version of the ID contains.
-const TransactionIDLength = 32
-
-// TransactionID is the type that represents the identifier of a Transaction.
-type TransactionID [TransactionIDLength]byte
-
-// GenesisTransactionID represents the identifier of the genesis Transaction.
-var GenesisTransactionID TransactionID
-
-// TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
-func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// TransactionIDFromBase58 creates a TransactionID from a base58 encoded string.
-func TransactionIDFromBase58(base58String string) (transactionID TransactionID, err error) {
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if transactionID, _, err = TransactionIDFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshaling).
-func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
-	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(transactionID[:], transactionIDBytes)
-
-	return
-}
-
-// TransactionIDFromRandomness returns a random TransactionID which can for example be used in unit tests.
-func TransactionIDFromRandomness() (transactionID TransactionID, err error) {
-	_, err = rand.Read(transactionID[:])
-
-	return
-}
-
-// Bytes returns a marshaled version of the TransactionID.
-func (i TransactionID) Bytes() []byte {
-	return i[:]
-}
-
-// Base58 returns a base58 encoded version of the TransactionID.
-func (i TransactionID) Base58() string {
-	return base58.Encode(i[:])
-}
-
-// String creates a human readable version of the TransactionID.
-func (i TransactionID) String() string {
-	return "TransactionID(" + i.Base58() + ")"
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region TransactionIDs ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionIDs represents a collection of TransactionIDs.
-type TransactionIDs map[TransactionID]types.Empty
+type TransactionIDs map[utxo.TransactionID]types.Empty
 
 // Clone returns a copy of the collection of TransactionIDs.
 func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
@@ -158,12 +80,21 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	id           *TransactionID
+	id           *utxo.TransactionID
 	idMutex      sync.RWMutex
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
 
 	objectstorage.StorableObjectFlags
+}
+
+func (t *Transaction) Inputs() (inputs []utxo.Input) {
+	inputs = make([]utxo.Input, 0)
+	for _, input := range t.essence.Inputs() {
+		inputs = append(inputs, input)
+	}
+
+	return inputs
 }
 
 // NewTransaction creates a new Transaction from the given details.
@@ -179,7 +110,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
@@ -188,10 +119,10 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 			alias := output.(*AliasOutput)
 			aliasAddress := alias.GetAliasAddress()
 			if alias.GetStateAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID()))
 			}
 			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID()))
 			}
 		}
 	}
@@ -207,7 +138,7 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		return transaction, err
 	}
 
-	transactionID, _, err := TransactionIDFromBytes(key)
+	transactionID, _, err := utxo.TransactionIDFromBytes(key)
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return transaction, err
@@ -292,18 +223,18 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 	}
 
 	for i, output := range transaction.essence.Outputs() {
-		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set
 		if output.Type() == AliasOutputType {
 			alias := output.(*AliasOutput)
 			aliasAddress := alias.GetAliasAddress()
 			if alias.GetStateAddress().Equals(aliasAddress) {
-				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID())
 				return
 			}
 			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID())
 				return
 			}
 		}
@@ -314,7 +245,7 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
 // we calculate this value lazy and use double checked locking.
-func (t *Transaction) ID() TransactionID {
+func (t *Transaction) ID() utxo.TransactionID {
 	t.idMutex.RLock()
 	if t.id != nil {
 		defer t.idMutex.RUnlock()
@@ -331,7 +262,7 @@ func (t *Transaction) ID() TransactionID {
 	}
 
 	idBytes := blake2b.Sum256(t.Bytes())
-	id, _, err := TransactionIDFromBytes(idBytes[:])
+	id, _, err := utxo.TransactionIDFromBytes(idBytes[:])
 	if err != nil {
 		panic(err)
 	}
@@ -353,16 +284,6 @@ func (t *Transaction) Essence() *TransactionEssence {
 // UnlockBlocks returns the UnlockBlocks of the Transaction.
 func (t *Transaction) UnlockBlocks() UnlockBlocks {
 	return t.unlockBlocks
-}
-
-// ReferencedTransactionIDs returns a set of TransactionIDs whose Outputs were used as Inputs in this Transaction.
-func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs TransactionIDs) {
-	referencedTransactionIDs = make(TransactionIDs)
-	for _, input := range t.Essence().Inputs() {
-		referencedTransactionIDs[input.(*UTXOInput).ReferencedOutputID().TransactionID()] = types.Void
-	}
-
-	return
 }
 
 // Bytes returns a marshaled version of the Transaction.
@@ -404,6 +325,8 @@ func (t *Transaction) ObjectStorageValue() []byte {
 
 // code contract (make sure the struct implements all required methods)
 var _ payload.Payload = &Transaction{}
+
+var _ utxo.Transaction = new(Transaction)
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &Transaction{}
@@ -620,280 +543,5 @@ func (t TransactionEssenceVersion) Compare(other TransactionEssenceVersion) int 
 func (t TransactionEssenceVersion) String() string {
 	return "TransactionEssenceVersion(" + strconv.Itoa(int(t)) + ")"
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
-// a node.
-type TransactionMetadata struct {
-	id                      TransactionID
-	branchIDs               BranchIDs
-	branchIDsMutex          sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
-	solidificationTimeMutex sync.RWMutex
-	lazyBooked              bool
-	lazyBookedMutex         sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
-	gradeOfFinalityMutex    sync.RWMutex
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewTransactionMetadata creates a new empty TransactionMetadata object.
-func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
-	return &TransactionMetadata{
-		id:        transactionID,
-		branchIDs: NewBranchIDs(),
-	}
-}
-
-// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
-func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	transactionMetadata, err := t.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
-		return transactionMetadata, err
-	}
-
-	return transactionMetadata, err
-}
-
-// FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
-func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
-	if transactionMetadata = t; transactionMetadata == nil {
-		transactionMetadata = &TransactionMetadata{}
-	}
-	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID: %w", err)
-		return
-	}
-	if transactionMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
-func (t *TransactionMetadata) ID() TransactionID {
-	return t.id
-}
-
-// BranchIDs returns the identifiers of the Branches that the Transaction was booked in.
-func (t *TransactionMetadata) BranchIDs() BranchIDs {
-	t.branchIDsMutex.RLock()
-	defer t.branchIDsMutex.RUnlock()
-
-	return t.branchIDs.Clone()
-}
-
-// SetBranchIDs sets the identifiers of the Branches that the Transaction was booked in.
-func (t *TransactionMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
-	t.branchIDsMutex.Lock()
-	defer t.branchIDsMutex.Unlock()
-
-	if t.branchIDs.Equals(branchIDs) {
-		return false
-	}
-
-	t.branchIDs = branchIDs.Clone()
-	t.SetModified()
-	return true
-}
-
-// AddBranchID adds an identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) AddBranchID(branchID BranchID) (modified bool) {
-	t.branchIDsMutex.Lock()
-	defer t.branchIDsMutex.Unlock()
-
-	if t.branchIDs.Contains(branchID) {
-		return false
-	}
-
-	delete(t.branchIDs, MasterBranchID)
-
-	t.branchIDs.Add(branchID)
-	t.SetModified()
-	return true
-}
-
-// Solid returns true if the Transaction has been marked as solid.
-func (t *TransactionMetadata) Solid() bool {
-	t.solidMutex.RLock()
-	defer t.solidMutex.RUnlock()
-
-	return t.solid
-}
-
-// SetSolid updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
-// solidification time if the Transaction was marked as solid.
-func (t *TransactionMetadata) SetSolid(solid bool) (modified bool) {
-	t.solidMutex.Lock()
-	defer t.solidMutex.Unlock()
-
-	if t.solid == solid {
-		return
-	}
-
-	if solid {
-		t.solidificationTimeMutex.Lock()
-		t.solidificationTime = time.Now()
-		t.solidificationTimeMutex.Unlock()
-	}
-
-	t.solid = solid
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// SolidificationTime returns the time when the Transaction was marked as solid.
-func (t *TransactionMetadata) SolidificationTime() time.Time {
-	t.solidificationTimeMutex.RLock()
-	defer t.solidificationTimeMutex.RUnlock()
-
-	return t.solidificationTime
-}
-
-// LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
-// status of its consumed Branches.
-func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
-	t.lazyBookedMutex.RLock()
-	defer t.lazyBookedMutex.RUnlock()
-
-	return t.lazyBooked
-}
-
-// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
-func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
-	t.lazyBookedMutex.Lock()
-	defer t.lazyBookedMutex.Unlock()
-
-	if t.lazyBooked == lazyBooked {
-		return
-	}
-
-	t.lazyBooked = lazyBooked
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// GradeOfFinality returns the grade of finality.
-func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
-	t.gradeOfFinalityMutex.RLock()
-	defer t.gradeOfFinalityMutex.RUnlock()
-	return t.gradeOfFinality
-}
-
-// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
-func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	t.gradeOfFinalityMutex.Lock()
-	defer t.gradeOfFinalityMutex.Unlock()
-
-	if t.gradeOfFinality == gradeOfFinality {
-		return
-	}
-
-	t.gradeOfFinality = gradeOfFinality
-	t.gradeOfFinalityTime = clock.SyncedTime()
-	t.SetModified()
-	modified = true
-	return
-}
-
-// GradeOfFinalityTime returns the time when the Transaction's gradeOfFinality was set.
-func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
-	t.gradeOfFinalityMutex.RLock()
-	defer t.gradeOfFinalityMutex.RUnlock()
-
-	return t.gradeOfFinalityTime
-}
-
-// IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
-func (t *TransactionMetadata) IsConflicting() bool {
-	branchIDs := t.BranchIDs()
-	return len(branchIDs) == 1 && branchIDs.Contains(NewBranchID(t.ID()))
-}
-
-// Bytes marshals the TransactionMetadata into a sequence of bytes.
-func (t *TransactionMetadata) Bytes() []byte {
-	return byteutils.ConcatBytes(t.ObjectStorageKey(), t.ObjectStorageValue())
-}
-
-// String returns a human readable version of the TransactionMetadata.
-func (t *TransactionMetadata) String() string {
-	return stringify.Struct("TransactionMetadata",
-		stringify.StructField("id", t.ID()),
-		stringify.StructField("branchID", t.BranchIDs()),
-		stringify.StructField("solid", t.Solid()),
-		stringify.StructField("solidificationTime", t.SolidificationTime()),
-		stringify.StructField("lazyBooked", t.LazyBooked()),
-		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
-		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (t *TransactionMetadata) ObjectStorageKey() []byte {
-	return t.id.Bytes()
-}
-
-// ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes. The ID is not serialized here as it is
-// only used as a key in the ObjectStorage.
-func (t *TransactionMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		Write(t.BranchIDs()).
-		WriteBool(t.Solid()).
-		WriteTime(t.SolidificationTime()).
-		WriteBool(t.LazyBooked()).
-		WriteUint8(uint8(t.GradeOfFinality())).
-		WriteTime(t.GradeOfFinalityTime()).
-		Bytes()
-}
-
-// code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
