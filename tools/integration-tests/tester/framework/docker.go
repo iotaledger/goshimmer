@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -76,9 +77,11 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	containerConfig := &container.Config{
 		Image: conf.Image,
 		ExposedPorts: nat.PortSet{
-			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):     {},
-			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):  {},
-			nat.Port(fmt.Sprintf("%d/udp", peeringPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", apiPort)):       {},
+			nat.Port(fmt.Sprintf("%d/tcp", dashboardPort)): {},
+			nat.Port(fmt.Sprintf("%d/tcp", dagVizPort)):    {},
+			nat.Port(fmt.Sprintf("%d/tcp", gossipPort)):    {},
+			nat.Port(fmt.Sprintf("%d/udp", peeringPort)):   {},
 		},
 		Cmd: cmd,
 	}
@@ -107,6 +110,48 @@ func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, go
 	}
 
 	return d.CreateContainer(ctx, name, containerConfig)
+}
+
+func (d *DockerContainer) createSocatContainer(ctx context.Context, name string, targetContainer string, portMapping map[int]config.GoShimmerPort) error {
+	// create host configs
+	portBindings := make(nat.PortMap, len(portMapping))
+	exposedPorts := make(nat.PortSet, len(portMapping))
+	for srcPort, targetPort := range portMapping {
+		port, err := nat.NewPort("tcp", strconv.Itoa(int(targetPort)))
+		if err != nil {
+			return err
+		}
+
+		portBindings[port] = []nat.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: strconv.Itoa(srcPort),
+			},
+		}
+
+		exposedPorts[port] = struct{}{}
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds:        strslice.StrSlice{"/var/run/docker.sock:/var/run/docker.sock:ro"},
+		PortBindings: portBindings,
+	}
+
+	cmd := ""
+	for _, targetPort := range portMapping {
+		cmd += fmt.Sprintf("socat tcp-listen:%d,fork,reuseaddr tcp-connect:%s:%d & ", targetPort, targetContainer, targetPort)
+	}
+
+	// create container configs
+	containerConfig := &container.Config{
+		Image:        "alpine/socat:1.7.4.3-r0",
+		Entrypoint:   []string{"/bin/sh"},
+		Cmd:          []string{"-c", cmd + "wait"},
+		ExposedPorts: exposedPorts,
+	}
+
+	return d.CreateContainer(ctx, name, containerConfig, hostConfig)
+
 }
 
 // CreatePumba creates a new container with Pumba configuration blocking all traffic.
@@ -183,6 +228,11 @@ func (d *DockerContainer) Stop(ctx context.Context, optionalTimeout ...time.Dura
 		duration = optionalTimeout[0]
 	}
 	return d.client.ContainerStop(ctx, d.Id, &duration)
+}
+
+// Kill sends a signal to the container
+func (d *DockerContainer) Kill(ctx context.Context, signal string) error {
+	return d.client.ContainerKill(ctx, d.Id, signal)
 }
 
 // ExitStatus returns the exit status according to the container information.

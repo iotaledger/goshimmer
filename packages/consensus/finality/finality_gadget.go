@@ -180,20 +180,27 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 
 	// TODO: MAP GROWS INDEFINITELY
 	index, exists := s.lastConfirmedMarkers[sequenceID]
-	if !exists {
-		s.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
-			index = sequence.LowestIndex() - 1
-			s.lastConfirmedMarkers[sequenceID] = index
-		})
-
-		for ; s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)); index++ {
-			s.lastConfirmedMarkers[sequenceID] = index
-		}
+	if exists {
+		return index + 1
 	}
 
-	index++
+	s.tangle.Booker.MarkersManager.Manager.Sequence(sequenceID).Consume(func(sequence *markers.Sequence) {
+		index = sequence.LowestIndex()
+	})
 
-	return
+	if !s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)) {
+		return index
+	}
+
+	// do-while loop
+	s.lastConfirmedMarkers[sequenceID] = index
+	index++
+	for s.tangle.ConfirmationOracle.IsMarkerConfirmed(markers.NewMarker(sequenceID, index)) {
+		s.lastConfirmedMarkers[sequenceID] = index
+		index++
+	}
+
+	return index
 }
 
 // IsBranchConfirmed returns whether the given branch is confirmed.

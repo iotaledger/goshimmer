@@ -12,6 +12,7 @@
 
 # cli-wallet config
 tools/cli-wallet/config.json
+tools/cli-wallet/cli-wallet
 
 # Test binary, build with `go test -c`
 *.test
