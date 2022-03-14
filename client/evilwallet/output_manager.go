@@ -42,7 +42,7 @@ type OutputManager struct {
 	connector Clients
 
 	wallets           *Wallets
-	outputIDWalletMap map[ledgerstate.OutputID]*Wallet
+	outputIDWalletMap map[string]*Wallet
 	outputIDAddrMap   map[ledgerstate.OutputID]string
 
 	sync.RWMutex
@@ -53,7 +53,7 @@ func NewOutputManager(connector Clients, wallets *Wallets) *OutputManager {
 	return &OutputManager{
 		connector:         connector,
 		wallets:           wallets,
-		outputIDWalletMap: make(map[ledgerstate.OutputID]*Wallet),
+		outputIDWalletMap: make(map[string]*Wallet),
 		outputIDAddrMap:   make(map[ledgerstate.OutputID]string),
 	}
 }
@@ -95,7 +95,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
 	o.Lock()
-	o.outputIDWalletMap[outputID] = w
+	o.outputIDWalletMap[outputID.Base58()] = w
 	o.outputIDAddrMap[outputID] = addr.Base58()
 	o.Unlock()
 	return out
@@ -104,7 +104,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
 	err := w.UpdateUnspentOutputID(addr, outID)
 	o.Lock()
-	o.outputIDWalletMap[outID] = w
+	o.outputIDWalletMap[outID.Base58()] = w
 	o.outputIDAddrMap[outID] = addr
 	o.Unlock()
 	return err
@@ -113,7 +113,7 @@ func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate
 func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status OutputStatus) error {
 	o.RLock()
 	addr := o.outputIDAddrMap[outID]
-	w := o.outputIDWalletMap[outID]
+	w := o.outputIDWalletMap[outID.Base58()]
 	o.RUnlock()
 	err := w.UpdateUnspentOutputStatus(addr, status)
 
@@ -140,13 +140,20 @@ func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
 	o.RLock()
 	defer o.RUnlock()
-	w, ok := o.outputIDWalletMap[outputID]
+	w, ok := o.outputIDWalletMap[outputID.Base58()]
 	if !ok {
 		return nil
 	}
 	addr := o.outputIDAddrMap[outputID]
 	out := w.UnspentOutput(addr)
 	return out
+}
+
+func (o *OutputManager) GetWalletByOutputID(outID string) *Wallet {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.outputIDWalletMap[outID]
 }
 
 // RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.

@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -11,6 +12,9 @@ func TestFaucetRequests(t *testing.T) {
 	clients := evilwallet.GetClients(2)
 
 	_, err := evilwallet.RequestFreshFaucetWallet()
+	require.NoError(t, err)
+
+	_, err = evilwallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
 	//err = evilwallet.RequestFreshBigFaucetWallet()

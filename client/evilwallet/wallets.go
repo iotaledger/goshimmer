@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -14,6 +15,7 @@ import (
 
 type walletID int
 type WalletType int8
+type WalletStatus int8
 
 const (
 	// fresh is used for automatic Faucet Requests, outputs are returned one by one
@@ -41,10 +43,10 @@ func NewWallets() *Wallets {
 }
 
 func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
-	wallet := NewWallet()
+	wallet := NewWallet(walletType)
 	wallet.ID = walletID(w.lastWalletID.Add(1))
 
-	w.addWallet(wallet, walletType)
+	w.addWallet(wallet)
 
 	return wallet
 }
@@ -54,15 +56,12 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 }
 
 // addWallet stores newly created wallet.
-func (w *Wallets) addWallet(wallet *Wallet, wType WalletType) {
+func (w *Wallets) addWallet(wallet *Wallet) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	w.wallets[wallet.ID] = wallet
-	switch wType {
-	case fresh:
-		w.faucetWallets = append(w.faucetWallets, wallet.ID)
-	}
+
 }
 
 // GetUnspentOutput gets first found unspent output for a given walletType
@@ -73,19 +72,50 @@ func (w *Wallets) GetUnspentOutput(wallet *Wallet) *Output {
 	return wallet.GetUnspentOutput()
 }
 
-func (w *Wallets) FreshWallet() *Wallet {
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
-	}
-	return nil
+// IsFaucetWalletAvailable checks if there is any faucet wallet left.
+func (w *Wallets) IsFaucetWalletAvailable() bool {
+	return len(w.faucetWallets) > 0
 }
 
-func (w *Wallets) RemoveWallet() *Wallet {
-
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
+// FreshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
+// it is removed and the next enqueued one is returned.
+func (w *Wallets) FreshWallet() (*Wallet, error) {
+	if !w.IsFaucetWalletAvailable() {
+		return nil, errors.New("no faucet wallets available, need to request more funds")
 	}
-	return nil
+	wallet := w.wallets[w.faucetWallets[0]]
+	if wallet.IsEmpty() {
+		w.removeWallet(fresh)
+		if !w.IsFaucetWalletAvailable() {
+			return nil, errors.New("no faucet wallets available, need to request more funds")
+		}
+		// take next wallet
+		wallet = w.wallets[w.faucetWallets[0]]
+		fmt.Println("next fresh wallet ", wallet.ID)
+		if wallet.IsEmpty() {
+			return nil, errors.New("wallet is empty, need to request more funds")
+		}
+	}
+	return wallet, nil
+}
+
+// removeWallet removes wallet, for fresh wallet it will be the first wallet in a queue.
+func (w *Wallets) removeWallet(wType WalletType) {
+	switch wType {
+	case fresh:
+		w.faucetWallets = w.faucetWallets[1:]
+
+	}
+	return
+}
+
+// SetWalletReady makes wallet ready to use, fresh wallet is added to freshWallets queue.
+func (w *Wallets) SetWalletReady(wallet *Wallet) {
+	wType := wallet.walletType
+	switch wType {
+	case fresh:
+		w.faucetWallets = append(w.faucetWallets, wallet.ID)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,8 +123,8 @@ func (w *Wallets) RemoveWallet() *Wallet {
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Wallet struct {
-	ID walletID
-
+	ID                walletID
+	walletType        WalletType
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
 	indexAddrMap      map[uint64]string
 	addrIndexMap      map[string]uint64
@@ -108,10 +138,15 @@ type Wallet struct {
 }
 
 // NewWallet creates a wallet of a given type.
-func NewWallet() *Wallet {
+func NewWallet(wType ...WalletType) *Wallet {
+	walletType := other
+	if len(wType) > 0 {
+		walletType = wType[0]
+	}
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
 	wallet := &Wallet{
+		walletType:        walletType,
 		ID:                -1,
 		seed:              seed.NewSeed(),
 		unspentOutputs:    make(map[string]*Output),
