@@ -39,11 +39,6 @@ func NewOptions(options ...Option) (messageOptions *Options) {
 	for _, option := range options {
 		option(messageOptions)
 	}
-
-	if messageOptions.outputWallet == nil {
-		messageOptions.outputWallet = messageOptions.issuer
-	}
-
 	return
 }
 

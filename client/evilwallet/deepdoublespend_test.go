@@ -9,29 +9,27 @@ import (
 func TestDeepDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(fresh)
-
-	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
+	err := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
 	require.NoError(t, err)
 
 	err = evilwallet.SendCustomConflicts([]ConflictMap{
 		{
 			// split funds
-			[]Option{WithInputs("1"), WithOutputs([]string{"2", "3"}), WithIssuer(wallet)},
+			"A": []Option{WithInputs("1"), WithOutputs([]string{"2", "3"})},
 		},
 		{
-			[]Option{WithInputs("2"), WithOutput("4", 500000), WithIssuer(wallet)},
-			[]Option{WithInputs("2"), WithOutput("5", 500000), WithIssuer(wallet)},
+			"B": []Option{WithInputs("2"), WithOutput("4", 500000)},
+			"C": []Option{WithInputs("2"), WithOutput("5", 500000)},
 		},
 		{
-			[]Option{WithInputs("3"), WithOutput("6", 500000), WithIssuer(wallet)},
-			[]Option{WithInputs("3"), WithOutput("7", 500000), WithIssuer(wallet)},
+			"D": []Option{WithInputs("3"), WithOutput("6", 500000)},
+			"E": []Option{WithInputs("3"), WithOutput("7", 500000)},
 		},
 		{
 			// aggregated
-			[]Option{WithInputs("5", "6"), WithOutput("8", 1000000), WithIssuer(wallet)},
+			"F": []Option{WithInputs("5", "6"), WithOutput("8", 1000000)},
 		},
 	}, evilwallet.GetClients(2))
-
 	require.NoError(t, err)
+	evilwallet.ClearAliases()
 }

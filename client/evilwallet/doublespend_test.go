@@ -9,16 +9,15 @@ import (
 func TestDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	wallet := evilwallet.NewWallet(custom)
 	clients := evilwallet.GetClients(2)
 
-	err := evilwallet.RequestFundsFromFaucet(wallet, WithOutputAlias("1"))
+	err := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
 	require.NoError(t, err)
 
-	txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput("2", 1000000), WithIssuer(wallet))
+	txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutput("2", 1000000))
 	require.NoError(t, err)
 
-	txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput("3", 1000000), WithIssuer(wallet))
+	txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutput("3", 1000000))
 	require.NoError(t, err)
 
 	_, err = clients[0].PostTransaction(txA.Bytes())
