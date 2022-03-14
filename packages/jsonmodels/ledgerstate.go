@@ -8,8 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -477,7 +478,7 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
+// OutputMetadata represents the JSON model of the ledger.OutputMetadata.
 type OutputMetadata struct {
 	OutputID            *OutputID           `json:"outputID"`
 	BranchIDs           []string            `json:"branchIDs"`
@@ -489,7 +490,7 @@ type OutputMetadata struct {
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
-// NewOutputMetadata returns the OutputMetadata from the given ledgerstate.OutputMetadata.
+// NewOutputMetadata returns the OutputMetadata from the given ledger.OutputMetadata.
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
@@ -507,13 +508,13 @@ func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedCons
 
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Consumer represents the JSON model of a ledgerstate.Consumer.
+// Consumer represents the JSON model of a ledger.Consumer.
 type Consumer struct {
 	TransactionID string `json:"transactionID"`
 	Valid         string `json:"valid"`
 }
 
-// NewConsumer returns a Consumer from the given ledgerstate.Consumer.
+// NewConsumer returns a Consumer from the given ledger.Consumer.
 func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
@@ -525,7 +526,7 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch represents the JSON model of a ledgerstate.Branch.
+// Branch represents the JSON model of a ledger.Branch.
 type Branch struct {
 	ID              string              `json:"id"`
 	Parents         []string            `json:"parents"`
@@ -534,7 +535,7 @@ type Branch struct {
 	ApprovalWeight  float64             `json:"approvalWeight"`
 }
 
-// NewBranch returns a Branch from the given ledgerstate.Branch.
+// NewBranch returns a Branch from the given ledger.Branch.
 func NewBranch(branch *ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
@@ -563,12 +564,12 @@ func NewBranch(branch *ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, 
 
 // region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ChildBranch represents the JSON model of a ledgerstate.ChildBranch.
+// ChildBranch represents the JSON model of a ledger.ChildBranch.
 type ChildBranch struct {
 	BranchID string `json:"branchID"`
 }
 
-// NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
+// NewChildBranch returns a ChildBranch from the given ledger.ChildBranch.
 func NewChildBranch(childBranch *ledgerstate.ChildBranch) *ChildBranch {
 	return &ChildBranch{
 		BranchID: childBranch.ChildBranchID().Base58(),
@@ -579,13 +580,13 @@ func NewChildBranch(childBranch *ledgerstate.ChildBranch) *ChildBranch {
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Conflict represents the JSON model of a ledgerstate.Conflict.
+// Conflict represents the JSON model of a ledger.Conflict.
 type Conflict struct {
 	OutputID  *OutputID `json:"outputID"`
 	BranchIDs []string  `json:"branchIDs"`
 }
 
-// NewConflict returns a Conflict from the given ledgerstate.ConflictID.
+// NewConflict returns a Conflict from the given ledger.ConflictID.
 func NewConflict(conflictID ledgerstate.ConflictID, branchIDs []ledgerstate.BranchID) *Conflict {
 	return &Conflict{
 		OutputID: NewOutputID(conflictID.OutputID()),
@@ -729,7 +730,7 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 
 // region TransactionMetadata ///////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
+// TransactionMetadata represents the JSON model of the ledger.TransactionMetadata.
 type TransactionMetadata struct {
 	TransactionID       string              `json:"transactionID"`
 	BranchIDs           []string            `json:"branchIDs"`
@@ -740,7 +741,7 @@ type TransactionMetadata struct {
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 }
 
-// NewTransactionMetadata returns the TransactionMetadata from the given ledgerstate.TransactionMetadata.
+// NewTransactionMetadata returns the TransactionMetadata from the given ledger.TransactionMetadata.
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),

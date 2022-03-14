@@ -12,9 +12,10 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -297,7 +298,7 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 	return
 }
 
-// BranchVoters retrieves the BranchVoters with the given ledgerstate.BranchID.
+// BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
 func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {

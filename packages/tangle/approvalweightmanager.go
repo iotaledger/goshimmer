@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -46,7 +47,7 @@ func (a *ApprovalWeightManager) Setup() {
 }
 
 // processBookedMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
-// voters of the Message's ledgerstate.Branch and approved markers.Marker and eventually triggers events when
+// voters of the Message's ledger.Branch and approved markers.Marker and eventually triggers events when
 // approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
@@ -87,7 +88,7 @@ func (a *ApprovalWeightManager) isRelevantVoter(message *Message) bool {
 	return voterWeight/totalWeight >= minVoterWeight
 }
 
-// VotersOfBranch returns the Voters of the given branch ledgerstate.BranchID.
+// VotersOfBranch returns the Voters of the given branch ledger.BranchID.
 func (a *ApprovalWeightManager) VotersOfBranch(branchID ledgerstate.BranchID) (voters *Voters) {
 	if !a.tangle.Storage.BranchVoters(branchID).Consume(func(branchVoters *BranchVoters) {
 		voters = branchVoters.Voters()
