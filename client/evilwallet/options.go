@@ -11,8 +11,10 @@ import (
 
 // Options is a struct that represents a collection of options that can be set when creating a message
 type Options struct {
-	inputs                   map[string]types.Empty
-	outputs                  map[string]*ledgerstate.ColoredBalances
+	aliasInputs              map[string]types.Empty
+	inputs                   []ledgerstate.Input
+	aliasOutputs             map[string]*ledgerstate.ColoredBalances
+	outputs                  []*ledgerstate.ColoredBalances
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
 	shallowLikeParents       map[string]types.Empty
@@ -25,11 +27,19 @@ type Options struct {
 	overrideSequenceNumber   bool
 }
 
+type OutputOption struct {
+	aliasName string
+	color     ledgerstate.Color
+	amount    uint64
+}
+
 // NewOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewOptions(options ...Option) (messageOptions *Options) {
 	messageOptions = &Options{
-		inputs:                make(map[string]types.Empty),
-		outputs:               make(map[string]*ledgerstate.ColoredBalances),
+		aliasInputs:           make(map[string]types.Empty),
+		inputs:                make([]ledgerstate.Input, 0),
+		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
+		outputs:               make([]*ledgerstate.ColoredBalances, 0),
 		strongParents:         make(map[string]types.Empty),
 		weakParents:           make(map[string]types.Empty),
 		shallowLikeParents:    make(map[string]types.Empty),
@@ -56,62 +66,61 @@ func (o *Options) isBalanceProvided() bool {
 			return true
 		})
 	}
+
+	for _, balance := range o.aliasOutputs {
+		balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			if balance > 0 {
+				provided = true
+			}
+			return true
+		})
+	}
 	return provided
 }
 
 // WithInputs returns an Option that is used to provide the Inputs of the Transaction.
-func WithInputs(inputAliases ...string) Option {
+func WithInputs(inputs ...interface{}) Option {
 	return func(options *Options) {
-		for _, inputAlias := range inputAliases {
-			options.inputs[inputAlias] = types.Void
-		}
-	}
-}
-
-// WithOutput returns an Option that is used to define a non-colored Output for the Transaction in the Message.
-func WithOutput(outputAlias string, balance uint64) Option {
-	return func(options *Options) {
-		options.outputs[outputAlias] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: balance,
-		})
-	}
-}
-
-// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Message.
-func WithOutputs(outputAliases []string, balances ...uint64) Option {
-	return func(options *Options) {
-		for i, inputAlias := range outputAliases {
-			if len(balances) > 0 {
-				options.outputs[inputAlias] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: balances[i],
-				})
-			} else {
-				options.outputs[inputAlias] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-					ledgerstate.ColorIOTA: 0,
-				})
+		for _, input := range inputs {
+			switch in := input.(type) {
+			case string:
+				options.aliasInputs[in] = types.Void
+			case ledgerstate.Input:
+				options.inputs = append(options.inputs, in)
 			}
 		}
 	}
 }
 
-// WithColoredOutput returns an Option that is used to define a colored Output for the Transaction in the Message.
-func WithColoredOutput(outputAlias string, color ledgerstate.Color, amount uint64) Option {
+// WithOutput returns an Option that is used to define a non-colored Output for the Transaction in the Message.
+func WithOutput(output *OutputOption) Option {
 	return func(options *Options) {
-		balance := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			color: amount,
-		})
-		options.outputs[outputAlias] = balance
+		if output.aliasName != "" {
+			options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+				output.color: output.amount,
+			})
+			return
+		}
+
+		options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			output.color: output.amount,
+		}))
 	}
 }
 
-// WithColoredOutputs returns an Option that is used to define a colored Outputs for the Transaction in the Message.
-func WithColoredOutputs(outputAliases []string, colors []ledgerstate.Color, amount []uint64) Option {
+// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Message.
+func WithOutputs(outputs []*OutputOption) Option {
 	return func(options *Options) {
-		for i, inputAlias := range outputAliases {
-			balance := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				colors[i]: amount[i],
-			})
-			options.outputs[inputAlias] = balance
+		for _, output := range outputs {
+			if output.aliasName != "" {
+				options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+					output.color: output.amount,
+				})
+			} else {
+				options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+					output.color: output.amount,
+				}))
+			}
 		}
 	}
 }

@@ -2,9 +2,10 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -97,6 +98,16 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	o.Lock()
 	o.outputIDWalletMap[outputID] = w
 	o.outputIDAddrMap[outputID] = addr.Base58()
+	o.Unlock()
+	return out
+}
+
+func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
+	outputID := output.ID()
+	out := w.AddUnspentOutput(output.Address(), w.addrIndexMap[output.Address().Base58()], outputID, output.Balances())
+	o.Lock()
+	o.outputIDWalletMap[outputID] = w
+	o.outputIDAddrMap[outputID] = output.Address().Base58()
 	o.Unlock()
 	return out
 }

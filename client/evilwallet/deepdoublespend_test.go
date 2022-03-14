@@ -15,19 +15,19 @@ func TestDeepDoubleSpend(t *testing.T) {
 	err = evilwallet.SendCustomConflicts([]ConflictMap{
 		{
 			// split funds
-			"A": []Option{WithInputs("1"), WithOutputs([]string{"2", "3"})},
+			[]Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}})},
 		},
 		{
-			"B": []Option{WithInputs("2"), WithOutput("4", 500000)},
-			"C": []Option{WithInputs("2"), WithOutput("5", 500000)},
+			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4", amount: 500000})},
+			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "5", amount: 500000})},
 		},
 		{
-			"D": []Option{WithInputs("3"), WithOutput("6", 500000)},
-			"E": []Option{WithInputs("3"), WithOutput("7", 500000)},
+			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "6", amount: 500000})},
+			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "7", amount: 500000})},
 		},
 		{
 			// aggregated
-			"F": []Option{WithInputs("5", "6"), WithOutput("8", 1000000)},
+			[]Option{WithInputs("5", "6"), WithOutput(&OutputOption{aliasName: "8", amount: 1000000})},
 		},
 	}, evilwallet.GetClients(2))
 	require.NoError(t, err)
