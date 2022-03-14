@@ -54,10 +54,7 @@
     "outputPaths": [
       "stdout"
     ],
-    "disableEvents": false,
-    "remotelog": {
-      "serverAddress": "192.168.0.118:5213"
-    }
+    "disableEvents": true
   },
   "remotemetrics": {
     "metricsLevel": 0
@@ -73,11 +70,8 @@
     "disablePlugins": "portcheck",
     "enablePlugins": []
   },
-  "scheduler": {
-    "maxBufferSize": 20000
-  },
   "pow": {
-    "difficulty": 0,
+    "difficulty": 2,
     "numThreads": 1,
     "timeout": "10s",
     "parentsRefreshInterval": "300ms"
