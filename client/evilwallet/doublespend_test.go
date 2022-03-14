@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestDoubleSpend(t *testing.T) {
@@ -19,12 +20,19 @@ func TestDoubleSpend(t *testing.T) {
 	txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutput("3", 1000000))
 	require.NoError(t, err)
 
-	_, err = clients[0].PostTransaction(txA.Bytes())
+	res1, err := clients[0].PostTransaction(txA.Bytes())
 	require.NoError(t, err)
 
-	_, err = clients[1].PostTransaction(txB.Bytes())
+	res2, err := clients[1].PostTransaction(txB.Bytes())
 	require.NoError(t, err)
 
 	evilwallet.ClearAliases()
 	//EvilWallet.ConflictManager.AddConflict(WithConflictID("1"), WithConflictMembers("2", "3"))
+
+	// assert the conflict has been created
+	metadata1, err := clients[0].GetTransactionMetadata(res1.TransactionID)
+	require.NoError(t, err)
+	metadata2, err := clients[1].GetTransactionMetadata(res2.TransactionID)
+	require.NoError(t, err)
+	require.NotEqual(t, metadata1.BranchID, metadata2.BranchID)
 }

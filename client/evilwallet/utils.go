@@ -2,6 +2,7 @@ package evilwallet
 
 import "github.com/iotaledger/goshimmer/packages/ledgerstate"
 
+// SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance uint64) []uint64 {
 	outputBalances := make([]uint64, 0)
 	// make sure the output balances are equal input
