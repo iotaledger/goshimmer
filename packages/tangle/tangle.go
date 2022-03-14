@@ -234,18 +234,19 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store                        kvstore.KVStore
-	Identity                     *identity.LocalIdentity
-	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
-	TangleWidth                  int
-	GenesisNode                  *ed25519.PublicKey
-	SchedulerParams              SchedulerParams
-	RateSetterParams             RateSetterParams
-	WeightProvider               WeightProvider
-	SyncTimeWindow               time.Duration
-	StartSynced                  bool
-	CacheTimeProvider            *database.CacheTimeProvider
-	LedgerState                  struct{ MergeBranches bool }
+	Store                          kvstore.KVStore
+	Identity                       *identity.LocalIdentity
+	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
+	TangleWidth                    int
+	GenesisNode                    *ed25519.PublicKey
+	SchedulerParams                SchedulerParams
+	RateSetterParams               RateSetterParams
+	WeightProvider                 WeightProvider
+	SyncTimeWindow                 time.Duration
+	TimeSinceConfirmationThreshold time.Duration
+	StartSynced                    bool
+	CacheTimeProvider              *database.CacheTimeProvider
+	LedgerState                    struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -274,6 +275,13 @@ func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option
 func Width(width int) Option {
 	return func(options *Options) {
 		options.TangleWidth = width
+	}
+}
+
+// TimeSinceConfirmationThreshold is an Option for the Tangle that allows to set threshold for Time Since Confirmation check.
+func TimeSinceConfirmationThreshold(tscThreshold time.Duration) Option {
+	return func(options *Options) {
+		options.TimeSinceConfirmationThreshold = tscThreshold
 	}
 }
 

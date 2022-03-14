@@ -29,31 +29,16 @@ const (
 )
 
 // GetDiagnosticsMessages runs full message diagnostics
-// Returns CSV with the following fields:
-//
-//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessages() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticMessages)
 }
 
 // GetDiagnosticsFirstWeakMessageReferences runs diagnostics over weak references only.
-// Returns CSV with the following fields:
-//
-//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//  Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsFirstWeakMessageReferences() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsFirstWeakMessageReferences)
 }
 
 // GetDiagnosticsMessagesByRank run diagnostics for messages whose markers are equal or above a certain rank
-// Returns CSV with the following fields:
-//
-//	ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsMessagesByRank(rank uint64) (*csv.Reader, error) {
 	return api.diagnose(fmt.Sprintf("%s?rank=%d", RouteDiagnosticMessages, rank))
 }
@@ -92,11 +77,6 @@ func (api *GoShimmerAPI) GetDiagnosticsInvalidBranches() (*csv.Reader, error) {
 }
 
 // GetDiagnosticsTips runs diagnostics over tips
-// Returns csv with the following fields:
-//
-//	tipType ID IssuerID IssuerPublicKey IssuanceTime ArrivalTime SolidTime ScheduledTime BookedTime GradeOfFinality
-//	GradeOfFinalityTime StrongParents WeakParents DislikeParents LikeParents StrongApprovers WeakApprovers BranchID InclusionState Scheduled Booked
-//	Invalid Finalized Rank IsPastMarker PastMarkers PMHI PMLI FutureMarkers FMHI FMLI PayloadType TransactionID
 func (api *GoShimmerAPI) GetDiagnosticsTips() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsTips)
 }

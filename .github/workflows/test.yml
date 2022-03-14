@@ -18,10 +18,10 @@ jobs:
       - name: Setup dependencies
         run: sudo apt-get install libgflags-dev libsnappy-dev zlib1g-dev libbz2-dev liblz4-dev libzstd-dev
 
-      - name: Setup Go 1.16.3
+      - name: Setup Go 1.18
         uses: actions/setup-go@v1
         with:
-          go-version: 1.16.3
+          go-version: 1.18
 
       - name: Checkout repository
         uses: actions/checkout@v2

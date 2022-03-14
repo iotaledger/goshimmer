@@ -3,11 +3,14 @@ version: "3.5"
 services:
   tester:
     container_name: tester
-    image: golang:1.16.2
+    image: golang:1.18rc1
     working_dir: /tmp/goshimmer/tools/integration-tests/tester
     command: /tmp/assets/entrypoint.sh
     environment:
+      - DEBUG=${DEBUG}
       - TEST_NAME=${TEST_NAME}
+    ports:
+      - "127.0.0.1:50000:40000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ../../..:/tmp/goshimmer:rw

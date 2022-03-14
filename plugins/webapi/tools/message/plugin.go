@@ -53,6 +53,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("tools/message/missingavailable", MissingAvailableHandler)
 	deps.Server.GET("tools/message/approval", ApprovalHandler)
 	deps.Server.GET("tools/message/orphanage", OrphanageHandler)
+	deps.Server.POST("tools/message", SendMessage)
 	deps.Server.GET(RouteDiagnosticMessages, DiagnosticMessagesHandler)
 	deps.Server.GET(RouteDiagnosticsFirstWeakMessageReferences, DiagnosticMessagesOnlyFirstWeakReferencesHandler)
 	deps.Server.GET(RouteDiagnosticsMessageRank, DiagnosticMessagesRankHandler)

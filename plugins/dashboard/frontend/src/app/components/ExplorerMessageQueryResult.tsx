@@ -130,14 +130,14 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         Sequence Number: {msg.sequence_number}
                                     </ListGroup.Item>
                                     <ListGroup.Item>
-                                        BranchIDs: 
+                                        BranchIDs:
                                         <ListGroup>
                                             {
                                                 msg.branchIDs.map((value, index) => {
                                                     return (
                                                         <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${msg.branchIDs[index]}`}>
-                                                                {resolveBase58BranchID(msg.branchIDs[index])}
+                                                            <Link to={`/explorer/branch/${value}`}>
+                                                                {resolveBase58BranchID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )
@@ -149,11 +149,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         AddedBranchIDs:
                                         <ListGroup>
                                             {
-                                                msg.addedBranchIDs.map((_, index) => {
+                                                msg.addedBranchIDs.map((value, index) => {
                                                     return (
                                                         <ListGroup.Item key={"AddedBranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${msg.addedBranchIDs[index]}`}>
-                                                                {resolveBase58BranchID(msg.addedBranchIDs[index])}
+                                                            <Link to={`/explorer/branch/${value}`}>
+                                                                {resolveBase58BranchID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )
@@ -165,11 +165,11 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         SubtractedBranchIDs:
                                         <ListGroup>
                                             {
-                                                msg.subtractedBranchIDs.map((_, index) => {
+                                                msg.subtractedBranchIDs.map((value, index) => {
                                                     return (
                                                         <ListGroup.Item key={"SubtractedBranchID" + index + 1} className="text-break">
-                                                            <Link to={`/explorer/branch/${msg.subtractedBranchIDs[index]}`}>
-                                                                {resolveBase58BranchID(msg.subtractedBranchIDs[index])}
+                                                            <Link to={`/explorer/branch/${value}`}>
+                                                                {resolveBase58BranchID(value)}
                                                             </Link>
                                                         </ListGroup.Item>
                                                     )
@@ -300,6 +300,46 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                                     Weak Approver {index + 1}: {' '}
                                                     <Link to={`/explorer/message/${msg.weakApprovers[index]}`}>
                                                         {msg.weakApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.shallowLikeApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item key={"ShallowLike Approver" + index + 1}
+                                                                className="text-break">
+                                                    ShallowLike Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.shallowLikeApprovers[index]}`}>
+                                                        {msg.shallowLikeApprovers[index]}
+                                                    </Link>
+                                                </ListGroup.Item>
+                                            )
+                                        })
+                                    }
+                                </ListGroup>
+                            </Col>
+                        </Row>
+
+                        <Row>
+                            <Col>
+                                <ListGroup>
+                                    {
+                                        msg.shallowDislikeApprovers.map((value, index) => {
+                                            return (
+                                                <ListGroup.Item key={"ShallowDislike Approver" + index + 1}
+                                                                className="text-break">
+                                                    ShallowDislike Approver {index + 1}: {' '}
+                                                    <Link to={`/explorer/message/${msg.shallowDislikeApprovers[index]}`}>
+                                                        {msg.shallowDislikeApprovers[index]}
                                                     </Link>
                                                 </ListGroup.Item>
                                             )

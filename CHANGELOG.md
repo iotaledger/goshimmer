@@ -1,3 +1,20 @@
+# v0.8.10 - 2022-03-14
+
+> This release introduces generics, the time since confirmation check as well as several fixes to merge to master functionality.
+
+The snapshot has been taken at 2022-03-11 08:30 UTC.
+- Fix Docker network defaults and increase TSC threshold (#2117)
+- Feat: Validate TimeSinceCofirmation of a parent  (#1767)
+- Improve Integration tests experience (#2109)
+- Use generic data structures and object storage. (#2051)
+- TSA: prevent Branch censoring with dislike references (#2083)
+- Fix concurrent map read/write (#2098)
+- Remove empty section from wiki menu (#2089)
+- Remove MessageIDsSlice (#2088)
+- Remove aggregated branches (#2070)
+- Introduce specificialized Shallow Approvers (#2071)
+- Re-enable feature network debugger (#2072)
+
 # v0.8.9 - 2022-03-04
 
 > This release introduces a critical bug fix that could prevent nodes from running out of sync.
