@@ -15,7 +15,7 @@ var (
 	Plugin = node.NewPlugin(PluginName, nil, node.Enabled, configure, run)
 
 	// AppVersion version number
-	AppVersion = "v0.8.9"
+	AppVersion = "v0.8.10"
 	// SimplifiedAppVersion is the version number without commit hash
 	SimplifiedAppVersion = simplifiedVersion(AppVersion)
 )
