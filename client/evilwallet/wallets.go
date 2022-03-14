@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -18,9 +17,11 @@ type WalletType int8
 type WalletStatus int8
 
 const (
-	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	other WalletType = iota
+	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	fresh
+	// reuse stores resulting outputs of double spends or transactions issued by the evilWallet
+	reuse
 )
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -29,6 +30,7 @@ type Wallets struct {
 	wallets map[walletID]*Wallet
 	// we store here non-empty wallets ids of wallets with fresh faucet outputs.
 	faucetWallets []walletID
+	reuseWallets  []walletID
 	mu            sync.RWMutex
 
 	lastWalletID atomic.Int64
@@ -91,7 +93,6 @@ func (w *Wallets) FreshWallet() (*Wallet, error) {
 		}
 		// take next wallet
 		wallet = w.wallets[w.faucetWallets[0]]
-		fmt.Println("next fresh wallet ", wallet.ID)
 		if wallet.IsEmpty() {
 			return nil, errors.New("wallet is empty, need to request more funds")
 		}
@@ -115,6 +116,8 @@ func (w *Wallets) SetWalletReady(wallet *Wallet) {
 	switch wType {
 	case fresh:
 		w.faucetWallets = append(w.faucetWallets, wallet.ID)
+	case reuse:
+		w.reuseWallets = append(w.reuseWallets, wallet.ID)
 	}
 }
 

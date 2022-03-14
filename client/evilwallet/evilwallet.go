@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"github.com/cockroachdb/errors"
 	"sync"
 	"time"
@@ -250,9 +249,11 @@ func (e *EvilWallet) ClearAliases() {
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
 func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+	outputWallet := e.NewWallet(reuse)
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for txAlias, options := range conflictMap {
+			options = append(options, WithOutputWallet(outputWallet))
 			tx, err := e.CreateTransaction(txAlias, options...)
 			if err != nil {
 				return err
@@ -286,7 +287,7 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 	buildOptions := NewOptions(options...)
 
 	if buildOptions.outputWallet == nil {
-		buildOptions.outputWallet = NewWallet()
+		buildOptions.outputWallet = e.NewWallet()
 	}
 
 	if len(buildOptions.inputs) == 0 || len(buildOptions.outputs) == 0 {
@@ -361,7 +362,6 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			}
 
 			out := e.wallets.GetUnspentOutput(buildOptions.issuer)
-			fmt.Println("no input found for alias, input wallet id ", e.outputManager.outputIDWalletMap[out.OutputID.Base58()].ID)
 			if out == nil {
 				return
 			}
@@ -377,7 +377,6 @@ func (e *EvilWallet) getIssuerWallet(buildOptions *Options) error {
 	// if input wallet is not specified, use fresh faucet wallet
 	if buildOptions.issuer == nil {
 		if wallet, err2 := e.wallets.FreshWallet(); wallet != nil {
-			fmt.Println("Set Issuer wallet, ", wallet.ID)
 			buildOptions.issuer = wallet
 		} else {
 			return errors.Newf("no fresh wallet is available: %w", err2)
