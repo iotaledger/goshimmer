@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -49,6 +50,8 @@ func (a AddressType) String() string {
 type Address interface {
 	// Type returns the AddressType of the Address.
 	Type() AddressType
+
+	serix.ObjectCodeProvider
 
 	// Digest returns the hashed version of the Addresses public key.
 	Digest() []byte
@@ -204,6 +207,11 @@ func (e *ED25519Address) Type() AddressType {
 	return ED25519AddressType
 }
 
+// Type returns the AddressType of the Address.
+func (e *ED25519Address) ObjectCode() uint32 {
+	return uint32(ED25519AddressType)
+}
+
 // Digest returns the hashed version of the Addresses public key.
 func (e *ED25519Address) Digest() []byte {
 	return e.digest
@@ -322,6 +330,10 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 // Type returns the AddressType of the Address.
 func (b *BLSAddress) Type() AddressType {
 	return BLSAddressType
+}
+
+func (b *BLSAddress) ObjectCode() uint32 {
+	return uint32(BLSAddressType)
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -446,6 +458,10 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 // Type returns the AddressType of the Address.
 func (a *AliasAddress) Type() AddressType {
 	return AliasAddressType
+}
+
+func (a *AliasAddress) ObjectCode() uint32 {
+	return uint32(AliasAddressType)
 }
 
 // Digest returns the hashed version of the Addresses public key.
