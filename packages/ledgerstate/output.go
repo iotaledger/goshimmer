@@ -540,6 +540,16 @@ type SigLockedSingleOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
+type sigLockedSingleOutputInner struct {
+	Type    OutputType `seri:"position=0"`
+	ID      OutputID   `seri:"position=1"`
+	idMutex sync.RWMutex
+	Balance uint64  `seri:"position=2"`
+	Address Address `seri:"position=3"`
+
+	objectstorage.StorableObjectFlags
+}
+
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
 	return &SigLockedSingleOutput{

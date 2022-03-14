@@ -27,6 +27,7 @@ testNodes/*
 
 # Project files
 .idea
+go.work
 
 # Database directory
 mainnetdb/

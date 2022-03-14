@@ -14,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go v0.0.0-20220309131841-1ee6f559f377
+	github.com/iotaledger/hive.go v0.0.0-20220311143048-c9430be4cf95
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
@@ -28,7 +28,7 @@ require (
 	github.com/panjf2000/ants/v2 v2.4.8
 	github.com/paulbellamy/ratecounter v0.2.0
 	github.com/prometheus/client_golang v1.11.0
-	github.com/shirou/gopsutil v2.20.5+incompatible
+	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.7.0
@@ -77,11 +77,12 @@ require (
 	github.com/gobuffalo/here v0.6.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.3 // indirect
+	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.2 // indirect
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220309063734-061146d8ff30 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
@@ -135,7 +136,7 @@ require (
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
 	github.com/linxGnu/grocksdb v1.6.46 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
-	github.com/mattn/go-colorable v0.1.2 // indirect
+	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/miekg/dns v1.1.43 // indirect
@@ -175,9 +176,11 @@ require (
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/stretchr/objx v0.3.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.5 // indirect
+	github.com/tklauser/numcpus v0.2.2 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasttemplate v1.1.0 // indirect
+	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
 	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
