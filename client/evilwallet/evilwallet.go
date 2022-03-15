@@ -14,18 +14,24 @@ import (
 )
 
 const (
-	GoFConfirmed             = 3
-	waitForConfirmation      = 60 * time.Second
-	waitForTxSolid           = 2 * time.Second
+	// GoFConfirmed defines the grade of finality that is considered confirmed.
+	GoFConfirmed = 3
+	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber = 100
+
+	waitForConfirmation = 60 * time.Second
+	waitForTxSolid      = 2 * time.Second
 
 	maxGoroutines = 5
 )
 
-var clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
-var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-	ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
-})
+var (
+	clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
+
+	faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
+	})
+)
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +89,6 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 	if err != nil {
 		return
 	}
-	// track output in output manager and make sure it's confirmed
 
 	out := e.outputManager.CreateOutputFromAddress(initWallet, addr, faucetBalance)
 	if out == nil {
@@ -91,6 +96,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		return
 	}
 
+	// track output in output manager and make sure it's confirmed
 	allConfirmed := e.outputManager.Track([]ledgerstate.OutputID{out.OutputID})
 	if !allConfirmed {
 		err = errors.New("output not confirmed")
@@ -102,7 +108,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		e.aliasManager.AddInputAlias(input, buildOptions.aliasName)
 	}
 
-	return
+	return nil
 }
 
 // RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 10000 outputs.
@@ -113,7 +119,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 
 	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
 		wg.Add(1)
-		go func(reqNum int) {
+		go func() {
 			defer wg.Done()
 			// block and release goroutines
 			semaphore <- true
@@ -125,10 +131,9 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 			if err != nil {
 				return
 			}
-		}(reqNum)
+		}()
 	}
 	wg.Wait()
-	return
 }
 
 // RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
@@ -199,7 +204,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 	return
 }
 
-func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, splitNumber int) []string {
+func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber int) []string {
 	wg := sync.WaitGroup{}
 
 	txIDs := make([]string, inputWallet.UnspentOutputsLength())
@@ -210,12 +215,15 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 	inputAliases, outputAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
 	inputNum := 0
 
-	for _, input := range inputWallet.UnspentOutputs() {
+	for range inputWallet.UnspentOutputs() {
 		wg.Add(1)
-		go func(inputNum int, input *Output) {
+		go func(inputNum int) {
 			defer wg.Done()
 			tx, err := e.CreateTransaction(WithInputs(inputAliases[inputNum]), WithOutputs(outputAliases[inputNum]),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
+			if err != nil {
+				return
+			}
 
 			clt := e.connector.GetClient()
 			txID, err := e.connector.PostTransaction(tx, clt)
@@ -223,7 +231,7 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 				return
 			}
 			txIDs[inputNum] = txID.Base58()
-		}(inputNum, input)
+		}(inputNum)
 		inputNum++
 	}
 	wg.Wait()
