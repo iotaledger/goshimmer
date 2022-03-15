@@ -3,33 +3,48 @@ package evilwallet
 import (
 	"sync"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 type ServersStatus []*wallet.ServerStatus
 
 type Clients interface {
+	// ServersStatuses retrieves the connected server status for each client.
 	ServersStatuses() ServersStatus
+	// ServerStatus retrieves the connected server status.
 	ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error)
+	// Clients returns list of all clients.
 	Clients(...bool) []*client.GoShimmerAPI
+	// GetClients returns the numOfClt client instances that were used the longest time ago.
 	GetClients(numOfClt int) []*client.GoShimmerAPI
+	// GetClient returns the client instance that was used the longest time ago.
 	GetClient() *client.GoShimmerAPI
+	// AddClient adds client to Connector based on provided GoShimmerAPI url.
 	AddClient(url string, setters ...client.Option)
+	// RemoveClient removes client with the provided index from the Connector.
 	RemoveClient(index int)
+	// PledgeID returns the node ID that the mana will be pledging to.
 	PledgeID() *identity.ID
 
-	// all API calls
+	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
+	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
+	// GetTransactionGoF returns the GoF of a given transaction ID.
 	GetTransactionGoF(txID string) gof.GradeOfFinality
+	// GetOutputGoF gets the first unspent outputs of a given address.
 	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
+	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
 	SendFaucetRequest(address string) error
+	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
+	// GetTransaction gets the transaction.
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 }
 
@@ -203,6 +218,7 @@ func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
 	return resp.GradeOfFinality
 }
 
+// GetTransactionOutputs returns the outputs the transaction created.
 func (c *Connector) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
 	clt := c.GetClient()
 	resp, err := clt.GetTransaction(txID)
@@ -219,6 +235,7 @@ func (c *Connector) GetTransactionOutputs(txID string) (outputs ledgerstate.Outp
 	return
 }
 
+// GetTransaction gets the transaction.
 func (c *Connector) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
 	clt := c.GetClient()
 	resp, err = clt.GetTransaction(txID)

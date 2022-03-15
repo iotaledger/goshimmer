@@ -7,9 +7,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 const (
@@ -96,9 +97,9 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		return
 	}
 
-	if len(buildOptions.aliasName) > 0 {
+	if buildOptions.outputAliasName != "" {
 		input := ledgerstate.NewUTXOInput(out.OutputID)
-		e.aliasManager.AddInputAlias(input, "1")
+		e.aliasManager.AddInputAlias(input, buildOptions.outputAliasName)
 	}
 
 	return
@@ -112,11 +113,12 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 
 	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
 		wg.Add(1)
+		// block if full
+		semaphore <- true
 		go func(reqNum int) {
 			defer wg.Done()
-			// block and release goroutines
-			semaphore <- true
 			defer func() {
+				// release
 				<-semaphore
 			}()
 
@@ -279,7 +281,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []
 	return
 }
 
-// CreateTransaction creates a transaction with the given aliasName and options.
+// CreateTransaction creates a transaction with the given outputAliasName and options.
 func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
 	// if input wallet is not specified, use fresh faucet wallet
@@ -501,7 +503,7 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EvilScenario struct {
-	// todo this should have instructions for evil wallet
+	// TODO: this should have instructions for evil wallet
 	// how to handle this spamming scenario, which input wallet use,
 	// where to store outputs of spam ect.
 	// All logic of conflict creation will be hidden from spammer or integration test users
