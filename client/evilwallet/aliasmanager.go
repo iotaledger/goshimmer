@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -77,29 +76,6 @@ func (a *AliasManager) AddInputAliases(inputs []*Output, aliases []string) {
 	for i, out := range inputs {
 		input := ledgerstate.NewUTXOInput(out.OutputID)
 		a.AddInputAlias(input, aliases[i])
-	}
-	return
-}
-
-func (a *AliasManager) CreateAliasesForOutputs(walletID walletID, aliasesNum int) (aliases []*OutputOption) {
-	for i := 0; i < aliasesNum; i++ {
-		aliases = append(aliases, &OutputOption{aliasName: a.createAliasForOutput(walletID)})
-	}
-	return
-}
-
-func (a *AliasManager) createAliasForOutput(walletID walletID) string {
-	return fmt.Sprintf("outW%dCount%d", walletID, a.outputAliasCount.Add(1))
-}
-
-func (a *AliasManager) createAliasForInput() string {
-	aliasName := fmt.Sprintf("InputCount%d", a.outputAliasCount.Add(1))
-	return aliasName
-}
-
-func (a *AliasManager) CreateAliasesForInputs(aliasesNum int) (aliases []string) {
-	for i := 0; i < aliasesNum; i++ {
-		aliases = append(aliases, a.createAliasForInput())
 	}
 	return
 }

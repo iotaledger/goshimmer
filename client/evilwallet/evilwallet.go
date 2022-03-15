@@ -212,14 +212,14 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 		return []string{}
 	}
 	// Add all aliases before creating txs
-	inputAliases, outputAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
+	inputs, outputs := e.handleInputOutputDuringSplitOutputs(splitNumber, inputWallet)
 	inputNum := 0
 
 	for range inputWallet.UnspentOutputs() {
 		wg.Add(1)
 		go func(inputNum int) {
 			defer wg.Done()
-			tx, err := e.CreateTransaction(WithInputs(inputAliases[inputNum]), WithOutputs(outputAliases[inputNum]),
+			tx, err := e.CreateTransaction(WithInputs(inputs[inputNum]), WithOutputs(outputs[inputNum]),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 			if err != nil {
 				return
@@ -238,14 +238,21 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 	return txIDs
 }
 
-func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) (inputAliases []string, allOutputsAliases [][]*OutputOption) {
-	n := inputWallet.UnspentOutputsLength()
-	inputAliases = e.aliasManager.CreateAliasesForInputs(n)
-	for i := 0; i < n; i++ {
-		outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, splitNumber)
-		allOutputsAliases = append(allOutputsAliases, outputAliases)
+func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet) (inputs []ledgerstate.Input, allOutputs [][]*OutputOption) {
+	for _, unspent := range inputWallet.UnspentOutputs() {
+		input := ledgerstate.NewUTXOInput(unspent.OutputID)
+		inputs = append(inputs, input)
 	}
-	return inputAliases, allOutputsAliases
+
+	n := inputWallet.UnspentOutputsLength()
+	for i := 0; i < n; i++ {
+		var outputs []*OutputOption
+		for j := 0; j < splitNumber; j++ {
+			outputs = append(outputs, &OutputOption{})
+		}
+		allOutputs = append(allOutputs, outputs)
+	}
+	return inputs, allOutputs
 }
 
 // ClearAliases remove all registered alias names.
