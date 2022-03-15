@@ -13,7 +13,7 @@ func TestSerixOutput(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	sigLockedSingleOutput := NewSigLockedSingleOutput(10, NewED25519Address(keyPair.PublicKey))
 	inner := &sigLockedSingleOutputInner{
-		Type:    SigLockedColoredOutputType,
+		Type:    SigLockedSingleOutputType,
 		Balance: 10,
 		Address: NewED25519Address(keyPair.PublicKey),
 	}

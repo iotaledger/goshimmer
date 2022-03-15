@@ -542,10 +542,10 @@ type SigLockedSingleOutput struct {
 
 type sigLockedSingleOutputInner struct {
 	Type    OutputType `seri:"0"`
-	ID      OutputID   `seri:"1"`
+	ID      OutputID
 	idMutex sync.RWMutex
-	Balance uint64  `seri:"2"`
-	Address Address `seri:"3"`
+	Balance uint64  `seri:"1"`
+	Address Address `seri:"2"`
 
 	objectstorage.StorableObjectFlags
 }

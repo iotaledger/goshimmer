@@ -27,7 +27,7 @@ const (
 	AliasAddressType
 )
 
-// AddressLength contains the length of an address (type length = 1, digest length = 32).
+// AddressLength contains the length of an address (type length = 1, Digest2 length = 32).
 const AddressLength = 33
 
 // AddressType represents the type of the Address (different types encode different signature schemes).
@@ -141,15 +141,15 @@ func AddressFromSignature(sig Signature) (Address, error) {
 
 // ED25519Address represents an Address that is secured by the ED25519 signature scheme.
 type ED25519Address struct {
-	digest []byte
+	Type2   AddressType           `seri:"0"`
+	Digest2 [blake2b.Size256]byte `seri:"1"`
 }
 
 // NewED25519Address creates a new ED25519Address from the given public key.
 func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
-	digest := blake2b.Sum256(publicKey[:])
-
 	return &ED25519Address{
-		digest: digest[:],
+		Type2:   ED25519AddressType,
+		Digest2: blake2b.Sum256(publicKey[:]),
 	}
 }
 
@@ -194,10 +194,12 @@ func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addres
 	}
 
 	address = &ED25519Address{}
-	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+	data, err := marshalUtil.ReadBytes(32)
+	if err != nil {
+		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	copy(address.Digest2[:], data)
 
 	return
 }
@@ -214,27 +216,24 @@ func (e *ED25519Address) ObjectCode() uint32 {
 
 // Digest returns the hashed version of the Addresses public key.
 func (e *ED25519Address) Digest() []byte {
-	return e.digest
+	return e.Digest2[:]
 }
 
 // Clone creates a copy of the Address.
 func (e *ED25519Address) Clone() Address {
-	clonedDigest := make([]byte, len(e.digest))
-	copy(clonedDigest, e.digest)
-
 	return &ED25519Address{
-		digest: clonedDigest,
+		Digest2: e.Digest2,
 	}
 }
 
 // Equals returns true if the two Addresses are equal.
 func (e *ED25519Address) Equals(other Address) bool {
-	return e.Type() == other.Type() && bytes.Equal(e.digest, other.Digest())
+	return e.Type() == other.Type() && bytes.Equal(e.Digest(), other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.digest)
+	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.Digest())
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -320,7 +319,7 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 
 	address = &BLSAddress{}
 	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
-		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -388,7 +387,7 @@ var _ Address = &BLSAddress{}
 
 // region AliasAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// AliasAddressDigestSize defines the length of the alias address digest in bytes.
+// AliasAddressDigestSize defines the length of the alias address Digest2 in bytes.
 const AliasAddressDigestSize = 32
 
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
@@ -447,7 +446,7 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 
 	data, err := marshalUtil.ReadBytes(AliasAddressDigestSize)
 	if err != nil {
-		err = errors.Errorf("error parsing digest (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	address = &AliasAddress{}
