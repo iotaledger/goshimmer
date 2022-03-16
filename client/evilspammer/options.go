@@ -42,13 +42,6 @@ func WithEvilScenario(scenario evilwallet.EvilScenario) Options {
 	}
 }
 
-// WithClients sets clients that will be used for spam, cannot be omitted, no default options.
-func WithClients(clients evilwallet.Clients) Options {
-	return func(s *Spammer) {
-		s.Clients = clients
-	}
-}
-
 // WithErrorCounter allows for setting an error counter object, if not provided a new instance will be created.
 func WithErrorCounter(errCounter ErrorCounter) Options {
 	return func(s *Spammer) {

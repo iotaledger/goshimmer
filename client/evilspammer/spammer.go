@@ -74,6 +74,8 @@ func NewSpammer(options ...Options) *Spammer {
 }
 
 func (s *Spammer) setup() {
+	s.Clients = s.SpamWallet.Connector()
+
 	if s.SpamDetails.Rate <= 0 {
 		s.SpamDetails.Rate = 1
 	}
