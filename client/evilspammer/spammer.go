@@ -35,7 +35,7 @@ type Spammer struct {
 	State       *State
 
 	Clients      evilwallet.Clients
-	SpamWallet   evilwallet.EvilWallet
+	SpamWallet   *evilwallet.EvilWallet
 	EvilScenario evilwallet.EvilScenario
 	ErrCounter   ErrorCounter
 	log          Logger
@@ -69,7 +69,7 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 
 	s.setup()
-
+	s.Clients = s.SpamWallet.Connector()
 	return s
 }
 

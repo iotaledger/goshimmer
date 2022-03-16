@@ -73,7 +73,7 @@ func (e *EvilWallet) Connector() Clients {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// EvilWallet Faucet Requests /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region EvilWallet Faucet Requests ///////////////////////////////////////////////////////////////////////////////////
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
@@ -250,25 +250,42 @@ func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, split
 	return inputAliases, AllOutputsAliases, txAliases
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EvilWallet functionality ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // ClearAliases remove all registered alias names.
 func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
-// SendCustomConflicts sends transactions with the given conflictsMaps.
-func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
-	outputWallet := e.NewWallet(reuse)
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
+	if outputWallet == nil {
+		return nil, errors.Errorf("no output wallet provided")
+	}
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for txAlias, options := range conflictMap {
 			options = append(options, WithOutputWallet(outputWallet))
-			tx, err := e.CreateTransaction(txAlias, options...)
-			if err != nil {
-				return err
+			tx, err2 := e.CreateTransaction(txAlias, options...)
+			if err2 != nil {
+				return nil, err2
 			}
 			txs = append(txs, tx)
 		}
+		conflictBatch = append(conflictBatch, txs)
+	}
+	return
+}
 
+// SendCustomConflicts sends transactions with the given conflictsMaps.
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+	outputWallet := e.NewWallet()
+	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
+	if err != nil {
+		return err
+	}
+	for _, txs := range conflictBatch {
 		if len(txs) > len(clients) {
 			return errors.New("insufficient clients to send double spend")
 		}
