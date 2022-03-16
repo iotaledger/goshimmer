@@ -22,17 +22,18 @@ func NewAvailabilityManager(ledger *Ledger) (newAvailabilityManager *Availabilit
 	return newAvailabilityManager
 }
 
-func (a *AvailabilityManager) Solidify(params *DataFlowParams, next func(*DataFlowParams) error) error {
+func (a *AvailabilityManager) CheckSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (inputs []utxo.Output) {
 	if metadata.Solid() {
-		return nil, true, false
+		return nil
 	}
 
-	if solid, inputs = a.allInputsAvailable(transaction); !solid {
-		return nil, false, false
+	solid, inputs := a.allInputsAvailable(transaction)
+	if !solid {
+		return nil
 	}
 
 	if !metadata.SetSolid(true) {
-		return inputs, true, false
+		return nil
 	}
 
 	a.TransactionSolidEvent.Trigger(&TransactionSolidEvent{
@@ -43,7 +44,7 @@ func (a *AvailabilityManager) Solidify(params *DataFlowParams, next func(*DataFl
 		},
 	})
 
-	return inputs, true, true
+	return inputs
 }
 
 func (a *AvailabilityManager) allInputsAvailable(transaction utxo.Transaction) (allAvailable bool, outputs []utxo.Output) {

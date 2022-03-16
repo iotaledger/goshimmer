@@ -90,7 +90,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 		return
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
@@ -163,7 +163,7 @@ func (t *TransactionMetadata) Solid() bool {
 }
 
 // SetSolid updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
-// solidification time if the Transaction was marked as solid.
+// solidify time if the Transaction was marked as solid.
 func (t *TransactionMetadata) SetSolid(solid bool) (modified bool) {
 	t.solidMutex.Lock()
 	defer t.solidMutex.Unlock()

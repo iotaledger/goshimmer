@@ -17,6 +17,7 @@ type Ledger struct {
 
 	*Storage
 	*AvailabilityManager
+	*DataFlow
 	syncutils.DAGMutex[[32]byte]
 
 	vm utxo.VM
@@ -49,26 +50,33 @@ func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) {
 }
 
 func (l *Ledger) ProcessTransaction(transaction utxo.Transaction, metadata *TransactionMetadata) {
-	_ = l.solidification()(&DataFlowParams{
+	err := l.SolidifyTransactionCommand()(&DataFlowParams{
 		Transaction:         transaction,
 		TransactionMetadata: metadata,
-	}, nil)
+	})
+	approversWalker := walker.New[utxo.TransactionID](true)
+	for approversWalker.HasNext() {
+		approversWalker.Next()
+	}
+
+	l.solidifyTransactionAndCollectApprovers
+
+	_ = l.solidify()(&DataFlowParams{Transaction: transaction, TransactionMetadata: metadata}, nil)
 
 	return
 }
 
-func (l *Ledger) solidification() (solidifyTransactionCommand dataflow.ChainedCommand[*DataFlowParams]) {
-	approversWalker := walker.New[utxo.TransactionID](true)
+func (l *Ledger) solidify() (solidifyTransactionCommand dataflow.ChainedCommand[*DataFlowParams]) {
 
 	return dataflow.New[*DataFlowParams](
 		l.solidifyTransactionAndCollectApprovers(approversWalker),
-		l.propagateSolidityCommand(approversWalker),
+		l.propagateSolidityToFutureCone(approversWalker),
 	).ChainedCommand
 }
 
 func (l *Ledger) solidifyTransactionAndCollectApprovers(approversWalker *walker.Walker[utxo.TransactionID]) dataflow.ChainedCommand[*DataFlowParams] {
 	return dataflow.New[*DataFlowParams](
-		l.solidifyTransaction(),
+		l.SolidifyTransactionCommand(),
 		func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
 			// queue parents
 			approversWalker.PushAll()
@@ -78,60 +86,25 @@ func (l *Ledger) solidifyTransactionAndCollectApprovers(approversWalker *walker.
 	).ChainedCommand
 }
 
-func (l *Ledger) solidifyTransaction() (solidificationCommand dataflow.ChainedCommand[*DataFlowParams]) {
-	return l.executeLockedCommand(
-		dataflow.New[*DataFlowParams](
-			l.Solidify,
-			l.ValidatePastCone,
-			l.ExecuteTransaction,
-			l.BookTransaction,
-		).WithErrorCallback(func(err error, params *DataFlowParams) {
-			// mark Transaction as invalid and trigger invalid event
-
-			// eventually trigger generic errors if its not due to tx invalidity
-		}).ChainedCommand,
-	)
-}
-
-func (l *Ledger) executeLockedCommand(command dataflow.ChainedCommand[*DataFlowParams]) (lockedCommand dataflow.ChainedCommand[*DataFlowParams]) {
-	return dataflow.New[*DataFlowParams](
-		func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-			l.Lock(params.Transaction, false)
-
-			return next(params)
-		},
-		command,
-		func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-			l.Unlock(params.Transaction, false)
-
-			return next(params)
-		},
-	).WithAbortCallback(func(params *DataFlowParams) {
-		l.Unlock(params.Transaction, false)
-	}).ChainedCommand
-}
-
-func (l *Ledger) propagateSolidityCommand(approversWalker *walker.Walker[utxo.TransactionID]) dataflow.ChainedCommand[*DataFlowParams] {
-	return dataflow.New[*DataFlowParams](
-		func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-			for approversWalker.HasNext() {
-				l.CachedTransactionMetadata(approversWalker.Next()).Consume(func(consumerMetadata *TransactionMetadata) {
-					l.CachedTransaction(consumerMetadata.ID()).Consume(func(consumerTransaction utxo.Transaction) {
-						_ = l.solidifyTransactionAndCollectApprovers(approversWalker)(&DataFlowParams{
-							Transaction:         consumerTransaction,
-							TransactionMetadata: consumerMetadata,
-						}, nil)
-					})
+func (l *Ledger) propagateSolidityToFutureCone(approversWalker *walker.Walker[utxo.TransactionID]) Command {
+	return func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
+		for approversWalker.HasNext() {
+			l.CachedTransactionMetadata(approversWalker.Next()).Consume(func(consumerMetadata *TransactionMetadata) {
+				l.CachedTransaction(consumerMetadata.ID()).Consume(func(consumerTransaction utxo.Transaction) {
+					_ = l.solidifyTransactionAndCollectApprovers(approversWalker)(&DataFlowParams{
+						Transaction:         consumerTransaction,
+						TransactionMetadata: consumerMetadata,
+					}, nil)
 				})
-			}
+			})
+		}
 
-			return next(params)
-		},
-	).ChainedCommand
+		return next(params)
+	}
 }
 
 func (l *Ledger) forkSingleTransactionCommand() (solidificationCommand dataflow.ChainedCommand[*DataFlowParams]) {
-	return l.executeLockedCommand(
+	return l.LockedCommand(
 		dataflow.New[*DataFlowParams](
 			l.ForkTransaction,
 		).WithErrorCallback(func(err error, params *DataFlowParams) {
@@ -140,21 +113,10 @@ func (l *Ledger) forkSingleTransactionCommand() (solidificationCommand dataflow.
 	)
 }
 
-func (l *Ledger) LockTransaction(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-	l.Lock(params.Transaction, false)
-
-	return next(params)
-}
-
-func (l *Ledger) UnlockTransaction(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-	l.Unlock(params.Transaction, false)
-
-	return next(params)
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type DataFlowParams struct {
 	Transaction         utxo.Transaction
 	TransactionMetadata *TransactionMetadata
+	Inputs              []utxo.Output
 }
