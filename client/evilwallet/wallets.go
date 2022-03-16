@@ -66,12 +66,18 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 
 // GetNextWallet get next non-empty wallet based on provided type.
 func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
-	if !w.IsFaucetWalletAvailable() {
-		return nil, errors.New("no faucet wallets available, need to request more funds")
-	}
-	wallet := w.wallets[w.faucetWallets[0]]
-	if wallet.IsEmpty() {
-		return nil, errors.New("wallet is empty, need to request more funds")
+	var wallet *Wallet
+	switch walletType {
+	case fresh:
+		if !w.IsFaucetWalletAvailable() {
+			return nil, errors.New("no faucet wallets available, need to request more funds")
+		}
+		wallet = w.wallets[w.faucetWallets[0]]
+		if wallet.IsEmpty() {
+			return nil, errors.New("wallet is empty, need to request more funds")
+		}
+	default:
+		return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
 	}
 	return wallet, nil
 }
@@ -125,6 +131,9 @@ func (w *Wallets) removeWallet(wType WalletType) {
 
 // SetWalletReady makes wallet ready to use, fresh wallet is added to freshWallets queue.
 func (w *Wallets) SetWalletReady(wallet *Wallet) {
+	if wallet.IsEmpty() {
+		return
+	}
 	wType := wallet.walletType
 	switch wType {
 	case fresh:
