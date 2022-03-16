@@ -34,5 +34,5 @@ func TestDoubleSpend(t *testing.T) {
 	require.NoError(t, err)
 	metadata2, err := clients[1].GetTransactionMetadata(res2.TransactionID)
 	require.NoError(t, err)
-	require.NotEqual(t, metadata1.BranchID, metadata2.BranchID)
+	require.NotEqual(t, metadata1.BranchIDs, metadata2.BranchIDs)
 }

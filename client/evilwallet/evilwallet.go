@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
 
@@ -539,11 +540,45 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+type EvilBatch []ConflictMap
+
 type EvilScenario struct {
-	// TODO: this should have instructions for evil wallet
-	// how to handle this spamming scenario, which input wallet use,
-	// where to store outputs of spam ect.
-	// All logic of conflict creation will be hidden from spammer or integration test users
+	conflictBatch EvilBatch
+	repeat        int
+	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
+	reuse bool
+
+	// outputs of the batch that can be reused in deep spamming by collecting them in reuse wallet.
+	batchOutputsAliases map[string]types.Empty
+}
+
+func NewEvilScenario(conflictBatch []ConflictMap, repeat int, reuse bool) {
+	scenario := &EvilScenario{
+		repeat: repeat,
+		reuse:  reuse,
+	}
+
+	if conflictBatch == nil {
+		scenario.conflictBatch = SingleTransactionBatch()
+	} else {
+		scenario.conflictBatch = conflictBatch
+		scenario.assignBatchOutputs()
+	}
+}
+
+func (e *EvilScenario) assignBatchOutputs() {
+	e.batchOutputsAliases = make(map[string]types.Empty)
+	for _, conflictMap := range e.conflictBatch {
+		for _, options := range conflictMap {
+			option := NewOptions(options...)
+			for outputAlis := range option.outputs {
+				// add output aliases that are not used in this conflict batch
+				if _, ok := option.inputs[outputAlis]; !ok {
+					e.batchOutputsAliases[outputAlis] = types.Void
+				}
+			}
+		}
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
