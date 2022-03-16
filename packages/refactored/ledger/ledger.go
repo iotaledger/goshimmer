@@ -49,58 +49,26 @@ func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) {
 	l.ProcessTransaction(transaction, cachedTransactionMetadata.Get())
 }
 
-func (l *Ledger) ProcessTransaction(transaction utxo.Transaction, metadata *TransactionMetadata) {
-	err := l.SolidifyTransactionCommand()(&DataFlowParams{
-		Transaction:         transaction,
-		TransactionMetadata: metadata,
-	})
-	approversWalker := walker.New[utxo.TransactionID](true)
-	for approversWalker.HasNext() {
-		approversWalker.Next()
+func (l *Ledger) ProcessTransaction(tx utxo.Transaction, meta *TransactionMetadata) {
+	success, consumers, err := l.SolidifyTransaction(tx, meta)
+	if !success {
+		return
 	}
 
-	l.solidifyTransactionAndCollectApprovers
+	// TODO: async event
+	consumersWalker := walker.New[utxo.TransactionID](true).PushAll(consumers...)
+	for consumersWalker.HasNext() {
+		l.CachedTransactionMetadata(consumersWalker.Next()).Consume(func(consumerMetadata *TransactionMetadata) {
+			l.CachedTransaction(consumerMetadata.ID()).Consume(func(consumerTransaction utxo.Transaction) {
+				_, consumers, err := l.SolidifyTransaction(tx, meta)
 
-	_ = l.solidify()(&DataFlowParams{Transaction: transaction, TransactionMetadata: metadata}, nil)
+			})
+		})
+
+		consumersWalker.Next()
+	}
 
 	return
-}
-
-func (l *Ledger) solidify() (solidifyTransactionCommand dataflow.ChainedCommand[*DataFlowParams]) {
-
-	return dataflow.New[*DataFlowParams](
-		l.solidifyTransactionAndCollectApprovers(approversWalker),
-		l.propagateSolidityToFutureCone(approversWalker),
-	).ChainedCommand
-}
-
-func (l *Ledger) solidifyTransactionAndCollectApprovers(approversWalker *walker.Walker[utxo.TransactionID]) dataflow.ChainedCommand[*DataFlowParams] {
-	return dataflow.New[*DataFlowParams](
-		l.SolidifyTransactionCommand(),
-		func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-			// queue parents
-			approversWalker.PushAll()
-
-			return next(params)
-		},
-	).ChainedCommand
-}
-
-func (l *Ledger) propagateSolidityToFutureCone(approversWalker *walker.Walker[utxo.TransactionID]) Command {
-	return func(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-		for approversWalker.HasNext() {
-			l.CachedTransactionMetadata(approversWalker.Next()).Consume(func(consumerMetadata *TransactionMetadata) {
-				l.CachedTransaction(consumerMetadata.ID()).Consume(func(consumerTransaction utxo.Transaction) {
-					_ = l.solidifyTransactionAndCollectApprovers(approversWalker)(&DataFlowParams{
-						Transaction:         consumerTransaction,
-						TransactionMetadata: consumerMetadata,
-					}, nil)
-				})
-			})
-		}
-
-		return next(params)
-	}
 }
 
 func (l *Ledger) forkSingleTransactionCommand() (solidificationCommand dataflow.ChainedCommand[*DataFlowParams]) {
