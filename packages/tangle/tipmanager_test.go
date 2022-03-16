@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -11,11 +12,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 func TestTipManager_AddTip(t *testing.T) {
 	tangle := NewTestTangle()
-	defer tangle.Shutdown()
+	defer func(tangle *Tangle) {
+		_ = tangle.Prune()
+		tangle.Shutdown()
+	}(tangle)
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tipManager := tangle.TipManager
@@ -56,7 +61,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -65,7 +70,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -74,7 +79,7 @@ func TestTipManager_AddTip(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID, messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID, messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -84,7 +89,10 @@ func TestTipManager_AddTip(t *testing.T) {
 
 func TestTipManager_DataMessageTips(t *testing.T) {
 	tangle := NewTestTangle()
-	defer tangle.Shutdown()
+	defer func(tangle *Tangle) {
+		_ = tangle.Prune()
+		tangle.Shutdown()
+	}(tangle)
 	tipManager := tangle.TipManager
 
 	// set up scenario (images/tipmanager-DataMessageTips-test.png)
@@ -108,8 +116,9 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 1
 	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
+		tangle.TimeManager.updateTime(messages["1"].ID())
 
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
@@ -122,7 +131,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 2
 	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{EmptyMessageID}, []MessageID{})
+		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["2"])
 
 		assert.Equal(t, 2, tipManager.TipCount())
@@ -136,7 +145,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Message 3
 	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID(), messages["2"].ID()}, []MessageID{})
+		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
 		tipManager.AddTip(messages["3"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -150,16 +159,16 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// Add Message 4-8
 	{
-		tips := make([]MessageID, 0, 9)
-		tips = append(tips, messages["3"].ID())
+		tips := NewMessageIDs()
+		tips.Add(messages["3"].ID())
 		for count, n := range []int{4, 5, 6, 7, 8} {
 			nString := strconv.Itoa(n)
-			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, []MessageID{messages["1"].ID()}, []MessageID{})
+			messages[nString] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID()), NewMessageIDs())
 			tipManager.AddTip(messages[nString])
-			tips = append(tips, messages[nString].ID())
+			tips.Add(messages[nString].ID())
 
 			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
-			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips, "Elements in strongTips do not match after adding Message %d", n)
+			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
 			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 		}
 	}
@@ -190,451 +199,294 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 	tipManager := tangle.TipManager
+	confirmedMessageIDs := NewMessageIDs()
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: markers.NewMarkers(markers.NewMarker(0, 1))}
 
-	wallets := make(map[string]wallet)
-	walletsByAddress := make(map[ledgerstate.Address]wallet)
-	w := createWallets(27)
-	wallets["G1"] = w[0]
-	wallets["G2"] = w[1]
-	wallets["A"] = w[2]
-	wallets["B"] = w[3]
-	wallets["C"] = w[4]
-	wallets["D"] = w[5]
-	wallets["E"] = w[6]
-	wallets["F"] = w[7]
-	wallets["H"] = w[8]
-	wallets["I"] = w[9]
-	wallets["J"] = w[10]
-	wallets["K"] = w[11]
-	wallets["L"] = w[12]
-	wallets["M"] = w[13]
-	wallets["N"] = w[14]
-	wallets["O"] = w[15]
-	wallets["P"] = w[16]
-	wallets["Q"] = w[17]
-	wallets["R"] = w[18]
-	wallets["S"] = w[19]
-	wallets["T"] = w[20]
-	wallets["U"] = w[21]
-	wallets["V"] = w[22]
-	wallets["X"] = w[23]
-	wallets["Y"] = w[24]
-	wallets["Z"] = w[25]
-	wallets["OUT"] = w[26]
-
-	for _, wallet := range wallets {
-		walletsByAddress[wallet.address] = wallet
-	}
-
-	g1Balance := ledgerstate.NewColoredBalances(
-		map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 5,
-		})
-	g2Balance := ledgerstate.NewColoredBalances(
-		map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 8,
-		})
-
-	genesisEssence := ledgerstate.NewTransactionEssence(
-		0,
-		time.Unix(DefaultGenesisTime, 0),
-		identity.ID{},
-		identity.ID{},
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-		ledgerstate.NewOutputs([]ledgerstate.Output{
-			ledgerstate.NewSigLockedColoredOutput(g1Balance, wallets["G1"].address),
-			ledgerstate.NewSigLockedColoredOutput(g2Balance, wallets["G2"].address),
-		}...),
-	)
-
-	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
-
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: []bool{true, true},
-			},
-		},
-	}
-
-	tangle.LedgerState.LoadSnapshot(snapshot)
-	// determine genesis index so that correct output can be referenced
-	var g1, g2 uint16
-	tangle.LedgerState.UTXODAG.CachedOutput(ledgerstate.NewOutputID(genesisTransaction.ID(), 0)).Consume(func(output ledgerstate.Output) {
-		balance, _ := output.Balances().Get(ledgerstate.ColorIOTA)
-		if balance == uint64(5) {
-			g1 = 0
-			g2 = 1
-		} else {
-			g1 = 1
-			g2 = 0
-		}
-	})
-
-	messages := make(map[string]*Message)
-	transactions := make(map[string]*ledgerstate.Transaction)
-	inputs := make(map[string]*ledgerstate.UTXOInput)
-	outputs := make(map[string]*ledgerstate.SigLockedSingleOutput)
-	outputsByID := make(map[ledgerstate.OutputID]ledgerstate.Output)
+	testFramework := NewMessageTestFramework(tangle, WithGenesisOutput("G1", 5), WithGenesisOutput("G2", 8))
 
 	// region prepare scenario /////////////////////////////////////////////////////////////////////////////////////////
 
 	// Message 1
 	{
-		inputs["G1"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g1))
-		outputs["A"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["A"].address)
-		outputs["B"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["B"].address)
-		outputs["C"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["C"].address)
-
-		transactions["1"] = makeTransaction(ledgerstate.NewInputs(inputs["G1"]), ledgerstate.NewOutputs(outputs["A"], outputs["B"], outputs["C"]), outputsByID, walletsByAddress, wallets["G1"])
-		// make sure that message is too old and cannot be directly referenced
 		issueTime := time.Now().Add(-maxParentsTimeDifference - 5*time.Minute)
-		messages["1"] = newTestParentsPayloadWithTimestamp(transactions["1"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
-		}, issueTime)
 
-		storeAndBookMessage(t, tangle, messages["1"])
+		testFramework.CreateMessage(
+			"Message1",
+			WithStrongParents("Genesis"),
+			WithIssuingTime(issueTime),
+			WithInputs("G1"),
+			WithOutput("A", 3),
+			WithOutput("B", 1),
+			WithOutput("c", 1),
+		)
+		testFramework.IssueMessages("Message1")
+		bookMessage(t, tangle, testFramework.Message("Message1"))
+		testFramework.WaitMessagesBooked()
 
-		tipManager.AddTip(messages["1"])
+		tipManager.AddTip(testFramework.Message("Message1"))
 		assert.Equal(t, 0, tipManager.TipCount())
+
+		// mark this message as confirmed
+		confirmedMessageIDs.Add(testFramework.Message("Message1").ID())
 	}
 
 	// Message 2
 	{
-		inputs["G2"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(genesisTransaction.ID(), g2))
-		outputs["D"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["D"].address)
-		outputs["E"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["E"].address)
-		outputs["F"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["F"].address)
+		testFramework.CreateMessage(
+			"Message2",
+			WithStrongParents("Genesis"),
+			WithInputs("G2"),
+			WithOutput("D", 6),
+			WithOutput("E", 1),
+			WithOutput("F", 1),
+		)
+		testFramework.IssueMessages("Message2")
+		bookMessage(t, tangle, testFramework.Message("Message2"))
+		testFramework.WaitMessagesBooked()
 
-		transactions["2"] = makeTransaction(ledgerstate.NewInputs(inputs["G2"]), ledgerstate.NewOutputs(outputs["D"], outputs["E"], outputs["F"]), outputsByID, walletsByAddress, wallets["G2"])
-		messages["2"] = newTestParentsPayloadMessage(transactions["2"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["2"])
-
-		tipManager.AddTip(messages["2"])
+		tipManager.AddTip(testFramework.Message("Message2"))
 		assert.Equal(t, 1, tipManager.TipCount())
+
+		// use this message to set TangleTime
+		tangle.TimeManager.updateTime(testFramework.Message("Message2").ID())
 	}
 
 	// Message 3
 	{
-		inputs["A"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["A"])))
-		outputsByID[inputs["A"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["A"])[0]
-		outputs["H"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["H"].address)
-		outputs["I"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["I"].address)
-		outputs["J"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["J"].address)
-
-		transactions["3"] = makeTransaction(ledgerstate.NewInputs(inputs["A"]), ledgerstate.NewOutputs(outputs["H"], outputs["I"], outputs["J"]), outputsByID, walletsByAddress)
-		messages["3"] = newTestParentsPayloadMessage(transactions["3"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["3"])
-
-		tipManager.AddTip(messages["3"])
+		testFramework.CreateMessage(
+			"Message3",
+			WithStrongParents("Genesis"),
+			WithInputs("A"),
+			WithOutput("H", 1),
+			WithOutput("I", 1),
+			WithOutput("J", 1),
+		)
+		testFramework.IssueMessages("Message3")
+		bookMessage(t, tangle, testFramework.Message("Message3"))
+		testFramework.WaitMessagesBooked()
+		tipManager.AddTip(testFramework.Message("Message3"))
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 4
 	{
-		inputs["D"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["2"].ID(), selectIndex(transactions["2"], wallets["D"])))
-		outputsByID[inputs["D"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["D"])[0]
-		outputs["K"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["K"].address)
-		outputs["L"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["L"].address)
-		outputs["M"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["M"].address)
-		outputs["N"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["N"].address)
-		outputs["O"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["O"].address)
-		outputs["P"] = ledgerstate.NewSigLockedSingleOutput(1, wallets["P"].address)
 
-		transactions["4"] = makeTransaction(
-			ledgerstate.NewInputs(inputs["D"]),
-			ledgerstate.NewOutputs(
-				outputs["K"],
-				outputs["L"],
-				outputs["M"],
-				outputs["N"],
-				outputs["O"],
-				outputs["P"],
-			),
-			outputsByID,
-			walletsByAddress,
+		testFramework.CreateMessage(
+			"Message4",
+			WithStrongParents("Genesis", "Message2"),
+			WithInputs("D"),
+			WithOutput("K", 1),
+			WithOutput("L", 1),
+			WithOutput("M", 1),
+			WithOutput("N", 1),
+			WithOutput("O", 1),
+			WithOutput("P", 1),
 		)
-		messages["4"] = newTestParentsPayloadMessage(transactions["4"], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["2"].ID(), EmptyMessageID}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["4"])
-
-		tipManager.AddTip(messages["4"])
+		testFramework.IssueMessages("Message4")
+		bookMessage(t, tangle, testFramework.Message("Message4"))
+		testFramework.WaitMessagesBooked()
+		tipManager.AddTip(testFramework.Message("Message4"))
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 5
 	{
-		messages["5"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["1"].ID(), EmptyMessageID}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["5"])
-
-		tipManager.AddTip(messages["5"])
+		testFramework.CreateMessage(
+			"Message5",
+			WithStrongParents("Genesis", "Message1"),
+		)
+		testFramework.IssueMessages("Message5")
+		bookMessage(t, tangle, testFramework.Message("Message5"))
+		testFramework.WaitMessagesBooked()
+		tipManager.AddTip(testFramework.Message("Message5"))
 		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
-	createScenarioMessageWith1Input1Output := func(messageStringID, transactionStringID, consumedTransactionStringID, inputStringID, outputStringID string, strongParents []MessageID) {
-		inputs[inputStringID] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions[consumedTransactionStringID].ID(), selectIndex(transactions[consumedTransactionStringID], wallets[inputStringID])))
-		outputsByID[inputs[inputStringID].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs[inputStringID])[0]
-		outputs[outputStringID] = ledgerstate.NewSigLockedSingleOutput(1, wallets[outputStringID].address)
-
-		transactions[transactionStringID] = makeTransaction(ledgerstate.NewInputs(inputs[inputStringID]), ledgerstate.NewOutputs(outputs[outputStringID]), outputsByID, walletsByAddress)
-		messages[messageStringID] = newTestParentsPayloadMessage(transactions[transactionStringID], ParentMessageIDs{
-			StrongParentType: MessageIDsSlice(strongParents).ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages[messageStringID])
+	createScenarioMessageWith1Input1Output := func(messageStringID, inputStringID, outputStringID string, strongParents []string) {
+		testFramework.CreateMessage(
+			messageStringID,
+			WithInputs(inputStringID),
+			WithOutput(outputStringID, 1),
+			WithStrongParents(strongParents...),
+		)
+		testFramework.IssueMessages(messageStringID)
+		bookMessage(t, tangle, testFramework.Message(messageStringID))
+		testFramework.WaitMessagesBooked()
 	}
 
 	// Message 6
 	{
-		createScenarioMessageWith1Input1Output("6", "5", "3", "H", "Q", []MessageID{messages["3"].ID(), messages["5"].ID()})
-		tipManager.AddTip(messages["6"])
+		createScenarioMessageWith1Input1Output("Message6", "H", "Q", []string{"Message3", "Message5"})
+		tipManager.AddTip(testFramework.Message("Message6"))
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
 
 	// Message 7
 	{
-		createScenarioMessageWith1Input1Output("7", "6", "3", "I", "R", []MessageID{messages["3"].ID(), messages["5"].ID()})
-		tipManager.AddTip(messages["7"])
+		createScenarioMessageWith1Input1Output("Message7", "I", "R", []string{"Message3", "Message5"})
+		tipManager.AddTip(testFramework.Message("Message7"))
 		assert.Equal(t, 3, tipManager.TipCount())
 	}
 
 	// Message 8
 	{
-		createScenarioMessageWith1Input1Output("8", "7", "3", "J", "S", []MessageID{messages["3"].ID(), messages["5"].ID()})
-		tipManager.AddTip(messages["8"])
+		createScenarioMessageWith1Input1Output("Message8", "J", "S", []string{"Message3", "Message5"})
+		tipManager.AddTip(testFramework.Message("Message8"))
 		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 9
 	{
-		createScenarioMessageWith1Input1Output("9", "8", "4", "K", "T", []MessageID{messages["4"].ID()})
-		tipManager.AddTip(messages["9"])
+		createScenarioMessageWith1Input1Output("Message9", "K", "T", []string{"Message4"})
+		tipManager.AddTip(testFramework.Message("Message9"))
 		assert.Equal(t, 4, tipManager.TipCount())
 	}
 
 	// Message 10
 	{
-		createScenarioMessageWith1Input1Output("10", "9", "4", "L", "U", []MessageID{messages["2"].ID(), messages["4"].ID()})
-		tipManager.AddTip(messages["10"])
+		createScenarioMessageWith1Input1Output("Message10", "L", "U", []string{"Message2", "Message4"})
+		tipManager.AddTip(testFramework.Message("Message10"))
 		assert.Equal(t, 5, tipManager.TipCount())
 	}
 
 	// Message 11
 	{
-		createScenarioMessageWith1Input1Output("11", "10", "4", "M", "V", []MessageID{messages["2"].ID(), messages["4"].ID()})
-		tipManager.AddTip(messages["11"])
+		createScenarioMessageWith1Input1Output("Message11", "M", "V", []string{"Message2", "Message4"})
+		tipManager.AddTip(testFramework.Message("Message11"))
 		assert.Equal(t, 6, tipManager.TipCount())
 	}
 
 	// Message 12
 	{
-		createScenarioMessageWith1Input1Output("12", "11", "4", "N", "X", []MessageID{messages["3"].ID(), messages["4"].ID()})
-		tipManager.AddTip(messages["12"])
+		createScenarioMessageWith1Input1Output("Message12", "N", "X", []string{"Message3", "Message4"})
+		tipManager.AddTip(testFramework.Message("Message12"))
 		assert.Equal(t, 7, tipManager.TipCount())
 	}
 
 	// Message 13
 	{
-		createScenarioMessageWith1Input1Output("13", "12", "4", "O", "Y", []MessageID{messages["4"].ID()})
-		tipManager.AddTip(messages["13"])
+		createScenarioMessageWith1Input1Output("Message13", "O", "Y", []string{"Message4"})
+		tipManager.AddTip(testFramework.Message("Message13"))
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
 
 	// Message 14
 	{
-		createScenarioMessageWith1Input1Output("14", "13", "4", "P", "Z", []MessageID{messages["4"].ID()})
-		tipManager.AddTip(messages["14"])
+		createScenarioMessageWith1Input1Output("Message14", "P", "Z", []string{"Message4"})
+		tipManager.AddTip(testFramework.Message("Message14"))
 		assert.Equal(t, 9, tipManager.TipCount())
 	}
 
 	// Message 15
 	{
-		messages["15"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID()}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["15"])
-
-		tipManager.AddTip(messages["15"])
+		testFramework.CreateMessage(
+			"Message15",
+			WithStrongParents("Message10", "Message11"),
+		)
+		testFramework.IssueMessages("Message15")
+		bookMessage(t, tangle, testFramework.Message("Message15"))
+		testFramework.WaitMessagesBooked()
+		tipManager.AddTip(testFramework.Message("Message15"))
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
 
 	// Message 16
 	{
-		messages["16"] = newTestParentsDataMessage("data", ParentMessageIDs{
-			StrongParentType: MessageIDsSlice{messages["10"].ID(), messages["11"].ID(), messages["14"].ID()}.ToMessageIDs(),
-		})
-
-		storeAndBookMessage(t, tangle, messages["16"])
-
-		tipManager.AddTip(messages["16"])
+		testFramework.CreateMessage(
+			"Message16",
+			WithStrongParents("Message10", "Message11", "Message14"),
+		)
+		testFramework.IssueMessages("Message16")
+		bookMessage(t, tangle, testFramework.Message("Message16"))
+		testFramework.WaitMessagesBooked()
+		tipManager.AddTip(testFramework.Message("Message16"))
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
 	// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	// now we can finally start the actual tests
-	inputs["B"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["1"].ID(), selectIndex(transactions["1"], wallets["B"])))
-	outputsByID[inputs["B"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["B"])[0]
-	inputs["Q"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["5"].ID(), selectIndex(transactions["5"], wallets["Q"])))
-	outputsByID[inputs["Q"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["Q"])[0]
-	inputs["R"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["6"].ID(), selectIndex(transactions["6"], wallets["R"])))
-	outputsByID[inputs["R"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["R"])[0]
-	inputs["S"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["7"].ID(), selectIndex(transactions["7"], wallets["S"])))
-	outputsByID[inputs["S"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["S"])[0]
-	inputs["T"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["8"].ID(), selectIndex(transactions["8"], wallets["T"])))
-	outputsByID[inputs["T"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["T"])[0]
-	inputs["U"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["9"].ID(), selectIndex(transactions["9"], wallets["U"])))
-	outputsByID[inputs["U"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["U"])[0]
-	inputs["V"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["10"].ID(), selectIndex(transactions["10"], wallets["V"])))
-	outputsByID[inputs["V"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["V"])[0]
-	inputs["X"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["11"].ID(), selectIndex(transactions["11"], wallets["X"])))
-	outputsByID[inputs["X"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["X"])[0]
-	inputs["Y"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["12"].ID(), selectIndex(transactions["12"], wallets["Y"])))
-	outputsByID[inputs["Y"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["Y"])[0]
-	inputs["Z"] = ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(transactions["13"].ID(), selectIndex(transactions["13"], wallets["Z"])))
-	outputsByID[inputs["Z"].ReferencedOutputID()] = ledgerstate.NewOutputs(outputs["Z"])[0]
-
 	// Message 17
 	{
-		outputs["OUT"] = ledgerstate.NewSigLockedSingleOutput(8, wallets["OUT"].address)
-
-		transactions["14"] = makeTransaction(
-			ledgerstate.NewInputs(
-				inputs["Q"],
-				inputs["R"],
-				inputs["S"],
-				inputs["T"],
-				inputs["U"],
-				inputs["V"],
-				inputs["X"],
-				inputs["Y"],
-			),
-			ledgerstate.NewOutputs(
-				outputs["OUT"],
-			),
-			outputsByID,
-			walletsByAddress,
+		testFramework.CreateMessage(
+			"Message17",
+			WithStrongParents("Message16"),
+			WithOutput("OUT17", 8),
+			WithInputs("Q", "R", "S", "T", "U", "V", "X", "Y"),
 		)
-
-		parents, err := tipManager.Tips(transactions["14"], 4)
+		parents, err := tipManager.Tips(testFramework.Message("Message17").Payload(), 4)
 		assert.NoError(t, err)
-		assert.ElementsMatch(t, parents, []MessageID{
-			messages["6"].ID(),
-			messages["7"].ID(),
-			messages["8"].ID(),
-			messages["9"].ID(),
-			messages["10"].ID(),
-			messages["11"].ID(),
-			messages["12"].ID(),
-			messages["13"].ID(),
-		})
+		assert.Equal(t, parents, NewMessageIDs(
+			testFramework.Message("Message6").ID(),
+			testFramework.Message("Message7").ID(),
+			testFramework.Message("Message8").ID(),
+			testFramework.Message("Message9").ID(),
+			testFramework.Message("Message10").ID(),
+			testFramework.Message("Message11").ID(),
+			testFramework.Message("Message12").ID(),
+			testFramework.Message("Message13").ID(),
+		))
 	}
 
 	// Message 18
 	{
-		outputs["OUT"] = ledgerstate.NewSigLockedSingleOutput(6, wallets["OUT"].address)
-
-		transactions["15"] = makeTransaction(
-			ledgerstate.NewInputs(
-				inputs["Q"],
-				inputs["R"],
-				inputs["S"],
-				inputs["T"],
-				inputs["U"],
-				inputs["V"],
-			),
-			ledgerstate.NewOutputs(
-				outputs["OUT"],
-			),
-			outputsByID,
-			walletsByAddress,
+		testFramework.CreateMessage(
+			"Message18",
+			WithStrongParents("Message16"),
+			WithOutput("OUT18", 6),
+			WithInputs("Q", "R", "S", "T", "U", "V"),
 		)
 
-		parents, err := tipManager.Tips(transactions["15"], 4)
+		parents, err := tipManager.Tips(testFramework.Message("Message18").Payload(), 4)
+
 		assert.NoError(t, err)
 		// there are possible parents to be selected, however, since the directly referenced messages are tips as well
 		// there is a chance that these are doubly selected, resulting 6 to 8 parents
 		assert.GreaterOrEqual(t, len(parents), 6)
 		assert.LessOrEqual(t, len(parents), 8)
 		assert.Contains(t, parents,
-			messages["6"].ID(),
-			messages["7"].ID(),
-			messages["8"].ID(),
-			messages["9"].ID(),
-			messages["10"].ID(),
-			messages["11"].ID(),
+			testFramework.Message("Message6").ID(),
+			testFramework.Message("Message7").ID(),
+			testFramework.Message("Message8").ID(),
+			testFramework.Message("Message9").ID(),
+			testFramework.Message("Message10").ID(),
+			testFramework.Message("Message11").ID(),
 		)
 	}
 
 	// Message 19
 	{
-		outputs["OUT"] = ledgerstate.NewSigLockedSingleOutput(3, wallets["OUT"].address)
-
-		transactions["16"] = makeTransaction(
-			ledgerstate.NewInputs(
-				inputs["B"],
-				inputs["V"],
-				inputs["Z"],
-			),
-			ledgerstate.NewOutputs(
-				outputs["OUT"],
-			),
-			outputsByID,
-			walletsByAddress,
+		testFramework.CreateMessage(
+			"Message19",
+			WithStrongParents("Message16"),
+			WithOutput("OUT19", 3),
+			WithInputs("B", "V", "Z"),
 		)
 
-		parents, err := tipManager.Tips(transactions["16"], 4)
+		parents, err := tipManager.Tips(testFramework.Message("Message19").Payload(), 4)
 		assert.NoError(t, err)
 
 		// we reference 11, 14 directly. 1 is too old and should not be directly referenced
 		assert.GreaterOrEqual(t, len(parents), 4)
 		assert.LessOrEqual(t, len(parents), 8)
 		assert.Contains(t, parents,
-			messages["11"].ID(),
-			messages["14"].ID(),
+			testFramework.Message("Message11").ID(),
+			testFramework.Message("Message14").ID(),
 		)
 		assert.NotContains(t, parents,
-			messages["1"].ID(),
+			testFramework.Message("Message1").ID(),
 		)
 	}
 
 	// Message 20
 	{
-		outputs["OUT"] = ledgerstate.NewSigLockedSingleOutput(9, wallets["OUT"].address)
 
-		transactions["17"] = makeTransaction(
-			ledgerstate.NewInputs(
-				inputs["Q"],
-				inputs["R"],
-				inputs["S"],
-				inputs["T"],
-				inputs["U"],
-				inputs["V"],
-				inputs["X"],
-				inputs["Y"],
-				inputs["Z"],
-			),
-			ledgerstate.NewOutputs(
-				outputs["OUT"],
-			),
-			outputsByID,
-			walletsByAddress,
+		testFramework.CreateMessage(
+			"Message20",
+			WithStrongParents("Message16"),
+			WithOutput("OUT20", 9),
+			WithInputs("Q", "R", "S", "T", "U", "V", "X", "Y", "Z"),
 		)
 
-		parents, err := tipManager.Tips(transactions["17"], 4)
+		parents, err := tipManager.Tips(testFramework.Message("Message20").Payload(), 4)
 		assert.NoError(t, err)
 
 		// there are 9 inputs to be directly referenced -> we need to reference them via tips (8 tips available)
@@ -643,9 +495,357 @@ func TestTipManager_TransactionTips(t *testing.T) {
 	}
 }
 
-func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
-	// we need to store and book transactions so that we also have attachments of transactions available
-	tangle.Storage.StoreMessage(message)
+// Test based on packages/tangle/images/TSC_test_scenario.png except nothing is confirmed.
+func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
+	t.Skip("Skip this test.")
+	tangle := NewTestTangle()
+	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
+	defer tangle.Shutdown()
+
+	tipManager := tangle.TipManager
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+	)
+
+	tangle.Setup()
+
+	createTestTangleTSC(t, testFramework)
+	var confirmedMessageIDsString []string
+	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
+	confirmedMarkers := markers.NewMarkers()
+
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
+	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3").ID())
+
+	// Even without any confirmations, it should be possible to attach to genesis.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
+
+	// case 0 - only one message can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/0_2").ID()))
+	// case #1
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/3_4").ID()))
+	// case #2
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
+	// case #3
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
+	// case #4 (marker message)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
+	// case #5
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
+	// case #6 (attach to unconfirmed message older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
+	// case #7
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
+	// case #8
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
+	// case #9
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
+	// case #10 (attach to confirmed message older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	// case #11
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
+}
+
+// Test based on packages/tangle/images/TSC_test_scenario.png.
+func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
+	tangle := NewTestTangle()
+	tangle.Booker.MarkersManager.Manager = markers.NewManager(markers.WithCacheTime(0), markers.WithMaxPastMarkerDistance(10))
+
+	defer tangle.Shutdown()
+
+	tipManager := tangle.TipManager
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+	)
+
+	tangle.Setup()
+
+	createTestTangleTSC(t, testFramework)
+	confirmedMessageIDsString := []string{"Marker-0/1", "0/1-preTSCSeq1_0", "0/1-preTSCSeq1_1", "0/1-preTSCSeq1_2", "0/1-postTSCSeq1_0", "0/1-postTSCSeq1_1", "0/1-postTSCSeq1_2", "0/1-postTSCSeq1_3", "0/1-postTSCSeq1_4", "0/1-postTSCSeq1_5", "Marker-1/2", "0/1-preTSCSeq2_0", "0/1-preTSCSeq2_1", "0/1-preTSCSeq2_2", "0/1-postTSCSeq2_0", "0/1-postTSCSeq2_1", "0/1-postTSCSeq2_2", "0/1-postTSCSeq2_3", "0/1-postTSCSeq2_4", "0/1-postTSCSeq2_5", "Marker-2/2", "2/2_0", "2/2_1", "2/2_2", "2/2_3", "2/2_4", "Marker-2/3"}
+	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
+	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3))
+
+	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
+	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3").ID())
+
+	// Even without any confirmations, it should be possible to attach to genesis.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
+
+	// case 0 - only one message can attach to genesis, so there should not be two subtangles starting from the genesis, but TSC allows using such tip.
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/0_2").ID()))
+	// case #1
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/3_4").ID()))
+	// case #2
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("1/3_4").ID()))
+	// case #3
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3_4").ID()))
+	// case #4 (marker message)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-1/2").ID()))
+	// case #5
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
+	// case #6 (attach to unconfirmed message older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
+	//// case #7
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
+	// case #8
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
+	// case #9
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
+	// case #10 (attach to confirmed message older than TSC)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	// case #11
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
+}
+
+func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
+	var lastMsgAlias string
+
+	// SEQUENCE 0
+	{
+		testFramework.CreateMessage("Marker-0/1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-9*time.Minute)))
+		testFramework.IssueMessages("Marker-0/1").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSC", 3, []string{lastMsgAlias}, time.Minute)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/2", 5, []string{"Marker-0/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/3", 5, []string{"Marker-0/3"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-0/4", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-0/4").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSC_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSC_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-0/2":    markers.NewMarkers(markers.NewMarker(0, 2)),
+			"Marker-0/3":    markers.NewMarkers(markers.NewMarker(0, 3)),
+			"Marker-0/4":    markers.NewMarkers(markers.NewMarker(0, 4)),
+		})
+	}
+
+	// SEQUENCE 0 (without markers)
+	{
+		_ = issueMessages(testFramework, "0/0", 3, []string{"Genesis"}, time.Minute)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/0_0": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"0/0_1": markers.NewMarkers(markers.NewMarker(0, 0)),
+			"0/0_2": markers.NewMarkers(markers.NewMarker(0, 0)),
+		})
+	}
+	// SEQUENCE 1
+	{ //nolint:dupl
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq1", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq1", 6, []string{lastMsgAlias}, time.Minute*4)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-1/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueMessages("Marker-1/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "1/2", 5, []string{"Marker-1/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-1/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-1/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq1_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq1_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq1_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-1/2":        markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_0":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_1":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_2":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_3":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"1/2_4":             markers.NewMarkers(markers.NewMarker(1, 2)),
+			"Marker-1/3":        markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_0":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_1":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_2":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_3":             markers.NewMarkers(markers.NewMarker(1, 3)),
+			"1/3_4":             markers.NewMarkers(markers.NewMarker(1, 3)),
+		})
+	}
+
+	// SEQUENCE 2
+	{ //nolint:dupl
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq2", 3, []string{"Marker-0/1"}, time.Minute*6)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq2", 6, []string{lastMsgAlias}, time.Minute*4)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-2/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
+		testFramework.IssueMessages("Marker-2/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/2", 5, []string{"Marker-2/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-2/3", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-2/3").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq2_0":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_1":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq2_2":  markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq2_5": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-2/2":        markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_0":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_1":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_2":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_3":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"2/2_4":             markers.NewMarkers(markers.NewMarker(2, 2)),
+			"Marker-2/3":        markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_0":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_1":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_2":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_3":             markers.NewMarkers(markers.NewMarker(2, 3)),
+			"2/3_4":             markers.NewMarkers(markers.NewMarker(2, 3)),
+		})
+	}
+
+	// SEQUENCE 2 + 0
+	{
+		testFramework.CreateMessage("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
+		testFramework.IssueMessages("Marker-2/5").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"Marker-2/5": markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_0":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_1":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_2":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_3":      markers.NewMarkers(markers.NewMarker(2, 5)),
+			"2/5_4":      markers.NewMarkers(markers.NewMarker(2, 5)),
+		})
+	}
+
+	// SEQUENCE 3
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 6, []string{"0/1-preTSCSeq2_2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-3/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-postTSCSeq3_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq3_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-3/2":        markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_0":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_1":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_2":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_3":             markers.NewMarkers(markers.NewMarker(3, 2)),
+			"3/2_4":             markers.NewMarkers(markers.NewMarker(3, 2)),
+		})
+	}
+
+	// SEQUENCE 2 + 0 (two past markers) -> SEQUENCE 4
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
+		testFramework.CreateMessage("Marker-4/5", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-4/5").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"2/3+0/4_0":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_1":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_2":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"2/3+0/4_3":  markers.NewMarkers(markers.NewMarker(2, 3), markers.NewMarker(0, 4)),
+			"Marker-4/5": markers.NewMarkers(markers.NewMarker(4, 5)),
+		})
+	}
+	// SEQUENCE 5
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-5/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-5/2").WaitMessagesBooked()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-preTSCSeq5_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-preTSCSeq5_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-5/2":       markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_0":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_1":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_2":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_3":            markers.NewMarkers(markers.NewMarker(5, 2)),
+			"5/2_4":            markers.NewMarkers(markers.NewMarker(5, 2)),
+		})
+	}
+}
+
+func prepareConfirmedMessageIDs(testFramework *MessageTestFramework, confirmedIDs []string) MessageIDs {
+	confirmedMessageIDs := NewMessageIDs()
+	for _, id := range confirmedIDs {
+		confirmedMessageIDs.Add(testFramework.Message(id).ID())
+	}
+	return confirmedMessageIDs
+}
+
+func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCount int, parents []string, timestampOffset time.Duration) string {
+	msgAlias := fmt.Sprintf("%s_%d", msgPrefix, 0)
+
+	testFramework.CreateMessage(msgAlias, WithStrongParents(parents...), WithIssuingTime(time.Now().Add(-timestampOffset)))
+	testFramework.IssueMessages(msgAlias).WaitMessagesBooked()
+
+	for i := 1; i < msgCount; i++ {
+		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
+		testFramework.CreateMessage(alias, WithStrongParents(msgAlias), WithIssuingTime(time.Now().Add(-timestampOffset)))
+		testFramework.IssueMessages(alias).WaitMessagesBooked()
+
+		msgAlias = alias
+	}
+	return msgAlias
+}
+
+func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
 		err := tangle.LedgerState.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
@@ -660,15 +860,49 @@ func storeAndBookMessage(t *testing.T, tangle *Tangle, message *Message) {
 		messageBranchIDs, err := tangle.Booker.MessageBranchIDs(message.ID())
 		assert.NoError(t, err)
 		require.Equal(t, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), messageBranchIDs)
+		messageMetadata.StructureDetails()
 	})
 }
 
-func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDsSlice) (message *Message) {
+func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
 	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
-		StrongParentType: strongParents.ToMessageIDs(),
-		WeakParentType:   weakParents.ToMessageIDs(),
+		StrongParentType: strongParents,
+		WeakParentType:   weakParents,
 	})
 	tangle.Storage.StoreMessage(message)
 
 	return
+}
+
+type MockConfirmationOracleTipManagerTest struct {
+	confirmedMessageIDs MessageIDs
+	confirmedMarkers    *markers.Markers
+
+	MockConfirmationOracle
+}
+
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
+	return m.confirmedMessageIDs.Contains(msgID)
+}
+
+// FirstUnconfirmedMarkerIndex mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(sequenceID)
+	if exists {
+		return confirmedMarkerIndex + 1
+	}
+	return 0
+}
+
+// IsMessageConfirmed mocks its interface function.
+func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers.Marker) bool {
+	if marker == nil || m.confirmedMarkers == nil || m.confirmedMarkers.Size() == 0 {
+		return false
+	}
+	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(marker.SequenceID())
+	if !exists {
+		return false
+	}
+	return marker.Index() <= confirmedMarkerIndex
 }

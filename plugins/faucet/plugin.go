@@ -9,8 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/orderedmap"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
@@ -45,7 +45,7 @@ var (
 	preparingWorkerQueueSize = MaxFaucetOutputsCount + 1
 	targetPoWDifficulty      int
 	// blacklist makes sure that an address might only request tokens once.
-	blacklist         *orderedmap.OrderedMap
+	blacklist         *orderedmap.OrderedMap[string, bool]
 	blacklistCapacity int
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
@@ -102,7 +102,7 @@ func newFaucet() *StateManager {
 
 func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
-	blacklist = orderedmap.New()
+	blacklist = orderedmap.New[string, bool]()
 	blacklistCapacity = Parameters.BlacklistCapacity
 	_faucet = newFaucet()
 
@@ -273,8 +273,8 @@ func IsAddressBlackListed(address ledgerstate.Address) bool {
 	// add it to the blacklist
 	blacklist.Set(address.Base58(), true)
 	if blacklist.Size() > blacklistCapacity {
-		var headKey interface{}
-		blacklist.ForEach(func(key, value interface{}) bool {
+		var headKey string
+		blacklist.ForEach(func(key string, value bool) bool {
 			headKey = key
 			return false
 		})

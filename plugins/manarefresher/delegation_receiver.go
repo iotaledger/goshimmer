@@ -27,7 +27,7 @@ func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
 	defer cachedOutputs.Release()
 	// filterDelegationOutputs will use this time for condition checking
 	d.localTimeNow = clock.SyncedTime()
-	filtered := cachedOutputs.Unwrap().Filter(d.filterDelegationOutputs)
+	filtered := ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(d.filterDelegationOutputs)
 
 	scanResult := make([]*ledgerstate.AliasOutput, len(filtered))
 	for i, output := range filtered {

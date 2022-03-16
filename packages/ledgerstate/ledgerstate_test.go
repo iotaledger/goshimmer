@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,20 +20,20 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	outputs := make(map[string]Output)
 	inputs := make(map[string]Input)
 	transactions := make(map[string]*Transaction)
-	branches := make(map[string]BranchID)
+	branches := make(map[string]BranchIDs)
 
 	setupScenarioBottomLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// Mark A as Confirmed
 	{
-		require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["A"]))
+		require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "A")))
 
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
 
 		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["A"]))
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["C"]))
@@ -42,72 +43,72 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
 	{
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
-		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["E"], branches["C"])
 	}
 
 	setupScenarioTopLayer1(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// When creating the first transaction of top layer it should be booked under the Pending parent C
 	{
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
-		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["E"], branches["C"])
 
 		// Branches F & G are spawned by the fork of G
-		assertBranchID(t, ledgerstate, transactions["F"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["F"], branches["C"])
 	}
 
 	setupScenarioTopLayer2(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
 	// When creating the conflicting TX of the top layer branches F & G are spawned by the fork of G
 	{
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
-		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["E"], branches["C"])
 
 		// Branches F & G are spawned by the fork of G
-		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
-		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
+		assertBranchIDs(t, ledgerstate, transactions["F"], branches["F"])
+		assertBranchIDs(t, ledgerstate, transactions["G"], branches["G"])
 
-		ledgerstate.BranchDAG.Branch(branches["F"]).Consume(func(branch Branch) {
-			assert.Equal(t, NewBranchIDs(branches["C"]), branch.Parents())
+		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "F")).Consume(func(branch *Branch) {
+			assert.Equal(t, branches["C"], branch.Parents())
 		})
 
-		ledgerstate.BranchDAG.Branch(branches["G"]).Consume(func(branch Branch) {
-			assert.Equal(t, NewBranchIDs(branches["C"]), branch.Parents())
+		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "G")).Consume(func(branch *Branch) {
+			assert.Equal(t, branches["C"], branch.Parents())
 		})
 	}
 
-	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["D"]))
+	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "D")))
 
 	setupScenarioTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
-	// TX L aggregates a child (G) of a Rejected branch (C) and a pending branch H, resulting in C+H
+	// TX L aggregates a child (G) of a Rejected branch (C) and a pending branch H, resulting in G+H
 	{
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
-		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
-		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
-		assertBranchID(t, ledgerstate, transactions["L"], branches["G+H"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["F"], branches["F"])
+		assertBranchIDs(t, ledgerstate, transactions["G"], branches["G"])
+		assertBranchIDs(t, ledgerstate, transactions["L"], branches["G+H"])
 
 		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
@@ -116,30 +117,26 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["H"]))
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["I"]))
-
-		ledgerstate.BranchDAG.Branch(branches["G+H"]).Consume(func(branch Branch) {
-			assert.Equal(t, NewBranchIDs(branches["G"], branches["H"]), branch.Parents())
-		})
 	}
 
-	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branches["H"]))
+	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "H")))
 
 	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions)
 
-	// The new TX M should be now booked under G, as the aggregated branch G+H got H confirmed, transforming it into
-	// a ConflictBranch again: just G.
+	// The new TX M should be now booked under G, as the branch G+H got H confirmed, transforming it into
+	// a Branch again: just G because we don't propagate H further.
 	{
-		assertBranchID(t, ledgerstate, transactions["A"], branches["A"])
-		assertBranchID(t, ledgerstate, transactions["B"], branches["B"])
-		assertBranchID(t, ledgerstate, transactions["C"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["D"], branches["D"])
-		assertBranchID(t, ledgerstate, transactions["H"], branches["H"])
-		assertBranchID(t, ledgerstate, transactions["I"], branches["I"])
-		assertBranchID(t, ledgerstate, transactions["E"], branches["C"])
-		assertBranchID(t, ledgerstate, transactions["F"], branches["F"])
-		assertBranchID(t, ledgerstate, transactions["G"], branches["G"])
-		assertBranchID(t, ledgerstate, transactions["L"], branches["G+H"])
-		assertBranchID(t, ledgerstate, transactions["M"], branches["G"])
+		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
+		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
+		assertBranchIDs(t, ledgerstate, transactions["C"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["D"], branches["D"])
+		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
+		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
+		assertBranchIDs(t, ledgerstate, transactions["E"], branches["C"])
+		assertBranchIDs(t, ledgerstate, transactions["F"], branches["F"])
+		assertBranchIDs(t, ledgerstate, transactions["G"], branches["G"])
+		assertBranchIDs(t, ledgerstate, transactions["L"], branches["G+H"])
+		assertBranchIDs(t, ledgerstate, transactions["M"], branches["G"])
 
 		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
 		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
@@ -151,19 +148,19 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	}
 }
 
-func assertBranchID(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, branchID BranchID) {
+func assertBranchIDs(t *testing.T, ledgerstate *Ledgerstate, transaction *Transaction, expectedBranchIDs BranchIDs) {
 	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-		assert.Equal(t, branchID, transactionMetadata.BranchID(), transactionMetadata.String(), branchID.String())
+		assert.Equal(t, expectedBranchIDs, transactionMetadata.BranchIDs(), transactionMetadata.String(), expectedBranchIDs.String())
 	}))
 
 	for _, output := range transaction.Essence().Outputs() {
 		assert.True(t, ledgerstate.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *OutputMetadata) {
-			assert.Equal(t, branchID, outputMetadata.BranchID(), outputMetadata.String(), branchID.String())
+			assert.Equal(t, expectedBranchIDs, outputMetadata.BranchIDs(), outputMetadata.String(), expectedBranchIDs.String())
 		}))
 	}
 }
 
-func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
 	// create genesis outputs
 	{
 		wallets["GENESIS_1"] = createWallets(1)[0]
@@ -198,8 +195,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["A"] = NewBranchID(transactions["A"].ID())
-		RegisterBranchIDAlias(branches["A"], "BranchA")
+		addBranchAndRegister(branches, transactions, "A")
 
 		outputs["A"].SetID(NewOutputID(transactions["A"].ID(), 0))
 		inputs["A"] = NewUTXOInput(outputs["A"].ID())
@@ -208,7 +204,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -231,8 +227,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["B"] = NewBranchID(transactions["B"].ID())
-		RegisterBranchIDAlias(branches["B"], "BranchB")
+		addBranchAndRegister(branches, transactions, "B")
 
 		outputs["B"].SetID(NewOutputID(transactions["B"].ID(), 0))
 		inputs["B"] = NewUTXOInput(outputs["B"].ID())
@@ -241,10 +236,10 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -267,8 +262,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["C"] = NewBranchID(transactions["C"].ID())
-		RegisterBranchIDAlias(branches["C"], "BranchC")
+		addBranchAndRegister(branches, transactions, "C")
 
 		outputs["C"].SetID(NewOutputID(transactions["C"].ID(), 0))
 		inputs["C"] = NewUTXOInput(outputs["C"].ID())
@@ -277,13 +271,13 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -306,8 +300,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["D"] = NewBranchID(transactions["D"].ID())
-		RegisterBranchIDAlias(branches["D"], "BranchD")
+		addBranchAndRegister(branches, transactions, "D")
 
 		outputs["D"].SetID(NewOutputID(transactions["D"].ID(), 0))
 		inputs["D"] = NewUTXOInput(outputs["D"].ID())
@@ -316,16 +309,16 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -348,8 +341,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["H"] = NewBranchID(transactions["H"].ID())
-		RegisterBranchIDAlias(branches["H"], "BranchH")
+		addBranchAndRegister(branches, transactions, "H")
 
 		outputs["H"].SetID(NewOutputID(transactions["H"].ID(), 0))
 		inputs["H"] = NewUTXOInput(outputs["H"].ID())
@@ -358,19 +350,19 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["H"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, MasterBranchID, transactionMetadata.BranchID())
+			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -393,8 +385,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["I"] = NewBranchID(transactions["I"].ID())
-		RegisterBranchIDAlias(branches["I"], "BranchI")
+		addBranchAndRegister(branches, transactions, "I")
 
 		outputs["I"].SetID(NewOutputID(transactions["I"].ID(), 0))
 		inputs["I"] = NewUTXOInput(outputs["I"].ID())
@@ -403,27 +394,27 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]wallet, outputs m
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["A"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["A"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["B"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["B"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["C"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["C"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["D"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["D"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["D"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["H"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["H"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["H"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["I"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, branches["I"], transactionMetadata.BranchID())
+			assert.Equal(t, branches["I"], transactionMetadata.BranchIDs())
 		}))
 	}
 }
 
-func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
 	// issue Transaction E (combining Branch A and C)
 	{
 		wallets["E"] = createWallets(1)[0]
@@ -455,11 +446,7 @@ func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs m
 
 		transactions["E"] = NewTransaction(transactionEssence, unlockBlocks)
 
-		branches["A+C"] = NewAggregatedBranch(NewBranchIDs(
-			branches["A"],
-			branches["C"],
-		)).ID()
-		RegisterBranchIDAlias(branches["A+C"], "BranchA+C")
+		branches["A+C"] = branches["A"].Clone().AddAll(branches["C"])
 
 		outputs["E"].SetID(NewOutputID(transactions["E"].ID(), 0))
 		inputs["E"] = NewUTXOInput(outputs["E"].ID())
@@ -469,7 +456,7 @@ func setupScenarioMiddleLayer(t *testing.T, wallets map[string]wallet, outputs m
 	}
 }
 
-func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID, alias string) {
+func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs, alias string) {
 	// issue Transaction alias
 	{
 		wallets[alias] = createWallets(1)[0]
@@ -489,8 +476,7 @@ func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]wallet, outpu
 			),
 		})
 
-		branches[alias] = NewBranchID(transactions[alias].ID())
-		RegisterBranchIDAlias(branches[alias], "Branch"+alias)
+		addBranchAndRegister(branches, transactions, alias)
 
 		outputs[alias].SetID(NewOutputID(transactions[alias].ID(), 0))
 		inputs[alias] = NewUTXOInput(outputs[alias].ID())
@@ -500,15 +486,15 @@ func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]wallet, outpu
 	}
 }
 
-func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopLayer1(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
 	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "F")
 }
 
-func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopLayer2(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
 	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "G")
 }
 
-func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchID) {
+func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs map[string]Output, ledgerstate *Ledgerstate, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
 	// issue Transaction L
 	{
 		wallets["L"] = createWallets(1)[0]
@@ -534,11 +520,7 @@ func setupScenarioTopTopLayer(t *testing.T, wallets map[string]wallet, outputs m
 			),
 		})
 
-		branches["G+H"] = NewAggregatedBranch(NewBranchIDs(
-			branches["G"],
-			branches["H"],
-		)).ID()
-		RegisterBranchIDAlias(branches["G+H"], "BranchG+H")
+		branches["G+H"] = branches["G"].Clone().AddAll(branches["H"])
 
 		outputs["L"].SetID(NewOutputID(transactions["L"].ID(), 0))
 		inputs["L"] = NewUTXOInput(outputs["L"].ID())
@@ -574,4 +556,22 @@ func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]wallet, output
 		_, err := ledgerstate.BookTransaction(transactions["M"])
 		require.NoError(t, err)
 	}
+}
+
+func addBranchAndRegister(branches map[string]BranchIDs, transactions map[string]*Transaction, transactionAlias string) {
+	branchID := NewBranchID(transactions[transactionAlias].ID())
+	branches[transactionAlias] = NewBranchIDs(branchID)
+	RegisterBranchIDAlias(branchID, "Branch"+transactionAlias)
+}
+
+func getSingleBranch(branches map[string]BranchIDs, alias string) BranchID {
+	if len(branches[alias]) != 1 {
+		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
+	}
+
+	for branchID := range branches[alias] {
+		return branchID
+	}
+
+	return UndefinedBranchID
 }

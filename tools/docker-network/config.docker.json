@@ -56,6 +56,9 @@
     ],
     "disableEvents": true
   },
+  "remotemetrics": {
+    "metricsLevel": 0
+  },
   "metrics": {
     "manaUpdateInterval": "5s"
   },

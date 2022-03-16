@@ -96,6 +96,7 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
+	deps.Server.GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
 }
 
@@ -148,7 +149,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 	cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(address)
 	defer cachedOutputs.Release()
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			isUnspent = outputMetadata.ConsumerCount() == 0
 		})
@@ -163,7 +164,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 
 // PostAddressUnspentOutputs is the handler for the /ledgerstate/addresses/unspentOutputs endpoint.
 func PostAddressUnspentOutputs(c echo.Context) error {
-	req := &jsonmodels.PostAddressesUnspentOutputsRequest{}
+	req := new(jsonmodels.PostAddressesUnspentOutputsRequest)
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
@@ -180,7 +181,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		UnspentOutputs: make([]*jsonmodels.WalletOutputsOnAddress, len(addresses)),
 	}
 	for i, addy := range addresses {
-		res.UnspentOutputs[i] = &jsonmodels.WalletOutputsOnAddress{}
+		res.UnspentOutputs[i] = new(jsonmodels.WalletOutputsOnAddress)
 		cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(addy)
 		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
@@ -188,7 +189,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range cachedOutputs.Unwrap().Filter(func(output ledgerstate.Output) (isUnspent bool) {
+		for _, output := range ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(func(output ledgerstate.Output) (isUnspent bool) {
 			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				isUnspent = outputMetadata.ConsumerCount() == 0
 			})
@@ -227,7 +228,7 @@ func GetBranch(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
+	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
@@ -266,14 +267,9 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch ledgerstate.Branch) {
-		if branch.Type() != ledgerstate.ConflictBranchType {
-			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(fmt.Errorf("the Branch with %s is not a ConflictBranch", branchID)))
-			return
-		}
-
+	if deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		branchIDsPerConflictID := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
-		for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+		for conflictID := range branch.Conflicts() {
 			branchIDsPerConflictID[conflictID] = make([]ledgerstate.BranchID, 0)
 			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
@@ -299,15 +295,8 @@ func GetBranchVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	conflictBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchID))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, jsonmodels.NewErrorResponse(err))
-	}
-
 	voters := tangle.NewVoters()
-	for conflictBranchID := range conflictBranchIDs {
-		voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfConflictBranch(conflictBranchID))
-	}
+	voters.AddAll(deps.Tangle.ApprovalWeightManager.VotersOfBranch(branchID))
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetBranchVotersResponse(branchID, voters))
 }
@@ -318,18 +307,18 @@ func GetBranchVoters(c echo.Context) (err error) {
 
 // GetBranchSequenceIDs is the handler for the /ledgerstate/branch/:branchID endpoint.
 func GetBranchSequenceIDs(c echo.Context) (err error) {
-	//branchID, err := branchIDFromContext(c)
-	//if err != nil {
+	// branchID, err := branchIDFromContext(c)
+	// if err != nil {
 	//	return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
-	//}
+	// }
 	//
-	//sequenceIDs := make([]string, 0)
-	//deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	// sequenceIDs := make([]string, 0)
+	// deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
 	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
 	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
 	//		return true
 	//	})
-	//})
+	// })
 
 	return c.JSON(http.StatusOK, "ok")
 }
@@ -447,9 +436,9 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	var messageIDs tangle.MessageIDsSlice
+	messageIDs := tangle.NewMessageIDs()
 	if !deps.Tangle.Storage.Attachments(transactionID).Consume(func(attachment *tangle.Attachment) {
-		messageIDs = append(messageIDs, attachment.MessageID())
+		messageIDs.Add(attachment.MessageID())
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load GetTransactionAttachmentsResponse of Transaction with %s", transactionID)))
 	}
@@ -492,7 +481,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx, _, err := ledgerstate.TransactionFromBytes(request.TransactionBytes)
+	tx, err := new(ledgerstate.Transaction).FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
