@@ -64,6 +64,18 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 	return w.wallets[walletID]
 }
 
+// GetNextWallet get next non-empty wallet based on provided type.
+func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
+	if !w.IsFaucetWalletAvailable() {
+		return nil, errors.New("no faucet wallets available, need to request more funds")
+	}
+	wallet := w.wallets[w.faucetWallets[0]]
+	if wallet.IsEmpty() {
+		return nil, errors.New("wallet is empty, need to request more funds")
+	}
+	return wallet, nil
+}
+
 // addWallet stores newly created wallet.
 func (w *Wallets) addWallet(wallet *Wallet) {
 	w.mu.Lock()
@@ -89,19 +101,12 @@ func (w *Wallets) IsFaucetWalletAvailable() bool {
 // FreshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
 // it is removed and the next enqueued one is returned.
 func (w *Wallets) FreshWallet() (*Wallet, error) {
-	if !w.IsFaucetWalletAvailable() {
-		return nil, errors.New("no faucet wallets available, need to request more funds")
-	}
-	wallet := w.wallets[w.faucetWallets[0]]
-	if wallet.IsEmpty() {
+	wallet, err := w.GetNextWallet(fresh)
+	if err != nil {
 		w.removeWallet(fresh)
-		if !w.IsFaucetWalletAvailable() {
-			return nil, errors.New("no faucet wallets available, need to request more funds")
-		}
-		// take next wallet
-		wallet = w.wallets[w.faucetWallets[0]]
-		if wallet.IsEmpty() {
-			return nil, errors.New("wallet is empty, need to request more funds")
+		wallet, err = w.GetNextWallet(fresh)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return wallet, nil
@@ -111,8 +116,9 @@ func (w *Wallets) FreshWallet() (*Wallet, error) {
 func (w *Wallets) removeWallet(wType WalletType) {
 	switch wType {
 	case fresh:
-		w.faucetWallets = w.faucetWallets[1:]
-
+		if w.IsFaucetWalletAvailable() {
+			w.faucetWallets = w.faucetWallets[1:]
+		}
 	}
 	return
 }
