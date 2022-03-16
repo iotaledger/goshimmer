@@ -51,8 +51,8 @@ func runTipsDiagnostic(c echo.Context) (err error) {
 	return nil
 }
 
-func buildAndWriteTipsDiagnostic(w *csv.Writer, tips tangle.MessageIDsSlice) (err error) {
-	for _, tipID := range tips {
+func buildAndWriteTipsDiagnostic(w *csv.Writer, tips tangle.MessageIDs) (err error) {
+	for tipID := range tips {
 		messageInfo := getDiagnosticMessageInfo(tipID)
 		tipInfo := tipsDiagnosticInfo{
 			DiagnosticMessagesInfo: messageInfo,

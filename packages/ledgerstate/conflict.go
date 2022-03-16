@@ -1,7 +1,6 @@
 package ledgerstate
 
 import (
-	"strconv"
 	"strings"
 	"sync"
 
@@ -9,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -27,34 +26,6 @@ type ConflictID [ConflictIDLength]byte
 // NewConflictID creates a new ConflictID from an OutputID.
 func NewConflictID(outputID OutputID) (conflictID ConflictID) {
 	copy(conflictID[:], outputID[:])
-
-	return
-}
-
-// ConflictIDFromBytes unmarshals a ConflictID from a sequence of bytes.
-func ConflictIDFromBytes(bytes []byte) (conflictID ConflictID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ConflictIDFromBase58 creates a ConflictID from a base58 encoded string.
-func ConflictIDFromBase58(base58String string) (conflictID ConflictID, err error) {
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded ConflictID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if conflictID, _, err = ConflictIDFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from bytes: %w", err)
-		return
-	}
 
 	return
 }
@@ -116,18 +87,6 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 	for _, conflictID := range optionalConflictIDs {
 		conflictIDs[conflictID] = types.Void
 	}
-
-	return
-}
-
-// ConflictIDsFromBytes unmarshals a collection of ConflictIDs from a sequence of bytes.
-func ConflictIDsFromBytes(bytes []byte) (conflictIDs ConflictIDs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictIDs, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictIDs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
@@ -227,21 +186,31 @@ func NewConflict(conflictID ConflictID) *Conflict {
 	}
 }
 
-// ConflictFromBytes unmarshals a Conflict from a sequence of bytes.
-func ConflictFromBytes(bytes []byte) (conflict *Conflict, consumedBytes int, err error) {
+// FromObjectStorage creates a Conflict from sequences of key and bytes.
+func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
+	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
+	}
+	return
+}
+
+// FromBytes unmarshals a Conflict from a sequence of bytes.
+func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflict, err = ConflictFromMarshalUtil(marshalUtil); err != nil {
+	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ConflictFromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
-func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
-	conflict = &Conflict{}
+// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
+func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
+	if conflict = c; conflict == nil {
+		conflict = &Conflict{}
+	}
 	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
@@ -252,16 +221,6 @@ func ConflictFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Co
 		return
 	}
 	conflict.memberCount = int(memberCount)
-
-	return
-}
-
-// ConflictFromObjectStorage restores a Conflict object that was stored in the ObjectStorage.
-func ConflictFromObjectStorage(key []byte, data []byte) (conflict objectstorage.StorableObject, err error) {
-	if conflict, _, err = ConflictFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
-		return
-	}
 
 	return
 }
@@ -326,11 +285,6 @@ func (c *Conflict) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *Conflict) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Conflict) ObjectStorageKey() []byte {
@@ -347,51 +301,6 @@ func (c *Conflict) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &Conflict{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedConflict ///////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedConflict is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
-// methods with a type-casted one.
-type CachedConflict struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks this CachedObject to still be in use by the program.
-func (c *CachedConflict) Retain() *CachedConflict {
-	return &CachedConflict{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedConflict) Unwrap() *Conflict {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*Conflict)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
-// object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (c *CachedConflict) Consume(consumer func(conflict *Conflict), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*Conflict))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedConflict.
-func (c *CachedConflict) String() string {
-	return stringify.Struct("CachedConflict",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -418,38 +327,37 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 	}
 }
 
-// ConflictMemberFromBytes unmarshals a ConflictMember from a sequence of bytes.
-func ConflictMemberFromBytes(bytes []byte) (conflictMember *ConflictMember, consumedBytes int, err error) {
+// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
+func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
+	}
+	return
+}
+
+// FromBytes unmarshals a ConflictMember from a sequence of bytes.
+func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if conflictMember, err = ConflictMemberFromMarshalUtil(marshalUtil); err != nil {
+	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ConflictMemberFromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
-func ConflictMemberFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
-	conflictMember = &ConflictMember{}
+// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
+func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
+	if conflictMember = c; conflictMember == nil {
+		conflictMember = &ConflictMember{}
+	}
 	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
 	}
 	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-
-	return
-}
-
-// ConflictMemberFromObjectStorage is a factory method that creates a new ConflictMember instance from a storage key of the
-// object storage. It is used by the object storage, to create new instances of this entity.
-func ConflictMemberFromObjectStorage(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	if result, _, err = ConflictMemberFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
-		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 		return
 	}
 
@@ -479,11 +387,6 @@ func (c *ConflictMember) String() string {
 	)
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (c *ConflictMember) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ConflictMember) ObjectStorageKey() []byte {
@@ -498,108 +401,5 @@ func (c *ConflictMember) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &ConflictMember{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedConflictMember /////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedConflictMember is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedConflictMember struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks this CachedObject to still be in use by the program.
-func (c *CachedConflictMember) Retain() *CachedConflictMember {
-	return &CachedConflictMember{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedConflictMember) Unwrap() *ConflictMember {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*ConflictMember)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer. It automatically releases the
-// object when the consumer finishes and returns true of there was at least one object that was consumed.
-func (c *CachedConflictMember) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*ConflictMember))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedConflictMember.
-func (c *CachedConflictMember) String() string {
-	return stringify.Struct("CachedConflictMember",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedConflictMembers ////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedConflictMembers represents a collection of CachedConflictMember objects.
-type CachedConflictMembers []*CachedConflictMember
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedConflictMembers) Unwrap() (unwrappedConflictMembers []*ConflictMember) {
-	unwrappedConflictMembers = make([]*ConflictMember, len(c))
-	for i, cachedChildBranch := range c {
-		untypedObject := cachedChildBranch.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*ConflictMember)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedConflictMembers[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedConflictMembers) Consume(consumer func(conflictMember *ConflictMember), forceRelease ...bool) (consumed bool) {
-	for _, cachedConflictMember := range c {
-		consumed = cachedConflictMember.Consume(func(output *ConflictMember) {
-			consumer(output)
-		}, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedConflictMembers) Release(force ...bool) {
-	for _, cachedConflictMember := range c {
-		cachedConflictMember.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedConflictMembers.
-func (c CachedConflictMembers) String() string {
-	structBuilder := stringify.StructBuilder("CachedConflictMembers")
-	for i, cachedConflictMember := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedConflictMember))
-	}
-
-	return structBuilder.String()
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

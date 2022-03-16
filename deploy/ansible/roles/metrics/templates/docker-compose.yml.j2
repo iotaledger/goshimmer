@@ -50,8 +50,8 @@ services:
       - type: volume
         source: elasticsearch_data
         target: /usr/share/elasticsearch/data
-    expose:
-      - "9200"
+    ports:
+      - "9200:9200"
     environment:
       ES_JAVA_OPTS: "-Xmx2g -Xms2g"
       # Use single node discovery in order to disable production mode and avoid bootstrap checks

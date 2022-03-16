@@ -3,8 +3,9 @@ package evilwallet
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // region Options ///////////////////////////////////////////////////////////////////////////
@@ -180,13 +181,15 @@ type ConflictMap map[string][]Option
 
 // region FaucetRequestOptions ///////////////////////////////////////////////////////////////////////////
 
+// FaucetRequestOptions is options for faucet request.
 type FaucetRequestOptions struct {
-	aliasName string
+	outputAliasName string
 }
 
+// NewFaucetRequestOptions creates options for a faucet request.
 func NewFaucetRequestOptions(options ...FaucetRequestOption) *FaucetRequestOptions {
 	reqOptions := &FaucetRequestOptions{
-		aliasName: "",
+		outputAliasName: "",
 	}
 
 	for _, option := range options {
@@ -196,11 +199,12 @@ func NewFaucetRequestOptions(options ...FaucetRequestOption) *FaucetRequestOptio
 	return reqOptions
 }
 
+// FaucetRequestOption is an option for faucet request.
 type FaucetRequestOption func(*FaucetRequestOptions)
 
 // WithOutputAlias returns an Option that is used to provide the Output of the Transaction.
 func WithOutputAlias(aliasName string) FaucetRequestOption {
 	return func(options *FaucetRequestOptions) {
-		options.aliasName = aliasName
+		options.outputAliasName = aliasName
 	}
 }

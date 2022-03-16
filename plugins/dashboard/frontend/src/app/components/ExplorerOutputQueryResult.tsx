@@ -5,6 +5,7 @@ import NodeStore from "app/stores/NodeStore";
 import { inject, observer } from "mobx-react";
 import ExplorerStore from "app/stores/ExplorerStore";
 import Badge from "react-bootstrap/Badge";
+import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
 import {resolveBase58BranchID} from "app/utils/branch";
 import {outputToComponent} from "app/utils/output";
@@ -74,7 +75,20 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                 {outputMetadata && <div className={"mb-2"}>
                     <ListGroup>
                         <ListGroup.Item>Transaction ID: <a href={`/explorer/transaction/${outputMetadata.outputID.transactionID}`}>{outputMetadata.outputID.transactionID}</a> </ListGroup.Item>
-                        <ListGroup.Item>Branch ID: <a href={`/explorer/branch/${outputMetadata.branchID}`}>{resolveBase58BranchID(outputMetadata.branchID)}</a> </ListGroup.Item>
+                        BranchIDs: 
+                        <ListGroup>
+                            {
+                                outputMetadata.branchIDs.map((value, index) => {
+                                    return (
+                                        <ListGroup.Item key={"BranchID" + index + 1} className="text-break">
+                                            <Link to={`/explorer/branch/${value}`}>
+                                                {resolveBase58BranchID(value)}
+                                            </Link>
+                                        </ListGroup.Item>
+                                    )
+                                })
+                            }
+                        </ListGroup>
                         <ListGroup.Item>Solid: {outputMetadata.solid.toString()}</ListGroup.Item>
                         <ListGroup.Item>Solidification Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>

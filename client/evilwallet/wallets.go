@@ -5,14 +5,17 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/iotaledger/hive.go/types"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/types"
-	"go.uber.org/atomic"
 )
 
 type walletID int
+
+// WalletType is the type of the wallet.
 type WalletType int8
 type WalletStatus int8
 
@@ -26,6 +29,7 @@ const (
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Wallets is a container of wallets.
 type Wallets struct {
 	wallets map[walletID]*Wallet
 	// we store here non-empty wallets ids of wallets with fresh faucet outputs.
@@ -36,6 +40,7 @@ type Wallets struct {
 	lastWalletID atomic.Int64
 }
 
+// NewWallets creates and returns a new Wallets container.
 func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:       make(map[walletID]*Wallet),
@@ -44,6 +49,7 @@ func NewWallets() *Wallets {
 	}
 }
 
+// NewWallet adds a new wallet to Wallets and returns the created wallet.
 func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
 	wallet := NewWallet(walletType)
 	wallet.ID = walletID(w.lastWalletID.Add(1))
@@ -53,6 +59,7 @@ func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
 	return wallet
 }
 
+// GetWallet returns the wallet with the specified ID.
 func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 	return w.wallets[walletID]
 }
@@ -125,6 +132,7 @@ func (w *Wallets) SetWalletReady(wallet *Wallet) {
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Wallet is the definition of a wallet.
 type Wallet struct {
 	ID                walletID
 	walletType        WalletType
@@ -177,6 +185,7 @@ func (w *Wallet) Address() address.Address {
 	return addr
 }
 
+// UnspentOutput returns the unspent output on the address.
 func (w *Wallet) UnspentOutput(addr string) *Output {
 	w.RLock()
 	defer w.RUnlock()
@@ -184,17 +193,18 @@ func (w *Wallet) UnspentOutput(addr string) *Output {
 
 }
 
+// UnspentOutputs returns all unspent outputs on the wallet.
 func (w *Wallet) UnspentOutputs() (outputs map[string]*Output) {
 	w.RLock()
+	defer w.RUnlock()
 	outputs = make(map[string]*Output)
 	for addr, out := range w.unspentOutputs {
 		outputs[addr] = out
 	}
-	defer w.RUnlock()
 	return outputs
-
 }
 
+// IndexAddrMap returns the address for the index specified.
 func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 	w.RLock()
 	defer w.RUnlock()
@@ -218,6 +228,7 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 	return out
 }
 
+// UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
 func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
 	w.RLock()
 	defer w.RUnlock()
@@ -228,10 +239,12 @@ func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances 
 	return &ledgerstate.ColoredBalances{}
 }
 
+// IsEmpty returns true if the wallet is empty.
 func (w *Wallet) IsEmpty() bool {
 	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
 }
 
+// GetUnspentOutput returns an unspent output on the oldest address ordered by index.
 func (w *Wallet) GetUnspentOutput() *Output {
 	if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
 		idx := w.lastAddrSpent.Add(1)
@@ -241,6 +254,7 @@ func (w *Wallet) GetUnspentOutput() *Output {
 	return nil
 }
 
+// createOutputs creates n outputs by splitting the given balance equally between them.
 func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBalances) (outputs []ledgerstate.Output) {
 	amount, _ := inputBalance.Get(ledgerstate.ColorIOTA)
 	outputBalances := SplitBalanceEqually(nOutputs, amount)
@@ -256,12 +270,14 @@ func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBa
 	return
 }
 
+// sign signs the tx essence.
 func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	index := w.addrIndexMap[addr.Base58()]
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
 
+// UpdateUnspentOutputID updates the unspent output on the address specified.
 func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputID) error {
 	w.RLock()
 	walletOutput, ok := w.unspentOutputs[addr]
@@ -275,6 +291,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	return nil
 }
 
+// UpdateUnspentOutputStatus updates the status of the unspent output on the address specified.
 func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) error {
 	w.RLock()
 	walletOutput, ok := w.unspentOutputs[addr]
@@ -288,6 +305,7 @@ func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) err
 	return nil
 }
 
+// UnspentOutputsLength returns the number of unspent outputs on the wallet.
 func (w *Wallet) UnspentOutputsLength() int {
 	return len(w.unspentOutputs)
 }

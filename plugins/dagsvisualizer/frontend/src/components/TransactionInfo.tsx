@@ -57,7 +57,7 @@ export class TransactionInfo extends React.Component<Props, any> {
                                         {selectedTx.outputs.map((p, i) => (
                                             <ListGroup.Item key={i}>
                                                 <LinkToDashboard
-                                                    route={`/explorer/output/${p}`}
+                                                    route={`explorer/output/${p}`}
                                                     title={p}
                                                 />
                                             </ListGroup.Item>

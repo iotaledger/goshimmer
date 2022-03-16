@@ -144,8 +144,8 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *led
 
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
-	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	// check syntactical validity by marshaling an unmarshalling
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 		tx := ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 		// check syntactical validity by marshaling an unmarshaling
-		tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+		tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 		if err != nil {
 			return nil, err
 		}
@@ -303,7 +303,7 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -472,7 +472,7 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return
 	}
@@ -599,7 +599,7 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -720,7 +720,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -816,7 +816,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -928,7 +928,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -1043,11 +1043,10 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	tx = ledgerstate.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}
-
 	// check tx validity (balances, unlock blocks)
 	ok, err := checkBalancesAndUnlocks(inputsInOrder, tx)
 	if err != nil {
@@ -1183,7 +1182,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	tx = ledgerstate.NewTransaction(essence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, _, err = ledgerstate.TransactionFromBytes(tx.Bytes())
+	tx, err = new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return nil, err
 	}

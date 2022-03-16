@@ -2,9 +2,10 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"sync"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -101,6 +102,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	return out
 }
 
+// UpdateOutputID updates the output wallet  and address.
 func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
 	err := w.UpdateUnspentOutputID(addr, outID)
 	o.Lock()
@@ -110,6 +112,7 @@ func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate
 	return err
 }
 
+// UpdateOutputStatus updates the status of the outputID specified.
 func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status OutputStatus) error {
 	o.RLock()
 	addr := o.outputIDAddrMap[outID]
@@ -120,6 +123,7 @@ func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status Ou
 	return err
 }
 
+// UpdateOutputsFromTxs update the output maps from the status of the transactions specified.
 func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 	for _, txID := range txIDs {
 		outputs, err := o.connector.GetTransactionOutputs(txID)

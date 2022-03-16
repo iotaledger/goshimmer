@@ -72,20 +72,8 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
 // also an alias when printing the BranchID.
-func (m *MessageTestFramework) RegisterBranchID(alias string, messageAliases ...string) {
-	if len(messageAliases) == 1 {
-		branchID := m.BranchIDFromMessage(messageAliases[0])
-		m.branchIDs[alias] = branchID
-		ledgerstate.RegisterBranchIDAlias(branchID, alias)
-		return
-	}
-
-	aggregation := ledgerstate.NewBranchIDs()
-	for _, messageAlias := range messageAliases {
-		branch := m.BranchIDFromMessage(messageAlias)
-		aggregation.Add(branch)
-	}
-	branchID := ledgerstate.NewAggregatedBranch(aggregation).ID()
+func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
+	branchID := m.BranchIDFromMessage(messageAlias)
 	m.branchIDs[alias] = branchID
 	ledgerstate.RegisterBranchIDAlias(branchID, alias)
 }
@@ -253,10 +241,10 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerst
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledgerstate.ConflictBranch.
+// This function thus only works on the message creating ledgerstate.Branch.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b ledgerstate.Branch) {
-	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch ledgerstate.Branch) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *ledgerstate.Branch) {
+	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *ledgerstate.Branch) {
 		b = branch
 	})
 	return
@@ -394,69 +382,39 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 // strongParentIDs returns the MessageIDs that were defined to be the strong parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) strongParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	strongParentIDs := make(MessageIDsSlice, 0)
-	for strongParentAlias := range options.strongParents {
-		if strongParentAlias == "Genesis" {
-			strongParentIDs = append(strongParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		strongParentIDs = append(strongParentIDs, m.messagesByAlias[strongParentAlias].ID())
-	}
-
-	return strongParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.strongParents)
 }
 
 // weakParentIDs returns the MessageIDs that were defined to be the weak parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	weakParentIDs := make(MessageIDsSlice, 0)
-	for weakParentAlias := range options.weakParents {
-		if weakParentAlias == "Genesis" {
-			weakParentIDs = append(weakParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		weakParentIDs = append(weakParentIDs, m.messagesByAlias[weakParentAlias].ID())
-	}
-
-	return weakParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.weakParents)
 }
 
 // shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	shallowDislikeParentIDs := make(MessageIDsSlice, 0)
-	for shallowDislikeParentAlias := range options.shallowDislikeParents {
-		if shallowDislikeParentAlias == "Genesis" {
-			shallowDislikeParentIDs = append(shallowDislikeParentIDs, EmptyMessageID)
-
-			continue
-		}
-
-		shallowDislikeParentIDs = append(shallowDislikeParentIDs, m.messagesByAlias[shallowDislikeParentAlias].ID())
-	}
-
-	return shallowDislikeParentIDs.ToMessageIDs()
+	return m.parentIDsByMessageAlias(options.shallowDislikeParents)
 }
 
 // shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	shallowLikeParentIDs := make(MessageIDsSlice, 0)
-	for shallowLikeParentAlias := range options.shallowLikeParents {
-		if shallowLikeParentAlias == "Genesis" {
-			shallowLikeParentIDs = append(shallowLikeParentIDs, EmptyMessageID)
+	return m.parentIDsByMessageAlias(options.shallowLikeParents)
+}
 
+func (m *MessageTestFramework) parentIDsByMessageAlias(parentAliases map[string]types.Empty) MessageIDs {
+	parentIDs := NewMessageIDs()
+	for parentAlias := range parentAliases {
+		if parentAlias == "Genesis" {
+			parentIDs.Add(EmptyMessageID)
 			continue
 		}
 
-		shallowLikeParentIDs = append(shallowLikeParentIDs, m.messagesByAlias[shallowLikeParentAlias].ID())
+		parentIDs.Add(m.messagesByAlias[parentAlias].ID())
 	}
 
-	return shallowLikeParentIDs.ToMessageIDs()
+	return parentIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -809,6 +767,7 @@ var (
 	totalAMana          = 1000.0
 	testMaxBuffer       = 1 * 1024 * 1024
 	testRate            = time.Second / 5000
+	tscThreshold        = 5 * time.Minute
 	selfLocalIdentity   = identity.GenerateLocalIdentity()
 	selfNode            = identity.New(selfLocalIdentity.PublicKey())
 	peerNode            = identity.GenerateIdentity()
@@ -847,7 +806,7 @@ func mockTotalAccessManaRetriever() float64 {
 func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
-	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider))
+	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
@@ -956,12 +915,12 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (b
 	return likedConflictMembers.conflictMembers.Contains(branchID)
 }
 
-func emptyLikeReferences(parents MessageIDsSlice, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
+func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
-func emptyLikeReferencesFromStrongParents(parents MessageIDsSlice) (references ParentMessageIDs) {
-	return NewParentMessageIDs().AddAll(StrongParentType, parents.ToMessageIDs())
+func emptyLikeReferencesFromStrongParents(parents MessageIDs) (references ParentMessageIDs) {
+	return NewParentMessageIDs().AddAll(StrongParentType, parents)
 }
 
 // EventMock acts as a container for event mocks.

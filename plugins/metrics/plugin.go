@@ -174,7 +174,8 @@ func registerLocalMetrics() {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
-
+		schedulerTimeMutex.Lock()
+		defer schedulerTimeMutex.Unlock()
 		// Consume should release cachedMessageMetadata
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.Scheduled() {
@@ -236,6 +237,8 @@ func registerLocalMetrics() {
 		})
 		messageFinalizationTotalTimeMutex.Lock()
 		defer messageFinalizationTotalTimeMutex.Unlock()
+		finalizedMessageCountMutex.Lock()
+		defer finalizedMessageCountMutex.Unlock()
 
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			message.ForEachParent(func(parent tangle.Parent) {

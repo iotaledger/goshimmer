@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/thresholdmap"
+	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -67,7 +66,7 @@ func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
 	branchWeight.SetWeight(5.1234)
 
-	branchWeightFromBytes, _, err := BranchWeightFromBytes(branchWeight.Bytes())
+	branchWeightFromBytes, err := new(BranchWeight).FromBytes(branchWeight.Bytes())
 	require.NoError(t, err)
 
 	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
@@ -82,7 +81,7 @@ func TestBranchVotersMarshalling(t *testing.T) {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
 
-	branchVotersFromBytes, _, err := BranchVotersFromBytes(branchVoters.Bytes())
+	branchVotersFromBytes, err := new(BranchVoters).FromBytes(branchVoters.Bytes())
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters
@@ -120,24 +119,24 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		"Conflict 5": ledgerstate.ConflictIDFromRandomness(),
 	}
 
-	branchIDs := map[string]ledgerstate.BranchID{
-		"Branch 1":     ledgerstate.BranchIDFromRandomness(),
-		"Branch 1.1":   ledgerstate.BranchIDFromRandomness(),
-		"Branch 1.2":   ledgerstate.BranchIDFromRandomness(),
-		"Branch 1.3":   ledgerstate.BranchIDFromRandomness(),
-		"Branch 2":     ledgerstate.BranchIDFromRandomness(),
-		"Branch 3":     ledgerstate.BranchIDFromRandomness(),
-		"Branch 4":     ledgerstate.BranchIDFromRandomness(),
-		"Branch 4.1":   ledgerstate.BranchIDFromRandomness(),
-		"Branch 4.1.1": ledgerstate.BranchIDFromRandomness(),
-		"Branch 4.1.2": ledgerstate.BranchIDFromRandomness(),
-		"Branch 4.2":   ledgerstate.BranchIDFromRandomness(),
+	branchIDs := map[string]ledgerstate.BranchIDs{
+		"Branch 1":     ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 1.1":   ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 1.2":   ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 1.3":   ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 2":     ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 3":     ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 4":     ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 4.1":   ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 4.1.1": ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 4.1.2": ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
+		"Branch 4.2":   ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()),
 	}
 
-	createBranch(t, tangle, "Branch 1", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 2", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 3", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
-	createBranch(t, tangle, "Branch 4", branchIDs, ledgerstate.MasterBranchID, conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 1", branchIDs, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 2", branchIDs, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 3", branchIDs, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 4", branchIDs, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), conflictIDs["Conflict 2"])
 
 	createBranch(t, tangle, "Branch 1.1", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
 	createBranch(t, tangle, "Branch 1.2", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
@@ -149,9 +148,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
-	aggregatedBranchID := tangle.LedgerState.BranchDAG.AggregateConflictBranchesID(ledgerstate.NewBranchIDs(branchIDs["Branch 1.1"], branchIDs["Branch 4.1.1"]))
-	branchIDs["Branch 1.1 + Branch 4.1.1"] = aggregatedBranchID
-	ledgerstate.RegisterBranchIDAlias(aggregatedBranchID, "Branch 1.1 + Branch 4.1.1")
+	branchIDs["Branch 1.1 + Branch 4.1.1"] = ledgerstate.NewBranchIDs().AddAll(branchIDs["Branch 1.1"]).AddAll(branchIDs["Branch 4.1.1"])
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
@@ -217,7 +214,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	// // statement 3: "Branch 2"
+	// statement 3: "Branch 2"
 	{
 		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
 		tangle.Storage.StoreMessage(message)
@@ -462,13 +459,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
 		testFramework.IssueMessages("Message5").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message5")), "Branch5")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
-			ledgerstate.BranchIDs{
-				testFramework.BranchIDFromMessage("Message4"): types.Void,
-				testFramework.BranchIDFromMessage("Message5"): types.Void,
-			}).ID(),
-			"Branch4+5",
-		)
 	}
 
 	// ISSUE Message6
@@ -486,14 +476,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
 		testFramework.IssueMessages("Message7").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message7")), "Branch7")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
-			ledgerstate.BranchIDs{
-				testFramework.BranchIDFromMessage("Message4"): types.Void,
-				testFramework.BranchIDFromMessage("Message5"): types.Void,
-				testFramework.BranchIDFromMessage("Message7"): types.Void,
-			}).ID(),
-			"Branch4+5+7",
-		)
 	}
 
 	// ISSUE Message8
@@ -501,14 +483,6 @@ func TestAggregatedBranchApproval(t *testing.T) {
 		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
 		testFramework.IssueMessages("Message8").WaitApprovalWeightProcessed()
 		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewBranchID(testFramework.TransactionID("Message8")), "Branch8")
-		ledgerstate.RegisterBranchIDAlias(ledgerstate.NewAggregatedBranch(
-			ledgerstate.BranchIDs{
-				testFramework.BranchIDFromMessage("Message4"): types.Void,
-				testFramework.BranchIDFromMessage("Message5"): types.Void,
-				testFramework.BranchIDFromMessage("Message8"): types.Void,
-			}).ID(),
-			"Branch4+5+8",
-		)
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
 	}
@@ -855,9 +829,9 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element) bool {
-		index := node.Key().(markers.Index)
-		seq := node.Value().(uint64)
+	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+		index := node.Key()
+		seq := node.Value()
 
 		_, exists := expectedVotes[index]
 		assert.Truef(t, exists, "%s:%d does not exist in latestMarkerVotes", index, seq)
@@ -902,9 +876,21 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchID, parentBranchID ledgerstate.BranchID, conflictID ledgerstate.ConflictID) {
-	branchID := branchIDs[branchAlias]
-	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateConflictBranch(branchID, ledgerstate.NewBranchIDs(parentBranchID), ledgerstate.NewConflictIDs(conflictID))
+func getSingleBranch(branches map[string]ledgerstate.BranchIDs, alias string) ledgerstate.BranchID {
+	if len(branches[alias]) != 1 {
+		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
+	}
+
+	for branchID := range branches[alias] {
+		return branchID
+	}
+
+	return ledgerstate.UndefinedBranchID
+}
+
+func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchIDs, parentBranchIDs ledgerstate.BranchIDs, conflictID ledgerstate.ConflictID) {
+	branchID := getSingleBranch(branchIDs, branchAlias)
+	cachedBranch, _, err := tangle.LedgerState.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
 	cachedBranch.Release()
@@ -912,15 +898,11 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchID, voter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchIDs, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
-		conflictBranchIDs, err := approvalWeightManager.tangle.LedgerState.BranchDAG.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(branchIDs[branchIDString]))
-		if err != nil {
-			panic(err)
-		}
-		for conflictBranchID := range conflictBranchIDs {
-			voters := approvalWeightManager.VotersOfConflictBranch(conflictBranchID)
+		for branchID := range branchIDs[branchIDString] {
+			voters := approvalWeightManager.VotersOfBranch(branchID)
 			if voters != nil {
 				actualResult = voters.Has(voter)
 			}
