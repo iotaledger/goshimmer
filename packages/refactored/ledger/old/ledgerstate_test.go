@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/utxo/devnetvm"
-
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"

@@ -1,9 +1,8 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -11,20 +10,19 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	*StorageEvents
-	*Ledger
-
+	TransactionStoredEvent     *event.Event[*TransactionStoredEvent]
 	transactionStorage         *objectstorage.ObjectStorage[utxo.Transaction]
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
+	consumerStorage            *objectstorage.ObjectStorage[*Consumer]
 	outputStorage              *objectstorage.ObjectStorage[utxo.Output]
 
-	syncutils.KRWMutex
+	*Ledger
 }
 
 func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	return &Storage{
-		StorageEvents: newStorageEvents(),
-		Ledger:        ledger,
+		TransactionStoredEvent: event.New[*TransactionStoredEvent](),
+		Ledger:                 ledger,
 	}
 }
 
@@ -32,19 +30,13 @@ func (s *Storage) Setup() {
 }
 
 // Store adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
-// Transaction was stored, its SolidityType and an error value that contains the cause for possibly exceptions.
-func (s *Storage) Store(transaction utxo.Transaction) (stored bool, err error) {
-	// ComputeIfAbsent can only run atomically and acts as a Mutex for storing the Transaction
-	s.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
+// Transaction was stored.
+func (s *Storage) Store(transaction utxo.Transaction) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata], stored bool) {
+	cachedTransactionMetadata = s.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
 		s.transactionStorage.Store(transaction).Release()
 		stored = true
-
 		return NewTransactionMetadata(transactionID)
 	})
-
-	if stored {
-		s.TransactionStored.Trigger(transaction)
-	}
 
 	return
 }
@@ -70,20 +62,15 @@ func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput *objectstor
 	return s.outputStorage.Load(outputID.Bytes())
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
+func (u *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
+	u.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
+		cachedConsumers = append(cachedConsumers, cachedObject)
+		return true
+	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
 
-// region StorageEvents ////////////////////////////////////////////////////////////////////////////////////////////////
-
-type StorageEvents struct {
-	TransactionStored *events.Event
-}
-
-func newStorageEvents() *StorageEvents {
-	return &StorageEvents{
-		TransactionStored: events.NewEvent(func(handler interface{}, params ...interface{}) {
-			handler.(func(transaction utxo.Transaction))(params[0].(utxo.Transaction))
-		}),
-	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

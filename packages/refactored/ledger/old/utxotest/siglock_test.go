@@ -3,11 +3,7 @@ package utxotest
 import (
 	"testing"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxodb"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate/utxoutil"
 )
 
 func TestSendIotas(t *testing.T) {

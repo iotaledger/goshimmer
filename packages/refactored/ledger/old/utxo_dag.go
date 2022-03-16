@@ -32,8 +32,8 @@ type UTXODAG struct {
 	ledgerstate *Ledger
 	vm          utxo.VM
 
-	outputMetadataStorage       *objectstorage.ObjectStorage[*OutputMetadata]
-	consumerStorage             *objectstorage.ObjectStorage[*Consumer]
+	outputMetadataStorage *objectstorage.ObjectStorage[*OutputMetadata]
+
 	addressOutputMappingStorage *objectstorage.ObjectStorage[*AddressOutputMapping]
 	shutdownOnce                sync.Once
 }
@@ -222,17 +222,6 @@ func (u *UTXODAG) Transactions() (transactions map[TransactionID]*Transaction) {
 // CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
 func (u *UTXODAG) CachedOutputMetadata(outputID OutputID) (cachedOutput *objectstorage.CachedObject[*OutputMetadata]) {
 	return u.outputMetadataStorage.Load(outputID.Bytes())
-}
-
-// CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-func (u *UTXODAG) CachedConsumers(outputID OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
-	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
-	u.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
-		cachedConsumers = append(cachedConsumers, cachedObject)
-		return true
-	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
-
-	return
 }
 
 // LoadSnapshot creates a set of outputs in the UTXODAG, that are forming the genesis for future transactions.
@@ -777,138 +766,5 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(AddressOutputMapping)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, TransactionIDLength}...)
-
-// Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
-// potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
-// list of spending Transactions inside the Output.
-type Consumer struct {
-	consumedInput OutputID
-	transactionID TransactionID
-	validMutex    sync.RWMutex
-	valid         types.TriBool
-
-	objectstorage.StorableObjectFlags
-}
-
-// NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid types.TriBool) *Consumer {
-	return &Consumer{
-		consumedInput: consumedInput,
-		transactionID: transactionID,
-		valid:         valid,
-	}
-}
-
-// FromObjectStorage creates an Consumer from sequences of key and bytes.
-func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
-	}
-	return result, err
-}
-
-// FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
-func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
-	if consumer = c; consumer == nil {
-		consumer = new(Consumer)
-	}
-	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
-// ConsumedInput returns the OutputID of the consumed Input.
-func (c *Consumer) ConsumedInput() OutputID {
-	return c.consumedInput
-}
-
-// TransactionID returns the TransactionID of the consuming Transaction.
-func (c *Consumer) TransactionID() TransactionID {
-	return c.transactionID
-}
-
-// Valid returns a flag that indicates if the spending Transaction is valid or not.
-func (c *Consumer) Valid() (valid types.TriBool) {
-	c.validMutex.RLock()
-	defer c.validMutex.RUnlock()
-
-	return c.valid
-}
-
-// SetValid updates the valid flag of the Consumer and returns true if the value was changed.
-func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
-	c.validMutex.Lock()
-	defer c.validMutex.Unlock()
-
-	if valid == c.valid {
-		return
-	}
-
-	c.valid = valid
-	c.SetModified()
-	updated = true
-
-	return
-}
-
-// Bytes marshals the Consumer into a sequence of bytes.
-func (c *Consumer) Bytes() []byte {
-	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
-}
-
-// String returns a human-readable version of the Consumer.
-func (c *Consumer) String() (humanReadableConsumer string) {
-	return stringify.Struct("Consumer",
-		stringify.StructField("consumedInput", c.consumedInput),
-		stringify.StructField("transactionID", c.transactionID),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.transactionID.Bytes())
-}
-
-// ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
-// storage.
-func (c *Consumer) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.BoolSize).
-		Write(c.Valid()).
-		Bytes()
-}
-
-// code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = new(Consumer)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

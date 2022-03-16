@@ -519,6 +519,14 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
 github.com/iotaledger/hive.go v0.0.0-20220309131841-1ee6f559f377 h1:L+jzR37jd11I7AI2gL6AbUhRSyxU7FF6yVeDGsDBhc0=
 github.com/iotaledger/hive.go v0.0.0-20220309131841-1ee6f559f377/go.mod h1:WAw2y5dTB4Z4YMjK98BL3OJJVcGj3fBgcHxoMCYLJac=
+github.com/iotaledger/hive.go v0.0.0-20220314185716-bf7f761243c0 h1:waKsBHpTSPjwrRYq9dj6p7X/1copDRK817Pg1qgdlK4=
+github.com/iotaledger/hive.go v0.0.0-20220314185716-bf7f761243c0/go.mod h1:WAw2y5dTB4Z4YMjK98BL3OJJVcGj3fBgcHxoMCYLJac=
+github.com/iotaledger/hive.go v0.0.0-20220315103612-3cb1356d9930 h1:wlriMPIs94AnohgT1EkcGS5ZM/4vA30zyh78WKvyJlE=
+github.com/iotaledger/hive.go v0.0.0-20220315103612-3cb1356d9930/go.mod h1:WAw2y5dTB4Z4YMjK98BL3OJJVcGj3fBgcHxoMCYLJac=
+github.com/iotaledger/hive.go v0.0.0-20220315204413-cecf57d2538e h1:9RwosUGk7vd6ZWmPhVbMebFDOb6q65E6E1ehZoRv21s=
+github.com/iotaledger/hive.go v0.0.0-20220315204413-cecf57d2538e/go.mod h1:WAw2y5dTB4Z4YMjK98BL3OJJVcGj3fBgcHxoMCYLJac=
+github.com/iotaledger/hive.go v0.0.0-20220315234059-cef4073cf91e h1:4R3MOaSby8mdOp75UmQkyx8LeALnrDE95jPVj616/FA=
+github.com/iotaledger/hive.go v0.0.0-20220315234059-cef4073cf91e/go.mod h1:WAw2y5dTB4Z4YMjK98BL3OJJVcGj3fBgcHxoMCYLJac=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

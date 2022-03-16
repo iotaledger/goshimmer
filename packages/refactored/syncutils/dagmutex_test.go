@@ -11,8 +11,8 @@ import (
 func TestDAGMutex(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		dagMutex := &DAGMutex{
-			keyMutexConsumers: map[DAGMutexID]int{},
-			keyMutexes:        map[DAGMutexID]*sync.RWMutex{},
+			consumerCounter: map[DAGMutexID]int{},
+			mutexes:         map[DAGMutexID]*sync.RWMutex{},
 		}
 
 		lockableEntities := make(map[DAGMutexID]*lockableEntity)
@@ -56,8 +56,8 @@ func TestDAGMutex(t *testing.T) {
 		wg := new(sync.WaitGroup)
 
 		triggerSolid := func(entityToSolidify *lockableEntity) (triggered bool) {
-			dagMutex.LockEntity(entityToSolidify)
-			defer dagMutex.UnlockEntity(entityToSolidify)
+			dagMutex.Lock(entityToSolidify, true)
+			defer dagMutex.Unlock(entityToSolidify, true)
 
 			if entityToSolidify.solid {
 				return false
