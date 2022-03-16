@@ -353,9 +353,8 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			if err != nil {
 				return nil, err
 			}
-		}
-		// No output found for given alias, use internal fresh output if wallets are non-empty.
-		if !ok {
+		} else {
+			// No output found for given alias, use internal fresh output if wallets are non-empty.
 			err = e.getIssuerWallet(buildOptions)
 			if err != nil {
 				return nil, err
@@ -368,6 +367,7 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
+
 		inputs = append(inputs, in)
 	}
 	return inputs, nil
