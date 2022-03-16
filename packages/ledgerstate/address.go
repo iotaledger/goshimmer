@@ -141,15 +141,18 @@ func AddressFromSignature(sig Signature) (Address, error) {
 
 // ED25519Address represents an Address that is secured by the ED25519 signature scheme.
 type ED25519Address struct {
-	Type2   AddressType           `seri:"0"`
+	ed25519AddressInner `seri:"0"`
+}
+type ed25519AddressInner struct {
 	Digest2 [blake2b.Size256]byte `seri:"1"`
 }
 
 // NewED25519Address creates a new ED25519Address from the given public key.
 func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 	return &ED25519Address{
-		Type2:   ED25519AddressType,
-		Digest2: blake2b.Sum256(publicKey[:]),
+		ed25519AddressInner: ed25519AddressInner{
+			Digest2: blake2b.Sum256(publicKey[:]),
+		},
 	}
 }
 
@@ -222,7 +225,7 @@ func (e *ED25519Address) Digest() []byte {
 // Clone creates a copy of the Address.
 func (e *ED25519Address) Clone() Address {
 	return &ED25519Address{
-		Digest2: e.Digest2,
+		ed25519AddressInner{Digest2: e.Digest2},
 	}
 }
 

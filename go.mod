@@ -3,6 +3,10 @@ module github.com/iotaledger/goshimmer
 go 1.18
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
+replace (
+	github.com/iotaledger/hive.go => ../hive.go
+	github.com/iotaledger/hive.go/serializer/v2 => ../hive.go/serializer
+)
 
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
