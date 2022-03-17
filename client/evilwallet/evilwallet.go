@@ -552,6 +552,19 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 	return nil
 }
 
+func (e *EvilWallet) PrepareTransaction(scenario EvilScenario) (tx *ledgerstate.Transaction, err error) {
+	tx, err = e.CreateTransaction("txAliases[inputNum]", WithInputs("inputAliases[inputNum]"), WithOutputs([]string{"outputAliases[inputNum]"}))
+	return
+}
+
+func (e *EvilWallet) PrepareDoubleSpendTransactions(scenario EvilScenario) (tx []*ledgerstate.Transaction, err error) {
+	return
+}
+
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario EvilScenario) (tx [][]*ledgerstate.Transaction, err error) {
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////

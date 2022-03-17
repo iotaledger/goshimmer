@@ -67,7 +67,7 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 // GetNextWallet get next non-empty wallet based on provided type.
 func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 	w.mu.RLock()
-	defer w.mu.Unlock()
+	defer w.mu.RUnlock()
 
 	switch walletType {
 	case fresh:
@@ -134,6 +134,7 @@ func (w *Wallets) removeWallet(wType WalletType) {
 	}
 	return
 }
+
 // SetWalletReady makes wallet ready to use, fresh wallet is added to freshWallets queue.
 func (w *Wallets) SetWalletReady(wallet *Wallet) {
 	w.mu.Lock()

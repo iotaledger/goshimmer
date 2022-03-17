@@ -29,7 +29,7 @@ func WithSpamDetails(rate int, timeUnit time.Duration, maxDuration time.Duration
 }
 
 // WithSpamWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario
-func WithSpamWallet(initWallets evilwallet.EvilWallet) Options {
+func WithSpamWallet(initWallets *evilwallet.EvilWallet) Options {
 	return func(s *Spammer) {
 		s.SpamWallet = initWallets
 	}
@@ -43,7 +43,7 @@ func WithEvilScenario(scenario evilwallet.EvilScenario) Options {
 }
 
 // WithErrorCounter allows for setting an error counter object, if not provided a new instance will be created.
-func WithErrorCounter(errCounter ErrorCounter) Options {
+func WithErrorCounter(errCounter *ErrorCounter) Options {
 	return func(s *Spammer) {
 		s.ErrCounter = errCounter
 	}

@@ -4,6 +4,8 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 	"time"
@@ -37,7 +39,7 @@ type Spammer struct {
 	Clients      evilwallet.Clients
 	SpamWallet   *evilwallet.EvilWallet
 	EvilScenario evilwallet.EvilScenario
-	ErrCounter   ErrorCounter
+	ErrCounter   *ErrorCounter
 	log          Logger
 
 	// accessed from spamming functions
@@ -81,6 +83,23 @@ func (s *Spammer) setup() {
 	}
 	s.State.spamTicker = s.initSpamTicker()
 	s.State.logTicker = s.initLogTicker()
+
+	if s.log == nil {
+		s.initLogger()
+	}
+
+	if s.ErrCounter == nil {
+		s.ErrCounter = NewErrorCount()
+	}
+}
+
+func (s *Spammer) initLogger() {
+	config := configuration.New()
+	if err := logger.InitGlobalLogger(config); err != nil {
+		panic(err)
+	}
+	logger.SetLevel(logger.LevelInfo)
+	s.log = logger.NewLogger("Spammer")
 }
 
 func (s *Spammer) initSpamTicker() *time.Ticker {
@@ -162,17 +181,11 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShi
 
 type Logger interface {
 	Infof(template string, args ...interface{})
-	Info(template string, args ...interface{})
+	Info(args ...interface{})
 	Debugf(template string, args ...interface{})
-	Debug(template string, args ...interface{})
-	Warn(template string, args ...interface{})
+	Debug(args ...interface{})
+	Warn(args ...interface{})
 	Warnf(template string, args ...interface{})
-	Error(template string, args ...interface{})
+	Error(args ...interface{})
 	Errorf(template string, args ...interface{})
-}
-
-type ErrorCounter interface {
-	CountError(err error)
-	GetErrorsSummary() string
-	GetTotalErrorCount() int
 }

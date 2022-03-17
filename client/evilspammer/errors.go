@@ -1,6 +1,11 @@
 package evilspammer
 
-import "github.com/cockroachdb/errors"
+import (
+	"fmt"
+	"github.com/cockroachdb/errors"
+	"go.uber.org/atomic"
+	"sync"
+)
 
 var (
 	ErrFailPostTransaction      = errors.New("failed to post transaction")
@@ -8,3 +13,47 @@ var (
 	ErrTransactionIsNil         = errors.New("provided transaction is nil")
 	ErrFailToPrepareTransaction = errors.New("failed to get next spam transaction")
 )
+
+// ErrorCounter counts errors that appeared during the spam,
+// as during the spam they are ignored and allows to print the summary (might be useful for debugging).
+type ErrorCounter struct {
+	errorsMap       map[error]*atomic.Int64
+	errInTotalCount *atomic.Int64
+	mutex           sync.RWMutex
+}
+
+func NewErrorCount() *ErrorCounter {
+	e := &ErrorCounter{
+		errorsMap:       make(map[error]*atomic.Int64),
+		errInTotalCount: atomic.NewInt64(0),
+	}
+	return e
+}
+
+func (e *ErrorCounter) CountError(err error) {
+	// check if error is already in the map
+	if _, ok := e.errorsMap[err]; !ok {
+		e.mutex.Lock()
+		e.errorsMap[err] = atomic.NewInt64(0)
+		e.mutex.Unlock()
+	}
+	e.errInTotalCount.Add(1)
+	e.mutex.Lock()
+	e.errorsMap[err].Add(1)
+	e.mutex.Unlock()
+}
+
+func (e *ErrorCounter) GetTotalErrorCount() int64 {
+	return e.errInTotalCount.Load()
+}
+
+func (e *ErrorCounter) GetErrorsSummary() string {
+	if len(e.errorsMap) == 0 {
+		return "No errors encountered"
+	}
+	msg := "Errors encountered during spam:\n"
+	for key, value := range e.errorsMap {
+		msg += fmt.Sprintf("%s: %d\n", key.Error(), value.Load())
+	}
+	return msg
+}

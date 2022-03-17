@@ -33,7 +33,7 @@ func ValueSpammingFunc(s *Spammer) {
 func DoubleSpendSpammingFunc(s *Spammer) {
 	// choose two different node to prevent being blocked
 	clts := s.Clients.GetClients(s.NumberOfSpends)
-	txs, err := s.SpamWallet.PrepareDoubleSpendTransactions(s.EvilScenario, s.NumberOfSpends, s.TimeDelayBetweenConflicts)
+	txs, err := s.SpamWallet.PrepareDoubleSpendTransactions(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
 		return
@@ -51,4 +51,15 @@ func DoubleSpendSpammingFunc(s *Spammer) {
 	}
 
 	s.CheckIfAllSent()
+}
+
+func CustomConflictSpammingFunc(s *Spammer) {
+	//// choose two different node to prevent being blocked
+	//clts := s.Clients.GetClients(s.NumberOfSpends)
+	//txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
+	//if err != nil {
+	//	s.ErrCounter.CountError(ErrFailToPrepareTransaction)
+	//	return
+	//}
+
 }
