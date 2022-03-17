@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
@@ -22,29 +23,25 @@ func NewAvailabilityManager(ledger *Ledger) (newAvailabilityManager *Availabilit
 	return newAvailabilityManager
 }
 
-func (a *AvailabilityManager) CheckSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (inputs []utxo.Output) {
-	if metadata.Solid() {
+func (a *AvailabilityManager) CheckSolidity(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) (err error) {
+	if params.TransactionMetadata.Solid() {
 		return nil
 	}
 
-	solid, inputs := a.allInputsAvailable(transaction)
+	solid, inputs := a.allInputsAvailable(params.Transaction)
 	if !solid {
 		return nil
 	}
 
-	if !metadata.SetSolid(true) {
+	if !params.TransactionMetadata.SetSolid(true) {
 		return nil
 	}
 
-	a.TransactionSolidEvent.Trigger(&TransactionSolidEvent{
-		Inputs: inputs,
-		TransactionStoredEvent: &TransactionStoredEvent{
-			Transaction:         transaction,
-			TransactionMetadata: metadata,
-		},
-	})
+	a.TransactionSolidEvent.Trigger(&TransactionSolidEvent{params})
 
-	return inputs
+	params.Inputs = inputs
+
+	return next(params)
 }
 
 func (a *AvailabilityManager) allInputsAvailable(transaction utxo.Transaction) (allAvailable bool, outputs []utxo.Output) {

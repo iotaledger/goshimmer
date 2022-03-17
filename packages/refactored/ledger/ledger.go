@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
@@ -13,11 +14,11 @@ import (
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Ledger struct {
-	ErrorEvent *event.Event[error]
+	ErrorEvent                *event.Event[error]
+	TransactionProcessedEvent *event.Event[*TransactionProcessedEvent]
 
 	*Storage
 	*AvailabilityManager
-	*DataFlow
 	syncutils.DAGMutex[[32]byte]
 
 	vm utxo.VM
@@ -33,7 +34,58 @@ func New(store kvstore.KVStore, vm utxo.VM) (ledger *Ledger) {
 	return ledger
 }
 
-func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) {
+func (l *Ledger) Setup() {
+	// Attach = run async
+	l.TransactionProcessedEvent.Attach(event.NewClosure[*TransactionProcessedEvent](l.ProcessFutureCone))
+}
+
+func (l *Ledger) ProcessTransaction(tx utxo.Transaction, meta *TransactionMetadata) (success bool, err error) {
+	err = dataflow.New[*DataFlowParams](
+		l.lockTransactionStep,
+		l.CheckSolidity,
+		/*
+			l.ValidatePastCone,
+			l.ExecuteTransaction,
+			l.BookTransaction,
+		*/
+		l.triggerProcessedEventStep,
+	).WithSuccessCallback(func(params *DataFlowParams) {
+		success = true
+	}).WithTerminationCallback(func(params *DataFlowParams) {
+		l.Unlock(params.Transaction, false)
+	}).Run(&DataFlowParams{
+		Transaction:         tx,
+		TransactionMetadata: meta,
+	})
+
+	if err != nil {
+		// TODO: mark Transaction as invalid and trigger invalid event
+		// eventually trigger generic errors if its not due to tx invalidity
+		return false, err
+	}
+
+	return success, nil
+}
+
+func (l *Ledger) ProcessFutureCone(event *TransactionProcessedEvent) {
+	// TODO: FILL WITH ACTUAL CONSUMERS
+	_ = event.Inputs
+	consumers := []utxo.TransactionID{}
+
+	for consumersWalker := walker.New[utxo.TransactionID](true).PushAll(consumers...); consumersWalker.HasNext(); {
+		transactionID := consumersWalker.Next()
+
+		l.CachedTransactionMetadata(transactionID).Consume(func(consumerMetadata *TransactionMetadata) {
+			l.CachedTransaction(transactionID).Consume(func(consumerTransaction utxo.Transaction) {
+				if _, err := l.ProcessTransaction(consumerTransaction, consumerMetadata); err != nil {
+					l.ErrorEvent.Trigger(errors.Errorf("failed to process Transaction with %s: %w", transactionID, err))
+				}
+			})
+		})
+	}
+}
+
+func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) (success bool, err error) {
 	cachedTransactionMetadata, stored := l.Store(transaction)
 	defer cachedTransactionMetadata.Release()
 
@@ -41,44 +93,26 @@ func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) {
 		return
 	}
 
-	l.TransactionStoredEvent.Trigger(&TransactionStoredEvent{
+	l.TransactionStoredEvent.Trigger(&TransactionStoredEvent{&DataFlowParams{
 		Transaction:         transaction,
-		TransactionMetadata: cachedTransactionMetadata.Get(),
+		TransactionMetadata: nil, // todo retrieve
+	}})
+
+	return l.ProcessTransaction(transaction, cachedTransactionMetadata.Get())
+}
+
+func (l *Ledger) lockTransactionStep(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
+	l.Lock(params.Transaction, false)
+
+	return next(params)
+}
+
+func (l *Ledger) triggerProcessedEventStep(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) (err error) {
+	l.TransactionProcessedEvent.Trigger(&TransactionProcessedEvent{
+		params,
 	})
 
-	l.ProcessTransaction(transaction, cachedTransactionMetadata.Get())
-}
-
-func (l *Ledger) ProcessTransaction(tx utxo.Transaction, meta *TransactionMetadata) {
-	success, consumers, err := l.SolidifyTransaction(tx, meta)
-	if !success {
-		return
-	}
-
-	// TODO: async event
-	consumersWalker := walker.New[utxo.TransactionID](true).PushAll(consumers...)
-	for consumersWalker.HasNext() {
-		l.CachedTransactionMetadata(consumersWalker.Next()).Consume(func(consumerMetadata *TransactionMetadata) {
-			l.CachedTransaction(consumerMetadata.ID()).Consume(func(consumerTransaction utxo.Transaction) {
-				_, consumers, err := l.SolidifyTransaction(tx, meta)
-
-			})
-		})
-
-		consumersWalker.Next()
-	}
-
-	return
-}
-
-func (l *Ledger) forkSingleTransactionCommand() (solidificationCommand dataflow.ChainedCommand[*DataFlowParams]) {
-	return l.LockedCommand(
-		dataflow.New[*DataFlowParams](
-			l.ForkTransaction,
-		).WithErrorCallback(func(err error, params *DataFlowParams) {
-			// trigger generic errors if its not due to tx invalidity
-		}).ChainedCommand,
-	)
+	return next(params)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
