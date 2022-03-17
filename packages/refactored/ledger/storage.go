@@ -10,7 +10,6 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	TransactionStoredEvent     *event.Event[*TransactionStoredEvent]
 	transactionStorage         *objectstorage.ObjectStorage[utxo.Transaction]
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
 	consumerStorage            *objectstorage.ObjectStorage[*Consumer]
@@ -27,22 +26,6 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 }
 
 func (s *Storage) Setup() {
-}
-
-// Store adds a new Transaction to the ledger state. It returns a boolean that indicates whether the
-// Transaction was stored.
-func (s *Storage) Store(transaction utxo.Transaction) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata], stored bool) {
-	cachedTransactionMetadata = s.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
-		s.transactionStorage.Store(transaction).Release()
-		stored = true
-		return NewTransactionMetadata(transactionID)
-	})
-
-	if !stored {
-		return
-	}
-
-	return
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
@@ -67,9 +50,9 @@ func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput *objectstor
 }
 
 // CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-func (u *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
-	u.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
+	s.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
 	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
