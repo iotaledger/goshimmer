@@ -392,7 +392,6 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
-
 		inputs = append(inputs, in)
 	}
 	return inputs, nil
