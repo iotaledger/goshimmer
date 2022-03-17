@@ -38,6 +38,10 @@ func (s *Storage) Store(transaction utxo.Transaction) (cachedTransactionMetadata
 		return NewTransactionMetadata(transactionID)
 	})
 
+	if !stored {
+		return
+	}
+
 	return
 }
 
