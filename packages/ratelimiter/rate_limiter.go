@@ -73,8 +73,8 @@ func (prl *PeerRateLimiter) Count(p *peer.Peer) {
 }
 
 // ExtendLimit extends the activity limit of the peer.
-func (prl *PeerRateLimiter) ExtendLimit(p *peer.Peer) {
-	if err := prl.doExtendLimit(p); err != nil {
+func (prl *PeerRateLimiter) ExtendLimit(p *peer.Peer, val int) {
+	if err := prl.doExtendLimit(p, val); err != nil {
 		prl.log.Warnw("Rate limiter failed to extend peer activity limit",
 			"peerId", p.ID())
 	}
@@ -116,12 +116,12 @@ func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
 	return nil
 }
 
-func (prl *PeerRateLimiter) doExtendLimit(p *peer.Peer) error {
+func (prl *PeerRateLimiter) doExtendLimit(p *peer.Peer, val int) error {
 	peerRecord, err := prl.getPeerRecord(p)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	peerRecord.limitExtensionCounter.Incr(1)
+	peerRecord.limitExtensionCounter.Incr(int64(val))
 	return nil
 }
 

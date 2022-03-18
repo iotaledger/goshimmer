@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
@@ -33,7 +33,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
 		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
 			transactionInfo := getDiagnosticUTXODAGInfo(transactionID, messageID)
 			_, err = fmt.Fprintln(c.Response(), transactionInfo.toCSV())
@@ -46,7 +46,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDsSlice{tangle.EmptyMessageID})
+	}, tangle.NewMessageIDs(tangle.EmptyMessageID))
 
 	c.Response().Flush()
 }
@@ -81,7 +81,7 @@ type DiagnosticUTXODAGInfo struct {
 	// attachments
 	Attachments []string
 	// transaction metadata
-	BranchID            string
+	BranchIDs           []string
 	Conflicting         bool
 	LazyBooked          bool
 	GradeOfFinality     gof.GradeOfFinality
@@ -101,13 +101,13 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Outputs = transaction.Essence().Outputs()
 	})
 
-	for _, messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
+	for messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
 		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 
 	deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txInfo.SolidTime = transactionMetadata.SolidificationTime()
-		txInfo.BranchID = transactionMetadata.BranchID().String()
+		txInfo.BranchIDs = transactionMetadata.BranchIDs().Base58()
 
 		txInfo.Conflicting = deps.Tangle.LedgerState.TransactionConflicting(transactionID)
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
@@ -128,7 +128,7 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 		strings.Join(d.Inputs.Strings(), ";"),
 		strings.Join(d.Outputs.Strings(), ";"),
 		strings.Join(d.Attachments, ";"),
-		d.BranchID,
+		strings.Join(d.BranchIDs, ";"),
 		fmt.Sprint(d.Conflicting),
 		fmt.Sprint(d.LazyBooked),
 		fmt.Sprint(d.GradeOfFinality),

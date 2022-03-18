@@ -55,7 +55,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
 
 	msg, _ := NewMessage(
-		emptyLikeReferencesFromStrongParents(MessageIDsSlice{EmptyMessageID}),
+		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
 		time.Now(),
 		localNode.PublicKey(),
 		0,

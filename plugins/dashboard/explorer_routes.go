@@ -40,6 +40,10 @@ type ExplorerMessage struct {
 	StrongApprovers []string `json:"strongApprovers"`
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
+	// ShallowLikeApprovers are the shallow like approvers of the message.
+	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
+	// ShallowDislikeApprovers are the shallow dislike approvers of the message.
+	ShallowDislikeApprovers []string `json:"shallowDislikeApprovers"`
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
 	BranchIDs           []string            `json:"branchIDs"`
@@ -68,28 +72,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
-	messageMetadata := cachedMessageMetadata.Unwrap()
+	messageMetadata, _ := cachedMessageMetadata.Unwrap()
 
-	branchIDsB58 := make([]string, 0)
-	if branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID); err == nil {
-		for branchID := range branchIDs {
-			branchIDsB58 = append(branchIDsB58, branchID.Base58())
-		}
-	}
-
-	addedBranchIDsB58 := make([]string, 0)
-	if addedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.AddedBranchIDs())); err == nil {
-		for addedBranchID := range addedBranchIDs {
-			addedBranchIDsB58 = append(addedBranchIDsB58, addedBranchID.Base58())
-		}
-	}
-
-	subtractedBranchIDsB58 := make([]string, 0)
-	if subtractedBranchIDs, err := deps.Tangle.LedgerState.ResolveConflictBranchIDs(ledgerstate.NewBranchIDs(messageMetadata.SubtractedBranchIDs())); err == nil {
-		for subtractedBranchID := range subtractedBranchIDs {
-			subtractedBranchIDsB58 = append(subtractedBranchIDsB58, subtractedBranchID.Base58())
-		}
-	}
+	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
 
 	t := &ExplorerMessage{
 		ID:                      messageID.Base58(),
@@ -100,12 +85,14 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
 		ParentsByType:           prepareParentReferences(msg),
-		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
-		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).Base58(),
+		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).Base58(),
+		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).Base58(),
+		ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover).Base58(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchIDs:               branchIDsB58,
-		AddedBranchIDs:          addedBranchIDsB58,
-		SubtractedBranchIDs:     subtractedBranchIDsB58,
+		BranchIDs:               branchIDs.Base58(),
+		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
+		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
