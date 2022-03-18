@@ -17,11 +17,14 @@ type walletID int
 
 // WalletType is the type of the wallet.
 type WalletType int8
+type WalletStatus int8
 
 const (
 	other WalletType = iota
 	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	fresh
+	// reuse stores resulting outputs of double spends or transactions issued by the evilWallet
+	reuse
 )
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,6 +34,7 @@ type Wallets struct {
 	wallets map[walletID]*Wallet
 	// we store here non-empty wallets ids of wallets with fresh faucet outputs.
 	faucetWallets []walletID
+	reuseWallets  []walletID
 	mu            sync.RWMutex
 
 	lastWalletID atomic.Int64
@@ -47,10 +51,10 @@ func NewWallets() *Wallets {
 
 // NewWallet adds a new wallet to Wallets and returns the created wallet.
 func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
-	wallet := NewWallet()
+	wallet := NewWallet(walletType)
 	wallet.ID = walletID(w.lastWalletID.Add(1))
 
-	w.addWallet(wallet, walletType)
+	w.addWallet(wallet)
 
 	return wallet
 }
@@ -60,16 +64,32 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 	return w.wallets[walletID]
 }
 
+// GetNextWallet get next non-empty wallet based on provided type.
+func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
+	w.mu.RLock()
+	defer w.mu.Unlock()
+
+	switch walletType {
+	case fresh:
+		if !w.IsFaucetWalletAvailable() {
+			return nil, errors.New("no faucet wallets available, need to request more funds")
+		}
+		wallet := w.wallets[w.faucetWallets[0]]
+		if wallet.IsEmpty() {
+			return nil, errors.New("wallet is empty, need to request more funds")
+		}
+		return wallet, nil
+	}
+	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
+}
+
 // addWallet stores newly created wallet.
-func (w *Wallets) addWallet(wallet *Wallet, wType WalletType) {
+func (w *Wallets) addWallet(wallet *Wallet) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	w.wallets[wallet.ID] = wallet
-	switch wType {
-	case fresh:
-		w.faucetWallets = append(w.faucetWallets, wallet.ID)
-	}
+
 }
 
 // GetUnspentOutput gets first found unspent output for a given walletType
@@ -80,20 +100,56 @@ func (w *Wallets) GetUnspentOutput(wallet *Wallet) *Output {
 	return wallet.GetUnspentOutput()
 }
 
-// FreshWallet gets a fresh faucet wallet.
-func (w *Wallets) FreshWallet() *Wallet {
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
-	}
-	return nil
+// IsFaucetWalletAvailable checks if there is any faucet wallet left.
+func (w *Wallets) IsFaucetWalletAvailable() bool {
+	return len(w.faucetWallets) > 0
 }
 
-// RemoveWallet : TODO
-func (w *Wallets) RemoveWallet() *Wallet {
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
+// FreshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
+// it is removed and the next enqueued one is returned.
+func (w *Wallets) FreshWallet() (*Wallet, error) {
+	wallet, err := w.GetNextWallet(fresh)
+	if err != nil {
+		w.removeWallet(fresh)
+		wallet, err = w.GetNextWallet(fresh)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return nil
+	return wallet, nil
+}
+
+// removeWallet removes wallet, for fresh wallet it will be the first wallet in a queue.
+func (w *Wallets) removeWallet(wType WalletType) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	switch wType {
+	case fresh:
+		if w.IsFaucetWalletAvailable() {
+			removedID := w.faucetWallets[0]
+			w.faucetWallets = w.faucetWallets[1:]
+			delete(w.wallets, removedID)
+		}
+	}
+	return
+}
+
+// SetWalletReady makes wallet ready to use, fresh wallet is added to freshWallets queue.
+func (w *Wallets) SetWalletReady(wallet *Wallet) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if wallet.IsEmpty() {
+		return
+	}
+	wType := wallet.walletType
+	switch wType {
+	case fresh:
+		w.faucetWallets = append(w.faucetWallets, wallet.ID)
+	case reuse:
+		w.reuseWallets = append(w.reuseWallets, wallet.ID)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -102,8 +158,8 @@ func (w *Wallets) RemoveWallet() *Wallet {
 
 // Wallet is the definition of a wallet.
 type Wallet struct {
-	ID walletID
-
+	ID                walletID
+	walletType        WalletType
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
 	indexAddrMap      map[uint64]string
 	addrIndexMap      map[string]uint64
@@ -117,10 +173,15 @@ type Wallet struct {
 }
 
 // NewWallet creates a wallet of a given type.
-func NewWallet() *Wallet {
+func NewWallet(wType ...WalletType) *Wallet {
+	walletType := other
+	if len(wType) > 0 {
+		walletType = wType[0]
+	}
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
 	wallet := &Wallet{
+		walletType:        walletType,
 		ID:                -1,
 		seed:              seed.NewSeed(),
 		unspentOutputs:    make(map[string]*Output),

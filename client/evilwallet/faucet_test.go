@@ -13,12 +13,10 @@ func TestFaucetRequests(t *testing.T) {
 	_, err := evilwallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
-	//err = evilwallet.RequestFreshBigFaucetWallet()
-	//require.NoError(t, err)
+	_, err = evilwallet.RequestFreshFaucetWallet()
+	require.NoError(t, err)
 
-	//evilwallet.RequestFreshBigFaucetWallets(5)
-
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutputs([]string{"2"}))
 		require.NoError(t, err)
 		txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutputs([]string{"3"}))
@@ -31,5 +29,9 @@ func TestFaucetRequests(t *testing.T) {
 		evilwallet.ClearAliases()
 	}
 
-	//EvilWallet.ConflictManager.AddConflict(WithConflictID("1"), WithConflictMembers("2", "3"))
+	err = evilwallet.RequestFreshBigFaucetWallet()
+	require.NoError(t, err)
+
+	evilwallet.RequestFreshBigFaucetWallets(5)
+
 }

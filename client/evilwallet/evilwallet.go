@@ -1,7 +1,7 @@
 package evilwallet
 
 import (
-	"errors"
+	"github.com/cockroachdb/errors"
 	"sync"
 	"time"
 
@@ -148,6 +148,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	if err != nil {
 		return
 	}
+	e.wallets.SetWalletReady(w)
 	return
 }
 
@@ -159,7 +160,7 @@ func (e *EvilWallet) RequestFreshFaucetWallet() (wallet *Wallet, err error) {
 	if err != nil {
 		return
 	}
-
+	e.wallets.SetWalletReady(wallet)
 	return
 }
 
@@ -250,9 +251,11 @@ func (e *EvilWallet) ClearAliases() {
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
 func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+	outputWallet := e.NewWallet(reuse)
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for txAlias, options := range conflictMap {
+			options = append(options, WithOutputWallet(outputWallet))
 			tx, err := e.CreateTransaction(txAlias, options...)
 			if err != nil {
 				return err
@@ -284,24 +287,19 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []
 // CreateTransaction creates a transaction with the given outputAliasName and options.
 func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
-	// if input wallet is not specified, use fresh faucet wallet
-	if buildOptions.issuer == nil {
-		if wallet := e.wallets.FreshWallet(); wallet != nil {
-			buildOptions.issuer = wallet
-		} else {
-			return nil, errors.New("no fresh wallet is available")
-		}
-	}
+
 	if buildOptions.outputWallet == nil {
-		buildOptions.outputWallet = NewWallet()
+		buildOptions.outputWallet = e.NewWallet()
 	}
 
 	if len(buildOptions.inputs) == 0 || len(buildOptions.outputs) == 0 {
 		return
 	}
-	inputs := e.matchInputsWithAliases(buildOptions)
+	inputs, err := e.matchInputsWithAliases(buildOptions)
+	if err != nil {
+		return nil, err
+	}
 	outputs, addrAliasMap, err := e.matchOutputsWithAliases(buildOptions)
-
 	if err != nil {
 		return nil, err
 	}
@@ -348,12 +346,22 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
 // it assigns a new fresh faucet output.
-func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input) {
+func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	// get inputs by alias
 	for inputAlias := range buildOptions.inputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
-		// No output found for given alias, use internal fresh output if wallets are non-empty.
-		if !ok {
+		if ok {
+			err = e.updateIssuerWalletForAlias(buildOptions, in)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// No output found for given alias, use internal fresh output if wallets are non-empty.
+			err = e.getIssuerWallet(buildOptions)
+			if err != nil {
+				return nil, err
+			}
+
 			out := e.wallets.GetUnspentOutput(buildOptions.issuer)
 			if out == nil {
 				return
@@ -361,9 +369,33 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
+
 		inputs = append(inputs, in)
 	}
-	return inputs
+	return inputs, nil
+}
+
+func (e *EvilWallet) getIssuerWallet(buildOptions *Options) error {
+	// if input wallet is not specified, use fresh faucet wallet
+	if buildOptions.issuer == nil {
+		if wallet, err2 := e.wallets.FreshWallet(); wallet != nil {
+			buildOptions.issuer = wallet
+		} else {
+			return errors.Newf("no fresh wallet is available: %w", err2)
+		}
+	}
+	return nil
+}
+
+func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledgerstate.Input) error {
+	inputWallet := e.outputManager.outputIDWalletMap[in.Base58()]
+	if buildOptions.issuer == nil {
+		buildOptions.issuer = inputWallet
+	}
+	if buildOptions.issuer.ID != inputWallet.ID {
+		return errors.New("provided inputs had to belong to the same wallets")
+	}
+	return nil
 }
 
 // matchOutputsWithAliases creates outputs based on balances provided via options.
