@@ -3,7 +3,7 @@ package utxodb
 import (
 	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/old"
+	"github.com/iotaledger/goshimmer/packages/refactored/old"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )

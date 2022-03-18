@@ -1,65 +1,48 @@
 package ledger
 
 import (
-	"container/list"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/hive.go/types"
-
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
-type Validator struct{}
-
-func (v *Validator) IsValid() {
-
+type Validator struct {
+	*Ledger
 }
 
-func (v *Validator) isPastConeValid(inputs []utxo.Output, inputsMetadata []*OutputMetadata) bool {
-	if u.outputsUnspent(outputsMetadata) {
-		pastConeValid = true
-		return
+func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
+	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Keys(params.Inputs), v.CachedOutputMetadata))
+	defer cachedOutputsMetadata.Release()
+
+	params.InputsMetadata = generics.KeyBy[utxo.OutputID, *OutputMetadata](cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
+
+	if v.outputsCausallyRelated(params.InputsMetadata) {
+		return errors.Errorf("%s is trying to spend causally related Outputs: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
 
-	stack := list.New()
-	consumedInputIDs := make(map[OutputID]types.Empty)
-	for _, input := range outputs {
-		consumedInputIDs[input.ID()] = types.Void
-		stack.PushBack(input.ID())
+	return next(params)
+}
+
+func (v *Validator) outputsCausallyRelated(outputsMetadata map[utxo.OutputID]*OutputMetadata) (related bool) {
+	spentOutputIDs := generics.Keys(generics.FilterByValue[utxo.OutputID, *OutputMetadata](outputsMetadata, (*OutputMetadata).Spent))
+	if len(spentOutputIDs) == 0 {
+		return false
 	}
 
-	for stack.Len() > 0 {
-		firstElement := stack.Front()
-		stack.Remove(firstElement)
-
-		cachedConsumers := u.CachedConsumers(firstElement.Value.(OutputID))
-		for _, consumer := range cachedConsumers.Unwrap() {
-			if consumer == nil {
-				cachedConsumers.Release()
-				panic("failed to unwrap Consumer")
+	v.WalkConsumingTransactionMetadata(func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+		for _, outputID := range txMetadata.OutputIDs() {
+			if _, related = outputsMetadata[outputID]; related {
+				walker.StopWalk()
+				return
 			}
 
-			cachedTransaction := u.CachedTransaction(consumer.TransactionID())
-			transaction, exists := cachedTransaction.Unwrap()
-			if !exists {
-				cachedTransaction.Release()
-				cachedConsumers.Release()
-				panic("failed to unwrap Transaction")
-			}
-
-			for _, output := range transaction.Essence().Outputs() {
-				if _, exists := consumedInputIDs[output.ID()]; exists {
-					cachedTransaction.Release()
-					cachedConsumers.Release()
-					return false
-				}
-
-				stack.PushBack(output.ID())
-			}
-
-			cachedTransaction.Release()
+			walker.Push(outputID)
 		}
-		cachedConsumers.Release()
-	}
+	}, spentOutputIDs)
 
-	return true
+	return related
 }

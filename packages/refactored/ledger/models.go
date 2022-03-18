@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/old"
+	"github.com/iotaledger/goshimmer/packages/refactored/old"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -32,6 +32,8 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
+	outputIDs               []utxo.OutputID
+	outputIDsMutex          sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
@@ -218,6 +220,14 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	return
 }
 
+// OutputIDs returns the OutputIDs of that this Transaction created.
+func (t *TransactionMetadata) OutputIDs() []utxo.OutputID {
+	t.outputIDsMutex.RLock()
+	defer t.outputIDsMutex.RUnlock()
+
+	return t.outputIDs
+}
+
 // GradeOfFinality returns the grade of finality.
 func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
 	t.gradeOfFinalityMutex.RLock()
@@ -294,6 +304,279 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = &TransactionMetadata{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputMetadata contains additional Output information that are derived from the local perception of the node.
+type OutputMetadata struct {
+	id                      utxo.OutputID
+	branchIDs               BranchIDs
+	branchIDsMutex          sync.RWMutex
+	solid                   bool
+	solidMutex              sync.RWMutex
+	solidificationTime      time.Time
+	solidificationTimeMutex sync.RWMutex
+	consumerCount           int
+	consumerMutex           sync.RWMutex
+	gradeOfFinality         gof.GradeOfFinality
+	gradeOfFinalityTime     time.Time
+	gradeOfFinalityMutex    sync.RWMutex
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewOutputMetadata creates a new empty OutputMetadata object.
+func NewOutputMetadata(outputID utxo.OutputID) *OutputMetadata {
+	return &OutputMetadata{
+		id:        outputID,
+		branchIDs: NewBranchIDs(),
+	}
+}
+
+// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
+func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
+	}
+	return outputMetadata, err
+}
+
+// FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
+func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if outputMetadata, err = o.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// FromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
+func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
+	if outputMetadata = o; outputMetadata == nil {
+		outputMetadata = new(OutputMetadata)
+	}
+
+	if outputMetadata.id, err = utxo.OutputIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse OutputID: %w", err)
+		return
+	}
+	if outputMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse BranchIDs: %w", err)
+		return
+	}
+	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	consumerCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		err = errors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	outputMetadata.consumerCount = int(consumerCount)
+	gradeOfFinality, err := marshalUtil.ReadUint8()
+	if err != nil {
+		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return
+}
+
+// ID returns the OutputID of the Output that the OutputMetadata belongs to.
+func (o *OutputMetadata) ID() utxo.OutputID {
+	return o.id
+}
+
+// BranchIDs returns the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) BranchIDs() BranchIDs {
+	o.branchIDsMutex.RLock()
+	defer o.branchIDsMutex.RUnlock()
+
+	return o.branchIDs.Clone()
+}
+
+// SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
+
+	if o.branchIDs.Equals(branchIDs) {
+		return false
+	}
+
+	o.branchIDs = branchIDs.Clone()
+	o.SetModified()
+	return true
+}
+
+// AddBranchID adds an identifier of the Branch that the Output was booked in.
+func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
+
+	if o.branchIDs.Contains(branchID) {
+		return false
+	}
+
+	delete(o.branchIDs, MasterBranchID)
+
+	o.branchIDs.Add(branchID)
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// Solid returns true if the Output has been marked as solid.
+func (o *OutputMetadata) Solid() bool {
+	o.solidMutex.RLock()
+	defer o.solidMutex.RUnlock()
+
+	return o.solid
+}
+
+// SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
+// solidification time if the Output was marked as solid.
+func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
+	o.solidMutex.Lock()
+	defer o.solidMutex.Unlock()
+
+	if o.solid == solid {
+		return
+	}
+
+	if solid {
+		o.solidificationTimeMutex.Lock()
+		o.solidificationTime = time.Now()
+		o.solidificationTimeMutex.Unlock()
+	}
+
+	o.solid = solid
+	o.SetModified()
+	modified = true
+
+	return
+}
+
+// SolidificationTime returns the time when the Output was marked as solid.
+func (o *OutputMetadata) SolidificationTime() time.Time {
+	o.solidificationTimeMutex.RLock()
+	defer o.solidificationTimeMutex.RUnlock()
+
+	return o.solidificationTime
+}
+
+// ConsumerCount returns the number of transactions that have spent the Output.
+func (o *OutputMetadata) ConsumerCount() int {
+	o.consumerMutex.RLock()
+	defer o.consumerMutex.RUnlock()
+
+	return o.consumerCount
+}
+
+// Spent returns true if the Output has been spent already.
+func (o *OutputMetadata) Spent() bool {
+	o.consumerMutex.RLock()
+	defer o.consumerMutex.RUnlock()
+
+	return o.consumerCount != 0
+}
+
+// RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
+// returns the previous consumer count.
+func (o *OutputMetadata) RegisterConsumer(consumer utxo.TransactionID) (previousConsumerCount int) {
+	o.consumerMutex.Lock()
+	defer o.consumerMutex.Unlock()
+
+	o.consumerCount++
+	o.SetModified()
+
+	return
+}
+
+// GradeOfFinality returns the grade of finality.
+func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinality
+}
+
+// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
+	o.gradeOfFinalityMutex.Lock()
+	defer o.gradeOfFinalityMutex.Unlock()
+
+	if o.gradeOfFinality == gradeOfFinality {
+		return
+	}
+
+	o.gradeOfFinality = gradeOfFinality
+	o.gradeOfFinalityTime = clock.SyncedTime()
+	o.SetModified()
+	modified = true
+	return
+}
+
+// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
+func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
+	o.gradeOfFinalityMutex.RLock()
+	defer o.gradeOfFinalityMutex.RUnlock()
+	return o.gradeOfFinalityTime
+}
+
+// Bytes marshals the OutputMetadata into a sequence of bytes.
+func (o *OutputMetadata) Bytes() []byte {
+	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
+}
+
+// String returns a human readable version of the OutputMetadata.
+func (o *OutputMetadata) String() string {
+	return stringify.Struct("OutputMetadata",
+		stringify.StructField("id", o.ID()),
+		stringify.StructField("branchIDs", o.BranchIDs()),
+		stringify.StructField("solid", o.Solid()),
+		stringify.StructField("solidificationTime", o.SolidificationTime()),
+		stringify.StructField("consumerCount", o.ConsumerCount()),
+		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
+	)
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (o *OutputMetadata) ObjectStorageKey() []byte {
+	return o.id.Bytes()
+}
+
+// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
+// used as a key in the ObjectStorage.
+func (o *OutputMetadata) ObjectStorageValue() []byte {
+	return marshalutil.New().
+		Write(o.BranchIDs()).
+		WriteBool(o.Solid()).
+		WriteTime(o.SolidificationTime()).
+		WriteUint64(uint64(o.ConsumerCount())).
+		WriteUint8(uint8(o.GradeOfFinality())).
+		WriteTime(o.GradeOfFinalityTime()).
+		Bytes()
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = new(OutputMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

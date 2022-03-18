@@ -13,7 +13,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 )
 
@@ -79,7 +78,7 @@ func TestExampleC(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchIDs := NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID()))
-		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, Tx3BranchIDs, metadata.BranchIDs())
 		})
 	}
@@ -138,7 +137,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX3"].ID())
-		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, NewBranchIDs(Tx3BranchID), metadata.BranchIDs())
 		})
 
@@ -152,7 +151,7 @@ func TestExampleB(t *testing.T) {
 	{
 		// Checking that the BranchID of Tx4 is correct
 		Tx4BranchID := NewBranchID(transactions["TX4"].ID())
-		ledgerstate.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, NewBranchIDs(Tx4BranchID), metadata.BranchIDs())
 		})
 		// Checking that the parents BranchID of TX4 is MasterBranchID
@@ -173,7 +172,7 @@ func TestExampleB(t *testing.T) {
 	// Checking that the BranchID of TX2 is correct, and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
-		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, NewBranchIDs(Tx2BranchID), metadata.BranchIDs())
 		})
 
@@ -237,7 +236,7 @@ func TestExampleA(t *testing.T) {
 	// Checking TX2
 	expectedTx2BranchIDs := NewBranchIDs(NewBranchID(transactions["TX2"].ID()))
 	{
-		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, expectedTx2BranchIDs, metadata.BranchIDs())
 		})
 		// Checking that the parents BranchID of TX2 is the MasterBranchID
@@ -249,7 +248,7 @@ func TestExampleA(t *testing.T) {
 	// Checking TX3
 	{
 		// Checking that the BranchID of Tx3 is correct == branch2
-		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *ledger.TransactionMetadata) {
+		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
 			assert.Equal(t, expectedTx2BranchIDs, metadata.BranchIDs())
 		})
 	}
@@ -718,7 +717,7 @@ func singleInputTransaction(ledgerstate *Ledger, a, b txvm.wallet, outputToSpend
 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
 
 	// store TransactionMetadata
-	transactionMetadata := ledger.NewTransactionMetadata(tx.ID())
+	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
 	transactionMetadata.AddBranchID(MasterBranchID)
 
@@ -728,7 +727,7 @@ func singleInputTransaction(ledgerstate *Ledger, a, b txvm.wallet, outputToSpend
 		transactionMetadata.SetGradeOfFinality(gof.Low)
 	}
 
-	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *ledger.TransactionMetadata {
+	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *TransactionMetadata {
 		transactionMetadata.Persist()
 		transactionMetadata.SetModified()
 		return transactionMetadata

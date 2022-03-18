@@ -12,12 +12,17 @@ import (
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Ledger struct {
-	TransactionStoredEvent    *event.Event[*TransactionStoredEvent]
-	TransactionProcessedEvent *event.Event[*TransactionProcessedEvent]
-	ErrorEvent                *event.Event[error]
+	TransactionStoredEvent            *event.Event[utxo.TransactionID]
+	TransactionSolidEvent             *event.Event[utxo.TransactionID]
+	TransactionProcessedEvent         *event.Event[utxo.TransactionID]
+	ConsumedTransactionProcessedEvent *event.Event[utxo.TransactionID]
+	ErrorEvent                        *event.Event[error]
 
 	*Storage
-	*AvailabilityManager
+	*Solidifier
+	*Validator
+	*Utils
+
 	syncutils.DAGMutex[[32]byte]
 
 	vm utxo.VM
@@ -28,24 +33,25 @@ func New(store kvstore.KVStore, vm utxo.VM) (ledger *Ledger) {
 	ledger.ErrorEvent = event.New[error]()
 	ledger.vm = vm
 	ledger.Storage = NewStorage(ledger)
-	ledger.AvailabilityManager = NewAvailabilityManager(ledger)
+	ledger.Solidifier = NewSolidifier(ledger)
 
 	return ledger
 }
 
 func (l *Ledger) Setup() {
-	// Attach = run async
-	l.TransactionProcessedEvent.Attach(event.NewClosure[*TransactionProcessedEvent](l.processConsumers))
-
-	// attach sync = run in scope of event (while locks are still held)
-	l.TransactionStoredEvent.AttachSync(event.NewClosure[*TransactionStoredEvent](l.processStoredTransaction))
+	l.ConsumedTransactionProcessedEvent.Attach(event.NewClosure[utxo.TransactionID](func(txID utxo.TransactionID) {
+		l.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+			l.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+				l.processTransaction(tx, txMetadata)
+			})
+		})
+	}))
 }
 
 // StoreAndProcessTransaction is the only public facing api
-func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) (solid bool) {
-	// use computeifabsent as a mutex to only store things once
-	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
-		l.transactionStorage.Store(transaction).Release()
+func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (solid bool) {
+	cachedTransactionMetadata := l.CachedTransactionMetadata(tx.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
+		l.transactionStorage.Store(tx).Release()
 
 		// TODO: STORE CONSUMERS
 
@@ -64,35 +70,33 @@ func (l *Ledger) StoreAndProcessTransaction(transaction utxo.Transaction) (solid
 	}
 
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-		l.TransactionStoredEvent.Trigger(&TransactionStoredEvent{&DataFlowParams{
-			Transaction:         transaction,
-			TransactionMetadata: metadata,
-		}})
+		l.TransactionStoredEvent.Trigger(tx.ID())
 
-		solid = metadata.Solid()
+		solid = l.processTransaction(tx, metadata)
 	})
 
 	return solid
 }
 
-func (l *Ledger) processTransaction(tx utxo.Transaction, meta *TransactionMetadata) (success bool) {
-	err := dataflow.New[*DataFlowParams](
-		l.lockTransactionStep,
-		l.CheckSolidity,
+func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMetadata) (success bool) {
+	l.DAGMutex.Lock(tx.ID())
+	defer l.DAGMutex.Unlock(tx.ID())
+
+	err := dataflow.New[*params](
+		l.checkSolidityCommand,
+		l.checkOutputsCausallyRelatedCommand,
 		/*
-			l.ValidatePastCone,
 			l.ExecuteTransaction,
 			l.BookTransaction,
 		*/
-		l.triggerProcessedEventStep,
-	).WithSuccessCallback(func(params *DataFlowParams) {
+		l.notifyConsumersCommand,
+	).WithSuccessCallback(func(params *params) {
+		l.TransactionProcessedEvent.Trigger(params.Transaction.ID())
+
 		success = true
-		// TODO: fill consumers from outputs
-	}).WithTerminationCallback(func(params *DataFlowParams) {
-		l.Unlock(params.Transaction, false)
-	}).Run(&DataFlowParams{
+	}).Run(&params{
 		Transaction:         tx,
-		TransactionMetadata: meta,
+		TransactionMetadata: txMeta,
 	})
 
 	if err != nil {
@@ -104,43 +108,23 @@ func (l *Ledger) processTransaction(tx utxo.Transaction, meta *TransactionMetada
 	return success
 }
 
-func (l *Ledger) processConsumers(event *TransactionProcessedEvent) {
+func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*params]) error {
 	// TODO: FILL WITH ACTUAL CONSUMERS
-	_ = event.Inputs
+	_ = params.Inputs
 	consumers := []utxo.TransactionID{}
 
-	// we don't need a walker because the events will do the "walking for us"
 	for _, consumerTransactionId := range consumers {
-		l.CachedTransactionMetadata(consumerTransactionId).Consume(func(consumerMetadata *TransactionMetadata) {
-			l.CachedTransaction(consumerTransactionId).Consume(func(consumerTransaction utxo.Transaction) {
-				l.processTransaction(consumerTransaction, consumerMetadata)
-			})
-		})
+		l.ConsumedTransactionProcessedEvent.Trigger(consumerTransactionId)
 	}
-}
-
-func (l *Ledger) processStoredTransaction(event *TransactionStoredEvent) {
-	l.processTransaction(event.Transaction, event.TransactionMetadata)
-}
-
-func (l *Ledger) lockTransactionStep(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) error {
-	l.Lock(params.Transaction, false)
-
-	return next(params)
-}
-
-func (l *Ledger) triggerProcessedEventStep(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) (err error) {
-	l.TransactionProcessedEvent.Trigger(&TransactionProcessedEvent{
-		params,
-	})
 
 	return next(params)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type DataFlowParams struct {
+type params struct {
 	Transaction         utxo.Transaction
 	TransactionMetadata *TransactionMetadata
-	Inputs              []utxo.Output
+	Inputs              map[utxo.OutputID]utxo.Output
+	InputsMetadata      map[utxo.OutputID]*OutputMetadata
 }

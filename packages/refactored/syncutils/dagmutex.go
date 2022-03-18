@@ -11,35 +11,19 @@ type DAGMutex[T comparable] struct {
 	sync.Mutex
 }
 
-func (d *DAGMutex[T]) Lock(lockableEntity DAGMutexLockable[T], lockDependencies bool) {
-	if lockDependencies {
-		d.rLock(lockableEntity.DAGMutexDependencies()...)
-	}
-
-	d.lock(lockableEntity.DAGMutexID())
-}
-
-func (d *DAGMutex[T]) Unlock(lockableEntity DAGMutexLockable[T], lockDependencies bool) {
-	d.unlock(lockableEntity.DAGMutexID())
-
-	if lockDependencies {
-		d.rUnlock(lockableEntity.DAGMutexDependencies()...)
-	}
-}
-
-func (d *DAGMutex[T]) rLock(ids ...T) {
+func (d *DAGMutex[T]) RLock(ids ...T) {
 	for _, mutex := range d.registerMutexes(ids...) {
 		mutex.RLock()
 	}
 }
 
-func (d *DAGMutex[T]) rUnlock(ids ...T) {
+func (d *DAGMutex[T]) RUnlock(ids ...T) {
 	for _, mutex := range d.unregisterMutexes(ids...) {
 		mutex.RUnlock()
 	}
 }
 
-func (d *DAGMutex[T]) lock(id T) {
+func (d *DAGMutex[T]) Lock(id T) {
 	d.Mutex.Lock()
 	mutex := d.registerMutex(id)
 	d.Mutex.Unlock()
@@ -47,7 +31,7 @@ func (d *DAGMutex[T]) lock(id T) {
 	mutex.Lock()
 }
 
-func (d *DAGMutex[T]) unlock(id T) {
+func (d *DAGMutex[T]) Unlock(id T) {
 	d.Mutex.Lock()
 	mutex := d.unregisterMutex(id)
 	if mutex == nil {
@@ -114,9 +98,4 @@ func (d *DAGMutex[T]) unregisterMutex(id T) (mutex *sync.RWMutex) {
 	d.consumerCounter[id]--
 
 	return mutex
-}
-
-type DAGMutexLockable[T comparable] interface {
-	DAGMutexID() T
-	DAGMutexDependencies() []T
 }

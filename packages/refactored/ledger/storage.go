@@ -1,7 +1,6 @@
 package ledger
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
@@ -12,20 +11,17 @@ import (
 type Storage struct {
 	transactionStorage         *objectstorage.ObjectStorage[utxo.Transaction]
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
-	consumerStorage            *objectstorage.ObjectStorage[*Consumer]
 	outputStorage              *objectstorage.ObjectStorage[utxo.Output]
+	outputMetadataStorage      *objectstorage.ObjectStorage[*OutputMetadata]
+	consumerStorage            *objectstorage.ObjectStorage[*Consumer]
 
 	*Ledger
 }
 
 func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	return &Storage{
-		TransactionStoredEvent: event.New[*TransactionStoredEvent](),
-		Ledger:                 ledger,
+		Ledger: ledger,
 	}
-}
-
-func (s *Storage) Setup() {
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
@@ -47,6 +43,11 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 // CachedOutput retrieves the Output with the given OutputID from the object storage.
 func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
 	return s.outputStorage.Load(outputID.Bytes())
+}
+
+// CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
+func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID) (cachedOutput *objectstorage.CachedObject[*OutputMetadata]) {
+	return s.outputMetadataStorage.Load(outputID.Bytes())
 }
 
 // CachedConsumers retrieves the Consumers of the given OutputID from the object storage.

@@ -2,59 +2,51 @@ package ledger
 
 import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
-type AvailabilityManager struct {
-	TransactionSolidEvent *event.Event[*TransactionSolidEvent]
-
+type Solidifier struct {
 	*Ledger
 }
 
-func NewAvailabilityManager(ledger *Ledger) (newAvailabilityManager *AvailabilityManager) {
-	newAvailabilityManager = &AvailabilityManager{
-		TransactionSolidEvent: event.New[*TransactionSolidEvent](),
-
+func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
+	return &Solidifier{
 		Ledger: ledger,
 	}
-
-	return newAvailabilityManager
 }
 
-func (a *AvailabilityManager) CheckSolidity(params *DataFlowParams, next dataflow.Next[*DataFlowParams]) (err error) {
-	if params.TransactionMetadata.Solid() {
-		return nil
+func (s *Solidifier) checkSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (success bool, inputs map[utxo.OutputID]utxo.Output) {
+	if metadata.Solid() {
+		return false, nil
 	}
 
-	solid, inputs := a.allInputsAvailable(params.Transaction)
-	if !solid {
-		return nil
+	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(generics.Map(transaction.Inputs(), s.vm.ResolveInput), s.CachedOutput))
+	defer cachedInputs.Release()
+
+	inputs = generics.KeyBy[utxo.OutputID, utxo.Output](cachedInputs.Unwrap(true), utxo.Output.ID)
+	if len(inputs) != len(cachedInputs) {
+		return false, nil
 	}
 
-	if !params.TransactionMetadata.SetSolid(true) {
-		return nil
+	if !metadata.SetSolid(true) {
+		return false, nil
 	}
 
-	a.TransactionSolidEvent.Trigger(&TransactionSolidEvent{params})
+	s.TransactionSolidEvent.Trigger(transaction.ID())
+
+	return true, inputs
+}
+
+func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
+	success, inputs := s.checkSolidity(params.Transaction, params.TransactionMetadata)
+	if !success {
+		return nil
+	}
 
 	params.Inputs = inputs
 
 	return next(params)
-}
-
-func (a *AvailabilityManager) allInputsAvailable(transaction utxo.Transaction) (allAvailable bool, outputs []utxo.Output) {
-	inputs := transaction.Inputs()
-
-	outputs = make([]utxo.Output, len(inputs))
-	for i, input := range inputs {
-		if !a.CachedOutput(a.vm.ResolveInput(input)).Consume(func(output utxo.Output) {
-			outputs[i] = output
-		}) {
-			return false, nil
-		}
-	}
-
-	return true, outputs
 }
