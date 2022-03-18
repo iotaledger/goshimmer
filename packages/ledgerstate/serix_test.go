@@ -4,16 +4,17 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSerixOutput(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	sigLockedSingleOutput := NewSigLockedSingleOutput(10, NewED25519Address(keyPair.PublicKey))
 	inner := &sigLockedSingleOutputInner{
-		Type:    SigLockedSingleOutputType,
+		Type:    0,
 		Balance: 10,
 		Address: NewED25519Address(keyPair.PublicKey),
 	}

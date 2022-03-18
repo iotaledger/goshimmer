@@ -4,14 +4,15 @@ import (
 	"bytes"
 
 	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 )
 
 // region AddressType //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -144,7 +145,7 @@ type ED25519Address struct {
 	ed25519AddressInner `seri:"0"`
 }
 type ed25519AddressInner struct {
-	Digest2 [blake2b.Size256]byte `seri:"1"`
+	Digest2 [blake2b.Size256]byte `seri:"0"`
 }
 
 // NewED25519Address creates a new ED25519Address from the given public key.
@@ -213,8 +214,8 @@ func (e *ED25519Address) Type() AddressType {
 }
 
 // Type returns the AddressType of the Address.
-func (e *ED25519Address) ObjectCode() uint32 {
-	return uint32(ED25519AddressType)
+func (e ED25519Address) ObjectCode() interface{} {
+	return ED25519AddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -334,8 +335,8 @@ func (b *BLSAddress) Type() AddressType {
 	return BLSAddressType
 }
 
-func (b *BLSAddress) ObjectCode() uint32 {
-	return uint32(BLSAddressType)
+func (b *BLSAddress) ObjectCode() interface{} {
+	return BLSAddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.
@@ -462,8 +463,8 @@ func (a *AliasAddress) Type() AddressType {
 	return AliasAddressType
 }
 
-func (a *AliasAddress) ObjectCode() uint32 {
-	return uint32(AliasAddressType)
+func (a *AliasAddress) ObjectCode() interface{} {
+	return AliasAddressType
 }
 
 // Digest returns the hashed version of the Addresses public key.

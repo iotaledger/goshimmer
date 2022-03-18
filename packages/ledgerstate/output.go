@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -18,8 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -541,7 +542,7 @@ type SigLockedSingleOutput struct {
 }
 
 type sigLockedSingleOutputInner struct {
-	Type    OutputType `seri:"0"`
+	Type    uint8 `seri:"0"`
 	ID      OutputID
 	idMutex sync.RWMutex
 	Balance uint64  `seri:"1"`
@@ -633,6 +634,10 @@ func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
 func (s *SigLockedSingleOutput) Type() OutputType {
+	return SigLockedSingleOutputType
+}
+
+func (s *SigLockedSingleOutput) ObjectCdode() interface{} {
 	return SigLockedSingleOutputType
 }
 
