@@ -5,33 +5,42 @@ import (
 
 	"github.com/cockroachdb/errors"
 
+	"github.com/iotaledger/hive.go/types"
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/types"
-	"go.uber.org/atomic"
 )
 
 type walletID int
+
+// WalletType is the type of the wallet.
 type WalletType int8
+type WalletStatus int8
 
 const (
-	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	other WalletType = iota
+	// fresh is used for automatic Faucet Requests, outputs are returned one by one
 	fresh
+	// reuse stores resulting outputs of double spends or transactions issued by the evilWallet
+	reuse
 )
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Wallets is a container of wallets.
 type Wallets struct {
 	wallets map[walletID]*Wallet
 	// we store here non-empty wallets ids of wallets with fresh faucet outputs.
 	faucetWallets []walletID
+	reuseWallets  []walletID
 	mu            sync.RWMutex
 
 	lastWalletID atomic.Int64
 }
 
+// NewWallets creates and returns a new Wallets container.
 func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:       make(map[walletID]*Wallet),
@@ -40,29 +49,47 @@ func NewWallets() *Wallets {
 	}
 }
 
+// NewWallet adds a new wallet to Wallets and returns the created wallet.
 func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
-	wallet := NewWallet()
+	wallet := NewWallet(walletType)
 	wallet.ID = walletID(w.lastWalletID.Add(1))
 
-	w.addWallet(wallet, walletType)
+	w.addWallet(wallet)
 
 	return wallet
 }
 
+// GetWallet returns the wallet with the specified ID.
 func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 	return w.wallets[walletID]
 }
 
+// GetNextWallet get next non-empty wallet based on provided type.
+func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
+	w.mu.RLock()
+	defer w.mu.Unlock()
+
+	switch walletType {
+	case fresh:
+		if !w.IsFaucetWalletAvailable() {
+			return nil, errors.New("no faucet wallets available, need to request more funds")
+		}
+		wallet := w.wallets[w.faucetWallets[0]]
+		if wallet.IsEmpty() {
+			return nil, errors.New("wallet is empty, need to request more funds")
+		}
+		return wallet, nil
+	}
+	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
+}
+
 // addWallet stores newly created wallet.
-func (w *Wallets) addWallet(wallet *Wallet, wType WalletType) {
+func (w *Wallets) addWallet(wallet *Wallet) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	w.wallets[wallet.ID] = wallet
-	switch wType {
-	case fresh:
-		w.faucetWallets = append(w.faucetWallets, wallet.ID)
-	}
+
 }
 
 // GetUnspentOutput gets first found unspent output for a given walletType
@@ -73,28 +100,66 @@ func (w *Wallets) GetUnspentOutput(wallet *Wallet) *Output {
 	return wallet.GetUnspentOutput()
 }
 
-func (w *Wallets) FreshWallet() *Wallet {
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
-	}
-	return nil
+// IsFaucetWalletAvailable checks if there is any faucet wallet left.
+func (w *Wallets) IsFaucetWalletAvailable() bool {
+	return len(w.faucetWallets) > 0
 }
 
-func (w *Wallets) RemoveWallet() *Wallet {
-
-	if len(w.faucetWallets) > 0 {
-		return w.wallets[w.faucetWallets[0]]
+// FreshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
+// it is removed and the next enqueued one is returned.
+func (w *Wallets) FreshWallet() (*Wallet, error) {
+	wallet, err := w.GetNextWallet(fresh)
+	if err != nil {
+		w.removeWallet(fresh)
+		wallet, err = w.GetNextWallet(fresh)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return nil
+	return wallet, nil
+}
+
+// removeWallet removes wallet, for fresh wallet it will be the first wallet in a queue.
+func (w *Wallets) removeWallet(wType WalletType) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	switch wType {
+	case fresh:
+		if w.IsFaucetWalletAvailable() {
+			removedID := w.faucetWallets[0]
+			w.faucetWallets = w.faucetWallets[1:]
+			delete(w.wallets, removedID)
+		}
+	}
+	return
+}
+
+// SetWalletReady makes wallet ready to use, fresh wallet is added to freshWallets queue.
+func (w *Wallets) SetWalletReady(wallet *Wallet) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if wallet.IsEmpty() {
+		return
+	}
+	wType := wallet.walletType
+	switch wType {
+	case fresh:
+		w.faucetWallets = append(w.faucetWallets, wallet.ID)
+	case reuse:
+		w.reuseWallets = append(w.reuseWallets, wallet.ID)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Wallet is the definition of a wallet.
 type Wallet struct {
-	ID walletID
-
+	ID                walletID
+	walletType        WalletType
 	unspentOutputs    map[string]*Output // maps addr to its unspentOutput
 	indexAddrMap      map[uint64]string
 	addrIndexMap      map[string]uint64
@@ -108,10 +173,15 @@ type Wallet struct {
 }
 
 // NewWallet creates a wallet of a given type.
-func NewWallet() *Wallet {
+func NewWallet(wType ...WalletType) *Wallet {
+	walletType := other
+	if len(wType) > 0 {
+		walletType = wType[0]
+	}
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
 	wallet := &Wallet{
+		walletType:        walletType,
 		ID:                -1,
 		seed:              seed.NewSeed(),
 		unspentOutputs:    make(map[string]*Output),
@@ -139,6 +209,7 @@ func (w *Wallet) Address() address.Address {
 	return addr
 }
 
+// UnspentOutput returns the unspent output on the address.
 func (w *Wallet) UnspentOutput(addr string) *Output {
 	w.RLock()
 	defer w.RUnlock()
@@ -146,17 +217,18 @@ func (w *Wallet) UnspentOutput(addr string) *Output {
 
 }
 
+// UnspentOutputs returns all unspent outputs on the wallet.
 func (w *Wallet) UnspentOutputs() (outputs map[string]*Output) {
 	w.RLock()
+	defer w.RUnlock()
 	outputs = make(map[string]*Output)
 	for addr, out := range w.unspentOutputs {
 		outputs[addr] = out
 	}
-	defer w.RUnlock()
 	return outputs
-
 }
 
+// IndexAddrMap returns the address for the index specified.
 func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 	w.RLock()
 	defer w.RUnlock()
@@ -180,6 +252,7 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 	return out
 }
 
+// UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
 func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
 	w.RLock()
 	defer w.RUnlock()
@@ -190,10 +263,12 @@ func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances 
 	return &ledgerstate.ColoredBalances{}
 }
 
+// IsEmpty returns true if the wallet is empty.
 func (w *Wallet) IsEmpty() bool {
 	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
 }
 
+// GetUnspentOutput returns an unspent output on the oldest address ordered by index.
 func (w *Wallet) GetUnspentOutput() *Output {
 	if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
 		idx := w.lastAddrSpent.Add(1)
@@ -203,6 +278,7 @@ func (w *Wallet) GetUnspentOutput() *Output {
 	return nil
 }
 
+// createOutputs creates n outputs by splitting the given balance equally between them.
 func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBalances) (outputs []ledgerstate.Output) {
 	amount, _ := inputBalance.Get(ledgerstate.ColorIOTA)
 	outputBalances := SplitBalanceEqually(nOutputs, amount)
@@ -218,12 +294,14 @@ func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBa
 	return
 }
 
+// sign signs the tx essence.
 func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	index := w.addrIndexMap[addr.Base58()]
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
 
+// UpdateUnspentOutputID updates the unspent output on the address specified.
 func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputID) error {
 	w.RLock()
 	walletOutput, ok := w.unspentOutputs[addr]
@@ -237,6 +315,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	return nil
 }
 
+// UpdateUnspentOutputStatus updates the status of the unspent output on the address specified.
 func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) error {
 	w.RLock()
 	walletOutput, ok := w.unspentOutputs[addr]
@@ -250,6 +329,7 @@ func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) err
 	return nil
 }
 
+// UnspentOutputsLength returns the number of unspent outputs on the wallet.
 func (w *Wallet) UnspentOutputsLength() int {
 	return len(w.unspentOutputs)
 }

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"reflect"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -52,6 +53,7 @@ type GoShimmer struct {
 	Prometheus
 	Profiling
 	Dashboard
+	Dagsvisualizer
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -160,6 +162,13 @@ type Dashboard struct {
 	Enabled bool
 
 	dashboard.ParametersDefinition
+}
+
+// Dagsvisualizer defines the parameters of the Dag Visualizer plugin.
+type Dagsvisualizer struct {
+	Enabled bool
+
+	dagsvisualizer.ParametersDefinition
 }
 
 // CreateIdentity returns an identity based on the config.

@@ -1,16 +1,18 @@
 package evilwallet
 
 import (
-	"errors"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
+	"github.com/iotaledger/hive.go/identity"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/hive.go/identity"
 )
 
 const (
@@ -103,9 +105,9 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		return
 	}
 
-	if len(buildOptions.aliasName) > 0 {
+	if buildOptions.outputAliasName != "" {
 		input := ledgerstate.NewUTXOInput(out.OutputID)
-		e.aliasManager.AddInputAlias(input, buildOptions.aliasName)
+		e.aliasManager.AddInputAlias(input, buildOptions.outputAliasName)
 	}
 
 	return nil
@@ -119,11 +121,12 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 
 	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
 		wg.Add(1)
+		// block if full
+		semaphore <- true
 		go func() {
 			defer wg.Done()
-			// block and release goroutines
-			semaphore <- true
 			defer func() {
+				// release
 				<-semaphore
 			}()
 
@@ -152,6 +155,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	if err != nil {
 		return
 	}
+	e.wallets.SetWalletReady(w)
 	return
 }
 
@@ -163,7 +167,7 @@ func (e *EvilWallet) RequestFreshFaucetWallet() (wallet *Wallet, err error) {
 	if err != nil {
 		return
 	}
-
+	e.wallets.SetWalletReady(wallet)
 	return
 }
 
@@ -211,7 +215,6 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 	if inputWallet.IsEmpty() {
 		return []string{}
 	}
-	// Add all aliases before creating txs
 	inputs, outputs := e.handleInputOutputDuringSplitOutputs(splitNumber, inputWallet)
 	inputNum := 0
 
@@ -262,9 +265,11 @@ func (e *EvilWallet) ClearAliases() {
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
 func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+	outputWallet := e.NewWallet(reuse)
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for _, options := range conflictMap {
+			options = append(options, WithOutputWallet(outputWallet))
 			tx, err := e.CreateTransaction(options...)
 			if err != nil {
 				return err
@@ -296,23 +301,19 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []
 // CreateTransaction creates a transaction with the given aliasName and options.
 func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
-	// if input wallet is not specified, use fresh faucet wallet
-	if buildOptions.issuer == nil {
-		if wallet := e.wallets.FreshWallet(); wallet != nil {
-			buildOptions.issuer = wallet
-		} else {
-			return nil, errors.New("no fresh wallet is available")
-		}
-	}
+
 	if buildOptions.outputWallet == nil {
-		buildOptions.outputWallet = NewWallet()
+		buildOptions.outputWallet = e.NewWallet()
 	}
 
 	if (len(buildOptions.inputs) == 0 && len(buildOptions.aliasInputs) == 0) ||
 		(len(buildOptions.outputs) == 0 && len(buildOptions.aliasOutputs) == 0) {
 		return
 	}
-	inputs := e.prepareInputs(buildOptions)
+	inputs, err := e.prepareInputs(buildOptions)
+	if err != nil {
+		return nil, err
+	}
 	outputs, addrAliasMap, err := e.matchOutputsWithAliases(buildOptions)
 	if err != nil {
 		return nil, err
@@ -361,25 +362,38 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 	return
 }
 
-func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.Input) {
+func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	// append inputs with alias
-	aliasInputs := e.matchInputsWithAliases(buildOptions)
+	aliasInputs, err := e.matchInputsWithAliases(buildOptions)
+	if err != nil {
+		return nil, err
+	}
 	inputs = append(inputs, aliasInputs...)
 
 	// append inputs that without alias
 	inputs = append(inputs, buildOptions.inputs...)
 
-	return inputs
+	return inputs, nil
 }
 
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
 // it assigns a new fresh faucet output.
-func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input) {
+func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	// get inputs by alias
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
-		// No output found for given alias, use internal fresh output if wallets are non-empty.
-		if !ok {
+		if ok {
+			err = e.updateIssuerWalletForAlias(buildOptions, in)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// No output found for given alias, use internal fresh output if wallets are non-empty.
+			err = e.getIssuerWallet(buildOptions)
+			if err != nil {
+				return nil, err
+			}
+
 			out := e.wallets.GetUnspentOutput(buildOptions.issuer)
 			if out == nil {
 				return
@@ -387,13 +401,33 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
+
 		inputs = append(inputs, in)
 	}
+	return inputs, nil
+}
 
-	// append inputs that without alias
-	inputs = append(inputs, buildOptions.inputs...)
+func (e *EvilWallet) getIssuerWallet(buildOptions *Options) error {
+	// if input wallet is not specified, use fresh faucet wallet
+	if buildOptions.issuer == nil {
+		if wallet, err2 := e.wallets.FreshWallet(); wallet != nil {
+			buildOptions.issuer = wallet
+		} else {
+			return errors.Newf("no fresh wallet is available: %w", err2)
+		}
+	}
+	return nil
+}
 
-	return inputs
+func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledgerstate.Input) error {
+	inputWallet := e.outputManager.outputIDWalletMap[in.Base58()]
+	if buildOptions.issuer == nil {
+		buildOptions.issuer = inputWallet
+	}
+	if buildOptions.issuer.ID != inputWallet.ID {
+		return errors.New("provided inputs had to belong to the same wallets")
+	}
+	return nil
 }
 
 // matchOutputsWithAliases creates outputs based on balances provided via options.
@@ -567,7 +601,7 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EvilScenario struct {
-	// todo this should have instructions for evil wallet
+	// TODO: this should have instructions for evil wallet
 	// how to handle this spamming scenario, which input wallet use,
 	// where to store outputs of spam ect.
 	// All logic of conflict creation will be hidden from spammer or integration test users

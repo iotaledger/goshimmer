@@ -3,7 +3,6 @@ package tangle
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net"
 	"runtime"
 	"sync"
@@ -11,13 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/otv"
-
 	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/datastructure/randommap"
+	"github.com/iotaledger/hive.go/generics/randommap"
+
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -25,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -35,8 +34,8 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	var pool async.WorkerPool
 	pool.Tune(runtime.GOMAXPROCS(0))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDsSlice, err error) {
-		return []MessageID{EmptyMessageID}, nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+		return NewMessageIDs(EmptyMessageID), nil
 	}), emptyLikeReferences)
 
 	messages := make([][]byte, b.N)
@@ -51,7 +50,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if msg, _, err := MessageFromBytes(messages[currentIndex]); err != nil {
+			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
 				msg.VerifySignature()
@@ -67,8 +66,8 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDsSlice, err error) {
-		return []MessageID{EmptyMessageID}, nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
+		return NewMessageIDs(EmptyMessageID), nil
 	}), emptyLikeReferences)
 
 	messages := make([]*Message, b.N)
@@ -127,17 +126,17 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 
 	var storedMessages, solidMessages, invalidMessages int32
 
-	newOldParentsMessage := func(strongParents []MessageID) *Message {
+	newOldParentsMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
-	newYoungParentsMessage := func(strongParents []MessageID) *Message {
+	newYoungParentsMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
-	newValidMessage := func(strongParents []MessageID) *Message {
+	newValidMessage := func(strongParents MessageIDs) *Message {
 		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
@@ -162,9 +161,9 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 
 	messageA := newTestDataMessage("some data")
 	messageB := newTestDataMessage("some data1")
-	messageC := newValidMessage([]MessageID{messageA.ID(), messageB.ID()})
-	messageOldParents := newOldParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
-	messageYoungParents := newYoungParentsMessage([]MessageID{messageA.ID(), messageB.ID()})
+	messageC := newValidMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
+	messageOldParents := newOldParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
+	messageYoungParents := newYoungParentsMessage(NewMessageIDs(messageA.ID(), messageB.ID()))
 
 	wg.Add(5)
 	messageTangle.Storage.StoreMessage(messageA)
@@ -235,20 +234,20 @@ func TestTangle_MissingMessages(t *testing.T) {
 	require.NoError(t, tangle.Prune())
 
 	// map to keep track of the tips
-	tips := randommap.New()
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, nil
+				return NewMessageIDs(EmptyMessageID), nil
 			}
-			parents := make([]MessageID, len(r))
-			for i := range r {
-				parents[i] = r[i].(MessageID)
+			parents := NewMessageIDs()
+			for _, tip := range r {
+				parents.Add(tip)
 			}
 			return parents, nil
 		}),
@@ -263,8 +262,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 		// remove a tip if the width of the tangle is reached
 		if tips.Size() >= tangleWidth {
-			index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
-			tips.Delete(msg.ParentsByType(StrongParentType)[index])
+			tips.Delete(msg.ParentsByType(StrongParentType).First())
 		}
 
 		// add current message as a tip
@@ -318,7 +316,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) { tangle.Storage.StoreMessage(messages[key.(MessageID)]) })
+	tips.ForEach(func(key MessageID, _ MessageID) { tangle.Storage.StoreMessage(messages[key]) })
 
 	// wait for all transactions to become solid
 	assert.Eventually(t, func() bool { return atomic.LoadInt32(&solidMessages) == messageCount }, 5*time.Minute, 100*time.Millisecond)
@@ -334,13 +332,13 @@ func TestRetrieveAllTips(t *testing.T) {
 	defer messageTangle.Shutdown()
 
 	messageA := newTestParentsDataMessage("A", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{EmptyMessageID}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(EmptyMessageID),
 	})
 	messageB := newTestParentsDataMessage("B", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(messageA.ID()),
 	})
 	messageC := newTestParentsDataMessage("C", ParentMessageIDs{
-		StrongParentType: MessageIDsSlice{messageA.ID()}.ToMessageIDs(),
+		StrongParentType: NewMessageIDs(messageA.ID()),
 	})
 
 	var wg sync.WaitGroup
@@ -385,7 +383,7 @@ func TestTangle_Flow(t *testing.T) {
 	require.NoError(t, err)
 
 	// map to keep track of the tips
-	tips := randommap.New()
+	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
@@ -401,14 +399,15 @@ func TestTangle_Flow(t *testing.T) {
 	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDsSlice, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return []MessageID{EmptyMessageID}, nil
+				return NewMessageIDs(EmptyMessageID), nil
 			}
-			parents := make([]MessageID, len(r))
-			for i := range r {
-				parents[i] = r[i].(MessageID)
+
+			parents := NewMessageIDs()
+			for _, tip := range r {
+				parents.Add(tip)
 			}
 			return parents, nil
 		}),
@@ -437,8 +436,7 @@ func TestTangle_Flow(t *testing.T) {
 		// remove a tip if the width of the tangle is reached
 		if !invalidTS {
 			if tips.Size() >= tangleWidth {
-				index := rand.Intn(len(msg.ParentsByType(StrongParentType)))
-				tips.Delete(msg.ParentsByType(StrongParentType)[index])
+				tips.Delete(msg.ParentsByType(StrongParentType).First())
 			}
 		}
 
@@ -563,11 +561,11 @@ func TestTangle_Flow(t *testing.T) {
 	tangle.Setup()
 
 	// issue tips to start solidification
-	tips.ForEach(func(key interface{}, _ interface{}) {
-		if key.(MessageID) == EmptyMessageID {
+	tips.ForEach(func(key MessageID, _ MessageID) {
+		if key == EmptyMessageID {
 			return
 		}
-		inboxWP.TrySubmit(messages[key.(MessageID)].Bytes(), localPeer)
+		inboxWP.TrySubmit(messages[key].Bytes(), localPeer)
 	})
 	// incoming invalid messages
 	for _, msg := range invalidmsgs {
@@ -599,8 +597,6 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	f.issuanceMutex.Lock()
-	defer f.issuanceMutex.Unlock()
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
 		err = fmt.Errorf("could not create sequence number: %w", err)

@@ -26,7 +26,7 @@ services:
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
@@ -59,14 +59,11 @@ services:
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
       --webAPI.exportPath=/tmp/
     deploy:
       replicas: ${SHIMMER_PEER_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
-        max_attempts: 5
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -84,7 +81,7 @@ services:
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --mana.snapshotResetTime=true
@@ -117,7 +114,7 @@ services:
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
       --webAPI.exportPath=/tmp/
     secrets:
@@ -125,6 +122,7 @@ services:
       - goshimmer.message.snapshot.bin
     ports:
       - "8090:8080/tcp" # web API
+      - "8051:8061/tcp" # dags visualizer
       - "8091:8081/tcp" # dashboard
       - "6091:6061/tcp" # pprof
     networks:
@@ -147,7 +145,6 @@ services:
       - peer_master
   grafana:
     image: grafana/grafana:latest
-    restart: unless-stopped
     profiles:
       - grafana
     environment:

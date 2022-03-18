@@ -5,6 +5,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -64,23 +65,24 @@ func (l *LedgerState) TransactionValid(transaction *ledgerstate.Transaction, mes
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
 func (l *LedgerState) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
-	return l.BranchID(transactionID) == ledgerstate.NewBranchID(transactionID)
+	branchIDs := l.BranchIDs(transactionID)
+	return len(branchIDs) == 1 && branchIDs.Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *ledgerstate.CachedTransactionMetadata) {
+func (l *LedgerState) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *objectstorage.CachedObject[*ledgerstate.TransactionMetadata]) {
 	return l.UTXODAG.CachedTransactionMetadata(transactionID)
 }
 
 // Transaction retrieves the Transaction with the given TransactionID from the object storage.
-func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransaction {
+func (l *LedgerState) Transaction(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.Transaction] {
 	return l.UTXODAG.CachedTransaction(transactionID)
 }
 
 // BookTransaction books the given Transaction into the underlying LedgerState and returns the target Branch and an
 // eventual error.
-func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranch ledgerstate.BranchID, err error) {
-	targetBranch, err = l.UTXODAG.BookTransaction(transaction)
+func (l *LedgerState) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranches ledgerstate.BranchIDs, err error) {
+	targetBranches, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
 		err = errors.Errorf("failed to book Transaction: %w", err)
 
@@ -100,8 +102,8 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	conflictIDs := make(ledgerstate.ConflictIDs)
 	conflictSet = make(ledgerstate.TransactionIDs)
 
-	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch ledgerstate.Branch) {
-		conflictIDs = branch.(*ledgerstate.ConflictBranch).Conflicts()
+	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch *ledgerstate.Branch) {
+		conflictIDs = branch.Conflicts()
 	})
 
 	for conflictID := range conflictIDs {
@@ -113,10 +115,10 @@ func (l *LedgerState) ConflictSet(transactionID ledgerstate.TransactionID) (conf
 	return
 }
 
-// BranchID returns the branchID of the given transactionID.
-func (l *LedgerState) BranchID(transactionID ledgerstate.TransactionID) (branchID ledgerstate.BranchID) {
+// BranchIDs returns the branchIDs of the given transactionID.
+func (l *LedgerState) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		branchID = transactionMetadata.BranchID()
+		branchIDs = transactionMetadata.BranchIDs()
 	})
 	return
 }
@@ -150,7 +152,7 @@ func (l *LedgerState) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
 func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	// The following parameter should be larger than the max allowed timestamp variation, and the required time for confirmation.
-	// We can snapshot this far in the past, since global snapshots dont occur frequent and it is ok to ignore the last few minutes.
+	// We can snapshot this far in the past, since global snapshots don't occur frequent, and it is ok to ignore the last few minutes.
 	minAge := 120 * time.Second
 	snapshot = &ledgerstate.Snapshot{
 		Transactions: make(map[ledgerstate.TransactionID]ledgerstate.Record),
@@ -163,8 +165,11 @@ func (l *LedgerState) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 		// skip transactions that are not confirmed
 		var isUnconfirmed bool
 		l.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			if !l.tangle.ConfirmationOracle.IsBranchConfirmed(transactionMetadata.BranchID()) {
-				isUnconfirmed = true
+			for branchID := range transactionMetadata.BranchIDs() {
+				if !l.tangle.ConfirmationOracle.IsBranchConfirmed(branchID) {
+					isUnconfirmed = true
+					break
+				}
 			}
 		})
 
@@ -218,22 +223,22 @@ func (l *LedgerState) Transactions() (transactions map[ledgerstate.TransactionID
 }
 
 // CachedOutput returns the Output with the given ID.
-func (l *LedgerState) CachedOutput(outputID ledgerstate.OutputID) *ledgerstate.CachedOutput {
+func (l *LedgerState) CachedOutput(outputID ledgerstate.OutputID) *objectstorage.CachedObject[ledgerstate.Output] {
 	return l.UTXODAG.CachedOutput(outputID)
 }
 
 // CachedOutputMetadata returns the OutputMetadata with the given ID.
-func (l *LedgerState) CachedOutputMetadata(outputID ledgerstate.OutputID) *ledgerstate.CachedOutputMetadata {
+func (l *LedgerState) CachedOutputMetadata(outputID ledgerstate.OutputID) *objectstorage.CachedObject[*ledgerstate.OutputMetadata] {
 	return l.UTXODAG.CachedOutputMetadata(outputID)
 }
 
 // CachedTransactionMetadata returns the TransactionMetadata with the given ID.
-func (l *LedgerState) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *ledgerstate.CachedTransactionMetadata {
+func (l *LedgerState) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.TransactionMetadata] {
 	return l.UTXODAG.CachedTransactionMetadata(transactionID)
 }
 
 // CachedOutputsOnAddress retrieves all the Outputs that are associated with an address.
-func (l *LedgerState) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs ledgerstate.CachedOutputs) {
+func (l *LedgerState) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs objectstorage.CachedObjects[ledgerstate.Output]) {
 	l.UTXODAG.CachedAddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
 		cachedOutputs = append(cachedOutputs, l.CachedOutput(addressOutputMapping.OutputID()))
 	})
@@ -246,12 +251,12 @@ func (l *LedgerState) CheckTransaction(transaction *ledgerstate.Transaction) (er
 }
 
 // ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs ledgerstate.CachedOutputs) {
+func (l *LedgerState) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs objectstorage.CachedObjects[ledgerstate.Output]) {
 	return l.UTXODAG.ConsumedOutputs(transaction)
 }
 
 // Consumers returns the (cached) consumers of the given outputID.
-func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions ledgerstate.CachedConsumers) {
+func (l *LedgerState) Consumers(outputID ledgerstate.OutputID) (cachedTransactions objectstorage.CachedObjects[*ledgerstate.Consumer]) {
 	return l.UTXODAG.CachedConsumers(outputID)
 }
 

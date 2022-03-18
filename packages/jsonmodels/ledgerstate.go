@@ -480,7 +480,7 @@ func NewOutputID(outputID ledgerstate.OutputID) *OutputID {
 // OutputMetadata represents the JSON model of the ledgerstate.OutputMetadata.
 type OutputMetadata struct {
 	OutputID            *OutputID           `json:"outputID"`
-	BranchID            string              `json:"branchID"`
+	BranchIDs           []string            `json:"branchIDs"`
 	Solid               bool                `json:"solid"`
 	SolidificationTime  int64               `json:"solidificationTime"`
 	ConsumerCount       int                 `json:"consumerCount"`
@@ -493,7 +493,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputMetadata *ledgerstate.OutputMetadata, confirmedConsumerID ledgerstate.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchID:            outputMetadata.BranchID().Base58(),
+		BranchIDs:           outputMetadata.BranchIDs().Base58(),
 		Solid:               outputMetadata.Solid(),
 		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
 		ConsumerCount:       outputMetadata.ConsumerCount(),
@@ -528,7 +528,6 @@ func NewConsumer(consumer *ledgerstate.Consumer) *Consumer {
 // Branch represents the JSON model of a ledgerstate.Branch.
 type Branch struct {
 	ID              string              `json:"id"`
-	Type            string              `json:"type"`
 	Parents         []string            `json:"parents"`
 	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
 	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
@@ -536,10 +535,9 @@ type Branch struct {
 }
 
 // NewBranch returns a Branch from the given ledgerstate.Branch.
-func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
+func NewBranch(branch *ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
-		ID:   branch.ID().Base58(),
-		Type: branch.Type().String(),
+		ID: branch.ID().Base58(),
 		Parents: func() []string {
 			parents := make([]string, 0)
 			for id := range branch.Parents() {
@@ -549,12 +547,8 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 			return parents
 		}(),
 		ConflictIDs: func() []string {
-			if branch.Type() != ledgerstate.ConflictBranchType {
-				return make([]string, 0)
-			}
-
 			conflictIDs := make([]string, 0)
-			for conflictID := range branch.(*ledgerstate.ConflictBranch).Conflicts() {
+			for conflictID := range branch.Conflicts() {
 				conflictIDs = append(conflictIDs, conflictID.Base58())
 			}
 
@@ -571,15 +565,13 @@ func NewBranch(branch ledgerstate.Branch, gradeOfFinality gof.GradeOfFinality, a
 
 // ChildBranch represents the JSON model of a ledgerstate.ChildBranch.
 type ChildBranch struct {
-	BranchID   string `json:"branchID"`
-	BranchType string `json:"type"`
+	BranchID string `json:"branchID"`
 }
 
 // NewChildBranch returns a ChildBranch from the given ledgerstate.ChildBranch.
 func NewChildBranch(childBranch *ledgerstate.ChildBranch) *ChildBranch {
 	return &ChildBranch{
-		BranchID:   childBranch.ChildBranchID().Base58(),
-		BranchType: childBranch.ChildBranchType().String(),
+		BranchID: childBranch.ChildBranchID().Base58(),
 	}
 }
 
@@ -740,7 +732,7 @@ func NewUnlockBlock(unlockBlock ledgerstate.UnlockBlock) *UnlockBlock {
 // TransactionMetadata represents the JSON model of the ledgerstate.TransactionMetadata.
 type TransactionMetadata struct {
 	TransactionID       string              `json:"transactionID"`
-	BranchID            string              `json:"branchID"`
+	BranchIDs           []string            `json:"branchIDs"`
 	Solid               bool                `json:"solid"`
 	SolidificationTime  int64               `json:"solidificationTime"`
 	LazyBooked          bool                `json:"lazyBooked"`
@@ -752,7 +744,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledgerstate.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchID:            transactionMetadata.BranchID().Base58(),
+		BranchIDs:           transactionMetadata.BranchIDs().Base58(),
 		Solid:               transactionMetadata.Solid(),
 		SolidificationTime:  transactionMetadata.SolidificationTime().Unix(),
 		LazyBooked:          transactionMetadata.LazyBooked(),

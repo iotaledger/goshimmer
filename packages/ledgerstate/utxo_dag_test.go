@@ -5,15 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/database"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 var (
@@ -35,7 +34,7 @@ func TestExampleC(t *testing.T) {
 		transactions["TX1"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
 		targetBranch1, err := ledgerstate.BookTransaction(transactions["TX1"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch1)
 	}
 
 	// Prepare and book TX2
@@ -44,7 +43,7 @@ func TestExampleC(t *testing.T) {
 		transactions["TX2"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
 		targetBranch2, err := ledgerstate.BookTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch2)
 	}
 
 	// Prepare and book TX3
@@ -55,7 +54,7 @@ func TestExampleC(t *testing.T) {
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
 	}
 
 	// Prepare and book Tx4 (double spending B)
@@ -63,7 +62,7 @@ func TestExampleC(t *testing.T) {
 		transactions["TX4"] = buildTransaction(ledgerstate, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
 		targetBranch4, err := ledgerstate.BookTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX4"].ID())), targetBranch4)
 	}
 
 	// Prepare and book TX5 (double spending A)
@@ -71,30 +70,15 @@ func TestExampleC(t *testing.T) {
 		transactions["TX5"] = buildTransaction(ledgerstate, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["A"]})
 		targetBranch5, err := ledgerstate.BookTransaction(transactions["TX5"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX5"].ID())), targetBranch5)
 	}
 
-	// Checking TX3
+	// Checking branches stored in TX3's metadata
 	{
 		// Checking that the BranchID of Tx3 is correct
-		Tx3AggregatedBranch := NewAggregatedBranch(NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())))
+		Tx3BranchIDs := NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID()))
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3AggregatedBranch.ID(), metadata.BranchID())
-		})
-
-		// Checking that the parents BranchID of TX3 are TX1 and TX2
-		ledgerstate.Branch(Tx3AggregatedBranch.ID()).Consume(func(branch Branch) {
-			assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX1"].ID()), NewBranchID(transactions["TX2"].ID())), branch.Parents())
-		})
-
-		time.Sleep(1 * time.Second)
-
-		ledgerstate.ChildBranches(NewBranchID(transactions["TX1"].ID())).Consume(func(childBranch *ChildBranch) {
-			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
-		})
-
-		ledgerstate.ChildBranches(NewBranchID(transactions["TX2"].ID())).Consume(func(childBranch *ChildBranch) {
-			assert.Equal(t, AggregatedBranchType, childBranch.ChildBranchType())
+			assert.Equal(t, Tx3BranchIDs, metadata.BranchIDs())
 		})
 	}
 }
@@ -113,16 +97,18 @@ func TestExampleB(t *testing.T) {
 		transactions["TX1"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
 		targetBranch1, err := ledgerstate.BookTransaction(transactions["TX1"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch1)
 	}
 
 	// Prepare and book TX2
 	{
 		outputs["B"] = generateOutput(ledgerstate, wallets[0].address, 1)
 		transactions["TX2"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
+		RegisterBranchIDAlias(NewBranchID(transactions["TX2"].ID()), "Branch2")
+
 		targetBranch2, err := ledgerstate.BookTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch2)
 	}
 
 	// Prepare and book TX3
@@ -131,17 +117,19 @@ func TestExampleB(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		RegisterBranchIDAlias(NewBranchID(transactions["TX3"].ID()), "Branch3")
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
 	}
 
 	// Prepare and book Tx4
 	{
 		transactions["TX4"] = buildTransaction(ledgerstate, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["D"]})
+		RegisterBranchIDAlias(NewBranchID(transactions["TX4"].ID()), "Branch4")
 		targetBranch4, err := ledgerstate.BookTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX4"].ID())), targetBranch4)
 	}
 
 	// Checking TX3
@@ -149,11 +137,11 @@ func TestExampleB(t *testing.T) {
 		// Checking that the BranchID of Tx3 is correct
 		Tx3BranchID := NewBranchID(transactions["TX3"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3BranchID, metadata.BranchID())
+			assert.Equal(t, NewBranchIDs(Tx3BranchID), metadata.BranchIDs())
 		})
 
 		// Checking that the parents BranchID of Tx3 is MasterBranchID
-		ledgerstate.Branch(Tx3BranchID).Consume(func(branch Branch) {
+		ledgerstate.Branch(Tx3BranchID).Consume(func(branch *Branch) {
 			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
 	}
@@ -163,10 +151,10 @@ func TestExampleB(t *testing.T) {
 		// Checking that the BranchID of Tx4 is correct
 		Tx4BranchID := NewBranchID(transactions["TX4"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX4"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx4BranchID, metadata.BranchID())
+			assert.Equal(t, NewBranchIDs(Tx4BranchID), metadata.BranchIDs())
 		})
 		// Checking that the parents BranchID of TX4 is MasterBranchID
-		ledgerstate.Branch(Tx4BranchID).Consume(func(branch Branch) {
+		ledgerstate.Branch(Tx4BranchID).Consume(func(branch *Branch) {
 			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
 	}
@@ -174,25 +162,26 @@ func TestExampleB(t *testing.T) {
 	// Prepare and book TX5
 	{
 		transactions["TX5"] = buildTransaction(ledgerstate, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
+		RegisterBranchIDAlias(NewBranchID(transactions["TX5"].ID()), "Branch5")
 		targetBranch5, err := ledgerstate.BookTransaction(transactions["TX5"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX5"].ID()), targetBranch5)
+		assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX5"].ID())), targetBranch5)
 	}
 
-	// Checking that the BranchID of TX2 is correct and it is the parent of both TX3 and TX4.
+	// Checking that the BranchID of TX2 is correct, and it is the parent of both TX3 and TX4.
 	{
 		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx2BranchID, metadata.BranchID())
+			assert.Equal(t, NewBranchIDs(Tx2BranchID), metadata.BranchIDs())
 		})
 
 		// Checking that the parents BranchID of Tx3 is Tx2BranchID
-		ledgerstate.Branch(NewBranchID(transactions["TX3"].ID())).Consume(func(branch Branch) {
+		ledgerstate.Branch(NewBranchID(transactions["TX3"].ID())).Consume(func(branch *Branch) {
 			assert.Equal(t, NewBranchIDs(Tx2BranchID), branch.Parents())
 		})
 
 		// Checking that the parents BranchID of Tx4 is Tx2BranchID
-		ledgerstate.Branch(NewBranchID(transactions["TX4"].ID())).Consume(func(branch Branch) {
+		ledgerstate.Branch(NewBranchID(transactions["TX4"].ID())).Consume(func(branch *Branch) {
 			assert.Equal(t, NewBranchIDs(Tx2BranchID), branch.Parents())
 		})
 	}
@@ -212,7 +201,7 @@ func TestExampleA(t *testing.T) {
 		transactions["TX1"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["A"]})
 		targetBranch1, err := ledgerstate.BookTransaction(transactions["TX1"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch1)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch1)
 	}
 
 	// Prepare and book TX2
@@ -221,7 +210,7 @@ func TestExampleA(t *testing.T) {
 		transactions["TX2"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["B"]})
 		targetBranch2, err := ledgerstate.BookTransaction(transactions["TX2"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch2)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch2)
 	}
 
 	// Prepare and book TX3
@@ -232,7 +221,7 @@ func TestExampleA(t *testing.T) {
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
-		assert.Equal(t, MasterBranchID, targetBranch3)
+		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
 	}
 
 	// Prepare and book Tx4 (double spending B)
@@ -240,28 +229,26 @@ func TestExampleA(t *testing.T) {
 		transactions["TX4"] = buildTransaction(ledgerstate, wallets[0], wallets[1], []*SigLockedSingleOutput{outputs["B"]})
 		targetBranch4, err := ledgerstate.BookTransaction(transactions["TX4"])
 		require.NoError(t, err)
-		assert.Equal(t, NewBranchID(transactions["TX4"].ID()), targetBranch4)
+		assert.Equal(t, NewBranchIDs(NewBranchID(transactions["TX4"].ID())), targetBranch4)
 	}
 
 	// Checking TX2
+	expectedTx2BranchIDs := NewBranchIDs(NewBranchID(transactions["TX2"].ID()))
 	{
-		Tx2BranchID := NewBranchID(transactions["TX2"].ID())
 		ledgerstate.CachedTransactionMetadata(transactions["TX2"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx2BranchID, metadata.BranchID())
+			assert.Equal(t, expectedTx2BranchIDs, metadata.BranchIDs())
+		})
+		// Checking that the parents BranchID of TX2 is the MasterBranchID
+		ledgerstate.Branch(NewBranchID(transactions["TX2"].ID())).Consume(func(branch *Branch) {
+			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
 		})
 	}
 
 	// Checking TX3
 	{
-		// Checking that the BranchID of Tx3 is correct
-		Tx3BranchID := NewBranchID(transactions["TX2"].ID())
+		// Checking that the BranchID of Tx3 is correct == branch2
 		ledgerstate.CachedTransactionMetadata(transactions["TX3"].ID()).Consume(func(metadata *TransactionMetadata) {
-			assert.Equal(t, Tx3BranchID, metadata.BranchID())
-		})
-
-		// Checking that the parents BranchID of TX3 is the MasterBranchID
-		ledgerstate.Branch(Tx3BranchID).Consume(func(branch Branch) {
-			assert.Equal(t, NewBranchIDs(MasterBranchID), branch.Parents())
+			assert.Equal(t, expectedTx2BranchIDs, metadata.BranchIDs())
 		})
 	}
 }
@@ -276,7 +263,7 @@ func TestBookTransaction(t *testing.T) {
 	tx := buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{input})
 	targetBranch, err := ledgerstate.BookTransaction(tx)
 	require.NoError(t, err)
-	assert.Equal(t, MasterBranchID, targetBranch)
+	assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch)
 }
 
 func TestBookNonConflictingTransaction(t *testing.T) {
@@ -289,7 +276,7 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 
 	cachedTxMetadata := ledgerstate.CachedTransactionMetadata(tx.ID())
 	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
+	txMetadata, _ := cachedTxMetadata.Unwrap()
 
 	inputsMetadata := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx).Consume(func(metadata *OutputMetadata) {
@@ -297,13 +284,10 @@ func TestBookNonConflictingTransaction(t *testing.T) {
 	})
 
 	targetBranch := ledgerstate.bookNonConflictingTransaction(tx, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
+	assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch)
 
-	assert.Equal(t, MasterBranchID, targetBranch)
-
-	ledgerstate.Branch(txMetadata.BranchID()).Consume(func(branch Branch) {
-		assert.Equal(t, MasterBranchID, txMetadata.BranchID())
-		assert.True(t, txMetadata.Solid())
-	})
+	assert.Equal(t, NewBranchIDs(MasterBranchID), txMetadata.BranchIDs())
+	assert.True(t, txMetadata.Solid())
 
 	finality, err := ledgerstate.TransactionGradeOfFinality(tx.ID())
 	require.NoError(t, err)
@@ -323,7 +307,7 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	cachedTxMetadata := ledgerstate.CachedTransactionMetadata(tx1.ID())
 	defer cachedTxMetadata.Release()
-	txMetadata := cachedTxMetadata.Unwrap()
+	txMetadata, _ := cachedTxMetadata.Unwrap()
 
 	inputsMetadata := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx1).Consume(func(metadata *OutputMetadata) {
@@ -332,14 +316,14 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	ledgerstate.bookNonConflictingTransaction(tx1, txMetadata, inputsMetadata, BranchIDs{MasterBranchID: types.Void})
 
-	assert.Equal(t, MasterBranchID, txMetadata.BranchID())
+	assert.Equal(t, NewBranchIDs(MasterBranchID), txMetadata.BranchIDs())
 
 	// double spend
 	tx2, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
 
 	cachedTxMetadata2 := ledgerstate.CachedTransactionMetadata(tx2.ID())
 	defer cachedTxMetadata2.Release()
-	txMetadata2 := cachedTxMetadata2.Unwrap()
+	txMetadata2, _ := cachedTxMetadata2.Unwrap()
 
 	inputsMetadata2 := OutputsMetadata{}
 	ledgerstate.transactionInputsMetadata(tx2).Consume(func(metadata *OutputMetadata) {
@@ -352,12 +336,10 @@ func TestBookConflictingTransaction(t *testing.T) {
 
 	targetBranch2 := ledgerstate.bookConflictingTransaction(tx2, txMetadata2, inputsMetadata2, normalizedBranchIDs, conflictingInputs.ByID())
 
-	ledgerstate.Branch(txMetadata2.BranchID()).Consume(func(branch Branch) {
-		assert.Equal(t, targetBranch2, txMetadata2.BranchID())
-		assert.True(t, txMetadata2.Solid())
-	})
+	assert.Equal(t, targetBranch2, txMetadata2.BranchIDs())
+	assert.True(t, txMetadata2.Solid())
 
-	assert.NotEqual(t, MasterBranchID, txMetadata.BranchID())
+	assert.NotEqual(t, NewBranchIDs(MasterBranchID), txMetadata.BranchIDs())
 
 	finality, err := ledgerstate.TransactionGradeOfFinality(tx1.ID())
 	require.NoError(t, err)
@@ -370,18 +352,6 @@ func TestBookConflictingTransaction(t *testing.T) {
 	// check that the inputs are marked as spent
 	assert.False(t, ledgerstate.outputsUnspent(inputsMetadata))
 	assert.False(t, ledgerstate.outputsUnspent(inputsMetadata2))
-}
-
-func TestConsumedBranchIDs(t *testing.T) {
-	ledgerstate := setupDependencies(t)
-	defer ledgerstate.Shutdown()
-
-	wallets := createWallets(1)
-	branchIDs := BranchIDs{MasterBranchID: types.Void}
-	inputs := generateOutputs(ledgerstate, wallets[0].address, branchIDs)
-	tx := multipleInputsTransaction(ledgerstate, wallets[0], wallets[0], inputs, gof.High)
-
-	assert.Equal(t, branchIDs, ledgerstate.consumedBranchIDs(tx.ID()))
 }
 
 func TestCreatedOutputIDsOfTransaction(t *testing.T) {
@@ -609,7 +579,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(output.ID())
-		metadata.SetBranchID(MasterBranchID)
+		metadata.SetBranchIDs(NewBranchIDs(MasterBranchID))
 		metadata.SetSolid(true)
 		ledgerstate.outputMetadataStorage.Store(metadata).Release()
 	}
@@ -749,7 +719,7 @@ func generateOutput(ledgerstate *Ledgerstate, address Address, index uint16) *Si
 
 	// store OutputMetadata
 	metadata := NewOutputMetadata(output.ID())
-	metadata.SetBranchID(MasterBranchID)
+	metadata.AddBranchID(MasterBranchID)
 	metadata.SetSolid(true)
 	ledgerstate.outputMetadataStorage.Store(metadata).Release()
 
@@ -766,7 +736,7 @@ func generateOutputs(ledgerstate *Ledgerstate, address Address, branchIDs Branch
 
 		// store OutputMetadata
 		metadata := NewOutputMetadata(outputs[i].ID())
-		metadata.SetBranchID(branchID)
+		metadata.AddBranchID(branchID)
 		metadata.SetSolid(true)
 		ledgerstate.outputMetadataStorage.Store(metadata).Release()
 		i++
@@ -786,7 +756,7 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(tx.ID())
 	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetBranchID(MasterBranchID)
+	transactionMetadata.AddBranchID(MasterBranchID)
 
 	if len(optionalGradeOfFinality) >= 1 {
 		transactionMetadata.SetGradeOfFinality(optionalGradeOfFinality[0])
@@ -794,11 +764,11 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 		transactionMetadata.SetGradeOfFinality(gof.Low)
 	}
 
-	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
+	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *TransactionMetadata {
 		transactionMetadata.Persist()
 		transactionMetadata.SetModified()
 		return transactionMetadata
-	})}
+	})
 	defer cachedTransactionMetadata.Release()
 
 	ledgerstate.transactionStorage.Store(tx).Release()
@@ -806,47 +776,47 @@ func singleInputTransaction(ledgerstate *Ledgerstate, a, b wallet, outputToSpend
 	return tx, output
 }
 
-func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) *Transaction {
-	inputs := make(Inputs, len(outputsToSpend))
-	branchIDs := make(BranchIDs, len(outputsToSpend))
-	for i, outputToSpend := range outputsToSpend {
-		inputs[i] = NewUTXOInput(outputToSpend.ID())
-		ledgerstate.CachedOutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
-			branchIDs[outputMetadata.BranchID()] = types.Void
-		})
-	}
-
-	output := NewSigLockedSingleOutput(100, b.address)
-
-	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, NewOutputs(output))
-
-	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
-
-	// store aggreagated branch
-	resolvedConflictBranchIDs, _ := ledgerstate.ResolveConflictBranchIDs(branchIDs)
-	branchID := ledgerstate.AggregateConflictBranchesID(resolvedConflictBranchIDs)
-
-	// store TransactionMetadata
-	transactionMetadata := NewTransactionMetadata(tx.ID())
-	transactionMetadata.SetSolid(true)
-	transactionMetadata.SetBranchID(branchID)
-	if len(optionalGradeOfFinality) >= 1 {
-		transactionMetadata.SetGradeOfFinality(optionalGradeOfFinality[0])
-	} else {
-		transactionMetadata.SetGradeOfFinality(gof.Low)
-	}
-
-	cachedTransactionMetadata := &CachedTransactionMetadata{CachedObject: ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) objectstorage.StorableObject {
-		transactionMetadata.Persist()
-		transactionMetadata.SetModified()
-		return transactionMetadata
-	})}
-	defer cachedTransactionMetadata.Release()
-
-	ledgerstate.transactionStorage.Store(tx).Release()
-
-	return tx
-}
+// func multipleInputsTransaction(ledgerstate *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSingleOutput, optionalGradeOfFinality ...gof.GradeOfFinality) *Transaction {
+// 	inputs := make(Inputs, len(outputsToSpend))
+// 	branchIDs := make(BranchIDs, len(outputsToSpend))
+// 	for i, outputToSpend := range outputsToSpend {
+// 		inputs[i] = NewUTXOInput(outputToSpend.ID())
+// 		ledgerstate.CachedOutputMetadata(outputToSpend.ID()).Consume(func(outputMetadata *OutputMetadata) {
+// 			branchIDs[outputMetadata.BranchID()] = types.Void
+// 		})
+// 	}
+//
+// 	output := NewSigLockedSingleOutput(100, b.address)
+//
+// 	txEssence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, NewOutputs(output))
+//
+// 	tx := NewTransaction(txEssence, a.unlockBlocks(txEssence))
+//
+// 	// store aggreagated branch
+// 	resolvedConflictBranchIDs, _ := ledgerstate.ResolveConflictBranchIDs(branchIDs)
+// 	branchID := ledgerstate.AggregateConflictBranchesID(resolvedConflictBranchIDs)
+//
+// 	// store TransactionMetadata
+// 	transactionMetadata := NewTransactionMetadata(tx.ID())
+// 	transactionMetadata.SetSolid(true)
+// 	transactionMetadata.SetBranchID(branchID)
+// 	if len(optionalGradeOfFinality) >= 1 {
+// 		transactionMetadata.SetGradeOfFinality(optionalGradeOfFinality[0])
+// 	} else {
+// 		transactionMetadata.SetGradeOfFinality(gof.Low)
+// 	}
+//
+// 	cachedTransactionMetadata := ledgerstate.transactionMetadataStorage.ComputeIfAbsent(tx.ID().Bytes(), func(key []byte) *TransactionMetadata {
+// 		transactionMetadata.Persist()
+// 		transactionMetadata.SetModified()
+// 		return transactionMetadata
+// 	})
+// 	defer cachedTransactionMetadata.Release()
+//
+// 	ledgerstate.transactionStorage.Store(tx).Release()
+//
+// 	return tx
+// }
 
 func buildTransaction(_ *Ledgerstate, a, b wallet, outputsToSpend []*SigLockedSingleOutput) *Transaction {
 	inputs := make(Inputs, len(outputsToSpend))

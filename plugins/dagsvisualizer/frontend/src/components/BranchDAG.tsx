@@ -14,6 +14,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import 'styles/style.css';
 import GlobalStore from '../stores/GlobalStore';
+import { BranchLegend } from './Legend';
 
 interface Props {
     branchStore?: BranchStore;
@@ -171,6 +172,7 @@ export default class BranchDAG extends React.Component<Props, any> {
                             <BranchInfo />
                             <div id="branchVisualizer" />
                         </div>
+                        <BranchLegend />
                     </div>
                 </Collapse>
                 <br />

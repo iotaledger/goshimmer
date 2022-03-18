@@ -20,11 +20,14 @@ func TestFaucetRequest(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -35,12 +38,12 @@ func TestFaucetRequest(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 	// the rest of the nodes should have mana as in snapshot
 	for i, peer := range n.Peers()[1:] {
-		if tests.EqualSnapshotDetails.PeersAmountsPledged[i] > 0 {
+		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
 			}, tests.Timeout, tests.Tick)
 		}
-		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
