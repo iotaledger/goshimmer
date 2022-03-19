@@ -1,9 +1,10 @@
-package old
+package branchdag
 
 import (
 	"strings"
 	"testing"
 
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -11,13 +12,13 @@ import (
 )
 
 func TestBranchDAG_RetrieveBranch(t *testing.T) {
-	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
-	defer ledgerstate.Shutdown()
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+	defer branchDAG.Shutdown()
 
-	err := ledgerstate.Prune()
+	err := branchDAG.Prune()
 	require.NoError(t, err)
 
-	cachedBranch2, newBranchCreated, err := ledgerstate.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
+	cachedBranch2, newBranchCreated, err := branchDAG.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
 	require.NoError(t, err)
 	defer cachedBranch2.Release()
 	Branch2, exists := cachedBranch2.Unwrap()
@@ -26,7 +27,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, NewBranchIDs(MasterBranchID), Branch2.Parents())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), Branch2.Conflicts())
 
-	cachedBranch3, _, err := ledgerstate.CreateBranch(BranchID{3}, NewBranchIDs(Branch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
+	cachedBranch3, _, err := branchDAG.CreateBranch(BranchID{3}, NewBranchIDs(Branch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
 	require.NoError(t, err)
 	defer cachedBranch3.Release()
 	Branch3, exists := cachedBranch3.Unwrap()
@@ -36,7 +37,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, NewBranchIDs(Branch2.ID()), Branch3.Parents())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), Branch3.Conflicts())
 
-	cachedBranch2, newBranchCreated, err = ledgerstate.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
+	cachedBranch2, newBranchCreated, err = branchDAG.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
 	require.NoError(t, err)
 	defer cachedBranch2.Release()
 	Branch2, exists = cachedBranch2.Unwrap()
@@ -45,7 +46,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.False(t, newBranchCreated)
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), Branch2.Conflicts())
 
-	cachedBranch4, newBranchCreated, err := ledgerstate.CreateBranch(BranchID{4}, NewBranchIDs(Branch3.ID(), Branch3.ID()), NewConflictIDs(ConflictID{3}))
+	cachedBranch4, newBranchCreated, err := branchDAG.CreateBranch(BranchID{4}, NewBranchIDs(Branch3.ID(), Branch3.ID()), NewConflictIDs(ConflictID{3}))
 	require.NoError(t, err)
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
@@ -55,19 +56,19 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
-	defer ledgerstate.Shutdown()
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+	defer branchDAG.Shutdown()
 
-	err := ledgerstate.Prune()
+	err := branchDAG.Prune()
 	require.NoError(t, err)
 
 	// create initial branches
-	cachedBranch2, newBranchCreated, _ := ledgerstate.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch2, newBranchCreated, _ := branchDAG.CreateBranch(BranchID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch2.Release()
 	branch2, exists := cachedBranch2.Unwrap()
 	assert.True(t, exists)
 	assert.True(t, newBranchCreated)
-	cachedBranch3, newBranchCreated, _ := ledgerstate.CreateBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch3, newBranchCreated, _ := branchDAG.CreateBranch(BranchID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch3.Release()
 	branch3, exists := cachedBranch3.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -78,13 +79,13 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {},
 	}
 	actualConflictMembers := map[BranchID]struct{}{}
-	ledgerstate.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+	branchDAG.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add branch 4
-	cachedBranch4, newBranchCreated, _ := ledgerstate.CreateBranch(BranchID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	cachedBranch4, newBranchCreated, _ := branchDAG.CreateBranch(BranchID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
 	defer cachedBranch4.Release()
 	branch4, exists := cachedBranch4.Unwrap()
 	assert.True(t, newBranchCreated)
@@ -95,31 +96,31 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
 	}
 	actualConflictMembers = map[BranchID]struct{}{}
-	ledgerstate.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
+	branchDAG.ConflictMembers(ConflictID{0}).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
 func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
-	ledgerstate := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
-	defer ledgerstate.Shutdown()
+	branchDAG := NewBranchDAG(mapdb.NewMapDB(), database.NewCacheTimeProvider(0))
+	defer branchDAG.Shutdown()
 
-	err := ledgerstate.Prune()
+	err := branchDAG.Prune()
 	require.NoError(t, err)
 
 	branchIDs := make(map[string]BranchID)
-	branchIDs["Branch2"] = createBranch(t, ledgerstate, "Branch2", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
-	branchIDs["Branch3"] = createBranch(t, ledgerstate, "Branch3", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
-	branchIDs["Branch4"] = createBranch(t, ledgerstate, "Branch4", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
-	branchIDs["Branch5"] = createBranch(t, ledgerstate, "Branch5", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
-	branchIDs["Branch6"] = createBranch(t, ledgerstate, "Branch6", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
-	branchIDs["Branch7"] = createBranch(t, ledgerstate, "Branch7", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
-	branchIDs["Branch8"] = createBranch(t, ledgerstate, "Branch8", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch2"] = createBranch(t, branchDAG, "Branch2", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	branchIDs["Branch3"] = createBranch(t, branchDAG, "Branch3", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
+	branchIDs["Branch4"] = createBranch(t, branchDAG, "Branch4", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
+	branchIDs["Branch5"] = createBranch(t, branchDAG, "Branch5", NewBranchIDs(branchIDs["Branch2"]), NewConflictIDs(ConflictID{1}))
+	branchIDs["Branch6"] = createBranch(t, branchDAG, "Branch6", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch7"] = createBranch(t, branchDAG, "Branch7", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch8"] = createBranch(t, branchDAG, "Branch8", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 
-	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
+	assert.True(t, branchDAG.SetBranchConfirmed(branchIDs["Branch4"]))
 
-	assertInclusionStates(t, ledgerstate, branchIDs, map[string]InclusionState{
+	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
 		"Branch2":         Confirmed,
 		"Branch3":         Rejected,
 		"Branch4":         Confirmed,
@@ -132,12 +133,12 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 		"Branch5+Branch8": Rejected,
 	})
 
-	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
+	assert.True(t, branchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
 
 	// Create a new Branch in an already-decided Conflict Set results in straight Reject
-	branchIDs["Branch9"] = createBranch(t, ledgerstate, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
+	branchIDs["Branch9"] = createBranch(t, branchDAG, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 
-	assertInclusionStates(t, ledgerstate, branchIDs, map[string]InclusionState{
+	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
 		"Branch2":         Confirmed,
 		"Branch3":         Rejected,
 		"Branch4":         Confirmed,
@@ -155,12 +156,12 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 		"Branch9":         Rejected,
 	})
 
-	branchIDs["Branch10"] = createBranch(t, ledgerstate, "Branch10", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
-	branchIDs["Branch11"] = createBranch(t, ledgerstate, "Branch11", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	branchIDs["Branch10"] = createBranch(t, branchDAG, "Branch10", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
+	branchIDs["Branch11"] = createBranch(t, branchDAG, "Branch11", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{3}))
 
-	ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch10"])
+	branchDAG.SetBranchConfirmed(branchIDs["Branch10"])
 
-	assertInclusionStates(t, ledgerstate, branchIDs, map[string]InclusionState{
+	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{
 		"Branch2":                  Confirmed,
 		"Branch3":                  Rejected,
 		"Branch4":                  Confirmed,
@@ -198,20 +199,20 @@ func TestArithmeticBranchIDs_Add(t *testing.T) {
 	assert.Equal(t, NewBranchIDs(branchID1, branchID3), arithmeticBranchIDs.BranchIDs())
 }
 
-func assertInclusionStates(t *testing.T, ledgerstate *Ledger, branchIDsMapping map[string]BranchID, expectedInclusionStates map[string]InclusionState) {
+func assertInclusionStates(t *testing.T, branchDAG *BranchDAG, branchIDsMapping map[string]BranchID, expectedInclusionStates map[string]InclusionState) {
 	for branchIDStrings, expectedInclusionState := range expectedInclusionStates {
 		branchIDs := NewBranchIDs()
 		for _, branchString := range strings.Split(branchIDStrings, "+") {
 			branchIDs.Add(branchIDsMapping[branchString])
 		}
 
-		assert.Equal(t, expectedInclusionState, ledgerstate.BranchDAG.InclusionState(branchIDs), "%s inclustionState is not %s", branchIDs, expectedInclusionState)
+		assert.Equal(t, expectedInclusionState, branchDAG.InclusionState(branchIDs), "%s inclustionState is not %s", branchIDs, expectedInclusionState)
 	}
 }
 
-func createBranch(t *testing.T, ledgerstate *Ledger, branchAlias string, parents BranchIDs, conflictIDs ConflictIDs) BranchID {
+func createBranch(t *testing.T, branchDAG *BranchDAG, branchAlias string, parents BranchIDs, conflictIDs ConflictIDs) BranchID {
 	branchID := BranchIDFromRandomness()
-	cachedBranch, _, err := ledgerstate.CreateBranch(branchID, parents, conflictIDs)
+	cachedBranch, _, err := branchDAG.CreateBranch(branchID, parents, conflictIDs)
 	require.NoError(t, err)
 	cachedBranch.Release()
 

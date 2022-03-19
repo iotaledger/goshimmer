@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -23,7 +24,7 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 	outputs := make(map[string]utxo2.Output)
 	inputs := make(map[string]utxo2.Input)
 	transactions := make(map[string]utxo2.Transaction)
-	branches := make(map[string]BranchIDs)
+	branches := make(map[string]branchdag2.BranchIDs)
 
 	setupScenarioBottomLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
@@ -38,8 +39,8 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchIDs(t, ledgerstate, transactions["H"], branches["H"])
 		assertBranchIDs(t, ledgerstate, transactions["I"], branches["I"])
 
-		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["A"]))
-		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["C"]))
+		assert.Equal(t, branchdag2.Confirmed, ledgerstate.BranchDAG.InclusionState(branches["A"]))
+		assert.Equal(t, branchdag2.Pending, ledgerstate.BranchDAG.InclusionState(branches["C"]))
 	}
 
 	setupScenarioMiddleLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
@@ -87,11 +88,11 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchIDs(t, ledgerstate, transactions["F"], branches["F"])
 		assertBranchIDs(t, ledgerstate, transactions["G"], branches["G"])
 
-		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "F")).Consume(func(branch *Branch) {
+		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "F")).Consume(func(branch *branchdag2.Branch) {
 			assert.Equal(t, branches["C"], branch.Parents())
 		})
 
-		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "G")).Consume(func(branch *Branch) {
+		ledgerstate.BranchDAG.Branch(getSingleBranch(branches, "G")).Consume(func(branch *branchdag2.Branch) {
 			assert.Equal(t, branches["C"], branch.Parents())
 		})
 	}
@@ -113,13 +114,13 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchIDs(t, ledgerstate, transactions["G"], branches["G"])
 		assertBranchIDs(t, ledgerstate, transactions["L"], branches["G+H"])
 
-		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
-		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["H"]))
-		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["I"]))
+		assert.Equal(t, branchdag2.Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
+		assert.Equal(t, branchdag2.Pending, ledgerstate.BranchDAG.InclusionState(branches["H"]))
+		assert.Equal(t, branchdag2.Pending, ledgerstate.BranchDAG.InclusionState(branches["I"]))
 	}
 
 	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "H")))
@@ -141,17 +142,17 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assertBranchIDs(t, ledgerstate, transactions["L"], branches["G+H"])
 		assertBranchIDs(t, ledgerstate, transactions["M"], branches["G"])
 
-		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
-		assert.Equal(t, Confirmed, ledgerstate.BranchDAG.InclusionState(branches["H"]))
-		assert.Equal(t, Rejected, ledgerstate.BranchDAG.InclusionState(branches["I"]))
+		assert.Equal(t, branchdag2.Confirmed, ledgerstate.BranchDAG.InclusionState(branches["D"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["C"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["F"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["G"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["G+H"]))
+		assert.Equal(t, branchdag2.Confirmed, ledgerstate.BranchDAG.InclusionState(branches["H"]))
+		assert.Equal(t, branchdag2.Rejected, ledgerstate.BranchDAG.InclusionState(branches["I"]))
 	}
 }
 
-func assertBranchIDs(t *testing.T, ledgerstate *Ledger, transaction *Transaction, expectedBranchIDs BranchIDs) {
+func assertBranchIDs(t *testing.T, ledgerstate *Ledger, transaction *Transaction, expectedBranchIDs branchdag2.BranchIDs) {
 	assert.True(t, ledgerstate.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *TransactionMetadata) {
 		assert.Equal(t, expectedBranchIDs, transactionMetadata.BranchIDs(), transactionMetadata.String(), expectedBranchIDs.String())
 	}))
@@ -163,7 +164,7 @@ func assertBranchIDs(t *testing.T, ledgerstate *Ledger, transaction *Transaction
 	}
 }
 
-func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]utxo2.Output, ledgerstate *Ledger, inputs map[string]utxo2.Input, manaPledgeID identity.ID, transactions map[string]utxo2.Transaction, branches map[string]BranchIDs) {
+func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]utxo2.Output, ledgerstate *Ledger, inputs map[string]utxo2.Input, manaPledgeID identity.ID, transactions map[string]utxo2.Transaction, branches map[string]branchdag2.BranchIDs) {
 	// create genesis outputs
 	{
 		wallets["GENESIS_1"] = txvm.createWallets(1)[0]
@@ -207,7 +208,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outp
 		require.NoError(t, err)
 
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["A"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
+			assert.Equal(t, branchdag2.NewBranchIDs(branchdag2.MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -280,7 +281,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outp
 			assert.Equal(t, branches["B"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["C"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
+			assert.Equal(t, branchdag2.NewBranchIDs(branchdag2.MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -365,7 +366,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outp
 			assert.Equal(t, branches["D"], transactionMetadata.BranchIDs())
 		}))
 		assert.True(t, ledgerstate.CachedTransactionMetadata(transactions["H"].ID()).Consume(func(transactionMetadata *TransactionMetadata) {
-			assert.Equal(t, NewBranchIDs(MasterBranchID), transactionMetadata.BranchIDs())
+			assert.Equal(t, branchdag2.NewBranchIDs(branchdag2.MasterBranchID), transactionMetadata.BranchIDs())
 		}))
 	}
 
@@ -417,7 +418,7 @@ func setupScenarioBottomLayer(t *testing.T, wallets map[string]txvm.wallet, outp
 	}
 }
 
-func setupScenarioMiddleLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
+func setupScenarioMiddleLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]branchdag2.BranchIDs) {
 	// issue Transaction E (combining Branch A and C)
 	{
 		wallets["E"] = txvm.createWallets(1)[0]
@@ -459,7 +460,7 @@ func setupScenarioMiddleLayer(t *testing.T, wallets map[string]txvm.wallet, outp
 	}
 }
 
-func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs, alias string) {
+func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]branchdag2.BranchIDs, alias string) {
 	// issue Transaction alias
 	{
 		wallets[alias] = txvm.createWallets(1)[0]
@@ -489,15 +490,15 @@ func setupScenarioTopLayerGeneric(t *testing.T, wallets map[string]txvm.wallet, 
 	}
 }
 
-func setupScenarioTopLayer1(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
+func setupScenarioTopLayer1(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]branchdag2.BranchIDs) {
 	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "F")
 }
 
-func setupScenarioTopLayer2(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
+func setupScenarioTopLayer2(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]branchdag2.BranchIDs) {
 	setupScenarioTopLayerGeneric(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches, "G")
 }
 
-func setupScenarioTopTopLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]BranchIDs) {
+func setupScenarioTopTopLayer(t *testing.T, wallets map[string]txvm.wallet, outputs map[string]Output, ledgerstate *Ledger, inputs map[string]Input, manaPledgeID identity.ID, transactions map[string]*Transaction, branches map[string]branchdag2.BranchIDs) {
 	// issue Transaction L
 	{
 		wallets["L"] = txvm.createWallets(1)[0]
@@ -561,13 +562,13 @@ func setupScenarioTopTopTopLayer(t *testing.T, wallets map[string]txvm.wallet, o
 	}
 }
 
-func addBranchAndRegister(branches map[string]BranchIDs, transactions map[string]*Transaction, transactionAlias string) {
-	branchID := NewBranchID(transactions[transactionAlias].ID())
-	branches[transactionAlias] = NewBranchIDs(branchID)
-	RegisterBranchIDAlias(branchID, "Branch"+transactionAlias)
+func addBranchAndRegister(branches map[string]branchdag2.BranchIDs, transactions map[string]*Transaction, transactionAlias string) {
+	branchID := branchdag2.NewBranchID(transactions[transactionAlias].ID())
+	branches[transactionAlias] = branchdag2.NewBranchIDs(branchID)
+	branchdag2.RegisterBranchIDAlias(branchID, "Branch"+transactionAlias)
 }
 
-func getSingleBranch(branches map[string]BranchIDs, alias string) BranchID {
+func getSingleBranch(branches map[string]branchdag2.BranchIDs, alias string) branchdag2.BranchID {
 	if len(branches[alias]) != 1 {
 		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
 	}
@@ -576,5 +577,5 @@ func getSingleBranch(branches map[string]BranchIDs, alias string) BranchID {
 		return branchID
 	}
 
-	return UndefinedBranchID
+	return branchdag2.UndefinedBranchID
 }

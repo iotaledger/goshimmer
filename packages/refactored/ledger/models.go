@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/old"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -24,7 +24,7 @@ import (
 // a node.
 type TransactionMetadata struct {
 	id                      utxo.TransactionID
-	branchIDs               old.BranchIDs
+	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
@@ -45,7 +45,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
 	newTransactionMetadata = &TransactionMetadata{
 		id:        transactionID,
-		branchIDs: old.NewBranchIDs(),
+		branchIDs: branchdag.NewBranchIDs(),
 	}
 	newTransactionMetadata.SetModified()
 	newTransactionMetadata.Persist()
@@ -83,7 +83,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
-	if transactionMetadata.branchIDs, err = old.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if transactionMetadata.branchIDs, err = branchdag.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
@@ -119,7 +119,7 @@ func (t *TransactionMetadata) ID() utxo.TransactionID {
 }
 
 // BranchIDs returns the identifiers of the Branches that the Transaction was booked in.
-func (t *TransactionMetadata) BranchIDs() old.BranchIDs {
+func (t *TransactionMetadata) BranchIDs() branchdag.BranchIDs {
 	t.branchIDsMutex.RLock()
 	defer t.branchIDsMutex.RUnlock()
 
@@ -127,7 +127,7 @@ func (t *TransactionMetadata) BranchIDs() old.BranchIDs {
 }
 
 // SetBranchIDs sets the identifiers of the Branches that the Transaction was booked in.
-func (t *TransactionMetadata) SetBranchIDs(branchIDs old.BranchIDs) (modified bool) {
+func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
@@ -141,7 +141,7 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs old.BranchIDs) (modified bo
 }
 
 // AddBranchID adds an identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) AddBranchID(branchID old.BranchID) (modified bool) {
+func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
@@ -149,7 +149,7 @@ func (t *TransactionMetadata) AddBranchID(branchID old.BranchID) (modified bool)
 		return false
 	}
 
-	delete(t.branchIDs, old.MasterBranchID)
+	delete(t.branchIDs, branchdag.MasterBranchID)
 
 	t.branchIDs.Add(branchID)
 	t.SetModified()
@@ -262,7 +262,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
 	branchIDs := t.BranchIDs()
-	return len(branchIDs) == 1 && branchIDs.Contains(old.NewBranchID(t.ID()))
+	return len(branchIDs) == 1 && branchIDs.Contains(branchdag.NewBranchID(t.ID()))
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -312,7 +312,7 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
 	id                      utxo.OutputID
-	branchIDs               BranchIDs
+	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
@@ -331,7 +331,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputID utxo.OutputID) *OutputMetadata {
 	return &OutputMetadata{
 		id:        outputID,
-		branchIDs: NewBranchIDs(),
+		branchIDs: branchdag.NewBranchIDs(),
 	}
 }
 
@@ -365,7 +365,7 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	if outputMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if outputMetadata.branchIDs, err = branchdag.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchIDs: %w", err)
 		return
 	}
@@ -402,7 +402,7 @@ func (o *OutputMetadata) ID() utxo.OutputID {
 }
 
 // BranchIDs returns the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) BranchIDs() BranchIDs {
+func (o *OutputMetadata) BranchIDs() branchdag.BranchIDs {
 	o.branchIDsMutex.RLock()
 	defer o.branchIDsMutex.RUnlock()
 
@@ -410,7 +410,7 @@ func (o *OutputMetadata) BranchIDs() BranchIDs {
 }
 
 // SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
+func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -424,7 +424,7 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
 }
 
 // AddBranchID adds an identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
+func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -432,7 +432,7 @@ func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
 		return false
 	}
 
-	delete(o.branchIDs, MasterBranchID)
+	delete(o.branchIDs, branchdag.MasterBranchID)
 
 	o.branchIDs.Add(branchID)
 	o.SetModified()

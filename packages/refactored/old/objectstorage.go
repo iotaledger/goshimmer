@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -93,7 +94,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	}
 
 	options.childBranchStorageOptions = []objectstorage.Option{
-		ChildBranchKeyPartition,
+		branchdag2.ChildBranchKeyPartition,
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -105,7 +106,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	}
 
 	options.conflictMemberStorageOptions = []objectstorage.Option{
-		ConflictMemberKeyPartition,
+		branchdag2.ConflictMemberKeyPartition,
 		cacheProvider.CacheTime(conflictCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),

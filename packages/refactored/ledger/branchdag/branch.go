@@ -1,4 +1,4 @@
-package old
+package branchdag
 
 import (
 	"strconv"

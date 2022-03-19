@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 )
 
 // region Ledger //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,7 +14,7 @@ import (
 type Ledger struct {
 	*Options
 	*UTXODAG
-	*BranchDAG
+	*branchdag.BranchDAG
 }
 
 // New is the constructor for the Ledger.
@@ -22,7 +23,7 @@ func New(options ...Option) (ledgerstate *Ledger) {
 	ledgerstate.Configure(options...)
 
 	ledgerstate.UTXODAG = NewUTXODAG(ledgerstate)
-	ledgerstate.BranchDAG = NewBranchDAG(ledgerstate)
+	ledgerstate.BranchDAG = branchdag.NewBranchDAG(ledgerstate)
 
 	return ledgerstate
 }

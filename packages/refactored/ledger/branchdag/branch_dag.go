@@ -1,8 +1,9 @@
-package old
+package branchdag
 
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -10,8 +11,48 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+)
+
+// block of default cache time.
+const (
+	branchCacheTime   = 60 * time.Second
+	conflictCacheTime = 60 * time.Second
+	consumerCacheTime = 10 * time.Second
+)
+
+const (
+	// PrefixBranchStorage defines the storage prefix for the Branch object storage.
+	PrefixBranchStorage byte = iota
+
+	// PrefixChildBranchStorage defines the storage prefix for the ChildBranch object storage.
+	PrefixChildBranchStorage
+
+	// PrefixConflictStorage defines the storage prefix for the Conflict object storage.
+	PrefixConflictStorage
+
+	// PrefixConflictMemberStorage defines the storage prefix for the ConflictMember object storage.
+	PrefixConflictMemberStorage
+
+	// PrefixTransactionStorage defines the storage prefix for the Transaction object storage.
+	PrefixTransactionStorage
+
+	// PrefixTransactionMetadataStorage defines the storage prefix for the TransactionMetadata object storage.
+	PrefixTransactionMetadataStorage
+
+	// PrefixOutputStorage defines the storage prefix for the Output object storage.
+	PrefixOutputStorage
+
+	// PrefixOutputMetadataStorage defines the storage prefix for the OutputMetadata object storage.
+	PrefixOutputMetadataStorage
+
+	// PrefixConsumerStorage defines the storage prefix for the Consumer object storage.
+	PrefixConsumerStorage
+
+	// PrefixAddressOutputMappingStorage defines the storage prefix for the AddressOutputMapping object storage.
+	PrefixAddressOutputMappingStorage
 )
 
 // region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,24 +60,43 @@ import (
 // BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
 // the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
 type BranchDAG struct {
+	Events *BranchDAGEvents
+
 	branchStorage         *objectstorage.ObjectStorage[*Branch]
 	childBranchStorage    *objectstorage.ObjectStorage[*ChildBranch]
 	conflictStorage       *objectstorage.ObjectStorage[*Conflict]
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
 	shutdownOnce          sync.Once
-	Events                *BranchDAGEvents
-
-	inclusionStateMutex sync.RWMutex
+	inclusionStateMutex   sync.RWMutex
 }
 
 // NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(ledgerstate *Ledger) (newBranchDAG *BranchDAG) {
-	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+func NewBranchDAG(store kvstore.KVStore, cacheTimeProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
 	newBranchDAG = &BranchDAG{
-		branchStorage:         objectstorage.New[*Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), options.branchStorageOptions...),
-		childBranchStorage:    objectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
-		conflictStorage:       objectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
-		conflictMemberStorage: objectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),
+		branchStorage: objectstorage.New[*Branch](
+			store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}),
+			cacheTimeProvider.CacheTime(branchCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+		),
+		childBranchStorage: objectstorage.New[*ChildBranch](
+			store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}),
+			ChildBranchKeyPartition,
+			cacheTimeProvider.CacheTime(branchCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
+		conflictStorage: objectstorage.New[*Conflict](
+			store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}),
+			cacheTimeProvider.CacheTime(consumerCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+		),
+		conflictMemberStorage: objectstorage.New[*ConflictMember](
+			store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}),
+			ConflictMemberKeyPartition,
+			cacheTimeProvider.CacheTime(conflictCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
 		Events: &BranchDAGEvents{
 			BranchCreated:        events.NewEvent(BranchIDEventHandler),
 			BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),

@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -100,7 +101,7 @@ func (u *UTXODAG) CheckTransaction(transaction utxo.Transaction) (err error) {
 }
 
 // BookTransaction books a Transaction into the ledger state.
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranchIDs BranchIDs, err error) {
+func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranchIDs branchdag.BranchIDs, err error) {
 	// store TransactionMetadata
 	transactionMetadata := NewTransactionMetadata(transaction.ID())
 	transactionMetadata.SetSolid(true)
@@ -146,7 +147,7 @@ func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranchIDs Bra
 }
 
 // TransactionBranchIDs returns the BranchIDs of the given Transaction.
-func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs BranchIDs, err error) {
+func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag.BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		branchIDs = transactionMetadata.BranchIDs()
 	}) {
@@ -183,8 +184,8 @@ func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (grade
 }
 
 // BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-func (u *UTXODAG) BranchGradeOfFinality(branchID BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == MasterBranchID {
+func (u *UTXODAG) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == branchdag.MasterBranchID {
 		return gof.High, nil
 	}
 
@@ -240,7 +241,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
-			metadata.AddBranchID(MasterBranchID)
+			metadata.AddBranchID(branchdag.MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetGradeOfFinality(gof.High)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
@@ -252,7 +253,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		// store TransactionMetadata
 		txMetadata := NewTransactionMetadata(txID)
 		txMetadata.SetSolid(true)
-		txMetadata.AddBranchID(MasterBranchID)
+		txMetadata.AddBranchID(branchdag.MasterBranchID)
 		txMetadata.SetGradeOfFinality(gof.High)
 
 		u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) *TransactionMetadata {
@@ -276,7 +277,7 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
-func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs BranchIDs) (targetBranchIDs BranchIDs) {
+func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs branchdag.BranchIDs) (targetBranchIDs branchdag.BranchIDs) {
 	transactionMetadata.SetBranchIDs(branchIDs)
 	transactionMetadata.SetSolid(true)
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
@@ -288,7 +289,7 @@ func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transa
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It creates a new Branch for the new Transaction and "forks" the
 // existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranchIDs BranchIDs) {
+func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs branchdag.BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranchIDs branchdag.BranchIDs) {
 	// fork existing consumers
 	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
 		u.forkConsumer(transactionID, conflictingInputs)
@@ -297,14 +298,14 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 	}, types.True)
 
 	// create new Branch
-	targetBranchID := NewBranchID(transaction.ID())
+	targetBranchID := branchdag.NewBranchID(transaction.ID())
 	cachedBranch, _, err := u.ledgerstate.CreateBranch(targetBranchID, branchIDs, conflictingInputs.ConflictIDs())
 	if err != nil {
 		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", transaction.ID(), err))
 	}
 	cachedBranch.Release()
 
-	targetBranchIDs = NewBranchIDs(targetBranchID)
+	targetBranchIDs = branchdag.NewBranchIDs(targetBranchID)
 	transactionMetadata.SetBranchIDs(targetBranchIDs)
 	transactionMetadata.SetSolid(true)
 	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
@@ -317,7 +318,7 @@ func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transacti
 // conflicting first but now turned out to be conflicting because of a newly booked double spend.
 func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
-		forkedBranchID := NewBranchID(transactionID)
+		forkedBranchID := branchdag.NewBranchID(transactionID)
 		conflictIDs := conflictingInputs.Filter(u.consumedOutputIDsOfTransaction(transactionID)).ConflictIDs()
 
 		cachedConsumingBranch, _, err := u.ledgerstate.CreateBranch(forkedBranchID, transactionMetadata.BranchIDs(), conflictIDs)
@@ -335,7 +336,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		// Because we are forking the transaction, automatically all the outputs and the transaction itself need to go
 		// into the newly forked branch (own branch) and override all other existing branches. These are now mapped via
 		// the BranchDAG (parents of forked branch).
-		forkedBranchIDs := NewBranchIDs(forkedBranchID)
+		forkedBranchIDs := branchdag.NewBranchIDs(forkedBranchID)
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
 			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -361,7 +362,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranch is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new Branch.
-func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID branchdag.BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
 			for transactionBranchID := range transactionMetadata.BranchIDs() {
@@ -418,7 +419,7 @@ func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID Tr
 }
 
 // bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
-func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs BranchIDs) {
+func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs branchdag.BranchIDs) {
 	for _, output := range transaction.Essence().Outputs() {
 		// replace ColorMint color with unique color based on OutputID
 		updatedOutput := output.UpdateMintingColor()
@@ -436,9 +437,9 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs BranchID
 
 // determineBookingDetails is an internal utility function that determines the information that are required to fully
 // book a newly arrived Transaction into the UTXODAG using the metadata of its referenced Inputs.
-func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inheritedBranchIDs BranchIDs, conflictingInputs OutputsMetadata, err error) {
+func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs, conflictingInputs OutputsMetadata, err error) {
 	conflictingInputs = inputsMetadata.SpentOutputsMetadata()
-	inheritedBranchIDs = NewBranchIDs()
+	inheritedBranchIDs = branchdag.NewBranchIDs()
 	for _, inputMetadata := range inputsMetadata {
 		inheritedBranchIDs.AddAll(inputMetadata.BranchIDs())
 	}
@@ -654,7 +655,7 @@ func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 // changed.
 type TransactionBranchIDUpdatedByForkEvent struct {
 	TransactionID  utxo.TransactionID
-	ForkedBranchID BranchID
+	ForkedBranchID branchdag.BranchID
 }
 
 // TransactionBranchIDUpdatedByForkEventHandler is an event handler for an event with a
