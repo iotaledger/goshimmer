@@ -27,21 +27,14 @@ func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*para
 	}
 
 	if len(conflictingInputIDs) != 0 {
-		b.WalkConsumingTransactionID(conflictingInputIDs, func(txID utxo.TransactionID, _ *walker.Walker[utxo.OutputID]) {
-			b.forkConsumer(txID, conflictingInputIDs)
-			return
-		})
-
-		newBranchID := branchdag.NewBranchID(params.Transaction.ID())
-		inheritedBranchIDs = branchdag.NewBranchIDs(newBranchID)
-		cachedBranch, _, err := b.CreateBranch(newBranchID, inheritedBranchIDs, conflictingInputIDs)
-		if err != nil {
-			panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", params.Transaction.ID(), err))
-		}
-		cachedBranch.Release()
+		b.forkConsumers(conflictingInputIDs)
+		inheritedBranchIDs = branchdag.NewBranchIDs(b.createConflictBranch())
 	}
 
-	b.bookTransaction(params.Transaction, params.TransactionMetadata, params.InputsMetadata, inheritedBranchIDs)
+	b.bookOutputs(params.Transaction, inheritedBranchIDs)
+
+	params.TransactionMetadata.SetBranchIDs(inheritedBranchIDs)
+	params.TransactionMetadata.SetSolid(true)
 
 	return next(params)
 }
@@ -60,13 +53,24 @@ func (b *Booker) doubleSpendRegistered(txID utxo.TransactionID) func(*OutputMeta
 	}
 }
 
+func (b *Booker) forkConsumers(conflictingInputIDs []utxo.OutputID) {
+	b.WalkConsumingTransactionID(conflictingInputIDs, func(txID utxo.TransactionID, _ *walker.Walker[utxo.OutputID]) {
+		b.forkConsumer(txID, conflictingInputIDs)
+	})
+}
+
+func (b *Booker) createConflictBranch(txID utxo.TransactionID, parentBranchIDs branchdag.BranchIDs, conflictingInputIDs []utxo.OutputID) (conflictBranchID branchdag.BranchID) {
+	conflictBranchID = branchdag.NewBranchID(txID)
+	cachedBranch, _, err := b.CreateBranch(conflictBranchID, parentBranchIDs, branchdag.NewConflictIDs(generics.Map(conflictingInputIDs, branchdag.NewConflictID)...))
+	if err != nil {
+		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", params.Transaction.ID(), err))
+	}
+	cachedBranch.Release()
+}
+
 // bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
 // determined by aggregating the Branches of the consumed Inputs.
-func (u *Booker) bookTransaction(transaction utxo.Transaction, transactionMetadata *TransactionMetadata, inputsMetadata map[utxo.OutputID]*OutputMetadata, branchIDs branchdag.BranchIDs) (targetBranchIDs branchdag.BranchIDs) {
-	u.bookOutputs(transaction, branchIDs)
-
-	transactionMetadata.SetBranchIDs(branchIDs)
-	transactionMetadata.SetSolid(true)
+func (b *Booker) bookTransaction(transaction utxo.Transaction, transactionMetadata *TransactionMetadata, branchIDs branchdag.BranchIDs) (targetBranchIDs branchdag.BranchIDs) {
 
 	return branchIDs
 }
