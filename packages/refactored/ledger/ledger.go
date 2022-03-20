@@ -52,36 +52,40 @@ func (l *Ledger) Setup() {
 }
 
 // StoreAndProcessTransaction is the only public facing api
-func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (solid bool) {
+func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool) {
 	cachedTransactionMetadata := l.CachedTransactionMetadata(tx.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
 		l.transactionStorage.Store(tx).Release()
 
 		// TODO: STORE CONSUMERS
 
-		solid = true
+		processed = true
 		return NewTransactionMetadata(transactionID)
 	})
 
 	// if we didn't store ourselves then we consider this call to be a success if this transaction was processed already
 	//  (e.g. by a reattachment)
-	if !solid {
+	if !processed {
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-			solid = metadata.Solid()
+			processed = metadata.Processed()
 		})
 
-		return solid
+		return processed
 	}
 
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		l.TransactionStoredEvent.Trigger(tx.ID())
 
-		solid = l.processTransaction(tx, metadata)
+		processed = l.processTransaction(tx, metadata)
 	})
 
-	return solid
+	return processed
 }
 
 func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMetadata) (success bool) {
+	if txMeta.Processed() {
+		return false
+	}
+
 	l.DAGMutex.Lock(tx.ID())
 	defer l.DAGMutex.Unlock(tx.ID())
 

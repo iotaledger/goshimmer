@@ -762,7 +762,7 @@ func singleInputTransaction(ledgerstate *Ledger, a, b txvm.wallet, outputToSpend
 //
 // 	// store TransactionMetadata
 // 	transactionMetadata := NewTransactionMetadata(tx.ID())
-// 	transactionMetadata.SetSolid(true)
+// 	transactionMetadata.SetProcessed(true)
 // 	transactionMetadata.SetBranchID(branchID)
 // 	if len(optionalGradeOfFinality) >= 1 {
 // 		transactionMetadata.SetGradeOfFinality(optionalGradeOfFinality[0])

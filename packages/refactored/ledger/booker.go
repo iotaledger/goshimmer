@@ -34,7 +34,7 @@ func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*para
 	b.bookOutputs(params.Transaction, inheritedBranchIDs)
 
 	params.TransactionMetadata.SetBranchIDs(inheritedBranchIDs)
-	params.TransactionMetadata.SetSolid(true)
+	params.TransactionMetadata.SetProcessed(true)
 
 	return next(params)
 }

@@ -18,35 +18,15 @@ func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
 	}
 }
 
-func (s *Solidifier) checkSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (success bool, inputs []utxo.Output) {
-	if metadata.Solid() {
-		return false, nil
-	}
-
-	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(generics.Map(transaction.Inputs(), s.vm.ResolveInput), s.CachedOutput))
+func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
+	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(generics.Map(params.Transaction.Inputs(), s.vm.ResolveInput), s.CachedOutput))
 	defer cachedInputs.Release()
 
-	inputs = cachedInputs.Unwrap(true)
-	if len(inputs) != len(cachedInputs) {
-		return false, nil
-	}
-
-	if !metadata.SetSolid(true) {
-		return false, nil
-	}
-
-	s.TransactionSolidEvent.Trigger(transaction.ID())
-
-	return true, inputs
-}
-
-func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
-	success, inputs := s.checkSolidity(params.Transaction, params.TransactionMetadata)
-	if !success {
+	if params.Inputs = cachedInputs.Unwrap(true); len(params.Inputs) != len(cachedInputs) {
 		return nil
 	}
 
-	params.Inputs = inputs
+	s.TransactionSolidEvent.Trigger(params.Transaction.ID())
 
 	return next(params)
 }

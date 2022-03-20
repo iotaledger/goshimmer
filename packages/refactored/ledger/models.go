@@ -156,17 +156,17 @@ func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified
 	return true
 }
 
-// Solid returns true if the Transaction has been marked as solid.
-func (t *TransactionMetadata) Solid() bool {
+// Processed returns true if the Transaction has been marked as solid.
+func (t *TransactionMetadata) Processed() bool {
 	t.solidMutex.RLock()
 	defer t.solidMutex.RUnlock()
 
 	return t.solid
 }
 
-// SetSolid updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
+// SetProcessed updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
 // solidify time if the Transaction was marked as solid.
-func (t *TransactionMetadata) SetSolid(solid bool) (modified bool) {
+func (t *TransactionMetadata) SetProcessed(solid bool) (modified bool) {
 	t.solidMutex.Lock()
 	defer t.solidMutex.Unlock()
 
@@ -275,7 +275,7 @@ func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
-		stringify.StructField("solid", t.Solid()),
+		stringify.StructField("solid", t.Processed()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
@@ -294,7 +294,7 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
-		WriteBool(t.Solid()).
+		WriteBool(t.Processed()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).
 		WriteUint8(uint8(t.GradeOfFinality())).
