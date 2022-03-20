@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -21,7 +22,9 @@ type Ledger struct {
 	*Storage
 	*Solidifier
 	*Validator
+	*Executor
 	*Utils
+	*branchdag.BranchDAG
 
 	syncutils.DAGMutex[[32]byte]
 
@@ -85,8 +88,8 @@ func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMeta
 	err := dataflow.New[*params](
 		l.checkSolidityCommand,
 		l.checkOutputsCausallyRelatedCommand,
+		l.executeTransactionCommand,
 		/*
-			l.ExecuteTransaction,
 			l.BookTransaction,
 		*/
 		l.notifyConsumersCommand,
@@ -125,6 +128,7 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 type params struct {
 	Transaction         utxo.Transaction
 	TransactionMetadata *TransactionMetadata
-	Inputs              map[utxo.OutputID]utxo.Output
+	Inputs              []utxo.Output
 	InputsMetadata      map[utxo.OutputID]*OutputMetadata
+	Outputs             []utxo.Output
 }

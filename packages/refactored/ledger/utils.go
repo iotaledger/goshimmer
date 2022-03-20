@@ -11,7 +11,7 @@ type Utils struct {
 	*Ledger
 }
 
-func (u *Utils) WalkConsumingTransactionID(callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]), entryPoints []utxo.OutputID) {
+func (u *Utils) WalkConsumingTransactionID(entryPoints []utxo.OutputID, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
 	if len(entryPoints) == 0 {
 		return
 	}
@@ -29,10 +29,10 @@ func (u *Utils) WalkConsumingTransactionID(callback func(consumingTxID utxo.Tran
 	}
 }
 
-func (u *Utils) WalkConsumingTransactionMetadata(callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]), entryPoints []utxo.OutputID) {
-	u.WalkConsumingTransactionID(func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
+func (u *Utils) WalkConsumingTransactionMetadata(entryPoints []utxo.OutputID, callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
+	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 		u.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(txMetadata, walker)
 		})
-	}, entryPoints)
+	})
 }

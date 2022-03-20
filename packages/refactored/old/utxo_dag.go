@@ -100,52 +100,6 @@ func (u *UTXODAG) CheckTransaction(transaction utxo.Transaction) (err error) {
 	return nil
 }
 
-// BookTransaction books a Transaction into the ledger state.
-func (u *UTXODAG) BookTransaction(transaction *Transaction) (targetBranchIDs branchdag.BranchIDs, err error) {
-	// store TransactionMetadata
-	transactionMetadata := NewTransactionMetadata(transaction.ID())
-	transactionMetadata.SetSolid(true)
-	newTransaction := false
-	cachedTransactionMetadata := u.transactionMetadataStorage.ComputeIfAbsent(transaction.ID().Bytes(), func(key []byte) *TransactionMetadata {
-		newTransaction = true
-
-		transactionMetadata.Persist()
-		transactionMetadata.SetModified()
-
-		return transactionMetadata
-	})
-	if !newTransaction {
-		if !cachedTransactionMetadata.Consume(func(transactionMetadata *TransactionMetadata) {
-			targetBranchIDs = transactionMetadata.BranchIDs()
-		}) {
-			err = errors.Errorf("failed to load TransactionMetadata with %s: %w", transaction.ID(), cerrors.ErrFatal)
-		}
-		return
-	}
-	defer cachedTransactionMetadata.Release()
-
-	// store Transaction
-	u.transactionStorage.Store(transaction).Release()
-
-	// retrieve the metadata of the Inputs
-	cachedInputsMetadata := u.outputsMetadata(transaction)
-	defer cachedInputsMetadata.Release()
-	inputsMetadata := cachedInputsMetadata.Unwrap()
-
-	// determine the booking details before we book
-	parentBranchIDs, conflictingInputs, err := u.determineBookingDetails(inputsMetadata)
-	if err != nil {
-		err = errors.Errorf("failed to determine book details of Transaction with %s: %w", transaction.ID(), err)
-		return
-	}
-
-	if len(conflictingInputs) != 0 {
-		return u.bookConflictingTransaction(transaction, transactionMetadata, inputsMetadata, parentBranchIDs, conflictingInputs.ByID()), nil
-	}
-
-	return u.bookNonConflictingTransaction(transaction, transactionMetadata, inputsMetadata, parentBranchIDs), nil
-}
-
 // TransactionBranchIDs returns the BranchIDs of the given Transaction.
 func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag.BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
@@ -274,17 +228,6 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 }
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
-
-// bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
-// determined by aggregating the Branches of the consumed Inputs.
-func (u *UTXODAG) bookNonConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs branchdag.BranchIDs) (targetBranchIDs branchdag.BranchIDs) {
-	transactionMetadata.SetBranchIDs(branchIDs)
-	transactionMetadata.SetSolid(true)
-	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
-	u.bookOutputs(transaction, branchIDs)
-
-	return branchIDs
-}
 
 // bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
 // already been spent by another Transaction. It creates a new Branch for the new Transaction and "forks" the
@@ -433,25 +376,6 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs branchda
 		metadata.SetSolid(true)
 		u.outputMetadataStorage.Store(metadata).Release()
 	}
-}
-
-// determineBookingDetails is an internal utility function that determines the information that are required to fully
-// book a newly arrived Transaction into the UTXODAG using the metadata of its referenced Inputs.
-func (u *UTXODAG) determineBookingDetails(inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs, conflictingInputs OutputsMetadata, err error) {
-	conflictingInputs = inputsMetadata.SpentOutputsMetadata()
-	inheritedBranchIDs = branchdag.NewBranchIDs()
-	for _, inputMetadata := range inputsMetadata {
-		inheritedBranchIDs.AddAll(inputMetadata.BranchIDs())
-	}
-
-	inheritedBranchIDs, err = u.ledgerstate.ResolvePendingBranchIDs(inheritedBranchIDs)
-
-	if err != nil {
-		err = errors.Errorf("failed to resolve pending branches: %w", cerrors.ErrFatal)
-		return
-	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -15,7 +15,7 @@ type Validator struct {
 }
 
 func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
-	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Keys(params.Inputs), v.CachedOutputMetadata))
+	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Map(params.Inputs, utxo.Output.ID), v.CachedOutputMetadata))
 	defer cachedOutputsMetadata.Release()
 
 	params.InputsMetadata = generics.KeyBy[utxo.OutputID, *OutputMetadata](cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
@@ -33,7 +33,7 @@ func (v *Validator) outputsCausallyRelated(outputsMetadata map[utxo.OutputID]*Ou
 		return false
 	}
 
-	v.WalkConsumingTransactionMetadata(func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+	v.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		for _, outputID := range txMetadata.OutputIDs() {
 			if _, related = outputsMetadata[outputID]; related {
 				walker.StopWalk()
@@ -42,7 +42,7 @@ func (v *Validator) outputsCausallyRelated(outputsMetadata map[utxo.OutputID]*Ou
 
 			walker.Push(outputID)
 		}
-	}, spentOutputIDs)
+	})
 
 	return related
 }

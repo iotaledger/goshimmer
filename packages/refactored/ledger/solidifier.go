@@ -18,7 +18,7 @@ func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
 	}
 }
 
-func (s *Solidifier) checkSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (success bool, inputs map[utxo.OutputID]utxo.Output) {
+func (s *Solidifier) checkSolidity(transaction utxo.Transaction, metadata *TransactionMetadata) (success bool, inputs []utxo.Output) {
 	if metadata.Solid() {
 		return false, nil
 	}
@@ -26,7 +26,7 @@ func (s *Solidifier) checkSolidity(transaction utxo.Transaction, metadata *Trans
 	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(generics.Map(transaction.Inputs(), s.vm.ResolveInput), s.CachedOutput))
 	defer cachedInputs.Release()
 
-	inputs = generics.KeyBy[utxo.OutputID, utxo.Output](cachedInputs.Unwrap(true), utxo.Output.ID)
+	inputs = cachedInputs.Unwrap(true)
 	if len(inputs) != len(cachedInputs) {
 		return false, nil
 	}
