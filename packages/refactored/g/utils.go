@@ -1,4 +1,4 @@
-package generics
+package g
 
 func Map[SourceType any, TargetType any](source []SourceType, mapper func(SourceType) TargetType) (target []TargetType) {
 	target = make([]TargetType, len(source))
@@ -76,4 +76,26 @@ func Values[K comparable, V any](in map[K]V) []V {
 	}
 
 	return result
+}
+
+// ForEach iterates over elements of collection and invokes iteratee for each element.
+func ForEach[T any](collection []T, iteratee func(T)) {
+	for _, item := range collection {
+		iteratee(item)
+	}
+}
+
+// ForEach iterates over elements of collection and invokes iteratee for each element.
+func ReduceProperty[A, B, C any](collection []A, propertyResolver func(A) B, accumulator func(C, B) C, initial C) C {
+	for _, item := range collection {
+		initial = accumulator(initial, propertyResolver(item))
+	}
+
+	return initial
+}
+
+func Bind[A, B, R any](callback func(A, B) R, p B) func(A) R {
+	return func(outputID A) R {
+		return callback(outputID, p)
+	}
 }

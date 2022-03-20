@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 // block of default cache time.
@@ -111,19 +112,20 @@ func NewBranchDAG(store kvstore.KVStore, cacheTimeProvider *database.CacheTimePr
 
 // CreateBranch retrieves the Branch that corresponds to the given details. It automatically creates and
 // updates the Branch according to the new details if necessary.
-func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (cachedBranch *objectstorage.CachedObject[*Branch], newBranchCreated bool, err error) {
+func (b *BranchDAG) CreateBranch(txID utxo.TransactionID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (branchID BranchID) {
+	branchID = NewBranchID(txID)
+
 	b.inclusionStateMutex.RLock()
 
 	// create or load the branch
-	cachedBranch = b.Branch(branchID, func() *Branch {
+	newBranchCreated := false
+	b.Branch(branchID, func() *Branch {
 		branch := NewBranch(branchID, parentBranchIDs, conflictIDs)
 
 		newBranchCreated = true
 
 		return branch
-	}).Retain()
-
-	cachedBranch.Consume(func(branch *Branch) {
+	}).Consume(func(branch *Branch) {
 		// If the branch existed already we simply update its conflict members.
 		//
 		// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
@@ -161,7 +163,7 @@ func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, c
 		b.Events.BranchCreated.Trigger(branchID)
 	}
 
-	return
+	return branchID
 }
 
 // AddBranchParent changes the parents of a Branch (also updating the references of the ChildBranches).
@@ -194,33 +196,28 @@ func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err e
 	return nil
 }
 
-// ResolvePendingBranchIDs returns the BranchIDs of the pending and rejected Branches that are
+// RemoveConfirmedBranches returns the BranchIDs of the pending and rejected Branches that are
 // addressed by the given BranchIDs.
-func (b *BranchDAG) ResolvePendingBranchIDs(branchIDs BranchIDs) (pendingBranchIDs BranchIDs, err error) {
-	branchWalker := walker.New[BranchID]()
-	for branchID := range branchIDs {
-		branchWalker.Push(branchID)
-	}
-
+func (b *BranchDAG) RemoveConfirmedBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
 	pendingBranchIDs = make(BranchIDs)
+
+	branchWalker := walker.New[BranchID]().PushAll(branchIDs.Slice()...)
 	for branchWalker.HasNext() {
 		currentBranchID := branchWalker.Next()
 
-		if !b.Branch(currentBranchID).Consume(func(branch *Branch) {
+		b.Branch(currentBranchID).Consume(func(branch *Branch) {
 			if branch.InclusionState() == Confirmed {
 				return
 			}
 			pendingBranchIDs.Add(branch.ID())
-		}) {
-			return nil, errors.Errorf("failed to load Branch with %s: %w", currentBranchID, cerrors.ErrFatal)
-		}
+		})
 	}
 
 	if len(pendingBranchIDs) == 0 {
-		return NewBranchIDs(MasterBranchID), nil
+		pendingBranchIDs = NewBranchIDs(MasterBranchID)
 	}
 
-	return
+	return pendingBranchIDs
 }
 
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.

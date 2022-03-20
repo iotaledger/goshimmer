@@ -13,3 +13,7 @@ type CachedOutput = *objectstorage.CachedObject[utxo.Output]
 type CachedOutputMetadata = *objectstorage.CachedObject[*OutputMetadata]
 
 type CachedOutputsMetadata = objectstorage.CachedObjects[*OutputMetadata]
+
+type CachedConsumer = *objectstorage.CachedObject[*Consumer]
+
+type CachedConsumers = objectstorage.CachedObjects[*Consumer]

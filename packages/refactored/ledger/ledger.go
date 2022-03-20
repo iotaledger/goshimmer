@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/g"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
@@ -82,12 +83,12 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool
 }
 
 func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMetadata) (success bool) {
-	if txMeta.Processed() {
-		return false
-	}
-
 	l.DAGMutex.Lock(tx.ID())
 	defer l.DAGMutex.Unlock(tx.ID())
+
+	if txMeta.Processed() {
+		return true
+	}
 
 	err := dataflow.New[*params](
 		l.checkSolidityCommand,
@@ -98,6 +99,9 @@ func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMeta
 		*/
 		l.notifyConsumersCommand,
 	).WithSuccessCallback(func(params *params) {
+		g.ForEach(params.Consumers, (*Consumer).SetProcessed)
+		params.TransactionMetadata.SetProcessed(true)
+
 		l.TransactionProcessedEvent.Trigger(params.Transaction.ID())
 
 		success = true
@@ -132,7 +136,10 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 type params struct {
 	Transaction         utxo.Transaction
 	TransactionMetadata *TransactionMetadata
+	InputsIDs           []utxo.OutputID
 	Inputs              []utxo.Output
 	InputsMetadata      map[utxo.OutputID]*OutputMetadata
+	Consumers           []*Consumer
 	Outputs             []utxo.Output
+	OutputsMetadata     map[utxo.OutputID]*OutputMetadata
 }

@@ -318,7 +318,7 @@ type OutputMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	consumerCount           int
+	firstConsumer           utxo.TransactionID
 	consumerMutex           sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
@@ -377,12 +377,10 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	consumerCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if outputMetadata.firstConsumer, err = utxo.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	outputMetadata.consumerCount = int(consumerCount)
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
 		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -480,32 +478,36 @@ func (o *OutputMetadata) SolidificationTime() time.Time {
 	return o.solidificationTime
 }
 
-// ConsumerCount returns the number of transactions that have spent the Output.
-func (o *OutputMetadata) ConsumerCount() int {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
-
-	return o.consumerCount
-}
-
 // Spent returns true if the Output has been spent already.
 func (o *OutputMetadata) Spent() bool {
 	o.consumerMutex.RLock()
 	defer o.consumerMutex.RUnlock()
 
-	return o.consumerCount != 0
+	return o.firstConsumer != utxo.EmptyTransactionID
 }
 
-// RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
+// FirstConsumer returns the TransactionID that first spent the Output (or the EmptyTransactionID if it is unspent).
+func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
+	o.consumerMutex.RLock()
+	defer o.consumerMutex.RUnlock()
+
+	return o.firstConsumer
+}
+
+// IsProcessedConsumerDoubleSpend increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) RegisterConsumer(consumer utxo.TransactionID) (previousConsumerCount int) {
+func (o *OutputMetadata) IsProcessedConsumerDoubleSpend(consumer utxo.TransactionID) (isFirstConsumer bool) {
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
-	o.consumerCount++
+	if o.firstConsumer != utxo.EmptyTransactionID {
+		return false
+	}
+
+	o.firstConsumer = consumer
 	o.SetModified()
 
-	return
+	return true
 }
 
 // GradeOfFinality returns the grade of finality.
@@ -550,7 +552,7 @@ func (o *OutputMetadata) String() string {
 		stringify.StructField("branchIDs", o.BranchIDs()),
 		stringify.StructField("solid", o.Solid()),
 		stringify.StructField("solidificationTime", o.SolidificationTime()),
-		stringify.StructField("consumerCount", o.ConsumerCount()),
+		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
@@ -569,7 +571,7 @@ func (o *OutputMetadata) ObjectStorageValue() []byte {
 		Write(o.BranchIDs()).
 		WriteBool(o.Solid()).
 		WriteTime(o.SolidificationTime()).
-		WriteUint64(uint64(o.ConsumerCount())).
+		Write(o.FirstConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
 		WriteTime(o.GradeOfFinalityTime()).
 		Bytes()
@@ -665,8 +667,8 @@ func (c *Consumer) Valid() (valid types.TriBool) {
 	return c.valid
 }
 
-// SetValid updates the valid flag of the Consumer and returns true if the value was changed.
-func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
+// SetProcessed updates the valid flag of the Consumer and returns true if the value was changed.
+func (c *Consumer) SetProcessed() {
 	c.validMutex.Lock()
 	defer c.validMutex.Unlock()
 

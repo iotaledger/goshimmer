@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
@@ -48,6 +49,11 @@ func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput *objectstor
 // CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
 func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID) (cachedOutput *objectstorage.CachedObject[*OutputMetadata]) {
 	return s.outputMetadataStorage.Load(outputID.Bytes())
+}
+
+// CachedConsumer retrieves the OutputMetadata with the given OutputID from the object storage.
+func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+	return s.consumerStorage.Load(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()))
 }
 
 // CachedConsumers retrieves the Consumers of the given OutputID from the object storage.

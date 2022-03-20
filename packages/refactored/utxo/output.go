@@ -7,6 +7,8 @@ import (
 type Output interface {
 	ID() (id OutputID)
 
+	SetID(id OutputID)
+
 	Bytes() (serializedOutput []byte)
 
 	String() (humanReadableOutput string)

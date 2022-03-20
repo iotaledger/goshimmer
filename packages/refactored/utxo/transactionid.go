@@ -17,8 +17,8 @@ const TransactionIDLength = 32
 // TransactionID is the type that represents the identifier of a Transaction.
 type TransactionID [TransactionIDLength]byte
 
-// GenesisTransactionID represents the identifier of the genesis Transaction.
-var GenesisTransactionID TransactionID
+// EmptyTransactionID represents the identifier of the genesis Transaction.
+var EmptyTransactionID TransactionID
 
 // TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
 func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {

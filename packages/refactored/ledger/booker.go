@@ -1,14 +1,11 @@
 package ledger
 
 import (
-	"fmt"
-
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
+	. "github.com/iotaledger/goshimmer/packages/refactored/g"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -18,39 +15,45 @@ type Booker struct {
 }
 
 func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
-	// check the double spends first because at this step we also create the consumers
-	conflictingInputIDs := generics.Keys(generics.FilterByValue(params.InputsMetadata, b.doubleSpendRegistered(params.Transaction.ID())))
+	inheritedBranchIDs := b.bookTransaction(params.Transaction.ID(), params.TransactionMetadata, params.InputsMetadata)
 
-	inheritedBranchIDs, err := b.ResolvePendingBranchIDs(generics.Reduce(generics.Values(params.InputsMetadata), b.accumulateBranchIDs, branchdag.NewBranchIDs()))
-	if err != nil {
-		return errors.Errorf("failed to resolve pending branches: %w", err)
-	}
+	cachedOutputsMetadata := b.bookOutputs(params.Transaction.ID(), params.Outputs, inheritedBranchIDs)
+	defer cachedOutputsMetadata.Release()
 
-	if len(conflictingInputIDs) != 0 {
-		b.forkConsumers(conflictingInputIDs)
-		inheritedBranchIDs = branchdag.NewBranchIDs(b.createConflictBranch())
-	}
-
-	b.bookOutputs(params.Transaction, inheritedBranchIDs)
-
-	params.TransactionMetadata.SetBranchIDs(inheritedBranchIDs)
-	params.TransactionMetadata.SetProcessed(true)
+	params.OutputsMetadata = KeyBy(cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
 
 	return next(params)
 }
 
-func (b *Booker) accumulateBranchIDs(accumulator branchdag.BranchIDs, inputMetadata *OutputMetadata) (result branchdag.BranchIDs) {
-	return accumulator.AddAll(inputMetadata.BranchIDs())
+func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *TransactionMetadata, inputsMetadata map[utxo.OutputID]*OutputMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
+	inheritedBranchIDs = b.RemoveConfirmedBranches(ReduceProperty(Values(inputsMetadata), (*OutputMetadata).BranchIDs, branchdag.BranchIDs.AddAll, branchdag.NewBranchIDs()))
+
+	conflictingInputIDs := Keys(FilterByValue(inputsMetadata, Bind((*OutputMetadata).IsProcessedConsumerDoubleSpend, txID)))
+	if len(conflictingInputIDs) != 0 {
+		inheritedBranchIDs = branchdag.NewBranchIDs(b.CreateBranch(txID, inheritedBranchIDs, branchdag.NewConflictIDs(Map(conflictingInputIDs, branchdag.NewConflictID)...)))
+
+		b.forkConsumers(conflictingInputIDs)
+	}
+
+	txMetadata.SetBranchIDs(inheritedBranchIDs)
+
+	return inheritedBranchIDs
 }
 
-func (b *Booker) doubleSpendRegistered(txID utxo.TransactionID) func(*OutputMetadata) bool {
-	return func(outputMetadata *OutputMetadata) (conflicting bool) {
-		outputMetadata.RegisterConsumer(txID)
+func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []utxo.Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], len(outputs))
 
-		b.bookConsumers(inputsMetadata, transaction.ID(), types.True)
+	for index, output := range outputs {
+		output.SetID(utxo.NewOutputID(txID, uint16(index), output.Bytes()))
 
-		return false
+		outputMetadata := NewOutputMetadata(output.ID())
+		outputMetadata.SetBranchIDs(branchIDs)
+
+		cachedOutputsMetadata[index] = b.outputMetadataStorage.Store(outputMetadata)
+		b.outputStorage.Store(output).Release()
 	}
+
+	return cachedOutputsMetadata
 }
 
 func (b *Booker) forkConsumers(conflictingInputIDs []utxo.OutputID) {
@@ -58,21 +61,3 @@ func (b *Booker) forkConsumers(conflictingInputIDs []utxo.OutputID) {
 		b.forkConsumer(txID, conflictingInputIDs)
 	})
 }
-
-func (b *Booker) createConflictBranch(txID utxo.TransactionID, parentBranchIDs branchdag.BranchIDs, conflictingInputIDs []utxo.OutputID) (conflictBranchID branchdag.BranchID) {
-	conflictBranchID = branchdag.NewBranchID(txID)
-	cachedBranch, _, err := b.CreateBranch(conflictBranchID, parentBranchIDs, branchdag.NewConflictIDs(generics.Map(conflictingInputIDs, branchdag.NewConflictID)...))
-	if err != nil {
-		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", params.Transaction.ID(), err))
-	}
-	cachedBranch.Release()
-}
-
-// bookNonConflictingTransaction is an internal utility function that books the Transaction into the Branch that is
-// determined by aggregating the Branches of the consumed Inputs.
-func (b *Booker) bookTransaction(transaction utxo.Transaction, transactionMetadata *TransactionMetadata, branchIDs branchdag.BranchIDs) (targetBranchIDs branchdag.BranchIDs) {
-
-	return branchIDs
-}
-
-//

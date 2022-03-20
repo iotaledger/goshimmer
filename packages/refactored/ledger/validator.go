@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
+	"github.com/iotaledger/goshimmer/packages/refactored/g"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -15,10 +15,10 @@ type Validator struct {
 }
 
 func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
-	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Map(params.Inputs, utxo.Output.ID), v.CachedOutputMetadata))
+	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](g.Map(g.Map(params.Inputs, utxo.Output.ID), v.CachedOutputMetadata))
 	defer cachedOutputsMetadata.Release()
 
-	params.InputsMetadata = generics.KeyBy[utxo.OutputID, *OutputMetadata](cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
+	params.InputsMetadata = g.KeyBy[utxo.OutputID, *OutputMetadata](cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
 
 	if v.outputsCausallyRelated(params.InputsMetadata) {
 		return errors.Errorf("%s is trying to spend causally related Outputs: %w", params.Transaction.ID(), ErrTransactionInvalid)
@@ -28,7 +28,7 @@ func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next data
 }
 
 func (v *Validator) outputsCausallyRelated(outputsMetadata map[utxo.OutputID]*OutputMetadata) (related bool) {
-	spentOutputIDs := generics.Keys(generics.FilterByValue[utxo.OutputID, *OutputMetadata](outputsMetadata, (*OutputMetadata).Spent))
+	spentOutputIDs := g.Keys(g.FilterByValue[utxo.OutputID, *OutputMetadata](outputsMetadata, (*OutputMetadata).Spent))
 	if len(spentOutputIDs) == 0 {
 		return false
 	}
