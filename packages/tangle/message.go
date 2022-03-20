@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -27,7 +28,7 @@ import (
 )
 
 const (
-	// MessageVersion defines the version of the message structure.
+	// MessageVersion defines the Version of the message structure.
 	MessageVersion uint8 = 1
 
 	// MaxMessageSize defines the maximum size of a message.
@@ -128,7 +129,7 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// Base58 returns a base58 encoded version of the MessageID.
+// Base58 returns a base58 encoded Version of the MessageID.
 func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
 }
@@ -157,7 +158,7 @@ func (id MessageID) String() string {
 var messageIDAliases = make(map[MessageID]string)
 
 // RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
-// readable string instead of the base58 encoded version of itself.
+// readable string instead of the base58 encoded Version of itself.
 func RegisterMessageIDAlias(messageID MessageID, alias string) {
 	messageIDAliases[messageID] = alias
 }
@@ -243,7 +244,7 @@ func (m MessageIDs) Base58() (result []string) {
 	return
 }
 
-// String returns a human-readable version of the MessageIDs.
+// String returns a human-readable Version of the MessageIDs.
 func (m MessageIDs) String() string {
 	if len(m) == 0 {
 		return "MessageIDs{}"
@@ -269,18 +270,21 @@ const (
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
+	messageInner `seri:"0"`
+}
+type messageInner struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	version         uint8
-	parentsBlocks   []ParentsBlock
-	issuerPublicKey ed25519.PublicKey
-	issuingTime     time.Time
-	sequenceNumber  uint64
-	payload         payload.Payload
-	nonce           uint64
-	signature       ed25519.Signature
+	Version         uint8             `seri:"0"`
+	ParentsBlocks   []ParentsBlock    `seri:"1"`
+	IssuerPublicKey ed25519.PublicKey `seri:"2"`
+	IssuingTime     time.Time         `seri:"3"`
+	SequenceNumber  uint64            `seri:"4"`
+	Payload         payload.Payload   `seri:"5,payload"`
+	Nonce           uint64            `seri:"6"`
+	Signature       ed25519.Signature `seri:"7"`
 
 	// derived properties
 	id         *MessageID
@@ -386,16 +390,16 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 		return nil, ErrConflictingReferenceAcrossBlocks
 	}
 
-	return &Message{
-		version:         version,
-		parentsBlocks:   parentsBlocks,
-		issuerPublicKey: issuerPublicKey,
-		issuingTime:     issuingTime,
-		sequenceNumber:  sequenceNumber,
-		payload:         msgPayload,
-		nonce:           nonce,
-		signature:       signature,
-	}, nil
+	return &Message{messageInner{
+		Version:         version,
+		ParentsBlocks:   parentsBlocks,
+		IssuerPublicKey: issuerPublicKey,
+		IssuingTime:     issuingTime,
+		SequenceNumber:  sequenceNumber,
+		Payload:         msgPayload,
+		Nonce:           nonce,
+		Signature:       signature,
+	}}, nil
 }
 
 // validate messagesIDs are unique across blocks
@@ -482,7 +486,7 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 	// parse information
 	version, err := marshalUtil.ReadByte()
 	if err != nil {
-		return nil, errors.Errorf("failed to parse message version from MarshalUtil: %w", err)
+		return nil, errors.Errorf("failed to parse message Version from MarshalUtil: %w", err)
 	}
 
 	var parentsBlocksCount uint8
@@ -532,22 +536,22 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 
 	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse payload of the message: %w", err)
+		return nil, fmt.Errorf("failed to parse Payload of the message: %w", err)
 	}
 
 	nonce, err := marshalUtil.ReadUint64()
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse nonce of the message: %w", err)
+		return nil, fmt.Errorf("failed to parse Nonce of the message: %w", err)
 	}
 	signature, err := ed25519.ParseSignature(marshalUtil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse signature of the message: %w", err)
+		return nil, fmt.Errorf("failed to parse Signature of the message: %w", err)
 	}
 
 	// retrieve the number of bytes we processed
 	readOffsetEnd := marshalUtil.ReadOffset()
 
-	// store marshaled version as a copy
+	// store marshaled Version as a copy
 	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
 	if err != nil {
 		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
@@ -563,7 +567,7 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 	return msg, nil
 }
 
-// VerifySignature verifies the signature of the message.
+// VerifySignature verifies the Signature of the message.
 func (m *Message) VerifySignature() bool {
 	msgBytes := m.Bytes()
 	signature := m.Signature()
@@ -571,7 +575,7 @@ func (m *Message) VerifySignature() bool {
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return m.issuerPublicKey.VerifySignature(content, signature)
+	return m.messageInner.IssuerPublicKey.VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
@@ -603,14 +607,14 @@ func (m *Message) IDBytes() []byte {
 	return m.ID().Bytes()
 }
 
-// Version returns the message version.
+// Version returns the message Version.
 func (m *Message) Version() uint8 {
-	return m.version
+	return m.messageInner.Version
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	for _, parentBlock := range m.parentsBlocks {
+	for _, parentBlock := range m.ParentsBlocks {
 		if parentBlock.ParentsType == parentType {
 			return NewMessageIDs(parentBlock.References...)
 		}
@@ -620,7 +624,7 @@ func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for _, parentBlock := range m.parentsBlocks {
+	for _, parentBlock := range m.ParentsBlocks {
 		for _, parentID := range parentBlock.References {
 			consumer(Parent{
 				Type: parentBlock.ParentsType,
@@ -646,32 +650,32 @@ func (m *Message) ParentsCountByType(parentType ParentsType) uint8 {
 
 // IssuerPublicKey returns the public key of the message issuer.
 func (m *Message) IssuerPublicKey() ed25519.PublicKey {
-	return m.issuerPublicKey
+	return m.messageInner.IssuerPublicKey
 }
 
 // IssuingTime returns the time when this message was created.
 func (m *Message) IssuingTime() time.Time {
-	return m.issuingTime
+	return m.messageInner.IssuingTime
 }
 
 // SequenceNumber returns the sequence number of this message.
 func (m *Message) SequenceNumber() uint64 {
-	return m.sequenceNumber
+	return m.messageInner.SequenceNumber
 }
 
-// Payload returns the payload of the message.
+// Payload returns the Payload of the message.
 func (m *Message) Payload() payload.Payload {
-	return m.payload
+	return m.messageInner.Payload
 }
 
-// Nonce returns the nonce of the message.
+// Nonce returns the Nonce of the message.
 func (m *Message) Nonce() uint64 {
-	return m.nonce
+	return m.messageInner.Nonce
 }
 
-// Signature returns the signature of the message.
+// Signature returns the Signature of the message.
 func (m *Message) Signature() ed25519.Signature {
-	return m.signature
+	return m.messageInner.Signature
 }
 
 // calculates the message's MessageID.
@@ -689,11 +693,11 @@ func (m *Message) Bytes() []byte {
 
 	// marshal result
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(m.version)
-	marshalUtil.WriteByte(byte(len(m.parentsBlocks)))
+	marshalUtil.WriteByte(m.messageInner.Version)
+	// marshalUtil.WriteByte(byte(len(m.ParentsBlocks)))
 
-	for x := 0; x < len(m.parentsBlocks); x++ {
-		parentBlock := m.parentsBlocks[x]
+	for x := 0; x < len(m.ParentsBlocks); x++ {
+		parentBlock := m.ParentsBlocks[x]
 		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
 		marshalUtil.WriteByte(byte(len(parentBlock.References)))
 		sortedParents := sortParents(NewMessageIDs(parentBlock.References...))
@@ -702,12 +706,12 @@ func (m *Message) Bytes() []byte {
 		}
 	}
 
-	marshalUtil.Write(m.issuerPublicKey)
-	marshalUtil.WriteTime(m.issuingTime)
-	marshalUtil.WriteUint64(m.sequenceNumber)
-	marshalUtil.Write(m.payload)
-	marshalUtil.WriteUint64(m.nonce)
-	marshalUtil.Write(m.signature)
+	marshalUtil.Write(m.messageInner.IssuerPublicKey)
+	marshalUtil.WriteTime(m.messageInner.IssuingTime)
+	marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
+	marshalUtil.Write(m.messageInner.Payload)
+	marshalUtil.WriteUint64(m.messageInner.Nonce)
+	marshalUtil.Write(m.messageInner.Signature)
 
 	m.bytes = marshalUtil.Bytes()
 
@@ -758,11 +762,11 @@ func (m *Message) String() string {
 		}
 	}
 	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
-	builder.AddField(stringify.StructField("issuingTime", m.IssuingTime()))
-	builder.AddField(stringify.StructField("sequenceNumber", m.SequenceNumber()))
-	builder.AddField(stringify.StructField("payload", m.Payload()))
-	builder.AddField(stringify.StructField("nonce", m.Nonce()))
-	builder.AddField(stringify.StructField("signature", m.Signature()))
+	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
+	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.StructField("Payload", m.Payload()))
+	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
+	builder.AddField(stringify.StructField("Signature", m.Signature()))
 	return builder.String()
 }
 
@@ -801,8 +805,15 @@ type Parent struct {
 
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
-	ParentsType
-	References []MessageID
+	ParentsType `seri:"0"`
+	References  MessageIDSlice `seri:"1"`
+}
+
+// TODO: remove this type
+type MessageIDSlice []MessageID
+
+func (m MessageIDSlice) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsByte
 }
 
 // ParentMessageIDs is a map of ParentType to MessageIDs.
@@ -1311,7 +1322,7 @@ func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
 	return m.gradeOfFinalityTime
 }
 
-// Bytes returns a marshaled version of the whole MessageMetadata object.
+// Bytes returns a marshaled Version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
@@ -1342,7 +1353,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of the MessageMetadata.
+// String returns a human readable Version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
 		stringify.StructField("ID", m.messageID),

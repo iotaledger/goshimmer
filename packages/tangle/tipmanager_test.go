@@ -587,7 +587,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
 	// case #6 (attach to unconfirmed message older than TSC)
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
-	//// case #7
+	// // case #7
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
 	// case #8
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
@@ -847,8 +847,8 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 
 func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
-	if message.payload.Type() == ledgerstate.TransactionType {
-		err := tangle.LedgerState.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+	if message.Payload().Type() == ledgerstate.TransactionType {
+		err := tangle.LedgerState.UTXODAG.CheckTransaction(message.Payload().(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
 	err := tangle.Booker.BookMessage(message.ID())

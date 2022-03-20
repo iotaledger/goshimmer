@@ -306,7 +306,7 @@ func TestScheduler_Time(t *testing.T) {
 	tangle.Scheduler.Start()
 
 	future := newMessage(peerNode.PublicKey())
-	future.issuingTime = time.Now().Add(time.Second)
+	future.messageInner.IssuingTime = time.Now().Add(time.Second)
 	tangle.Storage.StoreMessage(future)
 	assert.NoError(t, tangle.Scheduler.Submit(future.ID()))
 
@@ -403,27 +403,27 @@ func TestSchedulerFlow(t *testing.T) {
 	// set C to have a timestamp in the future
 	msgC := newMessage(selfNode.PublicKey())
 
-	msgC.parentsBlocks[0] = ParentsBlock{
+	msgC.ParentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
 		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
 
-	msgC.issuingTime = time.Now().Add(5 * time.Second)
+	msgC.messageInner.IssuingTime = time.Now().Add(5 * time.Second)
 	messages["C"] = msgC
-
+	
 	msgD := newMessage(peerNode.PublicKey())
-	msgD.parentsBlocks[0] = ParentsBlock{
+	msgD.ParentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
 		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
-	msgE.parentsBlocks[0] = ParentsBlock{
+	msgE.ParentsBlocks[0] = ParentsBlock{
 		ParentsType: StrongParentType,
 		References:  []MessageID{messages["A"].ID(), messages["B"].ID()},
 	}
-	msgE.issuingTime = time.Now().Add(3 * time.Second)
+	msgE.messageInner.IssuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
 
 	messageScheduled := make(chan MessageID, len(messages))

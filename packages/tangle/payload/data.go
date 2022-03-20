@@ -24,16 +24,19 @@ func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {
+	genericDataPayloadInner `seri:"0"`
+}
+type genericDataPayloadInner struct {
 	payloadType Type
-	data        []byte
+	Data        []byte `seri:"0"`
 }
 
 // NewGenericDataPayload creates new GenericDataPayload.
 func NewGenericDataPayload(data []byte) *GenericDataPayload {
-	return &GenericDataPayload{
+	return &GenericDataPayload{genericDataPayloadInner{
 		payloadType: GenericDataPayloadType,
-		data:        data,
-	}
+		Data:        data,
+	}}
 }
 
 // GenericDataPayloadFromBytes unmarshals a GenericDataPayload from a sequence of bytes.
@@ -61,12 +64,16 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
+	if genericDataPayload.Data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
 		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	return
+}
+
+func (g *GenericDataPayload) ObjectCode() interface{} {
+	return uint32(0)
 }
 
 // Type returns the Type of the Payload.
@@ -76,13 +83,13 @@ func (g *GenericDataPayload) Type() Type {
 
 // Blob returns the contained data of the GenericDataPayload (without its type and size headers).
 func (g *GenericDataPayload) Blob() []byte {
-	return g.data
+	return g.Data
 }
 
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(TypeLength + uint32(len(g.data))).
+		WriteUint32(TypeLength + uint32(len(g.Data))).
 		WriteBytes(g.Type().Bytes()).
 		WriteBytes(g.Blob()).
 		Bytes()
