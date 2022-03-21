@@ -278,7 +278,7 @@ type messageInner struct {
 
 	// core properties (get sent over the wire)
 	Version         uint8             `seri:"0"`
-	ParentsBlocks   []ParentsBlock    `seri:"1"`
+	ParentsBlocks   ParentsBlocks     `seri:"1"`
 	IssuerPublicKey ed25519.PublicKey `seri:"2"`
 	IssuingTime     time.Time         `seri:"3"`
 	SequenceNumber  uint64            `seri:"4"`
@@ -694,7 +694,7 @@ func (m *Message) Bytes() []byte {
 	// marshal result
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteByte(m.messageInner.Version)
-	// marshalUtil.WriteByte(byte(len(m.ParentsBlocks)))
+	marshalUtil.WriteByte(byte(len(m.ParentsBlocks)))
 
 	for x := 0; x < len(m.ParentsBlocks); x++ {
 		parentBlock := m.ParentsBlocks[x]
@@ -710,6 +710,7 @@ func (m *Message) Bytes() []byte {
 	marshalUtil.WriteTime(m.messageInner.IssuingTime)
 	marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
 	marshalUtil.Write(m.messageInner.Payload)
+	fmt.Println("Bytes Payload", m.messageInner.Payload.Bytes())
 	marshalUtil.WriteUint64(m.messageInner.Nonce)
 	marshalUtil.Write(m.messageInner.Signature)
 
@@ -807,6 +808,12 @@ type Parent struct {
 type ParentsBlock struct {
 	ParentsType `seri:"0"`
 	References  MessageIDSlice `seri:"1"`
+}
+
+type ParentsBlocks []ParentsBlock
+
+func (p ParentsBlocks) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsByte
 }
 
 // TODO: remove this type

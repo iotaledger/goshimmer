@@ -72,6 +72,14 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 	return
 }
 
+// TODO: remove once []byte can be serialized
+func (g *GenericDataPayload) Encode() ([]byte, error) {
+	return marshalutil.New().
+		WriteBytes(g.Type().Bytes()).
+		WriteBytes(g.Blob()).
+		Bytes(), nil
+}
+
 func (g *GenericDataPayload) ObjectCode() interface{} {
 	return uint32(0)
 }

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 
 func TestSerix(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
-	pl := payload.NewGenericDataPayload([]byte("test"))
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
 
 	msg, err := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.NoError(t, err)
@@ -28,6 +29,9 @@ func TestSerix(t *testing.T) {
 
 	result, err := s.Encode(context.Background(), msg)
 	assert.NoError(t, err)
+
+	fmt.Println("Bytes", len(msg.Bytes()), msg.Bytes())
+	fmt.Println("Serix", len(result), result)
 
 	assert.Equal(t, msg.Bytes(), result)
 }
