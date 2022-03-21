@@ -324,9 +324,11 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
 type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error)
 
-// PrepareReferences is an implementation of LikeReferencesFunc.
+// PrepareReferences is an implementation of ReferencesFunc.
 func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error) {
 	references = NewParentMessageIDs()
+	// TODO: these messages should be removed from the tips and their parents re-added.
+	referenceNotPossible := NewMessageIDs()
 
 	for strongParent := range strongParents {
 		if strongParent == EmptyMessageID {
@@ -344,8 +346,12 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		opinionCanBeExpressed := true
 		for strongParentBranchID := range strongParentBranchIDs {
 			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
+			// Explicitly ignore error since we can't create a like/dislike reference to the message.
+			// We need to simply ignore it and remove it from the strong parents.
 			if err != nil {
-				return nil, errors.Errorf("failed to determine valid reference from Branch with %s: %w", strongParentBranchID, err)
+				referenceNotPossible.Add(strongParent)
+				opinionCanBeExpressed = false
+				break
 			}
 
 			if referenceParentType == UndefinedParentType {

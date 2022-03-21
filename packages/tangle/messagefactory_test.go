@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
@@ -18,6 +16,7 @@ import (
 	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -267,7 +266,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Test first set of parents
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), map[ParentsType]MessageIDs{
-		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void},
+		ShallowLikeParentType: NewMessageIDs(testFramework.Message("2").ID()),
 	}, time.Now())
 
 	// Test second set of parents
@@ -275,30 +274,36 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Test third set of parents
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
-		ShallowLikeParentType: {testFramework.Message("1").ID(): types.Void, testFramework.Message("2").ID(): types.Void},
+		ShallowLikeParentType: NewMessageIDs(testFramework.Message("1").ID(), testFramework.Message("2").ID()),
 	}, time.Now())
 
 	// Test fourth set of parents
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("1").ID(), testFramework.Message("2").ID(), testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
-		ShallowLikeParentType: {testFramework.Message("1").ID(): types.Void, testFramework.Message("2").ID(): types.Void},
+		ShallowLikeParentType: NewMessageIDs(testFramework.Message("1").ID(), testFramework.Message("2").ID()),
 	}, time.Now())
 
 	// Test empty set of parents
 	checkReferences(t, tangle, NewMessageIDs(), map[ParentsType]MessageIDs{}, time.Now(), true)
 
-	// Add reattachment that is older than the original message
+	// Add reattachment that is older than the original message.
 	// Message 5 (reattachment)
 	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
 	testFramework.IssueMessages("5").WaitMessagesBooked()
 
 	// Select oldest attachment of the message.
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
-		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void, testFramework.Message("5").ID(): types.Void},
+		ShallowLikeParentType: NewMessageIDs(testFramework.Message("2").ID(), testFramework.Message("5").ID()),
 	}, time.Now())
 
-	// Do not return too old like reference
+	// Do not return too old like reference: remove strong parent and return it so that it can be removed from the tips.
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
-		ShallowLikeParentType: {testFramework.Message("2").ID(): types.Void},
+		StrongParentType:      NewMessageIDs(testFramework.Message("3").ID()),
+		ShallowLikeParentType: NewMessageIDs(testFramework.Message("2").ID()),
+	}, time.Now().Add(maxParentsTimeDifference))
+
+	// Do not return too old like reference: if there's no other strong parent left, an error should be returned.
+	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
+		StrongParentType: NewMessageIDs(),
 	}, time.Now().Add(maxParentsTimeDifference), true)
 }
 
@@ -358,7 +363,11 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDs, expectedR
 	}
 	require.NoError(t, err)
 
-	assert.Equal(t, parents, actualReferences[StrongParentType])
+	if expectedStrongParents, ok := expectedReferences[StrongParentType]; ok {
+		assert.Equal(t, expectedStrongParents, actualReferences[StrongParentType])
+	} else {
+		assert.Equal(t, parents, actualReferences[StrongParentType])
+	}
 
 	for _, referenceType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
 		if expectedReferences[referenceType] == nil {
