@@ -68,16 +68,28 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
+	var wallet *Wallet
 
 	switch walletType {
 	case fresh:
 		if !w.IsFaucetWalletAvailable() {
 			return nil, errors.New("no faucet wallets available, need to request more funds")
 		}
-		wallet := w.wallets[w.faucetWallets[0]]
-		if wallet.IsEmpty() {
-			return nil, errors.New("wallet is empty, need to request more funds")
+		freshIndex := 0
+		for i, ID := range w.faucetWallets {
+			wallet = w.wallets[ID]
+			if wallet.IsEmpty() {
+				continue
+			}
+			freshIndex = i
+			break
 		}
+
+		// remove empty wallets
+		for i := 0; i < freshIndex; i++ {
+			w.removeWallet(fresh)
+		}
+
 		return wallet, nil
 	}
 	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
