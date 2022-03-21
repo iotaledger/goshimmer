@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/g"
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
@@ -24,6 +24,7 @@ type Ledger struct {
 	*Solidifier
 	*Validator
 	*Executor
+	*Booker
 	*Utils
 	*branchdag.BranchDAG
 
@@ -56,9 +57,6 @@ func (l *Ledger) Setup() {
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool) {
 	cachedTransactionMetadata := l.CachedTransactionMetadata(tx.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
 		l.transactionStorage.Store(tx).Release()
-
-		// TODO: STORE CONSUMERS
-
 		processed = true
 		return NewTransactionMetadata(transactionID)
 	})
@@ -94,15 +92,16 @@ func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMeta
 		l.checkSolidityCommand,
 		l.checkOutputsCausallyRelatedCommand,
 		l.executeTransactionCommand,
-		/*
-			l.BookTransaction,
-		*/
+		l.bookTransactionCommand,
 		l.notifyConsumersCommand,
 	).WithSuccessCallback(func(params *params) {
-		g.ForEach(params.Consumers, (*Consumer).SetProcessed)
-		params.TransactionMetadata.SetProcessed(true)
+		generics.ForEach(params.Consumers, func(consumer *Consumer) {
+			consumer.SetProcessed()
+		})
 
-		l.TransactionProcessedEvent.Trigger(params.Transaction.ID())
+		txMeta.SetProcessed(true)
+
+		l.TransactionProcessedEvent.Trigger(tx.ID())
 
 		success = true
 	}).Run(&params{

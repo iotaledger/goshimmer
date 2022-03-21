@@ -1,4 +1,4 @@
-package g
+package generics
 
 func Map[SourceType any, TargetType any](source []SourceType, mapper func(SourceType) TargetType) (target []TargetType) {
 	target = make([]TargetType, len(source))
@@ -94,8 +94,12 @@ func ReduceProperty[A, B, C any](collection []A, propertyResolver func(A) B, acc
 	return initial
 }
 
-func Bind[A, B, R any](callback func(A, B) R, p B) func(A) R {
-	return func(outputID A) R {
-		return callback(outputID, p)
+func Bind[FirstParamType, ParamType, ReturnType any](secondParam ParamType, callback func(FirstParamType, ParamType) ReturnType) func(FirstParamType) ReturnType {
+	return func(firstParam FirstParamType) ReturnType {
+		return callback(firstParam, secondParam)
 	}
+}
+
+func Identity[T any](param T) T {
+	return param
 }

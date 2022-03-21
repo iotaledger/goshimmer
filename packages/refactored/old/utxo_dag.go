@@ -229,34 +229,6 @@ func (u *UTXODAG) CachedAddressOutputMapping(address Address) (cachedAddressOutp
 
 // region booking functions ////////////////////////////////////////////////////////////////////////////////////////////
 
-// bookConflictingTransaction is an internal utility function that books a Transaction that uses Inputs that have
-// already been spent by another Transaction. It creates a new Branch for the new Transaction and "forks" the
-// existing consumers of the conflicting Inputs.
-func (u *UTXODAG) bookConflictingTransaction(transaction *Transaction, transactionMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, branchIDs branchdag.BranchIDs, conflictingInputs OutputsMetadataByID) (targetBranchIDs branchdag.BranchIDs) {
-	// fork existing consumers
-	u.walkFutureCone(conflictingInputs.IDs(), func(transactionID TransactionID) (nextOutputsToVisit []OutputID) {
-		u.forkConsumer(transactionID, conflictingInputs)
-
-		return
-	}, types.True)
-
-	// create new Branch
-	targetBranchID := branchdag.NewBranchID(transaction.ID())
-	cachedBranch, _, err := u.ledgerstate.CreateBranch(targetBranchID, branchIDs, conflictingInputs.ConflictIDs())
-	if err != nil {
-		panic(fmt.Errorf("failed to create Branch when booking Transaction with %s: %w", transaction.ID(), err))
-	}
-	cachedBranch.Release()
-
-	targetBranchIDs = branchdag.NewBranchIDs(targetBranchID)
-	transactionMetadata.SetBranchIDs(targetBranchIDs)
-	transactionMetadata.SetSolid(true)
-	u.bookConsumers(inputsMetadata, transaction.ID(), types.True)
-	u.bookOutputs(transaction, targetBranchIDs)
-
-	return
-}
-
 // forkConsumer is an internal utility function that creates a Branch for a Transaction that has not been
 // conflicting first but now turned out to be conflicting because of a newly booked double spend.
 func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs OutputsMetadataByID) {
@@ -337,45 +309,6 @@ func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID br
 	}
 
 	return
-}
-
-// bookConsumers creates the reference between an Output and its spending Transaction. It increases the ConsumerCount if
-// the Transaction is a valid spend.
-func (u *UTXODAG) bookConsumers(inputsMetadata OutputsMetadata, transactionID TransactionID, valid types.TriBool) {
-	for _, inputMetadata := range inputsMetadata {
-		if valid == types.True {
-			inputMetadata.RegisterConsumer(transactionID)
-		}
-
-		newConsumer := NewConsumer(inputMetadata.ID(), transactionID, valid)
-		if !u.consumerStorage.ComputeIfAbsent(newConsumer.ObjectStorageKey(), func(key []byte) *Consumer {
-			newConsumer.Persist()
-			newConsumer.SetModified()
-
-			return newConsumer
-		}).Consume(func(consumer *Consumer) {
-			consumer.SetValid(valid)
-		}) {
-			panic("failed to update valid flag of Consumer")
-		}
-	}
-}
-
-// bookOutputs creates the Outputs and their corresponding OutputsMetadata in the object storage.
-func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs branchdag.BranchIDs) {
-	for _, output := range transaction.Essence().Outputs() {
-		// replace ColorMint color with unique color based on OutputID
-		updatedOutput := output.UpdateMintingColor()
-
-		// store Output
-		u.outputStorage.Store(updatedOutput).Release()
-
-		// store OutputMetadata
-		metadata := NewOutputMetadata(updatedOutput.ID())
-		metadata.SetBranchIDs(targetBranchIDs)
-		metadata.SetSolid(true)
-		u.outputMetadataStorage.Store(metadata).Release()
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

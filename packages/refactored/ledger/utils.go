@@ -36,3 +36,11 @@ func (u *Utils) WalkConsumingTransactionMetadata(entryPoints []utxo.OutputID, ca
 		})
 	})
 }
+
+func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx utxo.Transaction, txMetadata *TransactionMetadata)) {
+	u.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		u.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+			callback(tx, txMetadata)
+		})
+	})
+}

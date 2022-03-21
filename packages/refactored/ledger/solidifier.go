@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/g"
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -19,19 +19,25 @@ func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
 }
 
 func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
-	params.InputsIDs = g.Map(params.Transaction.Inputs(), s.vm.ResolveInput)
+	params.InputsIDs = s.outputIDsFromInputs(params.Transaction.Inputs())
 
-	cachedConsumers := objectstorage.CachedObjects[*Consumer](g.Map(params.InputsIDs, g.Bind(s.CachedConsumer, params.Transaction.ID())))
-	defer cachedConsumers.Release()
-	cachedInputs := objectstorage.CachedObjects[utxo.Output](g.Map(params.InputsIDs, s.CachedOutput))
+	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(params.InputsIDs, s.CachedOutput))
 	defer cachedInputs.Release()
 
 	if params.Inputs = cachedInputs.Unwrap(true); len(params.Inputs) != len(cachedInputs) {
 		return nil
 	}
+
+	cachedConsumers := objectstorage.CachedObjects[*Consumer](generics.Map(params.InputsIDs, generics.Bind(params.Transaction.ID(), s.CachedConsumer)))
+	defer cachedConsumers.Release()
+
 	params.Consumers = cachedConsumers.Unwrap()
 
 	s.TransactionSolidEvent.Trigger(params.Transaction.ID())
 
 	return next(params)
+}
+
+func (s *Solidifier) outputIDsFromInputs(inputs []utxo.Input) (outputIDs []utxo.OutputID) {
+	return generics.Map(inputs, s.vm.ResolveInput)
 }

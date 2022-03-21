@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -591,20 +590,19 @@ var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type Consumer struct {
-	consumedInput utxo.OutputID
-	transactionID utxo.TransactionID
-	validMutex    sync.RWMutex
-	valid         types.TriBool
+	consumedInput  utxo.OutputID
+	transactionID  utxo.TransactionID
+	processedMutex sync.RWMutex
+	processed      bool
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID, valid types.TriBool) *Consumer {
+func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) *Consumer {
 	return &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
-		valid:         valid,
 	}
 }
 
@@ -641,8 +639,8 @@ func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consum
 		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
-	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if consumer.processed, err = marshalUtil.ReadBool(); err != nil {
+		err = errors.Errorf("failed to parse processed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -659,24 +657,24 @@ func (c *Consumer) TransactionID() utxo.TransactionID {
 	return c.transactionID
 }
 
-// Valid returns a flag that indicates if the spending Transaction is valid or not.
-func (c *Consumer) Valid() (valid types.TriBool) {
-	c.validMutex.RLock()
-	defer c.validMutex.RUnlock()
+// Processed returns a flag that indicates if the spending Transaction is valid or not.
+func (c *Consumer) Processed() (processed bool) {
+	c.processedMutex.RLock()
+	defer c.processedMutex.RUnlock()
 
-	return c.valid
+	return c.processed
 }
 
 // SetProcessed updates the valid flag of the Consumer and returns true if the value was changed.
-func (c *Consumer) SetProcessed() {
-	c.validMutex.Lock()
-	defer c.validMutex.Unlock()
+func (c *Consumer) SetProcessed() (updated bool) {
+	c.processedMutex.Lock()
+	defer c.processedMutex.Unlock()
 
-	if valid == c.valid {
+	if c.processed {
 		return
 	}
 
-	c.valid = valid
+	c.processed = true
 	c.SetModified()
 	updated = true
 
@@ -693,6 +691,7 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", c.consumedInput),
 		stringify.StructField("transactionID", c.transactionID),
+		stringify.StructField("processed", c.Processed()),
 	)
 }
 
@@ -706,7 +705,7 @@ func (c *Consumer) ObjectStorageKey() []byte {
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.BoolSize).
-		Write(c.Valid()).
+		WriteBool(c.Processed()).
 		Bytes()
 }
 
