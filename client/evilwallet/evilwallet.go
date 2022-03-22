@@ -1,10 +1,11 @@
 package evilwallet
 
 import (
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
@@ -23,7 +24,7 @@ const (
 	maxGoroutines = 5
 )
 
-var clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
+var defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
 var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 	ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
 })
@@ -40,8 +41,13 @@ type EvilWallet struct {
 }
 
 // NewEvilWallet creates an EvilWallet instance.
-func NewEvilWallet() *EvilWallet {
-	connector := NewConnector(clientsURL)
+func NewEvilWallet(clientsUrls ...string) *EvilWallet {
+	urls := clientsUrls
+	if len(urls) == 0 {
+		urls = append(urls, defaultClientsURLs...)
+	}
+
+	connector := NewConnector(urls)
 	wallets := NewWallets()
 	return &EvilWallet{
 		wallets:         wallets,
