@@ -125,7 +125,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		issuingTime = f.getIssuingTime(strongParents)
 		if len(references) == 0 {
 			var referenceNotPossible MessageIDs
-			references, err, referenceNotPossible = f.referencesFunc(strongParents, issuingTime, f.tangle)
+			references, referenceNotPossible, err = f.referencesFunc(strongParents, issuingTime, f.tangle)
 			for m := range referenceNotPossible {
 				f.Events.Error.Trigger(errors.Errorf("References for %s could not be determined", m))
 				f.Events.MessageReferenceImpossible.Trigger(m)
@@ -331,10 +331,10 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error, referenceNotPossible MessageIDs)
+type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error)
 
 // PrepareReferences is an implementation of ReferencesFunc.
-func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, err error, referenceNotPossible MessageIDs) {
+func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	references = NewParentMessageIDs()
 	referenceNotPossible = NewMessageIDs()
 
@@ -346,7 +346,7 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
 		if err != nil {
-			return nil, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err), referenceNotPossible
+			return nil, referenceNotPossible, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
 
 		referencesCopy := references.Clone()
@@ -378,7 +378,7 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 			references = referencesCopy
 			strongParentPayloadBranchIDs, strongParentPayloadBranchIDsErr := tangle.Booker.PayloadBranchIDs(strongParent)
 			if strongParentPayloadBranchIDsErr != nil {
-				return nil, errors.Errorf("failed to determine payload branch ids of strong parent with %s: %w", strongParent, strongParentPayloadBranchIDsErr), referenceNotPossible
+				return nil, referenceNotPossible, errors.Errorf("failed to determine payload branch ids of strong parent with %s: %w", strongParent, strongParentPayloadBranchIDsErr)
 			}
 
 			if tangle.Utils.AllBranchesLiked(strongParentPayloadBranchIDs) {
@@ -395,10 +395,10 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 	}
 
 	if len(references[StrongParentType]) == 0 {
-		return nil, errors.Errorf("none of the provided strong parents can be referenced"), referenceNotPossible
+		return nil, referenceNotPossible, errors.Errorf("none of the provided strong parents can be referenced")
 	}
 
-	return references, nil, referenceNotPossible
+	return references, referenceNotPossible, nil
 }
 
 func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {

@@ -915,7 +915,7 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (b
 	return likedConflictMembers.conflictMembers.Contains(branchID)
 }
 
-func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, err error, referenceNotPossible MessageIDs) {
+func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil, nil
 }
 
