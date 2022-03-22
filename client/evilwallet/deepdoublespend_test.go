@@ -9,13 +9,13 @@ import (
 func TestDeepDoubleSpend(t *testing.T) {
 	evilwallet := NewEvilWallet()
 
-	err := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
+	err, wallet := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
 	require.NoError(t, err)
 
 	err = evilwallet.SendCustomConflicts([]ConflictMap{
 		{
 			// split funds
-			[]Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}})},
+			[]Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}}), WithIssuer(wallet)},
 		},
 		{
 			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4", amount: 500000})},

@@ -11,13 +11,13 @@ func TestDoubleSpend(t *testing.T) {
 
 	clients := evilwallet.GetClients(2)
 
-	err := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
+	err, initWallet := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
 	require.NoError(t, err)
 
-	txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "2", amount: 1000000}))
+	txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "2", amount: 1000000}), WithIssuer(initWallet))
 	require.NoError(t, err)
 
-	txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "3", amount: 1000000}))
+	txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "3", amount: 1000000}), WithIssuer(initWallet))
 	require.NoError(t, err)
 
 	_, err = clients[0].PostTransaction(txA.Bytes())

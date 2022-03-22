@@ -79,8 +79,8 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error) {
-	initWallet := e.NewWallet(fresh)
+func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error, initWallet *Wallet) {
+	initWallet = e.NewWallet(fresh)
 	addr := initWallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
 
@@ -110,7 +110,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		e.aliasManager.AddInputAlias(input, buildOptions.outputAliasName)
 	}
 
-	return nil
+	return
 }
 
 // RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 10000 outputs.
