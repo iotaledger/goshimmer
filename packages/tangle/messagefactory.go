@@ -383,10 +383,8 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 
 			if tangle.Utils.AllBranchesLiked(strongParentPayloadBranchIDs) {
 				references.Add(WeakParentType, strongParent)
-				continue
 			}
-			// If we can't add express the opinion AND not add a weak reference, the message needs to be removed from
-			// the tip pool.
+			// If we can't add express the opinion (can't reference past cone), the message needs to be removed from the tip pool.
 			referenceNotPossible.Add(strongParent)
 			continue
 		}

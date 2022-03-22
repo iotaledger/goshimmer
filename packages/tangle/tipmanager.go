@@ -126,7 +126,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	}
 
 	if tips != nil {
-		tipSelector.Set(tips...)
+		tipSelector.set(tips...)
 	}
 
 	return tipSelector
@@ -153,8 +153,8 @@ func (t *TipManager) Setup() {
 	}))
 }
 
-// Set adds the given messageIDs as tips.
-func (t *TipManager) Set(tips ...MessageID) {
+// set adds the given messageIDs as tips.
+func (t *TipManager) set(tips ...MessageID) {
 	for _, messageID := range tips {
 		t.tips.Set(messageID, messageID)
 	}
@@ -173,16 +173,8 @@ func (t *TipManager) AddTip(message *Message) {
 	if t.checkApprovers(messageID) {
 		return
 	}
-	if t.tips.Set(messageID, messageID) {
-		t.increaseTipBranchesCount(messageID)
-		t.Events.TipAdded.Trigger(&TipEvent{
-			MessageID: messageID,
-		})
 
-		t.tipsCleaner.ExecuteAt(messageID, func() {
-			t.tips.Delete(messageID)
-		}, message.IssuingTime().Add(tipLifeGracePeriod))
-	}
+	t.addTip(message)
 
 	// skip removing tips if TangleWidth is enabled
 	if t.TipCount() <= t.tangle.Options.TangleWidth {
@@ -196,31 +188,42 @@ func (t *TipManager) AddTip(message *Message) {
 // reAddParents removes the given message from the tips and adds all its parents back to the tips.
 func (t *TipManager) reAddParents(message *Message) {
 	msgID := message.ID()
-	if _, deleted := t.tips.Delete(msgID); deleted {
-		t.decreaseTipBranchesCount(msgID)
-		t.Events.TipRemoved.Trigger(&TipEvent{
-			MessageID: msgID,
-		})
-	}
+	t.deleteTip(msgID)
 
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		t.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
 			if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
 				return
 			}
-			if t.tips.Set(parentMessageID, parentMessageID) {
-				t.increaseTipBranchesCount(parentMessageID)
-				t.Events.TipAdded.Trigger(&TipEvent{
-					MessageID: parentMessageID,
-				})
 
-				t.tipsCleaner.ExecuteAt(parentMessageID, func() {
-					t.tips.Delete(parentMessageID)
-				}, message.IssuingTime().Add(tipLifeGracePeriod))
-			}
+			t.addTip(parentMessage)
 		})
 		return true
 	})
+}
+
+func (t *TipManager) addTip(message *Message) {
+	messageID := message.ID()
+	if t.tips.Set(messageID, messageID) {
+		t.increaseTipBranchesCount(messageID)
+		t.Events.TipAdded.Trigger(&TipEvent{
+			MessageID: messageID,
+		})
+
+		t.tipsCleaner.ExecuteAt(messageID, func() {
+			t.deleteTip(messageID)
+		}, message.IssuingTime().Add(tipLifeGracePeriod))
+	}
+}
+
+func (t *TipManager) deleteTip(msgID MessageID) (deleted bool) {
+	if _, deleted = t.tips.Delete(msgID); deleted {
+		t.decreaseTipBranchesCount(msgID)
+		t.Events.TipRemoved.Trigger(&TipEvent{
+			MessageID: msgID,
+		})
+	}
+	return
 }
 
 // checkApprovers returns true if the message has any confirmed or scheduled approver.
@@ -323,12 +326,7 @@ func (t *TipManager) removeStrongParents(message *Message) {
 			return true
 		}
 
-		if _, deleted := t.tips.Delete(parentMessageID); deleted {
-			t.decreaseTipBranchesCount(parentMessageID)
-			t.Events.TipRemoved.Trigger(&TipEvent{
-				MessageID: parentMessageID,
-			})
-		}
+		t.deleteTip(parentMessageID)
 
 		return true
 	})
