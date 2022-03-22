@@ -67,7 +67,7 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 // GetNextWallet get next non-empty wallet based on provided type.
 func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 	w.mu.RLock()
-	defer w.mu.Unlock()
+	defer w.mu.RUnlock()
 
 	switch walletType {
 	case fresh:
@@ -307,7 +307,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()
 	if !ok {
-		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%d, addr: %s", outputID, addr)
+		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%s, addr: %s", outputID.Base58(), addr)
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID

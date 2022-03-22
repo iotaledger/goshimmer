@@ -13,14 +13,14 @@ import (
 // Options is a struct that represents a collection of options that can be set when creating a message
 type Options struct {
 	aliasInputs              map[string]types.Empty
-	inputs                   []ledgerstate.Input
+	inputs                   []ledgerstate.Output
 	aliasOutputs             map[string]*ledgerstate.ColoredBalances
 	outputs                  []*ledgerstate.ColoredBalances
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
 	shallowLikeParents       map[string]types.Empty
 	shallowDislikeParents    map[string]types.Empty
-	issuer                   *Wallet
+	inputWallet              *Wallet
 	outputWallet             *Wallet
 	issuingTime              time.Time
 	reattachmentMessageAlias string
@@ -38,7 +38,7 @@ type OutputOption struct {
 func NewOptions(options ...Option) (messageOptions *Options) {
 	messageOptions = &Options{
 		aliasInputs:           make(map[string]types.Empty),
-		inputs:                make([]ledgerstate.Input, 0),
+		inputs:                make([]ledgerstate.Output, 0),
 		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
 		outputs:               make([]*ledgerstate.ColoredBalances, 0),
 		strongParents:         make(map[string]types.Empty),
@@ -59,14 +59,6 @@ type Option func(*Options)
 
 func (o *Options) isBalanceProvided() bool {
 	provided := false
-	for _, balance := range o.outputs {
-		balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-			if balance > 0 {
-				provided = true
-			}
-			return true
-		})
-	}
 
 	for _, balance := range o.aliasOutputs {
 		balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -86,7 +78,7 @@ func WithInputs(inputs ...interface{}) Option {
 			switch in := input.(type) {
 			case string:
 				options.aliasInputs[in] = types.Void
-			case ledgerstate.Input:
+			case ledgerstate.Output:
 				options.inputs = append(options.inputs, in)
 			}
 		}
@@ -101,11 +93,11 @@ func WithOutput(output *OutputOption) Option {
 				output.color: output.amount,
 			})
 			return
+		} else {
+			options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+				output.color: output.amount,
+			}))
 		}
-
-		options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			output.color: output.amount,
-		}))
 	}
 }
 
@@ -162,14 +154,14 @@ func WithShallowDislikeParents(messageAliases ...string) Option {
 	}
 }
 
-// WithIssuer returns a MessageOption that is used to define the issuer of the Message.
+// WithIssuer returns a MessageOption that is used to define the inputWallet of the Message.
 func WithIssuer(issuer *Wallet) Option {
 	return func(options *Options) {
-		options.issuer = issuer
+		options.inputWallet = issuer
 	}
 }
 
-// WithOutputWallet returns a MessageOption that is used to define the issuer of the Message.
+// WithOutputWallet returns a MessageOption that is used to define the inputWallet of the Message.
 func WithOutputWallet(wallet *Wallet) Option {
 	return func(options *Options) {
 		options.outputWallet = wallet
