@@ -40,7 +40,7 @@ type Outputs []*Output
 
 // OutputManager keeps track of the output statuses.
 type OutputManager struct {
-	connector Clients
+	connector Connector
 
 	wallets           *Wallets
 	outputIDWalletMap map[string]*Wallet
@@ -50,7 +50,7 @@ type OutputManager struct {
 }
 
 // NewOutputManager creates an OutputManager instance.
-func NewOutputManager(connector Clients, wallets *Wallets) *OutputManager {
+func NewOutputManager(connector Connector, wallets *Wallets) *OutputManager {
 	return &OutputManager{
 		connector:         connector,
 		wallets:           wallets,

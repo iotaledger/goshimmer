@@ -1,6 +1,8 @@
 package evilspammer
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -8,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
-	"time"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,7 +37,7 @@ type Spammer struct {
 	SpamDetails *SpamDetails
 	State       *State
 
-	Clients      evilwallet.Clients
+	Clients      evilwallet.Connector
 	SpamWallet   *evilwallet.EvilWallet
 	EvilScenario evilwallet.EvilScenario
 	ErrCounter   *ErrorCounter

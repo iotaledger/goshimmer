@@ -34,7 +34,7 @@ var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
 	wallets         *Wallets
-	connector       Clients
+	connector       Connector
 	outputManager   *OutputManager
 	conflictManager *ConflictManager
 	aliasManager    *AliasManager
@@ -47,7 +47,7 @@ func NewEvilWallet(clientsUrls ...string) *EvilWallet {
 		urls = append(urls, defaultClientsURLs...)
 	}
 
-	connector := NewConnector(urls)
+	connector := NewWebClients(urls)
 	wallets := NewWallets()
 	return &EvilWallet{
 		wallets:         wallets,
@@ -73,7 +73,7 @@ func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
 }
 
 // Connector give access to the EvilWallet connector.
-func (e *EvilWallet) Connector() Clients {
+func (e *EvilWallet) Connector() Connector {
 	return e.connector
 }
 
@@ -95,8 +95,8 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 	if err != nil {
 		return
 	}
-	// track output in output manager and make sure it's confirmed
 
+	// track output in output manager and make sure it's confirmed
 	out := e.outputManager.CreateOutputFromAddress(initWallet, addr, faucetBalance)
 	if out == nil {
 		err = errors.New("no outputIDs found on address ")

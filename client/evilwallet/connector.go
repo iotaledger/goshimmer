@@ -14,7 +14,7 @@ import (
 
 type ServersStatus []*wallet.ServerStatus
 
-type Clients interface {
+type Connector interface {
 	// ServersStatuses retrieves the connected server status for each client.
 	ServersStatuses() ServersStatus
 	// ServerStatus retrieves the connected server status.
@@ -48,8 +48,8 @@ type Clients interface {
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 }
 
-// Connector is responsible for handling connections with clients.
-type Connector struct {
+// WebClients is responsible for handling connections via GoShimmerAPI.
+type WebClients struct {
 	clients []*client.GoShimmerAPI
 	urls    []string
 
@@ -61,14 +61,14 @@ type Connector struct {
 	mu sync.Mutex
 }
 
-// NewConnector creates Connector from provided GoShimmerAPI urls.
-func NewConnector(urls []string, setters ...client.Option) *Connector {
+// NewWebClients creates Connector from provided GoShimmerAPI urls.
+func NewWebClients(urls []string, setters ...client.Option) *WebClients {
 	clients := make([]*client.GoShimmerAPI, len(urls))
 	for i, url := range urls {
 		clients[i] = client.NewGoShimmerAPI(url, setters...)
 	}
 
-	return &Connector{
+	return &WebClients{
 		clients:  clients,
 		urls:     urls,
 		lastUsed: -1,
@@ -76,7 +76,7 @@ func NewConnector(urls []string, setters ...client.Option) *Connector {
 }
 
 // ServersStatuses retrieves the connected server status for each client.
-func (c *Connector) ServersStatuses() ServersStatus {
+func (c *WebClients) ServersStatuses() ServersStatus {
 	status := make(ServersStatus, len(c.clients))
 
 	for i := range c.clients {
@@ -86,7 +86,7 @@ func (c *Connector) ServersStatuses() ServersStatus {
 }
 
 // ServerStatus retrieves the connected server status.
-func (c *Connector) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error) {
+func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error) {
 	response, err := c.clients[cltIdx].Info()
 	if err != nil {
 		return nil, err
@@ -101,12 +101,12 @@ func (c *Connector) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err e
 }
 
 // Clients returns list of all clients.
-func (c *Connector) Clients(...bool) []*client.GoShimmerAPI {
+func (c *WebClients) Clients(...bool) []*client.GoShimmerAPI {
 	return c.clients
 }
 
 // GetClients returns the numOfClt client instances that were used the longest time ago.
-func (c *Connector) GetClients(numOfClt int) []*client.GoShimmerAPI {
+func (c *WebClients) GetClients(numOfClt int) []*client.GoShimmerAPI {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -119,7 +119,7 @@ func (c *Connector) GetClients(numOfClt int) []*client.GoShimmerAPI {
 }
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
-func (c *Connector) getClient() *client.GoShimmerAPI {
+func (c *WebClients) getClient() *client.GoShimmerAPI {
 	if c.lastUsed == len(c.clients)-1 {
 		c.lastUsed = 0
 	} else {
@@ -129,15 +129,15 @@ func (c *Connector) getClient() *client.GoShimmerAPI {
 }
 
 // GetClient returns the client instance that was used the longest time ago.
-func (c *Connector) GetClient() *client.GoShimmerAPI {
+func (c *WebClients) GetClient() *client.GoShimmerAPI {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	return c.getClient()
 }
 
-// AddClient adds client to Connector based on provided GoShimmerAPI url.
-func (c *Connector) AddClient(url string, setters ...client.Option) {
+// AddClient adds client to WebClients based on provided GoShimmerAPI url.
+func (c *WebClients) AddClient(url string, setters ...client.Option) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -145,8 +145,8 @@ func (c *Connector) AddClient(url string, setters ...client.Option) {
 	c.clients = append(c.clients, clt)
 }
 
-// RemoveClient removes client with the provided index from the Connector.
-func (c *Connector) RemoveClient(index int) {
+// RemoveClient removes client with the provided index from the WebClients.
+func (c *WebClients) RemoveClient(index int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -154,24 +154,24 @@ func (c *Connector) RemoveClient(index int) {
 }
 
 // PledgeID returns the node ID that the mana will be pledging to.
-func (c *Connector) PledgeID() *identity.ID {
+func (c *WebClients) PledgeID() *identity.ID {
 	return c.pledgeID
 }
 
 // SetPledgeID sets the node ID that the mana will be pledging to.
-func (c *Connector) SetPledgeID(id *identity.ID) {
+func (c *WebClients) SetPledgeID(id *identity.ID) {
 	c.pledgeID = id
 }
 
 // SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
-func (c *Connector) SendFaucetRequest(address string) (err error) {
+func (c *WebClients) SendFaucetRequest(address string) (err error) {
 	clt := c.GetClient()
 	_, err = clt.SendFaucetRequest(address, -1)
 	return
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
+func (c *WebClients) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
 	resp, err := clt.PostTransaction(tx.Bytes())
 	if err != nil {
 		return
@@ -184,7 +184,7 @@ func (c *Connector) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoS
 }
 
 // GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
+func (c *WebClients) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
 	clt := c.GetClient()
 	resp, err := clt.PostAddressUnspentOutputs([]string{addr.Base58()})
 	if err != nil {
@@ -198,7 +198,7 @@ func (c *Connector) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmo
 }
 
 // GetOutputGoF gets the first unspent outputs of a given address.
-func (c *Connector) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
+func (c *WebClients) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
 	clt := c.GetClient()
 	res, err := clt.GetOutputMetadata(outputID.Base58())
 	if err != nil {
@@ -209,7 +209,7 @@ func (c *Connector) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinal
 }
 
 // GetTransactionGoF returns the GoF of a given transaction ID.
-func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
+func (c *WebClients) GetTransactionGoF(txID string) gof.GradeOfFinality {
 	clt := c.GetClient()
 	resp, err := clt.GetTransactionMetadata(txID)
 	if err != nil {
@@ -219,7 +219,7 @@ func (c *Connector) GetTransactionGoF(txID string) gof.GradeOfFinality {
 }
 
 // GetTransactionOutputs returns the outputs the transaction created.
-func (c *Connector) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
+func (c *WebClients) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
 	clt := c.GetClient()
 	resp, err := clt.GetTransaction(txID)
 	if err != nil {
@@ -236,7 +236,7 @@ func (c *Connector) GetTransactionOutputs(txID string) (outputs ledgerstate.Outp
 }
 
 // GetTransaction gets the transaction.
-func (c *Connector) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
+func (c *WebClients) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
 	clt := c.GetClient()
 	resp, err = clt.GetTransaction(txID)
 	if err != nil {
