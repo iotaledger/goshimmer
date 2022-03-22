@@ -147,6 +147,10 @@ func (t *TipManager) Setup() {
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
 		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
 	}))
+
+	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(events.NewClosure(func(messageID MessageID) {
+		t.tangle.Storage.Message(messageID).Consume(t.reAddParents)
+	}))
 }
 
 // Set adds the given messageIDs as tips.
@@ -187,6 +191,36 @@ func (t *TipManager) AddTip(message *Message) {
 
 	// a tip loses its tip status if it is referenced by another message
 	t.removeStrongParents(message)
+}
+
+// reAddParents removes the given message from the tips and adds all its parents back to the tips.
+func (t *TipManager) reAddParents(message *Message) {
+	msgID := message.ID()
+	if _, deleted := t.tips.Delete(msgID); deleted {
+		t.decreaseTipBranchesCount(msgID)
+		t.Events.TipRemoved.Trigger(&TipEvent{
+			MessageID: msgID,
+		})
+	}
+
+	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
+		t.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
+			if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
+				return
+			}
+			if t.tips.Set(parentMessageID, parentMessageID) {
+				t.increaseTipBranchesCount(parentMessageID)
+				t.Events.TipAdded.Trigger(&TipEvent{
+					MessageID: parentMessageID,
+				})
+
+				t.tipsCleaner.ExecuteAt(parentMessageID, func() {
+					t.tips.Delete(parentMessageID)
+				}, message.IssuingTime().Add(tipLifeGracePeriod))
+			}
+		})
+		return true
+	})
 }
 
 // checkApprovers returns true if the message has any confirmed or scheduled approver.
