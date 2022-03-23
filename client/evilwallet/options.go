@@ -201,8 +201,8 @@ func WithIssuingTime(issuingTime time.Time) Option {
 	}
 }
 
-// ConflictMap represents a set of conflict transactions.
-type ConflictMap [][]Option
+// ConflictSlice represents a set of conflict transactions.
+type ConflictSlice [][]Option
 
 // endregion  //////////////////////////////////////////////////////////////////////////////////////////////////////////
 

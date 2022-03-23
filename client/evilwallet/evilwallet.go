@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"sync"
 	"time"
 
@@ -277,7 +278,7 @@ func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
-func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
 	if outputWallet == nil {
 		return nil, errors.Errorf("no output wallet provided")
 	}
@@ -297,7 +298,7 @@ func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputW
 }
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
-func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice, clients []*client.GoShimmerAPI) (err error) {
 	outputWallet := e.NewWallet()
 	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
 	if err != nil {
@@ -682,7 +683,7 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 }
 
 func (e *EvilWallet) PrepareTransaction(scenario EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	tx, err = e.CreateTransaction("txAliases[inputNum]", WithInputs("inputAliases[inputNum]"), WithOutputs([]string{"outputAliases[inputNum]"}))
+	tx, err = e.CreateTransaction(WithInputs("inputAliases[inputNum]"), WithOutputs(nil))
 	return
 }
 
@@ -698,7 +699,7 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario EvilScenario) (tx [][]*
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type EvilBatch []ConflictMap
+type EvilBatch []ConflictSlice
 
 type EvilScenario struct {
 	conflictBatch EvilBatch
@@ -710,7 +711,7 @@ type EvilScenario struct {
 	batchOutputsAliases map[string]types.Empty
 }
 
-func NewEvilScenario(conflictBatch []ConflictMap, repeat int, reuse bool) {
+func NewEvilScenario(conflictBatch []ConflictSlice, repeat int, reuse bool) {
 	scenario := &EvilScenario{
 		repeat: repeat,
 		reuse:  reuse,
@@ -729,9 +730,9 @@ func (e *EvilScenario) assignBatchOutputs() {
 	for _, conflictMap := range e.conflictBatch {
 		for _, options := range conflictMap {
 			option := NewOptions(options...)
-			for outputAlis := range option.outputs {
+			for outputAlis := range option.aliasOutputs {
 				// add output aliases that are not used in this conflict batch
-				if _, ok := option.inputs[outputAlis]; !ok {
+				if _, ok := option.aliasInputs[outputAlis]; !ok {
 					e.batchOutputsAliases[outputAlis] = types.Void
 				}
 			}
