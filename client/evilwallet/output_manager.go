@@ -102,6 +102,17 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	return out
 }
 
+func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
+	o.Lock()
+	defer o.Unlock()
+
+	outputID := output.ID()
+	out := w.AddUnspentOutput(output.Address(), w.addrIndexMap[output.Address().Base58()], outputID, output.Balances())
+	o.outputIDWalletMap[outputID.Base58()] = w
+	o.outputIDAddrMap[outputID] = output.Address().Base58()
+	return out
+}
+
 // UpdateOutputID updates the output wallet  and address.
 func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
 	err := w.UpdateUnspentOutputID(addr, outID)
