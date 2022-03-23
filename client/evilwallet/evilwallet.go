@@ -252,7 +252,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 }
 
 func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.Output, outputs []*OutputOption) {
-	evilInput := inputWallet.unspentOutputs[inputAddr]
+	evilInput := inputWallet.UnspentOutput(inputAddr)
 	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
 	input = out.SetID(evilInput.OutputID)
 
@@ -511,7 +511,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) err
 }
 
 func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledgerstate.Input) error {
-	inputWallet := e.outputManager.outputIDWalletMap[in.Base58()]
+	inputWallet := e.outputManager.OutputIDWalletMap(in.Base58())
 	if buildOptions.inputWallet == nil {
 		buildOptions.inputWallet = inputWallet
 	}
@@ -649,7 +649,7 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 		if err2 != nil {
 			return nil, err2
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(addr, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.Sign(addr, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }

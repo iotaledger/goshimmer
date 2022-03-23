@@ -44,7 +44,7 @@ type OutputManager struct {
 
 	wallets           *Wallets
 	outputIDWalletMap map[string]*Wallet
-	outputIDAddrMap   map[ledgerstate.OutputID]string
+	outputIDAddrMap   map[string]string
 
 	sync.RWMutex
 }
@@ -55,8 +55,37 @@ func NewOutputManager(connector Connector, wallets *Wallets) *OutputManager {
 		connector:         connector,
 		wallets:           wallets,
 		outputIDWalletMap: make(map[string]*Wallet),
-		outputIDAddrMap:   make(map[ledgerstate.OutputID]string),
+		outputIDAddrMap:   make(map[string]string),
 	}
+}
+
+func (o *OutputManager) SetOutputIDWalletMap(outputID string, wallet *Wallet) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.outputIDWalletMap[outputID] = wallet
+}
+
+func (o *OutputManager) SetOutputIDAddrMap(outputID string, addr string) {
+	o.Lock()
+	defer o.Unlock()
+
+	o.outputIDAddrMap[outputID] = addr
+}
+
+func (o *OutputManager) OutputIDWalletMap(outputID string) *Wallet {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.outputIDWalletMap[outputID]
+}
+
+func (o *OutputManager) OutputIDAddrMap(outputID string) (addr string) {
+	o.RLock()
+	defer o.RUnlock()
+
+	addr = o.outputIDAddrMap[outputID]
+	return
 }
 
 // Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
@@ -95,40 +124,32 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	}
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
-	o.Lock()
-	o.outputIDWalletMap[outputID.Base58()] = w
-	o.outputIDAddrMap[outputID] = addr.Base58()
-	o.Unlock()
+	o.SetOutputIDWalletMap(outputID.Base58(), w)
+	o.SetOutputIDAddrMap(outputID.Base58(), addr.Base58())
 	return out
 }
 
 func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
-	o.Lock()
-	defer o.Unlock()
-
 	outputID := output.ID()
-	out := w.AddUnspentOutput(output.Address(), w.addrIndexMap[output.Address().Base58()], outputID, output.Balances())
-	o.outputIDWalletMap[outputID.Base58()] = w
-	o.outputIDAddrMap[outputID] = output.Address().Base58()
+	idx := w.AddrIndexMap(output.Address().Base58())
+	out := w.AddUnspentOutput(output.Address(), idx, outputID, output.Balances())
+	o.SetOutputIDWalletMap(outputID.Base58(), w)
+	o.SetOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
 	return out
 }
 
 // UpdateOutputID updates the output wallet  and address.
-func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outID ledgerstate.OutputID) error {
-	err := w.UpdateUnspentOutputID(addr, outID)
-	o.Lock()
-	o.outputIDWalletMap[outID.Base58()] = w
-	o.outputIDAddrMap[outID] = addr
-	o.Unlock()
+func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outputID ledgerstate.OutputID) error {
+	err := w.UpdateUnspentOutputID(addr, outputID)
+	o.SetOutputIDWalletMap(outputID.Base58(), w)
+	o.SetOutputIDAddrMap(outputID.Base58(), addr)
 	return err
 }
 
 // UpdateOutputStatus updates the status of the outputID specified.
-func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status OutputStatus) error {
-	o.RLock()
-	addr := o.outputIDAddrMap[outID]
-	w := o.outputIDWalletMap[outID.Base58()]
-	o.RUnlock()
+func (o *OutputManager) UpdateOutputStatus(outputID ledgerstate.OutputID, status OutputStatus) error {
+	addr := o.OutputIDAddrMap(outputID.Base58())
+	w := o.OutputIDWalletMap(outputID.Base58())
 	err := w.UpdateUnspentOutputStatus(addr, status)
 
 	return err
@@ -159,16 +180,9 @@ func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output
 	if !ok {
 		return nil
 	}
-	addr := o.outputIDAddrMap[outputID]
+	addr := o.outputIDAddrMap[outputID.Base58()]
 	out := w.UnspentOutput(addr)
 	return out
-}
-
-func (o *OutputManager) GetWalletByOutputID(outID string) *Wallet {
-	o.RLock()
-	defer o.RUnlock()
-
-	return o.outputIDWalletMap[outID]
 }
 
 // RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.

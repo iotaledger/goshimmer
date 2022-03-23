@@ -213,8 +213,8 @@ func (w *Wallet) Address() address.Address {
 func (w *Wallet) UnspentOutput(addr string) *Output {
 	w.RLock()
 	defer w.RUnlock()
-	return w.unspentOutputs[addr]
 
+	return w.unspentOutputs[addr]
 }
 
 // UnspentOutputs returns all unspent outputs on the wallet.
@@ -234,6 +234,14 @@ func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 	defer w.RUnlock()
 
 	return w.indexAddrMap[outIndex]
+}
+
+// AddrIndexMap returns the index for the address specified.
+func (w *Wallet) AddrIndexMap(outIndex string) uint64 {
+	w.RLock()
+	defer w.RUnlock()
+
+	return w.addrIndexMap[outIndex]
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
@@ -294,9 +302,12 @@ func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBa
 	return
 }
 
-// sign signs the tx essence.
-func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	index := w.addrIndexMap[addr.Base58()]
+// Sign signs the tx essence.
+func (w *Wallet) Sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+	w.RLock()
+	defer w.RUnlock()
+
+	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
