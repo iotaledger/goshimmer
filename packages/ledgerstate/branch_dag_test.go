@@ -134,7 +134,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 
 	assert.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
 
-	// Create a new Branch in an already-decided Conflict Set results in straight Reject
+	// Create a new Branch in an already-decided Conflict set results in straight Reject
 	branchIDs["Branch9"] = createBranch(t, ledgerstate, "Branch9", NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{2}))
 
 	assertInclusionStates(t, ledgerstate, branchIDs, map[string]InclusionState{
