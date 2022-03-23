@@ -79,7 +79,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 }
 
 // LazyBookingEnabled is an Option for the Ledgerstate that allows to specify if the ledger state should lazy book
-// conflicts that look like they have been decided already.
+// Conflicts that look like they have been decided already.
 func LazyBookingEnabled(enabled bool) Option {
 	return func(options *Options) {
 		options.LazyBookingEnabled = enabled

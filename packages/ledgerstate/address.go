@@ -74,6 +74,8 @@ type Address interface {
 
 	// String returns a human readable version of the Address for debug purposes.
 	String() string
+
+	serix.ObjectCodeProvider
 }
 
 // AddressFromBytes unmarshals an Address from a sequence of bytes.
@@ -213,8 +215,8 @@ func (e *ED25519Address) Type() AddressType {
 	return ED25519AddressType
 }
 
-// Type returns the AddressType of the Address.
-func (e ED25519Address) ObjectCode() interface{} {
+// ObjectCode returns the AddressType of the Address.
+func (e *ED25519Address) ObjectCode() interface{} {
 	return ED25519AddressType
 }
 
@@ -269,7 +271,10 @@ var _ Address = &ED25519Address{}
 
 // BLSAddress represents an Address that is secured by the BLS signature scheme.
 type BLSAddress struct {
-	digest []byte
+	blsAddressInner `seri:"0"`
+}
+type blsAddressInner struct {
+	Digest []byte `seri:"0"`
 }
 
 // NewBLSAddress creates a new BLSAddress from the given public key.
@@ -277,7 +282,9 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 	digest := blake2b.Sum256(publicKey)
 
 	return &BLSAddress{
-		digest: digest[:],
+		blsAddressInner{
+			Digest: digest[:],
+		},
 	}
 }
 
@@ -322,7 +329,7 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 	}
 
 	address = &BLSAddress{}
-	if address.digest, err = marshalUtil.ReadBytes(32); err != nil {
+	if address.blsAddressInner.Digest, err = marshalUtil.ReadBytes(32); err != nil {
 		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -341,27 +348,29 @@ func (b *BLSAddress) ObjectCode() interface{} {
 
 // Digest returns the hashed version of the Addresses public key.
 func (b *BLSAddress) Digest() []byte {
-	return b.digest
+	return b.blsAddressInner.Digest
 }
 
 // Clone creates a copy of the Address.
 func (b *BLSAddress) Clone() Address {
-	clonedDigest := make([]byte, len(b.digest))
-	copy(clonedDigest, b.digest)
+	clonedDigest := make([]byte, len(b.blsAddressInner.Digest))
+	copy(clonedDigest, b.blsAddressInner.Digest)
 
 	return &BLSAddress{
-		digest: clonedDigest,
+		blsAddressInner{
+			Digest: clonedDigest,
+		},
 	}
 }
 
 // Equals returns true if the two Addresses are equal.
 func (b *BLSAddress) Equals(other Address) bool {
-	return b.Type() == other.Type() && bytes.Equal(b.digest, other.Digest())
+	return b.Type() == other.Type() && bytes.Equal(b.blsAddressInner.Digest, other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
 func (b *BLSAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.digest)
+	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.blsAddressInner.Digest)
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.

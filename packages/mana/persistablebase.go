@@ -15,11 +15,11 @@ import (
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
-	ManaType        Type
-	BaseValues      []float64
-	EffectiveValues []float64
-	LastUpdated     time.Time
-	NodeID          identity.ID
+	ManaType        Type        `seri:"0"`
+	BaseValues      []float64   `seri:"1"`
+	EffectiveValues []float64   `seri:"2"`
+	LastUpdated     time.Time   `seri:"3"`
+	NodeID          identity.ID `seri:"4"`
 
 	bytes []byte
 }

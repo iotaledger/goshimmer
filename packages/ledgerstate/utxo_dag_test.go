@@ -645,7 +645,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 	t.Run("CASE: Tx not okay, alias unlocked for governance", func(t *testing.T) {
 		// tx alias output will be unlocked for governance
 		nextAlias = alias.NewAliasOutputNext(true)
-		essence.outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
+		essence.transactionEssenceInner.Outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
 
 		// create mapping from outputID to unlockBlock
 		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
@@ -705,8 +705,8 @@ func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
 	unlockBlock := NewSignatureUnlockBlock(w.sign(txEssence))
-	unlockBlocks := make([]UnlockBlock, len(txEssence.inputs))
-	for i := range txEssence.inputs {
+	unlockBlocks := make([]UnlockBlock, len(txEssence.transactionEssenceInner.Inputs))
+	for i := range txEssence.transactionEssenceInner.Inputs {
 		unlockBlocks[i] = unlockBlock
 	}
 	return unlockBlocks

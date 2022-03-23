@@ -305,18 +305,25 @@ func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
 	return
 }
 
+func (b BranchIDs) Encode() ([]byte, error) {
+	return b.Bytes(), nil
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
 type Branch struct {
+	branchInner `seri:"0"`
+}
+type branchInner struct {
 	id                  BranchID
-	parents             BranchIDs
+	Parents             BranchIDs      `seri:"0"`
+	Conflicts           ConflictIDs    `seri:"1"`
+	InclusionState      InclusionState `seri:"2"`
 	parentsMutex        sync.RWMutex
-	conflicts           ConflictIDs
 	conflictsMutex      sync.RWMutex
-	inclusionState      InclusionState
 	inclusionStateMutex sync.RWMutex
 	objectstorage.StorableObjectFlags
 }
@@ -324,9 +331,11 @@ type Branch struct {
 // NewBranch creates a new Branch from the given details.
 func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 	c := &Branch{
-		id:        id,
-		parents:   parents.Clone(),
-		conflicts: conflicts.Clone(),
+		branchInner{
+			id:        id,
+			Parents:   parents.Clone(),
+			Conflicts: conflicts.Clone(),
+		},
 	}
 
 	c.SetModified()
@@ -360,20 +369,20 @@ func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *
 	if branch = b; b == nil {
 		branch = &Branch{}
 	}
-	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if branch.branchInner.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse id: %w", err)
 		return
 	}
-	if branch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if branch.branchInner.Parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch parents: %w", err)
 		return
 	}
-	if branch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse conflicts: %w", err)
+	if branch.branchInner.Conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Conflicts: %w", err)
 		return
 	}
-	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse inclusionState: %w", err)
+	if branch.branchInner.InclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse InclusionState: %w", err)
 		return
 	}
 
@@ -390,7 +399,7 @@ func (b *Branch) InclusionState() (inclusionState InclusionState) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	return b.inclusionState
+	return b.branchInner.InclusionState
 }
 
 // setInclusionState sets the InclusionState of the Branch (it is private because the InclusionState should be
@@ -399,11 +408,11 @@ func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
-	if modified = b.inclusionState != inclusionState; !modified {
+	if modified = b.branchInner.InclusionState != inclusionState; !modified {
 		return
 	}
 
-	b.inclusionState = inclusionState
+	b.branchInner.InclusionState = inclusionState
 	b.SetModified()
 
 	return
@@ -414,7 +423,7 @@ func (b *Branch) Parents() BranchIDs {
 	b.parentsMutex.RLock()
 	defer b.parentsMutex.RUnlock()
 
-	return b.parents.Clone()
+	return b.branchInner.Parents.Clone()
 }
 
 // SetParents updates the parents of the Branch.
@@ -422,7 +431,7 @@ func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
 	b.parentsMutex.Lock()
 	defer b.parentsMutex.Unlock()
 
-	b.parents = parentBranches
+	b.branchInner.Parents = parentBranches
 	b.SetModified()
 	modified = true
 
@@ -434,7 +443,7 @@ func (b *Branch) Conflicts() (conflicts ConflictIDs) {
 	b.conflictsMutex.RLock()
 	defer b.conflictsMutex.RUnlock()
 
-	conflicts = b.conflicts.Clone()
+	conflicts = b.branchInner.Conflicts.Clone()
 
 	return
 }
@@ -444,11 +453,11 @@ func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
 	b.conflictsMutex.Lock()
 	defer b.conflictsMutex.Unlock()
 
-	if _, exists := b.conflicts[conflictID]; exists {
+	if _, exists := b.branchInner.Conflicts[conflictID]; exists {
 		return
 	}
 
-	b.conflicts[conflictID] = types.Void
+	b.branchInner.Conflicts[conflictID] = types.Void
 	b.SetModified()
 	added = true
 
@@ -464,8 +473,9 @@ func (b *Branch) Bytes() []byte {
 func (b *Branch) String() string {
 	return stringify.Struct("Branch",
 		stringify.StructField("id", b.ID()),
-		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("conflicts", b.Conflicts()),
+		stringify.StructField("Parents", b.Parents()),
+		stringify.StructField("Conflicts", b.Conflicts()),
+		stringify.StructField("InclusionState", b.InclusionState()),
 	)
 }
 
@@ -496,8 +506,11 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	parentBranchID BranchID
-	childBranchID  BranchID
+	conflictBranchInner `seri:"0"`
+}
+type conflictBranchInner struct {
+	ParentBranchID BranchID `seri:"0"`
+	ChildBranchID  BranchID `seri:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -505,8 +518,10 @@ type ChildBranch struct {
 // NewChildBranch is the constructor of the ChildBranch reference.
 func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	return &ChildBranch{
-		parentBranchID: parentBranchID,
-		childBranchID:  childBranchID,
+		conflictBranchInner{
+			ParentBranchID: parentBranchID,
+			ChildBranchID:  childBranchID,
+		},
 	}
 }
 
@@ -537,11 +552,11 @@ func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (chi
 		childBranch = new(ChildBranch)
 	}
 
-	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if childBranch.conflictBranchInner.ParentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
 		return
 	}
-	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if childBranch.conflictBranchInner.ChildBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
 		return
 	}
@@ -551,12 +566,12 @@ func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (chi
 
 // ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
 func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
-	return c.parentBranchID
+	return c.conflictBranchInner.ParentBranchID
 }
 
 // ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
 func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
-	return c.childBranchID
+	return c.conflictBranchInner.ChildBranchID
 }
 
 // Bytes returns a marshaled version of the ChildBranch.
@@ -567,8 +582,8 @@ func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
 // String returns a human readable version of the ChildBranch.
 func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	return stringify.Struct("ChildBranch",
-		stringify.StructField("parentBranchID", c.ParentBranchID()),
-		stringify.StructField("childBranchID", c.ChildBranchID()),
+		stringify.StructField("ParentBranchID", c.ParentBranchID()),
+		stringify.StructField("ChildBranchID", c.ChildBranchID()),
 	)
 }
 
@@ -576,8 +591,8 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 // StorableObject interface.
 func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
 	return marshalutil.New(BranchIDLength + BranchIDLength).
-		WriteBytes(c.parentBranchID.Bytes()).
-		WriteBytes(c.childBranchID.Bytes()).
+		WriteBytes(c.conflictBranchInner.ParentBranchID.Bytes()).
+		WriteBytes(c.conflictBranchInner.ChildBranchID.Bytes()).
 		Bytes()
 }
 

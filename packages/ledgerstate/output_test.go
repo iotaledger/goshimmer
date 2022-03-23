@@ -954,7 +954,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		assert.NoError(t, err)
 	})
 
@@ -964,10 +964,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
 		// happy case, time-lock expired
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}})
 		assert.NoError(t, err)
 		// not happy case, time-lock is still active
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
+		err = prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -975,7 +975,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: State update, delegation without time-lock", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		assert.NoError(t, err)
 	})
 
@@ -984,10 +984,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(false)
 		// time-lock is active state transition allowed
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}})
 		assert.NoError(t, err)
 		// time-lock expired, state transition should fail
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
+		err = prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -996,7 +996,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1325,11 +1325,11 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.referencedOutputID == alias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == alias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, alias)
 			}
-			if castedInput.referencedOutputID == governingAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
@@ -1589,11 +1589,11 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.referencedOutputID == governedAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governedAlias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, governedAlias)
 			}
-			if castedInput.referencedOutputID == governingAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
@@ -1819,7 +1819,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		input, ok := output.Input().(*UTXOInput)
 		assert.True(t, ok)
-		assert.Equal(t, input.referencedOutputID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, input.utxoInputInner.ReferencedOutputID.Bytes(), output.ID().Bytes())
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
@@ -2246,7 +2246,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
 		unlockBlock := NewReferenceUnlockBlock(0)
 
-		valid, err := input.UnlockValid(&Transaction{essence: new(TransactionEssence)}, unlockBlock, Outputs{input})
+		valid, err := input.UnlockValid(&Transaction{transactionInner{Essence: new(TransactionEssence)}}, unlockBlock, Outputs{input})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, valid)

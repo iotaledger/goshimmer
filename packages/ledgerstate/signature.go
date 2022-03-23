@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -58,6 +59,8 @@ type Signature interface {
 
 	// String returns a human readable version of the Signature.
 	String() string
+
+	serix.ObjectCodeProvider
 }
 
 // SignatureFromBytes unmarshals a Signature from a sequence of bytes.
@@ -122,8 +125,8 @@ func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature S
 
 // ED25519Signature represents a Signature created with the ed25519 signature scheme.
 type ED25519Signature struct {
-	PublicKey ed25519.PublicKey
-	Signature ed25519.Signature
+	PublicKey ed25519.PublicKey `seri:"0"`
+	Signature ed25519.Signature `seri:"1"`
 }
 
 // NewED25519Signature is the constructor of an ED25519Signature.
@@ -191,6 +194,11 @@ func (e *ED25519Signature) Type() SignatureType {
 	return ED25519SignatureType
 }
 
+// ObjectCode returns the SignatureType of this Signature.
+func (e *ED25519Signature) ObjectCode() interface{} {
+	return ED25519SignatureType
+}
+
 // SignatureValid returns true if the Signature signs the given data.
 func (e *ED25519Signature) SignatureValid(data []byte) bool {
 	return e.PublicKey.VerifySignature(data, e.Signature)
@@ -237,7 +245,7 @@ var _ Signature = &ED25519Signature{}
 
 // BLSSignature represents a Signature created with the BLS signature scheme.
 type BLSSignature struct {
-	Signature bls.SignatureWithPublicKey
+	Signature bls.SignatureWithPublicKey `seri:"0"`
 }
 
 // NewBLSSignature is the constructor of a BLSSignature.
@@ -298,6 +306,11 @@ func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signatur
 
 // Type returns the SignatureType of this Signature.
 func (b *BLSSignature) Type() SignatureType {
+	return BLSSignatureType
+}
+
+// ObjectCode returns the SignatureType of this Signature.
+func (b *BLSSignature) ObjectCode() interface{} {
 	return BLSSignatureType
 }
 

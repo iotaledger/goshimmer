@@ -158,10 +158,13 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
+	transactionInner `seri:"0"`
+}
+type transactionInner struct {
 	id           *TransactionID
 	idMutex      sync.RWMutex
-	essence      *TransactionEssence
-	unlockBlocks UnlockBlocks
+	Essence      *TransactionEssence `seri:"1"`
+	UnlockBlocks UnlockBlocks        `seri:"2"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -169,12 +172,14 @@ type Transaction struct {
 // NewTransaction creates a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
-		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
+		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.transactionEssenceInner.Inputs)))
 	}
 
 	transaction = &Transaction{
-		essence:      essence,
-		unlockBlocks: unlockBlocks,
+		transactionInner{
+			Essence:      essence,
+			UnlockBlocks: unlockBlocks,
+		},
 	}
 
 	for i, output := range essence.Outputs() {
@@ -253,11 +258,11 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
-	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
+	if transaction.transactionInner.Essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
 		return
 	}
-	if transaction.unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
+	if transaction.transactionInner.UnlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
 		return
 	}
@@ -268,13 +273,13 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
-	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
-		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
+	if len(transaction.transactionInner.UnlockBlocks) != len(transaction.transactionInner.Essence.Inputs()) {
+		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.transactionInner.UnlockBlocks), len(transaction.transactionInner.Essence.transactionEssenceInner.Inputs), cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
-	for i, unlockBlock := range transaction.unlockBlocks {
+	maxReferencedUnlockIndex := len(transaction.transactionInner.Essence.Inputs()) - 1
+	for i, unlockBlock := range transaction.transactionInner.UnlockBlocks {
 		switch unlockBlock.Type() {
 		case SignatureUnlockBlockType:
 			continue
@@ -291,7 +296,7 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		}
 	}
 
-	for i, output := range transaction.essence.Outputs() {
+	for i, output := range transaction.transactionInner.Essence.Outputs() {
 		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set
@@ -345,14 +350,19 @@ func (t *Transaction) Type() payload.Type {
 	return TransactionType
 }
 
+// ObjectCode returns the Type of the Payload.
+func (t *Transaction) ObjectCode() interface{} {
+	return TransactionType
+}
+
 // Essence returns the TransactionEssence of the Transaction.
 func (t *Transaction) Essence() *TransactionEssence {
-	return t.essence
+	return t.transactionInner.Essence
 }
 
 // UnlockBlocks returns the UnlockBlocks of the Transaction.
 func (t *Transaction) UnlockBlocks() UnlockBlocks {
-	return t.unlockBlocks
+	return t.transactionInner.UnlockBlocks
 }
 
 // ReferencedTransactionIDs returns a set of TransactionIDs whose Outputs were used as Inputs in this Transaction.
@@ -372,7 +382,7 @@ func (t *Transaction) Bytes() []byte {
 		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
 	}
 
-	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
+	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.transactionInner.Essence.Bytes(), t.transactionInner.UnlockBlocks.Bytes())
 	payloadBytesLength := len(payloadBytes)
 
 	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
@@ -385,8 +395,8 @@ func (t *Transaction) Bytes() []byte {
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
 		stringify.StructField("id", t.ID()),
-		stringify.StructField("essence", t.Essence()),
-		stringify.StructField("unlockBlocks", t.UnlockBlocks()),
+		stringify.StructField("Essence", t.Essence()),
+		stringify.StructField("UnlockBlocks", t.UnlockBlocks()),
 	)
 }
 
@@ -414,16 +424,19 @@ var _ objectstorage.StorableObject = &Transaction{}
 
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
-	version TransactionEssenceVersion
+	transactionEssenceInner `seri:"0"`
+}
+type transactionEssenceInner struct {
+	Version TransactionEssenceVersion `seri:"0"`
 	// timestamp is the timestamp of the transaction.
-	timestamp time.Time
+	Timestamp time.Time `seri:"1"`
 	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
-	accessPledgeID identity.ID
+	AccessPledgeID identity.ID `seri:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
-	consensusPledgeID identity.ID
-	inputs            Inputs
-	outputs           Outputs
-	payload           payload.Payload
+	ConsensusPledgeID identity.ID     `seri:"3"`
+	Inputs            Inputs          `seri:"4"`
+	Outputs           Outputs         `seri:"5"`
+	Payload           payload.Payload `seri:"6,payload"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
@@ -436,12 +449,14 @@ func NewTransactionEssence(
 	outputs Outputs,
 ) *TransactionEssence {
 	return &TransactionEssence{
-		version:           version,
-		timestamp:         timestamp,
-		accessPledgeID:    accessPledgeID,
-		consensusPledgeID: consensusPledgeID,
-		inputs:            inputs,
-		outputs:           outputs,
+		transactionEssenceInner{
+			Version:           version,
+			Timestamp:         timestamp,
+			AccessPledgeID:    accessPledgeID,
+			ConsensusPledgeID: consensusPledgeID,
+			Inputs:            inputs,
+			Outputs:           outputs,
+		},
 	}
 }
 
@@ -460,12 +475,12 @@ func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionE
 // TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
-	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
+	if transactionEssence.transactionEssenceInner.Version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
 		return
 	}
 	// unmarshal timestamp
-	if transactionEssence.timestamp, err = marshalUtil.ReadTime(); err != nil {
+	if transactionEssence.transactionEssenceInner.Timestamp, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
 		return
 	}
@@ -475,7 +490,7 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 		err = errors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
 		return
 	}
-	copy(transactionEssence.accessPledgeID[:], accessPledgeIDBytes)
+	copy(transactionEssence.transactionEssenceInner.AccessPledgeID[:], accessPledgeIDBytes)
 
 	// unmarshal consensusPledgeIDBytes
 	var consensusPledgeIDBytes []byte
@@ -483,17 +498,17 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 		err = errors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
 		return
 	}
-	copy(transactionEssence.consensusPledgeID[:], consensusPledgeIDBytes)
+	copy(transactionEssence.transactionEssenceInner.ConsensusPledgeID[:], consensusPledgeIDBytes)
 
-	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
+	if transactionEssence.transactionEssenceInner.Inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
 		return
 	}
-	if transactionEssence.outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
+	if transactionEssence.transactionEssenceInner.Outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
 		return
 	}
-	if transactionEssence.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
+	if transactionEssence.transactionEssenceInner.Payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
 		return
 	}
@@ -503,56 +518,56 @@ func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tr
 
 // SetPayload set the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) SetPayload(p payload.Payload) {
-	t.payload = p
+	t.transactionEssenceInner.Payload = p
 }
 
 // Version returns the Version of the TransactionEssence.
 func (t *TransactionEssence) Version() TransactionEssenceVersion {
-	return t.version
+	return t.transactionEssenceInner.Version
 }
 
 // Timestamp returns the timestamp of the TransactionEssence.
 func (t *TransactionEssence) Timestamp() time.Time {
-	return t.timestamp
+	return t.transactionEssenceInner.Timestamp
 }
 
 // AccessPledgeID returns the access mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) AccessPledgeID() identity.ID {
-	return t.accessPledgeID
+	return t.transactionEssenceInner.AccessPledgeID
 }
 
 // ConsensusPledgeID returns the consensus mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) ConsensusPledgeID() identity.ID {
-	return t.consensusPledgeID
+	return t.transactionEssenceInner.ConsensusPledgeID
 }
 
 // Inputs returns the Inputs of the TransactionEssence.
 func (t *TransactionEssence) Inputs() Inputs {
-	return t.inputs
+	return t.transactionEssenceInner.Inputs
 }
 
 // Outputs returns the Outputs of the TransactionEssence.
 func (t *TransactionEssence) Outputs() Outputs {
-	return t.outputs
+	return t.transactionEssenceInner.Outputs
 }
 
 // Payload returns the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) Payload() payload.Payload {
-	return t.payload
+	return t.transactionEssenceInner.Payload
 }
 
 // Bytes returns a marshaled version of the TransactionEssence.
 func (t *TransactionEssence) Bytes() []byte {
 	marshalUtil := marshalutil.New().
-		Write(t.version).
-		WriteTime(t.timestamp).
-		Write(t.accessPledgeID).
-		Write(t.consensusPledgeID).
-		Write(t.inputs).
-		Write(t.outputs)
+		Write(t.transactionEssenceInner.Version).
+		WriteTime(t.transactionEssenceInner.Timestamp).
+		Write(t.transactionEssenceInner.AccessPledgeID).
+		Write(t.transactionEssenceInner.ConsensusPledgeID).
+		Write(t.transactionEssenceInner.Inputs).
+		Write(t.transactionEssenceInner.Outputs)
 
-	if !typeutils.IsInterfaceNil(t.payload) {
-		marshalUtil.Write(t.payload)
+	if !typeutils.IsInterfaceNil(t.transactionEssenceInner.Payload) {
+		marshalUtil.Write(t.transactionEssenceInner.Payload)
 	} else {
 		marshalUtil.WriteUint32(0)
 	}
@@ -560,16 +575,16 @@ func (t *TransactionEssence) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the TransactionEssence.
+// String returns a human-readable version of the TransactionEssence.
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
-		stringify.StructField("version", t.version),
-		stringify.StructField("timestamp", t.timestamp),
-		stringify.StructField("accessPledgeID", t.accessPledgeID),
-		stringify.StructField("consensusPledgeID", t.consensusPledgeID),
-		stringify.StructField("inputs", t.inputs),
-		stringify.StructField("outputs", t.outputs),
-		stringify.StructField("payload", t.payload),
+		stringify.StructField("Version", t.transactionEssenceInner.Version),
+		stringify.StructField("Timestamp", t.transactionEssenceInner.Timestamp),
+		stringify.StructField("AccessPledgeID", t.transactionEssenceInner.AccessPledgeID),
+		stringify.StructField("ConsensusPledgeID", t.transactionEssenceInner.ConsensusPledgeID),
+		stringify.StructField("Inputs", t.transactionEssenceInner.Inputs),
+		stringify.StructField("Outputs", t.transactionEssenceInner.Outputs),
+		stringify.StructField("Payload", t.transactionEssenceInner.Payload),
 	)
 }
 

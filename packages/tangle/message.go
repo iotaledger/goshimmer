@@ -819,6 +819,7 @@ func (p ParentsBlocks) LengthPrefixType() serializer.SeriLengthPrefixType {
 // TODO: remove this type
 type MessageIDSlice []MessageID
 
+// LengthPrefixType indicates how the length of a collection should be serialized.
 func (m MessageIDSlice) LengthPrefixType() serializer.SeriLengthPrefixType {
 	return serializer.SeriLengthPrefixTypeAsByte
 }

@@ -24,7 +24,7 @@ import (
 
 // IUTXODAG is the interface for UTXODAG which is the core of the ledger state
 // that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
-// that helps to keep track of the balances and the different perceptions of potential conflicts.
+// that helps to keep track of the balances and the different perceptions of potential Conflicts.
 type IUTXODAG interface {
 	// Events returns all events of the UTXODAG
 	Events() *UTXODAGEvents
@@ -67,7 +67,7 @@ type IUTXODAG interface {
 }
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
-// the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
+// the ledger state and keeps track of the balances and the different perceptions of potential Conflicts.
 type UTXODAG struct {
 	events *UTXODAGEvents
 
@@ -308,7 +308,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			cached.Release()
 		}
 
-		for i, output := range record.Essence.outputs {
+		for i, output := range record.Essence.transactionEssenceInner.Outputs {
 			if !record.UnspentOutputs[i] {
 				continue
 			}

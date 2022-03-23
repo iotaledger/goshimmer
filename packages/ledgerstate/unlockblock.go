@@ -8,6 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -52,6 +54,8 @@ type UnlockBlock interface {
 
 	// String returns a human readable version of the UnlockBlock.
 	String() string
+
+	serix.ObjectCodeProvider
 }
 
 // UnlockBlockFromBytes unmarshals an UnlockBlock from a sequence of bytes.
@@ -177,19 +181,29 @@ func (u UnlockBlocks) String() string {
 	return structBuilder.String()
 }
 
+// LengthPrefixType indicates how the length of a collection should be serialized.
+func (u UnlockBlocks) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsUint16
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region SignatureUnlockBlock /////////////////////////////////////////////////////////////////////////////////////////
 
 // SignatureUnlockBlock represents an UnlockBlock that contains a Signature for an Address.
 type SignatureUnlockBlock struct {
-	signature Signature
+	signatureUnlockBlockInner `seri:"0"`
+}
+type signatureUnlockBlockInner struct {
+	Signature Signature `seri:"0"`
 }
 
 // NewSignatureUnlockBlock is the constructor for SignatureUnlockBlock objects.
 func NewSignatureUnlockBlock(signature Signature) *SignatureUnlockBlock {
 	return &SignatureUnlockBlock{
-		signature: signature,
+		signatureUnlockBlockInner{
+			Signature: signature,
+		},
 	}
 }
 
@@ -218,7 +232,7 @@ func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	}
 
 	unlockBlock = &SignatureUnlockBlock{}
-	if unlockBlock.signature, err = SignatureFromMarshalUtil(marshalUtil); err != nil {
+	if unlockBlock.signatureUnlockBlockInner.Signature, err = SignatureFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
 		return
 	}
@@ -227,7 +241,7 @@ func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 
 // AddressSignatureValid returns true if the UnlockBlock correctly signs the given Address.
 func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) bool {
-	return s.signature.AddressSignatureValid(address, signedData)
+	return s.signatureUnlockBlockInner.Signature.AddressSignatureValid(address, signedData)
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
@@ -235,21 +249,26 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 	return SignatureUnlockBlockType
 }
 
+// ObjectCode returns the UnlockBlockType of the UnlockBlock.
+func (s *SignatureUnlockBlock) ObjectCode() interface{} {
+	return SignatureUnlockBlockType
+}
+
 // Bytes returns a marshaled version of the UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signature.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signatureUnlockBlockInner.Signature.Bytes())
 }
 
 // String returns a human readable version of the UnlockBlock.
 func (s *SignatureUnlockBlock) String() string {
 	return stringify.Struct("SignatureUnlockBlock",
-		stringify.StructField("signature", s.signature),
+		stringify.StructField("signature", s.signatureUnlockBlockInner.Signature),
 	)
 }
 
 // Signature return the signature itself.
 func (s *SignatureUnlockBlock) Signature() Signature {
-	return s.signature
+	return s.signatureUnlockBlockInner.Signature
 }
 
 // code contract (make sure the type implements all required methods)
@@ -262,13 +281,18 @@ var _ UnlockBlock = &SignatureUnlockBlock{}
 // ReferenceUnlockBlock defines an UnlockBlock which references a previous UnlockBlock (which must not be another
 // ReferenceUnlockBlock).
 type ReferenceUnlockBlock struct {
-	referencedIndex uint16
+	referenceUnlockBlockInner `seri:"0"`
+}
+type referenceUnlockBlockInner struct {
+	ReferencedIndex uint16 `seri:"0"`
 }
 
 // NewReferenceUnlockBlock is the constructor for ReferenceUnlockBlocks.
 func NewReferenceUnlockBlock(referencedIndex uint16) *ReferenceUnlockBlock {
 	return &ReferenceUnlockBlock{
-		referencedIndex: referencedIndex,
+		referenceUnlockBlockInner{
+			ReferencedIndex: referencedIndex,
+		},
 	}
 }
 
@@ -297,8 +321,8 @@ func ReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	}
 
 	unlockBlock = &ReferenceUnlockBlock{}
-	if unlockBlock.referencedIndex, err = marshalUtil.ReadUint16(); err != nil {
-		err = errors.Errorf("failed to parse referencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if unlockBlock.referenceUnlockBlockInner.ReferencedIndex, err = marshalUtil.ReadUint16(); err != nil {
+		err = errors.Errorf("failed to parse ReferencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	return
@@ -306,7 +330,7 @@ func ReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 
 // ReferencedIndex returns the index of the referenced UnlockBlock.
 func (r *ReferenceUnlockBlock) ReferencedIndex() uint16 {
-	return r.referencedIndex
+	return r.referenceUnlockBlockInner.ReferencedIndex
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
@@ -314,18 +338,23 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
+// ObjectCode returns the UnlockBlockType of the UnlockBlock.
+func (r *ReferenceUnlockBlock) ObjectCode() interface{} {
+	return ReferenceUnlockBlockType
+}
+
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(ReferenceUnlockBlockType)).
-		WriteUint16(r.referencedIndex).
+		WriteUint16(r.referenceUnlockBlockInner.ReferencedIndex).
 		Bytes()
 }
 
 // String returns a human readable version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) String() string {
 	return stringify.Struct("ReferenceUnlockBlock",
-		stringify.StructField("referencedIndex", int(r.referencedIndex)),
+		stringify.StructField("referencedIndex", int(r.referenceUnlockBlockInner.ReferencedIndex)),
 	)
 }
 
@@ -338,13 +367,18 @@ var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput.
 type AliasUnlockBlock struct {
-	referencedIndex uint16
+	aliasUnlockBlockInner `seri:"0"`
+}
+type aliasUnlockBlockInner struct {
+	ReferencedIndex uint16 `seri:"0"`
 }
 
 // NewAliasUnlockBlock is the constructor for AliasUnlockBlocks.
 func NewAliasUnlockBlock(chainInputIndex uint16) *AliasUnlockBlock {
 	return &AliasUnlockBlock{
-		referencedIndex: chainInputIndex,
+		aliasUnlockBlockInner{
+			ReferencedIndex: chainInputIndex,
+		},
 	}
 }
 
@@ -373,8 +407,8 @@ func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlo
 	}
 
 	unlockBlock = &AliasUnlockBlock{}
-	if unlockBlock.referencedIndex, err = marshalUtil.ReadUint16(); err != nil {
-		err = errors.Errorf("failed to parse referencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if unlockBlock.ReferencedIndex, err = marshalUtil.ReadUint16(); err != nil {
+		err = errors.Errorf("failed to parse ReferencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	return
@@ -382,7 +416,7 @@ func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlo
 
 // AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress.
 func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
-	return r.referencedIndex
+	return r.ReferencedIndex
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
@@ -390,18 +424,23 @@ func (r *AliasUnlockBlock) Type() UnlockBlockType {
 	return AliasUnlockBlockType
 }
 
+// ObjectCode returns the UnlockBlockType of the UnlockBlock.
+func (r *AliasUnlockBlock) ObjectCode() interface{} {
+	return AliasUnlockBlockType
+}
+
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *AliasUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(AliasUnlockBlockType)).
-		WriteUint16(r.referencedIndex).
+		WriteUint16(r.ReferencedIndex).
 		Bytes()
 }
 
 // String returns a human readable version of the UnlockBlock.
 func (r *AliasUnlockBlock) String() string {
 	return stringify.Struct("AliasUnlockBlock",
-		stringify.StructField("referencedIndex", int(r.referencedIndex)),
+		stringify.StructField("ReferencedIndex", int(r.ReferencedIndex)),
 	)
 }
 

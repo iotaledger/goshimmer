@@ -101,7 +101,7 @@ func (c Color) Compare(otherColor Color) int {
 // ColoredBalances represents a collection of balances associated to their respective Color that maintains a
 // deterministic order of the present Colors.
 type ColoredBalances struct {
-	balances *orderedmap.OrderedMap[Color, uint64]
+	balances *orderedmap.OrderedMap[Color, uint64] `seri:"0"`
 }
 
 // NewColoredBalances returns a new deterministically ordered collection of ColoredBalances.

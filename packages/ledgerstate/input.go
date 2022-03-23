@@ -10,6 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -66,6 +68,8 @@ type Input interface {
 	// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 	// are the same.
 	Compare(other Input) int
+
+	serix.ObjectCodeProvider
 }
 
 // InputFromBytes unmarshals an Input from a sequence of bytes.
@@ -237,19 +241,29 @@ func (i Inputs) Strings() (result []string) {
 	return
 }
 
+// LengthPrefixType indicates how the length of a collection should be serialized.
+func (i Inputs) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsUint16
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UTXOInput ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // UTXOInput represents a reference to an Output in the UTXODAG.
 type UTXOInput struct {
-	referencedOutputID OutputID
+	utxoInputInner `seri:"0"`
+}
+type utxoInputInner struct {
+	ReferencedOutputID OutputID `seri:"0"`
 }
 
 // NewUTXOInput is the constructor for UTXOInputs.
 func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
 	return &UTXOInput{
-		referencedOutputID: referencedOutputID,
+		utxoInputInner{
+			ReferencedOutputID: referencedOutputID,
+		},
 	}
 }
 
@@ -266,7 +280,7 @@ func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXO
 	}
 
 	input = &UTXOInput{}
-	if input.referencedOutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+	if input.utxoInputInner.ReferencedOutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced OutputID from MarshalUtil: %w", err)
 		return
 	}
@@ -279,19 +293,24 @@ func (u *UTXOInput) Type() InputType {
 	return UTXOInputType
 }
 
+// ObjectCode returns the type of the Input.
+func (u *UTXOInput) ObjectCode() interface{} {
+	return UTXOInputType
+}
+
 // ReferencedOutputID returns the OutputID that this Input references.
 func (u *UTXOInput) ReferencedOutputID() OutputID {
-	return u.referencedOutputID
+	return u.utxoInputInner.ReferencedOutputID
 }
 
 // Bytes returns a marshaled version of the Input.
 func (u *UTXOInput) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.referencedOutputID.Bytes())
+	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.utxoInputInner.ReferencedOutputID.Bytes())
 }
 
 // Base58 returns the base58 encoded referenced output ID of this input.
 func (u *UTXOInput) Base58() string {
-	return u.referencedOutputID.Base58()
+	return u.utxoInputInner.ReferencedOutputID.Base58()
 }
 
 // Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
@@ -303,7 +322,7 @@ func (u *UTXOInput) Compare(other Input) int {
 // String returns a human readable version of the Input.
 func (u *UTXOInput) String() string {
 	return stringify.Struct("UTXOInput",
-		stringify.StructField("referencedOutputID", u.referencedOutputID),
+		stringify.StructField("ReferencedOutputID", u.utxoInputInner.ReferencedOutputID),
 	)
 }
 

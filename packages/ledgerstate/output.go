@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -239,6 +241,7 @@ type Output interface {
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
+	serix.ObjectCodeProvider
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
@@ -469,6 +472,11 @@ func (o Outputs) Strings() (result []string) {
 	return
 }
 
+// LengthPrefixType indicates how the length of a collection should be serialized.
+func (o Outputs) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsUint16
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -533,20 +541,14 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	id      OutputID
-	idMutex sync.RWMutex
-	balance uint64
-	address Address
-
-	objectstorage.StorableObjectFlags
+	sigLockedSingleOutputInner `seri:"0"`
 }
 
 type sigLockedSingleOutputInner struct {
-	Type    uint8 `seri:"0"`
 	ID      OutputID
 	idMutex sync.RWMutex
-	Balance uint64  `seri:"1"`
-	Address Address `seri:"2"`
+	Balance uint64  `seri:"0"`
+	Address Address `seri:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -554,8 +556,10 @@ type sigLockedSingleOutputInner struct {
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
 	return &SigLockedSingleOutput{
-		balance: balance,
-		address: address,
+		sigLockedSingleOutputInner{
+			Balance: balance,
+			Address: address,
+		},
 	}
 }
 
@@ -590,21 +594,21 @@ func (s *SigLockedSingleOutput) FromMarshalUtil(marshalUtil *marshalutil.Marshal
 		return
 	}
 
-	if output.balance, err = marshalUtil.ReadUint64(); err != nil {
+	if output.sigLockedSingleOutputInner.Balance, err = marshalUtil.ReadUint64(); err != nil {
 		err = errors.Errorf("failed to parse balance (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+	if output.sigLockedSingleOutputInner.Address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	if output.balance < MinOutputBalance {
-		err = errors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
+	if output.sigLockedSingleOutputInner.Balance < MinOutputBalance {
+		err = errors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.sigLockedSingleOutputInner.Balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if output.balance > MaxOutputBalance {
-		err = errors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
+	if output.sigLockedSingleOutputInner.Balance > MaxOutputBalance {
+		err = errors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.sigLockedSingleOutputInner.Balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -616,7 +620,7 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
-	return s.id
+	return s.sigLockedSingleOutputInner.ID
 }
 
 // SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
@@ -627,7 +631,7 @@ func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
-	s.id = outputID
+	s.sigLockedSingleOutputInner.ID = outputID
 
 	return s
 }
@@ -637,14 +641,15 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
 
-func (s *SigLockedSingleOutput) ObjectCdode() interface{} {
+// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
+func (s *SigLockedSingleOutput) ObjectCode() interface{} {
 	return SigLockedSingleOutputType
 }
 
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
-		ColorIOTA: s.balance,
+		ColorIOTA: s.sigLockedSingleOutputInner.Balance,
 	})
 
 	return balances
@@ -655,20 +660,20 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.sigLockedSingleOutputInner.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		if s.sigLockedSingleOutputInner.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.sigLockedSingleOutputInner.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedSingleOutput: referenced input must be AliasOutput")
 		}
-		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.sigLockedSingleOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedSingleOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -682,7 +687,7 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
-	return s.address
+	return s.sigLockedSingleOutputInner.Address
 }
 
 // Input returns an Input that references the Output.
@@ -697,9 +702,11 @@ func (s *SigLockedSingleOutput) Input() Input {
 // Clone creates a copy of the Output.
 func (s *SigLockedSingleOutput) Clone() Output {
 	return &SigLockedSingleOutput{
-		id:      s.id,
-		balance: s.balance,
-		address: s.address.Clone(),
+		sigLockedSingleOutputInner{
+			ID:      s.sigLockedSingleOutputInner.ID,
+			Balance: s.sigLockedSingleOutputInner.Balance,
+			Address: s.sigLockedSingleOutputInner.Address.Clone(),
+		},
 	}
 }
 
@@ -724,8 +731,8 @@ func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
 func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(SigLockedSingleOutputType)).
-		WriteUint64(s.balance).
-		WriteBytes(s.address.Bytes()).
+		WriteUint64(s.sigLockedSingleOutputInner.Balance).
+		WriteBytes(s.sigLockedSingleOutputInner.Address.Bytes()).
 		Bytes()
 }
 
@@ -738,9 +745,9 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // String returns a human readable version of the Output.
 func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
-		stringify.StructField("id", s.ID()),
-		stringify.StructField("address", s.address),
-		stringify.StructField("balance", s.balance),
+		stringify.StructField("ID", s.ID()),
+		stringify.StructField("Address", s.sigLockedSingleOutputInner.Address),
+		stringify.StructField("Balance", s.sigLockedSingleOutputInner.Balance),
 	)
 }
 
@@ -754,10 +761,13 @@ var _ Output = new(SigLockedSingleOutput)
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
+	sigLockedColoredOutputInner `seri:"0"`
+}
+type sigLockedColoredOutputInner struct {
 	id       OutputID
 	idMutex  sync.RWMutex
-	balances *ColoredBalances
-	address  Address
+	Balances *ColoredBalances `seri:"0"`
+	Address  Address          `seri:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -765,8 +775,10 @@ type SigLockedColoredOutput struct {
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
 	return &SigLockedColoredOutput{
-		balances: balances,
-		address:  address,
+		sigLockedColoredOutputInner{
+			Balances: balances,
+			Address:  address,
+		},
 	}
 }
 
@@ -802,11 +814,11 @@ func (s *SigLockedColoredOutput) FromMarshalUtil(marshalUtil *marshalutil.Marsha
 		return
 	}
 
-	if output.balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
+	if output.sigLockedColoredOutputInner.Balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ColoredBalances: %w", err)
 		return
 	}
-	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+	if output.sigLockedColoredOutputInner.Address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -840,9 +852,14 @@ func (s *SigLockedColoredOutput) Type() OutputType {
 	return SigLockedColoredOutputType
 }
 
+// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
+func (s *SigLockedColoredOutput) ObjectCode() interface{} {
+	return SigLockedColoredOutputType
+}
+
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
-	return s.balances
+	return s.sigLockedColoredOutputInner.Balances
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
@@ -850,20 +867,20 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.sigLockedColoredOutputInner.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		if s.sigLockedColoredOutputInner.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.sigLockedColoredOutputInner.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedColoredOutput: referenced input must be AliasOutput")
 		}
-		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.sigLockedColoredOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedColoredOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -877,7 +894,7 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
-	return s.address
+	return s.sigLockedColoredOutputInner.Address
 }
 
 // Input returns an Input that references the Output.
@@ -892,9 +909,11 @@ func (s *SigLockedColoredOutput) Input() Input {
 // Clone creates a copy of the Output.
 func (s *SigLockedColoredOutput) Clone() Output {
 	return &SigLockedColoredOutput{
-		id:       s.id,
-		balances: s.balances.Clone(),
-		address:  s.address.Clone(),
+		sigLockedColoredOutputInner{
+			id:       s.sigLockedColoredOutputInner.id,
+			Balances: s.sigLockedColoredOutputInner.Balances.Clone(),
+			Address:  s.sigLockedColoredOutputInner.Address.Clone(),
+		},
 	}
 }
 
@@ -928,8 +947,8 @@ func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
 func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		WriteByte(byte(SigLockedColoredOutputType)).
-		WriteBytes(s.balances.Bytes()).
-		WriteBytes(s.address.Bytes()).
+		WriteBytes(s.sigLockedColoredOutputInner.Balances.Bytes()).
+		WriteBytes(s.sigLockedColoredOutputInner.Address.Bytes()).
 		Bytes()
 }
 
@@ -943,8 +962,8 @@ func (s *SigLockedColoredOutput) Compare(other Output) int {
 func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
 		stringify.StructField("id", s.ID()),
-		stringify.StructField("address", s.address),
-		stringify.StructField("balances", s.balances),
+		stringify.StructField("Address", s.sigLockedColoredOutputInner.Address),
+		stringify.StructField("Balances", s.sigLockedColoredOutputInner.Balances),
 	)
 }
 
@@ -1392,6 +1411,11 @@ func (a *AliasOutput) SetID(outputID OutputID) Output {
 
 // Type return the type of the output.
 func (a *AliasOutput) Type() OutputType {
+	return AliasOutputType
+}
+
+// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
+func (a *AliasOutput) ObjectCode() interface{} {
 	return AliasOutputType
 }
 
@@ -2048,6 +2072,11 @@ func (o *ExtendedLockedOutput) Type() OutputType {
 	return ExtendedLockedOutputType
 }
 
+// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
+func (o *ExtendedLockedOutput) ObjectCode() interface{} {
+	return ExtendedLockedOutputType
+}
+
 // Balances returns the funds that are associated with the Output.
 func (o *ExtendedLockedOutput) Balances() *ColoredBalances {
 	return o.balances
@@ -2154,6 +2183,11 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 // Bytes returns a marshaled version of the Output.
 func (o *ExtendedLockedOutput) Bytes() []byte {
 	return o.ObjectStorageValue()
+}
+
+// Encode returns a binary-encoded version of the Output.
+func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
+	return o.Bytes(), nil
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
