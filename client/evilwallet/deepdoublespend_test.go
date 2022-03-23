@@ -29,7 +29,7 @@ func TestDeepDoubleSpend(t *testing.T) {
 			// aggregated
 			"F": []Option{WithInputs("5", "6"), WithOutput("8", 1000000)},
 		},
-	}, evilwallet.GetClients(2))
+	})
 	require.NoError(t, err)
 	evilwallet.ClearAliases()
 }

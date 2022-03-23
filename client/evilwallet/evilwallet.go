@@ -11,7 +11,6 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -68,7 +67,7 @@ func (e *EvilWallet) NewWallet(wType ...WalletType) *Wallet {
 }
 
 // GetClients returns the given number of clients.
-func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
+func (e *EvilWallet) GetClients(num int) []Client {
 	return e.connector.GetClients(num)
 }
 
@@ -91,7 +90,8 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 	addrStr := addr.Base58()
 
 	// request funds from faucet
-	err = e.connector.SendFaucetRequest(addrStr)
+	clt := e.connector.GetClient()
+	err = clt.SendFaucetRequest(addrStr)
 	if err != nil {
 		return
 	}
@@ -195,7 +195,8 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wal
 
 func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.OutputID, err error) {
 	addr := wallet.Address()
-	err = e.connector.SendFaucetRequest(addr.Base58())
+	clt := e.connector.GetClient()
+	err = clt.SendFaucetRequest(addr.Base58())
 	if err != nil {
 		return
 	}
@@ -231,7 +232,8 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 			tx, err := e.CreateTransaction(txAliases[inputNum], WithInputs(inputAliases[inputNum]), WithOutputs(outputAliases[inputNum]),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 
-			txID, err := e.connector.PostTransaction(tx)
+			clt := e.connector.GetClient()
+			txID, err := clt.PostTransaction(tx)
 			if err != nil {
 				return
 			}
@@ -284,24 +286,25 @@ func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputW
 }
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
-func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap) (err error) {
 	outputWallet := e.NewWallet()
 	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
 	if err != nil {
 		return err
 	}
 	for _, txs := range conflictBatch {
+		clients := e.connector.GetClients(len(txs))
 		if len(txs) > len(clients) {
-			return errors.New("insufficient clients to send double spend")
+			return errors.New("insufficient clients to send conflicts")
 		}
 
 		// send transactions in parallel
 		wg := sync.WaitGroup{}
 		for i, tx := range txs {
 			wg.Add(1)
-			go func(clt *client.GoShimmerAPI, tx *ledgerstate.Transaction) {
+			go func(clt Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				_, _ = clt.PostTransaction(tx.Bytes())
+				_, _ = clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()

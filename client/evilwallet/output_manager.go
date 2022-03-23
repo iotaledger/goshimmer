@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -126,7 +125,8 @@ func (o *OutputManager) UpdateOutputStatus(outID ledgerstate.OutputID, status Ou
 // UpdateOutputsFromTxs update the output maps from the status of the transactions specified.
 func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 	for _, txID := range txIDs {
-		outputs, err := o.connector.GetTransactionOutputs(txID)
+		clt := o.connector.GetClient()
+		outputs, err := clt.GetTransactionOutputs(txID)
 		if err != nil {
 			return err
 		}
@@ -162,43 +162,28 @@ func (o *OutputManager) GetWalletByOutputID(outID string) *Wallet {
 
 // RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
 func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
-	client := o.connector.GetClient()
-
 	s := time.Now()
-	var outputs []*jsonmodels.Output
+	clt := o.connector.GetClient()
 	for ; time.Since(s) < awaitOutputsByAddress; time.Sleep(1 * time.Second) {
-		res, err := client.GetAddressUnspentOutputs(address)
-		if err == nil && len(res.Outputs) > 0 {
-			outputs = res.Outputs
-			break
+		outputIDs, err := clt.GetAddressUnspentOutputs(address)
+		if err == nil && len(outputIDs) > 0 {
+			return outputIDs
 		}
 	}
 
-	outputIDs = o.getOutputIDsByJSON(outputs)
-
-	return outputIDs
+	return
 }
 
 // RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
 func (o *OutputManager) RequestOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
-	resp, err := o.connector.GetTransaction(txID)
+	clt := o.connector.GetClient()
+	resp, err := clt.GetTransaction(txID)
 	if err != nil {
 		return
 	}
 
-	outputIDs = o.getOutputIDsByJSON(resp.Outputs)
+	outputIDs = getOutputIDsByJSON(resp.Outputs)
 
-	return outputIDs
-}
-
-func (o *OutputManager) getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
-	for _, jsonOutput := range outputs {
-		output, err := jsonOutput.ToLedgerstateOutput()
-		if err != nil {
-			continue
-		}
-		outputIDs = append(outputIDs, output.ID())
-	}
 	return outputIDs
 }
 
@@ -227,9 +212,10 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
 func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, waitFor time.Duration) (confirmed bool) {
 	s := time.Now()
+	clt := o.connector.GetClient()
 	confirmed = false
 	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
-		gof := o.connector.GetOutputGoF(outputID)
+		gof := clt.GetOutputGoF(outputID)
 		if gof == GoFConfirmed {
 			confirmed = true
 			break
@@ -264,9 +250,10 @@ func (o *OutputManager) AwaitTransactionsConfirmation(txIDs []string, maxGorouti
 // AwaitTransactionToBeConfirmed awaits for confirmation of a single transaction.
 func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.Duration) error {
 	s := time.Now()
+	clt := o.connector.GetClient()
 	var confirmed bool
 	for ; time.Since(s) < waitFor; time.Sleep(2 * time.Second) {
-		if gof := o.connector.GetTransactionGoF(txID); gof == GoFConfirmed {
+		if gof := clt.GetTransactionGoF(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
 		}

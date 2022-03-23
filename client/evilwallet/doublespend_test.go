@@ -20,19 +20,12 @@ func TestDoubleSpend(t *testing.T) {
 	txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutput("3", 1000000))
 	require.NoError(t, err)
 
-	res1, err := clients[0].PostTransaction(txA.Bytes())
+	_, err = clients[0].PostTransaction(txA)
 	require.NoError(t, err)
 
-	res2, err := clients[1].PostTransaction(txB.Bytes())
+	_, err = clients[1].PostTransaction(txB)
 	require.NoError(t, err)
 
 	evilwallet.ClearAliases()
 	//EvilWallet.ConflictManager.AddConflict(WithConflictID("1"), WithConflictMembers("2", "3"))
-
-	// assert the conflict has been created
-	metadata1, err := clients[0].GetTransactionMetadata(res1.TransactionID)
-	require.NoError(t, err)
-	metadata2, err := clients[1].GetTransactionMetadata(res2.TransactionID)
-	require.NoError(t, err)
-	require.NotEqual(t, metadata1.BranchIDs, metadata2.BranchIDs)
 }

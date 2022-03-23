@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestFaucetRequests(t *testing.T) {
@@ -21,9 +22,9 @@ func TestFaucetRequests(t *testing.T) {
 		require.NoError(t, err)
 		txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutputs([]string{"3"}))
 		require.NoError(t, err)
-		_, err = clients[0].PostTransaction(txA.Bytes())
+		_, err = clients[0].PostTransaction(txA)
 		require.NoError(t, err)
-		_, err = clients[1].PostTransaction(txB.Bytes())
+		_, err = clients[1].PostTransaction(txB)
 		require.NoError(t, err)
 
 		evilwallet.ClearAliases()

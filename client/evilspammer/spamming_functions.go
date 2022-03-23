@@ -7,7 +7,7 @@ import (
 
 func DataSpammingFunction(s *Spammer) {
 	clt := s.Clients.GetClient()
-	msgID, err := clt.Data([]byte(fmt.Sprintf("SPAM")))
+	msgID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailSendDataMessage)
 	}

@@ -165,7 +165,8 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
 
 	var err error
 	var txID ledgerstate.TransactionID
-	txID, err = s.Clients.PostTransaction(tx)
+	clt := s.Clients.GetClient()
+	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)
 		s.ErrCounter.CountError(ErrFailPostTransaction)

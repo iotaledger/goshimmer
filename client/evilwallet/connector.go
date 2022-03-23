@@ -20,37 +20,18 @@ type Connector interface {
 	// ServerStatus retrieves the connected server status.
 	ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error)
 	// Clients returns list of all clients.
-	Clients(...bool) []*client.GoShimmerAPI
+	Clients(...bool) []Client
 	// GetClients returns the numOfClt client instances that were used the longest time ago.
-	GetClients(numOfClt int) []*client.GoShimmerAPI
+	GetClients(numOfClt int) []Client
 	// GetClient returns the client instance that was used the longest time ago.
-	GetClient() *client.GoShimmerAPI
-	// AddClient adds client to Connector based on provided GoShimmerAPI url.
-	AddClient(url string, setters ...client.Option)
-	// RemoveClient removes client with the provided index from the Connector.
-	RemoveClient(index int)
+	GetClient() Client
 	// PledgeID returns the node ID that the mana will be pledging to.
 	PledgeID() *identity.ID
-
-	// PostTransaction sends a transaction to the Tangle via a given client.
-	PostTransaction(tx *ledgerstate.Transaction) (ledgerstate.TransactionID, error)
-	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
-	// GetTransactionGoF returns the GoF of a given transaction ID.
-	GetTransactionGoF(txID string) gof.GradeOfFinality
-	// GetOutputGoF gets the first unspent outputs of a given address.
-	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
-	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
-	SendFaucetRequest(address string) error
-	// GetTransactionOutputs returns the outputs the transaction created.
-	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
-	// GetTransaction gets the transaction.
-	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 }
 
 // WebClients is responsible for handling connections via GoShimmerAPI.
 type WebClients struct {
-	clients []*client.GoShimmerAPI
+	clients []*WebClient
 	urls    []string
 
 	// can be used in case we want all mana to be pledge to a specific node
@@ -63,9 +44,9 @@ type WebClients struct {
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
 func NewWebClients(urls []string, setters ...client.Option) *WebClients {
-	clients := make([]*client.GoShimmerAPI, len(urls))
+	clients := make([]*WebClient, len(urls))
 	for i, url := range urls {
-		clients[i] = client.NewGoShimmerAPI(url, setters...)
+		clients[i] = NewWebClient(url, setters...)
 	}
 
 	return &WebClients{
@@ -87,7 +68,7 @@ func (c *WebClients) ServersStatuses() ServersStatus {
 
 // ServerStatus retrieves the connected server status.
 func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err error) {
-	response, err := c.clients[cltIdx].Info()
+	response, err := c.clients[cltIdx].api.Info()
 	if err != nil {
 		return nil, err
 	}
@@ -101,16 +82,20 @@ func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err 
 }
 
 // Clients returns list of all clients.
-func (c *WebClients) Clients(...bool) []*client.GoShimmerAPI {
-	return c.clients
+func (c *WebClients) Clients(...bool) []Client {
+	clients := make([]Client, len(c.clients))
+	for _, c := range c.clients {
+		clients = append(clients, c)
+	}
+	return clients
 }
 
 // GetClients returns the numOfClt client instances that were used the longest time ago.
-func (c *WebClients) GetClients(numOfClt int) []*client.GoShimmerAPI {
+func (c *WebClients) GetClients(numOfClt int) []Client {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	clts := make([]*client.GoShimmerAPI, numOfClt)
+	clts := make([]Client, numOfClt)
 
 	for i := range clts {
 		clts[i] = c.getClient()
@@ -119,7 +104,7 @@ func (c *WebClients) GetClients(numOfClt int) []*client.GoShimmerAPI {
 }
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
-func (c *WebClients) getClient() *client.GoShimmerAPI {
+func (c *WebClients) getClient() Client {
 	if c.lastUsed == len(c.clients)-1 {
 		c.lastUsed = 0
 	} else {
@@ -129,7 +114,7 @@ func (c *WebClients) getClient() *client.GoShimmerAPI {
 }
 
 // GetClient returns the client instance that was used the longest time ago.
-func (c *WebClients) GetClient() *client.GoShimmerAPI {
+func (c *WebClients) GetClient() Client {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -141,7 +126,7 @@ func (c *WebClients) AddClient(url string, setters ...client.Option) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	clt := client.NewGoShimmerAPI(url, setters...)
+	clt := NewWebClient(url, setters...)
 	c.clients = append(c.clients, clt)
 }
 
@@ -163,17 +148,46 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 	c.pledgeID = id
 }
 
+type Client interface {
+	// PostTransaction sends a transaction to the Tangle via a given client.
+	PostTransaction(tx *ledgerstate.Transaction) (ledgerstate.TransactionID, error)
+	// PostData sends the given data (payload) by creating a message in the backend.
+	PostData(data []byte) (msgID string, err error)
+	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
+	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
+	// GetAddressUnspentOutputs gets the unspent outputs of an address.
+	GetAddressUnspentOutputs(address string) (outputIDs []ledgerstate.OutputID, err error)
+	// GetTransactionGoF returns the GoF of a given transaction ID.
+	GetTransactionGoF(txID string) gof.GradeOfFinality
+	// GetOutputGoF gets the first unspent outputs of a given address.
+	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
+	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+	SendFaucetRequest(address string) error
+	// GetTransactionOutputs returns the outputs the transaction created.
+	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
+	// GetTransaction gets the transaction.
+	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
+}
+
+// WebClient contains a GoShimmer web API to interact with a node.
+type WebClient struct {
+	api *client.GoShimmerAPI
+}
+
+// NewWebClient creates Connector from provided GoShimmerAPI urls.
+func NewWebClient(url string, setters ...client.Option) *WebClient {
+	return &WebClient{api: client.NewGoShimmerAPI(url, setters...)}
+}
+
 // SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
-func (c *WebClients) SendFaucetRequest(address string) (err error) {
-	clt := c.GetClient()
-	_, err = clt.SendFaucetRequest(address, -1)
+func (c *WebClient) SendFaucetRequest(address string) (err error) {
+	_, err = c.api.SendFaucetRequest(address, -1)
 	return
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *WebClients) PostTransaction(tx *ledgerstate.Transaction) (txID ledgerstate.TransactionID, err error) {
-	clt := c.GetClient()
-	resp, err := clt.PostTransaction(tx.Bytes())
+func (c *WebClient) PostTransaction(tx *ledgerstate.Transaction) (txID ledgerstate.TransactionID, err error) {
+	resp, err := c.api.PostTransaction(tx.Bytes())
 	if err != nil {
 		return
 	}
@@ -184,10 +198,28 @@ func (c *WebClients) PostTransaction(tx *ledgerstate.Transaction) (txID ledgerst
 	return
 }
 
+// PostData sends the given data (payload) by creating a message in the backend.
+func (c *WebClient) PostData(data []byte) (msgID string, err error) {
+	resp, err := c.api.Data(data)
+	if err != nil {
+		return
+	}
+
+	return resp, nil
+}
+
+func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []ledgerstate.OutputID, err error) {
+	res, err := c.api.GetAddressUnspentOutputs(address)
+	if err != nil {
+		return
+	}
+	outputIDs = getOutputIDsByJSON(res.Outputs)
+	return
+}
+
 // GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-func (c *WebClients) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
-	clt := c.GetClient()
-	resp, err := clt.PostAddressUnspentOutputs([]string{addr.Base58()})
+func (c *WebClient) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
+	resp, err := c.api.PostAddressUnspentOutputs([]string{addr.Base58()})
 	if err != nil {
 		return nil
 	}
@@ -199,9 +231,8 @@ func (c *WebClients) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonm
 }
 
 // GetOutputGoF gets the first unspent outputs of a given address.
-func (c *WebClients) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
-	clt := c.GetClient()
-	res, err := clt.GetOutputMetadata(outputID.Base58())
+func (c *WebClient) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
+	res, err := c.api.GetOutputMetadata(outputID.Base58())
 	if err != nil {
 		return gof.None
 	}
@@ -210,9 +241,8 @@ func (c *WebClients) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFina
 }
 
 // GetTransactionGoF returns the GoF of a given transaction ID.
-func (c *WebClients) GetTransactionGoF(txID string) gof.GradeOfFinality {
-	clt := c.GetClient()
-	resp, err := clt.GetTransactionMetadata(txID)
+func (c *WebClient) GetTransactionGoF(txID string) gof.GradeOfFinality {
+	resp, err := c.api.GetTransactionMetadata(txID)
 	if err != nil {
 		return gof.None
 	}
@@ -220,9 +250,8 @@ func (c *WebClients) GetTransactionGoF(txID string) gof.GradeOfFinality {
 }
 
 // GetTransactionOutputs returns the outputs the transaction created.
-func (c *WebClients) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
-	clt := c.GetClient()
-	resp, err := clt.GetTransaction(txID)
+func (c *WebClient) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
+	resp, err := c.api.GetTransaction(txID)
 	if err != nil {
 		return
 	}
@@ -237,9 +266,8 @@ func (c *WebClients) GetTransactionOutputs(txID string) (outputs ledgerstate.Out
 }
 
 // GetTransaction gets the transaction.
-func (c *WebClients) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
-	clt := c.GetClient()
-	resp, err = clt.GetTransaction(txID)
+func (c *WebClient) GetTransaction(txID string) (resp *jsonmodels.Transaction, err error) {
+	resp, err = c.api.GetTransaction(txID)
 	if err != nil {
 		return
 	}
