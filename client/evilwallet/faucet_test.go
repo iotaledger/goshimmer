@@ -26,6 +26,7 @@ func TestFaucetRequests(t *testing.T) {
 		require.NoError(t, err)
 		_, err = clients[1].PostTransaction(txB.Bytes())
 		require.NoError(t, err)
+		evilwallet.ClearAliases()
 	}
 
 	err = evilwallet.RequestFreshBigFaucetWallet()

@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"github.com/cockroachdb/errors"
 	"time"
 
 	"github.com/iotaledger/hive.go/types"
@@ -69,6 +70,31 @@ func (o *Options) isBalanceProvided() bool {
 		})
 	}
 	return provided
+}
+
+func (o *Options) areInputsProvidedWithoutAliases() bool {
+	return len(o.inputs) > 0
+}
+
+func (o *Options) areOutputsProvidedWithoutAliases() bool {
+	return len(o.inputs) > 0
+}
+
+// checkInputsAndOutputs checks if either all provided inputs/outputs are with aliases or all are without,
+// we do not allow for mixing those two possibilities.
+func (o *Options) checkInputsAndOutputs() error {
+	inLength, outLength, aliasInLength, aliasOutLength := len(o.inputs), len(o.outputs), len(o.aliasInputs), len(o.aliasOutputs)
+
+	if (inLength == 0 && aliasInLength == 0) || (outLength == 0 && aliasOutLength == 0) {
+		return errors.New("no inputs or outputs provided")
+	}
+
+	inputsOk := (inLength > 0 && aliasInLength == 0) || (aliasInLength > 0 && inLength == 0)
+	outputsOk := (outLength > 0 && aliasOutLength == 0) || (aliasOutLength > 0 && outLength == 0)
+	if !inputsOk || !outputsOk {
+		return errors.New("mixing providing inputs/outputs with and without aliases is not allowed")
+	}
+	return nil
 }
 
 // WithInputs returns an Option that is used to provide the Inputs of the Transaction.

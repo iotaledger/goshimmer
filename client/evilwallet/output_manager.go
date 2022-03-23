@@ -103,12 +103,13 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 }
 
 func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
+	o.Lock()
+	defer o.Unlock()
+
 	outputID := output.ID()
 	out := w.AddUnspentOutput(output.Address(), w.addrIndexMap[output.Address().Base58()], outputID, output.Balances())
-	o.Lock()
 	o.outputIDWalletMap[outputID.Base58()] = w
 	o.outputIDAddrMap[outputID] = output.Address().Base58()
-	o.Unlock()
 	return out
 }
 
