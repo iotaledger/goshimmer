@@ -128,6 +128,10 @@ export class UTXOStore {
         tx.confirmedTime = txConfirmed.confirmedTime;
         tx.gof = txConfirmed.gof;
         this.transactions.set(txConfirmed.ID, tx);
+
+        if (this.draw) {
+            updateConfirmedTransaction(tx, this.graph);
+        }
     };
 
     @action

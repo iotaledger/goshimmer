@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/types"
 
@@ -15,10 +17,13 @@ import (
 )
 
 const (
-	GoFConfirmed             = 3
-	waitForConfirmation      = 60 * time.Second
-	waitForTxSolid           = 2 * time.Second
+	// GoFConfirmed defines the grade of finality that is considered confirmed.
+	GoFConfirmed = 3
+	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber = 100
+
+	waitForConfirmation = 60 * time.Second
+	waitForTxSolid      = 2 * time.Second
 
 	maxGoroutines = 5
 )
@@ -82,8 +87,8 @@ func (e *EvilWallet) Connector() Connector {
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error) {
-	initWallet := e.NewWallet(fresh)
+func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error, initWallet *Wallet) {
+	initWallet = e.NewWallet(fresh)
 	addr := initWallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
 
@@ -96,13 +101,13 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 		return
 	}
 
-	// track output in output manager and make sure it's confirmed
 	out := e.outputManager.CreateOutputFromAddress(initWallet, addr, faucetBalance)
 	if out == nil {
 		err = errors.New("no outputIDs found on address ")
 		return
 	}
 
+	// track output in output manager and make sure it's confirmed
 	allConfirmed := e.outputManager.Track([]ledgerstate.OutputID{out.OutputID})
 	if !allConfirmed {
 		err = errors.New("output not confirmed")
@@ -127,7 +132,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 		wg.Add(1)
 		// block if full
 		semaphore <- true
-		go func(reqNum int) {
+		go func() {
 			defer wg.Done()
 			defer func() {
 				// release
@@ -138,10 +143,9 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 			if err != nil {
 				return
 			}
-		}(reqNum)
+		}()
 	}
 	wg.Wait()
-	return
 }
 
 // RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 10000 outputs created from funds
@@ -152,7 +156,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	if err != nil {
 		return
 	}
-	w := e.NewWallet(fresh)
+	w := e.NewWallet()
 	txIDs := e.splitOutputs(funds, w, FaucetRequestSplitNumber)
 
 	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
@@ -214,23 +218,27 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 	return
 }
 
-func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, splitNumber int) []string {
+func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber int) []string {
 	wg := sync.WaitGroup{}
 
 	txIDs := make([]string, inputWallet.UnspentOutputsLength())
 	if inputWallet.IsEmpty() {
 		return []string{}
 	}
-	// Add all aliases before creating txs
-	inputAliases, outputAliases, txAliases := e.handleAliasesDuringSplitOutputs(outputWallet, splitNumber, inputWallet)
-	inputNum := 0
 
-	for _, input := range inputWallet.UnspentOutputs() {
+	inputNum := 0
+	for addr := range inputWallet.UnspentOutputs() {
 		wg.Add(1)
-		go func(inputNum int, input *Output) {
+		go func(inputNum int, addr string) {
 			defer wg.Done()
-			tx, err := e.CreateTransaction(txAliases[inputNum], WithInputs(inputAliases[inputNum]), WithOutputs(outputAliases[inputNum]),
+
+			input, outputs := e.handleInputOutputDuringSplitOutputs(splitNumber, inputWallet, addr)
+
+			tx, err := e.CreateTransaction(WithInputs(input), WithOutputs(outputs),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
+			if err != nil {
+				return
+			}
 
 			clt := e.connector.GetClient()
 			txID, err := clt.PostTransaction(tx)
@@ -238,23 +246,29 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 				return
 			}
 			txIDs[inputNum] = txID.Base58()
-		}(inputNum, input)
+		}(inputNum, addr)
 		inputNum++
 	}
 	wg.Wait()
 	return txIDs
 }
 
-func (e *EvilWallet) handleAliasesDuringSplitOutputs(outputWallet *Wallet, splitNumber int, inputWallet *Wallet) ([]string, [][]string, []string) {
-	inputAliases, AllOutputsAliases, txAliases := make([]string, 0), make([][]string, 0), make([]string, 0)
-	n := inputWallet.UnspentOutputsLength()
-	inputAliases = e.aliasManager.CreateAliasesForInputs(n)
-	txAliases = e.aliasManager.CreateAliasesForTransactions(n, outputWallet.ID, inputWallet.ID)
-	for i := 0; i < n; i++ {
-		outputAliases := e.aliasManager.CreateAliasesForOutputs(outputWallet.ID, splitNumber)
-		AllOutputsAliases = append(AllOutputsAliases, outputAliases)
+func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.Output, outputs []*OutputOption) {
+	evilInput := inputWallet.UnspentOutput(inputAddr)
+	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
+	input = out.SetID(evilInput.OutputID)
+
+	inputBalance := uint64(0)
+	evilInput.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		inputBalance += balance
+		return true
+	})
+
+	balances := SplitBalanceEqually(splitNumber, inputBalance)
+	for _, bal := range balances {
+		outputs = append(outputs, &OutputOption{amount: bal})
 	}
-	return inputAliases, AllOutputsAliases, txAliases
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,15 +280,15 @@ func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
-func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
 	if outputWallet == nil {
 		return nil, errors.Errorf("no output wallet provided")
 	}
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
-		for txAlias, options := range conflictMap {
+		for _, options := range conflictMap {
 			options = append(options, WithOutputWallet(outputWallet))
-			tx, err2 := e.CreateTransaction(txAlias, options...)
+			tx, err2 := e.CreateTransaction(options...)
 			if err2 != nil {
 				return nil, err2
 			}
@@ -286,7 +300,7 @@ func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictMap, outputW
 }
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
-func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap) (err error) {
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err error) {
 	outputWallet := e.NewWallet()
 	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
 	if err != nil {
@@ -315,22 +329,35 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap) (err error
 	return
 }
 
-// CreateTransaction creates a transaction with the given outputAliasName and options.
-func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx *ledgerstate.Transaction, err error) {
+// CreateTransaction creates a transaction based on provided options. If no input wallet is provided, the next non-empty faucet wallet is used.
+// Inputs of the transaction are determined in three ways:
+// 1 - inputs are provided directly without associated alias, 2- alias is provided, and input is already stored in an alias manager,
+// 3 - alias is provided, and there are no inputs assigned in Alias manager, so aliases are assigned to next ready inputs from input wallet.
+func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
 
-	if buildOptions.outputWallet == nil {
-		buildOptions.outputWallet = e.NewWallet()
-	}
-
-	if len(buildOptions.inputs) == 0 || len(buildOptions.outputs) == 0 {
+	err = buildOptions.checkInputsAndOutputs()
+	if err != nil {
 		return
 	}
-	inputs, err := e.matchInputsWithAliases(buildOptions)
+
+	err = e.isWalletProvidedForInputsOutputs(buildOptions)
 	if err != nil {
 		return nil, err
 	}
-	outputs, addrAliasMap, err := e.matchOutputsWithAliases(buildOptions)
+
+	err = e.updateInputWallet(buildOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	e.createNewOutputWalletIfNotProvided(buildOptions)
+
+	inputs, err := e.prepareInputs(buildOptions)
+	if err != nil {
+		return nil, err
+	}
+	outputs, addrAliasMap, err := e.prepareOutputs(buildOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -338,10 +365,12 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 	alias, remainder, hasRemainder := e.prepareRemainderOutput(buildOptions, outputs)
 	if hasRemainder {
 		outputs = append(outputs, remainder)
-		addrAliasMap[remainder.Address()] = alias
+		if alias != "" && addrAliasMap != nil {
+			addrAliasMap[remainder.Address()] = alias
+		}
 	}
 
-	tx, err = e.makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), buildOptions.issuer)
+	tx, err = e.makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), buildOptions.inputWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -351,19 +380,62 @@ func (e *EvilWallet) CreateTransaction(aliasName string, options ...Option) (tx 
 		return nil, err
 	}
 
-	err = e.registerOutputAliases(tx.Essence().Outputs(), addrAliasMap)
-	if err != nil {
-		return nil, err
+	for _, o := range tx.Essence().Outputs() {
+		e.outputManager.AddOutput(buildOptions.outputWallet, o)
 	}
 
-	err = e.aliasManager.AddTransactionAlias(tx, aliasName)
-	if err != nil {
-		return nil, err
-	}
+	e.registerOutputAliases(tx.Essence().Outputs(), addrAliasMap)
+
 	return
 }
 
-func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAliasMap map[ledgerstate.Address]string) (err error) {
+func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
+	// determine inputWallet based on the first input from AliasManager
+	for alias := range buildOptions.aliasInputs {
+		in, ok := e.aliasManager.GetInput(alias)
+		if ok {
+			err := e.updateIssuerWalletForAlias(buildOptions, in)
+			if err != nil {
+				return err
+			}
+			return nil
+		}
+		break
+	}
+	// if input wallet is not specified, use fresh faucet wallet
+	err := e.useFreshIfInputWalletNotProvided(buildOptions)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// isWalletProvidedForInputs checks if inputs without corresponding aliases are provided with corresponding input wallet.
+func (e *EvilWallet) isWalletProvidedForInputsOutputs(buildOptions *Options) error {
+	if buildOptions.areInputsProvidedWithoutAliases() {
+		if buildOptions.inputWallet == nil {
+			return errors.New("no input wallet provided for inputs without aliases")
+		}
+	}
+	if buildOptions.areOutputsProvidedWithoutAliases() {
+		if buildOptions.outputWallet == nil {
+			return errors.New("no output wallet provided for outputs without aliases")
+		}
+	}
+	return nil
+}
+
+func (e *EvilWallet) createNewOutputWalletIfNotProvided(buildOptions *Options) {
+	if buildOptions.outputWallet == nil {
+		buildOptions.outputWallet = NewWallet()
+	}
+}
+
+func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAliasMap map[ledgerstate.Address]string) {
+	if len(addrAliasMap) == 0 {
+		return
+	}
+
 	for _, output := range outputs {
 		// register output alias
 		e.aliasManager.AddOutputAlias(output, addrAliasMap[output.Address()])
@@ -375,25 +447,49 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 	return
 }
 
+func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
+	if buildOptions.areInputsProvidedWithoutAliases() {
+		for _, out := range buildOptions.inputs {
+			inputs = append(inputs, ledgerstate.NewUTXOInput(out.ID()))
+		}
+		return
+	}
+	// append inputs with alias
+	aliasInputs, err := e.matchInputsWithAliases(buildOptions)
+	if err != nil {
+		return nil, err
+	}
+	inputs = append(inputs, aliasInputs...)
+
+	return inputs, nil
+}
+
+func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output, addrAliasMap map[ledgerstate.Address]string, err error) {
+	// if outputs were provided with aliases
+	if !buildOptions.areOutputsProvidedWithoutAliases() {
+		outputs, addrAliasMap, err = e.matchOutputsWithAliases(buildOptions)
+	} else {
+		for _, balance := range buildOptions.outputs {
+			evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
+			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
+			if err != nil {
+				return nil, nil, err
+			}
+			outputs = append(outputs, output)
+		}
+	}
+	return
+}
+
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
 // it assigns a new fresh faucet output.
 func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	// get inputs by alias
-	for inputAlias := range buildOptions.inputs {
+	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
-		if ok {
-			err = e.updateIssuerWalletForAlias(buildOptions, in)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+		if !ok {
 			// No output found for given alias, use internal fresh output if wallets are non-empty.
-			err = e.getIssuerWallet(buildOptions)
-			if err != nil {
-				return nil, err
-			}
-
-			out := e.wallets.GetUnspentOutput(buildOptions.issuer)
+			out := e.wallets.GetUnspentOutput(buildOptions.inputWallet)
 			if out == nil {
 				return
 			}
@@ -405,25 +501,22 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 	return inputs, nil
 }
 
-func (e *EvilWallet) getIssuerWallet(buildOptions *Options) error {
+func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) error {
 	// if input wallet is not specified, use fresh faucet wallet
-	if buildOptions.issuer == nil {
-		if wallet, err2 := e.wallets.FreshWallet(); wallet != nil {
-			buildOptions.issuer = wallet
+	if buildOptions.inputWallet == nil {
+		if wallet, err := e.wallets.FreshWallet(); wallet != nil {
+			buildOptions.inputWallet = wallet
 		} else {
-			return errors.Newf("no fresh wallet is available: %w", err2)
+			return errors.Newf("no fresh wallet is available: %w", err)
 		}
 	}
 	return nil
 }
 
 func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledgerstate.Input) error {
-	inputWallet := e.outputManager.outputIDWalletMap[in.Base58()]
-	if buildOptions.issuer == nil {
-		buildOptions.issuer = inputWallet
-	}
-	if buildOptions.issuer.ID != inputWallet.ID {
-		return errors.New("provided inputs had to belong to the same wallets")
+	inputWallet := e.outputManager.OutputIDWalletMap(in.Base58())
+	if buildOptions.inputWallet == nil {
+		buildOptions.inputWallet = inputWallet
 	}
 	return nil
 }
@@ -437,14 +530,20 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []l
 		return nil, nil, err
 	}
 	addrAliasMap = make(map[ledgerstate.Address]string)
-	for alias, balance := range buildOptions.outputs {
+	for alias, balance := range buildOptions.aliasOutputs {
+		evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
+		output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
+
+		outputs = append(outputs, output)
+		addrAliasMap[evilOutput.Address] = alias
+	}
+	for _, balance := range buildOptions.outputs {
 		evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
 		output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
 		if err != nil {
 			return nil, nil, err
 		}
 		outputs = append(outputs, output)
-		addrAliasMap[evilOutput.Address] = alias
 	}
 
 	return
@@ -452,13 +551,14 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []l
 
 func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []ledgerstate.Output) (alias string, remainderOutput ledgerstate.Output, added bool) {
 	inputBalance := uint64(0)
-	var remainderAddress ledgerstate.Address
-	for inputAlias := range buildOptions.inputs {
-		in, _ := e.aliasManager.GetInput(inputAlias)
 
+	var remainderAddress ledgerstate.Address
+	for inputAlias := range buildOptions.aliasInputs {
+		in, _ := e.aliasManager.GetInput(inputAlias)
 		// get balance from output manager
-		outputID, _ := ledgerstate.OutputIDFromBase58(in.Base58())
-		output := e.outputManager.GetOutput(outputID)
+		out, _ := ledgerstate.OutputIDFromBase58(in.Base58())
+		output := e.outputManager.GetOutput(out)
+
 		output.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			inputBalance += balance
 			return true
@@ -466,6 +566,17 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []led
 		if alias == "" {
 			remainderAddress, _ = e.getAddressFromInput(in)
 			alias = inputAlias
+		}
+	}
+
+	for _, input := range buildOptions.inputs {
+		// get balance from output manager
+		input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			inputBalance += balance
+			return true
+		})
+		if remainderAddress == address.AddressEmpty.Address() {
+			remainderAddress = input.Address()
 		}
 	}
 
@@ -489,28 +600,42 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []led
 }
 
 func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
+	// when aliases are not used for outputs, the balance had to be provided in options, nothing to do
+	if buildOptions.areOutputsProvidedWithoutAliases() {
+		return
+	}
+	totalBalance := uint64(0)
 	if !buildOptions.isBalanceProvided() {
-		totalBalance := uint64(0)
-		for inputAlias := range buildOptions.inputs {
 
-			in, ok := e.aliasManager.GetInput(inputAlias)
-			if !ok {
-				err = errors.New("could not get input by input alias")
-				return
+		if buildOptions.areInputsProvidedWithoutAliases() {
+			for _, input := range buildOptions.inputs {
+				// get balance from output manager
+				input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					totalBalance += balance
+					return true
+				})
 			}
-			// get balance from output manager
-			outputID, _ := ledgerstate.OutputIDFromBase58(in.Base58())
-			output := e.outputManager.GetOutput(outputID)
-			output.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				totalBalance += balance
-				return true
-			})
-		}
-		balances := SplitBalanceEqually(len(buildOptions.outputs), totalBalance)
+		} else {
+			for inputAlias := range buildOptions.aliasInputs {
+				in, ok := e.aliasManager.GetInput(inputAlias)
+				if !ok {
+					err = errors.New("could not get input by input alias")
+					return
+				}
+				// get balance from output manager
+				outputID, _ := ledgerstate.OutputIDFromBase58(in.Base58())
+				output := e.outputManager.GetOutput(outputID)
+				output.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+					totalBalance += balance
+					return true
+				})
+			}
 
+		}
+		balances := SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
 		i := 0
-		for out := range buildOptions.outputs {
-			buildOptions.outputs[out] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		for out := range buildOptions.aliasOutputs {
+			buildOptions.aliasOutputs[out] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				ledgerstate.ColorIOTA: balances[i],
 			})
 			i++
@@ -527,7 +652,7 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 		if err2 != nil {
 			return nil, err2
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(addr, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.Sign(addr, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }
@@ -541,6 +666,7 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 
 	refOut := typeCastedInput.ReferencedOutputID()
 	out := e.outputManager.GetOutput(refOut)
+
 	if out == nil {
 		err = errors.New("output not found in output manager")
 		return
@@ -550,9 +676,8 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 }
 
 func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs ledgerstate.Outputs, outWallet *Wallet) error {
-	for i, output := range outputs {
-		outID := output.SetID(ledgerstate.NewOutputID(txID, uint16(i))).ID()
-		err := e.outputManager.UpdateOutputID(outWallet, output.Address().Base58(), outID)
+	for _, output := range outputs {
+		err := e.outputManager.UpdateOutputID(outWallet, output.Address().Base58(), output.ID())
 		if err != nil {
 			return err
 		}
@@ -561,7 +686,7 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 }
 
 func (e *EvilWallet) PrepareTransaction(scenario EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	tx, err = e.CreateTransaction("txAliases[inputNum]", WithInputs("inputAliases[inputNum]"), WithOutputs([]string{"outputAliases[inputNum]"}))
+	tx, err = e.CreateTransaction(WithInputs("inputAliases[inputNum]"), WithOutputs(nil))
 	return
 }
 
@@ -577,7 +702,7 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario EvilScenario) (tx [][]*
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type EvilBatch []ConflictMap
+type EvilBatch []ConflictSlice
 
 type EvilScenario struct {
 	conflictBatch EvilBatch
@@ -589,7 +714,7 @@ type EvilScenario struct {
 	batchOutputsAliases map[string]types.Empty
 }
 
-func NewEvilScenario(conflictBatch []ConflictMap, repeat int, reuse bool) {
+func NewEvilScenario(conflictBatch []ConflictSlice, repeat int, reuse bool) {
 	scenario := &EvilScenario{
 		repeat: repeat,
 		reuse:  reuse,
@@ -608,9 +733,9 @@ func (e *EvilScenario) assignBatchOutputs() {
 	for _, conflictMap := range e.conflictBatch {
 		for _, options := range conflictMap {
 			option := NewOptions(options...)
-			for outputAlis := range option.outputs {
+			for outputAlis := range option.aliasOutputs {
 				// add output aliases that are not used in this conflict batch
-				if _, ok := option.inputs[outputAlis]; !ok {
+				if _, ok := option.aliasInputs[outputAlis]; !ok {
 					e.batchOutputsAliases[outputAlis] = types.Void
 				}
 			}

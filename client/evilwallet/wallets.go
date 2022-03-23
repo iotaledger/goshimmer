@@ -68,28 +68,16 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	var wallet *Wallet
 
 	switch walletType {
 	case fresh:
 		if !w.IsFaucetWalletAvailable() {
 			return nil, errors.New("no faucet wallets available, need to request more funds")
 		}
-		freshIndex := 0
-		for i, ID := range w.faucetWallets {
-			wallet = w.wallets[ID]
-			if wallet.IsEmpty() {
-				continue
-			}
-			freshIndex = i
-			break
+		wallet := w.wallets[w.faucetWallets[0]]
+		if wallet.IsEmpty() {
+			return nil, errors.New("wallet is empty, need to request more funds")
 		}
-
-		// remove empty wallets
-		for i := 0; i < freshIndex; i++ {
-			w.removeWallet(fresh)
-		}
-
 		return wallet, nil
 	}
 	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
@@ -225,8 +213,8 @@ func (w *Wallet) Address() address.Address {
 func (w *Wallet) UnspentOutput(addr string) *Output {
 	w.RLock()
 	defer w.RUnlock()
-	return w.unspentOutputs[addr]
 
+	return w.unspentOutputs[addr]
 }
 
 // UnspentOutputs returns all unspent outputs on the wallet.
@@ -246,6 +234,14 @@ func (w *Wallet) IndexAddrMap(outIndex uint64) string {
 	defer w.RUnlock()
 
 	return w.indexAddrMap[outIndex]
+}
+
+// AddrIndexMap returns the index for the address specified.
+func (w *Wallet) AddrIndexMap(outIndex string) uint64 {
+	w.RLock()
+	defer w.RUnlock()
+
+	return w.addrIndexMap[outIndex]
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
@@ -306,9 +302,12 @@ func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBa
 	return
 }
 
-// sign signs the tx essence.
-func (w *Wallet) sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	index := w.addrIndexMap[addr.Base58()]
+// Sign signs the tx essence.
+func (w *Wallet) Sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+	w.RLock()
+	defer w.RUnlock()
+
+	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
@@ -319,7 +318,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()
 	if !ok {
-		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%d, addr: %s", outputID, addr)
+		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%s, addr: %s", outputID.Base58(), addr)
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID

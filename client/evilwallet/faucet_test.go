@@ -18,15 +18,14 @@ func TestFaucetRequests(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < 200; i++ {
-		txA, err := evilwallet.CreateTransaction("A", WithInputs("1"), WithOutputs([]string{"2"}))
+		txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "2"}))
 		require.NoError(t, err)
-		txB, err := evilwallet.CreateTransaction("B", WithInputs("1"), WithOutputs([]string{"3"}))
+		txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "3"}))
 		require.NoError(t, err)
 		_, err = clients[0].PostTransaction(txA)
 		require.NoError(t, err)
 		_, err = clients[1].PostTransaction(txB)
 		require.NoError(t, err)
-
 		evilwallet.ClearAliases()
 	}
 
