@@ -4,7 +4,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types"
 
 	lo "github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics/filter"
@@ -35,7 +34,9 @@ func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *Transactio
 	if len(conflictingInputIDs) != 0 {
 		inheritedBranchIDs = branchdag.NewBranchIDs(b.CreateBranch(txID, inheritedBranchIDs, branchdag.NewConflictIDs(lo.Map(conflictingInputIDs, branchdag.NewConflictID)...)))
 
-		b.forkConsumers(conflictingInputIDs)
+		b.WalkConsumingTransactionAndMetadata(conflictingInputIDs, func(tx utxo.Transaction, txMetadata *TransactionMetadata, _ *walker.Walker[utxo.OutputID]) {
+			b.forkTransactionFutureCone(tx, txMetadata, lo.KeyBy(conflictingInputIDs, lo.Identity[utxo.OutputID]))
+		})
 	}
 
 	txMetadata.SetBranchIDs(inheritedBranchIDs)
@@ -45,7 +46,6 @@ func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *Transactio
 
 func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []utxo.Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
 	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], len(outputs))
-
 	for index, output := range outputs {
 		output.SetID(utxo.NewOutputID(txID, uint16(index), output.Bytes()))
 
@@ -59,48 +59,56 @@ func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []utxo.Output, bra
 	return cachedOutputsMetadata
 }
 
-func (b *Booker) forkConsumers(conflictingInputIDs []utxo.OutputID) {
-	b.WalkConsumingTransactionID(conflictingInputIDs, func(txID utxo.TransactionID, _ *walker.Walker[utxo.OutputID]) {
-		b.forkConsumer(txID, lo.KeyBy(conflictingInputIDs, lo.Identity[utxo.OutputID]))
-	})
+func (b *Booker) forkTransactionFutureCone(tx utxo.Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx map[utxo.OutputID]utxo.OutputID) {
+	forkedBranchID, previousParentBranches, success := b.forkTransaction(tx, txMetadata, outputsSpentByConflictingTx)
+	if !success {
+		return
+	}
+
+	// trigger forked event
+
+	b.forkFutureCone(txMetadata, forkedBranchID, previousParentBranches)
 }
 
-func (b *Booker) forkConsumer(txID utxo.TransactionID, conflictingInputIDs map[utxo.OutputID]utxo.OutputID) {
-	b.Lock(txID)
-	defer b.Unlock(txID)
+func (b *Booker) forkTransaction(tx utxo.Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx map[utxo.OutputID]utxo.OutputID) (forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs, success bool) {
+	b.Lock(txMetadata.ID())
+	defer b.Unlock(txMetadata.ID())
 
-	b.WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *TransactionMetadata) {
-		conflictingOutputIDs := lo.Filter(b.outputIDsFromInputs(tx.Inputs()), filter.Contains[utxo.OutputID](conflictingInputIDs))
+	conflictingInputs := lo.Filter(b.outputIDsFromInputs(tx.Inputs()), filter.MapHasKey(outputsSpentByConflictingTx))
+	conflictIDs := branchdag.NewConflictIDs(lo.Map(conflictingInputs, branchdag.NewConflictID)...)
 
-		forkedBranchID := b.CreateBranch(txID, txMetadata.BranchIDs(), branchdag.NewConflictIDs(lo.Map(conflictingOutputIDs, branchdag.NewConflictID)...))
+	previousParentBranches = txMetadata.BranchIDs()
+	forkedBranchID = b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictIDs)
+	success = b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches)
 
-		// We don't need to propagate updates if the branch did already exist.
-		// Though CreateBranch needs to be called so that conflict sets and conflict membership are properly updated.
-		if txMetadata.BranchIDs().Is(forkedBranchID) {
+	return
+}
+
+func (b *Booker) forkFutureCone(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs) {
+	b.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+		b.Lock(consumingTxMetadata.ID())
+		defer b.Unlock(consumingTxMetadata.ID())
+
+		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedBranchID, previousParentBranches) {
 			return
 		}
 
-		// Because we are forking the transaction, automatically all the outputs and the transaction itself need to go
-		// into the newly forked branch (own branch) and override all other existing branches. These are now mapped via
-		// the BranchDAG (parents of forked branch).
-		forkedBranchIDs := branchdag.NewBranchIDs(forkedBranchID)
-		outputIds := u.createdOutputIDsOfTransaction(transactionID)
-		for _, outputID := range outputIds {
-			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
-				outputMetadata.SetBranchIDs(forkedBranchIDs)
-			}) {
-				panic("failed to load OutputMetadata")
-			}
-		}
+		// Trigger propagated event
 
-		transactionMetadata.SetBranchIDs(forkedBranchIDs)
-		u.Events().TransactionBranchIDUpdatedByFork.Trigger(&TransactionBranchIDUpdatedByForkEvent{
-			TransactionID:  transactionID,
-			ForkedBranchID: forkedBranchID,
-		})
-
-		u.walkFutureCone(outputIds, func(transactionID TransactionID) (updatedOutputs []OutputID) {
-			return u.propagateBranch(transactionID, forkedBranchID)
-		}, types.True)
+		walker.PushAll(consumingTxMetadata.OutputIDs()...)
 	})
+}
+
+func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
+	if txMetadata.BranchIDs().Contains(forkedBranchID) {
+		return false
+	}
+
+	newBranches := b.RemoveConfirmedBranches(txMetadata.BranchIDs().Subtract(previousParents).Add(forkedBranchID))
+	objectstorage.CachedObjects[*OutputMetadata](lo.Map(txMetadata.OutputIDs(), b.CachedOutputMetadata)).Consume(func(outputMetadata *OutputMetadata) {
+		outputMetadata.SetBranchIDs(newBranches)
+	})
+	txMetadata.SetBranchIDs(newBranches)
+
+	return true
 }

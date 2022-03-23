@@ -29,8 +29,6 @@ type Ledger struct {
 	*branchdag.BranchDAG
 
 	syncutils.DAGMutex[[32]byte]
-
-	vm utxo.VM
 }
 
 func New(store kvstore.KVStore, vm utxo.VM) (ledger *Ledger) {
@@ -81,8 +79,8 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool
 }
 
 func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMetadata) (success bool) {
-	l.DAGMutex.Lock(tx.ID())
-	defer l.DAGMutex.Unlock(tx.ID())
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
 
 	if txMeta.Processed() {
 		return true

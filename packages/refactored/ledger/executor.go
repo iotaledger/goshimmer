@@ -3,10 +3,14 @@ package ledger
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
+
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 type Executor struct {
 	*Ledger
+
+	vm utxo.VM
 }
 
 func (e *Executor) executeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {

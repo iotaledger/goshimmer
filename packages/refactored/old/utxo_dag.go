@@ -400,19 +400,6 @@ func (u *UTXODAG) outputsUnspent(outputsMetadata OutputsMetadata) (outputsUnspen
 	return true
 }
 
-// consumedOutputIDsOfTransaction is an internal utility function returns a list of OutputIDs that were consumed by a
-// given Transaction. If the Transaction can not be found, it returns an empty list.
-func (u *UTXODAG) consumedOutputIDsOfTransaction(transactionID TransactionID) (inputIDs []OutputID) {
-	inputIDs = make([]OutputID, 0)
-	u.CachedTransaction(transactionID).Consume(func(transaction *Transaction) {
-		for _, input := range transaction.Essence().Inputs() {
-			inputIDs = append(inputIDs, input.(*UTXOInput).ReferencedOutputID())
-		}
-	})
-
-	return
-}
-
 // createdOutputIDsOfTransaction is an internal utility function that returns the list of OutputIDs that were created by
 // the given Transaction. If the Transaction can not be found, it returns an empty list.
 func (u *UTXODAG) createdOutputIDsOfTransaction(transactionID TransactionID) (outputIDs []OutputID) {
