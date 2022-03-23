@@ -20,10 +20,10 @@ func TestDoubleSpend(t *testing.T) {
 	txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "3", amount: 1000000}), WithIssuer(initWallet))
 	require.NoError(t, err)
 
-	_, err = clients[0].PostTransaction(txA.Bytes())
+	_, err = clients[0].PostTransaction(txA)
 	require.NoError(t, err)
 
-	_, err = clients[1].PostTransaction(txB.Bytes())
+	_, err = clients[1].PostTransaction(txB)
 	require.NoError(t, err)
 
 	evilwallet.ClearAliases()

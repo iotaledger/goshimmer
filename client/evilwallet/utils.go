@@ -1,6 +1,9 @@
 package evilwallet
 
-import "github.com/iotaledger/goshimmer/packages/ledgerstate"
+import (
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+)
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance uint64) []uint64 {
@@ -16,4 +19,15 @@ func SplitBalanceEqually(splitNumber int, balance uint64) []uint64 {
 	outputBalances = append(outputBalances, lastBalance)
 
 	return outputBalances
+}
+
+func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
+	for _, jsonOutput := range outputs {
+		output, err := jsonOutput.ToLedgerstateOutput()
+		if err != nil {
+			continue
+		}
+		outputIDs = append(outputIDs, output.ID())
+	}
+	return outputIDs
 }

@@ -4,14 +4,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
+
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
@@ -27,28 +28,30 @@ const (
 	maxGoroutines = 5
 )
 
-var (
-	clientsURL = []string{"http://localhost:8080", "http://localhost:8090"}
-
-	faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
-	})
-)
+var defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+	ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
+})
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
 	wallets         *Wallets
-	connector       Clients
+	connector       Connector
 	outputManager   *OutputManager
 	conflictManager *ConflictManager
 	aliasManager    *AliasManager
 }
 
 // NewEvilWallet creates an EvilWallet instance.
-func NewEvilWallet() *EvilWallet {
-	connector := NewConnector(clientsURL)
+func NewEvilWallet(clientsUrls ...string) *EvilWallet {
+	urls := clientsUrls
+	if len(urls) == 0 {
+		urls = append(urls, defaultClientsURLs...)
+	}
+
+	connector := NewWebClients(urls)
 	wallets := NewWallets()
 	return &EvilWallet{
 		wallets:         wallets,
@@ -69,13 +72,18 @@ func (e *EvilWallet) NewWallet(wType ...WalletType) *Wallet {
 }
 
 // GetClients returns the given number of clients.
-func (e *EvilWallet) GetClients(num int) []*client.GoShimmerAPI {
+func (e *EvilWallet) GetClients(num int) []Client {
 	return e.connector.GetClients(num)
+}
+
+// Connector give access to the EvilWallet connector.
+func (e *EvilWallet) Connector() Connector {
+	return e.connector
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// EvilWallet Faucet Requests /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region EvilWallet Faucet Requests ///////////////////////////////////////////////////////////////////////////////////
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
@@ -87,7 +95,8 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err
 	addrStr := addr.Base58()
 
 	// request funds from faucet
-	err = e.connector.SendFaucetRequest(addrStr)
+	clt := e.connector.GetClient()
+	err = clt.SendFaucetRequest(addrStr)
 	if err != nil {
 		return
 	}
@@ -190,7 +199,8 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wal
 
 func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.OutputID, err error) {
 	addr := wallet.Address()
-	err = e.connector.SendFaucetRequest(addr.Base58())
+	clt := e.connector.GetClient()
+	err = clt.SendFaucetRequest(addr.Base58())
 	if err != nil {
 		return
 	}
@@ -231,7 +241,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 			}
 
 			clt := e.connector.GetClient()
-			txID, err := e.connector.PostTransaction(tx, clt)
+			txID, err := clt.PostTransaction(tx)
 			if err != nil {
 				return
 			}
@@ -244,7 +254,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 }
 
 func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.Output, outputs []*OutputOption) {
-	evilInput := inputWallet.unspentOutputs[inputAddr]
+	evilInput := inputWallet.UnspentOutput(inputAddr)
 	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
 	input = out.SetID(evilInput.OutputID)
 
@@ -261,36 +271,54 @@ func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputW
 	return
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EvilWallet functionality ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // ClearAliases remove all registered alias names.
 func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
-// SendCustomConflicts sends transactions with the given conflictsMaps.
-func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictMap, clients []*client.GoShimmerAPI) (err error) {
-	outputWallet := e.NewWallet(reuse)
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
+	if outputWallet == nil {
+		return nil, errors.Errorf("no output wallet provided")
+	}
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for _, options := range conflictMap {
 			options = append(options, WithOutputWallet(outputWallet))
-			tx, err := e.CreateTransaction(options...)
-			if err != nil {
-				return err
+			tx, err2 := e.CreateTransaction(options...)
+			if err2 != nil {
+				return nil, err2
 			}
 			txs = append(txs, tx)
 		}
+		conflictBatch = append(conflictBatch, txs)
+	}
+	return
+}
 
+// SendCustomConflicts sends transactions with the given conflictsMaps.
+func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err error) {
+	outputWallet := e.NewWallet()
+	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
+	if err != nil {
+		return err
+	}
+	for _, txs := range conflictBatch {
+		clients := e.connector.GetClients(len(txs))
 		if len(txs) > len(clients) {
-			return errors.New("insufficient clients to send double spend")
+			return errors.New("insufficient clients to send conflicts")
 		}
 
 		// send transactions in parallel
 		wg := sync.WaitGroup{}
 		for i, tx := range txs {
 			wg.Add(1)
-			go func(clt *client.GoShimmerAPI, tx *ledgerstate.Transaction) {
+			go func(clt Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				_, _ = clt.PostTransaction(tx.Bytes())
+				_, _ = clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()
@@ -468,7 +496,6 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
-
 		inputs = append(inputs, in)
 	}
 	return inputs, nil
@@ -487,7 +514,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) err
 }
 
 func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledgerstate.Input) error {
-	inputWallet := e.outputManager.outputIDWalletMap[in.Base58()]
+	inputWallet := e.outputManager.OutputIDWalletMap(in.Base58())
 	if buildOptions.inputWallet == nil {
 		buildOptions.inputWallet = inputWallet
 	}
@@ -625,7 +652,7 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 		if err2 != nil {
 			return nil, err2
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(addr, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.Sign(addr, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }
@@ -658,15 +685,62 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 	return nil
 }
 
+func (e *EvilWallet) PrepareTransaction(scenario EvilScenario) (tx *ledgerstate.Transaction, err error) {
+	tx, err = e.CreateTransaction(WithInputs("inputAliases[inputNum]"), WithOutputs(nil))
+	return
+}
+
+func (e *EvilWallet) PrepareDoubleSpendTransactions(scenario EvilScenario) (tx []*ledgerstate.Transaction, err error) {
+	return
+}
+
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario EvilScenario) (tx [][]*ledgerstate.Transaction, err error) {
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+type EvilBatch []ConflictSlice
+
 type EvilScenario struct {
-	// TODO: this should have instructions for evil wallet
-	// how to handle this spamming scenario, which input wallet use,
-	// where to store outputs of spam ect.
-	// All logic of conflict creation will be hidden from spammer or integration test users
+	conflictBatch EvilBatch
+	repeat        int
+	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
+	reuse bool
+
+	// outputs of the batch that can be reused in deep spamming by collecting them in reuse wallet.
+	batchOutputsAliases map[string]types.Empty
+}
+
+func NewEvilScenario(conflictBatch []ConflictSlice, repeat int, reuse bool) {
+	scenario := &EvilScenario{
+		repeat: repeat,
+		reuse:  reuse,
+	}
+
+	if conflictBatch == nil {
+		scenario.conflictBatch = SingleTransactionBatch()
+	} else {
+		scenario.conflictBatch = conflictBatch
+		scenario.assignBatchOutputs()
+	}
+}
+
+func (e *EvilScenario) assignBatchOutputs() {
+	e.batchOutputsAliases = make(map[string]types.Empty)
+	for _, conflictMap := range e.conflictBatch {
+		for _, options := range conflictMap {
+			option := NewOptions(options...)
+			for outputAlis := range option.aliasOutputs {
+				// add output aliases that are not used in this conflict batch
+				if _, ok := option.aliasInputs[outputAlis]; !ok {
+					e.batchOutputsAliases[outputAlis] = types.Void
+				}
+			}
+		}
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

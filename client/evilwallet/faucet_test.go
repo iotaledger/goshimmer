@@ -22,9 +22,9 @@ func TestFaucetRequests(t *testing.T) {
 		require.NoError(t, err)
 		txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "3"}))
 		require.NoError(t, err)
-		_, err = clients[0].PostTransaction(txA.Bytes())
+		_, err = clients[0].PostTransaction(txA)
 		require.NoError(t, err)
-		_, err = clients[1].PostTransaction(txB.Bytes())
+		_, err = clients[1].PostTransaction(txB)
 		require.NoError(t, err)
 		evilwallet.ClearAliases()
 	}

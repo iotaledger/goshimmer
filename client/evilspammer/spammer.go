@@ -1,12 +1,14 @@
 package evilspammer
 
 import (
-	"github.com/iotaledger/goshimmer/client"
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/configuration"
+	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
-	"time"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,10 +36,10 @@ type Spammer struct {
 	SpamDetails *SpamDetails
 	State       *State
 
-	Clients      evilwallet.Clients
-	SpamWallet   evilwallet.EvilWallet
+	Clients      evilwallet.Connector
+	SpamWallet   *evilwallet.EvilWallet
 	EvilScenario evilwallet.EvilScenario
-	ErrCounter   ErrorCounter
+	ErrCounter   *ErrorCounter
 	log          Logger
 
 	// accessed from spamming functions
@@ -69,16 +71,35 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 
 	s.setup()
-
+	s.Clients = s.SpamWallet.Connector()
 	return s
 }
 
 func (s *Spammer) setup() {
+	s.Clients = s.SpamWallet.Connector()
+
 	if s.SpamDetails.Rate <= 0 {
 		s.SpamDetails.Rate = 1
 	}
 	s.State.spamTicker = s.initSpamTicker()
 	s.State.logTicker = s.initLogTicker()
+
+	if s.log == nil {
+		s.initLogger()
+	}
+
+	if s.ErrCounter == nil {
+		s.ErrCounter = NewErrorCount()
+	}
+}
+
+func (s *Spammer) initLogger() {
+	config := configuration.New()
+	if err := logger.InitGlobalLogger(config); err != nil {
+		panic(err)
+	}
+	logger.SetLevel(logger.LevelInfo)
+	s.log = logger.NewLogger("Spammer")
 }
 
 func (s *Spammer) initSpamTicker() *time.Ticker {
@@ -136,7 +157,7 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (success bool) {
+func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
 	if tx == nil {
 		s.log.Debugf("transaction provided to PostTransaction is nil")
 		s.ErrCounter.CountError(ErrTransactionIsNil)
@@ -144,7 +165,8 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShi
 
 	var err error
 	var txID ledgerstate.TransactionID
-	txID, err = s.Clients.PostTransaction(tx, clt)
+	clt := s.Clients.GetClient()
+	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)
 		s.ErrCounter.CountError(ErrFailPostTransaction)
@@ -160,17 +182,11 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShi
 
 type Logger interface {
 	Infof(template string, args ...interface{})
-	Info(template string, args ...interface{})
+	Info(args ...interface{})
 	Debugf(template string, args ...interface{})
-	Debug(template string, args ...interface{})
-	Warn(template string, args ...interface{})
+	Debug(args ...interface{})
+	Warn(args ...interface{})
 	Warnf(template string, args ...interface{})
-	Error(template string, args ...interface{})
+	Error(args ...interface{})
 	Errorf(template string, args ...interface{})
-}
-
-type ErrorCounter interface {
-	CountError(err error)
-	GetErrorsSummary() string
-	GetTotalErrorCount() int
 }
