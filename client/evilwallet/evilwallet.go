@@ -231,8 +231,7 @@ func (e *EvilWallet) splitOutputs(inputWallet *Wallet, outputWallet *Wallet, spl
 			tx, err := e.CreateTransaction(txAliases[inputNum], WithInputs(inputAliases[inputNum]), WithOutputs(outputAliases[inputNum]),
 				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
 
-			clt := e.connector.GetClient()
-			txID, err := e.connector.PostTransaction(tx, clt)
+			txID, err := e.connector.PostTransaction(tx)
 			if err != nil {
 				return
 			}

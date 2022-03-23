@@ -25,14 +25,12 @@ func ValueSpammingFunc(s *Spammer) {
 		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
 		return
 	}
-	clt := s.Clients.GetClient()
-	s.PostTransaction(tx, clt)
+	s.PostTransaction(tx)
 	s.CheckIfAllSent()
 }
 
 func DoubleSpendSpammingFunc(s *Spammer) {
 	// choose two different node to prevent being blocked
-	clts := s.Clients.GetClients(s.NumberOfSpends)
 	txs, err := s.SpamWallet.PrepareDoubleSpendTransactions(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
@@ -46,7 +44,7 @@ func DoubleSpendSpammingFunc(s *Spammer) {
 	}
 	for i, delay := range delays {
 		time.AfterFunc(delay, func() {
-			s.PostTransaction(txs[i], clts[i])
+			s.PostTransaction(txs[i])
 		})
 	}
 

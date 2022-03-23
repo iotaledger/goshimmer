@@ -33,7 +33,7 @@ type Connector interface {
 	PledgeID() *identity.ID
 
 	// PostTransaction sends a transaction to the Tangle via a given client.
-	PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (ledgerstate.TransactionID, error)
+	PostTransaction(tx *ledgerstate.Transaction) (ledgerstate.TransactionID, error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
 	// GetTransactionGoF returns the GoF of a given transaction ID.
@@ -171,7 +171,8 @@ func (c *WebClients) SendFaucetRequest(address string) (err error) {
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *WebClients) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (txID ledgerstate.TransactionID, err error) {
+func (c *WebClients) PostTransaction(tx *ledgerstate.Transaction) (txID ledgerstate.TransactionID, err error) {
+	clt := c.GetClient()
 	resp, err := clt.PostTransaction(tx.Bytes())
 	if err != nil {
 		return

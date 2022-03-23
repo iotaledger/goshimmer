@@ -3,7 +3,6 @@ package evilspammer
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/hive.go/configuration"
@@ -158,7 +157,7 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShimmerAPI) (success bool) {
+func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
 	if tx == nil {
 		s.log.Debugf("transaction provided to PostTransaction is nil")
 		s.ErrCounter.CountError(ErrTransactionIsNil)
@@ -166,7 +165,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt *client.GoShi
 
 	var err error
 	var txID ledgerstate.TransactionID
-	txID, err = s.Clients.PostTransaction(tx, clt)
+	txID, err = s.Clients.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)
 		s.ErrCounter.CountError(ErrFailPostTransaction)
