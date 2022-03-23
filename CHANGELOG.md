@@ -1,3 +1,13 @@
+# v0.8.11 - 2022-03-23
+
+> This release upgrades to Go 1.18 and fixes a bug that rendered tips unreferenceable.
+
+The snapshot has been taken at 2022-03-21 03:30 UTC.
+- Drop tips referencing unreferenceable branches #2132
+- Build(deps): bump lodash-es from 4.17.15 to 4.17.21 in /plugins/dashboard/frontend (#2125)
+- Switch to Go1.18 (#2131)
+- Use goreleaser supporting Go 1.18rc1 (#2122)
+
 # v0.8.10 - 2022-03-14
 
 > This release introduces generics, the time since confirmation check as well as several fixes to merge to master functionality.
