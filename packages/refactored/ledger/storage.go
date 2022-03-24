@@ -26,7 +26,7 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction *objectstorage.CachedObject[utxo.Transaction]) {
+func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction CachedTransaction) {
 	return s.transactionStorage.Load(transactionID.Bytes())
 }
 
@@ -42,7 +42,7 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 }
 
 // CachedOutput retrieves the Output with the given OutputID from the object storage.
-func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
+func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput CachedOutput) {
 	return s.outputStorage.Load(outputID.Bytes())
 }
 

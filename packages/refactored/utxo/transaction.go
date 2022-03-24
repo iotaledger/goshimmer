@@ -1,15 +1,16 @@
 package utxo
 
-import (
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-)
-
+// Transaction is the type that is used to describe instructions how to modify the ledger state.
 type Transaction interface {
-	ID() TransactionID
+	// ID returns the identifier of the Transaction.
+	ID() (id TransactionID)
 
-	Inputs() []Input
+	// Inputs returns the inputs of the Transaction.
+	Inputs() (inputs []Input)
 
-	Bytes() []byte
+	// Bytes returns a serialized version of the Transaction.
+	Bytes() (serialized []byte)
 
-	objectstorage.StorableObject
+	// String returns a human-readable version of the Transaction.
+	String() (humanReadable string)
 }
