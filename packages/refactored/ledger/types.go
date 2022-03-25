@@ -17,3 +17,5 @@ type CachedConsumer = *objectstorage.CachedObject[*Consumer]
 type CachedConsumers = objectstorage.CachedObjects[*Consumer]
 
 type CachedTransaction = *objectstorage.CachedObject[*Transaction]
+
+type CachedTransactions = *objectstorage.CachedObjects[*Transaction]
