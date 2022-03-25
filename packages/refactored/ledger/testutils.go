@@ -216,11 +216,11 @@ var _ utxo.Transaction = new(MockedTransaction)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region mockedVM /////////////////////////////////////////////////////////////////////////////////////////////////////
+// region MockedVM /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type mockedVM struct{}
+type MockedVM struct{}
 
-func (m *mockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
+func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
 	mockedTx := new(MockedTransaction)
 	if err = mockedTx.FromMarshalUtil(marshalutil.New(transactionBytes)); err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (m *mockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.T
 	return mockedTx, nil
 }
 
-func (m *mockedVM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
+func (m *MockedVM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
 	mockedOutput := new(MockedOutput)
 	if err = mockedOutput.FromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
 		return nil, err
@@ -238,11 +238,11 @@ func (m *mockedVM) ParseOutput(outputBytes []byte) (output utxo.Output, err erro
 	return mockedOutput, nil
 }
 
-func (m *mockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
+func (m *MockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 	return input.(*MockedInput).outputID
 }
 
-func (m *mockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Output, _ ...uint64) (outputs []utxo.Output, err error) {
+func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Output, _ ...uint64) (outputs []utxo.Output, err error) {
 	mockedTransaction := transaction.(*MockedTransaction)
 
 	outputs = make([]utxo.Output, mockedTransaction.outputCount)
@@ -253,6 +253,6 @@ func (m *mockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Out
 	return
 }
 
-var _ utxo.VM = new(mockedVM)
+var _ utxo.VM = new(MockedVM)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
