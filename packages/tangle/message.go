@@ -270,21 +270,21 @@ const (
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
-	messageInner `seri:"0"`
+	messageInner `serix:"0"`
 }
 type messageInner struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	Version         uint8             `seri:"0"`
-	ParentsBlocks   ParentsBlocks     `seri:"1,lengthPrefixType:uint8"`
-	IssuerPublicKey ed25519.PublicKey `seri:"2"`
-	IssuingTime     time.Time         `seri:"3"`
-	SequenceNumber  uint64            `seri:"4"`
-	Payload         payload.Payload   `seri:"5,payload"`
-	Nonce           uint64            `seri:"6"`
-	Signature       ed25519.Signature `seri:"7"`
+	Version         uint8             `serix:"0"`
+	ParentsBlocks   ParentsBlocks     `serix:"1,lengthPrefixType:uint8"`
+	IssuerPublicKey ed25519.PublicKey `serix:"2"`
+	IssuingTime     time.Time         `serix:"3"`
+	SequenceNumber  uint64            `serix:"4"`
+	Payload         payload.Payload   `serix:"5,payload"`
+	Nonce           uint64            `serix:"6"`
+	Signature       ed25519.Signature `serix:"7"`
 
 	// derived properties
 	id         *MessageID
@@ -806,8 +806,8 @@ type Parent struct {
 
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
-	ParentsType `seri:"0"`
-	References  MessageIDSlice `seri:"1"`
+	ParentsType `serix:"0"`
+	References  MessageIDSlice `serix:"1"`
 }
 
 type ParentsBlocks []ParentsBlock

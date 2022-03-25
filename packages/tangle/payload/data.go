@@ -24,11 +24,11 @@ func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {
-	genericDataPayloadInner `seri:"0"`
+	genericDataPayloadInner `serix:"0"`
 }
 type genericDataPayloadInner struct {
 	payloadType Type
-	Data        []byte `seri:"0"`
+	Data        []byte `serix:"0"`
 }
 
 // NewGenericDataPayload creates new GenericDataPayload.

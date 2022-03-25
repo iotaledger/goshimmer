@@ -246,10 +246,10 @@ func (i Inputs) Strings() (result []string) {
 
 // UTXOInput represents a reference to an Output in the UTXODAG.
 type UTXOInput struct {
-	utxoInputInner `seri:"0"`
+	utxoInputInner `serix:"0"`
 }
 type utxoInputInner struct {
-	ReferencedOutputID OutputID `seri:"0"`
+	ReferencedOutputID OutputID `serix:"0"`
 }
 
 // NewUTXOInput is the constructor for UTXOInputs.

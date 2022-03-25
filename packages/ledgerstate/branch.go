@@ -315,13 +315,13 @@ func (b BranchIDs) Encode() ([]byte, error) {
 
 // Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
 type Branch struct {
-	branchInner `seri:"0"`
+	branchInner `serix:"0"`
 }
 type branchInner struct {
 	id                  BranchID
-	Parents             BranchIDs      `seri:"0"`
-	Conflicts           ConflictIDs    `seri:"1"`
-	InclusionState      InclusionState `seri:"2"`
+	Parents             BranchIDs      `serix:"0"`
+	Conflicts           ConflictIDs    `serix:"1"`
+	InclusionState      InclusionState `serix:"2"`
 	parentsMutex        sync.RWMutex
 	conflictsMutex      sync.RWMutex
 	inclusionStateMutex sync.RWMutex
@@ -506,11 +506,11 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	conflictBranchInner `seri:"0"`
+	conflictBranchInner `serix:"0"`
 }
 type conflictBranchInner struct {
-	ParentBranchID BranchID `seri:"0"`
-	ChildBranchID  BranchID `seri:"1"`
+	ParentBranchID BranchID `serix:"0"`
+	ChildBranchID  BranchID `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }

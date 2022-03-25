@@ -125,8 +125,8 @@ func SignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signature S
 
 // ED25519Signature represents a Signature created with the ed25519 signature scheme.
 type ED25519Signature struct {
-	PublicKey ed25519.PublicKey `seri:"0"`
-	Signature ed25519.Signature `seri:"1"`
+	PublicKey ed25519.PublicKey `serix:"0"`
+	Signature ed25519.Signature `serix:"1"`
 }
 
 // NewED25519Signature is the constructor of an ED25519Signature.
@@ -245,7 +245,7 @@ var _ Signature = &ED25519Signature{}
 
 // BLSSignature represents a Signature created with the BLS signature scheme.
 type BLSSignature struct {
-	Signature bls.SignatureWithPublicKey `seri:"0"`
+	Signature bls.SignatureWithPublicKey `serix:"0"`
 }
 
 // NewBLSSignature is the constructor of a BLSSignature.

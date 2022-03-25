@@ -144,10 +144,10 @@ func AddressFromSignature(sig Signature) (Address, error) {
 
 // ED25519Address represents an Address that is secured by the ED25519 signature scheme.
 type ED25519Address struct {
-	ed25519AddressInner `seri:"0"`
+	ed25519AddressInner `serix:"0"`
 }
 type ed25519AddressInner struct {
-	Digest2 [blake2b.Size256]byte `seri:"0"`
+	Digest2 [blake2b.Size256]byte `serix:"0"`
 }
 
 // NewED25519Address creates a new ED25519Address from the given public key.
@@ -271,10 +271,10 @@ var _ Address = &ED25519Address{}
 
 // BLSAddress represents an Address that is secured by the BLS signature scheme.
 type BLSAddress struct {
-	blsAddressInner `seri:"0"`
+	blsAddressInner `serix:"0"`
 }
 type blsAddressInner struct {
-	Digest [blake2b.Size256]byte `seri:"0"`
+	Digest [blake2b.Size256]byte `serix:"0"`
 }
 
 // NewBLSAddress creates a new BLSAddress from the given public key.
@@ -405,10 +405,10 @@ const AliasAddressDigestSize = 32
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
 // but is indirectly backed by a private key defined by corresponding AliasOutput parameters.
 type AliasAddress struct {
-	aliasAddressInner `seri:"0"`
+	aliasAddressInner `serix:"0"`
 }
 type aliasAddressInner struct {
-	Digest [AliasAddressDigestSize]byte `seri:"0"`
+	Digest [AliasAddressDigestSize]byte `serix:"0"`
 }
 
 // NewAliasAddress creates a new AliasAddress from the given bytes used as seed.

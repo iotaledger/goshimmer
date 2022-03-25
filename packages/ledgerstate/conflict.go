@@ -176,11 +176,11 @@ func (c ConflictIDs) Encode() ([]byte, error) {
 
 // Conflict represents a set of Branches that are conflicting with each other.
 type Conflict struct {
-	conflictInner `seri:"0"`
+	conflictInner `serix:"0"`
 }
 type conflictInner struct {
-	Id               ConflictID `seri:"0"`
-	MemberCount      int64      `seri:"1"`
+	Id               ConflictID `serix:"0"`
+	MemberCount      int64      `serix:"1"`
 	memberCountMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -322,11 +322,11 @@ var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, Br
 // potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
 // Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
 type ConflictMember struct {
-	conflictMemberInner `seri:"0"`
+	conflictMemberInner `serix:"0"`
 }
 type conflictMemberInner struct {
-	ConflictID ConflictID `seri:"0"`
-	BranchID   BranchID   `seri:"1"`
+	ConflictID ConflictID `serix:"0"`
+	BranchID   BranchID   `serix:"1"`
 	objectstorage.StorableObjectFlags
 }
 

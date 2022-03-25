@@ -186,10 +186,10 @@ func (u UnlockBlocks) String() string {
 
 // SignatureUnlockBlock represents an UnlockBlock that contains a Signature for an Address.
 type SignatureUnlockBlock struct {
-	signatureUnlockBlockInner `seri:"0"`
+	signatureUnlockBlockInner `serix:"0"`
 }
 type signatureUnlockBlockInner struct {
-	Signature Signature `seri:"0"`
+	Signature Signature `serix:"0"`
 }
 
 // NewSignatureUnlockBlock is the constructor for SignatureUnlockBlock objects.
@@ -275,10 +275,10 @@ var _ UnlockBlock = &SignatureUnlockBlock{}
 // ReferenceUnlockBlock defines an UnlockBlock which references a previous UnlockBlock (which must not be another
 // ReferenceUnlockBlock).
 type ReferenceUnlockBlock struct {
-	referenceUnlockBlockInner `seri:"0"`
+	referenceUnlockBlockInner `serix:"0"`
 }
 type referenceUnlockBlockInner struct {
-	ReferencedIndex uint16 `seri:"0"`
+	ReferencedIndex uint16 `serix:"0"`
 }
 
 // NewReferenceUnlockBlock is the constructor for ReferenceUnlockBlocks.
@@ -361,10 +361,10 @@ var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput.
 type AliasUnlockBlock struct {
-	aliasUnlockBlockInner `seri:"0"`
+	aliasUnlockBlockInner `serix:"0"`
 }
 type aliasUnlockBlockInner struct {
-	ReferencedIndex uint16 `seri:"0"`
+	ReferencedIndex uint16 `serix:"0"`
 }
 
 // NewAliasUnlockBlock is the constructor for AliasUnlockBlocks.

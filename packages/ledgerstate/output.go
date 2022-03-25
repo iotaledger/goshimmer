@@ -535,14 +535,14 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	sigLockedSingleOutputInner `seri:"0"`
+	sigLockedSingleOutputInner `serix:"0"`
 }
 
 type sigLockedSingleOutputInner struct {
 	ID      OutputID
 	idMutex sync.RWMutex
-	Balance uint64  `seri:"0"`
-	Address Address `seri:"1"`
+	Balance uint64  `serix:"0"`
+	Address Address `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -755,13 +755,13 @@ var _ Output = new(SigLockedSingleOutput)
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	sigLockedColoredOutputInner `seri:"0"`
+	sigLockedColoredOutputInner `serix:"0"`
 }
 type sigLockedColoredOutputInner struct {
 	id       OutputID
 	idMutex  sync.RWMutex
-	Balances *ColoredBalances `seri:"0"`
-	Address  Address          `seri:"1"`
+	Balances *ColoredBalances `serix:"0"`
+	Address  Address          `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }

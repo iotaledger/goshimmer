@@ -158,13 +158,13 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	transactionInner `seri:"0"`
+	transactionInner `serixx:"0"`
 }
 type transactionInner struct {
 	id           *TransactionID
 	idMutex      sync.RWMutex
-	Essence      *TransactionEssence `seri:"1"`
-	UnlockBlocks UnlockBlocks        `seri:"2,lengthPrefixType:uint16"`
+	Essence      *TransactionEssence `serix:"1"`
+	UnlockBlocks UnlockBlocks        `serix:"2,lengthPrefixType:uint16"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -424,19 +424,19 @@ var _ objectstorage.StorableObject = &Transaction{}
 
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
-	transactionEssenceInner `seri:"0"`
+	transactionEssenceInner `serix:"0"`
 }
 type transactionEssenceInner struct {
-	Version TransactionEssenceVersion `seri:"0"`
+	Version TransactionEssenceVersion `serix:"0"`
 	// timestamp is the timestamp of the transaction.
-	Timestamp time.Time `seri:"1"`
+	Timestamp time.Time `serix:"1"`
 	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
-	AccessPledgeID identity.ID `seri:"2"`
+	AccessPledgeID identity.ID `serix:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
-	ConsensusPledgeID identity.ID     `seri:"3"`
-	Inputs            Inputs          `seri:"4,lengthPrefixType:uint16"`
-	Outputs           Outputs         `seri:"5,lengthPrefixType:uint16"`
-	Payload           payload.Payload `seri:"6,payload"`
+	ConsensusPledgeID identity.ID     `serix:"3"`
+	Inputs            Inputs          `serix:"4,lengthPrefixType:uint16"`
+	Outputs           Outputs         `serix:"5,lengthPrefixType:uint16"`
+	Payload           payload.Payload `serix:"6,payload"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
