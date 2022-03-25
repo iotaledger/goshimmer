@@ -44,7 +44,7 @@ func New(store kvstore.KVStore, vm utxo.VM) (ledger *Ledger) {
 func (l *Ledger) Setup() {
 	l.ConsumedTransactionProcessedEvent.Attach(event.NewClosure[utxo.TransactionID](func(txID utxo.TransactionID) {
 		l.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-			l.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+			l.CachedTransaction(txID).Consume(func(tx *Transaction) {
 				l.processTransaction(tx, txMetadata)
 			})
 		})
@@ -53,8 +53,10 @@ func (l *Ledger) Setup() {
 
 // StoreAndProcessTransaction is the only public facing api
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool) {
-	cachedTransactionMetadata := l.CachedTransactionMetadata(tx.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
-		l.transactionStorage.Store(tx).Release()
+	transaction := NewTransaction(tx)
+
+	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
+		l.transactionStorage.Store(transaction).Release()
 		processed = true
 		return NewTransactionMetadata(transactionID)
 	})
@@ -70,15 +72,15 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool
 	}
 
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-		l.TransactionStoredEvent.Trigger(tx.ID())
+		l.TransactionStoredEvent.Trigger(transaction.ID())
 
-		processed = l.processTransaction(tx, metadata)
+		processed = l.processTransaction(transaction, metadata)
 	})
 
 	return processed
 }
 
-func (l *Ledger) processTransaction(tx utxo.Transaction, txMeta *TransactionMetadata) (success bool) {
+func (l *Ledger) processTransaction(tx *Transaction, txMeta *TransactionMetadata) (success bool) {
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
@@ -131,12 +133,12 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type params struct {
-	Transaction         utxo.Transaction
+	Transaction         *Transaction
 	TransactionMetadata *TransactionMetadata
 	InputsIDs           []utxo.OutputID
-	Inputs              []utxo.Output
+	Inputs              []*Output
 	InputsMetadata      map[utxo.OutputID]*OutputMetadata
 	Consumers           []*Consumer
-	Outputs             []utxo.Output
+	Outputs             []*Output
 	OutputsMetadata     map[utxo.OutputID]*OutputMetadata
 }

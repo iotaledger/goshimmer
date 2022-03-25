@@ -514,7 +514,7 @@ func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ..
 
 // AddressOutputMapping represents a mapping between Addresses and their corresponding Outputs. Since an Address can have a
 // potentially unbounded amount of Outputs, we store this as a separate k/v pair instead of a marshaled
-// list of spending Transactions inside the Output.
+// list of spending Transactions inside the OutputEssence.
 type AddressOutputMapping struct {
 	address  txvm.Address
 	outputID OutputID

@@ -30,8 +30,8 @@ type UtxoDB struct {
 	genesisKeyPair  *ed25519.KeyPair
 	genesisAddress  txvm.Address
 	transactions    map[utxo.TransactionID]*txvm.Transaction
-	utxo            map[utxo.OutputID]txvm.Output
-	consumedOutputs map[utxo.OutputID]txvm.Output
+	utxo            map[utxo.OutputID]txvm.OutputEssence
+	consumedOutputs map[utxo.OutputID]txvm.OutputEssence
 	consumedBy      map[utxo.OutputID]utxo.TransactionID
 	mutex           *sync.RWMutex
 	genesisTxID     utxo.TransactionID
@@ -47,8 +47,8 @@ func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 		genesisKeyPair:  genesisKeyPair,
 		genesisAddress:  genesisAddress,
 		transactions:    make(map[utxo.TransactionID]*txvm.Transaction),
-		utxo:            make(map[utxo.OutputID]txvm.Output),
-		consumedOutputs: make(map[utxo.OutputID]txvm.Output),
+		utxo:            make(map[utxo.OutputID]txvm.OutputEssence),
+		consumedOutputs: make(map[utxo.OutputID]txvm.OutputEssence),
 		consumedBy:      make(map[utxo.OutputID]utxo.TransactionID),
 		mutex:           &sync.RWMutex{},
 	}

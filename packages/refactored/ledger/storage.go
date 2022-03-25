@@ -10,9 +10,9 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	transactionStorage         *objectstorage.ObjectStorage[utxo.Transaction]
+	transactionStorage         *objectstorage.ObjectStorage[*Transaction]
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
-	outputStorage              *objectstorage.ObjectStorage[utxo.Output]
+	outputStorage              *objectstorage.ObjectStorage[*Output]
 	outputMetadataStorage      *objectstorage.ObjectStorage[*OutputMetadata]
 	consumerStorage            *objectstorage.ObjectStorage[*Consumer]
 
@@ -26,7 +26,7 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction CachedTransaction) {
+func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
 	return s.transactionStorage.Load(transactionID.Bytes())
 }
 

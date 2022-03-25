@@ -8,21 +8,21 @@ import (
 
 // region OutputType ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputType represents the type of an Output. Outputs of different types can have different unlock rules and allow for
+// OutputType represents the type of an OutputEssence. Outputs of different types can have different unlock rules and allow for
 // some relatively basic smart contract logic.
 type OutputType uint8
 
 const (
-	// SigLockedSingleOutputType represents an Output holding vanilla IOTA tokens that gets unlocked by a signature.
+	// SigLockedSingleOutputType represents an OutputEssence holding vanilla IOTA tokens that gets unlocked by a signature.
 	SigLockedSingleOutputType OutputType = iota
 
-	// SigLockedColoredOutputType represents an Output that holds colored coins that gets unlocked by a signature.
+	// SigLockedColoredOutputType represents an OutputEssence that holds colored coins that gets unlocked by a signature.
 	SigLockedColoredOutputType
 
-	// AliasOutputType represents an Output which makes a chain with optional governance.
+	// AliasOutputType represents an OutputEssence which makes a chain with optional governance.
 	AliasOutputType
 
-	// ExtendedLockedOutputType represents an Output which extends SigLockedColoredOutput with alias locking and fallback.
+	// ExtendedLockedOutputType represents an OutputEssence which extends SigLockedColoredOutput with alias locking and fallback.
 	ExtendedLockedOutputType
 )
 

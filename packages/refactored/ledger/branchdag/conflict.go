@@ -85,14 +85,14 @@ func (i InclusionState) Bytes() []byte {
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDLength contains the amount of bytes that a marshaled version of the ConflictID contains.
-const ConflictIDLength = utxo.OutputIDLength
+const ConflictIDLength = 32
 
 // ConflictID is the data type that represents the identifier of a Conflict.
 type ConflictID [ConflictIDLength]byte
 
 // NewConflictID creates a new ConflictID from an OutputID.
 func NewConflictID(outputID utxo.OutputID) (conflictID ConflictID) {
-	copy(conflictID[:], outputID[:])
+	copy(conflictID[:], outputID.Bytes())
 
 	return
 }
@@ -118,8 +118,7 @@ func ConflictIDFromRandomness() (conflictID ConflictID) {
 
 // OutputID returns the OutputID that the ConflictID represents.
 func (c ConflictID) OutputID() (outputID utxo.OutputID) {
-	outputID, _, err := utxo.OutputIDFromBytes(c.Bytes())
-	if err != nil {
+	if err := outputID.FromMarshalUtil(marshalutil.New(c.Bytes())); err != nil {
 		panic(err)
 	}
 

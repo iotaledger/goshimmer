@@ -576,7 +576,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 		// replace ColorMint color with unique color based on OutputID
 		output = output.UpdateMintingColor()
 
-		// store Output
+		// store OutputEssence
 		ledgerstate.outputStorage.Store(output).Release()
 
 		// store OutputMetadata

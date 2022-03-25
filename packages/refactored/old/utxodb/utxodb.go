@@ -22,7 +22,7 @@ func (u *UtxoDB) IsConfirmed(txid *utxo.TransactionID) bool {
 }
 
 // GetOutput finds an output by ID (either spent or unspent).
-func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(txvm.Output)) bool {
+func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(txvm.OutputEssence)) bool {
 	out, ok := u.utxo[outID]
 	if ok {
 		f(out)
@@ -38,8 +38,8 @@ func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(txvm.Output)) bool {
 
 // GetOutputMetadata finds an output by ID and returns its (mocked) metadata.
 func (u *UtxoDB) GetOutputMetadata(outID utxo.OutputID, f func(*old.OutputMetadata)) bool {
-	var out txvm.Output
-	u.GetOutput(outID, func(o txvm.Output) {
+	var out txvm.OutputEssence
+	u.GetOutput(outID, func(o txvm.OutputEssence) {
 		out = o
 	})
 	if out == nil {
@@ -106,7 +106,7 @@ func (u *UtxoDB) MustGetTransaction(id utxo.TransactionID) *txvm.Transaction {
 }
 
 // GetAddressOutputs returns unspent outputs contained in the address.
-func (u *UtxoDB) GetAddressOutputs(addr txvm.Address) []txvm.Output {
+func (u *UtxoDB) GetAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -140,7 +140,7 @@ func (u *UtxoDB) BalanceIOTA(addr txvm.Address) uint64 {
 }
 
 // CollectUnspentOutputsFromInputs returns unspent outputs by inputs of the transaction.
-func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.Output, error) {
+func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.OutputEssence, error) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -179,7 +179,7 @@ func (u *UtxoDB) GetAliasOutputs(addr txvm.Address) []*txvm.AliasOutput {
 }
 
 // findUnspentOutputByID returns unspent output with existence flag.
-func (u *UtxoDB) findUnspentOutputByID(id utxo.OutputID) (txvm.Output, bool) {
+func (u *UtxoDB) findUnspentOutputByID(id utxo.OutputID) (txvm.OutputEssence, bool) {
 	if out, ok := u.utxo[id]; ok {
 		return out, true
 	}
@@ -199,9 +199,9 @@ func (u *UtxoDB) mustGetTransaction(id utxo.TransactionID) *txvm.Transaction {
 	return tx
 }
 
-func (u *UtxoDB) getAddressOutputs(addr txvm.Address) []txvm.Output {
+func (u *UtxoDB) getAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
 	addrArr := addr.Array()
-	ret := make([]txvm.Output, 0)
+	ret := make([]txvm.OutputEssence, 0)
 	for _, out := range u.utxo {
 		if out.Address().Array() == addrArr {
 			ret = append(ret, out)
@@ -237,8 +237,8 @@ func (u *UtxoDB) checkLedgerBalance() {
 	}
 }
 
-func (u *UtxoDB) collectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.Output, error) {
-	ret := make([]txvm.Output, len(essence.Inputs()))
+func (u *UtxoDB) collectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.OutputEssence, error) {
+	ret := make([]txvm.OutputEssence, len(essence.Inputs()))
 	for i, inp := range essence.Inputs() {
 		if inp.Type() != txvm.UTXOInputType {
 			return nil, xerrors.New("CollectUnspentOutputsFromInputs: wrong input type")

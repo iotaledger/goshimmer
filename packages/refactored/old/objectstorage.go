@@ -30,7 +30,7 @@ const (
 	// PrefixTransactionMetadataStorage defines the storage prefix for the TransactionMetadata object storage.
 	PrefixTransactionMetadataStorage
 
-	// PrefixOutputStorage defines the storage prefix for the Output object storage.
+	// PrefixOutputStorage defines the storage prefix for the OutputEssence object storage.
 	PrefixOutputStorage
 
 	// PrefixOutputMetadataStorage defines the storage prefix for the OutputMetadata object storage.
@@ -72,7 +72,7 @@ type storageOptions struct {
 	// transactionMetadataStorageOptions contains a list of default settings for the TransactionMetadata object storage.
 	transactionMetadataStorageOptions []objectstorage.Option
 
-	// outputStorageOptions contains a list of default settings for the Output object storage.
+	// outputStorageOptions contains a list of default settings for the OutputEssence object storage.
 	outputStorageOptions []objectstorage.Option
 
 	// outputMetadataStorageOptions contains a list of default settings for the OutputMetadata object storage.
@@ -127,7 +127,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
-		objectstorage.WithObjectFactory(txvm.OutputFromObjectStorage),
+		objectstorage.WithObjectFactory(txvm.OutputEssenceFromObjectStorage),
 	}
 
 	options.outputMetadataStorageOptions = []objectstorage.Option{

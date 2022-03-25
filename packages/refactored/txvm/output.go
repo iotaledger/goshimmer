@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -31,10 +31,10 @@ const (
 	// MaxOutputCount defines the maximum amount of Outputs in a Transaction.
 	MaxOutputCount = 127
 
-	// MinOutputBalance defines the minimum balance per Output.
+	// MinOutputBalance defines the minimum balance per OutputEssence.
 	MinOutputBalance = 1
 
-	// MaxOutputBalance defines the maximum balance on an Output (the supply).
+	// MaxOutputBalance defines the maximum balance on an OutputEssence (the supply).
 	MaxOutputBalance = 2779530283277761
 )
 
@@ -42,67 +42,112 @@ const (
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Output is a generic interface for the different types of Outputs (with different unlock behaviors).
-type Output interface {
-	// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-	ID() utxo2.OutputID
+type Output struct {
+	transactionID utxo.TransactionID
+	index         uint16
 
-	// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
+	OutputEssence
+}
+
+func NewOutput(transactionID utxo.TransactionID, index uint16, essence OutputEssence) *Output {
+	return &Output{
+		transactionID: transactionID,
+		index:         index,
+		OutputEssence: essence,
+	}
+}
+
+func (o *Output) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if o == nil {
+		*o = *new(Output)
+	}
+
+	if err = o.transactionID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse TransactionID: %w", err)
+	}
+	if o.index, err = marshalUtil.ReadUint16(); err != nil {
+		return errors.Errorf("failed to parse index: %w", err)
+	}
+	if o.OutputEssence, err = OutputEssenceFromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse OutputEssence: %w", err)
+	}
+
+	return nil
+}
+
+func (o *Output) TransactionID() (txID utxo.TransactionID) {
+	return o.transactionID
+}
+
+func (o *Output) Index() (index uint16) {
+	return o.index
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region OutputEssence ////////////////////////////////////////////////////////////////////////////////////////////////
+
+// OutputEssence is a generic interface for the different types of Outputs (with different unlock behaviors).
+type OutputEssence interface {
+	// ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
+	ID() utxo.OutputID
+
+	// SetID allows to set the identifier of the OutputEssence. We offer a setter for the property since Outputs that are
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-	// only accessed when the Output is supposed to be persisted.
-	SetID(outputID utxo2.OutputID) Output
+	// only accessed when the OutputEssence is supposed to be persisted.
+	SetID(outputID utxo.OutputID)
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
 
-	// Balances returns the funds that are associated with the Output.
+	// Balances returns the funds that are associated with the OutputEssence.
 	Balances() *ColoredBalances
 
 	// Address returns the address that is associated to the output.
 	Address() Address
 
 	// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the
-	// Output.
-	UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error)
+	// OutputEssence.
+	UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []OutputEssence) (bool, error)
 
-	// UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
-	// copy of the original Output with the modified balances.
-	UpdateMintingColor() Output
+	// UpdateMintingColor replaces the ColorMint in the balances of the OutputEssence with the hash of the OutputID. It returns a
+	// copy of the original OutputEssence with the modified balances.
+	UpdateMintingColor() OutputEssence
 
-	// Input returns an Input that references the Output.
+	// Input returns an Input that references the OutputEssence.
 	Input() Input
 
-	// Clone creates a copy of the Output.
-	Clone() Output
+	// Clone creates a copy of the OutputEssence.
+	Clone() OutputEssence
 
-	// Bytes returns a marshaled version of the Output.
+	// Bytes returns a marshaled version of the OutputEssence.
 	Bytes() []byte
 
-	// String returns a human readable version of the Output for debug purposes.
+	// String returns a human-readable version of the OutputEssence for debug purposes.
 	String() string
 
-	// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0
+	// Compare offers a comparator for Outputs which returns -1 if the other OutputEssence is bigger, 1 if it is smaller and 0
 	// if they are the same.
-	Compare(other Output) int
+	Compare(other OutputEssence) int
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
 }
 
-// OutputFromBytes unmarshals an Output from a sequence of bytes.
-func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
+// OutputEssenceFromBytes unmarshals an OutputEssence from a sequence of bytes.
+func OutputEssenceFromBytes(bytes []byte) (outputEssence OutputEssence, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
+	if outputEssence, err = OutputEssenceFromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse OutputEssence from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
-func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
+// OutputEssenceFromMarshalUtil unmarshals an OutputEssence using a MarshalUtil (for easier unmarshaling).
+func OutputEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputEssence OutputEssence, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -112,22 +157,22 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 
 	switch OutputType(outputType) {
 	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromMarshalUtil(marshalUtil); err != nil {
+		if outputEssence, err = new(SigLockedSingleOutput).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 			return
 		}
 	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromMarshalUtil(marshalUtil); err != nil {
+		if outputEssence, err = new(SigLockedColoredOutput).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
 	case AliasOutputType:
-		if output, err = new(AliasOutput).FromMarshalUtil(marshalUtil); err != nil {
+		if outputEssence, err = new(AliasOutput).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil); err != nil {
+		if outputEssence, err = new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil); err != nil {
 			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
 			return
 		}
@@ -140,19 +185,18 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 	return
 }
 
-// OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
-	if output, _, err = OutputFromBytes(data); err != nil {
-		err = errors.Errorf("failed to parse Output from bytes: %w", err)
-		return
+// OutputEssenceFromObjectStorage restores an OutputEssence that was stored in the ObjectStorage.
+func OutputEssenceFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+	if output, _, err = OutputEssenceFromBytes(data); err != nil {
+		return nil, errors.Errorf("failed to parse OutputEssence from bytes: %w", err)
 	}
 
-	outputID, _, err := utxo2.OutputIDFromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return
+	var outputID utxo.OutputID
+	if _, err = outputID.FromBytes(key); err != nil {
+		return nil, errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
-	output.(Output).SetID(outputID)
+
+	output.(OutputEssence).SetID(outputID)
 
 	return
 }
@@ -162,14 +206,14 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 // region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Outputs represents a list of Outputs that can be used in a Transaction.
-type Outputs []Output
+type Outputs []OutputEssence
 
 // NewOutputs returns a deterministically ordered collection of Outputs. It removes duplicates in the parameters and
 // sorts the Outputs to ensure syntactical correctness.
-func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
+func NewOutputs(optionalOutputs ...OutputEssence) (outputs Outputs) {
 	seenOutputs := make(map[string]types.Empty)
 	sortedOutputs := make([]struct {
-		output           Output
+		output           OutputEssence
 		outputSerialized []byte
 	}, 0)
 
@@ -184,7 +228,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 		seenOutputs[marshaledOutputAsString] = types.Void
 
 		sortedOutputs = append(sortedOutputs, struct {
-			output           Output
+			output           OutputEssence
 			outputSerialized []byte
 		}{output, marshaledOutput})
 	}
@@ -210,10 +254,10 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	return
 }
 
-func OutputsFromUTXOOutputs(utxoOutputs []utxo2.Output) (outputs Outputs) {
+func OutputsFromUTXOOutputs(utxoOutputs []utxo.Output) (outputs Outputs) {
 	outputs = make(Outputs, len(utxoOutputs))
 	for i, utxoOutput := range utxoOutputs {
-		outputs[i] = utxoOutput.(Output)
+		outputs[i] = utxoOutput.(OutputEssence)
 	}
 
 	return outputs
@@ -235,11 +279,11 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 		return
 	}
 
-	var previousOutput Output
-	parsedOutputs := make([]Output, outputsCount)
+	var previousOutput OutputEssence
+	parsedOutputs := make([]OutputEssence, outputsCount)
 	for i := uint16(0); i < outputsCount; i++ {
-		if parsedOutputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
+		if parsedOutputs[i], err = OutputEssenceFromMarshalUtil(marshalUtil); err != nil {
+			err = errors.Errorf("failed to parse OutputEssence from MarshalUtil: %w", err)
 			return
 		}
 
@@ -255,10 +299,10 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	return
 }
 
-func (o Outputs) UTXOOutputs() (utxoOutputs []utxo2.Output) {
-	utxoOutputs = make([]utxo2.Output, len(o))
+func (o Outputs) UTXOOutputs() (utxoOutputs []utxo.Output) {
+	utxoOutputs = make([]utxo.Output, len(o))
 	for i, output := range o {
-		utxoOutputs[i] = output.(utxo2.Output)
+		utxoOutputs[i] = output.(utxo.Output)
 	}
 
 	return utxoOutputs
@@ -295,7 +339,7 @@ func (o Outputs) Clone() (clonedOutputs Outputs) {
 }
 
 // Filter removes all elements from the Outputs that do not pass the given condition.
-func (o Outputs) Filter(condition func(output Output) bool) (filteredOutputs Outputs) {
+func (o Outputs) Filter(condition func(output OutputEssence) bool) (filteredOutputs Outputs) {
 	filteredOutputs = make(Outputs, 0)
 	for _, output := range o {
 		if condition(output) {
@@ -340,11 +384,11 @@ func (o Outputs) Strings() (result []string) {
 
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputsByID represents a map of Outputs where every Output is stored with its corresponding OutputID as the key.
-type OutputsByID map[utxo2.OutputID]Output
+// OutputsByID represents a map of Outputs where every OutputEssence is stored with its corresponding OutputID as the key.
+type OutputsByID map[utxo.OutputID]OutputEssence
 
-// NewOutputsByID returns a map of Outputs where every Output is stored with its corresponding OutputID as the key.
-func NewOutputsByID(optionalOutputs ...Output) (outputsByID OutputsByID) {
+// NewOutputsByID returns a map of Outputs where every OutputEssence is stored with its corresponding OutputID as the key.
+func NewOutputsByID(optionalOutputs ...OutputEssence) (outputsByID OutputsByID) {
 	outputsByID = make(OutputsByID)
 	for _, optionalOutput := range optionalOutputs {
 		outputsByID[optionalOutput.ID()] = optionalOutput
@@ -365,7 +409,7 @@ func (o OutputsByID) Inputs() Inputs {
 
 // Outputs returns a list of Outputs from the OutputsByID.
 func (o OutputsByID) Outputs() Outputs {
-	outputs := make([]Output, 0, len(o))
+	outputs := make([]OutputEssence, 0, len(o))
 	for _, output := range o {
 		outputs = append(outputs, output)
 	}
@@ -397,10 +441,10 @@ func (o OutputsByID) String() string {
 
 // region SigLockedSingleOutput ////////////////////////////////////////////////////////////////////////////////////////
 
-// SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
+// SigLockedSingleOutput is an OutputEssence that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	id      utxo2.OutputID
+	id      utxo.OutputID
 	idMutex sync.RWMutex
 	balance uint64
 	address Address
@@ -468,33 +512,31 @@ func (s *SigLockedSingleOutput) FromMarshalUtil(marshalUtil *marshalutil.Marshal
 	return
 }
 
-// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedSingleOutput) ID() utxo2.OutputID {
+// ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
+func (s *SigLockedSingleOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
 	return s.id
 }
 
-// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
+// SetID allows to set the identifier of the OutputEssence. We offer a setter for the property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-// only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID utxo2.OutputID) Output {
+// only accessed when the OutputEssence is supposed to be persisted by the node.
+func (s *SigLockedSingleOutput) SetID(outputID utxo.OutputID) {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
-
-	return s
 }
 
-// Type returns the type of the Output which allows us to generically handle Outputs of different types.
+// Type returns the type of the OutputEssence which allows us to generically handle Outputs of different types.
 func (s *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
 
-// Balances returns the funds that are associated with the Output.
+// Balances returns the funds that are associated with the OutputEssence.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
 		ColorIOTA: s.balance,
@@ -503,8 +545,8 @@ func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	return balances
 }
 
-// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
+// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the OutputEssence.
+func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []OutputEssence) (unlockValid bool, err error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
@@ -533,22 +575,22 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	return
 }
 
-// Address returns the Address that the Output is associated to.
+// Address returns the Address that the OutputEssence is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
 	return s.address
 }
 
-// Input returns an Input that references the Output.
+// Input returns an Input that references the OutputEssence.
 func (s *SigLockedSingleOutput) Input() Input {
-	if s.ID() == (utxo2.OutputID{}) {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(s.ID())
 }
 
-// Clone creates a copy of the Output.
-func (s *SigLockedSingleOutput) Clone() Output {
+// Clone creates a copy of the OutputEssence.
+func (s *SigLockedSingleOutput) Clone() OutputEssence {
 	return &SigLockedSingleOutput{
 		id:      s.id,
 		balance: s.balance,
@@ -556,13 +598,13 @@ func (s *SigLockedSingleOutput) Clone() Output {
 	}
 }
 
-// Bytes returns a marshaled version of the Output.
+// Bytes returns a marshaled version of the OutputEssence.
 func (s *SigLockedSingleOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
 
 // UpdateMintingColor does nothing for SigLockedSingleOutput.
-func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
+func (s *SigLockedSingleOutput) UpdateMintingColor() OutputEssence {
 	return s
 }
 
@@ -572,7 +614,7 @@ func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
 	return s.ID().Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// ObjectStorageValue marshals the OutputEssence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
@@ -582,13 +624,13 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// Compare offers a comparator for Outputs which returns -1 if the other OutputEssence is bigger, 1 if it is smaller and 0 if
 // they are the same.
-func (s *SigLockedSingleOutput) Compare(other Output) int {
+func (s *SigLockedSingleOutput) Compare(other OutputEssence) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
-// String returns a human readable version of the Output.
+// String returns a human readable version of the OutputEssence.
 func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
 		stringify.StructField("id", s.ID()),
@@ -598,16 +640,16 @@ func (s *SigLockedSingleOutput) String() string {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ Output = new(SigLockedSingleOutput)
+var _ OutputEssence = new(SigLockedSingleOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
 
-// SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
+// SigLockedColoredOutput is an OutputEssence that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	id       utxo2.OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address
@@ -667,39 +709,37 @@ func (s *SigLockedColoredOutput) FromMarshalUtil(marshalUtil *marshalutil.Marsha
 	return
 }
 
-// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedColoredOutput) ID() utxo2.OutputID {
+// ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
+func (s *SigLockedColoredOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
 	return s.id
 }
 
-// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
+// SetID allows to set the identifier of the OutputEssence. We offer a setter for the property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-// only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID utxo2.OutputID) Output {
+// only accessed when the OutputEssence is supposed to be persisted by the node.
+func (s *SigLockedColoredOutput) SetID(outputID utxo.OutputID) {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
 	s.id = outputID
-
-	return s
 }
 
-// Type returns the type of the Output which allows us to generically handle Outputs of different types.
+// Type returns the type of the OutputEssence which allows us to generically handle Outputs of different types.
 func (s *SigLockedColoredOutput) Type() OutputType {
 	return SigLockedColoredOutputType
 }
 
-// Balances returns the funds that are associated with the Output.
+// Balances returns the funds that are associated with the OutputEssence.
 func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 	return s.balances
 }
 
-// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
+// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the OutputEssence.
+func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []OutputEssence) (unlockValid bool, err error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
@@ -728,22 +768,22 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 	return
 }
 
-// Address returns the Address that the Output is associated to.
+// Address returns the Address that the OutputEssence is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
 	return s.address
 }
 
-// Input returns an Input that references the Output.
+// Input returns an Input that references the OutputEssence.
 func (s *SigLockedColoredOutput) Input() Input {
-	if s.ID() == (utxo2.OutputID{}) {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(s.ID())
 }
 
-// Clone creates a copy of the Output.
-func (s *SigLockedColoredOutput) Clone() Output {
+// Clone creates a copy of the OutputEssence.
+func (s *SigLockedColoredOutput) Clone() OutputEssence {
 	return &SigLockedColoredOutput{
 		id:       s.id,
 		balances: s.balances.Clone(),
@@ -751,9 +791,9 @@ func (s *SigLockedColoredOutput) Clone() Output {
 	}
 }
 
-// UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
-// copy of the original Output with the modified balances.
-func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
+// UpdateMintingColor replaces the ColorMint in the balances of the OutputEssence with the hash of the OutputID. It returns a
+// copy of the original OutputEssence with the modified balances.
+func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput OutputEssence) {
 	coloredBalances := s.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
@@ -765,7 +805,7 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	return
 }
 
-// Bytes returns a marshaled version of the Output.
+// Bytes returns a marshaled version of the OutputEssence.
 func (s *SigLockedColoredOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
@@ -776,7 +816,7 @@ func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
 	return s.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// ObjectStorageValue marshals the OutputEssence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 	return marshalutil.New().
@@ -786,13 +826,13 @@ func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// Compare offers a comparator for Outputs which returns -1 if the other OutputEssence is bigger, 1 if it is smaller and 0 if
 // they are the same.
-func (s *SigLockedColoredOutput) Compare(other Output) int {
+func (s *SigLockedColoredOutput) Compare(other OutputEssence) int {
 	return bytes.Compare(s.Bytes(), other.Bytes())
 }
 
-// String returns a human readable version of the Output.
+// String returns a human readable version of the OutputEssence.
 func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
 		stringify.StructField("id", s.ID()),
@@ -802,7 +842,7 @@ func (s *SigLockedColoredOutput) String() string {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ Output = new(SigLockedColoredOutput)
+var _ OutputEssence = new(SigLockedColoredOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -831,7 +871,7 @@ const (
 // It can only be used in a chained manner.
 type AliasOutput struct {
 	// common for all outputs
-	outputID      utxo2.OutputID
+	outputID      utxo.OutputID
 	outputIDMutex sync.RWMutex
 	balances      *ColoredBalances
 
@@ -1196,7 +1236,7 @@ func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
 }
 
 // Clone clones the structure.
-func (a *AliasOutput) Clone() Output {
+func (a *AliasOutput) Clone() OutputEssence {
 	return a.clone()
 }
 
@@ -1227,7 +1267,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 }
 
 // ID is the ID of the output.
-func (a *AliasOutput) ID() utxo2.OutputID {
+func (a *AliasOutput) ID() utxo.OutputID {
 	a.outputIDMutex.RLock()
 	defer a.outputIDMutex.RUnlock()
 
@@ -1235,12 +1275,11 @@ func (a *AliasOutput) ID() utxo2.OutputID {
 }
 
 // SetID set the output ID after unmarshalling.
-func (a *AliasOutput) SetID(outputID utxo2.OutputID) Output {
+func (a *AliasOutput) SetID(outputID utxo.OutputID) {
 	a.outputIDMutex.Lock()
 	defer a.outputIDMutex.Unlock()
 
 	a.outputID = outputID
-	return a
 }
 
 // Type return the type of the output.
@@ -1260,7 +1299,7 @@ func (a *AliasOutput) Address() Address {
 
 // Input makes input from the output.
 func (a *AliasOutput) Input() Input {
-	if a.ID() == (utxo2.OutputID{}) {
+	if a.ID() == (utxo.OutputID{}) {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -1285,7 +1324,7 @@ func (a *AliasOutput) String() string {
 }
 
 // Compare the two outputs.
-func (a *AliasOutput) Compare(other Output) int {
+func (a *AliasOutput) Compare(other OutputEssence) int {
 	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
@@ -1326,7 +1365,7 @@ func (a *AliasOutput) ObjectStorageValue() []byte {
 }
 
 // UnlockValid check unlock and validates chain.
-func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (bool, error) {
+func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []OutputEssence) (bool, error) {
 	// find the chained output in the tx
 	chained, err := a.findChainedOutputAndCheckFork(tx)
 	if err != nil {
@@ -1404,7 +1443,7 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 
 // UpdateMintingColor replaces minting code with computed color code, and calculates the alias address if it is a
 // freshly minted alias output.
-func (a *AliasOutput) UpdateMintingColor() Output {
+func (a *AliasOutput) UpdateMintingColor() OutputEssence {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
@@ -1653,7 +1692,7 @@ func (a *AliasOutput) validateDestroyTransitionNow(nowis time.Time) error {
 }
 
 // unlockedGovernanceTransitionByAliasIndex unlocks one step of alias dereference for governance transition.
-func (a *AliasOutput) unlockedGovernanceTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+func (a *AliasOutput) unlockedGovernanceTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []OutputEssence) (bool, error) {
 	// when output is self governed, a.GetGoverningAddress() returns the state address
 	if a.GetGoverningAddress().Type() != AliasAddressType {
 		return false, errors.New("aliasOutput: expected governing address of AliasAddress type")
@@ -1673,7 +1712,7 @@ func (a *AliasOutput) unlockedGovernanceTransitionByAliasIndex(tx *Transaction, 
 }
 
 // unlockedStateTransitionByAliasIndex unlocks one step of alias dereference for state transition.
-func (a *AliasOutput) unlockedStateTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []Output) (bool, error) {
+func (a *AliasOutput) unlockedStateTransitionByAliasIndex(tx *Transaction, refIndex uint16, inputs []OutputEssence) (bool, error) {
 	// when output is self governed, a.GetGoverningAddress() returns the state address
 	if a.GetStateAddress().Type() != AliasAddressType {
 		return false, errors.New("aliasOutput: expected state address of AliasAddress type")
@@ -1708,7 +1747,7 @@ func (a *AliasOutput) hasToBeUnlockedForGovernanceUpdate(tx *Transaction) bool {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ Output = new(AliasOutput)
+var _ OutputEssence = new(AliasOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1722,7 +1761,7 @@ var _ Output = new(AliasOutput)
 // - can be time locked until deadline
 // - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
-	id       utxo2.OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
@@ -1875,39 +1914,37 @@ func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
 	return ret
 }
 
-// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (o *ExtendedLockedOutput) ID() utxo2.OutputID {
+// ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
+func (o *ExtendedLockedOutput) ID() utxo.OutputID {
 	o.idMutex.RLock()
 	defer o.idMutex.RUnlock()
 
 	return o.id
 }
 
-// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
+// SetID allows to set the identifier of the OutputEssence. We offer a setter for the property since Outputs that are
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-// only accessed when the Output is supposed to be persisted by the node.
-func (o *ExtendedLockedOutput) SetID(outputID utxo2.OutputID) Output {
+// only accessed when the OutputEssence is supposed to be persisted by the node.
+func (o *ExtendedLockedOutput) SetID(outputID utxo.OutputID) {
 	o.idMutex.Lock()
 	defer o.idMutex.Unlock()
 
 	o.id = outputID
-
-	return o
 }
 
-// Type returns the type of the Output which allows us to generically handle Outputs of different types.
+// Type returns the type of the OutputEssence which allows us to generically handle Outputs of different types.
 func (o *ExtendedLockedOutput) Type() OutputType {
 	return ExtendedLockedOutputType
 }
 
-// Balances returns the funds that are associated with the Output.
+// Balances returns the funds that are associated with the OutputEssence.
 func (o *ExtendedLockedOutput) Balances() *ColoredBalances {
 	return o.balances
 }
 
-// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
-func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
+// UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the OutputEssence.
+func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []OutputEssence) (unlockValid bool, err error) {
 	if o.TimeLockedNow(tx.Essence().Timestamp()) {
 		return false, nil
 	}
@@ -1940,12 +1977,12 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 	return unlockValid, err
 }
 
-// Address returns the Address that the Output is associated to.
+// Address returns the Address that the OutputEssence is associated to.
 func (o *ExtendedLockedOutput) Address() Address {
 	return o.address
 }
 
-// FallbackAddress returns the fallback address that the Output is associated to.
+// FallbackAddress returns the fallback address that the OutputEssence is associated to.
 func (o *ExtendedLockedOutput) FallbackAddress() (addy Address) {
 	if o.fallbackAddress == nil {
 		return
@@ -1953,17 +1990,17 @@ func (o *ExtendedLockedOutput) FallbackAddress() (addy Address) {
 	return o.fallbackAddress
 }
 
-// Input returns an Input that references the Output.
+// Input returns an Input that references the OutputEssence.
 func (o *ExtendedLockedOutput) Input() Input {
-	if o.ID() == (utxo2.OutputID{}) {
+	if o.ID() == (utxo.OutputID{}) {
 		panic("ExtendedLockedOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
 	return NewUTXOInput(o.ID())
 }
 
-// Clone creates a copy of the Output.
-func (o *ExtendedLockedOutput) Clone() Output {
+// Clone creates a copy of the OutputEssence.
+func (o *ExtendedLockedOutput) Clone() OutputEssence {
 	ret := &ExtendedLockedOutput{
 		balances: o.balances.Clone(),
 		address:  o.address.Clone(),
@@ -1985,9 +2022,9 @@ func (o *ExtendedLockedOutput) Clone() Output {
 	return ret
 }
 
-// UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
-// copy of the original Output with the modified balances.
-func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
+// UpdateMintingColor replaces the ColorMint in the balances of the OutputEssence with the hash of the OutputID. It returns a
+// copy of the original OutputEssence with the modified balances.
+func (o *ExtendedLockedOutput) UpdateMintingColor() OutputEssence {
 	coloredBalances := o.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
@@ -2004,7 +2041,7 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	return updatedOutput
 }
 
-// Bytes returns a marshaled version of the Output.
+// Bytes returns a marshaled version of the OutputEssence.
 func (o *ExtendedLockedOutput) Bytes() []byte {
 	return o.ObjectStorageValue()
 }
@@ -2015,7 +2052,7 @@ func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
 	return o.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// ObjectStorageValue marshals the OutputEssence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 	flags := o.compressFlags()
@@ -2038,13 +2075,13 @@ func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 	return ret.Bytes()
 }
 
-// Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
+// Compare offers a comparator for Outputs which returns -1 if the other OutputEssence is bigger, 1 if it is smaller and 0 if
 // they are the same.
-func (o *ExtendedLockedOutput) Compare(other Output) int {
+func (o *ExtendedLockedOutput) Compare(other OutputEssence) int {
 	return bytes.Compare(o.Bytes(), other.Bytes())
 }
 
-// String returns a human readable version of the Output.
+// String returns a human readable version of the OutputEssence.
 func (o *ExtendedLockedOutput) String() string {
 	return stringify.Struct("ExtendedLockedOutput",
 		stringify.StructField("id", o.ID()),
@@ -2088,6 +2125,6 @@ func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ Output = new(ExtendedLockedOutput)
+var _ OutputEssence = new(ExtendedLockedOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

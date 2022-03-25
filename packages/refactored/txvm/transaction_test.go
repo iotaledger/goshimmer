@@ -140,7 +140,10 @@ func setupUnspentOutputsDB(outputs map[Address]map[utxo.OutputID]map[Color]uint6
 	unspentOutputsDB = make(OutputsByID)
 	for address, outputs := range outputs {
 		for outputID, balances := range outputs {
-			unspentOutputsDB[outputID] = NewSigLockedColoredOutput(NewColoredBalances(balances), address).SetID(outputID)
+			unspentOutput := NewSigLockedColoredOutput(NewColoredBalances(balances), address)
+			unspentOutput.SetID(outputID)
+
+			unspentOutputsDB[outputID] = unspentOutput
 		}
 	}
 
@@ -171,7 +174,7 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 
 		return typeCastedOutput.Address()
 	default:
-		panic("unexpected Output type")
+		panic("unexpected OutputEssence type")
 	}
 }
 

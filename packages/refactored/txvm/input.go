@@ -21,7 +21,7 @@ import (
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// UTXOInputType is the type of an Input that references an UTXO Output.
+	// UTXOInputType is the type of an Input that references an UTXO OutputEssence.
 	UTXOInputType InputType = iota
 
 	// MinInputCount defines the minimum amount of Inputs in a Transaction.
@@ -244,7 +244,7 @@ func (i Inputs) Strings() (result []string) {
 
 // region UTXOInput ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// UTXOInput represents a reference to an Output in the UTXODAG.
+// UTXOInput represents a reference to an OutputEssence in the UTXODAG.
 type UTXOInput struct {
 	referencedOutputID utxo.OutputID
 }
@@ -269,7 +269,7 @@ func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXO
 	}
 
 	input = &UTXOInput{}
-	if input.referencedOutputID, err = utxo.OutputIDFromMarshalUtil(marshalUtil); err != nil {
+	if err = input.referencedOutputID.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced OutputID from MarshalUtil: %w", err)
 		return
 	}

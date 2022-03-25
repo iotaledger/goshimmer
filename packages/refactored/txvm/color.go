@@ -17,7 +17,7 @@ import (
 // ColorIOTA is the zero value of the Color and represents uncolored tokens.
 var ColorIOTA = Color{}
 
-// ColorMint represents a placeholder Color that indicates that tokens should be "colored" in their Output.
+// ColorMint represents a placeholder Color that indicates that tokens should be "colored" in their OutputEssence.
 var ColorMint = Color{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
 // ColorLength represents the length of a Color (amount of bytes).

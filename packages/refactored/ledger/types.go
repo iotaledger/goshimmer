@@ -2,13 +2,11 @@ package ledger
 
 import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
-type CachedOutputs = objectstorage.CachedObjects[utxo.Output]
+type CachedOutputs = objectstorage.CachedObjects[*Output]
 
-type CachedOutput = *objectstorage.CachedObject[utxo.Output]
+type CachedOutput = *objectstorage.CachedObject[*Output]
 
 type CachedOutputMetadata = *objectstorage.CachedObject[*OutputMetadata]
 
@@ -18,4 +16,4 @@ type CachedConsumer = *objectstorage.CachedObject[*Consumer]
 
 type CachedConsumers = objectstorage.CachedObjects[*Consumer]
 
-type CachedTransaction = *objectstorage.CachedObject[utxo.Transaction]
+type CachedTransaction = *objectstorage.CachedObject[*Transaction]

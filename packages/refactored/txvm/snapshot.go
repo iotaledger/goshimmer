@@ -136,16 +136,11 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		}
 		bytesRead += 4
 
-		transactionIDBytes := make([]byte, utxo.TransactionIDLength)
-		if err := binary.Read(reader, binary.LittleEndian, &transactionIDBytes); err != nil {
+		var txID utxo.TransactionID
+		if err := binary.Read(reader, binary.LittleEndian, &txID); err != nil {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
-
-		txID, n, e := utxo.TransactionIDFromBytes(transactionIDBytes)
-		if e != nil {
-			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, e)
-		}
-		bytesRead += int64(n)
+		bytesRead += int64(utxo.TransactionIDLength)
 
 		transactionBytes := make([]byte, transactionLength)
 		if err := binary.Read(reader, binary.LittleEndian, &transactionBytes); err != nil {

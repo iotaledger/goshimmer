@@ -18,13 +18,13 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionType represents the payload Type of a Transaction.
+// TransactionType represents the payload type of Transactions.
 var TransactionType payload.Type
 
 // init defers the initialization of the TransactionType to not have an initialization loop.
@@ -47,7 +47,7 @@ func init() {
 // region TransactionIDs ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionIDs represents a collection of TransactionIDs.
-type TransactionIDs map[utxo2.TransactionID]types.Empty
+type TransactionIDs map[utxo.TransactionID]types.Empty
 
 // Clone returns a copy of the collection of TransactionIDs.
 func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
@@ -59,7 +59,7 @@ func (t TransactionIDs) Clone() (transactionIDs TransactionIDs) {
 	return
 }
 
-// String returns a human readable version of the TransactionIDs.
+// String returns a human-readable version of the TransactionIDs.
 func (t TransactionIDs) String() (result string) {
 	return "TransactionIDs(" + strings.Join(t.Base58s(), ",") + ")"
 }
@@ -80,7 +80,7 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	id           *utxo2.TransactionID
+	id           *utxo.TransactionID
 	idMutex      sync.RWMutex
 	essence      *TransactionEssence
 	unlockBlocks UnlockBlocks
@@ -88,8 +88,8 @@ type Transaction struct {
 	objectstorage.StorableObjectFlags
 }
 
-func (t *Transaction) Inputs() (inputs []utxo2.Input) {
-	inputs = make([]utxo2.Input, 0)
+func (t *Transaction) Inputs() (inputs []utxo.Input) {
+	inputs = make([]utxo.Input, 0)
 	for _, input := range t.essence.Inputs() {
 		inputs = append(inputs, input)
 	}
@@ -110,11 +110,12 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(utxo2.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
+
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
-		// address set as the later determined alias address. Hence this check here.
+		// address set as the latter determined alias address. Hence, this check here.
 		if output.Type() == AliasOutputType {
 			alias := output.(*AliasOutput)
 			aliasAddress := alias.GetAliasAddress()
@@ -138,8 +139,8 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		return transaction, err
 	}
 
-	transactionID, _, err := utxo2.TransactionIDFromBytes(key)
-	if err != nil {
+	var transactionID utxo.TransactionID
+	if _, err = transactionID.FromBytes(key); err != nil {
 		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return transaction, err
 	}
@@ -223,7 +224,7 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 	}
 
 	for i, output := range transaction.essence.Outputs() {
-		output.SetID(utxo2.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set
 		if output.Type() == AliasOutputType {
@@ -244,8 +245,8 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 }
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
-// we calculate this value lazy and use double checked locking.
-func (t *Transaction) ID() utxo2.TransactionID {
+// we calculate this value lazy and use double-checked locking.
+func (t *Transaction) ID() utxo.TransactionID {
 	t.idMutex.RLock()
 	if t.id != nil {
 		defer t.idMutex.RUnlock()
@@ -261,14 +262,10 @@ func (t *Transaction) ID() utxo2.TransactionID {
 		return *t.id
 	}
 
-	idBytes := blake2b.Sum256(t.Bytes())
-	id, _, err := utxo2.TransactionIDFromBytes(idBytes[:])
-	if err != nil {
-		panic(err)
-	}
-	t.id = &id
+	txID := utxo.TransactionID(blake2b.Sum256(t.Bytes()))
+	t.id = &txID
 
-	return id
+	return txID
 }
 
 // Type returns the Type of the Payload.
@@ -302,7 +299,7 @@ func (t *Transaction) Bytes() []byte {
 		Bytes()
 }
 
-// String returns a human readable version of the Transaction.
+// String returns a human-readable version of the Transaction.
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
 		stringify.StructField("id", t.ID()),
@@ -326,7 +323,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 // code contract (make sure the struct implements all required methods)
 var _ payload.Payload = &Transaction{}
 
-var _ utxo2.Transaction = new(Transaction)
+var _ utxo.Transaction = new(Transaction)
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &Transaction{}
@@ -380,7 +377,7 @@ func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionE
 	return
 }
 
-// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
+// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshalling).
 func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
 	transactionEssence = &TransactionEssence{}
 	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
@@ -483,7 +480,7 @@ func (t *TransactionEssence) Bytes() []byte {
 	return marshalUtil.Bytes()
 }
 
-// String returns a human readable version of the TransactionEssence.
+// String returns a human-readable version of the TransactionEssence.
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
 		stringify.StructField("version", t.version),
@@ -505,7 +502,7 @@ func (t *TransactionEssence) String() string {
 type TransactionEssenceVersion uint8
 
 // TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
-// unmarshaling).
+// unmarshalling).
 func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
 	readByte, err := marshalUtil.ReadByte()
 	if err != nil {
@@ -539,7 +536,7 @@ func (t TransactionEssenceVersion) Compare(other TransactionEssenceVersion) int 
 	}
 }
 
-// String returns a human readable version of the TransactionEssenceVersion.
+// String returns a human-readable version of the TransactionEssenceVersion.
 func (t TransactionEssenceVersion) String() string {
 	return "TransactionEssenceVersion(" + strconv.Itoa(int(t)) + ")"
 }

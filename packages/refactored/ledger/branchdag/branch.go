@@ -36,7 +36,7 @@ type BranchID [BranchIDLength]byte
 
 // NewBranchID creates a new BranchID from a TransactionID.
 func NewBranchID(transactionID utxo.TransactionID) (branchID BranchID) {
-	copy(branchID[:], transactionID[:])
+	copy(branchID[:], transactionID.Bytes())
 
 	return
 }

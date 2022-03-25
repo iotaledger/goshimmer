@@ -21,7 +21,7 @@ func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
 func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
 	params.InputsIDs = s.outputIDsFromInputs(params.Transaction.Inputs())
 
-	cachedInputs := objectstorage.CachedObjects[utxo.Output](generics.Map(params.InputsIDs, s.CachedOutput))
+	cachedInputs := objectstorage.CachedObjects[*Output](generics.Map(params.InputsIDs, s.CachedOutput))
 	defer cachedInputs.Release()
 
 	if params.Inputs = cachedInputs.Unwrap(true); len(params.Inputs) != len(cachedInputs) {

@@ -44,11 +44,9 @@ func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *Transactio
 	return inheritedBranchIDs
 }
 
-func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []utxo.Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []*Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
 	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], len(outputs))
 	for index, output := range outputs {
-		output.SetID(utxo.NewOutputID(txID, uint16(index), output.Bytes()))
-
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
 

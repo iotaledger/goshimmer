@@ -8,7 +8,7 @@ type Output interface {
 	// SetID sets the identifier of the Output.
 	//
 	// Note: Since determining the identifier of an Output is an operation that requires at least a few hashing
-	// operations, we allow the ID to be set externally.
+	// operations, we allow the ID to be set from the outside.
 	//
 	// This allows us to potentially skip the ID calculation in cases where the ID is known upfront (e.g. when loading
 	// Outputs from the object storage).

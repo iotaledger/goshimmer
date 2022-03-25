@@ -17,6 +17,35 @@ import (
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
+// region Transaction ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Transaction struct {
+	utxo.Transaction
+	objectstorage.StorableObjectFlags
+}
+
+func NewTransaction(transaction utxo.Transaction) (new *Transaction) {
+	return &Transaction{
+		Transaction: transaction,
+	}
+}
+
+func (o *Transaction) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
+	panic("this should never be called - we use a custom factory method from the VM")
+}
+
+func (o *Transaction) ObjectStorageKey() []byte {
+	return o.ID().Bytes()
+}
+
+func (o *Transaction) ObjectStorageValue() []byte {
+	return o.Bytes()
+}
+
+var _ objectstorage.StorableObject = new(Transaction)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
@@ -78,7 +107,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if transactionMetadata = t; transactionMetadata == nil {
 		transactionMetadata = &TransactionMetadata{}
 	}
-	if transactionMetadata.id, err = utxo.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if err = transactionMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
@@ -306,6 +335,39 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Output struct {
+	utxo.Output
+	objectstorage.StorableObjectFlags
+}
+
+func NewOutput(output utxo.Output) (new *Output) {
+	return &Output{
+		Output: output,
+	}
+}
+
+func (o *Output) utxoOutput() utxo.Output {
+	return o.Output
+}
+
+func (o *Output) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
+	panic("this should never be called - we use a custom factory method from the VM")
+}
+
+func (o *Output) ObjectStorageKey() []byte {
+	return o.ID().Bytes()
+}
+
+func (o *Output) ObjectStorageValue() []byte {
+	return o.Bytes()
+}
+
+var _ objectstorage.StorableObject = new(Output)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
@@ -357,33 +419,27 @@ func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata
 // FromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
 func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
 	if outputMetadata = o; outputMetadata == nil {
-		outputMetadata = new(OutputMetadata)
+		outputMetadata = &OutputMetadata{}
 	}
 
-	if outputMetadata.id, err = utxo.OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID: %w", err)
-		return
+	if err = outputMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse OutputID: %w", err)
 	}
 	if outputMetadata.branchIDs, err = branchdag.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchIDs: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse BranchIDs: %w", err)
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if outputMetadata.firstConsumer, err = utxo.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	if err = outputMetadata.firstConsumer.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
@@ -631,17 +687,15 @@ func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consum
 	if consumer = c; consumer == nil {
 		consumer = new(Consumer)
 	}
-	if consumer.consumedInput, err = utxo.OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
-		return
+
+	if err = consumer.consumedInput.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
 	}
-	if consumer.transactionID, err = utxo.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
+	if err = consumer.transactionID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 	}
 	if consumer.processed, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse processed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse processed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
 	return
