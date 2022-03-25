@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/cockroachdb/errors"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/types"
 
@@ -77,7 +78,7 @@ func (o *Options) areInputsProvidedWithoutAliases() bool {
 }
 
 func (o *Options) areOutputsProvidedWithoutAliases() bool {
-	return len(o.inputs) > 0
+	return len(o.outputs) > 0
 }
 
 // checkInputsAndOutputs checks if either all provided inputs/outputs are with aliases or all are without,
