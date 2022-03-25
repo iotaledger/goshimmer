@@ -132,8 +132,8 @@ func (c ConflictIDs) Slice() (list []ConflictID) {
 
 // Bytes returns a marshaled version of the ConflictIDs.
 func (c ConflictIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(c)*ConflictIDLength)
-	marshalUtil.WriteUint64(uint64(len(c)))
+	marshalUtil := marshalutil.New(marshalutil.Int32Size + len(c)*ConflictIDLength)
+	marshalUtil.WriteUint32(uint32(len(c)))
 	for conflictID := range c {
 		marshalUtil.WriteBytes(conflictID.Bytes())
 	}
@@ -164,10 +164,6 @@ func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
 	}
 
 	return
-}
-
-func (c ConflictIDs) Encode() ([]byte, error) {
-	return c.Bytes(), nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -762,7 +761,7 @@ func (m *Message) String() string {
 			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 		}
 	}
-	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
+	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
 	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
 	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
 	builder.AddField(stringify.StructField("Payload", m.Payload()))
@@ -807,18 +806,10 @@ type Parent struct {
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType `serix:"0"`
-	References  MessageIDSlice `serix:"1"`
+	References  []MessageID `serix:"1,lengthPrefixType:uint8"`
 }
 
 type ParentsBlocks []ParentsBlock
-
-// TODO: remove this type
-type MessageIDSlice []MessageID
-
-// LengthPrefixType indicates how the length of a collection should be serialized.
-func (m MessageIDSlice) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsByte
-}
 
 // ParentMessageIDs is a map of ParentType to MessageIDs.
 type ParentMessageIDs map[ParentsType]MessageIDs

@@ -28,7 +28,7 @@ type GenericDataPayload struct {
 }
 type genericDataPayloadInner struct {
 	payloadType Type
-	Data        []byte `serix:"0"`
+	Data        []byte `serix:"0,lengthPrefixType:uint32"`
 }
 
 // NewGenericDataPayload creates new GenericDataPayload.
@@ -72,16 +72,8 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 	return
 }
 
-// TODO: remove once []byte can be serialized
-func (g *GenericDataPayload) Encode() ([]byte, error) {
-	return marshalutil.New().
-		WriteBytes(g.Type().Bytes()).
-		WriteBytes(g.Blob()).
-		Bytes(), nil
-}
-
 func (g *GenericDataPayload) ObjectCode() interface{} {
-	return uint32(0)
+	return g.payloadType
 }
 
 // Type returns the Type of the Payload.

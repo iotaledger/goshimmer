@@ -261,8 +261,8 @@ func (b BranchIDs) Equals(o BranchIDs) bool {
 
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(b)*BranchIDLength)
-	marshalUtil.WriteUint64(uint64(len(b)))
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + len(b)*BranchIDLength)
+	marshalUtil.WriteUint32(uint32(len(b)))
 	for branchID := range b {
 		marshalUtil.WriteBytes(branchID.Bytes())
 	}
@@ -305,10 +305,6 @@ func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
 	return
 }
 
-func (b BranchIDs) Encode() ([]byte, error) {
-	return b.Bytes(), nil
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -319,8 +315,8 @@ type Branch struct {
 }
 type branchInner struct {
 	id                  BranchID
-	Parents             BranchIDs      `serix:"0"`
-	Conflicts           ConflictIDs    `serix:"1"`
+	Parents             BranchIDs      `serix:"0,lengthPrefixType:uint32""`
+	Conflicts           ConflictIDs    `serix:"1,lengthPrefixType:uint32"`
 	InclusionState      InclusionState `serix:"2"`
 	parentsMutex        sync.RWMutex
 	conflictsMutex      sync.RWMutex

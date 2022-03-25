@@ -158,7 +158,7 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	transactionInner `serixx:"0"`
+	transactionInner `serix:"0"`
 }
 type transactionInner struct {
 	id           *TransactionID
