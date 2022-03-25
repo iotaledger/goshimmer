@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -470,11 +469,6 @@ func (o Outputs) Strings() (result []string) {
 	}
 
 	return
-}
-
-// LengthPrefixType indicates how the length of a collection should be serialized.
-func (o Outputs) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsUint16
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1441,6 +1435,10 @@ func (a *AliasOutput) Input() Input {
 // Bytes serialized form.
 func (a *AliasOutput) Bytes() []byte {
 	return a.ObjectStorageValue()
+}
+
+func (a *AliasOutput) Encode() ([]byte, error) {
+	return a.Bytes(), nil
 }
 
 // String human readable form.

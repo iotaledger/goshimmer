@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -239,11 +238,6 @@ func (i Inputs) Strings() (result []string) {
 	}
 
 	return
-}
-
-// LengthPrefixType indicates how the length of a collection should be serialized.
-func (i Inputs) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsUint16
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

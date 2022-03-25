@@ -221,6 +221,9 @@ func (c *ColoredBalances) Bytes() []byte {
 	})
 	return marshalUtil.Bytes()
 }
+func (c *ColoredBalances) Encode() ([]byte, error) {
+	return c.Bytes(), nil
+}
 
 // Map returns a vanilla golang map (unordered) containing the existing balances. Since the ColoredBalances are
 // immutable to ensure the deterministic ordering, this method can be used to retrieve a copy of the current values

@@ -274,7 +274,7 @@ type BLSAddress struct {
 	blsAddressInner `seri:"0"`
 }
 type blsAddressInner struct {
-	Digest []byte `seri:"0"`
+	Digest [blake2b.Size256]byte `seri:"0"`
 }
 
 // NewBLSAddress creates a new BLSAddress from the given public key.
@@ -283,7 +283,7 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 
 	return &BLSAddress{
 		blsAddressInner{
-			Digest: digest[:],
+			Digest: digest,
 		},
 	}
 }
@@ -329,10 +329,12 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 	}
 
 	address = &BLSAddress{}
-	if address.blsAddressInner.Digest, err = marshalUtil.ReadBytes(32); err != nil {
+	data, err := marshalUtil.ReadBytes(32)
+	if err != nil {
 		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	copy(address.blsAddressInner.Digest[:], data)
 
 	return
 }
@@ -348,29 +350,26 @@ func (b *BLSAddress) ObjectCode() interface{} {
 
 // Digest returns the hashed version of the Addresses public key.
 func (b *BLSAddress) Digest() []byte {
-	return b.blsAddressInner.Digest
+	return b.blsAddressInner.Digest[:]
 }
 
 // Clone creates a copy of the Address.
 func (b *BLSAddress) Clone() Address {
-	clonedDigest := make([]byte, len(b.blsAddressInner.Digest))
-	copy(clonedDigest, b.blsAddressInner.Digest)
-
 	return &BLSAddress{
 		blsAddressInner{
-			Digest: clonedDigest,
+			Digest: b.blsAddressInner.Digest,
 		},
 	}
 }
 
 // Equals returns true if the two Addresses are equal.
 func (b *BLSAddress) Equals(other Address) bool {
-	return b.Type() == other.Type() && bytes.Equal(b.blsAddressInner.Digest, other.Digest())
+	return b.Type() == other.Type() && bytes.Equal(b.Digest(), other.Digest())
 }
 
 // Bytes returns a marshaled version of the Address.
 func (b *BLSAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.blsAddressInner.Digest)
+	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.blsAddressInner.Digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -406,14 +405,19 @@ const AliasAddressDigestSize = 32
 // AliasAddress represents a special type of Address which is not backed by a private key directly,
 // but is indirectly backed by a private key defined by corresponding AliasOutput parameters.
 type AliasAddress struct {
-	digest [AliasAddressDigestSize]byte
+	aliasAddressInner `seri:"0"`
+}
+type aliasAddressInner struct {
+	Digest [AliasAddressDigestSize]byte `seri:"0"`
 }
 
 // NewAliasAddress creates a new AliasAddress from the given bytes used as seed.
 // Normally the seed is an OutputID.
 func NewAliasAddress(data []byte) *AliasAddress {
 	return &AliasAddress{
-		digest: blake2b.Sum256(data),
+		aliasAddressInner{
+			Digest: blake2b.Sum256(data),
+		},
 	}
 }
 
@@ -463,7 +467,7 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 		return
 	}
 	address = &AliasAddress{}
-	copy(address.digest[:], data)
+	copy(address.aliasAddressInner.Digest[:], data)
 	return
 }
 
@@ -478,17 +482,17 @@ func (a *AliasAddress) ObjectCode() interface{} {
 
 // Digest returns the hashed version of the Addresses public key.
 func (a *AliasAddress) Digest() []byte {
-	return a.digest[:]
+	return a.aliasAddressInner.Digest[:]
 }
 
 // Clone creates a copy of the Address.
 func (a *AliasAddress) Clone() Address {
-	return &AliasAddress{digest: a.digest}
+	return &AliasAddress{aliasAddressInner{Digest: a.aliasAddressInner.Digest}}
 }
 
 // Bytes returns a marshaled version of the Address.
 func (a *AliasAddress) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.digest[:])
+	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.aliasAddressInner.Digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -518,7 +522,7 @@ func (a *AliasAddress) String() string {
 
 // IsNil returns if the alias address is zero value (uninitialized).
 func (a *AliasAddress) IsNil() bool {
-	return a.digest == [32]byte{}
+	return a.aliasAddressInner.Digest == [32]byte{}
 }
 
 // code contract (make sure the struct implements all required methods).

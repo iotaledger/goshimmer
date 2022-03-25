@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -179,11 +178,6 @@ func (u UnlockBlocks) String() string {
 	}
 
 	return structBuilder.String()
-}
-
-// LengthPrefixType indicates how the length of a collection should be serialized.
-func (u UnlockBlocks) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsUint16
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

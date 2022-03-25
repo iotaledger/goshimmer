@@ -11,6 +11,7 @@ import (
 )
 
 func TestSerixAliasAddress(t *testing.T) {
+	// uses encode
 	keyPair := ed25519.GenerateKeyPair()
 	obj := NewAliasAddress(keyPair.PublicKey.Bytes())
 
@@ -44,6 +45,7 @@ func TestSerixED25519Address(t *testing.T) {
 }
 
 func TestSerixAliasOutput(t *testing.T) {
+	// uses encode
 	data := []byte("dummy")
 	obj, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randAliasAddress(), data)
 
@@ -66,6 +68,7 @@ func TestSerixExtendedLockedOutput(t *testing.T) {
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
 func TestSerixSigLockedColoredOutput(t *testing.T) {
+	// OrderedMap uses encode
 	obj := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}), randEd25119Address())
 
 	s := serix.NewAPI()
@@ -131,7 +134,7 @@ func TestSerixConflictMember(t *testing.T) {
 
 func TestSerixBLSSignature(t *testing.T) {
 	keyPair := bls.PrivateKeyFromRandomness()
-
+	// uses encode because Signature struct is in hive.go
 	signature, err := keyPair.Sign(keyPair.PublicKey().Bytes())
 	assert.NoError(t, err)
 

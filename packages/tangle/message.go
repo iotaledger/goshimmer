@@ -278,7 +278,7 @@ type messageInner struct {
 
 	// core properties (get sent over the wire)
 	Version         uint8             `seri:"0"`
-	ParentsBlocks   ParentsBlocks     `seri:"1"`
+	ParentsBlocks   ParentsBlocks     `seri:"1,lengthPrefixType:uint8"`
 	IssuerPublicKey ed25519.PublicKey `seri:"2"`
 	IssuingTime     time.Time         `seri:"3"`
 	SequenceNumber  uint64            `seri:"4"`
@@ -811,10 +811,6 @@ type ParentsBlock struct {
 }
 
 type ParentsBlocks []ParentsBlock
-
-func (p ParentsBlocks) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsByte
-}
 
 // TODO: remove this type
 type MessageIDSlice []MessageID

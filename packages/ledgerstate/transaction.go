@@ -164,7 +164,7 @@ type transactionInner struct {
 	id           *TransactionID
 	idMutex      sync.RWMutex
 	Essence      *TransactionEssence `seri:"1"`
-	UnlockBlocks UnlockBlocks        `seri:"2"`
+	UnlockBlocks UnlockBlocks        `seri:"2,lengthPrefixType:uint16"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -434,8 +434,8 @@ type transactionEssenceInner struct {
 	AccessPledgeID identity.ID `seri:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
 	ConsensusPledgeID identity.ID     `seri:"3"`
-	Inputs            Inputs          `seri:"4"`
-	Outputs           Outputs         `seri:"5"`
+	Inputs            Inputs          `seri:"4,lengthPrefixType:uint16"`
+	Outputs           Outputs         `seri:"5,lengthPrefixType:uint16"`
 	Payload           payload.Payload `seri:"6,payload"`
 }
 
