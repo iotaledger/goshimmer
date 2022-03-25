@@ -37,18 +37,18 @@ func (u *Utils) WalkConsumingTransactionMetadata(entryPoints []utxo.OutputID, ca
 	})
 }
 
-func (u *Utils) WalkConsumingTransactionAndMetadata(entryPoints []utxo.OutputID, callback func(tx utxo.Transaction, txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
+func (u *Utils) WalkConsumingTransactionAndMetadata(entryPoints []utxo.OutputID, callback func(tx *Transaction, txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
 	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
 		u.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
-			u.CachedTransaction(consumingTxID).Consume(func(tx utxo.Transaction) {
+			u.CachedTransaction(consumingTxID).Consume(func(tx *Transaction) {
 				callback(tx, txMetadata, walker)
 			})
 		})
 	})
 }
 
-func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx utxo.Transaction, txMetadata *TransactionMetadata)) {
-	u.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx *Transaction, txMetadata *TransactionMetadata)) {
+	u.CachedTransaction(txID).Consume(func(tx *Transaction) {
 		u.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(tx, txMetadata)
 		})

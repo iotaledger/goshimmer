@@ -34,7 +34,7 @@ func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *Transactio
 	if len(conflictingInputIDs) != 0 {
 		inheritedBranchIDs = branchdag.NewBranchIDs(b.CreateBranch(txID, inheritedBranchIDs, branchdag.NewConflictIDs(lo.Map(conflictingInputIDs, branchdag.NewConflictID)...)))
 
-		b.WalkConsumingTransactionAndMetadata(conflictingInputIDs, func(tx utxo.Transaction, txMetadata *TransactionMetadata, _ *walker.Walker[utxo.OutputID]) {
+		b.WalkConsumingTransactionAndMetadata(conflictingInputIDs, func(tx *Transaction, txMetadata *TransactionMetadata, _ *walker.Walker[utxo.OutputID]) {
 			b.forkTransactionFutureCone(tx, txMetadata, lo.KeyBy(conflictingInputIDs, lo.Identity[utxo.OutputID]))
 		})
 	}
@@ -57,7 +57,7 @@ func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []*Output, branchI
 	return cachedOutputsMetadata
 }
 
-func (b *Booker) forkTransactionFutureCone(tx utxo.Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx map[utxo.OutputID]utxo.OutputID) {
+func (b *Booker) forkTransactionFutureCone(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx map[utxo.OutputID]utxo.OutputID) {
 	forkedBranchID, previousParentBranches, success := b.forkTransaction(tx, txMetadata, outputsSpentByConflictingTx)
 	if !success {
 		return

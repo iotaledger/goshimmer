@@ -348,10 +348,6 @@ func NewOutput(output utxo.Output) (new *Output) {
 	}
 }
 
-func (o *Output) utxoOutput() utxo.Output {
-	return o.Output
-}
-
 func (o *Output) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
 	panic("this should never be called - we use a custom factory method from the VM")
 }
@@ -362,6 +358,14 @@ func (o *Output) ObjectStorageKey() []byte {
 
 func (o *Output) ObjectStorageValue() []byte {
 	return o.Bytes()
+}
+
+func (o *Output) utxoOutput() utxo.Output {
+	return o.Output
+}
+
+func (o *Output) ID() (id utxo.OutputID) {
+	return o.Output.ID()
 }
 
 var _ objectstorage.StorableObject = new(Output)

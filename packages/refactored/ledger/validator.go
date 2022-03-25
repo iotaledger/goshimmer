@@ -15,7 +15,7 @@ type Validator struct {
 }
 
 func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
-	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Map(params.Inputs, utxo.Output.ID), v.CachedOutputMetadata))
+	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Map(params.Inputs, (*Output).ID), v.CachedOutputMetadata))
 	defer cachedOutputsMetadata.Release()
 
 	params.InputsMetadata = generics.KeyBy[utxo.OutputID, *OutputMetadata](cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
