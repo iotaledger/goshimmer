@@ -75,24 +75,24 @@ type BranchDAG struct {
 func NewBranchDAG(store kvstore.KVStore, cacheTimeProvider *database.CacheTimeProvider) (newBranchDAG *BranchDAG) {
 	newBranchDAG = &BranchDAG{
 		branchStorage: objectstorage.New[*Branch](
-			store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}),
+			store.WithRealm([]byte{database.PrefixLedger, PrefixBranchStorage}),
 			cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
-			store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}),
+			store.WithRealm([]byte{database.PrefixLedger, PrefixChildBranchStorage}),
 			ChildBranchKeyPartition,
 			cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictStorage: objectstorage.New[*Conflict](
-			store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}),
+			store.WithRealm([]byte{database.PrefixLedger, PrefixConflictStorage}),
 			cacheTimeProvider.CacheTime(consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
-			store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}),
+			store.WithRealm([]byte{database.PrefixLedger, PrefixConflictMemberStorage}),
 			ConflictMemberKeyPartition,
 			cacheTimeProvider.CacheTime(conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

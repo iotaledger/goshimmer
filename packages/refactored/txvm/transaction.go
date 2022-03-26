@@ -268,6 +268,13 @@ func (t *Transaction) ID() utxo.TransactionID {
 	return txID
 }
 
+func (t *Transaction) SetID(id utxo.TransactionID) {
+	t.idMutex.Lock()
+	defer t.idMutex.Unlock()
+
+	t.id = &id
+}
+
 // Type returns the Type of the Payload.
 func (t *Transaction) Type() payload.Type {
 	return TransactionType

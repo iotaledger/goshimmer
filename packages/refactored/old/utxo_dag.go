@@ -45,12 +45,12 @@ func NewUTXODAG(ledgerstate *Ledger, vm utxo.VM) (utxoDAG *UTXODAG) {
 		},
 		ledgerstate:                 ledgerstate,
 		vm:                          vm,
-		transactionStorage:          objectstorage.New[utxo.Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionStorage}), options.transactionStorageOptions...),
-		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
-		outputStorage:               objectstorage.New[utxo.Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputStorage}), options.outputStorageOptions...),
-		outputMetadataStorage:       objectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
-		consumerStorage:             objectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConsumerStorage}), options.consumerStorageOptions...),
-		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),
+		transactionStorage:          objectstorage.New[utxo.Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}), options.transactionStorageOptions...),
+		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
+		outputStorage:               objectstorage.New[utxo.Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}), options.outputStorageOptions...),
+		outputMetadataStorage:       objectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
+		consumerStorage:             objectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixConsumerStorage}), options.consumerStorageOptions...),
+		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),
 	}
 	return
 }

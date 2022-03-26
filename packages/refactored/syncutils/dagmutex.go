@@ -11,6 +11,13 @@ type DAGMutex[T comparable] struct {
 	sync.Mutex
 }
 
+func NewDAGMutex[T comparable]() *DAGMutex[T] {
+	return &DAGMutex[T]{
+		consumerCounter: make(map[T]int),
+		mutexes:         make(map[T]*sync.RWMutex),
+	}
+}
+
 func (d *DAGMutex[T]) RLock(ids ...T) {
 	for _, mutex := range d.registerMutexes(ids...) {
 		mutex.RLock()

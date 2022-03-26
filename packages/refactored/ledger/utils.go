@@ -11,6 +11,12 @@ type Utils struct {
 	*Ledger
 }
 
+func NewUtils(ledger *Ledger) (new *Utils) {
+	return &Utils{
+		Ledger: ledger,
+	}
+}
+
 func (u *Utils) WalkConsumingTransactionID(entryPoints []utxo.OutputID, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
 	if len(entryPoints) == 0 {
 		return

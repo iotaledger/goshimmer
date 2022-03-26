@@ -15,6 +15,12 @@ type Booker struct {
 	*Ledger
 }
 
+func NewBooker(ledger *Ledger) (new *Booker) {
+	return &Booker{
+		Ledger: ledger,
+	}
+}
+
 func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
 	inheritedBranchIDs := b.bookTransaction(params.Transaction.ID(), params.TransactionMetadata, params.InputsMetadata)
 

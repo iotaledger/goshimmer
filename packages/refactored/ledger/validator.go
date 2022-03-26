@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
@@ -14,11 +15,20 @@ type Validator struct {
 	*Ledger
 }
 
+func NewValidator(ledger *Ledger) (new *Validator) {
+	return &Validator{
+		Ledger: ledger,
+	}
+}
+
 func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
 	cachedOutputsMetadata := objectstorage.CachedObjects[*OutputMetadata](generics.Map(generics.Map(params.Inputs, (*Output).ID), v.CachedOutputMetadata))
 	defer cachedOutputsMetadata.Release()
 
-	params.InputsMetadata = generics.KeyBy(cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
+	params.InputsMetadata = generics.KeyBy(cachedOutputsMetadata.Unwrap(true), (*OutputMetadata).ID)
+	if len(params.InputsMetadata) != len(cachedOutputsMetadata) {
+		return errors.Errorf("failed to retrieve the metadata of all inputs of %s: %w", params.Transaction.ID(), cerrors.ErrFatal)
+	}
 
 	if v.outputsCausallyRelated(params.InputsMetadata) {
 		return errors.Errorf("%s is trying to spend causally related Outputs: %w", params.Transaction.ID(), ErrTransactionInvalid)

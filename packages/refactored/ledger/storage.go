@@ -1,9 +1,13 @@
 package ledger
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -21,6 +25,36 @@ type Storage struct {
 
 func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	return &Storage{
+		transactionStorage: objectstorage.New[*Transaction](
+			ledger.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}),
+			ledger.Options.CacheTimeProvider.CacheTime(transactionCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
+		transactionMetadataStorage: objectstorage.New[*TransactionMetadata](
+			ledger.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage}),
+			ledger.Options.CacheTimeProvider.CacheTime(transactionCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+		),
+		outputStorage: objectstorage.New[*Output](
+			ledger.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}),
+			ledger.Options.CacheTimeProvider.CacheTime(outputCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+			objectstorage.WithObjectFactory(txvm.OutputEssenceFromObjectStorage),
+		),
+		outputMetadataStorage: objectstorage.New[*OutputMetadata](
+			ledger.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage}),
+			ledger.Options.CacheTimeProvider.CacheTime(outputCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+		),
+		consumerStorage: objectstorage.New[*Consumer](
+			ledger.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixConsumerStorage}),
+			ledger.Options.CacheTimeProvider.CacheTime(consumerCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
+			ConsumerPartitionKeys,
+		),
+
 		Ledger: ledger,
 	}
 }
@@ -66,5 +100,36 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region DB prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
+
+const (
+	// PrefixTransactionStorage defines the storage prefix for the Transaction object storage.
+	PrefixTransactionStorage byte = iota
+
+	// PrefixTransactionMetadataStorage defines the storage prefix for the TransactionMetadata object storage.
+	PrefixTransactionMetadataStorage
+
+	// PrefixOutputStorage defines the storage prefix for the OutputEssence object storage.
+	PrefixOutputStorage
+
+	// PrefixOutputMetadataStorage defines the storage prefix for the OutputMetadata object storage.
+	PrefixOutputMetadataStorage
+
+	// PrefixConsumerStorage defines the storage prefix for the Consumer object storage.
+	PrefixConsumerStorage
+)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region constants and configurations /////////////////////////////////////////////////////////////////////////////////
+
+const (
+	transactionCacheTime = 10 * time.Second
+	outputCacheTime      = 10 * time.Second
+	consumerCacheTime    = 10 * time.Second
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

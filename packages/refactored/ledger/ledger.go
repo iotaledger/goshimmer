@@ -4,7 +4,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
@@ -20,25 +22,58 @@ type Ledger struct {
 	ConsumedTransactionProcessedEvent *event.Event[utxo.TransactionID]
 	ErrorEvent                        *event.Event[error]
 
+	*Options
 	*Storage
 	*Solidifier
 	*Validator
 	*Executor
 	*Booker
 	*Utils
-	*branchdag.BranchDAG
 
-	syncutils.DAGMutex[[32]byte]
+	vm utxo.VM
+
+	*branchdag.BranchDAG
+	*syncutils.DAGMutex[[32]byte]
 }
 
-func New(store kvstore.KVStore, vm utxo.VM) (ledger *Ledger) {
-	ledger = new(Ledger)
-	ledger.ErrorEvent = event.New[error]()
-	ledger.vm = vm
+func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
+	ledger = &Ledger{
+		TransactionStoredEvent:            event.New[utxo.TransactionID](),
+		TransactionSolidEvent:             event.New[utxo.TransactionID](),
+		TransactionProcessedEvent:         event.New[utxo.TransactionID](),
+		ConsumedTransactionProcessedEvent: event.New[utxo.TransactionID](),
+		ErrorEvent:                        event.New[error](),
+
+		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
+		DAGMutex:  syncutils.NewDAGMutex[[32]byte](),
+
+		vm: vm,
+	}
+
+	ledger.Configure(options...)
 	ledger.Storage = NewStorage(ledger)
 	ledger.Solidifier = NewSolidifier(ledger)
+	ledger.Validator = NewValidator(ledger)
+	ledger.Executor = NewExecutor(ledger)
+	ledger.Booker = NewBooker(ledger)
+	ledger.Utils = NewUtils(ledger)
 
 	return ledger
+}
+
+// Configure modifies the configuration of the Ledger.
+func (l *Ledger) Configure(options ...Option) {
+	if l.Options == nil {
+		l.Options = &Options{
+			Store:              mapdb.NewMapDB(),
+			CacheTimeProvider:  database.NewCacheTimeProvider(0),
+			LazyBookingEnabled: true,
+		}
+	}
+
+	for _, option := range options {
+		option(l.Options)
+	}
 }
 
 func (l *Ledger) Setup() {
@@ -110,8 +145,9 @@ func (l *Ledger) processTransaction(tx *Transaction, txMeta *TransactionMetadata
 	})
 
 	if err != nil {
+		l.ErrorEvent.Trigger(err)
+
 		// TODO: mark Transaction as invalid and trigger invalid event
-		// eventually trigger generic errors if its not due to tx invalidity
 		return false
 	}
 

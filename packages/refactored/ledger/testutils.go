@@ -18,6 +18,10 @@ type MockedInput struct {
 	outputID utxo.OutputID
 }
 
+func NewMockedInput(outputID utxo.OutputID) *MockedInput {
+	return &MockedInput{outputID: outputID}
+}
+
 func (m *MockedInput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	if m == nil {
 		*m = *new(MockedInput)
@@ -219,6 +223,10 @@ var _ utxo.Transaction = new(MockedTransaction)
 // region MockedVM /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type MockedVM struct{}
+
+func NewMockedVM() *MockedVM {
+	return new(MockedVM)
+}
 
 func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
 	mockedTx := new(MockedTransaction)
