@@ -171,7 +171,7 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 type params struct {
 	Transaction         *Transaction
 	TransactionMetadata *TransactionMetadata
-	InputsIDs           []utxo.OutputID
+	InputIDs            []utxo.OutputID
 	Inputs              []*Output
 	InputsMetadata      map[utxo.OutputID]*OutputMetadata
 	Consumers           []*Consumer

@@ -555,18 +555,18 @@ func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
 
 // IsProcessedConsumerDoubleSpend increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) IsProcessedConsumerDoubleSpend(consumer utxo.TransactionID) (isFirstConsumer bool) {
+func (o *OutputMetadata) IsProcessedConsumerDoubleSpend(consumer utxo.TransactionID) (isDoubleSpend bool) {
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
 	if o.firstConsumer != utxo.EmptyTransactionID {
-		return false
+		return true
 	}
 
 	o.firstConsumer = consumer
 	o.SetModified()
 
-	return true
+	return false
 }
 
 // GradeOfFinality returns the grade of finality.
@@ -659,11 +659,16 @@ type Consumer struct {
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) *Consumer {
-	return &Consumer{
+func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
+	new = &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
 	}
+
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
