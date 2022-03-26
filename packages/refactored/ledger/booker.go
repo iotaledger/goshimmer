@@ -24,7 +24,7 @@ func NewBooker(ledger *Ledger) (new *Booker) {
 func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
 	inheritedBranchIDs := b.bookTransaction(params.Transaction.ID(), params.TransactionMetadata, params.InputsMetadata)
 
-	cachedOutputsMetadata := b.bookOutputs(params.Transaction.ID(), params.Outputs, inheritedBranchIDs)
+	cachedOutputsMetadata := b.bookOutputs(params.Outputs, inheritedBranchIDs)
 	defer cachedOutputsMetadata.Release()
 
 	params.OutputsMetadata = lo.KeyBy(cachedOutputsMetadata.Unwrap(), (*OutputMetadata).ID)
@@ -35,9 +35,7 @@ func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*para
 func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *TransactionMetadata, inputsMetadata map[utxo.OutputID]*OutputMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
 	inheritedBranchIDs = b.RemoveConfirmedBranches(lo.ReduceProperty(lo.Values(inputsMetadata), (*OutputMetadata).BranchIDs, branchdag.BranchIDs.AddAll, branchdag.NewBranchIDs()))
 
-	conflictingInputsMetadata := lo.FilterByValue(inputsMetadata, lo.Bind(txID, (*OutputMetadata).IsProcessedConsumerDoubleSpend))
-	conflictingInputIDs := lo.Keys(conflictingInputsMetadata)
-	if len(conflictingInputIDs) != 0 {
+	if conflictingInputIDs := lo.Keys(lo.FilterByValue(inputsMetadata, lo.Bind(txID, (*OutputMetadata).IsProcessedConsumerDoubleSpend))); len(conflictingInputIDs) != 0 {
 		inheritedBranchIDs = branchdag.NewBranchIDs(b.CreateBranch(txID, inheritedBranchIDs, branchdag.NewConflictIDs(lo.Map(conflictingInputIDs, branchdag.NewConflictID)...)))
 
 		b.WalkConsumingTransactionAndMetadata(conflictingInputIDs, func(tx *Transaction, txMetadata *TransactionMetadata, _ *walker.Walker[utxo.OutputID]) {
@@ -50,7 +48,7 @@ func (b *Booker) bookTransaction(txID utxo.TransactionID, txMetadata *Transactio
 	return inheritedBranchIDs
 }
 
-func (b *Booker) bookOutputs(txID utxo.TransactionID, outputs []*Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+func (b *Booker) bookOutputs(outputs []*Output, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
 	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], len(outputs))
 	for index, output := range outputs {
 		outputMetadata := NewOutputMetadata(output.ID())
