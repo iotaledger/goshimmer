@@ -450,7 +450,7 @@ func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
 		return
 	}
 
-	b.conflicts[conflictID] = types.Void
+	b.conflicts[conflictID] = true
 	b.SetModified()
 	added = true
 

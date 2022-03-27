@@ -12,8 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -88,7 +86,7 @@ func (i InclusionState) Bytes() []byte {
 const ConflictIDLength = 32
 
 // ConflictID is the data type that represents the identifier of a Conflict.
-type ConflictID [ConflictIDLength]byte
+type ConflictID = utxo.OutputID
 
 // NewConflictID creates a new ConflictID from an OutputID.
 func NewConflictID(outputID utxo.OutputID) (conflictID ConflictID) {
@@ -116,42 +114,18 @@ func ConflictIDFromRandomness() (conflictID ConflictID) {
 	return
 }
 
-// OutputID returns the OutputID that the ConflictID represents.
-func (c ConflictID) OutputID() (outputID utxo.OutputID) {
-	if err := outputID.FromMarshalUtil(marshalutil.New(c.Bytes())); err != nil {
-		panic(err)
-	}
-
-	return
-}
-
-// Bytes returns a marshaled version of the ConflictID.
-func (c ConflictID) Bytes() []byte {
-	return c[:]
-}
-
-// Base58 returns a base58 encoded version of the ConflictID.
-func (c ConflictID) Base58() string {
-	return base58.Encode(c.Bytes())
-}
-
-// String returns a human-readable version of the ConflictID.
-func (c ConflictID) String() string {
-	return "ConflictID(" + c.Base58() + ")"
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ConflictIDs //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictIDs represents a collection of ConflictIDs.
-type ConflictIDs map[ConflictID]types.Empty
+type ConflictIDs map[utxo.OutputID]bool
 
 // NewConflictIDs creates a new collection of ConflictIDs from the given list of ConflictIDs.
 func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs) {
 	conflictIDs = make(ConflictIDs)
 	for _, conflictID := range optionalConflictIDs {
-		conflictIDs[conflictID] = types.Void
+		conflictIDs[conflictID] = true
 	}
 
 	return
@@ -173,7 +147,7 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 			return
 		}
 
-		conflictIDs[conflictID] = types.Void
+		conflictIDs[conflictID] = true
 	}
 
 	return
@@ -181,7 +155,7 @@ func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictI
 
 // Add adds a ConflictID to the collection and returns the collection to enable chaining.
 func (c ConflictIDs) Add(conflictID ConflictID) ConflictIDs {
-	c[conflictID] = types.Void
+	c[conflictID] = true
 
 	return c
 }
@@ -226,7 +200,7 @@ func (c ConflictIDs) String() string {
 func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
 	clonedConflictIDs = make(ConflictIDs)
 	for conflictID := range c {
-		clonedConflictIDs[conflictID] = types.Void
+		clonedConflictIDs[conflictID] = true
 	}
 
 	return

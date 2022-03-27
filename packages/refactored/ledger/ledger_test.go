@@ -28,11 +28,15 @@ func TestLedger(t *testing.T) {
 		fmt.Println(err)
 	}))
 
-	tx := NewMockedTransaction([]*MockedInput{
+	tx1 := NewMockedTransaction([]*MockedInput{
+		NewMockedInput(genesisOutput.ID()),
+	}, 2)
+	tx2 := NewMockedTransaction([]*MockedInput{
 		NewMockedInput(genesisOutput.ID()),
 	}, 2)
 
-	fmt.Println(ledger.StoreAndProcessTransaction(tx))
+	fmt.Println(ledger.StoreAndProcessTransaction(tx1))
+	fmt.Println(ledger.StoreAndProcessTransaction(tx2))
 
 	time.Sleep(2000 * time.Millisecond)
 }

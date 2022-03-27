@@ -384,7 +384,8 @@ type OutputMetadata struct {
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
 	firstConsumer           utxo.TransactionID
-	consumerMutex           sync.RWMutex
+	firstConsumerForked     bool
+	firstConsumerMutex      sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
 	gradeOfFinalityMutex    sync.RWMutex
@@ -539,34 +540,38 @@ func (o *OutputMetadata) SolidificationTime() time.Time {
 
 // Spent returns true if the Output has been spent already.
 func (o *OutputMetadata) Spent() bool {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
+	o.firstConsumerMutex.RLock()
+	defer o.firstConsumerMutex.RUnlock()
 
 	return o.firstConsumer != utxo.EmptyTransactionID
 }
 
 // FirstConsumer returns the TransactionID that first spent the Output (or the EmptyTransactionID if it is unspent).
 func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
-	o.consumerMutex.RLock()
-	defer o.consumerMutex.RUnlock()
+	o.firstConsumerMutex.RLock()
+	defer o.firstConsumerMutex.RUnlock()
 
 	return o.firstConsumer
 }
 
-// IsProcessedConsumerDoubleSpend increases the consumer count of an Output and stores the first Consumer that was ever registered. It
+// RegisterProcessedConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) IsProcessedConsumerDoubleSpend(consumer utxo.TransactionID) (isDoubleSpend bool) {
-	o.consumerMutex.Lock()
-	defer o.consumerMutex.Unlock()
+func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
+	o.firstConsumerMutex.Lock()
+	defer o.firstConsumerMutex.Unlock()
 
-	if o.firstConsumer != utxo.EmptyTransactionID {
-		return true
+	if o.firstConsumer == utxo.EmptyTransactionID {
+		o.firstConsumer = consumer
+		o.SetModified()
+
+		return false, utxo.EmptyTransactionID
 	}
 
-	o.firstConsumer = consumer
-	o.SetModified()
+	if o.firstConsumerForked {
+		return true, utxo.EmptyTransactionID
+	}
 
-	return false
+	return true, o.firstConsumer
 }
 
 // GradeOfFinality returns the grade of finality.

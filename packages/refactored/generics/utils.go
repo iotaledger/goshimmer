@@ -99,7 +99,3 @@ func Bind[FirstParamType, ParamType, ReturnType any](secondParam ParamType, call
 		return callback(firstParam, secondParam)
 	}
 }
-
-func Identity[T any](param T) T {
-	return param
-}
