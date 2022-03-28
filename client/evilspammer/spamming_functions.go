@@ -30,8 +30,10 @@ func ValueSpammingFunc(s *Spammer) {
 }
 
 func DoubleSpendSpammingFunc(s *Spammer) {
+	// NOTE: need to set double spend EvilBatch before
 	// choose two different node to prevent being blocked
-	txs, err := s.SpamWallet.PrepareDoubleSpendTransactions(s.EvilScenario)
+	clts := s.Clients.GetClients(2)
+	txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
 		return
@@ -44,7 +46,10 @@ func DoubleSpendSpammingFunc(s *Spammer) {
 	}
 	for i, delay := range delays {
 		time.AfterFunc(delay, func() {
-			s.PostTransaction(txs[i])
+			_, err1 := clts[0].PostTransaction(txs[i][0])
+			s.log.Error(err1)
+			_, err2 := clts[1].PostTransaction(txs[i][1])
+			s.log.Error(err2)
 		})
 	}
 
@@ -52,12 +57,23 @@ func DoubleSpendSpammingFunc(s *Spammer) {
 }
 
 func CustomConflictSpammingFunc(s *Spammer) {
-	//// choose two different node to prevent being blocked
-	//clts := s.Clients.GetClients(s.NumberOfSpends)
-	//txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
-	//if err != nil {
-	//	s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-	//	return
-	//}
-
+	txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
+	if err != nil {
+		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
+		return
+	}
+	delays := make([]time.Duration, s.NumberOfSpends)
+	d := time.Duration(0)
+	for i := range delays {
+		delays[i] = d
+		d += s.TimeDelayBetweenConflicts
+	}
+	for i, delay := range delays {
+		time.AfterFunc(delay, func() {
+			for _, tx := range txs[i] {
+				s.PostTransaction(tx)
+			}
+		})
+	}
+	s.CheckIfAllSent()
 }

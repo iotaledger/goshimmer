@@ -686,46 +686,47 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 	return nil
 }
 
-func (e *EvilWallet) PrepareTransaction(scenario EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	if scenario.outWallet == nil {
-		scenario.outWallet = e.wallets.NewWallet(fresh)
-	}
-	tx, err = e.CreateTransaction(WithInputs("inputAliases[inputNum]"), WithOutputs(nil))
-	return
-}
-
-func (e *EvilWallet) PrepareDoubleSpendTransactions(scenario EvilScenario) (tx []*ledgerstate.Transaction, err error) {
-	if scenario.outWallet == nil {
-		scenario.outWallet = e.wallets.NewWallet(fresh)
-	}
-	return
-}
-
-func (e *EvilWallet) PrepareCustomConflictsSpam(scenario EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
-	err = e.prepareConflictSliceForScenario(scenario)
-	if err != nil {
-		return
-	}
-	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.outWallet)
-
-	return
-}
-
-func (e *EvilWallet) prepareConflictSliceForScenario(scenario EvilScenario) (err error) {
+func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate.Transaction, err error) {
 	if scenario.outWallet == nil {
 		scenario.outWallet = e.wallets.NewWallet(fresh)
 	}
 
 	inWallet, err := e.wallets.GetNextWallet(fresh)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	unspentOutput := inWallet.GetUnspentOutput()
+
+	tx, err = e.CreateTransaction(WithInputs(unspentOutput.OutputID), WithOutput(&OutputOption{aliasName: "2"}), WithIssuer(inWallet), WithOutputWallet(scenario.outWallet))
+	return
+}
+
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
+	conflicts, err := e.prepareConflictSliceForScenario(scenario)
+	if err != nil {
+		return nil, err
+	}
+	scenario.conflictSlice = conflicts
+	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.outWallet)
+
+	return
+}
+
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflicts []ConflictSlice, err error) {
+	if scenario.outWallet == nil {
+		scenario.outWallet = e.wallets.NewWallet(fresh)
+	}
+
+	inWallet, err := e.wallets.GetNextWallet(fresh)
+	if err != nil {
+		return nil, err
 	}
 
 	// Register the alias name for the unspent outputs from inWallet.
-	for i := 0; i < scenario.numOfUnspentOutputs; i++ {
+	for in := range scenario.inputsAlias {
 		unspentOutput := inWallet.GetUnspentOutput()
 		input := ledgerstate.NewUTXOInput(unspentOutput.OutputID)
-		e.aliasManager.AddInputAlias(input, scenario.inputsAlias[i])
+		e.aliasManager.AddInputAlias(input, in)
 	}
 
 	genOutputOptions := func(aliases []string) []*OutputOption {
@@ -737,19 +738,17 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario EvilScenario) (err
 	}
 
 	// make conflictSlice
-	scenario.conflictSlice = make([]ConflictSlice, 0)
+	conflictSlice := make([]ConflictSlice, 0)
 	for _, conflictMap := range scenario.conflictBatch {
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
-			conflicts = append(conflicts, []Option{WithInputs(aliases.inputs),
-				WithOutputs(genOutputOptions(aliases.outputs)),
-				WithOutputWallet(scenario.outWallet),
-				WithIssuer(inWallet)})
+			outs := genOutputOptions(aliases.outputs)
+			conflicts = append(conflicts, []Option{WithInputs(aliases.inputs), WithOutputs(outs), WithIssuer(inWallet)})
 		}
-		scenario.conflictSlice = append(scenario.conflictSlice, conflicts)
+		conflictSlice = append(conflictSlice, conflicts)
 	}
 
-	return nil
+	return conflictSlice, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -774,17 +773,16 @@ type ScenarioAlias struct {
 type EvilBatch [][]ScenarioAlias
 
 type EvilScenario struct {
-	outWallet           *Wallet
-	conflictBatch       EvilBatch
-	conflictSlice       []ConflictSlice
-	numOfUnspentOutputs int
-	repeat              int
+	outWallet     *Wallet
+	conflictBatch EvilBatch
+	conflictSlice []ConflictSlice
+	repeat        int
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
 	reuse bool
 
 	// outputs of the batch that can be reused in deep spamming by collecting them in reuse wallet.
 	batchOutputsAliases map[string]types.Empty
-	inputsAlias         []string
+	inputsAlias         map[string]types.Empty
 }
 
 func NewEvilScenario(conflictBatch EvilBatch, repeat int, reuse bool) *EvilScenario {
@@ -804,8 +802,8 @@ func NewEvilScenario(conflictBatch EvilBatch, repeat int, reuse bool) *EvilScena
 }
 
 func (e *EvilScenario) readCustomConflictsPattern() {
-	e.numOfUnspentOutputs = 0
 	e.batchOutputsAliases = make(map[string]types.Empty)
+	e.inputsAlias = make(map[string]types.Empty)
 
 	for _, conflictMap := range e.conflictBatch {
 		for _, aliases := range conflictMap {
@@ -819,8 +817,7 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 			// unspent outputs to take in each round of spamming.
 			for _, input := range aliases.inputs {
 				if _, ok := e.batchOutputsAliases[input]; !ok {
-					e.numOfUnspentOutputs++
-					e.inputsAlias = append(e.inputsAlias, input)
+					e.inputsAlias[input] = types.Void
 				} else {
 					delete(e.batchOutputsAliases, input)
 				}
