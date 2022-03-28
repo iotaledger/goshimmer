@@ -31,3 +31,12 @@ func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.O
 	}
 	return outputIDs
 }
+
+func getOutputByJSON(jsonOutput *jsonmodels.Output) (output ledgerstate.Output) {
+	output, err := jsonOutput.ToLedgerstateOutput()
+	if err != nil {
+		return
+	}
+
+	return output
+}

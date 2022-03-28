@@ -253,10 +253,9 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 	return txIDs
 }
 
-func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.Output, outputs []*OutputOption) {
+func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.OutputID, outputs []*OutputOption) {
 	evilInput := inputWallet.UnspentOutput(inputAddr)
-	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
-	input = out.SetID(evilInput.OutputID)
+	input = evilInput.OutputID
 
 	inputBalance := uint64(0)
 	evilInput.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -450,7 +449,7 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	if buildOptions.areInputsProvidedWithoutAliases() {
 		for _, out := range buildOptions.inputs {
-			inputs = append(inputs, ledgerstate.NewUTXOInput(out.ID()))
+			inputs = append(inputs, ledgerstate.NewUTXOInput(out))
 		}
 		return
 	}
@@ -571,12 +570,13 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []led
 
 	for _, input := range buildOptions.inputs {
 		// get balance from output manager
-		input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		inputDetails := e.outputManager.GetOutput(input)
+		inputDetails.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			inputBalance += balance
 			return true
 		})
 		if remainderAddress == address.AddressEmpty.Address() {
-			remainderAddress = input.Address()
+			remainderAddress = inputDetails.Address
 		}
 	}
 
@@ -610,7 +610,8 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 		if buildOptions.areInputsProvidedWithoutAliases() {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
-				input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				inputDetails := e.outputManager.GetOutput(input)
+				inputDetails.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 					totalBalance += balance
 					return true
 				})

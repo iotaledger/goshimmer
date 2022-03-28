@@ -15,7 +15,7 @@ import (
 // Options is a struct that represents a collection of options that can be set when creating a message
 type Options struct {
 	aliasInputs              map[string]types.Empty
-	inputs                   []ledgerstate.Output
+	inputs                   []ledgerstate.OutputID
 	aliasOutputs             map[string]*ledgerstate.ColoredBalances
 	outputs                  []*ledgerstate.ColoredBalances
 	strongParents            map[string]types.Empty
@@ -40,7 +40,7 @@ type OutputOption struct {
 func NewOptions(options ...Option) (messageOptions *Options) {
 	messageOptions = &Options{
 		aliasInputs:           make(map[string]types.Empty),
-		inputs:                make([]ledgerstate.Output, 0),
+		inputs:                make([]ledgerstate.OutputID, 0),
 		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
 		outputs:               make([]*ledgerstate.ColoredBalances, 0),
 		strongParents:         make(map[string]types.Empty),
@@ -105,7 +105,7 @@ func WithInputs(inputs ...interface{}) Option {
 			switch in := input.(type) {
 			case string:
 				options.aliasInputs[in] = types.Void
-			case ledgerstate.Output:
+			case ledgerstate.OutputID:
 				options.inputs = append(options.inputs, in)
 			}
 		}
@@ -119,7 +119,6 @@ func WithOutput(output *OutputOption) Option {
 			options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				output.color: output.amount,
 			})
-			return
 		} else {
 			options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				output.color: output.amount,
