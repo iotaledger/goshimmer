@@ -156,7 +156,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	if err != nil {
 		return
 	}
-	w := e.NewWallet()
+	w := e.NewWallet(fresh)
 	txIDs := e.splitOutputs(funds, w, FaucetRequestSplitNumber)
 
 	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
