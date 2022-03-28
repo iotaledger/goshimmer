@@ -38,7 +38,7 @@ type Spammer struct {
 
 	Clients      evilwallet.Connector
 	SpamWallet   *evilwallet.EvilWallet
-	EvilScenario evilwallet.EvilScenario
+	EvilScenario *evilwallet.EvilScenario
 	ErrCounter   *ErrorCounter
 	log          Logger
 

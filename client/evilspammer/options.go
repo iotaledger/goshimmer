@@ -1,8 +1,9 @@
 package evilspammer
 
 import (
-	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
 )
 
 type Options func(*Spammer)
@@ -36,7 +37,7 @@ func WithSpamWallet(initWallets *evilwallet.EvilWallet) Options {
 }
 
 // WithEvilScenario provides initWallet of spammer, if omitted spammer will prepare funds based on maxMsgSent parameter
-func WithEvilScenario(scenario evilwallet.EvilScenario) Options {
+func WithEvilScenario(scenario *evilwallet.EvilScenario) Options {
 	return func(s *Spammer) {
 		s.EvilScenario = scenario
 	}
