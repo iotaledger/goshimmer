@@ -694,15 +694,15 @@ func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate
 	outBalance := getIotaColorAmount(evilInput.Balance)
 	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
 	input := out.SetID(evilInput.OutputID)
-	tx, err = e.CreateTransaction(WithInputs(input), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.outputWallet), WithIssuer(wallet))
+	tx, err = e.CreateTransaction(WithInputs(input), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.OutputWallet), WithIssuer(wallet))
 	return
 }
 
-func (e *EvilWallet) PrepareDoubleSpendTransactions(scenario *EvilScenario) (tx []*ledgerstate.Transaction, err error) {
-	return
-}
-
-func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (tx [][]*ledgerstate.Transaction, err error) {
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
+	txs, err = e.PrepareCustomConflicts(scenario.ConflictBatch, scenario.OutputWallet)
+	if err != nil {
+		return nil, err
+	}
 	return
 }
 
@@ -713,37 +713,36 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (tx [][]
 type EvilBatch []ConflictSlice
 
 type EvilScenario struct {
-	conflictBatch EvilBatch
-	repeat        int
+	ConflictBatch EvilBatch
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
-	reuse bool
+	Reuse bool
 
-	outputWallet *Wallet
-	// outputs of the batch that can be reused in deep spamming by collecting them in reuse wallet.
+	OutputWallet *Wallet
+	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
 	batchOutputsAliases map[string]types.Empty
 }
 
 func NewEvilScenario(conflictBatch []ConflictSlice, reuse bool, outputWallet *Wallet) *EvilScenario {
 	scenario := &EvilScenario{
-		reuse:        reuse,
-		outputWallet: outputWallet,
+		Reuse:        reuse,
+		OutputWallet: outputWallet,
 	}
 
 	if conflictBatch == nil {
-		scenario.conflictBatch = SingleTransactionBatch()
+		scenario.ConflictBatch = SingleTransactionBatch()
 	} else {
-		scenario.conflictBatch = conflictBatch
+		scenario.ConflictBatch = conflictBatch
 		scenario.assignBatchOutputs()
 	}
 	if outputWallet == nil {
-		scenario.outputWallet = NewWallet()
+		scenario.OutputWallet = NewWallet()
 	}
 	return scenario
 }
 
 func (e *EvilScenario) assignBatchOutputs() {
 	e.batchOutputsAliases = make(map[string]types.Empty)
-	for _, conflictMap := range e.conflictBatch {
+	for _, conflictMap := range e.ConflictBatch {
 		for _, options := range conflictMap {
 			option := NewOptions(options...)
 			for outputAlis := range option.aliasOutputs {
