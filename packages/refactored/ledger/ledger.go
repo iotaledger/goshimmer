@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )

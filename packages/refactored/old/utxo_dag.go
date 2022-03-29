@@ -15,9 +15,11 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -101,7 +103,7 @@ func (u *UTXODAG) CheckTransaction(transaction utxo.Transaction) (err error) {
 }
 
 // TransactionBranchIDs returns the BranchIDs of the given Transaction.
-func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag.BranchIDs, err error) {
+func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag2.BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		branchIDs = transactionMetadata.BranchIDs()
 	}) {
@@ -138,8 +140,8 @@ func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (grade
 }
 
 // BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-func (u *UTXODAG) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == branchdag.MasterBranchID {
+func (u *UTXODAG) BranchGradeOfFinality(branchID branchdag2.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == branchdag2.MasterBranchID {
 		return gof.High, nil
 	}
 
@@ -195,7 +197,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
-			metadata.AddBranchID(branchdag.MasterBranchID)
+			metadata.AddBranchID(branchdag2.MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetGradeOfFinality(gof.High)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
@@ -207,7 +209,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		// store TransactionMetadata
 		txMetadata := NewTransactionMetadata(txID)
 		txMetadata.SetSolid(true)
-		txMetadata.AddBranchID(branchdag.MasterBranchID)
+		txMetadata.AddBranchID(branchdag2.MasterBranchID)
 		txMetadata.SetGradeOfFinality(gof.High)
 
 		u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) *TransactionMetadata {
@@ -251,7 +253,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		// Because we are forking the transaction, automatically all the outputs and the transaction itself need to go
 		// into the newly forked branch (own branch) and override all other existing branches. These are now mapped via
 		// the BranchDAG (parents of forked branch).
-		forkedBranchIDs := branchdag.NewBranchIDs(forkedBranchID)
+		forkedBranchIDs := branchdag2.NewBranchIDs(forkedBranchID)
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
 			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -277,7 +279,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranch is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new Branch.
-func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID branchdag.BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID branchdag2.BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
 			for transactionBranchID := range transactionMetadata.BranchIDs() {
@@ -499,7 +501,7 @@ func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 // changed.
 type TransactionBranchIDUpdatedByForkEvent struct {
 	TransactionID  utxo.TransactionID
-	ForkedBranchID branchdag.BranchID
+	ForkedBranchID branchdag2.BranchID
 }
 
 // TransactionBranchIDUpdatedByForkEventHandler is an event handler for an event with a

@@ -12,9 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -23,7 +25,7 @@ import (
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
 	id                      utxo2.OutputID
-	branchIDs               branchdag2.BranchIDs
+	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
@@ -42,7 +44,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputID utxo2.OutputID) *OutputMetadata {
 	return &OutputMetadata{
 		id:        outputID,
-		branchIDs: branchdag2.NewBranchIDs(),
+		branchIDs: branchdag.NewBranchIDs(),
 	}
 }
 
@@ -113,7 +115,7 @@ func (o *OutputMetadata) ID() utxo2.OutputID {
 }
 
 // BranchIDs returns the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) BranchIDs() branchdag2.BranchIDs {
+func (o *OutputMetadata) BranchIDs() branchdag.BranchIDs {
 	o.branchIDsMutex.RLock()
 	defer o.branchIDsMutex.RUnlock()
 
@@ -121,7 +123,7 @@ func (o *OutputMetadata) BranchIDs() branchdag2.BranchIDs {
 }
 
 // SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag2.BranchIDs) (modified bool) {
+func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -135,7 +137,7 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag2.BranchIDs) (modified 
 }
 
 // AddBranchID adds an identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) AddBranchID(branchID branchdag2.BranchID) (modified bool) {
+func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -143,7 +145,7 @@ func (o *OutputMetadata) AddBranchID(branchID branchdag2.BranchID) (modified boo
 		return false
 	}
 
-	delete(o.branchIDs, branchdag2.MasterBranchID)
+	delete(o.branchIDs, branchdag.MasterBranchID)
 
 	o.branchIDs.Add(branchID)
 	o.SetModified()
@@ -299,12 +301,12 @@ func (o OutputsMetadata) OutputIDs() (outputIDs []utxo2.OutputID) {
 }
 
 // ConflictIDs returns the ConflictIDs that are the equivalent of the OutputIDs in the list.
-func (o OutputsMetadata) ConflictIDs() (conflictIDs branchdag2.ConflictIDs) {
-	conflictIDsSlice := make([]branchdag2.ConflictID, len(o))
+func (o OutputsMetadata) ConflictIDs() (conflictIDs branchdag.ConflictIDs) {
+	conflictIDsSlice := make([]branchdag.ConflictID, len(o))
 	for i, input := range o {
 		conflictIDsSlice[i] = branchdag2.NewConflictID(input.ID())
 	}
-	conflictIDs = branchdag2.NewConflictIDs(conflictIDsSlice...)
+	conflictIDs = branchdag.NewConflictIDs(conflictIDsSlice...)
 
 	return
 }
@@ -360,12 +362,12 @@ func (o OutputsMetadataByID) IDs() (outputIDs []utxo2.OutputID) {
 }
 
 // ConflictIDs turns the list of OutputMetadata objects into their corresponding ConflictIDs.
-func (o OutputsMetadataByID) ConflictIDs() (conflictIDs branchdag2.ConflictIDs) {
-	conflictIDsSlice := make([]branchdag2.ConflictID, 0, len(o))
+func (o OutputsMetadataByID) ConflictIDs() (conflictIDs branchdag.ConflictIDs) {
+	conflictIDsSlice := make([]branchdag.ConflictID, 0, len(o))
 	for inputID := range o {
 		conflictIDsSlice = append(conflictIDsSlice, branchdag2.NewConflictID(inputID))
 	}
-	conflictIDs = branchdag2.NewConflictIDs(conflictIDsSlice...)
+	conflictIDs = branchdag.NewConflictIDs(conflictIDsSlice...)
 
 	return
 }
