@@ -93,9 +93,7 @@ func (s *Spammer) setup() {
 
 func (s *Spammer) initLogger() {
 	config := configuration.New()
-	if err := logger.InitGlobalLogger(config); err != nil {
-		panic(err)
-	}
+	_ = logger.InitGlobalLogger(config)
 	logger.SetLevel(logger.LevelInfo)
 	s.log = logger.NewLogger("Spammer")
 }

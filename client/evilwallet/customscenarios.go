@@ -15,3 +15,24 @@ func DoubleSpendBatch(spentNum int) EvilBatch {
 	}
 	return EvilBatch{conflictSlice}
 }
+
+func Scenario1() EvilBatch {
+	return []ConflictSlice{
+		{
+			// split funds
+			[]Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}})},
+		},
+		{
+			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4"})},
+			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "5"})},
+		},
+		{
+			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "6"})},
+			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "7"})},
+		},
+		{
+			// aggregated
+			[]Option{WithInputs("5", "6"), WithOutput(&OutputOption{aliasName: "8", amount: 1000000})},
+		},
+	}
+}
