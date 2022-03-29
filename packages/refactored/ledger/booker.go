@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"fmt"
+
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
@@ -97,6 +99,8 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	conflictingInputs := b.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
+	fmt.Println(txMetadata.ID(), previousParentBranches)
+
 	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) || !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
 		b.Unlock(txMetadata.ID())
 		return
@@ -106,17 +110,17 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	// b.TransactionForkedEvent.Trigger()
 	// trigger forked event
 
-	b.propagateForkedBranchToFutureCone(txMetadata, previousParentBranches)
+	b.propagateForkedBranchToFutureCone(txMetadata, txMetadata.ID(), previousParentBranches)
 
 	return
 }
 
-func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetadata, previousParentBranches branchdag.BranchIDs) {
+func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs) {
 	b.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[OutputID]) {
 		b.Lock(consumingTxMetadata.ID())
 		defer b.Unlock(consumingTxMetadata.ID())
 
-		if !b.updateBranchesAfterFork(consumingTxMetadata, txMetadata.ID(), previousParentBranches) {
+		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedBranchID, previousParentBranches) {
 			return
 		}
 
@@ -127,6 +131,10 @@ func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetada
 }
 
 func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
+	if txMetadata.IsConflicting() {
+		fmt.Println("conflicting")
+	}
+
 	if txMetadata.BranchIDs().Has(forkedBranchID) {
 		return false
 	}

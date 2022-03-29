@@ -87,7 +87,7 @@ func (l *Ledger) Setup() {
 }
 
 // StoreAndProcessTransaction is the only public facing api
-func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool) {
+func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (outputIDs OutputIDs, processed bool) {
 	transaction := NewTransaction(tx)
 
 	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
@@ -100,19 +100,21 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool
 	//  (e.g. by a reattachment)
 	if !processed {
 		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
+			outputIDs = metadata.OutputIDs()
 			processed = metadata.Processed()
 		})
 
-		return processed
+		return outputIDs, processed
 	}
 
 	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
 		l.TransactionStoredEvent.Trigger(transaction.ID())
 
 		processed = l.processTransaction(transaction, metadata)
+		outputIDs = metadata.OutputIDs()
 	})
 
-	return processed
+	return outputIDs, processed
 }
 
 func (l *Ledger) processTransaction(tx *Transaction, txMeta *TransactionMetadata) (success bool) {

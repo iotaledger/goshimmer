@@ -138,5 +138,5 @@ func (o OutputIDs) String() (humanReadable string) {
 		return "OutputIDs()"
 	}
 
-	return "OutputIDs(\"" + strings.Join(elementStrings, "\", \"") + "\")"
+	return "OutputIDs(" + strings.Join(elementStrings, ", ") + ")"
 }

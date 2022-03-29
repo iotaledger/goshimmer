@@ -1,10 +1,14 @@
 package utxo
 
 import (
+	"strings"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 )
 
 type TransactionIDs struct {
@@ -126,5 +130,10 @@ func (o TransactionIDs) Bytes() (serialized []byte) {
 }
 
 func (o TransactionIDs) String() (humanReadable string) {
-	return ""
+	elementStrings := generics.Map(o.Slice(), TransactionID.Base58)
+	if len(elementStrings) == 0 {
+		return "TransactionIDs()"
+	}
+
+	return "TransactionIDs(" + strings.Join(elementStrings, ", ") + ")"
 }
