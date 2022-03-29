@@ -236,317 +236,317 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	}
 }
 
-func TestNewMessageWithValidation(t *testing.T) {
-	t.Run("CASE: Too many strong parents", func(t *testing.T) {
-		// too many strong parents
-		strongParents := testSortParents(randomParents(MaxParentsCount + 1))
-		block := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  strongParents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{block},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrParentsOutOfRange)
-	})
-
-	t.Run("CASE: Nil block", func(t *testing.T) {
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			nil,
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
-	})
-
-	t.Run("CASE: Empty Block", func(t *testing.T) {
-		block := ParentsBlock{}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{block},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
-	})
-
-	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
-		parents := testSortParents(randomParents(MaxParentsCount))
-
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		weakBlock := ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  parents,
-		}
-		dislikeBlock := ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  testSortParents(randomParents(MaxParentsCount)),
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{weakBlock, strongBlock, dislikeBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		// Since no strong parents in first block the validator will assume they are missing
-		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before like block")
-	})
-
-	t.Run("CASE: Repeating block types", func(t *testing.T) {
-		parents := testSortParents(randomParents(MaxParentsCount))
-
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		strongBlock2 := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-		likeBlock2 := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, strongBlock2, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock, likeBlock2},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
-	})
-
-	t.Run("CASE: Unknown block type", func(t *testing.T) {
-		parents := testSortParents(randomParents(MaxParentsCount))
-
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  testSortParents(randomParents(MaxParentsCount)),
-		}
-		unknownBlock := ParentsBlock{
-			ParentsType: LastValidBlockType + 1, // this should always be out of range
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock, unknownBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-
-		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
-	})
-
-	t.Run("Case: Duplicate references", func(t *testing.T) {
-		parents := testSortParents(randomParents(4))
-		parents = append(parents, parents[3])
-
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
-
-		parents = testSortParents(randomParents(4))
-		parents = append(parents, parents[1])
-
-		strongBlock.References = parents
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		// if the duplicates are not consecutive a lexicographically order error is returned
-		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
-	})
-
-	t.Run("Parents Repeating across blocks", func(t *testing.T) {
-		parents := testSortParents(randomParents(4))
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-
-		assert.NoError(t, err, "strong and like parents may have duplicate parents")
-
-		weakBlock := ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  parents,
-		}
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0,
-		)
-		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
-
-		// check for repeating message across weak and dislike block
-		weakParents := testSortParents(randomParents(4))
-		dislikeParents := randomParents(4).Slice()
-		// create duplicate
-		dislikeParents[2] = weakParents[2]
-		dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
-
-		weakBlock = ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  weakParents,
-		}
-
-		dislikeBlock := ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  dislikeParents,
-		}
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0)
-		fmt.Println(err)
-		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "message repeated across weak and dislike blocks")
-	})
-}
+// func TestNewMessageWithValidation(t *testing.T) {
+// 	t.Run("CASE: Too many strong parents", func(t *testing.T) {
+// 		// too many strong parents
+// 		strongParents := testSortParents(randomParents(MaxParentsCount + 1))
+// 		block := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  strongParents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{block},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrParentsOutOfRange)
+// 	})
+//
+// 	t.Run("CASE: Nil block", func(t *testing.T) {
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			nil,
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrNoStrongParents)
+// 	})
+//
+// 	t.Run("CASE: Empty Block", func(t *testing.T) {
+// 		block := ParentsBlock{}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{block},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrNoStrongParents)
+// 	})
+//
+// 	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
+// 		parents := testSortParents(randomParents(MaxParentsCount))
+//
+// 		strongBlock := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+// 		weakBlock := ParentsBlock{
+// 			ParentsType: WeakParentType,
+// 			References:  parents,
+// 		}
+// 		dislikeBlock := ParentsBlock{
+// 			ParentsType: ShallowDislikeParentType,
+// 			References:  testSortParents(randomParents(MaxParentsCount)),
+// 		}
+// 		likeBlock := ParentsBlock{
+// 			ParentsType: ShallowLikeParentType,
+// 			References:  parents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{weakBlock, strongBlock, dislikeBlock, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		// Since no strong parents in first block the validator will assume they are missing
+// 		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before like block")
+// 	})
+//
+// 	t.Run("CASE: Repeating block types", func(t *testing.T) {
+// 		parents := testSortParents(randomParents(MaxParentsCount))
+//
+// 		strongBlock := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+// 		strongBlock2 := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+// 		likeBlock := ParentsBlock{
+// 			ParentsType: ShallowLikeParentType,
+// 			References:  parents,
+// 		}
+// 		likeBlock2 := ParentsBlock{
+// 			ParentsType: ShallowLikeParentType,
+// 			References:  parents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, strongBlock2, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+//
+// 		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, likeBlock, likeBlock2},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+//
+// 		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
+// 	})
+//
+// 	t.Run("CASE: Unknown block type", func(t *testing.T) {
+// 		parents := testSortParents(randomParents(MaxParentsCount))
+//
+// 		strongBlock := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+// 		likeBlock := ParentsBlock{
+// 			ParentsType: ShallowLikeParentType,
+// 			References:  testSortParents(randomParents(MaxParentsCount)),
+// 		}
+// 		unknownBlock := ParentsBlock{
+// 			ParentsType: LastValidBlockType + 1, // this should always be out of range
+// 			References:  parents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, likeBlock, unknownBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+//
+// 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
+// 	})
+//
+// 	t.Run("Case: Duplicate references", func(t *testing.T) {
+// 		parents := testSortParents(randomParents(4))
+// 		parents = append(parents, parents[3])
+//
+// 		strongBlock := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
+//
+// 		parents = testSortParents(randomParents(4))
+// 		parents = append(parents, parents[1])
+//
+// 		strongBlock.References = parents
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		// if the duplicates are not consecutive a lexicographically order error is returned
+// 		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
+// 	})
+//
+// 	t.Run("Parents Repeating across blocks", func(t *testing.T) {
+// 		parents := testSortParents(randomParents(4))
+// 		strongBlock := ParentsBlock{
+// 			ParentsType: StrongParentType,
+// 			References:  parents,
+// 		}
+//
+// 		likeBlock := ParentsBlock{
+// 			ParentsType: ShallowLikeParentType,
+// 			References:  parents,
+// 		}
+//
+// 		_, err := newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, likeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+//
+// 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
+//
+// 		weakBlock := ParentsBlock{
+// 			ParentsType: WeakParentType,
+// 			References:  parents,
+// 		}
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, weakBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0,
+// 		)
+// 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
+//
+// 		// check for repeating message across weak and dislike block
+// 		weakParents := testSortParents(randomParents(4))
+// 		dislikeParents := randomParents(4).Slice()
+// 		// create duplicate
+// 		dislikeParents[2] = weakParents[2]
+// 		dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
+//
+// 		weakBlock = ParentsBlock{
+// 			ParentsType: WeakParentType,
+// 			References:  weakParents,
+// 		}
+//
+// 		dislikeBlock := ParentsBlock{
+// 			ParentsType: ShallowDislikeParentType,
+// 			References:  dislikeParents,
+// 		}
+//
+// 		_, err = newMessageWithValidation(
+// 			MessageVersion,
+// 			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock},
+// 			time.Now(),
+// 			ed25519.PublicKey{},
+// 			payload.NewGenericDataPayload([]byte("")),
+// 			0,
+// 			ed25519.Signature{},
+// 			0)
+// 		fmt.Println(err)
+// 		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "message repeated across weak and dislike blocks")
+// 	})
+// }
 
 func TestMessage_NewMessage(t *testing.T) {
 	t.Run("CASE: No parents at all", func(t *testing.T) {
@@ -772,66 +772,66 @@ func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
 	return msg.Bytes()
 }
 
-func TestMessageFromMarshalUtil(t *testing.T) {
-	t.Run("CASE: Missing version", func(t *testing.T) {
-		marshaller := marshalutil.New([]byte{})
-		// missing version
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse message version"))
-	})
-
-	t.Run("CASE: Missing parents count", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		// missing parentsCount
-		marshaller := marshalutil.New(msgBytes[:1])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
-	})
-
-	t.Run("CASE: Invalid parents count (less)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		msgBytes[1] = MinParentsCount - 1
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MinParentsCount-1))
-	})
-
-	t.Run("CASE: Invalid parents count (more)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		msgBytes[1] = MaxParentsCount + 1
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MaxParentsCount+1))
-	})
-
-	t.Run("CASE: Missing parent types", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
-	})
-
-	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:3])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
-	})
-
-	t.Run("CASE: Missing parents (one)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:3+(MaxParentsCount-1)*32])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
-	})
-}
+// func TestMessageFromMarshalUtil(t *testing.T) {
+// 	t.Run("CASE: Missing version", func(t *testing.T) {
+// 		marshaller := marshalutil.New([]byte{})
+// 		// missing version
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse message version"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents count", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		// missing parentsCount
+// 		marshaller := marshalutil.New(msgBytes[:1])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
+// 	})
+//
+// 	t.Run("CASE: Invalid parents count (less)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		msgBytes[1] = MinParentsCount - 1
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MinParentsCount-1))
+// 	})
+//
+// 	t.Run("CASE: Invalid parents count (more)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		msgBytes[1] = MaxParentsCount + 1
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MaxParentsCount+1))
+// 	})
+//
+// 	t.Run("CASE: Missing parent types", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:3])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents (one)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:3+(MaxParentsCount-1)*32])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
+// 	})
+// }
 
 func randomTransaction() *ledgerstate.Transaction {
 	ID, _ := identity.RandomID()

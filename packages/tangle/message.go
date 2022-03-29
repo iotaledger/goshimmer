@@ -10,10 +10,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -277,7 +277,7 @@ type messageInner struct {
 
 	// core properties (get sent over the wire)
 	Version         uint8             `serix:"0"`
-	ParentsBlocks   ParentsBlocks     `serix:"1,lengthPrefixType:uint8"`
+	Parents         ParentMessageIDs  `serix:"1,lengthPrefixType=uint8"`
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
@@ -295,103 +295,10 @@ type messageInner struct {
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
-	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(references[StrongParentType])
-	sortedWeakParents := sortParents(references[WeakParentType])
-	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType])
-	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType])
-
-	weakParentsCount := len(sortedWeakParents)
-	shallowDislikeParentsCount := len(sortedShallowDislikeParents)
-	shallowLikeParentsCount := len(sortedShallowLikeParents)
-
-	var parentsBlocks []ParentsBlock
-
-	parentsBlocks = append(parentsBlocks, ParentsBlock{
-		ParentsType: StrongParentType,
-		References:  sortedStrongParents,
-	})
-
-	if weakParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  sortedWeakParents,
-		})
-	}
-
-	if shallowLikeParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  sortedShallowLikeParents,
-		})
-	}
-
-	if shallowDislikeParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  sortedShallowDislikeParents,
-		})
-	}
-
-	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber)
-}
-
-// newMessageWithValidation creates a new message while performing ths following syntactical checks:
-// 1. A Strong Parents Block must exist.
-// 2. Parents Block types cannot repeat.
-// 3. Parent count per block 1 <= x <= 8.
-// 4. Parents unique within block.
-// 5. Parents lexicographically sorted within block.
-// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-// 7. Blocks should be ordered by type in ascending order.
-func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
-	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
-	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
-	// Validate strong parent block
-	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
-		len(parentsBlocks[0].References) < MinStrongParentsCount {
-		return nil, ErrNoStrongParents
-	}
-
-	// Block types must be ordered in ASC order and not repeat
-	for i := 0; i < len(parentsBlocks)-1; i++ {
-		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
-			return nil, ErrRepeatingBlockTypes
-		}
-		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
-			return nil, ErrBlocksNotOrderedByType
-		}
-		// we can skip the first block because we already ascertained it is of StrongParentType
-		if parentsBlocks[i+1].ParentsType > LastValidBlockType {
-			return nil, ErrBlockTypeIsUnknown
-		}
-	}
-
-	// 1. Parent Count is correct for each block
-	// 2. Number of parents in eac block is in range
-	// 3. Parents are lexicographically ordered with no repetitions
-	for _, block := range parentsBlocks {
-		if len(block.References) > MaxParentsCount || len(block.References) < MinParentsCount {
-			return nil, ErrParentsOutOfRange
-		}
-		// The lexicographical order check also makes sure there are no duplicates
-		for i := 0; i < len(block.References)-1; i++ {
-			switch block.References[i].CompareTo(block.References[i+1]) {
-			case 0:
-				return nil, ErrRepeatingReferencesInBlock
-			case 1:
-				return nil, ErrParentsNotLexicographicallyOrdered
-			}
-		}
-	}
-
-	if areReferencesConflictingAcrossBlocks(parentsBlocks) {
-		return nil, ErrConflictingReferenceAcrossBlocks
-	}
 
 	return &Message{messageInner{
-		Version:         version,
-		ParentsBlocks:   parentsBlocks,
+		Version:         MessageVersion,
+		Parents:         references,
 		IssuerPublicKey: issuerPublicKey,
 		IssuingTime:     issuingTime,
 		SequenceNumber:  sequenceNumber,
@@ -401,170 +308,207 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	}}, nil
 }
 
-// validate messagesIDs are unique across blocks
-// there may be repetition across strong and like parents.
-func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	additiveParents := MessageIDs{}
-	subtractiveParents := MessageIDs{}
+// newMessageWithValidation creates a new message while performing ths following syntactical checks:
+// 1. A Strong Parents Block must exist.
+// 2. Parents Block types cannot repeat.
+// 3. Parent count per block 1 <= x <= 8.
+// 4. Parents unique within block.
+// 5. Parents lexicographically sorted within block.
+// 7. Blocks should be ordered by type in ascending order.
 
-	for _, parentBlock := range parentsBlocks {
-		for _, parent := range parentBlock.References {
-			if parentBlock.ParentsType == WeakParentType || parentBlock.ParentsType == ShallowLikeParentType {
-				additiveParents[parent] = types.Void
-			} else if parentBlock.ParentsType == ShallowDislikeParentType {
-				subtractiveParents[parent] = types.Void
-			}
-		}
-	}
-
-	for parent := range subtractiveParents {
-		if _, exists := additiveParents[parent]; exists {
-			return true
-		}
-	}
-
-	return false
-}
-
-// filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents MessageIDs) (sorted []MessageID) {
-	sorted = parents.Slice()
-
-	// sort parents
-	sort.Slice(sorted, func(i, j int) bool {
-		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
-	})
-
-	return
-}
+// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+// func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
+// 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
+// 	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+// 	// Validate strong parent block
+// 	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
+// 		len(parentsBlocks[0].References) < MinStrongParentsCount {
+// 		return nil, ErrNoStrongParents
+// 	}
+//
+// 	// Block types must be ordered in ASC order and not repeat
+// 	for i := 0; i < len(parentsBlocks)-1; i++ {
+// 		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
+// 			return nil, ErrRepeatingBlockTypes
+// 		}
+// 		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
+// 			return nil, ErrBlocksNotOrderedByType
+// 		}
+// 		// we can skip the first block because we already ascertained it is of StrongParentType
+// 		if parentsBlocks[i+1].ParentsType > LastValidBlockType {
+// 			return nil, ErrBlockTypeIsUnknown
+// 		}
+// 	}
+//
+// 	// 1. Parent Count is correct for each block
+// 	// 2. Number of parents in eac block is in range
+// 	// 3. Parents are lexicographically ordered with no repetitions
+// 	for _, block := range parentsBlocks {
+// 		if len(block.References) > MaxParentsCount || len(block.References) < MinParentsCount {
+// 			return nil, ErrParentsOutOfRange
+// 		}
+// 		// The lexicographical order check also makes sure there are no duplicates
+// 		for i := 0; i < len(block.References)-1; i++ {
+// 			switch block.References[i].CompareTo(block.References[i+1]) {
+// 			case 0:
+// 				return nil, ErrRepeatingReferencesInBlock
+// 			case 1:
+// 				return nil, ErrParentsNotLexicographicallyOrdered
+// 			}
+// 		}
+// 	}
+//
+// 	if areReferencesConflictingAcrossBlocks(parentsBlocks) {
+// 		return nil, ErrConflictingReferenceAcrossBlocks
+// 	}
+//
+// 	return &Message{messageInner{
+// 		Version:         version,
+// 		ParentsBlocks:   parentsBlocks,
+// 		IssuerPublicKey: issuerPublicKey,
+// 		IssuingTime:     issuingTime,
+// 		SequenceNumber:  sequenceNumber,
+// 		Payload:         msgPayload,
+// 		Nonce:           nonce,
+// 		Signature:       signature,
+// 	}}, nil
+// }
+//
+// // validate messagesIDs are unique across blocks
+// // there may be repetition across strong and like parents.
+// func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
+// 	additiveParents := MessageIDs{}
+// 	subtractiveParents := MessageIDs{}
+//
+// 	for _, parentBlock := range parentsBlocks {
+// 		for _, parent := range parentBlock.References {
+// 			if parentBlock.ParentsType == WeakParentType || parentBlock.ParentsType == ShallowLikeParentType {
+// 				additiveParents[parent] = types.Void
+// 			} else if parentBlock.ParentsType == ShallowDislikeParentType {
+// 				subtractiveParents[parent] = types.Void
+// 			}
+// 		}
+// 	}
+//
+// 	for parent := range subtractiveParents {
+// 		if _, exists := additiveParents[parent]; exists {
+// 			return true
+// 		}
+// 	}
+//
+// 	return false
+// }
+//
 
 // FromObjectStorage parses the given key and bytes into a message.
 func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-
-	// parse the message
-	message, err := m.FromBytes(data)
-	if err != nil {
-		err = fmt.Errorf("failed to parse message from object storage: %w", err)
-		return
-	}
-
-	// parse the ID from they key
-	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
-		return
-	}
-	message.id = &id
-
-	// assign result
-	result = message
 
 	return
 }
 
 // FromBytes parses the given bytes into a message.
 func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	message, err = m.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return
-	}
-	consumedBytes := marshalUtil.ReadOffset()
-
-	if len(bytes) != consumedBytes {
-		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
-	}
+	// 	marshalUtil := marshalutil.New(bytes)
+	// 	message, err = m.FromMarshalUtil(marshalUtil)
+	// 	if err != nil {
+	// 		return
+	// 	}
+	// 	consumedBytes := marshalUtil.ReadOffset()
+	//
+	// 	if len(bytes) != consumedBytes {
+	// 		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+	// 	}
 	return
 }
 
 // FromMarshalUtil parses a message from the given marshal util.
-func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
-	// determine read offset before starting to parse
-	readOffsetStart := marshalUtil.ReadOffset()
-
-	// parse information
-	version, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, errors.Errorf("failed to parse message Version from MarshalUtil: %w", err)
-	}
-
-	var parentsBlocksCount uint8
-	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
-		return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-	}
-	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
-		return nil, errors.Errorf("parents count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
-	}
-
-	parentsBlocks := make([]ParentsBlock, parentsBlocksCount)
-
-	for i := 0; i < int(parentsBlocksCount); i++ {
-		var parentType uint8
-		if parentType, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
-		}
-
-		var parentsCount uint8
-		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-		}
-		references := make([]MessageID, parentsCount)
-		for j := 0; j < int(parentsCount); j++ {
-			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
-			}
-		}
-		parentsBlocks[i] = ParentsBlock{
-			ParentsType: ParentsType(parentType),
-			References:  references,
-		}
-	}
-
-	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuer public key of the message: %w", err)
-	}
-	issuingTime, err := marshalUtil.ReadTime()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuing time of the message: %w", err)
-	}
-	msgSequenceNumber, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse sequence number of the message: %w", err)
-	}
-
-	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Payload of the message: %w", err)
-	}
-
-	nonce, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Nonce of the message: %w", err)
-	}
-	signature, err := ed25519.ParseSignature(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Signature of the message: %w", err)
-	}
-
-	// retrieve the number of bytes we processed
-	readOffsetEnd := marshalUtil.ReadOffset()
-
-	// store marshaled Version as a copy
-	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
-	if err != nil {
-		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
-	}
-
-	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	msg.bytes = msgBytes
-
-	return msg, nil
-}
+// func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
+// 	// determine read offset before starting to parse
+// 	readOffsetStart := marshalUtil.ReadOffset()
+//
+// 	// parse information
+// 	version, err := marshalUtil.ReadByte()
+// 	if err != nil {
+// 		return nil, errors.Errorf("failed to parse message Version from MarshalUtil: %w", err)
+// 	}
+//
+// 	var parentsBlocksCount uint8
+// 	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
+// 		return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
+// 	}
+// 	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
+// 		return nil, errors.Errorf("parents count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
+// 	}
+//
+// 	parentsBlocks := make([]ParentsBlock, parentsBlocksCount)
+//
+// 	for i := 0; i < int(parentsBlocksCount); i++ {
+// 		var parentType uint8
+// 		if parentType, err = marshalUtil.ReadByte(); err != nil {
+// 			return nil, errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
+// 		}
+//
+// 		var parentsCount uint8
+// 		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
+// 			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
+// 		}
+// 		references := make([]MessageID, parentsCount)
+// 		for j := 0; j < int(parentsCount); j++ {
+// 			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+// 				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
+// 			}
+// 		}
+// 		parentsBlocks[i] = ParentsBlock{
+// 			ParentsType: ParentsType(parentType),
+// 			References:  references,
+// 		}
+// 	}
+//
+// 	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse issuer public key of the message: %w", err)
+// 	}
+// 	issuingTime, err := marshalUtil.ReadTime()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse issuing time of the message: %w", err)
+// 	}
+// 	msgSequenceNumber, err := marshalUtil.ReadUint64()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse sequence number of the message: %w", err)
+// 	}
+//
+// 	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse Payload of the message: %w", err)
+// 	}
+//
+// 	nonce, err := marshalUtil.ReadUint64()
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse Nonce of the message: %w", err)
+// 	}
+// 	signature, err := ed25519.ParseSignature(marshalUtil)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to parse Signature of the message: %w", err)
+// 	}
+//
+// 	// retrieve the number of bytes we processed
+// 	readOffsetEnd := marshalUtil.ReadOffset()
+//
+// 	// store marshaled Version as a copy
+// 	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
+// 	}
+//
+// 	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	msg.bytes = msgBytes
+//
+// 	return msg, nil
+// }
 
 // VerifySignature verifies the Signature of the message.
 func (m *Message) VerifySignature() bool {
@@ -613,20 +557,18 @@ func (m *Message) Version() uint8 {
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	for _, parentBlock := range m.ParentsBlocks {
-		if parentBlock.ParentsType == parentType {
-			return NewMessageIDs(parentBlock.References...)
-		}
+	if parents, ok := m.Parents[parentType]; ok {
+		return parents
 	}
 	return NewMessageIDs()
 }
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for _, parentBlock := range m.ParentsBlocks {
-		for _, parentID := range parentBlock.References {
+	for parentType, parents := range m.Parents {
+		for parentID := range parents {
 			consumer(Parent{
-				Type: parentBlock.ParentsType,
+				Type: parentType,
 				ID:   parentID,
 			})
 		}
@@ -684,36 +626,36 @@ func (m *Message) calculateID() MessageID {
 
 // Bytes returns the message in serialized byte form.
 func (m *Message) Bytes() []byte {
-	m.bytesMutex.Lock()
-	defer m.bytesMutex.Unlock()
-	if m.bytes != nil {
-		return m.bytes
-	}
-
-	// marshal result
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(m.messageInner.Version)
-	marshalUtil.WriteByte(byte(len(m.ParentsBlocks)))
-
-	for x := 0; x < len(m.ParentsBlocks); x++ {
-		parentBlock := m.ParentsBlocks[x]
-		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
-		marshalUtil.WriteByte(byte(len(parentBlock.References)))
-		sortedParents := sortParents(NewMessageIDs(parentBlock.References...))
-		for _, parent := range sortedParents {
-			marshalUtil.Write(parent)
-		}
-	}
-
-	marshalUtil.Write(m.messageInner.IssuerPublicKey)
-	marshalUtil.WriteTime(m.messageInner.IssuingTime)
-	marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
-	marshalUtil.Write(m.messageInner.Payload)
-	fmt.Println("Bytes Payload", m.messageInner.Payload.Bytes())
-	marshalUtil.WriteUint64(m.messageInner.Nonce)
-	marshalUtil.Write(m.messageInner.Signature)
-
-	m.bytes = marshalUtil.Bytes()
+	// m.bytesMutex.Lock()
+	// defer m.bytesMutex.Unlock()
+	// if m.bytes != nil {
+	// 	return m.bytes
+	// }
+	//
+	// // marshal result
+	// marshalUtil := marshalutil.New()
+	// marshalUtil.WriteByte(m.messageInner.Version)
+	// marshalUtil.WriteByte(byte(len(m.ParentsBlocks)))
+	//
+	// for x := 0; x < len(m.ParentsBlocks); x++ {
+	// 	parentBlock := m.ParentsBlocks[x]
+	// 	marshalUtil.WriteByte(byte(parentBlock.ParentsType))
+	// 	marshalUtil.WriteByte(byte(len(parentBlock.References)))
+	// 	sortedParents := sortParents(NewMessageIDs(parentBlock.References...))
+	// 	for _, parent := range sortedParents {
+	// 		marshalUtil.Write(parent)
+	// 	}
+	// }
+	//
+	// marshalUtil.Write(m.messageInner.IssuerPublicKey)
+	// marshalUtil.WriteTime(m.messageInner.IssuingTime)
+	// marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
+	// marshalUtil.Write(m.messageInner.Payload)
+	// fmt.Println("Bytes Payload", m.messageInner.Payload.Bytes())
+	// marshalUtil.WriteUint64(m.messageInner.Nonce)
+	// marshalUtil.Write(m.messageInner.Signature)
+	//
+	// m.bytes = marshalUtil.Bytes()
 
 	return m.bytes
 }
@@ -737,30 +679,20 @@ func (m *Message) ObjectStorageValue() []byte {
 
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
-	parents := sortParents(m.ParentsByType(StrongParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
-		}
+
+	for index, parent := range sortParents(m.ParentsByType(StrongParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(WeakParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(ShallowDislikeParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(ShallowDislikeParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(ShallowLikeParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
+
 	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
 	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
 	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
@@ -768,6 +700,18 @@ func (m *Message) String() string {
 	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
 	builder.AddField(stringify.StructField("Signature", m.Signature()))
 	return builder.String()
+}
+
+// sorts given parents and returns a new slice with sorted parents
+func sortParents(parents MessageIDs) (sorted []MessageID) {
+	sorted = parents.Slice()
+
+	// sort parents
+	sort.Slice(sorted, func(i, j int) bool {
+		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
+	})
+
+	return
 }
 
 var _ objectstorage.StorableObject = new(Message)
@@ -802,14 +746,6 @@ type Parent struct {
 	ID   MessageID
 	Type ParentsType
 }
-
-// ParentsBlock is the container for parents in a Message.
-type ParentsBlock struct {
-	ParentsType `serix:"0"`
-	References  []MessageID `serix:"1,lengthPrefixType:uint8"`
-}
-
-type ParentsBlocks []ParentsBlock
 
 // ParentMessageIDs is a map of ParentType to MessageIDs.
 type ParentMessageIDs map[ParentsType]MessageIDs
@@ -848,6 +784,17 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 		pCloned.AddAll(parentType, messageIDs)
 	}
 	return pCloned
+}
+
+func (p ParentMessageIDs) ArrayRules() *serializer.ArrayRules {
+	return &serializer.ArrayRules{
+		Min:                 1,
+		Max:                 4,
+		MustOccur:           nil,
+		Guards:              serializer.SerializableGuard{},
+		ValidationMode:      0,
+		UniquenessSliceFunc: nil,
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

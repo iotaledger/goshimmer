@@ -18,7 +18,13 @@ func TestSerix(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
 
-	msg, err := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(StrongParentType, NewMessageIDs(MessageID{1}, MessageID{2}, MessageID{3}, MessageID{4})).
+			AddAll(WeakParentType, NewMessageIDs(MessageID{1}, MessageID{2})).
+			AddAll(ShallowLikeParentType, NewMessageIDs(MessageID{1}, MessageID{2})).
+			AddAll(ShallowLikeParentType, NewMessageIDs(MessageID{1}, MessageID{2})),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.NoError(t, err)
 
 	// fmt.Println(msg)

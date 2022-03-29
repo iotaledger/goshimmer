@@ -28,7 +28,7 @@ type GenericDataPayload struct {
 }
 type genericDataPayloadInner struct {
 	payloadType Type
-	Data        []byte `serix:"0,lengthPrefixType:uint32"`
+	Data        []byte `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewGenericDataPayload creates new GenericDataPayload.
@@ -53,18 +53,23 @@ func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataP
 
 // GenericDataPayloadFromMarshalUtil unmarshals a GenericDataPayload using a MarshalUtil (for easier unmarshaling).
 func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
-	payloadSize, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
+	// payloadSize, err := marshalUtil.ReadUint32()
+	// if err != nil {
+	// 	err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+	// 	return
+	// }
 
 	genericDataPayload = &GenericDataPayload{}
 	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	if genericDataPayload.Data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
+	dataSize, err := marshalUtil.ReadUint32()
+	if err != nil {
+		err = errors.Errorf("failed to parse data size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	if genericDataPayload.Data, err = marshalUtil.ReadBytes(int(dataSize)); err != nil {
 		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -89,8 +94,9 @@ func (g *GenericDataPayload) Blob() []byte {
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
 	return marshalutil.New().
-		WriteUint32(TypeLength + uint32(len(g.Data))).
+		WriteUint32(TypeLength + marshalutil.Uint32Size + uint32(len(g.Data))).
 		WriteBytes(g.Type().Bytes()).
+		WriteUint32(uint32(len(g.Data))).
 		WriteBytes(g.Blob()).
 		Bytes()
 }
