@@ -17,7 +17,8 @@ func TestSpamTransactions(t *testing.T) {
 
 	scenario := evilwallet.NewEvilScenario(evilwallet.SingleTransactionBatch(), false, outWallet)
 	options := []Options{
-		WithSpamDetails(5, time.Second, time.Second*10, 10),
+		WithSpamRate(5, time.Second),
+		WithBatchesSent(20),
 		WithSpammingFunc(ValueSpammingFunc),
 		WithSpamWallet(evilWallet),
 		WithEvilScenario(scenario),
@@ -38,7 +39,8 @@ func TestSpamDoubleSpend(t *testing.T) {
 	scenarioDs := evilwallet.NewEvilScenario(evilwallet.DoubleSpendBatch(5), false, outWallet)
 	customScenario := evilwallet.NewEvilScenario(evilwallet.Scenario1(), false, outWallet)
 	options := []Options{
-		WithSpamDetails(5, time.Second, time.Second*10, 10),
+		WithSpamRate(5, time.Second),
+		WithSpamDuration(time.Second * 10),
 		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
 	}
@@ -51,8 +53,7 @@ func TestSpamDoubleSpend(t *testing.T) {
 	customSpammer := NewSpammer(customOptions...)
 
 	txSpammer.Spam()
-	time.Sleep(time.Second * 2)
 	dsSpammer.Spam()
-	time.Sleep(time.Second * 2)
 	customSpammer.Spam()
+
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"sync"
-	"time"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -19,7 +18,7 @@ func DataSpammingFunction(s *Spammer) {
 	if count%int64(s.SpamDetails.Rate*2) == 0 {
 		s.log.Debugf("Last sent message, ID: %s; msgCount: %d", msgID, count)
 	}
-
+	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
 }
 
@@ -30,9 +29,9 @@ func ValueSpammingFunc(s *Spammer) {
 		return
 	}
 	s.PostTransaction(tx)
+	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
 }
-
 
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, err := s.SpamWallet.PrepareCustomConflicts(s.EvilScenario.ConflictBatch, s.EvilScenario.OutputWallet)
@@ -51,10 +50,12 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				_, _ = clt.PostTransaction(tx)
+				s.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()
 	}
-
+	s.State.batchPrepared.Add(1)
+	s.SpamWallet.ClearAliases()
+	s.CheckIfAllSent()
 }
