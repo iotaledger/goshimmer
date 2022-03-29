@@ -804,6 +804,7 @@ func NewEvilScenario(conflictBatch EvilBatch, repeat int, reuse bool) *EvilScena
 func (e *EvilScenario) readCustomConflictsPattern() {
 	e.batchOutputsAliases = make(map[string]types.Empty)
 	e.inputsAlias = make(map[string]types.Empty)
+	deleteFromOutput := make(map[string]types.Empty)
 
 	for _, conflictMap := range e.conflictBatch {
 		for _, aliases := range conflictMap {
@@ -819,10 +820,14 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 				if _, ok := e.batchOutputsAliases[input]; !ok {
 					e.inputsAlias[input] = types.Void
 				} else {
-					delete(e.batchOutputsAliases, input)
+					deleteFromOutput[input] = types.Void
 				}
 			}
 		}
+	}
+
+	for d := range deleteFromOutput {
+		delete(e.batchOutputsAliases, d)
 	}
 }
 
