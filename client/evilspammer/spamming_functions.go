@@ -33,27 +33,6 @@ func ValueSpammingFunc(s *Spammer) {
 	s.CheckIfAllSent()
 }
 
-//func DoubleSpendSpammingFunc(s *Spammer) {
-//	// choose two different node to prevent being blocked
-//	txs, err := s.SpamWallet.PrepareDoubleSpendTransactions(s.EvilScenario)
-//	if err != nil {
-//		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-//		return
-//	}
-//	delays := make([]time.Duration, s.NumberOfSpends)
-//	d := time.Duration(0)
-//	for i := range delays {
-//		delays[i] = d
-//		d += s.TimeDelayBetweenConflicts
-//	}
-//	for i, delay := range delays {
-//		time.AfterFunc(delay, func() {
-//			s.PostTransaction(txs[i])
-//		})
-//	}
-//
-//	s.CheckIfAllSent()
-//}
 
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, err := s.SpamWallet.PrepareCustomConflicts(s.EvilScenario.ConflictBatch, s.EvilScenario.OutputWallet)
@@ -76,9 +55,6 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			}(clients[i], tx)
 		}
 		wg.Wait()
-
-		// wait until transactions are solid
-		time.Sleep(time.Second)
 	}
 
 }
