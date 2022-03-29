@@ -742,8 +742,8 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 	for _, conflictMap := range scenario.conflictBatch {
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
-			outs := genOutputOptions(aliases.outputs)
-			conflicts = append(conflicts, []Option{WithInputs(aliases.inputs), WithOutputs(outs), WithIssuer(inWallet)})
+			outs := genOutputOptions(aliases.Outputs)
+			conflicts = append(conflicts, []Option{WithInputs(aliases.Inputs), WithOutputs(outs), WithIssuer(inWallet)})
 		}
 		conflictSlice = append(conflictSlice, conflicts)
 	}
@@ -766,8 +766,8 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 // 	}
 // }
 type ScenarioAlias struct {
-	inputs  []string
-	outputs []string
+	Inputs  []string
+	Outputs []string
 }
 
 type EvilBatch [][]ScenarioAlias
@@ -808,14 +808,14 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 	for _, conflictMap := range e.conflictBatch {
 		for _, aliases := range conflictMap {
 			// add output to batchOutputsAliases
-			for _, output := range aliases.outputs {
+			for _, output := range aliases.Outputs {
 				if _, ok := e.batchOutputsAliases[output]; !ok {
 					e.batchOutputsAliases[output] = types.Void
 				}
 			}
 			// add input only if it's not in output, this will determine how many
 			// unspent outputs to take in each round of spamming.
-			for _, input := range aliases.inputs {
+			for _, input := range aliases.Inputs {
 				if _, ok := e.batchOutputsAliases[input]; !ok {
 					e.inputsAlias[input] = types.Void
 				} else {

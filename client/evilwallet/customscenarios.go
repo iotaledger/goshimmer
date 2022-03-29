@@ -5,7 +5,7 @@ import (
 )
 
 func SingleTransactionBatch() EvilBatch {
-	return EvilBatch{{ScenarioAlias{inputs: []string{"1"}, outputs: []string{"2"}}}}
+	return EvilBatch{{ScenarioAlias{Inputs: []string{"1"}, Outputs: []string{"2"}}}}
 }
 
 func DoubleSpendBatch(spentNum int) EvilBatch {
@@ -16,8 +16,8 @@ func DoubleSpendBatch(spentNum int) EvilBatch {
 
 	for i := 1; i <= spentNum; i++ {
 		conflictSlice = append(conflictSlice, []ScenarioAlias{
-			{inputs: []string{strconv.Itoa(inputStartNum + i)}, outputs: []string{strconv.Itoa(aliasCounter)}},
-			{inputs: []string{strconv.Itoa(inputStartNum + i)}, outputs: []string{strconv.Itoa(aliasCounter + 1)}},
+			{Inputs: []string{strconv.Itoa(inputStartNum + i)}, Outputs: []string{strconv.Itoa(aliasCounter)}},
+			{Inputs: []string{strconv.Itoa(inputStartNum + i)}, Outputs: []string{strconv.Itoa(aliasCounter + 1)}},
 		})
 		aliasCounter += 2
 	}
