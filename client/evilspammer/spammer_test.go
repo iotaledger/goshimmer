@@ -13,12 +13,15 @@ func TestSpamTransactions(t *testing.T) {
 	err := evilWallet.RequestFreshBigFaucetWallet()
 	require.NoError(t, err)
 
+	outWallet := evilWallet.NewWallet(evilwallet.Reuse)
+
+	scenario := evilwallet.NewEvilScenario(evilwallet.SingleTransactionBatch(), false, outWallet)
 	options := []Options{
-		WithSpamDetails(5, time.Second, time.Minute, 100),
+		WithSpamDetails(5, time.Second, time.Second*10, 10),
 		WithSpammingFunc(ValueSpammingFunc),
 		WithSpamWallet(evilWallet),
+		WithEvilScenario(scenario),
 	}
 	spammer := NewSpammer(options...)
 	spammer.Spam()
-
 }

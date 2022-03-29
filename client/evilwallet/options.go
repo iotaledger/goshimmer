@@ -106,6 +106,8 @@ func WithInputs(inputs ...interface{}) Option {
 				options.aliasInputs[in] = types.Void
 			case ledgerstate.Output:
 				options.inputs = append(options.inputs, in)
+			default:
+				panic("incorrect type provided as inputs option")
 			}
 		}
 	}

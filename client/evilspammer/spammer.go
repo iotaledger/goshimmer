@@ -13,8 +13,6 @@ import (
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// todo add possibility to reuse Spammer instance, pause, restart, resume  and change Evil scenario
-
 type SpammerFunc func(*Spammer)
 
 type State struct {
@@ -38,7 +36,7 @@ type Spammer struct {
 
 	Clients      evilwallet.Connector
 	SpamWallet   *evilwallet.EvilWallet
-	EvilScenario evilwallet.EvilScenario
+	EvilScenario *evilwallet.EvilScenario
 	ErrCounter   *ErrorCounter
 	log          Logger
 
