@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 type Solidifier struct {
@@ -20,19 +19,15 @@ func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
 }
 
 func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
-	params.InputIDs = s.outputIDsFromInputs(params.Transaction.Inputs())
+	params.InputIDs = s.resolveInputs(params.Transaction.Inputs())
 
-	cachedInputs := objectstorage.CachedObjects[*Output](generics.Map(params.InputIDs, s.CachedOutput))
+	cachedInputs := s.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
-	if params.Inputs = cachedInputs.Unwrap(true); len(params.Inputs) != len(cachedInputs) {
+	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
 		return nil
 	}
 
-	cachedConsumers := objectstorage.CachedObjects[*Consumer](generics.Map(params.InputIDs, func(inputID utxo.OutputID) *objectstorage.CachedObject[*Consumer] {
-		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(inputID.Bytes(), params.Transaction.ID().Bytes()), func(key []byte) *Consumer {
-			return NewConsumer(inputID, params.Transaction.ID())
-		})
-	}))
+	cachedConsumers := s.initializeConsumers(params.InputIDs, params.Transaction.ID())
 	defer cachedConsumers.Release()
 	params.Consumers = cachedConsumers.Unwrap()
 
@@ -41,6 +36,18 @@ func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*pa
 	return next(params)
 }
 
-func (s *Solidifier) outputIDsFromInputs(inputs []utxo.Input) (outputIDs []utxo.OutputID) {
-	return generics.Map(inputs, s.vm.ResolveInput)
+func (s *Solidifier) initializeConsumers(outputIDs OutputIDs, txID TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
+	_ = outputIDs.ForEach(func(outputID OutputID) (err error) {
+		cachedConsumers = append(cachedConsumers, s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
+			return NewConsumer(outputID, txID)
+		}))
+		return nil
+	})
+
+	return cachedConsumers
+}
+
+func (s *Solidifier) resolveInputs(inputs []Input) (outputIDs OutputIDs) {
+	return NewOutputIDs(generics.Map(inputs, s.vm.ResolveInput)...)
 }

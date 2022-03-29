@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -60,12 +59,12 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
+func (s *Storage) CachedTransaction(transactionID TransactionID) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
 	return s.transactionStorage.Load(transactionID.Bytes())
 }
 
 // CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
+func (s *Storage) CachedTransactionMetadata(transactionID TransactionID, computeIfAbsentCallback ...func(transactionID TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
@@ -76,22 +75,42 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 }
 
 // CachedOutput retrieves the Output with the given OutputID from the object storage.
-func (s *Storage) CachedOutput(outputID utxo.OutputID) (cachedOutput CachedOutput) {
+func (s *Storage) CachedOutput(outputID OutputID) (cachedOutput CachedOutput) {
 	return s.outputStorage.Load(outputID.Bytes())
 }
 
+func (s *Storage) CachedOutputs(outputIDs OutputIDs) (cachedOutputs objectstorage.CachedObjects[*Output]) {
+	cachedOutputs = make(objectstorage.CachedObjects[*Output], 0)
+	_ = outputIDs.ForEach(func(outputID OutputID) error {
+		cachedOutputs = append(cachedOutputs, s.CachedOutput(outputID))
+		return nil
+	})
+
+	return cachedOutputs
+}
+
 // CachedOutputMetadata retrieves the OutputMetadata with the given OutputID from the object storage.
-func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID) (cachedOutput *objectstorage.CachedObject[*OutputMetadata]) {
+func (s *Storage) CachedOutputMetadata(outputID OutputID) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
 	return s.outputMetadataStorage.Load(outputID.Bytes())
 }
 
+func (s *Storage) CachedOutputsMetadata(outputIDs OutputIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], 0)
+	_ = outputIDs.ForEach(func(outputID OutputID) error {
+		cachedOutputsMetadata = append(cachedOutputsMetadata, s.CachedOutputMetadata(outputID))
+		return nil
+	})
+
+	return cachedOutputsMetadata
+}
+
 // CachedConsumer retrieves the OutputMetadata with the given OutputID from the object storage.
-func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+func (s *Storage) CachedConsumer(outputID OutputID, txID TransactionID) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
 	return s.consumerStorage.Load(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()))
 }
 
 // CachedConsumers retrieves the Consumers of the given OutputID from the object storage.
-func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Storage) CachedConsumers(outputID OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
 	s.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)

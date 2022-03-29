@@ -2,312 +2,14 @@ package branchdag
 
 import (
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-	"github.com/iotaledger/hive.go/types"
-	"github.com/mr-tron/base58"
-
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
-
-// region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-var (
-	// UndefinedBranchID is the zero value of a BranchID and represents a branch that has not been set.
-	UndefinedBranchID = BranchID{}
-
-	// MasterBranchID is the identifier of the MasterBranch (root of the Branch DAG).
-	MasterBranchID = BranchID{1}
-)
-
-// BranchIDLength contains the amount of bytes that a marshaled version of the BranchID contains.
-const BranchIDLength = 32
-
-// BranchID is the data type that represents the identifier of a Branch.
-type BranchID [BranchIDLength]byte
-
-// NewBranchID creates a new BranchID from a TransactionID.
-func NewBranchID(transactionID utxo.TransactionID) (branchID BranchID) {
-	copy(branchID[:], transactionID.Bytes())
-
-	return
-}
-
-// BranchIDEventHandler is an event handler for an event with a BranchID.
-func BranchIDEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(BranchID))(params[0].(BranchID))
-}
-
-// BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
-func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// BranchIDFromBase58 creates a BranchID from a base58 encoded string.
-func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
-	decodedBytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded BranchID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if branchID, _, err = BranchIDFromBytes(decodedBytes); err != nil {
-		err = errors.Errorf("failed to parse BranchID from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// BranchIDFromMarshalUtil unmarshals a BranchID using a MarshalUtil (for easier unmarshaling).
-func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
-	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(branchID[:], branchIDBytes)
-
-	return
-}
-
-// BranchIDFromRandomness returns a random BranchID which can for example be used for unit tests.
-func BranchIDFromRandomness() (branchID BranchID) {
-	crypto.Randomness.Read(branchID[:])
-
-	return
-}
-
-// TransactionID returns the TransactionID of its underlying conflicting Transaction.
-func (b BranchID) TransactionID() (transactionID utxo.TransactionID) {
-	copy(transactionID[:], b[:])
-
-	return
-}
-
-// Bytes returns a marshaled version of the BranchID.
-func (b BranchID) Bytes() []byte {
-	return b[:]
-}
-
-// Base58 returns a base58 encoded version of the BranchID.
-func (b BranchID) Base58() string {
-	return base58.Encode(b.Bytes())
-}
-
-// String returns a human-readable version of the BranchID.
-func (b BranchID) String() string {
-	switch b {
-	case UndefinedBranchID:
-		return "BranchID(UndefinedBranchID)"
-	case MasterBranchID:
-		return "BranchID(MasterBranchID)"
-	default:
-		if branchIDAlias, exists := branchIDAliases[b]; exists {
-			return "BranchID(" + branchIDAlias + ")"
-		}
-
-		return "BranchID(" + b.Base58() + ")"
-	}
-}
-
-// branchIDAliases contains a list of aliases registered for a set of MessageIDs.
-var branchIDAliases = make(map[BranchID]string)
-
-// RegisterBranchIDAlias registers an alias that will modify the String() output of the BranchID to show a human
-// readable string instead of the base58 encoded version of itself.
-func RegisterBranchIDAlias(branchID BranchID, alias string) {
-	branchIDAliases[branchID] = alias
-}
-
-// UnregisterBranchIDAliases removes all aliases registered through the RegisterBranchIDAlias function.
-func UnregisterBranchIDAliases() {
-	branchIDAliases = make(map[BranchID]string)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BranchIDs ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// BranchIDs represents a collection of BranchIDs.
-type BranchIDs map[BranchID]types.Empty
-
-// NewBranchIDs creates a new collection of BranchIDs from the given BranchIDs.
-func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
-	branchIDs = make(BranchIDs)
-	for _, branchID := range branches {
-		branchIDs[branchID] = types.Void
-	}
-
-	return
-}
-
-// BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
-func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
-	branchIDsCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	branchIDs = make(BranchIDs)
-	for i := uint64(0); i < branchIDsCount; i++ {
-		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
-		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
-			return
-		}
-
-		branchIDs[branchID] = types.Void
-	}
-
-	return
-}
-
-// Add adds a BranchID to the collection and returns the collection to enable chaining.
-func (b BranchIDs) Add(branchID BranchID) BranchIDs {
-	b[branchID] = types.Void
-
-	return b
-}
-
-// AddAll adds all BranchIDs to the collection and returns the collection to enable chaining.
-func (b BranchIDs) AddAll(branchIDs BranchIDs) BranchIDs {
-	for branchID := range branchIDs {
-		b.Add(branchID)
-	}
-
-	return b
-}
-
-// Subtract removes all other from the collection and returns the collection to enable chaining.
-func (b BranchIDs) Subtract(other BranchIDs) BranchIDs {
-	for branchID := range other {
-		delete(b, branchID)
-	}
-
-	return b
-}
-
-// Intersect removes all BranchIDs from the collection that are not contained in the argument collection.
-// It returns the collection to enable chaining.
-func (b BranchIDs) Intersect(branchIDs BranchIDs) (res BranchIDs) {
-	// Iterate over the smallest map to increase performance.
-	target, source := branchIDs, b
-	if len(source) < len(target) {
-		target, source = source, target
-	}
-
-	res = NewBranchIDs()
-	for branchID := range target {
-		if source.Contains(branchID) {
-			res.Add(branchID)
-		}
-	}
-
-	return
-}
-
-// Contains checks if the given target BranchID is part of the BranchIDs.
-func (b BranchIDs) Contains(targetBranchID BranchID) (contains bool) {
-	_, contains = b[targetBranchID]
-	return
-}
-
-// Is checks if the given target BranchID is the only BranchID within BranchIDs.
-func (b BranchIDs) Is(targetBranch BranchID) (is bool) {
-	return len(b) == 1 && b.Contains(targetBranch)
-}
-
-// Slice creates a slice of BranchIDs from the collection.
-func (b BranchIDs) Slice() (list []BranchID) {
-	list = make([]BranchID, len(b))
-	i := 0
-	for branchID := range b {
-		list[i] = branchID
-		i++
-	}
-
-	return
-}
-
-// Equals returns whether the BranchIDs and other BranchIDs are equal.
-func (b BranchIDs) Equals(o BranchIDs) bool {
-	if len(b) != len(o) {
-		return false
-	}
-
-	for branchID := range b {
-		if _, exists := o[branchID]; !exists {
-			return false
-		}
-	}
-
-	return true
-}
-
-// Bytes returns a marshaled version of the BranchIDs.
-func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(b)*BranchIDLength)
-	marshalUtil.WriteUint64(uint64(len(b)))
-	for branchID := range b {
-		marshalUtil.WriteBytes(branchID.Bytes())
-	}
-
-	return marshalUtil.Bytes()
-}
-
-// Base58 returns a slice of base58 BranchIDs.
-func (b BranchIDs) Base58() (result []string) {
-	result = make([]string, 0)
-	for id := range b {
-		result = append(result, id.Base58())
-	}
-
-	return
-}
-
-// String returns a human readable version of the BranchIDs.
-func (b BranchIDs) String() string {
-	if len(b) == 0 {
-		return "BranchIDs{}"
-	}
-
-	result := "BranchIDs{\n"
-	for branchID := range b {
-		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + branchID.String() + ",\n"
-	}
-	result += "}"
-
-	return result
-}
-
-// Clone creates a copy of the BranchIDs.
-func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
-	clonedBranchIDs = make(BranchIDs)
-	for branchID := range b {
-		clonedBranchIDs[branchID] = types.Void
-	}
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -346,7 +48,7 @@ func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstor
 	return result, err
 }
 
-// FromBytes unmarshals an Branch from a sequence of bytes.
+// FromBytes unmarshals a Branch from a sequence of bytes.
 func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
@@ -357,26 +59,23 @@ func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	return
 }
 
-// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
+// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshalling).
 func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
 	if branch = b; b == nil {
 		branch = &Branch{}
 	}
-	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse id: %w", err)
-		return
+
+	if err = branch.id.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse id: %w", err)
 	}
-	if branch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch parents: %w", err)
-		return
+	if err = branch.parents.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse Branch parents: %w", err)
 	}
-	if branch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse conflicts: %w", err)
-		return
+	if err = branch.conflicts.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse conflicts: %w", err)
 	}
 	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse inclusionState: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse inclusionState: %w", err)
 	}
 
 	return
@@ -446,15 +145,11 @@ func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
 	b.conflictsMutex.Lock()
 	defer b.conflictsMutex.Unlock()
 
-	if _, exists := b.conflicts[conflictID]; exists {
-		return
+	if added = b.conflicts.Add(conflictID); added {
+		b.SetModified()
 	}
 
-	b.conflicts[conflictID] = true
-	b.SetModified()
-	added = true
-
-	return
+	return added
 }
 
 // Bytes returns a marshaled version of the Branch.
@@ -539,11 +234,11 @@ func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (chi
 		childBranch = new(ChildBranch)
 	}
 
-	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if err = childBranch.parentBranchID.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
 		return
 	}
-	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
+	if err = childBranch.childBranchID.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
 		return
 	}
@@ -612,16 +307,18 @@ func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranch
 
 // Add adds all BranchIDs to the collection.
 func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
-	for branchID := range branchIDs {
+	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
 		a[branchID]++
-	}
+		return nil
+	})
 }
 
 // Subtract subtracts all BranchIDs from the collection.
 func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
-	for branchID := range branchIDs {
+	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
 		a[branchID]--
-	}
+		return nil
+	})
 }
 
 // BranchIDs returns the BranchIDs represented by this collection.

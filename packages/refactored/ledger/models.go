@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -60,7 +61,7 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
-	outputIDs               []utxo.OutputID
+	outputIDs               OutputIDs
 	outputIDsMutex          sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
@@ -107,35 +108,32 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if transactionMetadata = t; transactionMetadata == nil {
 		transactionMetadata = &TransactionMetadata{}
 	}
+
 	if err = transactionMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse TransactionID: %w", err)
 	}
-	if transactionMetadata.branchIDs, err = branchdag.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
+	if err = transactionMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse BranchID: %w", err)
 	}
 	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if err = transactionMetadata.outputIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse OutputIDs: %w", err)
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
 	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
 	return
@@ -159,7 +157,7 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modif
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
-	if t.branchIDs.Equals(branchIDs) {
+	if t.branchIDs.Equal(branchIDs) {
 		return false
 	}
 
@@ -173,11 +171,11 @@ func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
-	if t.branchIDs.Contains(branchID) {
+	if t.branchIDs.Has(branchID) {
 		return false
 	}
 
-	delete(t.branchIDs, branchdag.MasterBranchID)
+	t.branchIDs.Delete(branchdag.MasterBranchID)
 
 	t.branchIDs.Add(branchID)
 	t.SetModified()
@@ -192,8 +190,8 @@ func (t *TransactionMetadata) Processed() bool {
 	return t.solid
 }
 
-// SetProcessed updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
-// solidify time if the Transaction was marked as solid.
+// SetProcessed updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates
+// the solidification time if the Transaction was marked as solid.
 func (t *TransactionMetadata) SetProcessed(solid bool) (modified bool) {
 	t.solidMutex.Lock()
 	defer t.solidMutex.Unlock()
@@ -248,12 +246,23 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	return
 }
 
-// OutputIDs returns the OutputIDs of that this Transaction created.
-func (t *TransactionMetadata) OutputIDs() []utxo.OutputID {
+// OutputIDs returns the OutputIDs that this Transaction created.
+func (t *TransactionMetadata) OutputIDs() OutputIDs {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
 	return t.outputIDs
+}
+
+// SetOutputIDs sets the OutputIDs that this Transaction created.
+func (t *TransactionMetadata) SetOutputIDs(outputIDs OutputIDs) {
+	t.outputIDsMutex.RLock()
+	defer t.outputIDsMutex.RUnlock()
+
+	t.outputIDs = outputIDs
+	t.SetModified()
+
+	return
 }
 
 // GradeOfFinality returns the grade of finality.
@@ -289,8 +298,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
 func (t *TransactionMetadata) IsConflicting() bool {
-	branchIDs := t.BranchIDs()
-	return len(branchIDs) == 1 && branchIDs.Contains(branchdag.NewBranchID(t.ID()))
+	return t.BranchIDs().Is(t.ID())
 }
 
 // Bytes marshals the TransactionMetadata into a sequence of bytes.
@@ -303,9 +311,10 @@ func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
-		stringify.StructField("solid", t.Processed()),
+		stringify.StructField("processed", t.Processed()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
+		stringify.StructField("outputIDs", t.OutputIDs()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
 	)
@@ -325,6 +334,7 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		WriteBool(t.Processed()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).
+		Write(t.OutputIDs()).
 		WriteUint8(uint8(t.GradeOfFinality())).
 		WriteTime(t.GradeOfFinalityTime()).
 		Bytes()
@@ -369,6 +379,55 @@ func (o *Output) ID() (id utxo.OutputID) {
 }
 
 var _ objectstorage.StorableObject = new(Output)
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type Outputs struct {
+	*orderedmap.OrderedMap[OutputID, *Output]
+}
+
+func NewOutputs(outputs ...*Output) (new Outputs) {
+	new = Outputs{orderedmap.New[OutputID, *Output]()}
+	for _, output := range outputs {
+		new.Set(output.ID(), output)
+	}
+
+	return new
+}
+
+func (o Outputs) IDs() (ids OutputIDs) {
+	outputIDs := make([]OutputID, 0)
+	o.OrderedMap.ForEach(func(id OutputID, _ *Output) bool {
+		outputIDs = append(outputIDs, id)
+		return true
+	})
+
+	return NewOutputIDs(outputIDs...)
+}
+
+func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) {
+	o.OrderedMap.ForEach(func(_ OutputID, output *Output) bool {
+		if err = callback(output); err != nil {
+			return false
+		}
+
+		return true
+	})
+
+	return err
+}
+
+func (o Outputs) UTXOOutputs() (slice []utxo.Output) {
+	slice = make([]utxo.Output, 0)
+	_ = o.ForEach(func(output *Output) error {
+		slice = append(slice, output.Output)
+		return nil
+	})
+
+	return slice
+}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -430,7 +489,7 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	if err = outputMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse OutputID: %w", err)
 	}
-	if outputMetadata.branchIDs, err = branchdag.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if err = outputMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse BranchIDs: %w", err)
 	}
 	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
@@ -472,7 +531,7 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified b
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
-	if o.branchIDs.Equals(branchIDs) {
+	if o.branchIDs.Equal(branchIDs) {
 		return false
 	}
 
@@ -486,11 +545,11 @@ func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
-	if o.branchIDs.Contains(branchID) {
+	if o.branchIDs.Has(branchID) {
 		return false
 	}
 
-	delete(o.branchIDs, branchdag.MasterBranchID)
+	o.branchIDs.Delete(branchdag.MasterBranchID)
 
 	o.branchIDs.Add(branchID)
 	o.SetModified()
@@ -609,7 +668,7 @@ func (o *OutputMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
 }
 
-// String returns a human readable version of the OutputMetadata.
+// String returns a human-readable version of the OutputMetadata.
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
@@ -646,6 +705,68 @@ var _ objectstorage.StorableObject = new(OutputMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
+
+type OutputsMetadata struct {
+	*orderedmap.OrderedMap[OutputID, *OutputMetadata]
+}
+
+func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata) {
+	new = OutputsMetadata{orderedmap.New[OutputID, *OutputMetadata]()}
+	for _, outputMetadata := range outputsMetadata {
+		new.Set(outputMetadata.ID(), outputMetadata)
+	}
+
+	return new
+}
+
+func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered OutputsMetadata) {
+	filtered = NewOutputsMetadata()
+	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
+		if predicate(outputMetadata) {
+			filtered.Set(outputMetadata.ID(), outputMetadata)
+		}
+
+		return nil
+	})
+
+	return filtered
+}
+
+func (o OutputsMetadata) IDs() (ids OutputIDs) {
+	ids = NewOutputIDs()
+	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
+		ids.Add(outputMetadata.ID())
+		return nil
+	})
+
+	return ids
+}
+
+func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
+	branchIDs = branchdag.NewBranchIDs()
+	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
+		branchIDs.AddAll(outputMetadata.BranchIDs())
+		return nil
+	})
+
+	return branchIDs
+}
+
+func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (err error)) (err error) {
+	o.OrderedMap.ForEach(func(_ OutputID, outputMetadata *OutputMetadata) bool {
+		if err = callback(outputMetadata); err != nil {
+			return false
+		}
+
+		return true
+	})
+
+	return err
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
@@ -676,7 +797,7 @@ func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) 
 	return new
 }
 
-// FromObjectStorage creates an Consumer from sequences of key and bytes.
+// FromObjectStorage creates a Consumer from sequences of key and bytes.
 func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {

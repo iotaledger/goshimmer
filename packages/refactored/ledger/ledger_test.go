@@ -31,9 +31,14 @@ func TestLedger(t *testing.T) {
 	tx1 := NewMockedTransaction([]*MockedInput{
 		NewMockedInput(genesisOutput.ID()),
 	}, 2)
+
+	fmt.Println(tx1.ID())
+
 	tx2 := NewMockedTransaction([]*MockedInput{
 		NewMockedInput(genesisOutput.ID()),
 	}, 2)
+
+	fmt.Println(tx2.ID())
 
 	fmt.Println(ledger.StoreAndProcessTransaction(tx1))
 	fmt.Println(ledger.StoreAndProcessTransaction(tx2))

@@ -18,12 +18,12 @@ func NewExecutor(ledger *Ledger) (new *Executor) {
 }
 
 func (e *Executor) executeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
-	utxoOutputs, err := e.vm.ExecuteTransaction(params.Transaction.Transaction, generics.Map(params.Inputs, (*Output).utxoOutput))
+	utxoOutputs, err := e.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
 
-	params.Outputs = generics.Map(utxoOutputs, NewOutput)
+	params.Outputs = NewOutputs(generics.Map(utxoOutputs, NewOutput)...)
 
 	return next(params)
 }

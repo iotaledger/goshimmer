@@ -16,10 +16,10 @@ import (
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Ledger struct {
-	TransactionStoredEvent            *event.Event[utxo.TransactionID]
-	TransactionSolidEvent             *event.Event[utxo.TransactionID]
-	TransactionProcessedEvent         *event.Event[utxo.TransactionID]
-	ConsumedTransactionProcessedEvent *event.Event[utxo.TransactionID]
+	TransactionStoredEvent            *event.Event[TransactionID]
+	TransactionSolidEvent             *event.Event[TransactionID]
+	TransactionProcessedEvent         *event.Event[TransactionID]
+	ConsumedTransactionProcessedEvent *event.Event[TransactionID]
 	ErrorEvent                        *event.Event[error]
 
 	*Options
@@ -30,18 +30,18 @@ type Ledger struct {
 	*Booker
 	*Utils
 
-	vm utxo.VM
+	vm VM
 
 	*branchdag.BranchDAG
 	*syncutils.DAGMutex[[32]byte]
 }
 
-func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
+func New(store kvstore.KVStore, vm VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
-		TransactionStoredEvent:            event.New[utxo.TransactionID](),
-		TransactionSolidEvent:             event.New[utxo.TransactionID](),
-		TransactionProcessedEvent:         event.New[utxo.TransactionID](),
-		ConsumedTransactionProcessedEvent: event.New[utxo.TransactionID](),
+		TransactionStoredEvent:            event.New[TransactionID](),
+		TransactionSolidEvent:             event.New[TransactionID](),
+		TransactionProcessedEvent:         event.New[TransactionID](),
+		ConsumedTransactionProcessedEvent: event.New[TransactionID](),
 		ErrorEvent:                        event.New[error](),
 
 		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
@@ -77,7 +77,7 @@ func (l *Ledger) Configure(options ...Option) {
 }
 
 func (l *Ledger) Setup() {
-	l.ConsumedTransactionProcessedEvent.Attach(event.NewClosure[utxo.TransactionID](func(txID utxo.TransactionID) {
+	l.ConsumedTransactionProcessedEvent.Attach(event.NewClosure[TransactionID](func(txID TransactionID) {
 		l.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			l.CachedTransaction(txID).Consume(func(tx *Transaction) {
 				l.processTransaction(tx, txMetadata)
@@ -90,7 +90,7 @@ func (l *Ledger) Setup() {
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (processed bool) {
 	transaction := NewTransaction(tx)
 
-	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID utxo.TransactionID) *TransactionMetadata {
+	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
 		l.transactionStorage.Store(transaction).Release()
 		processed = true
 		return NewTransactionMetadata(transactionID)
@@ -157,7 +157,7 @@ func (l *Ledger) processTransaction(tx *Transaction, txMeta *TransactionMetadata
 func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*params]) error {
 	// TODO: FILL WITH ACTUAL CONSUMERS
 	_ = params.Inputs
-	consumers := []utxo.TransactionID{}
+	var consumers []TransactionID
 
 	for _, consumerTransactionId := range consumers {
 		l.ConsumedTransactionProcessedEvent.Trigger(consumerTransactionId)
@@ -171,10 +171,10 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 type params struct {
 	Transaction         *Transaction
 	TransactionMetadata *TransactionMetadata
-	InputIDs            []utxo.OutputID
-	Inputs              []*Output
-	InputsMetadata      map[utxo.OutputID]*OutputMetadata
+	InputIDs            OutputIDs
+	Inputs              Outputs
+	InputsMetadata      OutputsMetadata
 	Consumers           []*Consumer
-	Outputs             []*Output
-	OutputsMetadata     map[utxo.OutputID]*OutputMetadata
+	Outputs             Outputs
+	OutputsMetadata     OutputsMetadata
 }

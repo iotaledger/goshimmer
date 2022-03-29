@@ -2,18 +2,14 @@ package branchdag
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
-
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,134 +76,6 @@ func (i InclusionState) Bytes() []byte {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictIDLength contains the amount of bytes that a marshaled version of the ConflictID contains.
-const ConflictIDLength = 32
-
-// ConflictID is the data type that represents the identifier of a Conflict.
-type ConflictID = utxo.OutputID
-
-// NewConflictID creates a new ConflictID from an OutputID.
-func NewConflictID(outputID utxo.OutputID) (conflictID ConflictID) {
-	copy(conflictID[:], outputID.Bytes())
-
-	return
-}
-
-// ConflictIDFromMarshalUtil unmarshals a ConflictID using a MarshalUtil (for easier unmarshalling).
-func ConflictIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
-	conflictIDBytes, err := marshalUtil.ReadBytes(ConflictIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse ConflictID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(conflictID[:], conflictIDBytes)
-
-	return
-}
-
-// ConflictIDFromRandomness returns a random ConflictID which can for example be used for unit tests.
-func ConflictIDFromRandomness() (conflictID ConflictID) {
-	crypto.Randomness.Read(conflictID[:])
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictIDs //////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ConflictIDs represents a collection of ConflictIDs.
-type ConflictIDs map[utxo.OutputID]bool
-
-// NewConflictIDs creates a new collection of ConflictIDs from the given list of ConflictIDs.
-func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs) {
-	conflictIDs = make(ConflictIDs)
-	for _, conflictID := range optionalConflictIDs {
-		conflictIDs[conflictID] = true
-	}
-
-	return
-}
-
-// ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshalling).
-func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
-	conflictIDsCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	conflictIDs = make(ConflictIDs)
-	for i := uint64(0); i < conflictIDsCount; i++ {
-		conflictID, conflictIDErr := ConflictIDFromMarshalUtil(marshalUtil)
-		if conflictIDErr != nil {
-			err = errors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
-			return
-		}
-
-		conflictIDs[conflictID] = true
-	}
-
-	return
-}
-
-// Add adds a ConflictID to the collection and returns the collection to enable chaining.
-func (c ConflictIDs) Add(conflictID ConflictID) ConflictIDs {
-	c[conflictID] = true
-
-	return c
-}
-
-// Slice returns a slice of ConflictIDs.
-func (c ConflictIDs) Slice() (list []ConflictID) {
-	list = make([]ConflictID, 0, len(c))
-	for conflictID := range c {
-		list = append(list, conflictID)
-	}
-
-	return
-}
-
-// Bytes returns a marshaled version of the ConflictIDs.
-func (c ConflictIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(c)*ConflictIDLength)
-	marshalUtil.WriteUint64(uint64(len(c)))
-	for conflictID := range c {
-		marshalUtil.WriteBytes(conflictID.Bytes())
-	}
-
-	return marshalUtil.Bytes()
-}
-
-// String returns a human-readable version of the ConflictIDs.
-func (c ConflictIDs) String() string {
-	if len(c) == 0 {
-		return "ConflictIDs{}"
-	}
-
-	result := "ConflictIDs{\n"
-	for conflictID := range c {
-		result += strings.Repeat(" ", stringify.INDENTATION_SIZE) + conflictID.String() + ",\n"
-	}
-	result += "}"
-
-	return result
-}
-
-// Clone creates a copy of the ConflictIDs.
-func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
-	clonedConflictIDs = make(ConflictIDs)
-	for conflictID := range c {
-		clonedConflictIDs[conflictID] = true
-	}
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict represents a set of Branches that are conflicting with each other.
@@ -251,14 +119,13 @@ func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 	if conflict = c; conflict == nil {
 		conflict = &Conflict{}
 	}
-	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
+
+	if err = conflict.id.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 	}
 	memberCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		err = errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return nil, errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	conflict.memberCount = int(memberCount)
 
@@ -392,13 +259,12 @@ func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	if conflictMember = c; conflictMember == nil {
 		conflictMember = &ConflictMember{}
 	}
-	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
+
+	if err = conflictMember.conflictID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 	}
-	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
+	if err = conflictMember.branchID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse BranchID: %w", err)
 	}
 
 	return
