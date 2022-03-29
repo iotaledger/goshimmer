@@ -7,23 +7,43 @@ import (
 
 type Options func(*Spammer)
 
-// WithSpamDetails provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
-func WithSpamDetails(rate int, timeUnit time.Duration, maxDuration time.Duration, maxMsgSent int) Options {
-	// provided only maxMsgSent, calculating the default max for maxDuration
-	if maxDuration == 0 && maxMsgSent > 0 {
-		maxDuration = time.Hour
-	}
-	// provided only maxDuration, calculating the default max for maxMsgSent
-	if maxMsgSent == 0 && maxDuration > 0 {
-		maxMsgSent = int(maxDuration/timeUnit)*rate + 1
-	}
-
+// WithSpamRate provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
+func WithSpamRate(rate int, timeUnit time.Duration) Options {
 	return func(s *Spammer) {
-		s.SpamDetails = &SpamDetails{
-			Rate:        rate,
-			TimeUnit:    timeUnit,
-			MaxDuration: maxDuration,
-			MaxMsgSent:  maxMsgSent,
+		if s.SpamDetails == nil {
+			s.SpamDetails = &SpamDetails{
+				Rate:     rate,
+				TimeUnit: timeUnit,
+			}
+		} else {
+			s.SpamDetails.Rate = rate
+			s.SpamDetails.TimeUnit = timeUnit
+		}
+	}
+}
+
+// WithSpamDuration provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
+func WithSpamDuration(maxDuration time.Duration) Options {
+	return func(s *Spammer) {
+		if s.SpamDetails == nil {
+			s.SpamDetails = &SpamDetails{
+				MaxDuration: maxDuration,
+			}
+		} else {
+			s.SpamDetails.MaxDuration = maxDuration
+		}
+	}
+}
+
+// WithBatchesSent provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
+func WithBatchesSent(maxBatchesSent int) Options {
+	return func(s *Spammer) {
+		if s.SpamDetails == nil {
+			s.SpamDetails = &SpamDetails{
+				MaxBatchesSent: maxBatchesSent,
+			}
+		} else {
+			s.SpamDetails.MaxBatchesSent = maxBatchesSent
 		}
 	}
 }
@@ -36,7 +56,7 @@ func WithSpamWallet(initWallets *evilwallet.EvilWallet) Options {
 }
 
 // WithEvilScenario provides initWallet of spammer, if omitted spammer will prepare funds based on maxMsgSent parameter
-func WithEvilScenario(scenario evilwallet.EvilScenario) Options {
+func WithEvilScenario(scenario *evilwallet.EvilScenario) Options {
 	return func(s *Spammer) {
 		s.EvilScenario = scenario
 	}
@@ -79,15 +99,15 @@ func WithNumberOfSpends(n int) Options {
 }
 
 type SpamDetails struct {
-	Rate        int
-	TimeUnit    time.Duration
-	MaxDuration time.Duration
-	MaxMsgSent  int
+	Rate           int
+	TimeUnit       time.Duration
+	MaxDuration    time.Duration
+	MaxBatchesSent int
 }
 
 var DefaultSpamDetails = &SpamDetails{
-	Rate:        10,
-	TimeUnit:    time.Second,
-	MaxDuration: time.Minute,
-	MaxMsgSent:  601,
+	Rate:           10,
+	TimeUnit:       time.Second,
+	MaxDuration:    time.Minute,
+	MaxBatchesSent: 601,
 }
