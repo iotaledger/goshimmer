@@ -99,14 +99,20 @@ func (o *Options) checkInputsAndOutputs() error {
 }
 
 // WithInputs returns an Option that is used to provide the Inputs of the Transaction.
-func WithInputs(inputs ...interface{}) Option {
+func WithInputs(inputs interface{}) Option {
 	return func(options *Options) {
-		for _, input := range inputs {
-			switch in := input.(type) {
-			case string:
-				options.aliasInputs[in] = types.Void
-			case ledgerstate.OutputID:
-				options.inputs = append(options.inputs, in)
+		switch in := inputs.(type) {
+		case string:
+			options.aliasInputs[in] = types.Void
+		case []string:
+			for _, input := range in {
+				options.aliasInputs[input] = types.Void
+			}
+		case ledgerstate.OutputID:
+			options.inputs = append(options.inputs, in)
+		case []ledgerstate.OutputID:
+			for _, input := range in {
+				options.inputs = append(options.inputs, input)
 			}
 		}
 	}
