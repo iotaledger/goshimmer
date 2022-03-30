@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 )
 
 type Booker struct {
@@ -23,8 +24,14 @@ func NewBooker(ledger *Ledger) (new *Booker) {
 func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
 	cachedOutputsMetadata := b.bookTransaction(params.Transaction.ID(), params.TransactionMetadata, params.InputsMetadata, params.Outputs)
 	defer cachedOutputsMetadata.Release()
-
 	params.OutputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap()...)
+
+	generics.ForEach(params.Consumers, func(consumer *Consumer) {
+		consumer.SetBooked()
+	})
+	params.TransactionMetadata.SetBooked(true)
+
+	b.TransactionBookedEvent.Trigger(params.Transaction.ID())
 
 	return next(params)
 }

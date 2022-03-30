@@ -137,7 +137,7 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return message
 	}
 	newValidMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Processed")), 0, ed25519.Signature{})
+		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Booked")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}

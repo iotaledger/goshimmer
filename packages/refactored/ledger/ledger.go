@@ -17,8 +17,7 @@ import (
 
 type Ledger struct {
 	TransactionStoredEvent            *event.Event[TransactionID]
-	TransactionSolidEvent             *event.Event[TransactionID]
-	TransactionProcessedEvent         *event.Event[TransactionID]
+	TransactionBookedEvent            *event.Event[TransactionID]
 	ConsumedTransactionProcessedEvent *event.Event[TransactionID]
 	ErrorEvent                        *event.Event[error]
 
@@ -39,8 +38,7 @@ type Ledger struct {
 func New(store kvstore.KVStore, vm VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
 		TransactionStoredEvent:            event.New[TransactionID](),
-		TransactionSolidEvent:             event.New[TransactionID](),
-		TransactionProcessedEvent:         event.New[TransactionID](),
+		TransactionBookedEvent:            event.New[TransactionID](),
 		ConsumedTransactionProcessedEvent: event.New[TransactionID](),
 		ErrorEvent:                        event.New[error](),
 
@@ -80,80 +78,67 @@ func (l *Ledger) Setup() {
 	l.ConsumedTransactionProcessedEvent.Attach(event.NewClosure[TransactionID](func(txID TransactionID) {
 		l.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			l.CachedTransaction(txID).Consume(func(tx *Transaction) {
-				l.processTransaction(tx, txMetadata)
+				_ = l.processTransaction(tx, txMetadata)
 			})
 		})
 	}))
 }
 
 // StoreAndProcessTransaction is the only public facing api
-func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (outputIDs OutputIDs, processed bool) {
-	transaction := NewTransaction(tx)
-
-	cachedTransactionMetadata := l.CachedTransactionMetadata(transaction.ID(), func(transactionID TransactionID) *TransactionMetadata {
-		l.transactionStorage.Store(transaction).Release()
-		processed = true
-		return NewTransactionMetadata(transactionID)
-	})
-
-	// if we didn't store ourselves then we consider this call to be a success if this transaction was processed already
-	//  (e.g. by a reattachment)
-	if !processed {
-		cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-			outputIDs = metadata.OutputIDs()
-			processed = metadata.Processed()
-		})
-
-		return outputIDs, processed
-	}
-
-	cachedTransactionMetadata.Consume(func(metadata *TransactionMetadata) {
-		l.TransactionStoredEvent.Trigger(transaction.ID())
-
-		processed = l.processTransaction(transaction, metadata)
-		outputIDs = metadata.OutputIDs()
-	})
-
-	return outputIDs, processed
-}
-
-func (l *Ledger) processTransaction(tx *Transaction, txMeta *TransactionMetadata) (success bool) {
+func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
-	if txMeta.Processed() {
-		return true
-	}
+	return l.storeAndProcessTransactionDataFlow().Run(&params{
+		Transaction: NewTransaction(tx),
+		InputIDs:    l.resolveInputs(tx.Inputs()),
+	})
+}
 
-	err := dataflow.New[*params](
-		l.checkSolidityCommand,
-		l.checkOutputsCausallyRelatedCommand,
-		l.executeTransactionCommand,
+func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
+	return l.checkTransactionDataFlow().Run(&params{
+		Transaction: NewTransaction(tx),
+		InputIDs:    l.resolveInputs(tx.Inputs()),
+	})
+}
+
+func (l *Ledger) processTransaction(tx *Transaction, txMetadata *TransactionMetadata) (err error) {
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
+
+	return l.processTransactionDataFlow().Run(&params{
+		Transaction:         tx,
+		TransactionMetadata: txMetadata,
+		InputIDs:            l.resolveInputs(tx.Inputs()),
+	})
+}
+
+func (l *Ledger) storeAndProcessTransactionDataFlow() *dataflow.DataFlow[*params] {
+	return dataflow.New[*params](
+		l.storeTransactionCommand,
+		l.processTransactionDataFlow().ChainedCommand,
+	)
+}
+
+func (l *Ledger) processTransactionDataFlow() *dataflow.DataFlow[*params] {
+	return dataflow.New[*params](
+		l.checkTransactionAlreadyBooked,
+		l.checkTransactionDataFlow().ChainedCommand,
 		l.bookTransactionCommand,
 		l.notifyConsumersCommand,
-	).WithSuccessCallback(func(params *params) {
-		generics.ForEach(params.Consumers, func(consumer *Consumer) {
-			consumer.SetProcessed()
-		})
-
-		txMeta.SetProcessed(true)
-
-		l.TransactionProcessedEvent.Trigger(tx.ID())
-
-		success = true
-	}).Run(&params{
-		Transaction:         tx,
-		TransactionMetadata: txMeta,
-	})
-
-	if err != nil {
+	).WithErrorCallback(func(err error, params *params) {
 		l.ErrorEvent.Trigger(err)
 
 		// TODO: mark Transaction as invalid and trigger invalid event
-		return false
-	}
+	})
+}
 
-	return success
+func (l *Ledger) checkTransactionDataFlow() *dataflow.DataFlow[*params] {
+	return dataflow.New[*params](
+		l.checkSolidityCommand,
+		l.checkOutputsCausallyRelatedCommand,
+		l.executeTransactionCommand,
+	)
 }
 
 func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*params]) error {
@@ -166,6 +151,18 @@ func (l *Ledger) notifyConsumersCommand(params *params, next dataflow.Next[*para
 	}
 
 	return next(params)
+}
+
+func (s *Solidifier) checkTransactionAlreadyBooked(params *params, next dataflow.Next[*params]) error {
+	if params.TransactionMetadata.Booked() {
+		return nil
+	}
+
+	return next(params)
+}
+
+func (s *Solidifier) resolveInputs(inputs []Input) (outputIDs OutputIDs) {
+	return NewOutputIDs(generics.Map(inputs, s.vm.ResolveInput)...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

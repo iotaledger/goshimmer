@@ -140,3 +140,13 @@ func (o OutputIDs) String() (humanReadable string) {
 
 	return "OutputIDs(" + strings.Join(elementStrings, ", ") + ")"
 }
+
+func (o OutputIDs) Iterator() *Iterator[OutputID] {
+	outputIDs := make([]OutputID, 0)
+	_ = o.ForEach(func(outputID OutputID) (err error) {
+		outputIDs = append(outputIDs, outputID)
+		return nil
+	})
+
+	return NewIterator(outputIDs...)
+}

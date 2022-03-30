@@ -42,20 +42,20 @@ func (v *Validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (rel
 	}
 
 	v.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-		if !txMetadata.Processed() {
+		if !txMetadata.Booked() {
 			return
 		}
 
-		_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
+		for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
+			outputID := it.Next()
+
 			if related = outputsMetadata.Has(outputID); related {
 				walker.StopWalk()
-				return errors.New("abort")
+				return
 			}
 
 			walker.Push(outputID)
-
-			return nil
-		})
+		}
 	})
 
 	return related

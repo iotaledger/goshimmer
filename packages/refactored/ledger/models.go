@@ -182,17 +182,17 @@ func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified
 	return true
 }
 
-// Processed returns true if the Transaction has been marked as solid.
-func (t *TransactionMetadata) Processed() bool {
+// Booked returns true if the Transaction has been marked as solid.
+func (t *TransactionMetadata) Booked() bool {
 	t.solidMutex.RLock()
 	defer t.solidMutex.RUnlock()
 
 	return t.solid
 }
 
-// SetProcessed updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates
+// SetBooked updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates
 // the solidification time if the Transaction was marked as solid.
-func (t *TransactionMetadata) SetProcessed(solid bool) (modified bool) {
+func (t *TransactionMetadata) SetBooked(solid bool) (modified bool) {
 	t.solidMutex.Lock()
 	defer t.solidMutex.Unlock()
 
@@ -311,7 +311,7 @@ func (t *TransactionMetadata) String() string {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
-		stringify.StructField("processed", t.Processed()),
+		stringify.StructField("processed", t.Booked()),
 		stringify.StructField("solidificationTime", t.SolidificationTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("outputIDs", t.OutputIDs()),
@@ -331,7 +331,7 @@ func (t *TransactionMetadata) ObjectStorageKey() []byte {
 func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
-		WriteBool(t.Processed()).
+		WriteBool(t.Booked()).
 		WriteTime(t.SolidificationTime()).
 		WriteBool(t.LazyBooked()).
 		Write(t.OutputIDs()).
@@ -854,8 +854,8 @@ func (c *Consumer) Processed() (processed bool) {
 	return c.processed
 }
 
-// SetProcessed updates the valid flag of the Consumer and returns true if the value was changed.
-func (c *Consumer) SetProcessed() (updated bool) {
+// SetBooked updates the valid flag of the Consumer and returns true if the value was changed.
+func (c *Consumer) SetBooked() (updated bool) {
 	c.processedMutex.Lock()
 	defer c.processedMutex.Unlock()
 

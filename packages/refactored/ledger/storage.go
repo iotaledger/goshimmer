@@ -3,7 +3,9 @@ package ledger
 import (
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -56,6 +58,34 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 
 		Ledger: ledger,
 	}
+}
+
+func (s *Storage) storeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
+	created := false
+	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
+		s.transactionStorage.Store(params.Transaction).Release()
+		created = true
+		return NewTransactionMetadata(txID)
+	})
+	defer cachedTransactionMetadata.Release()
+
+	params.TransactionMetadata, _ = cachedTransactionMetadata.Unwrap()
+
+	if !created {
+		if params.TransactionMetadata.Booked() {
+			return nil
+		}
+
+		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
+	}
+
+	cachedConsumers := s.initializeConsumers(params.InputIDs, params.Transaction.ID())
+	defer cachedConsumers.Release()
+	params.Consumers = cachedConsumers.Unwrap()
+
+	s.TransactionStoredEvent.Trigger(params.Transaction.ID())
+
+	return next(params)
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
