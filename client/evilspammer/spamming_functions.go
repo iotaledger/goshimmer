@@ -57,6 +57,5 @@ func CustomConflictSpammingFunc(s *Spammer) {
 		wg.Wait()
 	}
 	s.State.batchPrepared.Add(1)
-	s.SpamWallet.ClearAliases()
 	s.CheckIfAllSent()
 }
