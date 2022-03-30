@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -43,6 +44,16 @@ func init() {
 		}
 		return tx, nil
 	})
+	s := serix.NewAPI()
+
+	err := s.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectCode(new(Transaction).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+	err = s.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

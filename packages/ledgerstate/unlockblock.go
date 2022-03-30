@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cockroachdb/errors"
@@ -8,11 +9,32 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
-// region UnlockBlockType //////////////////////////////////////////////////////////////////////////////////////////////
+func init() {
+	s := serix.NewAPI()
+	err := s.RegisterTypeSettings(new(AliasUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(AliasUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasUnlockBlock type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(ReferenceUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(ReferenceUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(SignatureUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(SignatureUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
+	}
+	err = s.RegisterInterfaceObjects((*UnlockBlock)(nil), new(AliasUnlockBlock), new(ReferenceUnlockBlock), new(SignatureUnlockBlock))
+	if err != nil {
+		panic(fmt.Errorf("error registering UnlockBlock interface implementations: %w", err))
+	}
 
+}
+
+// region UnlockBlockType //////////////////////////////////////////////////////////////////////////////////////////////
 const (
 	// SignatureUnlockBlockType represents the type of a SignatureUnlockBlock.
 	SignatureUnlockBlockType UnlockBlockType = iota

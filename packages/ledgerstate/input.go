@@ -10,10 +10,23 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 )
+
+func init() {
+	s := serix.NewAPI()
+	err := s.RegisterTypeSettings(new(UTXOInput), serix.TypeSettings{}.WithObjectCode(new(UTXOInput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering UTXOInput type settings: %w", err))
+	}
+	err = s.RegisterInterfaceObjects((*Input)(nil), new(UTXOInput))
+	if err != nil {
+		panic(fmt.Errorf("error registering Input interface implementations: %w", err))
+	}
+}
 
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
 

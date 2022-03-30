@@ -29,11 +29,6 @@ func TestSerixMessage(t *testing.T) {
 	// fmt.Println(msg)
 
 	s := serix.NewAPI()
-	err = s.RegisterTypeSettings(new(payload.GenericDataPayload), serix.TypeSettings{}.WithObjectCode(new(payload.GenericDataPayload).Type()))
-	assert.NoError(t, err)
-
-	err = s.RegisterInterfaceObjects((*payload.Payload)(nil), new(payload.GenericDataPayload))
-	assert.NoError(t, err)
 
 	result, err := s.Encode(context.Background(), msg)
 	assert.NoError(t, err)

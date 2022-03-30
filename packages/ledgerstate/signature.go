@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -9,10 +10,27 @@ import (
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 )
+
+func init() {
+	s := serix.NewAPI()
+	err := s.RegisterTypeSettings(new(BLSSignature), serix.TypeSettings{}.WithObjectCode(new(BLSSignature).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering BLSSignature type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(ED25519Signature), serix.TypeSettings{}.WithObjectCode(new(ED25519Signature).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ED25519Signature type settings: %w", err))
+	}
+	err = s.RegisterInterfaceObjects((*Signature)(nil), new(BLSSignature), new(ED25519Signature))
+	if err != nil {
+		panic(fmt.Errorf("error registering Signature interface implementations: %w", err))
+	}
+}
 
 // region SignatureType ////////////////////////////////////////////////////////////////////////////////////////////////
 

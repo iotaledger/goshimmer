@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -25,6 +26,30 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
+
+func init() {
+	s := serix.NewAPI()
+	err := s.RegisterTypeSettings(new(SigLockedSingleOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedSingleOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedSingleOutput type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(SigLockedColoredOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedColoredOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedColoredOutput type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(AliasOutput), serix.TypeSettings{}.WithObjectCode(new(AliasOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasOutput type settings: %w", err))
+	}
+	err = s.RegisterTypeSettings(new(ExtendedLockedOutput), serix.TypeSettings{}.WithObjectCode(new(ExtendedLockedOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+	err = s.RegisterInterfaceObjects((*Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	if err != nil {
+		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
+	}
+}
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
 
