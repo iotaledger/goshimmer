@@ -26,10 +26,7 @@ func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*para
 	defer cachedOutputsMetadata.Release()
 	params.OutputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap()...)
 
-	generics.ForEach(params.Consumers, func(consumer *Consumer) {
-		consumer.SetBooked()
-	})
-	params.TransactionMetadata.SetBooked(true)
+	b.markTransactionBooked(params.TransactionMetadata, params.Consumers)
 
 	b.TransactionBookedEvent.Trigger(params.Transaction.ID())
 
@@ -42,6 +39,13 @@ func (b *Booker) bookTransaction(txID TransactionID, txMetadata *TransactionMeta
 	txMetadata.SetBranchIDs(inheritedBranchIDs)
 
 	return b.bookOutputs(txMetadata, outputs, inheritedBranchIDs)
+}
+
+func (b *Booker) markTransactionBooked(txMetadata *TransactionMetadata, consumers []*Consumer) {
+	generics.ForEach(consumers, func(consumer *Consumer) {
+		consumer.SetBooked()
+	})
+	txMetadata.SetBooked(true)
 }
 
 func (b *Booker) inheritBranchIDsFromInputs(txID TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
@@ -106,8 +110,6 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	conflictingInputs := b.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
-	fmt.Println(txMetadata.ID(), previousParentBranches)
-
 	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) || !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
 		b.Unlock(txMetadata.ID())
 		return
@@ -139,7 +141,9 @@ func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetada
 
 func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
 	if txMetadata.IsConflicting() {
+		b.BranchDAG.UpdateParentsAfterFork(txMetadata.ID(), forkedBranchID, previousParents)
 		fmt.Println("conflicting")
+		return false
 	}
 
 	if txMetadata.BranchIDs().Has(forkedBranchID) {

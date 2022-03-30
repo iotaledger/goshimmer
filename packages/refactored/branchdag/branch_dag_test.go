@@ -19,16 +19,16 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	err := branchDAG.Prune()
 	require.NoError(t, err)
 
-	branchID2 := branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}))
-	cachedBranch2 := branchDAG.Branch(branchID2)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1})))
+	cachedBranch2 := branchDAG.Branch(utxo.TransactionID{2})
 	defer cachedBranch2.Release()
 	Branch2, exists := cachedBranch2.Unwrap()
 	require.True(t, exists)
 	assert.Equal(t, NewBranchIDs(MasterBranchID), Branch2.Parents())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), Branch2.Conflicts())
 
-	branchID3 := branchDAG.CreateBranch(utxo.TransactionID{3}, NewBranchIDs(Branch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
-	cachedBranch3 := branchDAG.Branch(branchID3)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{3}, NewBranchIDs(Branch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2})))
+	cachedBranch3 := branchDAG.Branch(utxo.TransactionID{3})
 	defer cachedBranch3.Release()
 	Branch3, exists := cachedBranch3.Unwrap()
 	require.True(t, exists)
@@ -36,16 +36,16 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, NewBranchIDs(Branch2.ID()), Branch3.Parents())
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), Branch3.Conflicts())
 
-	branchID2 = branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}))
-	cachedBranch2 = branchDAG.Branch(branchID2)
+	assert.False(t, branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2})))
+	cachedBranch2 = branchDAG.Branch(utxo.TransactionID{2})
 	defer cachedBranch2.Release()
 	Branch2, exists = cachedBranch2.Unwrap()
 	require.True(t, exists)
 
 	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2}), Branch2.Conflicts())
 
-	branchID4 := branchDAG.CreateBranch(utxo.TransactionID{4}, NewBranchIDs(Branch3.ID(), Branch3.ID()), NewConflictIDs(ConflictID{3}))
-	cachedBranch4 := branchDAG.Branch(branchID4)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{4}, NewBranchIDs(Branch3.ID(), Branch3.ID()), NewConflictIDs(ConflictID{3})))
+	cachedBranch4 := branchDAG.Branch(utxo.TransactionID{4})
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
 	require.True(t, exists)
@@ -60,14 +60,14 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	require.NoError(t, err)
 
 	// create initial branches
-	branchID2 := branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
-	cachedBranch2 := branchDAG.Branch(branchID2)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{2}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})))
+	cachedBranch2 := branchDAG.Branch(utxo.TransactionID{2})
 	defer cachedBranch2.Release()
 	branch2, exists := cachedBranch2.Unwrap()
 	assert.True(t, exists)
 
-	branchID3 := branchDAG.CreateBranch(utxo.TransactionID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
-	cachedBranch3 := branchDAG.Branch(branchID3)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{3}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})))
+	cachedBranch3 := branchDAG.Branch(utxo.TransactionID{3})
 	defer cachedBranch3.Release()
 	branch3, exists := cachedBranch3.Unwrap()
 	assert.True(t, exists)
@@ -83,8 +83,8 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add branch 4
-	branchID4 := branchDAG.CreateBranch(utxo.TransactionID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0}))
-	cachedBranch4 := branchDAG.Branch(branchID4)
+	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{4}, NewBranchIDs(MasterBranchID), NewConflictIDs(ConflictID{0})))
+	cachedBranch4 := branchDAG.Branch(utxo.TransactionID{4})
 	defer cachedBranch4.Release()
 	branch4, exists := cachedBranch4.Unwrap()
 	assert.True(t, exists)
@@ -212,14 +212,14 @@ func createBranch(t *testing.T, branchDAG *BranchDAG, branchAlias string, parent
 	var randomTxID utxo.TransactionID
 	if err := randomTxID.FromRandomness(); err != nil {
 		t.Error(err)
-		return UndefinedBranchID
+		return BranchID{}
 	}
 
-	branchID := branchDAG.CreateBranch(randomTxID, parents, conflictIDs)
-	cachedBranch := branchDAG.Branch(branchID)
+	assert.True(t, branchDAG.CreateBranch(randomTxID, parents, conflictIDs))
+	cachedBranch := branchDAG.Branch(randomTxID)
 	cachedBranch.Release()
 
 	RegisterBranchIDAlias(branchID, branchAlias)
 
-	return branchID
+	return randomTxID
 }

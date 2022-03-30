@@ -5,20 +5,24 @@ import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
-type Executor struct {
+type VM struct {
 	*Ledger
+
+	vm utxo.VM
 }
 
-func NewExecutor(ledger *Ledger) (new *Executor) {
-	return &Executor{
+func NewVM(ledger *Ledger, vm utxo.VM) (new *VM) {
+	return &VM{
 		Ledger: ledger,
+		vm:     vm,
 	}
 }
 
-func (e *Executor) executeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
-	utxoOutputs, err := e.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
+func (v *VM) executeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
+	utxoOutputs, err := v.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
@@ -26,4 +30,8 @@ func (e *Executor) executeTransactionCommand(params *params, next dataflow.Next[
 	params.Outputs = NewOutputs(generics.Map(utxoOutputs, NewOutput)...)
 
 	return next(params)
+}
+
+func (v *VM) resolveInputs(inputs []Input) (outputIDs OutputIDs) {
+	return NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
 }

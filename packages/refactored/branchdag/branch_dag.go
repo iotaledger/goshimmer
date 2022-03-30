@@ -168,18 +168,18 @@ func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, c
 	return created
 }
 
-// AddBranchParent changes the parents of a Branch (also updating the references of the ChildBranches).
-func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err error) {
+// UpdateParentsAfterFork changes the parents of a Branch (also updating the references of the ChildBranches).
+func (b *BranchDAG) UpdateParentsAfterFork(branchID, newParentBranchID BranchID, previousParents BranchIDs) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	if !b.Branch(branchID).Consume(func(branch *Branch) {
+	b.Branch(branchID).Consume(func(branch *Branch) {
 		parentBranchIDs := branch.Parents()
 		if !parentBranchIDs.Add(newParentBranchID) {
 			return
 		}
 
-		parentBranchIDs.Delete(MasterBranchID)
+		parentBranchIDs.DeleteAll(previousParents)
 
 		if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, branchID)); stored {
 			cachedChildBranch.Release()
@@ -188,11 +188,7 @@ func (b *BranchDAG) AddBranchParent(branchID, newParentBranchID BranchID) (err e
 		if branch.SetParents(parentBranchIDs) {
 			b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{branchID, parentBranchIDs})
 		}
-	}) {
-		return errors.Errorf("failed to unwrap Branch: %w", cerrors.ErrFatal)
-	}
-
-	return nil
+	})
 }
 
 // RemoveConfirmedBranches returns the BranchIDs of the pending and rejected Branches that are

@@ -2,19 +2,34 @@ package ledger
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+
+	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 type Solidifier struct {
 	*Ledger
 }
 
-func NewSolidifier(ledger *Ledger) (newAvailabilityManager *Solidifier) {
+func NewSolidifier(ledger *Ledger) (new *Solidifier) {
 	return &Solidifier{
 		Ledger: ledger,
 	}
+}
+
+func (s *Solidifier) initConsumersCommand(params *params, next dataflow.Next[*params]) (err error) {
+	if params.TransactionMetadata.Booked() {
+		return nil
+	}
+
+	params.InputIDs = s.resolveInputs(params.Transaction.Inputs())
+
+	cachedConsumers := s.initConsumers(params.InputIDs, params.Transaction.ID())
+	defer cachedConsumers.Release()
+	params.Consumers = cachedConsumers.Unwrap()
+
+	return next(params)
 }
 
 func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
@@ -27,12 +42,10 @@ func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*pa
 	return next(params)
 }
 
-func (s *Solidifier) initializeConsumers(outputIDs OutputIDs, txID TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Solidifier) initConsumers(outputIDs OutputIDs, txID TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
-	_ = outputIDs.ForEach(func(outputID OutputID) (err error) {
-		cachedConsumers = append(cachedConsumers, s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
-			return NewConsumer(outputID, txID)
-		}))
+	_ = outputIDs.ForEach(func(outputID utxo.OutputID) (err error) {
+		cachedConsumers = append(cachedConsumers, s.CachedConsumer(outputID, txID, NewConsumer))
 		return nil
 	})
 

@@ -122,6 +122,9 @@ func (o OutputIDs) Slice() (slice []OutputID) {
 
 func (o OutputIDs) Bytes() (serialized []byte) {
 	marshalUtil := marshalutil.New()
+	if o.OrderedMap == nil {
+		return marshalUtil.WriteUint64(0).Bytes()
+	}
 
 	marshalUtil.WriteUint64(uint64(o.Size()))
 	_ = o.ForEach(func(outputID OutputID) (err error) {

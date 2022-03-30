@@ -60,10 +60,10 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	}
 }
 
-func (s *Storage) storeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (d *DataFlow) storeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
 	created := false
-	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
-		s.transactionStorage.Store(params.Transaction).Release()
+	cachedTransactionMetadata := d.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
+		d.transactionStorage.Store(params.Transaction).Release()
 		created = true
 		return NewTransactionMetadata(txID)
 	})
@@ -79,11 +79,7 @@ func (s *Storage) storeTransactionCommand(params *params, next dataflow.Next[*pa
 		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
 	}
 
-	cachedConsumers := s.initializeConsumers(params.InputIDs, params.Transaction.ID())
-	defer cachedConsumers.Release()
-	params.Consumers = cachedConsumers.Unwrap()
-
-	s.TransactionStoredEvent.Trigger(params.Transaction.ID())
+	d.TransactionStoredEvent.Trigger(params.Transaction.ID())
 
 	return next(params)
 }
@@ -109,8 +105,8 @@ func (s *Storage) CachedOutput(outputID OutputID) (cachedOutput CachedOutput) {
 	return s.outputStorage.Load(outputID.Bytes())
 }
 
-func (s *Storage) CachedOutputs(outputIDs OutputIDs) (cachedOutputs objectstorage.CachedObjects[*Output]) {
-	cachedOutputs = make(objectstorage.CachedObjects[*Output], 0)
+func (s *Storage) CachedOutputs(outputIDs OutputIDs) (cachedOutputs CachedOutputs) {
+	cachedOutputs = make(CachedOutputs, 0)
 	_ = outputIDs.ForEach(func(outputID OutputID) error {
 		cachedOutputs = append(cachedOutputs, s.CachedOutput(outputID))
 		return nil
@@ -135,7 +131,13 @@ func (s *Storage) CachedOutputsMetadata(outputIDs OutputIDs) (cachedOutputsMetad
 }
 
 // CachedConsumer retrieves the OutputMetadata with the given OutputID from the object storage.
-func (s *Storage) CachedConsumer(outputID OutputID, txID TransactionID) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+func (s *Storage) CachedConsumer(outputID OutputID, txID TransactionID, computeIfAbsentCallback ...func(outputID OutputID, txID TransactionID) *Consumer) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
+			return computeIfAbsentCallback[0](outputID, txID)
+		})
+	}
+
 	return s.consumerStorage.Load(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()))
 }
 

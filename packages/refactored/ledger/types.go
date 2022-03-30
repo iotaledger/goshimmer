@@ -22,8 +22,6 @@ type CachedTransaction = *objectstorage.CachedObject[*Transaction]
 
 type CachedTransactions = *objectstorage.CachedObjects[*Transaction]
 
-type VM = utxo.VM
-
 type Input = utxo.Input
 
 type TransactionID = utxo.TransactionID
