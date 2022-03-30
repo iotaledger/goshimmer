@@ -23,8 +23,13 @@ const (
 	Other WalletType = iota
 	// Fresh is used for automatic Faucet Requests, outputs are returned one by one
 	Fresh
-	// Reuse stores resulting outputs of double spends or transactions issued by the evilWallet
+	// Reuse stores resulting outputs of double spends or transactions issued by the evilWallet,
+	// outputs from this wallet are reused in spamming scenario with flag reuse set to true and no RestrictedReuse wallet provided.
+	// Reusing spammed outputs allows for creation of deeper UTXO DAG structure.
 	Reuse
+	// RestrictedReuse it is a reuse wallet, that will be available only to spamming scenarios that
+	// will provide RestrictedWallet for the reuse spamming.
+	RestrictedReuse
 )
 
 // region Wallets ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,7 +84,10 @@ func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 			return nil, errors.New("wallet is empty, need to request more funds")
 		}
 		return wallet, nil
+	case Reuse:
+		return nil, nil
 	}
+
 	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
 }
 
@@ -109,6 +117,20 @@ func (w *Wallets) IsFaucetWalletAvailable() bool {
 // it is removed and the next enqueued one is returned.
 func (w *Wallets) FreshWallet() (*Wallet, error) {
 	wallet, err := w.GetNextWallet(Fresh)
+	if err != nil {
+		w.removeWallet(Fresh)
+		wallet, err = w.GetNextWallet(Fresh)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return wallet, nil
+}
+
+// ReuseWallet returns the first non-empty wallet from the reuseWallets queue. If current wallet is empty,
+// it is removed and the next enqueued one is returned.
+func (w *Wallets) ReuseWallet() (*Wallet, error) {
+	wallet, err := w.GetNextWallet(Reuse)
 	if err != nil {
 		w.removeWallet(Fresh)
 		wallet, err = w.GetNextWallet(Fresh)

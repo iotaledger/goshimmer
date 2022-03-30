@@ -686,11 +686,25 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 }
 
 func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	wallet, err := e.wallets.FreshWallet()
-	if err != nil {
-		return
+	var wallet *Wallet
+	var evilInput *Output
+	if scenario.Reuse {
+		wallet, err = e.wallets.ReuseWallet()
+		if err != nil {
+			return
+		}
+		if wallet != nil {
+			evilInput = wallet.GetUnspentOutput()
+		}
 	}
-	evilInput := wallet.GetUnspentOutput()
+	if evilInput == nil {
+		wallet, err = e.wallets.FreshWallet()
+		if err != nil {
+			return
+		}
+		evilInput = wallet.GetUnspentOutput()
+	}
+
 	outBalance := getIotaColorAmount(evilInput.Balance)
 	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
 	input := out.SetID(evilInput.OutputID)
@@ -714,29 +728,31 @@ type EvilBatch []ConflictSlice
 
 type EvilScenario struct {
 	ConflictBatch EvilBatch
-	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
+	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure. Default false.
 	Reuse bool
-
+	// if provided, the outputs from the spam will be saved into this wallet, accepted types of wallet: Reuse, RestrictedReuse.
+	// if type == Reuse, then wallet is available for reuse spamming scenarios that did not provide RestrictedWallet.
 	OutputWallet *Wallet
+	// if provided and reuse set to true, outputs from this wallet will be used for deep spamming, allows for controllable building of UTXO deep structures.
+	// if not provided evil wallet will use Reuse wallet if any is available. Accepts only RestrictedReuse wallet type.
+	RestrictedInputWallet *Wallet
+
 	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
 	batchOutputsAliases map[string]types.Empty
 }
 
-func NewEvilScenario(conflictBatch []ConflictSlice, reuse bool, outputWallet *Wallet) *EvilScenario {
+func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 	scenario := &EvilScenario{
-		Reuse:        reuse,
-		OutputWallet: outputWallet,
+		ConflictBatch: SingleTransactionBatch(),
+		Reuse:         false,
+		OutputWallet:  NewWallet(),
 	}
 
-	if conflictBatch == nil {
-		scenario.ConflictBatch = SingleTransactionBatch()
-	} else {
-		scenario.ConflictBatch = conflictBatch
-		scenario.assignBatchOutputs()
+	for _, option := range options {
+		option(scenario)
 	}
-	if outputWallet == nil {
-		scenario.OutputWallet = NewWallet()
-	}
+
+	scenario.assignBatchOutputs()
 	return scenario
 }
 
