@@ -22,8 +22,11 @@ import (
 
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
-	sequenceID   markers.SequenceID
-	mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs]
+	markerIndexBranchIDInner `serix:"0"`
+}
+type markerIndexBranchIDInner struct {
+	SequenceID   markers.SequenceID
+	Mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs] `serix:"0,lengthPrefixType=uint32"`
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -32,8 +35,10 @@ type MarkerIndexBranchIDMapping struct {
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
-		sequenceID: sequenceID,
-		mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
+		markerIndexBranchIDInner{
+			SequenceID: sequenceID,
+			Mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
+		},
 	}
 
 	markerBranchMapping.SetModified()
@@ -69,17 +74,17 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 	if m == nil {
 		markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
 	}
-	if markerIndexBranchIDMapping.sequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
+	if markerIndexBranchIDMapping.markerIndexBranchIDInner.SequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
 		return
 	}
-	mappingCount, mappingCountErr := marshalUtil.ReadUint64()
+	mappingCount, mappingCountErr := marshalUtil.ReadUint32()
 	if mappingCountErr != nil {
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
-	for j := uint64(0); j < mappingCount; j++ {
+	markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
+	for j := uint32(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
 			err = errors.Errorf("failed to parse Index (%v): %w", indexErr, cerrors.ErrParseBytesFailed)
@@ -92,7 +97,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 			return
 		}
 
-		markerIndexBranchIDMapping.mapping.Set(markers.Index(index), branchIDs)
+		markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping.Set(markers.Index(index), branchIDs)
 	}
 
 	return
@@ -100,7 +105,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 
 // SequenceID returns the SequenceID that this MarkerIndexBranchIDMapping represents.
 func (m *MarkerIndexBranchIDMapping) SequenceID() markers.SequenceID {
-	return m.sequenceID
+	return m.markerIndexBranchIDInner.SequenceID
 }
 
 // BranchIDs returns the BranchID that is associated to the given marker Index.
@@ -108,7 +113,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	value, exists := m.mapping.Get(markerIndex)
+	value, exists := m.markerIndexBranchIDInner.Mapping.Get(markerIndex)
 	if !exists {
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
@@ -121,7 +126,7 @@ func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.mapping.Set(index, branchIDs)
+	m.markerIndexBranchIDInner.Mapping.Set(index, branchIDs)
 	m.SetModified()
 }
 
@@ -130,7 +135,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.mapping.Delete(index)
+	m.markerIndexBranchIDInner.Mapping.Delete(index)
 	m.SetModified()
 }
 
@@ -140,7 +145,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.mapping.Floor(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.markerIndexBranchIDInner.Mapping.Floor(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -153,7 +158,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.mapping.Ceiling(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.markerIndexBranchIDInner.Mapping.Ceiling(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -172,7 +177,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+	m.markerIndexBranchIDInner.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -200,7 +205,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	}
 
 	return stringify.Struct("MarkerIndexBranchIDMapping",
-		stringify.StructField("sequenceID", m.sequenceID),
+		stringify.StructField("sequenceID", m.markerIndexBranchIDInner.SequenceID),
 		stringify.StructField("mapping", mapping),
 	)
 }
@@ -208,7 +213,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
-	return m.sequenceID.Bytes()
+	return m.markerIndexBranchIDInner.SequenceID.Bytes()
 }
 
 // ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
@@ -218,8 +223,8 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	defer m.mappingMutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+	marshalUtil.WriteUint32(uint32(m.markerIndexBranchIDInner.Mapping.Size()))
+	m.markerIndexBranchIDInner.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
 		marshalUtil.Write(node.Key())
 		marshalUtil.Write(node.Value())
 
@@ -257,8 +262,12 @@ var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.Seque
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
-	marker    *markers.Marker
-	messageID MessageID
+	markerMessageMappingInner `serix:"0"`
+}
+
+type markerMessageMappingInner struct {
+	Marker    *markers.Marker
+	MessageID MessageID `serix:"0"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -266,8 +275,10 @@ type MarkerMessageMapping struct {
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
 func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
 	return &MarkerMessageMapping{
-		marker:    marker,
-		messageID: messageID,
+		markerMessageMappingInner{
+			Marker:    marker,
+			MessageID: messageID,
+		},
 	}
 }
 
@@ -297,11 +308,11 @@ func (m *MarkerMessageMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalU
 	if m == nil {
 		markerMessageMapping = &MarkerMessageMapping{}
 	}
-	if markerMessageMapping.marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
+	if markerMessageMapping.markerMessageMappingInner.Marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
 		return
 	}
-	if markerMessageMapping.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if markerMessageMapping.markerMessageMappingInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -311,12 +322,12 @@ func (m *MarkerMessageMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 // Marker returns the Marker that is mapped to a MessageID.
 func (m *MarkerMessageMapping) Marker() *markers.Marker {
-	return m.marker
+	return m.markerMessageMappingInner.Marker
 }
 
 // MessageID returns the MessageID of the Marker.
 func (m *MarkerMessageMapping) MessageID() MessageID {
-	return m.messageID
+	return m.markerMessageMappingInner.MessageID
 }
 
 // Bytes returns a marshaled version of the MarkerMessageMapping.
@@ -327,21 +338,21 @@ func (m *MarkerMessageMapping) Bytes() []byte {
 // String returns a human-readable version of the MarkerMessageMapping.
 func (m *MarkerMessageMapping) String() string {
 	return stringify.Struct("MarkerMessageMapping",
-		stringify.StructField("marker", m.marker),
-		stringify.StructField("messageID", m.messageID),
+		stringify.StructField("marker", m.markerMessageMappingInner.Marker),
+		stringify.StructField("messageID", m.markerMessageMappingInner.MessageID),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
-	return m.marker.Bytes()
+	return m.markerMessageMappingInner.Marker.Bytes()
 }
 
 // ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
 // the object storage.
 func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
-	return m.messageID.Bytes()
+	return m.markerMessageMappingInner.MessageID.Bytes()
 }
 
 // code contract (make sure the type implements all required methods).

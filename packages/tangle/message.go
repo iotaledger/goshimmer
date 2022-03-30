@@ -277,7 +277,7 @@ type messageInner struct {
 
 	// core properties (get sent over the wire)
 	Version         uint8             `serix:"0"`
-	ParentsBlocks   ParentsBlocks     `serix:"1,lengthPrefixType:uint8"`
+	ParentsBlocks   ParentsBlocks     `serix:"1,lengthPrefixType=uint8"`
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
@@ -806,7 +806,7 @@ type Parent struct {
 // ParentsBlock is the container for parents in a Message.
 type ParentsBlock struct {
 	ParentsType `serix:"0"`
-	References  []MessageID `serix:"1,lengthPrefixType:uint8"`
+	References  []MessageID `serix:"1,lengthPrefixType=uint8"`
 }
 
 type ParentsBlocks []ParentsBlock
@@ -856,25 +856,27 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	objectstorage.StorableObjectFlags
+	messageMetadataInner `serix:"0"`
+}
 
-	messageID           MessageID
-	receivedTime        time.Time
-	solid               bool
-	solidificationTime  time.Time
-	structureDetails    *markers.StructureDetails
-	addedBranchIDs      ledgerstate.BranchIDs
-	subtractedBranchIDs ledgerstate.BranchIDs
-	scheduled           bool
-	scheduledTime       time.Time
-	discardedTime       time.Time
-	queuedTime          time.Time
-	booked              bool
-	bookedTime          time.Time
-	objectivelyInvalid  bool
-	subjectivelyInvalid bool
-	gradeOfFinality     gof.GradeOfFinality
-	gradeOfFinalityTime time.Time
+type messageMetadataInner struct {
+	MessageID           MessageID                 `serix:"0"`
+	ReceivedTime        time.Time                 `serix:"1"`
+	Solid               bool                      `serix:"2"`
+	SolidificationTime  time.Time                 `serix:"3"`
+	StructureDetails    *markers.StructureDetails `serix:"4"`
+	AddedBranchIDs      ledgerstate.BranchIDs     `serix:"5,lengthPrefixType=uint32"`
+	SubtractedBranchIDs ledgerstate.BranchIDs     `serix:"6,lengthPrefixType=uint32"`
+	Scheduled           bool                      `serix:"7"`
+	ScheduledTime       time.Time                 `serix:"8"`
+	DiscardedTime       time.Time                 `serix:"9"`
+	QueuedTime          time.Time                 `serix:"10"`
+	Booked              bool                      `serix:"11"`
+	BookedTime          time.Time                 `serix:"12"`
+	ObjectivelyInvalid  bool                      `serix:"13"`
+	SubjectivelyInvalid bool                      `serix:"14"`
+	GradeOfFinality     gof.GradeOfFinality       `serix:"15"`
+	GradeOfFinalityTime time.Time                 `serix:"16"`
 
 	solidMutex               sync.RWMutex
 	solidificationTimeMutex  sync.RWMutex
@@ -889,15 +891,19 @@ type MessageMetadata struct {
 	bookedTimeMutex          sync.RWMutex
 	invalidMutex             sync.RWMutex
 	gradeOfFinalityMutex     sync.RWMutex
+
+	objectstorage.StorableObjectFlags
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
-		messageID:           messageID,
-		receivedTime:        clock.SyncedTime(),
-		addedBranchIDs:      ledgerstate.NewBranchIDs(),
-		subtractedBranchIDs: ledgerstate.NewBranchIDs(),
+		messageMetadataInner{
+			MessageID:           messageID,
+			ReceivedTime:        clock.SyncedTime(),
+			AddedBranchIDs:      ledgerstate.NewBranchIDs(),
+			SubtractedBranchIDs: ledgerstate.NewBranchIDs(),
+		},
 	}
 }
 
@@ -924,51 +930,51 @@ func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		messageMetadata = new(MessageMetadata)
 	}
 
-	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageMetadataInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.messageMetadataInner.ReceivedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.messageMetadataInner.SolidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.messageMetadataInner.Solid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageMetadataInner.StructureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if messageMetadata.addedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageMetadataInner.AddedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if messageMetadata.subtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if messageMetadata.messageMetadataInner.SubtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if messageMetadata.scheduled, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.messageMetadataInner.Scheduled, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.messageMetadataInner.ScheduledTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.messageMetadataInner.Booked, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.bookedTime, err = marshalUtil.ReadTime(); err != nil {
+	if messageMetadata.messageMetadataInner.BookedTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
 		return
 	}
-	if messageMetadata.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
+	if messageMetadata.messageMetadataInner.ObjectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
 		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
 		return
 	}
@@ -977,8 +983,8 @@ func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
 		return
 	}
-	messageMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if messageMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+	messageMetadata.messageMetadataInner.GradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if messageMetadata.messageMetadataInner.GradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
 		return
 	}
@@ -988,19 +994,19 @@ func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 
 // ID returns the MessageID of the Message that this MessageMetadata object belongs to.
 func (m *MessageMetadata) ID() MessageID {
-	return m.messageID
+	return m.messageMetadataInner.MessageID
 }
 
 // ReceivedTime returns the time when the message was received.
 func (m *MessageMetadata) ReceivedTime() time.Time {
-	return m.receivedTime
+	return m.messageMetadataInner.ReceivedTime
 }
 
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
 	defer m.solidMutex.RUnlock()
-	result = m.solid
+	result = m.messageMetadataInner.Solid
 
 	return
 }
@@ -1009,15 +1015,15 @@ func (m *MessageMetadata) IsSolid() (result bool) {
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	m.solidMutex.RLock()
-	if m.solid != solid {
+	if m.messageMetadataInner.Solid != solid {
 		m.solidMutex.RUnlock()
 
 		m.solidMutex.Lock()
-		if m.solid != solid {
-			m.solid = solid
+		if m.messageMetadataInner.Solid != solid {
+			m.messageMetadataInner.Solid = solid
 			if solid {
 				m.solidificationTimeMutex.Lock()
-				m.solidificationTime = clock.SyncedTime()
+				m.messageMetadataInner.SolidificationTime = clock.SyncedTime()
 				m.solidificationTimeMutex.Unlock()
 			}
 
@@ -1038,7 +1044,7 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 	m.solidificationTimeMutex.RLock()
 	defer m.solidificationTimeMutex.RUnlock()
 
-	return m.solidificationTime
+	return m.messageMetadataInner.SolidificationTime
 }
 
 // SetStructureDetails sets the structureDetails of the message.
@@ -1046,11 +1052,11 @@ func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.Structur
 	m.structureDetailsMutex.Lock()
 	defer m.structureDetailsMutex.Unlock()
 
-	if m.structureDetails != nil {
+	if m.messageMetadataInner.StructureDetails != nil {
 		return false
 	}
 
-	m.structureDetails = structureDetails
+	m.messageMetadataInner.StructureDetails = structureDetails
 
 	m.SetModified()
 	return true
@@ -1061,7 +1067,7 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	m.structureDetailsMutex.RLock()
 	defer m.structureDetailsMutex.RUnlock()
 
-	return m.structureDetails
+	return m.messageMetadataInner.StructureDetails
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
@@ -1069,11 +1075,11 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Equals(addedBranchIDs) {
+	if m.messageMetadataInner.AddedBranchIDs.Equals(addedBranchIDs) {
 		return false
 	}
 
-	m.addedBranchIDs = addedBranchIDs.Clone()
+	m.messageMetadataInner.AddedBranchIDs = addedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 
@@ -1085,11 +1091,11 @@ func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified b
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Contains(branchID) {
+	if m.messageMetadataInner.AddedBranchIDs.Contains(branchID) {
 		return
 	}
 
-	m.addedBranchIDs.Add(branchID)
+	m.messageMetadataInner.AddedBranchIDs.Add(branchID)
 	m.SetModified(true)
 	return true
 }
@@ -1099,7 +1105,7 @@ func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
-	return m.addedBranchIDs.Clone()
+	return m.messageMetadataInner.AddedBranchIDs.Clone()
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
@@ -1107,11 +1113,11 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.subtractedBranchIDs.Equals(subtractedBranchIDs) {
+	if m.messageMetadataInner.SubtractedBranchIDs.Equals(subtractedBranchIDs) {
 		return false
 	}
 
-	m.subtractedBranchIDs = subtractedBranchIDs.Clone()
+	m.messageMetadataInner.SubtractedBranchIDs = subtractedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 
@@ -1123,7 +1129,7 @@ func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchIDs {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 
-	return m.subtractedBranchIDs.Clone()
+	return m.messageMetadataInner.SubtractedBranchIDs.Clone()
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
@@ -1134,12 +1140,12 @@ func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledTimeMutex.Lock()
 	defer m.scheduledTimeMutex.Unlock()
 
-	if m.scheduled == scheduled {
+	if m.messageMetadataInner.Scheduled == scheduled {
 		return false
 	}
 
-	m.scheduled = scheduled
-	m.scheduledTime = clock.SyncedTime()
+	m.messageMetadataInner.Scheduled = scheduled
+	m.messageMetadataInner.ScheduledTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1151,7 +1157,7 @@ func (m *MessageMetadata) Scheduled() (result bool) {
 	m.scheduledMutex.RLock()
 	defer m.scheduledMutex.RUnlock()
 
-	return m.scheduled
+	return m.messageMetadataInner.Scheduled
 }
 
 // ScheduledTime returns the time when the message represented by this metadata was scheduled.
@@ -1159,7 +1165,7 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	m.scheduledTimeMutex.RLock()
 	defer m.scheduledTimeMutex.RUnlock()
 
-	return m.scheduledTime
+	return m.messageMetadataInner.ScheduledTime
 }
 
 // SetDiscardedTime add the discarded time of a message to the metadata.
@@ -1167,7 +1173,7 @@ func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
 	m.discardedTimeMutex.Lock()
 	defer m.discardedTimeMutex.Unlock()
 
-	m.discardedTime = discardedTime
+	m.messageMetadataInner.DiscardedTime = discardedTime
 }
 
 // DiscardedTime returns when the message was discarded.
@@ -1175,7 +1181,7 @@ func (m *MessageMetadata) DiscardedTime() time.Time {
 	m.discardedTimeMutex.RLock()
 	defer m.discardedTimeMutex.RUnlock()
 
-	return m.discardedTime
+	return m.messageMetadataInner.DiscardedTime
 }
 
 // QueuedTime returns the time a message entered the scheduling queue.
@@ -1183,7 +1189,7 @@ func (m *MessageMetadata) QueuedTime() time.Time {
 	m.queuedTimeMutex.RLock()
 	defer m.queuedTimeMutex.RUnlock()
 
-	return m.queuedTime
+	return m.messageMetadataInner.QueuedTime
 }
 
 // SetQueuedTime records the time the message entered the scheduler queue.
@@ -1191,7 +1197,7 @@ func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
 	m.queuedTimeMutex.Lock()
 	defer m.queuedTimeMutex.Unlock()
 
-	m.queuedTime = queuedTime
+	m.messageMetadataInner.QueuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.
@@ -1202,12 +1208,12 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedTimeMutex.Lock()
 	defer m.bookedTimeMutex.Unlock()
 
-	if m.booked == booked {
+	if m.messageMetadataInner.Booked == booked {
 		return false
 	}
 
-	m.booked = booked
-	m.bookedTime = clock.SyncedTime()
+	m.messageMetadataInner.Booked = booked
+	m.messageMetadataInner.BookedTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1218,7 +1224,7 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 func (m *MessageMetadata) IsBooked() (result bool) {
 	m.bookedMutex.RLock()
 	defer m.bookedMutex.RUnlock()
-	result = m.booked
+	result = m.messageMetadataInner.Booked
 
 	return
 }
@@ -1228,14 +1234,14 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	m.bookedTimeMutex.RLock()
 	defer m.bookedTimeMutex.RUnlock()
 
-	return m.bookedTime
+	return m.messageMetadataInner.BookedTime
 }
 
 // IsObjectivelyInvalid returns true if the message represented by this metadata is objectively invalid.
 func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.objectivelyInvalid
+	result = m.messageMetadataInner.ObjectivelyInvalid
 
 	return
 }
@@ -1246,11 +1252,11 @@ func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.objectivelyInvalid == invalid {
+	if m.messageMetadataInner.ObjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.objectivelyInvalid = invalid
+	m.messageMetadataInner.ObjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 
@@ -1261,7 +1267,7 @@ func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.subjectivelyInvalid
+	result = m.messageMetadataInner.SubjectivelyInvalid
 
 	return
 }
@@ -1272,11 +1278,11 @@ func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.subjectivelyInvalid == invalid {
+	if m.messageMetadataInner.SubjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.subjectivelyInvalid = invalid
+	m.messageMetadataInner.SubjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 
@@ -1289,12 +1295,12 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	m.gradeOfFinalityMutex.Lock()
 	defer m.gradeOfFinalityMutex.Unlock()
 
-	if m.gradeOfFinality == gradeOfFinality {
+	if m.messageMetadataInner.GradeOfFinality == gradeOfFinality {
 		return false
 	}
 
-	m.gradeOfFinality = gradeOfFinality
-	m.gradeOfFinalityTime = clock.SyncedTime()
+	m.messageMetadataInner.GradeOfFinality = gradeOfFinality
+	m.messageMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1306,7 +1312,7 @@ func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
 	m.gradeOfFinalityMutex.RLock()
 	defer m.gradeOfFinalityMutex.RUnlock()
 
-	return m.gradeOfFinality
+	return m.messageMetadataInner.GradeOfFinality
 }
 
 // GradeOfFinalityTime returns the time the grade of finality was set.
@@ -1314,7 +1320,7 @@ func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
 	m.gradeOfFinalityMutex.RLock()
 	defer m.gradeOfFinalityMutex.RUnlock()
 
-	return m.gradeOfFinalityTime
+	return m.messageMetadataInner.GradeOfFinalityTime
 }
 
 // Bytes returns a marshaled Version of the whole MessageMetadata object.
@@ -1325,7 +1331,7 @@ func (m *MessageMetadata) Bytes() []byte {
 // ObjectStorageKey returns the key of the stored message metadata object.
 // This returns the bytes of the messageID.
 func (m *MessageMetadata) ObjectStorageKey() []byte {
-	return m.messageID.Bytes()
+	return m.messageMetadataInner.MessageID.Bytes()
 }
 
 // ObjectStorageValue returns the value of the stored message metadata object.
@@ -1351,7 +1357,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 // String returns a human readable Version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
-		stringify.StructField("ID", m.messageID),
+		stringify.StructField("ID", m.messageMetadataInner.MessageID),
 		stringify.StructField("receivedTime", m.ReceivedTime()),
 		stringify.StructField("solid", m.IsSolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),

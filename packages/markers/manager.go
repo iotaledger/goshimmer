@@ -50,7 +50,7 @@ func (m *Manager) InheritStructureDetails(referencedStructureDetails []*Structur
 
 	inheritedStructureDetails.PastMarkers = m.normalizeMarkers(inheritedStructureDetails.PastMarkers)
 	if inheritedStructureDetails.PastMarkers.Size() == 0 {
-		inheritedStructureDetails.PastMarkers = NewMarkers(&Marker{sequenceID: 0, index: 0})
+		inheritedStructureDetails.PastMarkers = NewMarkers(NewMarker(0, 0))
 	}
 
 	assignedMarker, sequenceExtended := m.extendHighestAvailableSequence(inheritedStructureDetails.PastMarkers, increaseIndexCallback)
@@ -81,7 +81,7 @@ func (m *Manager) UpdateStructureDetails(structureDetailsToUpdate *StructureDeta
 		return
 	}
 
-	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.sequenceID, markerToInherit.index)
+	structureDetailsToUpdate.FutureMarkers.Set(markerToInherit.SequenceID(), markerToInherit.Index())
 	futureMarkersUpdated = true
 	// stop propagating further if structureDetailsToUpdate is a marker
 	inheritFutureMarkerFurther = !structureDetailsToUpdate.IsPastMarker
@@ -107,8 +107,8 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 
 		// If laterStructureDetails has a past marker in the same sequence of the earlier with a higher index
 		// the earlier one is in its past cone.
-		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.sequenceID); sequenceExists {
-			if laterIndex >= earlierMarker.index {
+		if laterIndex, sequenceExists := laterStructureDetails.PastMarkers.Get(earlierMarker.SequenceID()); sequenceExists {
+			if laterIndex >= earlierMarker.Index() {
 				return types.True
 			}
 
@@ -117,7 +117,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 
 		// If laterStructureDetails has no past marker in the same sequence of the earlier,
 		// then just check the index
-		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.index {
+		if laterStructureDetails.PastMarkers.HighestIndex() <= earlierMarker.Index() {
 			return types.False
 		}
 	}
@@ -130,13 +130,13 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 
 		// If earlierStructureDetails has a past marker in the same sequence of the latter with a higher index or references the latter,
 		// the earlier one is definitely not in its past cone.
-		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.sequenceID); sequenceExists && earlierIndex >= laterMarker.index {
+		if earlierIndex, sequenceExists := earlierStructureDetails.PastMarkers.Get(laterMarker.SequenceID()); sequenceExists && earlierIndex >= laterMarker.Index() {
 			return types.False
 		}
 
 		// If earlierStructureDetails has a future marker in the same sequence of the latter with a higher index,
 		// the earlier one is definitely not in its past cone.
-		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.sequenceID); earlierFutureIndexExists && earlierFutureIndex > laterMarker.index {
+		if earlierFutureIndex, earlierFutureIndexExists := earlierStructureDetails.FutureMarkers.Get(laterMarker.SequenceID()); earlierFutureIndexExists && earlierFutureIndex > laterMarker.Index() {
 			return types.False
 		}
 
@@ -149,7 +149,7 @@ func (m *Manager) IsInPastCone(earlierStructureDetails, laterStructureDetails *S
 			return types.False
 		}
 
-		if earlierStructureDetails.PastMarkers.HighestIndex() >= laterMarker.index {
+		if earlierStructureDetails.PastMarkers.HighestIndex() >= laterMarker.Index() {
 			return types.False
 		}
 	}
@@ -337,7 +337,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 
 	m.sequenceStore.Store(newSequence).Release()
 
-	firstMarker = NewMarker(newSequence.id, newSequence.lowestIndex)
+	firstMarker = NewMarker(newSequence.id, newSequence.sequenceInner.LowestIndex)
 
 	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
 

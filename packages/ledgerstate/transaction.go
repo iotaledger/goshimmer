@@ -164,7 +164,7 @@ type transactionInner struct {
 	id           *TransactionID
 	idMutex      sync.RWMutex
 	Essence      *TransactionEssence `serix:"1"`
-	UnlockBlocks UnlockBlocks        `serix:"2,lengthPrefixType:uint16"`
+	UnlockBlocks UnlockBlocks        `serix:"2,lengthPrefixType=uint16"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -350,11 +350,6 @@ func (t *Transaction) Type() payload.Type {
 	return TransactionType
 }
 
-// ObjectCode returns the Type of the Payload.
-func (t *Transaction) ObjectCode() interface{} {
-	return TransactionType
-}
-
 // Essence returns the TransactionEssence of the Transaction.
 func (t *Transaction) Essence() *TransactionEssence {
 	return t.transactionInner.Essence
@@ -434,8 +429,8 @@ type transactionEssenceInner struct {
 	AccessPledgeID identity.ID `serix:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
 	ConsensusPledgeID identity.ID     `serix:"3"`
-	Inputs            Inputs          `serix:"4,lengthPrefixType:uint16"`
-	Outputs           Outputs         `serix:"5,lengthPrefixType:uint16"`
+	Inputs            Inputs          `serix:"4,lengthPrefixType=uint16"`
+	Outputs           Outputs         `serix:"5,lengthPrefixType=uint16"`
 	Payload           payload.Payload `serix:"6,payload"`
 }
 
@@ -643,17 +638,21 @@ func (t TransactionEssenceVersion) String() string {
 // TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
 // a node.
 type TransactionMetadata struct {
-	id                      TransactionID
-	branchIDs               BranchIDs
+	transactionMetadataInner `serix:"0"`
+}
+
+type transactionMetadataInner struct {
+	ID                      TransactionID
+	BranchIDs               BranchIDs `serix:"0,lengthPrefixType=uint32"`
 	branchIDsMutex          sync.RWMutex
-	solid                   bool
+	Solid                   bool `serix:"1"`
 	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
+	SolidificationTime      time.Time `serix:"2"`
 	solidificationTimeMutex sync.RWMutex
-	lazyBooked              bool
+	LazyBooked              bool `serix:"3"`
 	lazyBookedMutex         sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
+	GradeOfFinality         gof.GradeOfFinality `serix:"4"`
+	GradeOfFinalityTime     time.Time           `serix:"5"`
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -662,8 +661,10 @@ type TransactionMetadata struct {
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
 func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 	return &TransactionMetadata{
-		id:        transactionID,
-		branchIDs: NewBranchIDs(),
+		transactionMetadataInner{
+			ID:        transactionID,
+			BranchIDs: NewBranchIDs(),
+		},
 	}
 }
 
@@ -693,23 +694,23 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if transactionMetadata = t; transactionMetadata == nil {
 		transactionMetadata = &TransactionMetadata{}
 	}
-	if transactionMetadata.id, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if transactionMetadata.transactionMetadataInner.ID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID: %w", err)
 		return
 	}
-	if transactionMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if transactionMetadata.transactionMetadataInner.BranchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
-	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.transactionMetadataInner.Solid, err = marshalUtil.ReadBool(); err != nil {
 		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if transactionMetadata.transactionMetadataInner.SolidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.transactionMetadataInner.LazyBooked, err = marshalUtil.ReadBool(); err != nil {
 		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -718,8 +719,8 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+	transactionMetadata.transactionMetadataInner.GradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if transactionMetadata.transactionMetadataInner.GradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -729,7 +730,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 
 // ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
 func (t *TransactionMetadata) ID() TransactionID {
-	return t.id
+	return t.transactionMetadataInner.ID
 }
 
 // BranchIDs returns the identifiers of the Branches that the Transaction was booked in.
@@ -737,7 +738,7 @@ func (t *TransactionMetadata) BranchIDs() BranchIDs {
 	t.branchIDsMutex.RLock()
 	defer t.branchIDsMutex.RUnlock()
 
-	return t.branchIDs.Clone()
+	return t.transactionMetadataInner.BranchIDs.Clone()
 }
 
 // SetBranchIDs sets the identifiers of the Branches that the Transaction was booked in.
@@ -745,11 +746,11 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) 
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
-	if t.branchIDs.Equals(branchIDs) {
+	if t.transactionMetadataInner.BranchIDs.Equals(branchIDs) {
 		return false
 	}
 
-	t.branchIDs = branchIDs.Clone()
+	t.transactionMetadataInner.BranchIDs = branchIDs.Clone()
 	t.SetModified()
 	return true
 }
@@ -759,13 +760,13 @@ func (t *TransactionMetadata) AddBranchID(branchID BranchID) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
-	if t.branchIDs.Contains(branchID) {
+	if t.transactionMetadataInner.BranchIDs.Contains(branchID) {
 		return false
 	}
 
-	delete(t.branchIDs, MasterBranchID)
+	delete(t.transactionMetadataInner.BranchIDs, MasterBranchID)
 
-	t.branchIDs.Add(branchID)
+	t.transactionMetadataInner.BranchIDs.Add(branchID)
 	t.SetModified()
 	return true
 }
@@ -775,7 +776,7 @@ func (t *TransactionMetadata) Solid() bool {
 	t.solidMutex.RLock()
 	defer t.solidMutex.RUnlock()
 
-	return t.solid
+	return t.transactionMetadataInner.Solid
 }
 
 // SetSolid updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates the
@@ -784,17 +785,17 @@ func (t *TransactionMetadata) SetSolid(solid bool) (modified bool) {
 	t.solidMutex.Lock()
 	defer t.solidMutex.Unlock()
 
-	if t.solid == solid {
+	if t.transactionMetadataInner.Solid == solid {
 		return
 	}
 
 	if solid {
-		t.solidificationTimeMutex.Lock()
-		t.solidificationTime = time.Now()
-		t.solidificationTimeMutex.Unlock()
+		t.transactionMetadataInner.solidificationTimeMutex.Lock()
+		t.transactionMetadataInner.SolidificationTime = time.Now()
+		t.transactionMetadataInner.solidificationTimeMutex.Unlock()
 	}
 
-	t.solid = solid
+	t.transactionMetadataInner.Solid = solid
 	t.SetModified()
 	modified = true
 
@@ -806,7 +807,7 @@ func (t *TransactionMetadata) SolidificationTime() time.Time {
 	t.solidificationTimeMutex.RLock()
 	defer t.solidificationTimeMutex.RUnlock()
 
-	return t.solidificationTime
+	return t.transactionMetadataInner.SolidificationTime
 }
 
 // LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
@@ -815,7 +816,7 @@ func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
 	t.lazyBookedMutex.RLock()
 	defer t.lazyBookedMutex.RUnlock()
 
-	return t.lazyBooked
+	return t.transactionMetadataInner.LazyBooked
 }
 
 // SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
@@ -823,11 +824,11 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 	t.lazyBookedMutex.Lock()
 	defer t.lazyBookedMutex.Unlock()
 
-	if t.lazyBooked == lazyBooked {
+	if t.transactionMetadataInner.LazyBooked == lazyBooked {
 		return
 	}
 
-	t.lazyBooked = lazyBooked
+	t.transactionMetadataInner.LazyBooked = lazyBooked
 	t.SetModified()
 	modified = true
 
@@ -838,7 +839,7 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
 	t.gradeOfFinalityMutex.RLock()
 	defer t.gradeOfFinalityMutex.RUnlock()
-	return t.gradeOfFinality
+	return t.transactionMetadataInner.GradeOfFinality
 }
 
 // SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
@@ -846,12 +847,12 @@ func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFina
 	t.gradeOfFinalityMutex.Lock()
 	defer t.gradeOfFinalityMutex.Unlock()
 
-	if t.gradeOfFinality == gradeOfFinality {
+	if t.transactionMetadataInner.GradeOfFinality == gradeOfFinality {
 		return
 	}
 
-	t.gradeOfFinality = gradeOfFinality
-	t.gradeOfFinalityTime = clock.SyncedTime()
+	t.transactionMetadataInner.GradeOfFinality = gradeOfFinality
+	t.transactionMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
 	t.SetModified()
 	modified = true
 	return
@@ -862,7 +863,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
 	t.gradeOfFinalityMutex.RLock()
 	defer t.gradeOfFinalityMutex.RUnlock()
 
-	return t.gradeOfFinalityTime
+	return t.transactionMetadataInner.GradeOfFinalityTime
 }
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
@@ -892,7 +893,7 @@ func (t *TransactionMetadata) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *TransactionMetadata) ObjectStorageKey() []byte {
-	return t.id.Bytes()
+	return t.transactionMetadataInner.ID.Bytes()
 }
 
 // ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes. The ID is not serialized here as it is

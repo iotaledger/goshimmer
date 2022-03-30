@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -59,8 +58,6 @@ type Signature interface {
 
 	// String returns a human readable version of the Signature.
 	String() string
-
-	serix.ObjectCodeProvider
 }
 
 // SignatureFromBytes unmarshals a Signature from a sequence of bytes.
@@ -194,11 +191,6 @@ func (e *ED25519Signature) Type() SignatureType {
 	return ED25519SignatureType
 }
 
-// ObjectCode returns the SignatureType of this Signature.
-func (e *ED25519Signature) ObjectCode() interface{} {
-	return ED25519SignatureType
-}
-
 // SignatureValid returns true if the Signature signs the given data.
 func (e *ED25519Signature) SignatureValid(data []byte) bool {
 	return e.PublicKey.VerifySignature(data, e.Signature)
@@ -306,11 +298,6 @@ func BLSSignatureFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (signatur
 
 // Type returns the SignatureType of this Signature.
 func (b *BLSSignature) Type() SignatureType {
-	return BLSSignatureType
-}
-
-// ObjectCode returns the SignatureType of this Signature.
-func (b *BLSSignature) ObjectCode() interface{} {
 	return BLSSignatureType
 }
 

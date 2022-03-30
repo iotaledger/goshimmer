@@ -221,6 +221,7 @@ func (c *ColoredBalances) Bytes() []byte {
 	})
 	return marshalUtil.Bytes()
 }
+
 func (c *ColoredBalances) Encode() ([]byte, error) {
 	return c.Bytes(), nil
 }

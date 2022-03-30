@@ -24,9 +24,6 @@ type Payload interface {
 
 	// String returns a human readable version of the Payload.
 	String() string
-
-	// TODO: uncomment this when all payload types are ready
-	// serix.ObjectCodeProvider
 }
 
 // FromBytes unmarshals a Payload from a sequence of bytes.

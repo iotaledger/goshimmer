@@ -87,7 +87,7 @@ func TestBranchVotersMarshalling(t *testing.T) {
 	// verify that branchVotersFromBytes has all voters from branchVoters
 	assert.Equal(t, branchVoters.Voters().Size(), branchVotersFromBytes.Voters().Size())
 	branchVoters.Voters().ForEach(func(voter Voter) {
-		assert.True(t, branchVotersFromBytes.voters.Has(voter))
+		assert.True(t, branchVotersFromBytes.branchVotersInner.Voters.Has(voter))
 	})
 }
 
@@ -162,6 +162,8 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 4.1.2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				Rank:          0,
+				IsPastMarker:  false,
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
 			})
@@ -192,6 +194,8 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 1.1 + Branch 4.1.1"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				Rank:          0,
+				IsPastMarker:  false,
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
 			})
@@ -222,6 +226,8 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
+				Rank:          0,
+				IsPastMarker:  false,
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
 			})
@@ -829,7 +835,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+	votes.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
 		index := node.Key()
 		seq := node.Value()
 

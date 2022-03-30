@@ -8,7 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -53,8 +52,6 @@ type UnlockBlock interface {
 
 	// String returns a human readable version of the UnlockBlock.
 	String() string
-
-	serix.ObjectCodeProvider
 }
 
 // UnlockBlockFromBytes unmarshals an UnlockBlock from a sequence of bytes.
@@ -243,11 +240,6 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 	return SignatureUnlockBlockType
 }
 
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (s *SignatureUnlockBlock) ObjectCode() interface{} {
-	return SignatureUnlockBlockType
-}
-
 // Bytes returns a marshaled version of the UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signatureUnlockBlockInner.Signature.Bytes())
@@ -332,11 +324,6 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (r *ReferenceUnlockBlock) ObjectCode() interface{} {
-	return ReferenceUnlockBlockType
-}
-
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
@@ -415,11 +402,6 @@ func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
 
 // Type returns the UnlockBlockType of the UnlockBlock.
 func (r *AliasUnlockBlock) Type() UnlockBlockType {
-	return AliasUnlockBlockType
-}
-
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (r *AliasUnlockBlock) ObjectCode() interface{} {
 	return AliasUnlockBlockType
 }
 

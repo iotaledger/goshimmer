@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -67,8 +66,6 @@ type Input interface {
 	// Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 	// are the same.
 	Compare(other Input) int
-
-	serix.ObjectCodeProvider
 }
 
 // InputFromBytes unmarshals an Input from a sequence of bytes.
@@ -284,11 +281,6 @@ func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXO
 
 // Type returns the type of the Input.
 func (u *UTXOInput) Type() InputType {
-	return UTXOInputType
-}
-
-// ObjectCode returns the type of the Input.
-func (u *UTXOInput) ObjectCode() interface{} {
 	return UTXOInputType
 }
 
