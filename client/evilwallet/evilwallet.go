@@ -64,7 +64,7 @@ func NewEvilWallet(clientsUrls ...string) *EvilWallet {
 
 // NewWallet creates a new wallet of the given wallet type.
 func (e *EvilWallet) NewWallet(wType ...WalletType) *Wallet {
-	walletType := other
+	walletType := Other
 	if len(wType) != 0 {
 		walletType = wType[0]
 	}
@@ -88,7 +88,7 @@ func (e *EvilWallet) Connector() Connector {
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
 func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error, initWallet *Wallet) {
-	initWallet = e.NewWallet(fresh)
+	initWallet = e.NewWallet(Fresh)
 	addr := initWallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
 
@@ -156,7 +156,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	if err != nil {
 		return
 	}
-	w := e.NewWallet(fresh)
+	w := e.NewWallet(Fresh)
 	txIDs := e.splitOutputs(funds, w, FaucetRequestSplitNumber)
 
 	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
@@ -186,7 +186,7 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wal
 		return
 	}
 	//first split 1 to FaucetRequestSplitNumber outputs
-	wallet = e.NewWallet(fresh)
+	wallet = e.NewWallet(Fresh)
 	//e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
 	txIDs := e.splitOutputs(initWallet, wallet, FaucetRequestSplitNumber)
 	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
@@ -401,7 +401,7 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 		}
 		break
 	}
-	// if input wallet is not specified, use fresh faucet wallet
+	// if input wallet is not specified, use Fresh faucet wallet
 	err := e.useFreshIfInputWalletNotProvided(buildOptions)
 	if err != nil {
 		return err
@@ -481,13 +481,13 @@ func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstat
 }
 
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
-// it assigns a new fresh faucet output.
+// it assigns a new Fresh faucet output.
 func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	// get inputs by alias
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
 		if !ok {
-			// No output found for given alias, use internal fresh output if wallets are non-empty.
+			// No output found for given alias, use internal Fresh output if wallets are non-empty.
 			out := e.wallets.GetUnspentOutput(buildOptions.inputWallet)
 			if out == nil {
 				return
@@ -501,12 +501,12 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 }
 
 func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) error {
-	// if input wallet is not specified, use fresh faucet wallet
+	// if input wallet is not specified, use Fresh faucet wallet
 	if buildOptions.inputWallet == nil {
 		if wallet, err := e.wallets.FreshWallet(); wallet != nil {
 			buildOptions.inputWallet = wallet
 		} else {
-			return errors.Newf("no fresh wallet is available: %w", err)
+			return errors.Newf("no Fresh wallet is available: %w", err)
 		}
 	}
 	return nil
@@ -687,17 +687,13 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 }
 
 func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	if scenario.outWallet == nil {
-		scenario.outWallet = e.wallets.NewWallet(fresh)
-	}
-
-	inWallet, err := e.wallets.GetNextWallet(fresh)
+	inWallet, err := e.wallets.GetNextWallet(Fresh)
 	if err != nil {
 		return nil, err
 	}
 	unspentOutput := inWallet.GetUnspentOutput()
 
-	tx, err = e.CreateTransaction(WithInputs(unspentOutput.OutputID), WithOutput(&OutputOption{aliasName: "2"}), WithIssuer(inWallet), WithOutputWallet(scenario.outWallet))
+	tx, err = e.CreateTransaction(WithInputs(unspentOutput.OutputID), WithOutput(&OutputOption{aliasName: "2"}), WithIssuer(inWallet), WithOutputWallet(scenario.OutputWallet))
 	return
 }
 
@@ -707,17 +703,13 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][
 		return nil, err
 	}
 	scenario.conflictSlice = conflicts
-	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.outWallet)
+	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.OutputWallet)
 
 	return
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflicts []ConflictSlice, err error) {
-	if scenario.outWallet == nil {
-		scenario.outWallet = e.wallets.NewWallet(fresh)
-	}
-
-	inWallet, err := e.wallets.GetNextWallet(fresh)
+	inWallet, err := e.wallets.GetNextWallet(Fresh)
 	if err != nil {
 		return nil, err
 	}
@@ -739,7 +731,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 
 	// make conflictSlice
 	conflictSlice := make([]ConflictSlice, 0)
-	for _, conflictMap := range scenario.conflictBatch {
+	for _, conflictMap := range scenario.ConflictBatch {
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
@@ -773,31 +765,33 @@ type ScenarioAlias struct {
 type EvilBatch [][]ScenarioAlias
 
 type EvilScenario struct {
-	outWallet     *Wallet
-	conflictBatch EvilBatch
+	ConflictBatch EvilBatch
 	conflictSlice []ConflictSlice
-	repeat        int
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
-	reuse bool
+	Reuse bool
 
-	// outputs of the batch that can be reused in deep spamming by collecting them in reuse wallet.
+	OutputWallet *Wallet
+	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
 	batchOutputsAliases map[string]types.Empty
 	inputsAlias         map[string]types.Empty
 }
 
-func NewEvilScenario(conflictBatch EvilBatch, repeat int, reuse bool) *EvilScenario {
+func NewEvilScenario(conflictBatch EvilBatch, reuse bool, outputWallet *Wallet) *EvilScenario {
 	scenario := &EvilScenario{
-		repeat: repeat,
-		reuse:  reuse,
+		Reuse:        reuse,
+		OutputWallet: outputWallet,
 	}
 
 	if conflictBatch == nil {
-		scenario.conflictBatch = SingleTransactionBatch()
+		scenario.ConflictBatch = SingleTransactionBatch()
 	} else {
-		scenario.conflictBatch = conflictBatch
+		scenario.ConflictBatch = conflictBatch
 		scenario.readCustomConflictsPattern()
 	}
 
+	if outputWallet == nil {
+		scenario.OutputWallet = NewWallet()
+	}
 	return scenario
 }
 
@@ -806,7 +800,7 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 	e.inputsAlias = make(map[string]types.Empty)
 	deleteFromOutput := make(map[string]types.Empty)
 
-	for _, conflictMap := range e.conflictBatch {
+	for _, conflictMap := range e.ConflictBatch {
 		for _, aliases := range conflictMap {
 			// add output to batchOutputsAliases
 			for _, output := range aliases.Outputs {

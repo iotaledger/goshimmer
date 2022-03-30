@@ -23,3 +23,22 @@ func DoubleSpendBatch(spentNum int) EvilBatch {
 	}
 	return conflictSlice
 }
+
+func Scenario1() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"1"}, Outputs: []string{"2", "3"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"2"}, Outputs: []string{"4"}},
+			{Inputs: []string{"2"}, Outputs: []string{"5"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"3"}, Outputs: []string{"6"}},
+			{Inputs: []string{"3"}, Outputs: []string{"7"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"6", "5"}, Outputs: []string{"8"}},
+		},
+	}
+}

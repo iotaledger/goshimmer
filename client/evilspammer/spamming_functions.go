@@ -2,7 +2,11 @@ package evilspammer
 
 import (
 	"fmt"
-	"time"
+	"sync"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -15,7 +19,7 @@ func DataSpammingFunction(s *Spammer) {
 	if count%int64(s.SpamDetails.Rate*2) == 0 {
 		s.log.Debugf("Last sent message, ID: %s; msgCount: %d", msgID, count)
 	}
-
+	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
 }
 
@@ -26,52 +30,33 @@ func ValueSpammingFunc(s *Spammer) {
 		return
 	}
 	s.PostTransaction(tx)
-	s.CheckIfAllSent()
-}
-
-func DoubleSpendSpammingFunc(s *Spammer) {
-	// NOTE: need to set double spend EvilBatch before
-	// choose two different node to prevent being blocked
-	clts := s.Clients.GetClients(s.NumberOfSpends)
-	txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
-	if err != nil {
-		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-		return
-	}
-	delays := make([]time.Duration, s.NumberOfSpends)
-	d := time.Duration(0)
-	for i := range delays {
-		delays[i] = d
-		d += s.TimeDelayBetweenConflicts
-	}
-	for i, delay := range delays {
-		time.AfterFunc(delay, func() {
-			clts[0].PostTransaction(txs[i][0])
-			clts[1].PostTransaction(txs[i][1])
-		})
-	}
-
+	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
 }
 
 func CustomConflictSpammingFunc(s *Spammer) {
-	txs, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
+	conflictBatch, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
-		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-		return
+		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
 	}
-	delays := make([]time.Duration, s.NumberOfSpends)
-	d := time.Duration(0)
-	for i := range delays {
-		delays[i] = d
-		d += s.TimeDelayBetweenConflicts
+	for _, txs := range conflictBatch {
+		clients := s.Clients.GetClients(len(txs))
+		if len(txs) > len(clients) {
+			s.ErrCounter.CountError(errors.New("insufficient clients to send conflicts"))
+		}
+
+		// send transactions in parallel
+		wg := sync.WaitGroup{}
+		for i, tx := range txs {
+			wg.Add(1)
+			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
+				defer wg.Done()
+				clt.PostTransaction(tx)
+			}(clients[i], tx)
+		}
+		wg.Wait()
 	}
-	for i, delay := range delays {
-		time.AfterFunc(delay, func() {
-			for _, tx := range txs[i] {
-				s.PostTransaction(tx)
-			}
-		})
-	}
+	s.State.batchPrepared.Add(1)
+	s.SpamWallet.ClearAliases()
 	s.CheckIfAllSent()
 }

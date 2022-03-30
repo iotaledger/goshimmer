@@ -13,8 +13,6 @@ import (
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// todo add possibility to reuse Spammer instance, pause, restart, resume  and change Evil scenario
-
 type SpammerFunc func(*Spammer)
 
 type State struct {
@@ -22,7 +20,7 @@ type State struct {
 	logTicker     *time.Ticker
 	spamStartTime time.Time
 	txSent        *atomic.Int64
-	txFailed      *atomic.Int64
+	batchPrepared *atomic.Int64
 
 	logTickTime  time.Duration
 	spamDuration time.Duration
@@ -54,9 +52,9 @@ type Spammer struct {
 // NewSpammer constructor of Spammer
 func NewSpammer(options ...Options) *Spammer {
 	state := &State{
-		txSent:      atomic.NewInt64(0),
-		txFailed:    atomic.NewInt64(0),
-		logTickTime: time.Second * 30,
+		txSent:        atomic.NewInt64(0),
+		batchPrepared: atomic.NewInt64(0),
+		logTickTime:   time.Second * 30,
 	}
 	s := &Spammer{
 		SpamDetails:    DefaultSpamDetails,
@@ -78,9 +76,8 @@ func NewSpammer(options ...Options) *Spammer {
 func (s *Spammer) setup() {
 	s.Clients = s.SpamWallet.Connector()
 
-	if s.SpamDetails.Rate <= 0 {
-		s.SpamDetails.Rate = 1
-	}
+	s.setupSpamDetails()
+
 	s.State.spamTicker = s.initSpamTicker()
 	s.State.logTicker = s.initLogTicker()
 
@@ -93,11 +90,26 @@ func (s *Spammer) setup() {
 	}
 }
 
+func (s *Spammer) setupSpamDetails() {
+	if s.SpamDetails.Rate <= 0 {
+		s.SpamDetails.Rate = 1
+	}
+	if s.SpamDetails.TimeUnit == 0 {
+		s.SpamDetails.TimeUnit = time.Second
+	}
+	// provided only maxMsgSent, calculating the default max for maxDuration
+	if s.SpamDetails.MaxDuration == 0 && s.SpamDetails.MaxBatchesSent > 0 {
+		s.SpamDetails.MaxDuration = time.Hour * 100
+	}
+	// provided only maxDuration, calculating the default max for maxMsgSent
+	if s.SpamDetails.MaxBatchesSent == 0 && s.SpamDetails.MaxDuration > 0 {
+		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration/s.SpamDetails.TimeUnit)*s.SpamDetails.Rate + 1
+	}
+}
+
 func (s *Spammer) initLogger() {
 	config := configuration.New()
-	if err := logger.InitGlobalLogger(config); err != nil {
-		panic(err)
-	}
+	_ = logger.InitGlobalLogger(config)
 	logger.SetLevel(logger.LevelInfo)
 	s.log = logger.NewLogger("Spammer")
 }
@@ -141,7 +153,7 @@ func (s *Spammer) Spam() {
 }
 
 func (s *Spammer) CheckIfAllSent() {
-	if s.State.txSent.Load()+s.State.txFailed.Load() >= int64(s.SpamDetails.MaxMsgSent) {
+	if s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
 		s.log.Infof("Maximum number of messages sent, stopping spammer...")
 		s.done <- true
 	}
@@ -170,7 +182,6 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
 	if err != nil {
 		s.log.Debugf("error: %v", err)
 		s.ErrCounter.CountError(ErrFailPostTransaction)
-		s.State.txFailed.Add(1)
 		return
 	}
 	count := s.State.txSent.Add(1)
