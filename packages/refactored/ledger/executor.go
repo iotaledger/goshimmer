@@ -21,7 +21,7 @@ func NewVM(ledger *Ledger, vm utxo.VM) (new *VM) {
 	}
 }
 
-func (v *VM) executeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (v *VM) executeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	utxoOutputs, err := v.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)

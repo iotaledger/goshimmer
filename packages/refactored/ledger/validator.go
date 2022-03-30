@@ -19,7 +19,7 @@ func NewValidator(ledger *Ledger) (new *Validator) {
 	}
 }
 
-func (v *Validator) checkOutputsCausallyRelatedCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (v *Validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	cachedOutputsMetadata := v.CachedOutputsMetadata(params.InputIDs)
 	defer cachedOutputsMetadata.Release()
 

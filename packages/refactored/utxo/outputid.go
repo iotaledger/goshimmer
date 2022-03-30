@@ -3,6 +3,7 @@ package utxo
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -11,9 +12,6 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 )
-
-// OutputIDLength contains the byte size of an OutputID.
-const OutputIDLength = 32
 
 // OutputID is the type that represents the identifier of an Output.
 type OutputID [OutputIDLength]byte
@@ -73,6 +71,20 @@ func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 	return
 }
 
+func (o OutputID) RegisterAlias(alias string) {
+	_outputIDAliasesMutex.Lock()
+	defer _outputIDAliasesMutex.Unlock()
+
+	_outputIDAliases[o] = alias
+}
+
+func (o OutputID) UnregisterAlias() {
+	_outputIDAliasesMutex.Lock()
+	defer _outputIDAliasesMutex.Unlock()
+
+	delete(_outputIDAliases, o)
+}
+
 // Bytes returns a marshaled version of the OutputID.
 func (o OutputID) Bytes() (serialized []byte) {
 	return o[:]
@@ -85,5 +97,20 @@ func (o OutputID) Base58() string {
 
 // String creates a human-readable version of the OutputID.
 func (o OutputID) String() (humanReadable string) {
+	_outputIDAliasesMutex.RLock()
+	defer _outputIDAliasesMutex.RUnlock()
+
+	if alias, exists := _outputIDAliases[o]; exists {
+		return "OutputID(" + alias + ")"
+	}
+
 	return "OutputID(" + base58.Encode(o[:]) + ")"
 }
+
+// OutputIDLength contains the byte size of an OutputID.
+const OutputIDLength = 32
+
+var (
+	_outputIDAliases      = make(map[OutputID]string)
+	_outputIDAliasesMutex = sync.RWMutex{}
+)

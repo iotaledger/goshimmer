@@ -60,7 +60,7 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	}
 }
 
-func (d *DataFlow) storeTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (d *DataFlow) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	created := false
 	cachedTransactionMetadata := d.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
 		d.transactionStorage.Store(params.Transaction).Release()

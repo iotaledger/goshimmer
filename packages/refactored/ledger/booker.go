@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
@@ -21,34 +20,27 @@ func NewBooker(ledger *Ledger) (new *Booker) {
 	}
 }
 
-func (b *Booker) bookTransactionCommand(params *params, next dataflow.Next[*params]) (err error) {
-	cachedOutputsMetadata := b.bookTransaction(params.Transaction.ID(), params.TransactionMetadata, params.InputsMetadata, params.Outputs)
-	defer cachedOutputsMetadata.Release()
-	params.OutputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap()...)
-
-	b.markTransactionBooked(params.TransactionMetadata, params.Consumers)
-
-	b.TransactionBookedEvent.Trigger(params.Transaction.ID())
+func (b *Booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	b.bookTransaction(params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 
 	return next(params)
 }
 
-func (b *Booker) bookTransaction(txID TransactionID, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, outputs Outputs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
-	inheritedBranchIDs := b.inheritBranchIDsFromInputs(txID, inputsMetadata)
+func (b *Booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs Outputs) {
+	branchIDs := b.inheritBranchIDs(txMetadata.ID(), inputsMetadata)
 
-	txMetadata.SetBranchIDs(inheritedBranchIDs)
+	b.storeOutputs(outputs, branchIDs)
 
-	return b.bookOutputs(txMetadata, outputs, inheritedBranchIDs)
-}
+	generics.ForEach(consumers, func(consumer *Consumer) { consumer.SetBooked() })
 
-func (b *Booker) markTransactionBooked(txMetadata *TransactionMetadata, consumers []*Consumer) {
-	generics.ForEach(consumers, func(consumer *Consumer) {
-		consumer.SetBooked()
-	})
+	txMetadata.SetBranchIDs(branchIDs)
+	txMetadata.SetOutputIDs(outputs.IDs())
 	txMetadata.SetBooked(true)
+
+	b.TransactionBookedEvent.Trigger(txMetadata.ID())
 }
 
-func (b *Booker) inheritBranchIDsFromInputs(txID TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
+func (b *Booker) inheritBranchIDs(txID TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
 		return b.RemoveConfirmedBranches(inputsMetadata.BranchIDs())
@@ -65,6 +57,18 @@ func (b *Booker) inheritBranchIDsFromInputs(txID TransactionID, inputsMetadata O
 	})
 
 	return branchdag.NewBranchIDs(txID)
+}
+
+func (b *Booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
+	_ = outputs.ForEach(func(output *Output) (err error) {
+		outputMetadata := NewOutputMetadata(output.ID())
+		outputMetadata.SetBranchIDs(branchIDs)
+
+		b.outputMetadataStorage.Store(outputMetadata).Release()
+		b.outputStorage.Store(output).Release()
+
+		return nil
+	})
 }
 
 func (b *Booker) determineConflictDetails(txID TransactionID, inputsMetadata OutputsMetadata) (conflictingInputIDs OutputIDs, consumersToFork TransactionIDs) {
@@ -85,23 +89,6 @@ func (b *Booker) determineConflictDetails(txID TransactionID, inputsMetadata Out
 	})
 
 	return conflictingInputIDs, consumersToFork
-}
-
-func (b *Booker) bookOutputs(txMetadata *TransactionMetadata, outputs Outputs, branchIDs branchdag.BranchIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
-	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], 0)
-
-	_ = outputs.ForEach(func(output *Output) (err error) {
-		outputMetadata := NewOutputMetadata(output.ID())
-		outputMetadata.SetBranchIDs(branchIDs)
-
-		cachedOutputsMetadata = append(cachedOutputsMetadata, b.outputMetadataStorage.Store(outputMetadata))
-		b.outputStorage.Store(output).Release()
-		return nil
-	})
-
-	txMetadata.SetOutputIDs(outputs.IDs())
-
-	return cachedOutputsMetadata
 }
 
 func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx OutputIDs) {

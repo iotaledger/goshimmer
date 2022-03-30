@@ -84,13 +84,13 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
-	return l.DataFlow.storeAndProcessTransaction().Run(&params{
+	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{
 		Transaction: NewTransaction(tx),
 	})
 }
 
 func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
-	return l.DataFlow.checkTransaction().Run(&params{
+	return l.DataFlow.checkTransaction().Run(&dataFlowParams{
 		Transaction: NewTransaction(tx),
 		InputIDs:    l.resolveInputs(tx.Inputs()),
 	})
@@ -100,21 +100,10 @@ func (l *Ledger) processTransaction(tx *Transaction, txMetadata *TransactionMeta
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
-	return l.DataFlow.processTransaction().Run(&params{
+	return l.DataFlow.processTransaction().Run(&dataFlowParams{
 		Transaction:         tx,
 		TransactionMetadata: txMetadata,
 	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type params struct {
-	Transaction         *Transaction
-	TransactionMetadata *TransactionMetadata
-	InputIDs            OutputIDs
-	Inputs              Outputs
-	InputsMetadata      OutputsMetadata
-	Consumers           []*Consumer
-	Outputs             Outputs
-	OutputsMetadata     OutputsMetadata
-}

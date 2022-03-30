@@ -30,6 +30,9 @@ func TestLedger(t *testing.T) {
 		fmt.Println(err)
 	}))
 
+	genesisOutput.ID().RegisterAlias("Genesis1")
+	nonExistingOutput.ID().RegisterAlias("NonExisting")
+
 	fmt.Println(genesisOutput.ID())
 	fmt.Println(nonExistingOutput.ID())
 
@@ -37,11 +40,15 @@ func TestLedger(t *testing.T) {
 		NewMockedInput(nonExistingOutput.ID()),
 	}, 2)
 
+	tx1.ID().RegisterAlias("TX1")
+
 	fmt.Println(tx1.ID())
 
 	tx2 := NewMockedTransaction([]*MockedInput{
 		NewMockedInput(genesisOutput.ID()),
 	}, 3)
+
+	tx2.ID().RegisterAlias("TX2")
 
 	fmt.Println(tx2.ID())
 

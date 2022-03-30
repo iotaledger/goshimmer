@@ -2,6 +2,7 @@ package utxo
 
 import (
 	"crypto/rand"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -10,14 +11,8 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// TransactionIDLength contains the byte size of a TransactionID.
-const TransactionIDLength = 32
-
 // TransactionID is the type that represents the identifier of a Transaction.
 type TransactionID [TransactionIDLength]byte
-
-// EmptyTransactionID represents the identifier of the genesis Transaction.
-var EmptyTransactionID TransactionID
 
 // FromTransactionBytes sets the TransactionID from the given execution results.
 func (t *TransactionID) FromTransactionBytes(transactionBytes []byte) {
@@ -71,6 +66,20 @@ func (t *TransactionID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (e
 	return
 }
 
+func (t TransactionID) RegisterAlias(alias string) {
+	_transactionIDAliasesMutex.Lock()
+	defer _transactionIDAliasesMutex.Unlock()
+
+	_transactionIDAliases[t] = alias
+}
+
+func (t TransactionID) UnregisterAlias() {
+	_transactionIDAliasesMutex.Lock()
+	defer _transactionIDAliasesMutex.Unlock()
+
+	delete(_transactionIDAliases, t)
+}
+
 // Bytes returns a marshaled version of the TransactionID.
 func (t TransactionID) Bytes() []byte {
 	return t[:]
@@ -83,5 +92,23 @@ func (t TransactionID) Base58() string {
 
 // String creates a human-readable version of the TransactionID.
 func (t TransactionID) String() string {
+	_transactionIDAliasesMutex.RLock()
+	defer _transactionIDAliasesMutex.RUnlock()
+
+	if alias, exists := _transactionIDAliases[t]; exists {
+		return "TransactionID(" + alias + ")"
+	}
+
 	return "TransactionID(" + t.Base58() + ")"
 }
+
+// TransactionIDLength contains the byte size of a TransactionID.
+const TransactionIDLength = 32
+
+var (
+	// EmptyTransactionID represents the identifier of the genesis Transaction.
+	EmptyTransactionID TransactionID
+
+	_transactionIDAliases      = make(map[TransactionID]string)
+	_transactionIDAliasesMutex = sync.RWMutex{}
+)

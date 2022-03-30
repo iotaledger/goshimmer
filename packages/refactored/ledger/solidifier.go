@@ -18,7 +18,7 @@ func NewSolidifier(ledger *Ledger) (new *Solidifier) {
 	}
 }
 
-func (s *Solidifier) initConsumersCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (s *Solidifier) initConsumersCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	if params.TransactionMetadata.Booked() {
 		return nil
 	}
@@ -32,7 +32,7 @@ func (s *Solidifier) initConsumersCommand(params *params, next dataflow.Next[*pa
 	return next(params)
 }
 
-func (s *Solidifier) checkSolidityCommand(params *params, next dataflow.Next[*params]) (err error) {
+func (s *Solidifier) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	cachedInputs := s.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
 	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
