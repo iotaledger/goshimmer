@@ -25,7 +25,7 @@ type TestFramework struct {
 	Ledger *Ledger
 
 	transactionsByAlias map[string]*MockedTransaction
-	outputIDsByAlias    map[string]OutputID
+	outputIDsByAlias    map[string]utxo.OutputID
 }
 
 func NewTestFramework(options ...Option) (new *TestFramework) {
@@ -33,7 +33,7 @@ func NewTestFramework(options ...Option) (new *TestFramework) {
 		Ledger: New(mapdb.NewMapDB(), NewMockedVM(), options...),
 
 		transactionsByAlias: make(map[string]*MockedTransaction),
-		outputIDsByAlias:    make(map[string]OutputID),
+		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
 
 	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
@@ -95,7 +95,7 @@ func (t *TestFramework) AssertBranchDAG(testing *testing.T, expectedParents map[
 	}
 }
 
-func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs TransactionIDs) {
+func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.TransactionIDs) {
 	txIDs = branchdag.NewBranchIDs()
 	for _, expectedBranchAlias := range txAliases {
 		if expectedBranchAlias == "MasterBranch" {
@@ -337,12 +337,12 @@ func (m *MockedTransaction) Bytes() []byte {
 }
 
 func (m *MockedTransaction) String() (humanReadable string) {
-	inputIDs := NewOutputIDs()
+	inputIDs := utxo.NewOutputIDs()
 	for _, input := range m.Inputs() {
 		inputIDs.Add(input.(*MockedInput).outputID)
 	}
 
-	outputIDs := NewOutputIDs()
+	outputIDs := utxo.NewOutputIDs()
 	for i := uint16(0); i < m.outputCount; i++ {
 		outputIDs.Add(utxo.NewOutputID(m.ID(), i, []byte("")))
 	}

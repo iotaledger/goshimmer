@@ -61,7 +61,7 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
-	outputIDs               OutputIDs
+	outputIDs               utxo.OutputIDs
 	outputIDsMutex          sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
@@ -247,7 +247,7 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 }
 
 // OutputIDs returns the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) OutputIDs() OutputIDs {
+func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
@@ -255,7 +255,7 @@ func (t *TransactionMetadata) OutputIDs() OutputIDs {
 }
 
 // SetOutputIDs sets the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) SetOutputIDs(outputIDs OutputIDs) {
+func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
@@ -385,11 +385,11 @@ var _ objectstorage.StorableObject = new(Output)
 // region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Outputs struct {
-	*orderedmap.OrderedMap[OutputID, *Output]
+	*orderedmap.OrderedMap[utxo.OutputID, *Output]
 }
 
 func NewOutputs(outputs ...*Output) (new Outputs) {
-	new = Outputs{orderedmap.New[OutputID, *Output]()}
+	new = Outputs{orderedmap.New[utxo.OutputID, *Output]()}
 	for _, output := range outputs {
 		new.Set(output.ID(), output)
 	}
@@ -397,18 +397,18 @@ func NewOutputs(outputs ...*Output) (new Outputs) {
 	return new
 }
 
-func (o Outputs) IDs() (ids OutputIDs) {
-	outputIDs := make([]OutputID, 0)
-	o.OrderedMap.ForEach(func(id OutputID, _ *Output) bool {
+func (o Outputs) IDs() (ids utxo.OutputIDs) {
+	outputIDs := make([]utxo.OutputID, 0)
+	o.OrderedMap.ForEach(func(id utxo.OutputID, _ *Output) bool {
 		outputIDs = append(outputIDs, id)
 		return true
 	})
 
-	return NewOutputIDs(outputIDs...)
+	return utxo.NewOutputIDs(outputIDs...)
 }
 
 func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) {
-	o.OrderedMap.ForEach(func(_ OutputID, output *Output) bool {
+	o.OrderedMap.ForEach(func(_ utxo.OutputID, output *Output) bool {
 		if err = callback(output); err != nil {
 			return false
 		}
@@ -708,11 +708,11 @@ var _ objectstorage.StorableObject = new(OutputMetadata)
 // region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
 type OutputsMetadata struct {
-	*orderedmap.OrderedMap[OutputID, *OutputMetadata]
+	*orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata]
 }
 
 func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata) {
-	new = OutputsMetadata{orderedmap.New[OutputID, *OutputMetadata]()}
+	new = OutputsMetadata{orderedmap.New[utxo.OutputID, *OutputMetadata]()}
 	for _, outputMetadata := range outputsMetadata {
 		new.Set(outputMetadata.ID(), outputMetadata)
 	}
@@ -733,8 +733,8 @@ func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) b
 	return filtered
 }
 
-func (o OutputsMetadata) IDs() (ids OutputIDs) {
-	ids = NewOutputIDs()
+func (o OutputsMetadata) IDs() (ids utxo.OutputIDs) {
+	ids = utxo.NewOutputIDs()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		ids.Add(outputMetadata.ID())
 		return nil
@@ -754,7 +754,7 @@ func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 }
 
 func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (err error)) (err error) {
-	o.OrderedMap.ForEach(func(_ OutputID, outputMetadata *OutputMetadata) bool {
+	o.OrderedMap.ForEach(func(_ utxo.OutputID, outputMetadata *OutputMetadata) bool {
 		if err = callback(outputMetadata); err != nil {
 			return false
 		}

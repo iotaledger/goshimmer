@@ -14,14 +14,12 @@ import (
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Ledger struct {
-	TransactionStoredEvent *event.Event[TransactionID]
-	TransactionBookedEvent *event.Event[TransactionID]
+	TransactionStoredEvent *event.Event[utxo.TransactionID]
+	TransactionBookedEvent *event.Event[utxo.TransactionID]
 	ErrorEvent             *event.Event[error]
 
 	*Storage
-	*Solidifier
 	*Validator
-	*VM
 	*Booker
 
 	*DataFlow
@@ -34,8 +32,8 @@ type Ledger struct {
 
 func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
-		TransactionStoredEvent: event.New[TransactionID](),
-		TransactionBookedEvent: event.New[TransactionID](),
+		TransactionStoredEvent: event.New[utxo.TransactionID](),
+		TransactionBookedEvent: event.New[utxo.TransactionID](),
 		ErrorEvent:             event.New[error](),
 
 		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
@@ -46,9 +44,7 @@ func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) 
 
 	ledger.DataFlow = NewDataFlow(ledger)
 	ledger.Storage = NewStorage(ledger)
-	ledger.Solidifier = NewSolidifier(ledger)
-	ledger.Validator = NewValidator(ledger)
-	ledger.VM = NewVM(ledger, vm)
+	ledger.Validator = NewValidator(ledger, vm)
 	ledger.Booker = NewBooker(ledger)
 	ledger.Utils = NewUtils(ledger)
 
@@ -85,6 +81,44 @@ func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 	defer l.Unlock(tx.ID())
 
 	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Option represents the return type of optional parameters that can be handed into the constructor of the Ledger
+// to configure its behavior.
+type Option func(*Options)
+
+// Options is a container for all configurable parameters of the Ledger.
+type Options struct {
+	Store              kvstore.KVStore
+	CacheTimeProvider  *database.CacheTimeProvider
+	LazyBookingEnabled bool
+}
+
+// Store is an Option for the Ledger that allows to specify which storage layer is supposed to be used to persist
+// data.
+func Store(store kvstore.KVStore) Option {
+	return func(options *Options) {
+		options.Store = store
+	}
+}
+
+// CacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
+func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
+	return func(options *Options) {
+		options.CacheTimeProvider = cacheTimeProvider
+	}
+}
+
+// LazyBookingEnabled is an Option for the Ledger that allows to specify if the ledger state should lazy book
+// conflicts that look like they have been decided already.
+func LazyBookingEnabled(enabled bool) Option {
+	return func(options *Options) {
+		options.LazyBookingEnabled = enabled
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
