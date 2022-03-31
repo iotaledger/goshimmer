@@ -86,7 +86,9 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 	defer cachedConsumers.Release()
 	params.Consumers = cachedConsumers.Unwrap(true)
 
-	s.TransactionStoredEvent.Trigger(params.Transaction.ID())
+	s.TransactionStoredEvent.Trigger(&TransactionStoredEvent{
+		TransactionID: params.Transaction.ID(),
+	})
 
 	return next(params)
 }

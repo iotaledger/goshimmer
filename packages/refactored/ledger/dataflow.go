@@ -19,15 +19,7 @@ func NewDataFlow(ledger *Ledger) *DataFlow {
 
 func (d *DataFlow) Setup() {
 	d.TransactionBookedEvent.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
-		consumingTransactions := utxo.NewTransactionIDs()
-		_ = event.Outputs.ForEach(func(output *Output) (err error) {
-			d.CachedConsumers(output.ID()).Consume(func(consumer *Consumer) {
-				consumingTransactions.Add(consumer.TransactionID())
-			})
-			return nil
-		})
-
-		for it := consumingTransactions.Iterator(); it.HasNext(); {
+		for it := d.ConsumingTransactions(event.Outputs.IDs(), false).Iterator(); it.HasNext(); {
 			go d.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
 				_ = d.Ledger.processTransaction(tx)
 			})

@@ -121,30 +121,35 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	conflictingInputs := b.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
-	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) || !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
+	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) {
+		b.Unlock(txMetadata.ID())
+		return
+	}
+
+	b.TransactionForkedEvent.Trigger(&TransactionForkedEvent{
+		TransactionID:  txMetadata.ID(),
+		ParentBranches: previousParentBranches,
+	})
+
+	if !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
 		b.Unlock(txMetadata.ID())
 		return
 	}
 	b.Unlock(txMetadata.ID())
 
-	// b.TransactionForkedEvent.Trigger()
-	// trigger forked event
-
-	b.propagateForkedBranchToFutureCone(txMetadata, txMetadata.ID(), previousParentBranches)
+	b.propagateForkedBranchToFutureCone(txMetadata, previousParentBranches)
 
 	return
 }
 
-func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs) {
-	b.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+func (b *Booker) propagateForkedBranchToFutureCone(forkedTxMetadata *TransactionMetadata, previousParentBranches branchdag.BranchIDs) {
+	b.WalkConsumingTransactionMetadata(forkedTxMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		b.Lock(consumingTxMetadata.ID())
 		defer b.Unlock(consumingTxMetadata.ID())
 
-		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedBranchID, previousParentBranches) {
+		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedTxMetadata.ID(), previousParentBranches) {
 			return
 		}
-
-		// Trigger propagated event
 
 		walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
 	})
@@ -170,6 +175,12 @@ func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forked
 	})
 
 	txMetadata.SetBranchIDs(newBranches)
+
+	b.TransactionBranchIDUpdatedEvent.Trigger(&TransactionBranchIDUpdatedEvent{
+		TransactionID:    txMetadata.ID(),
+		AddedBranchID:    forkedBranchID,
+		RemovedBranchIDs: previousParents,
+	})
 
 	return true
 }

@@ -17,6 +17,21 @@ func NewUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
+func (u *Utils) ConsumingTransactions(outputIDs utxo.OutputIDs, onlyProcessed bool) (consumingTransactions utxo.TransactionIDs) {
+	consumingTransactions = utxo.NewTransactionIDs()
+	for it := outputIDs.Iterator(); it.HasNext(); {
+		u.CachedConsumers(it.Next()).Consume(func(consumer *Consumer) {
+			if onlyProcessed && !consumer.Processed() {
+				return
+			}
+
+			consumingTransactions.Add(consumer.TransactionID())
+		})
+	}
+
+	return consumingTransactions
+}
+
 func (u *Utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
 	if entryPoints.Size() == 0 {
 		return

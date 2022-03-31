@@ -14,15 +14,16 @@ import (
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Ledger struct {
-	TransactionStoredEvent *event.Event[utxo.TransactionID]
-	TransactionBookedEvent *event.Event[*TransactionBookedEvent]
-	ErrorEvent             *event.Event[error]
+	TransactionStoredEvent          *event.Event[*TransactionStoredEvent]
+	TransactionBookedEvent          *event.Event[*TransactionBookedEvent]
+	TransactionForkedEvent          *event.Event[*TransactionForkedEvent]
+	TransactionBranchIDUpdatedEvent *event.Event[*TransactionBranchIDUpdatedEvent]
+	ErrorEvent                      *event.Event[error]
 
+	*DataFlow
 	*Storage
 	*Validator
 	*Booker
-
-	*DataFlow
 	*Options
 	*Utils
 
@@ -32,9 +33,11 @@ type Ledger struct {
 
 func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
-		TransactionStoredEvent: event.New[utxo.TransactionID](),
-		TransactionBookedEvent: event.New[*TransactionBookedEvent](),
-		ErrorEvent:             event.New[error](),
+		TransactionStoredEvent:          event.New[*TransactionStoredEvent](),
+		TransactionBookedEvent:          event.New[*TransactionBookedEvent](),
+		TransactionForkedEvent:          event.New[*TransactionForkedEvent](),
+		TransactionBranchIDUpdatedEvent: event.New[*TransactionBranchIDUpdatedEvent](),
+		ErrorEvent:                      event.New[error](),
 
 		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
 		DAGMutex:  syncutils.NewDAGMutex[[32]byte](),

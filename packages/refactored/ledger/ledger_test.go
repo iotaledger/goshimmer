@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 )
 
-func TestLedger(t *testing.T) {
+func TestLedger_BookInOrder(t *testing.T) {
 	testFramework := NewTestFramework()
 	testFramework.CreateTransaction("G", 3, "Genesis")
 	testFramework.CreateTransaction("TX1", 1, "G.0")
@@ -122,7 +122,7 @@ func TestLedger(t *testing.T) {
 	}
 }
 
-// See scenario at img/ledgerstate_test_SetBranchConfirmed.png
+// See scenario at img/ledger_test_SetBranchConfirmed.png
 func TestLedger_SetBranchConfirmed(t *testing.T) {
 	testFramework := NewTestFramework()
 
