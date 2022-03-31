@@ -101,7 +101,7 @@ func (o OutputID) String() (humanReadable string) {
 	defer _outputIDAliasesMutex.RUnlock()
 
 	if alias, exists := _outputIDAliases[o]; exists {
-		return "OutputID(" + alias + ")"
+		return alias
 	}
 
 	return "OutputID(" + base58.Encode(o[:]) + ")"

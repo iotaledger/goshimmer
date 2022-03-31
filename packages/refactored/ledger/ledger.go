@@ -18,13 +18,14 @@ type Ledger struct {
 	TransactionBookedEvent *event.Event[TransactionID]
 	ErrorEvent             *event.Event[error]
 
-	DataFlow *DataFlow
-	*Options
 	*Storage
 	*Solidifier
 	*Validator
 	*VM
 	*Booker
+
+	*DataFlow
+	*Options
 	*Utils
 
 	*branchdag.BranchDAG
@@ -54,7 +55,6 @@ func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) 
 	return ledger
 }
 
-// Configure modifies the configuration of the Ledger.
 func (l *Ledger) Configure(options ...Option) {
 	if l.Options == nil {
 		l.Options = &Options{
@@ -69,41 +69,22 @@ func (l *Ledger) Configure(options ...Option) {
 	}
 }
 
-func (l *Ledger) Setup() {
-	l.TransactionBookedEvent.Attach(event.NewClosure[TransactionID](func(txID TransactionID) {
-		l.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
-			l.CachedTransaction(txID).Consume(func(tx *Transaction) {
-				_ = l.processTransaction(tx, txMetadata)
-			})
-		})
-	}))
-}
-
-// StoreAndProcessTransaction is the only public facing api
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
-	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{
-		Transaction: NewTransaction(tx),
-	})
+	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
 func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
-	return l.DataFlow.checkTransaction().Run(&dataFlowParams{
-		Transaction: NewTransaction(tx),
-		InputIDs:    l.resolveInputs(tx.Inputs()),
-	})
+	return l.DataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
-func (l *Ledger) processTransaction(tx *Transaction, txMetadata *TransactionMetadata) (err error) {
+func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 	l.Lock(tx.ID())
 	defer l.Unlock(tx.ID())
 
-	return l.DataFlow.processTransaction().Run(&dataFlowParams{
-		Transaction:         tx,
-		TransactionMetadata: txMetadata,
-	})
+	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -13,6 +13,14 @@ import (
 )
 
 func TestLedger(t *testing.T) {
+	testFramework := NewTestFramework()
+
+	testFramework.CreateTransaction("TX1", 2, "Genesis")
+	testFramework.CreateTransaction("TX2", 2, "TX1.0")
+	testFramework.CreateTransaction("TX3", 2, "TX1.1")
+
+	fmt.Println(testFramework.IssueTransaction("TX2"))
+
 	vm := NewMockedVM()
 
 	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
@@ -39,6 +47,8 @@ func TestLedger(t *testing.T) {
 	tx1 := NewMockedTransaction([]*MockedInput{
 		NewMockedInput(nonExistingOutput.ID()),
 	}, 2)
+
+	fmt.Println("CHECK: ", ledger.CheckTransaction(tx1))
 
 	tx1.ID().RegisterAlias("TX1")
 

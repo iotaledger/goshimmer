@@ -96,7 +96,7 @@ func (t TransactionID) String() string {
 	defer _transactionIDAliasesMutex.RUnlock()
 
 	if alias, exists := _transactionIDAliases[t]; exists {
-		return "TransactionID(" + alias + ")"
+		return alias
 	}
 
 	return "TransactionID(" + t.Base58() + ")"

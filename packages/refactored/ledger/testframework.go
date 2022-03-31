@@ -1,16 +1,79 @@
 package ledger
 
 import (
+	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
+
+// region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
+
+type TestFramework struct {
+	Ledger *Ledger
+
+	transactionsByAlias map[string]*MockedTransaction
+	outputIDsByAlias    map[string]OutputID
+}
+
+func NewTestFramework(options ...Option) (new *TestFramework) {
+	new = &TestFramework{
+		Ledger: New(mapdb.NewMapDB(), NewMockedVM(), options...),
+
+		transactionsByAlias: make(map[string]*MockedTransaction),
+		outputIDsByAlias:    make(map[string]OutputID),
+	}
+
+	var genesisOutputID OutputID
+	genesisOutputID.RegisterAlias("Genesis")
+
+	new.outputIDsByAlias["Genesis"] = genesisOutputID
+
+	return new
+}
+
+func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) {
+	mockedInputs := make([]*MockedInput, 0)
+	for _, inputAlias := range inputAliases {
+		outputID, exists := t.outputIDsByAlias[inputAlias]
+		if !exists {
+			panic(fmt.Sprintf("unknown input alias: %s", inputAlias))
+		}
+
+		mockedInputs = append(mockedInputs, NewMockedInput(outputID))
+	}
+
+	tx := NewMockedTransaction(mockedInputs, outputCount)
+	tx.ID().RegisterAlias(txAlias)
+	t.transactionsByAlias[txAlias] = tx
+
+	for i := uint16(0); i < outputCount; i++ {
+		outputID := utxo.NewOutputID(tx.ID(), i, []byte(""))
+		outputAlias := txAlias + "." + strconv.Itoa(int(i))
+
+		outputID.RegisterAlias(outputAlias)
+		t.outputIDsByAlias[outputAlias] = outputID
+	}
+}
+
+func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
+	transaction, exists := t.transactionsByAlias[txAlias]
+	if !exists {
+		panic(fmt.Sprintf("unknown transaction alias: %s", txAlias))
+	}
+
+	return t.Ledger.StoreAndProcessTransaction(transaction)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MockedInput //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -211,8 +274,20 @@ func (m *MockedTransaction) Bytes() []byte {
 }
 
 func (m *MockedTransaction) String() (humanReadable string) {
+	inputIDs := NewOutputIDs()
+	for _, input := range m.Inputs() {
+		inputIDs.Add(input.(*MockedInput).outputID)
+	}
+
+	outputIDs := NewOutputIDs()
+	for i := uint16(0); i < m.outputCount; i++ {
+		outputIDs.Add(utxo.NewOutputID(m.ID(), i, []byte("")))
+	}
+
 	return stringify.Struct("MockedTransaction",
 		stringify.StructField("id", m.ID()),
+		stringify.StructField("inputs", inputIDs),
+		stringify.StructField("outputs", outputIDs),
 	)
 }
 

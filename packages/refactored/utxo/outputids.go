@@ -45,6 +45,10 @@ func (o OutputIDs) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 	return nil
 }
 
+func (o OutputIDs) IsEmpty() (empty bool) {
+	return o.OrderedMap == nil || o.OrderedMap.Size() == 0
+}
+
 func (o OutputIDs) Add(outputID OutputID) (added bool) {
 	return o.Set(outputID, types.Void)
 }
@@ -136,7 +140,7 @@ func (o OutputIDs) Bytes() (serialized []byte) {
 }
 
 func (o OutputIDs) String() (humanReadable string) {
-	elementStrings := generics.Map(o.Slice(), OutputID.Base58)
+	elementStrings := generics.Map(o.Slice(), OutputID.String)
 	if len(elementStrings) == 0 {
 		return "OutputIDs()"
 	}

@@ -20,6 +20,20 @@ func NewBooker(ledger *Ledger) (new *Booker) {
 	}
 }
 
+func (b *Booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	if params.TransactionMetadata == nil {
+		cachedTransactionMetadata := b.CachedTransactionMetadata(params.Transaction.ID())
+		defer cachedTransactionMetadata.Release()
+		params.TransactionMetadata, _ = cachedTransactionMetadata.Unwrap()
+	}
+
+	if params.TransactionMetadata.Booked() {
+		return nil
+	}
+
+	return next(params)
+}
+
 func (b *Booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	b.bookTransaction(params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 

@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 type DataFlow struct {
@@ -14,6 +15,14 @@ func NewDataFlow(ledger *Ledger) *DataFlow {
 	}
 }
 
+func (d *DataFlow) Setup() {
+	d.TransactionBookedEvent.Attach(event.NewClosure[TransactionID](func(txID TransactionID) {
+		d.CachedTransaction(txID).Consume(func(tx *Transaction) {
+			_ = d.Ledger.processTransaction(tx)
+		})
+	}))
+}
+
 func (d *DataFlow) storeAndProcessTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
 		d.storeTransactionCommand,
@@ -23,7 +32,7 @@ func (d *DataFlow) storeAndProcessTransaction() *dataflow.DataFlow[*dataFlowPara
 
 func (d *DataFlow) processTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
-		d.initConsumersCommand,
+		d.checkAlreadyBookedCommand,
 		d.checkTransaction().ChainedCommand,
 		d.bookTransactionCommand,
 	).WithErrorCallback(func(err error, params *dataFlowParams) {

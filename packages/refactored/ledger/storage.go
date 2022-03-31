@@ -60,10 +60,10 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 	}
 }
 
-func (d *DataFlow) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	created := false
-	cachedTransactionMetadata := d.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
-		d.transactionStorage.Store(params.Transaction).Release()
+	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID TransactionID) *TransactionMetadata {
+		s.transactionStorage.Store(params.Transaction).Release()
 		created = true
 		return NewTransactionMetadata(txID)
 	})
@@ -79,7 +79,11 @@ func (d *DataFlow) storeTransactionCommand(params *dataFlowParams, next dataflow
 		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
 	}
 
-	d.TransactionStoredEvent.Trigger(params.Transaction.ID())
+	cachedConsumers := s.initConsumers(params.InputIDs, params.Transaction.ID())
+	defer cachedConsumers.Release()
+	params.Consumers = cachedConsumers.Unwrap(true)
+
+	s.TransactionStoredEvent.Trigger(params.Transaction.ID())
 
 	return next(params)
 }
