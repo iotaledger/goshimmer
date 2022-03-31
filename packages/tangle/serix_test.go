@@ -28,9 +28,7 @@ func TestSerixMessage(t *testing.T) {
 
 	// fmt.Println(msg)
 
-	s := serix.NewAPI()
-
-	result, err := s.Encode(context.Background(), msg)
+	result, err := serix.DefaultAPI.Encode(context.Background(), msg)
 	assert.NoError(t, err)
 
 	fmt.Println("Bytes", len(msg.Bytes()), msg.Bytes())
@@ -42,12 +40,10 @@ func TestSerixMessage(t *testing.T) {
 func TestSerixMarkerMessageMapping(t *testing.T) {
 	obj := NewMarkerMessageMapping(markers.NewMarker(1, 5), randomMessageID())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
-	serixBytesKey, err := s.Encode(context.Background(), obj.Marker())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.Marker())
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
@@ -56,12 +52,11 @@ func TestSerixMarkerMessageMapping(t *testing.T) {
 func TestSerixBranchWeight(t *testing.T) {
 	obj := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
 	obj.SetWeight(0.65)
-	s := serix.NewAPI()
 
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
-	serixBytesKey, err := s.Encode(context.Background(), obj.BranchID())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.BranchID())
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
@@ -69,17 +64,16 @@ func TestSerixBranchWeight(t *testing.T) {
 
 func TestSerixLatestMarkerVotes(t *testing.T) {
 	obj := NewLatestMarkerVotes(1, identity.GenerateLocalIdentity().ID())
-	s := serix.NewAPI()
 
-	serixBytesSeq, err := s.Encode(context.Background(), obj.SequenceID)
+	serixBytesSeq, err := serix.DefaultAPI.Encode(context.Background(), obj.SequenceID)
 	assert.NoError(t, err)
-	serixBytesVoter, err := s.Encode(context.Background(), obj.Voter())
+	serixBytesVoter, err := serix.DefaultAPI.Encode(context.Background(), obj.Voter())
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), byteutils.ConcatBytes(serixBytesSeq, serixBytesVoter))
 
 	// TODO: thresholdmap serialization
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }
@@ -87,14 +81,13 @@ func TestSerixLatestMarkerVotes(t *testing.T) {
 func TestSerixLatestBranchVotes(t *testing.T) {
 	obj := NewLatestBranchVotes(identity.GenerateLocalIdentity().ID())
 	obj.Store(new(BranchVote).WithBranchID(ledgerstate.BranchIDFromRandomness()).WithOpinion(Confirmed))
-	s := serix.NewAPI()
 
-	serixBytesKey, err := s.Encode(context.Background(), obj.Voter)
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.Voter)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }
@@ -105,14 +98,13 @@ func TestSerixBranchVoters(t *testing.T) {
 	voters.Add(identity.GenerateLocalIdentity().ID())
 	voters.Add(identity.GenerateLocalIdentity().ID())
 	obj.AddVoters(voters)
-	s := serix.NewAPI()
 	// TODO fix when set can be serialized
-	serixBytesKey, err := s.Encode(context.Background(), obj.BranchID())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.BranchID())
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }
@@ -121,15 +113,13 @@ func TestSerixMarkerIndexBranchIDMapping(t *testing.T) {
 	obj := NewMarkerIndexBranchIDMapping(1)
 	obj.SetBranchIDs(3, ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness(), ledgerstate.BranchIDFromRandomness()))
 
-	s := serix.NewAPI()
-
-	serixBytesKey, err := s.Encode(context.Background(), obj.SequenceID())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.SequenceID())
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 
 	// TODO threshold map needs to be serialized
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }
@@ -137,9 +127,7 @@ func TestSerixMarkerIndexBranchIDMapping(t *testing.T) {
 func TestSerixAttachment(t *testing.T) {
 	obj := NewAttachment(randomTransaction().ID(), randomMessageID())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytes)
@@ -148,13 +136,12 @@ func TestSerixAttachment(t *testing.T) {
 func TestSerixMissingMessage(t *testing.T) {
 	obj := NewMissingMessage(randomMessageID())
 
-	s := serix.NewAPI()
-	serixBytesKey, err := s.Encode(context.Background(), obj.MessageID())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.MessageID())
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
@@ -163,8 +150,7 @@ func TestSerixMissingMessage(t *testing.T) {
 func TestSerixApprover(t *testing.T) {
 	obj := NewApprover(StrongApprover, randomMessageID(), randomMessageID())
 
-	s := serix.NewAPI()
-	serixBytesKey, err := s.Encode(context.Background(), obj)
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
@@ -183,8 +169,7 @@ func TestSerixMessageMetadata(t *testing.T) {
 		FutureMarkers: markers.NewMarkers(),
 	})
 
-	s := serix.NewAPI()
-	serixBytesKey, err := s.Encode(context.Background(), obj)
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)

@@ -13,28 +13,27 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
+//nolint:dupl
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(AliasUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(AliasUnlockBlock).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(AliasUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(AliasUnlockBlock).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasUnlockBlock type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(ReferenceUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(ReferenceUnlockBlock).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(ReferenceUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(ReferenceUnlockBlock).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(SignatureUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(SignatureUnlockBlock).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(SignatureUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(SignatureUnlockBlock).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*UnlockBlock)(nil), new(AliasUnlockBlock), new(ReferenceUnlockBlock), new(SignatureUnlockBlock))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*UnlockBlock)(nil), new(AliasUnlockBlock), new(ReferenceUnlockBlock), new(SignatureUnlockBlock))
 	if err != nil {
 		panic(fmt.Errorf("error registering UnlockBlock interface implementations: %w", err))
 	}
-
 }
 
-// region UnlockBlockType //////////////////////////////////////////////////////////////////////////////////////////////
+// region UnlockBlockType. //////////////////////////////////////////////////////////////////////////////////////////////
 const (
 	// SignatureUnlockBlockType represents the type of a SignatureUnlockBlock.
 	SignatureUnlockBlockType UnlockBlockType = iota

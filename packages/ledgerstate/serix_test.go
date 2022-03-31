@@ -20,9 +20,7 @@ func TestSerixAliasAddress(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	obj := NewAliasAddress(keyPair.PublicKey.Bytes())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -31,9 +29,7 @@ func TestSerixBLSAddress(t *testing.T) {
 	privateKey := bls.PrivateKeyFromRandomness()
 	obj := NewBLSAddress(privateKey.PublicKey().Bytes())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -42,9 +38,7 @@ func TestSerixED25519Address(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	obj := NewED25519Address(keyPair.PublicKey)
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -55,9 +49,7 @@ func TestSerixAliasOutput(t *testing.T) {
 	obj, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randAliasAddress(), data)
 	assert.NoError(t, err)
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -66,8 +58,7 @@ func TestSerixExtendedLockedOutput(t *testing.T) {
 	// uses encode
 	obj := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -75,9 +66,7 @@ func TestSerixSigLockedColoredOutput(t *testing.T) {
 	// OrderedMap uses encode
 	obj := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}), randEd25119Address())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -85,9 +74,7 @@ func TestSerixSigLockedColoredOutput(t *testing.T) {
 func TestSerixSigLockedSingleOutput(t *testing.T) {
 	sigLockedSingleOutput := NewSigLockedSingleOutput(10, randEd25119Address())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), sigLockedSingleOutput)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), sigLockedSingleOutput)
 	assert.NoError(t, err)
 	assert.Equal(t, sigLockedSingleOutput.Bytes(), serixBytes)
 }
@@ -95,9 +82,7 @@ func TestSerixSigLockedSingleOutput(t *testing.T) {
 func TestSerixBranch(t *testing.T) {
 	branch := NewBranch(BranchID{1}, NewBranchIDs(BranchID{2}, BranchID{3}), NewConflictIDs(ConflictID{5}, ConflictID{4}))
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), branch)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), branch)
 	assert.NoError(t, err)
 	assert.Equal(t, branch.Bytes(), serixBytes)
 }
@@ -105,9 +90,7 @@ func TestSerixBranch(t *testing.T) {
 func TestSerixChildBranch(t *testing.T) {
 	childBranch := NewChildBranch(BranchID{1}, BranchID{2})
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), childBranch)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), childBranch)
 	assert.NoError(t, err)
 	assert.Equal(t, childBranch.Bytes(), serixBytes)
 }
@@ -115,9 +98,7 @@ func TestSerixChildBranch(t *testing.T) {
 func TestSerixConflict(t *testing.T) {
 	conflict := NewConflict(ConflictID{1})
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), conflict)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), conflict)
 	assert.NoError(t, err)
 	assert.Equal(t, conflict.Bytes(), serixBytes)
 }
@@ -125,9 +106,7 @@ func TestSerixConflict(t *testing.T) {
 func TestSerixConflictMember(t *testing.T) {
 	conflictMember := NewConflictMember(ConflictID{1}, BranchID{2})
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), conflictMember)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), conflictMember)
 	assert.NoError(t, err)
 	assert.Equal(t, conflictMember.Bytes(), serixBytes)
 }
@@ -140,8 +119,7 @@ func TestSerixBLSSignature(t *testing.T) {
 
 	obj := NewBLSSignature(bls.NewSignatureWithPublicKey(keyPair.PublicKey(), signature.Signature))
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -151,8 +129,7 @@ func TestSerixED25519Signature(t *testing.T) {
 
 	obj := NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(keyPair.PublicKey.Bytes()))
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -160,8 +137,7 @@ func TestSerixED25519Signature(t *testing.T) {
 func TestSerixAliasUnlockBlock(t *testing.T) {
 	obj := NewAliasUnlockBlock(1)
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -172,8 +148,7 @@ func TestSerixSignatureUnlockBlock(t *testing.T) {
 	signature := NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(keyPair.PublicKey.Bytes()))
 	obj := NewSignatureUnlockBlock(signature)
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -181,8 +156,7 @@ func TestSerixSignatureUnlockBlock(t *testing.T) {
 func TestSerixReferenceUnlockBlock(t *testing.T) {
 	obj := NewReferenceUnlockBlock(1)
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -190,8 +164,7 @@ func TestSerixReferenceUnlockBlock(t *testing.T) {
 func TestSerixUTXOInput(t *testing.T) {
 	obj := NewUTXOInput(randOutputID())
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
@@ -207,25 +180,22 @@ func TestSerixTransactionMetadata(t *testing.T) {
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetBranchIDs(NewBranchIDs(BranchIDFromRandomness(), BranchIDFromRandomness()))
 	obj.SetLazyBooked(false)
-	s := serix.NewAPI()
 
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 
-	serixBytesKey, err := s.Encode(context.Background(), obj.ID())
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.ID())
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 }
 func TestSerixTransactionPayload(t *testing.T) {
-	s := serix.NewAPI()
-
 	ledgerstate := setupDependencies(t)
 	defer ledgerstate.Shutdown()
 	wallets := createWallets(2)
 	input := generateOutput(ledgerstate, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
-	serializedBytes, err := s.Encode(context.Background(), tx)
+	serializedBytes, err := serix.DefaultAPI.Encode(context.Background(), tx)
 	assert.NoError(t, err)
 
 	// skip payload length which is not written when serializing transaction directly
@@ -234,9 +204,7 @@ func TestSerixTransactionPayload(t *testing.T) {
 func TestSerixBranchIDs(t *testing.T) {
 	obj := NewBranchIDs(BranchIDFromRandomness())
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj, serix.WithTypeSettings(new(serix.TypeSettings).WithLengthPrefixType(serializer.UInt32ByteSize)))
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj, serix.WithTypeSettings(new(serix.TypeSettings).WithLengthPrefixType(serializer.UInt32ByteSize)))
 	assert.NoError(t, err)
 
 	fmt.Println("Bytes", len(obj.Bytes()), obj.Bytes())
@@ -251,9 +219,7 @@ func TestSerixOutputMetadata(t *testing.T) {
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetSolid(true)
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	// Skip OutputID which is serialized by the Bytes method
 	assert.Equal(t, obj.Bytes()[34:], serixBytes)
@@ -262,9 +228,7 @@ func TestSerixOutputMetadata(t *testing.T) {
 func TestSerixConsumer(t *testing.T) {
 	obj := NewConsumer(randOutputID(), GenesisTransactionID, types.Maybe)
 
-	s := serix.NewAPI()
-
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	// Skip OutputID and TransactionID which are serialized by the Bytes method, but are used only as a object storage key.
 	assert.Equal(t, obj.Bytes()[66:], serixBytes)
@@ -273,8 +237,7 @@ func TestSerixConsumer(t *testing.T) {
 func TestSerixAddressOutputMapping(t *testing.T) {
 	obj := NewAddressOutputMapping(randEd25119Address(), randOutputID())
 
-	s := serix.NewAPI()
-	serixBytes, err := s.Encode(context.Background(), obj)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	// Skip OutputID and TransactionID which are serialized by the Bytes method, but are used only as a object storage key.
 	assert.Equal(t, obj.Bytes(), serixBytes)

@@ -16,21 +16,21 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
+//nolint:dupl
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectCode(new(ED25519Address).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectCode(new(ED25519Address).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering ED25519Address type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectCode(new(BLSAddress).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectCode(new(BLSAddress).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering BLSAddress type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectCode(new(AliasAddress).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectCode(new(AliasAddress).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasAddress type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*Address)(nil), new(ED25519Address), new(BLSAddress), new(AliasAddress))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Address)(nil), new(ED25519Address), new(BLSAddress), new(AliasAddress))
 	if err != nil {
 		panic(fmt.Errorf("error registering Address interface implementations: %w", err))
 	}

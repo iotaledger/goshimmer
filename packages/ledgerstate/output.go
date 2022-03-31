@@ -28,24 +28,23 @@ import (
 )
 
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(SigLockedSingleOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedSingleOutput).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(SigLockedSingleOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedSingleOutput).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering SigLockedSingleOutput type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(SigLockedColoredOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedColoredOutput).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(SigLockedColoredOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedColoredOutput).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering SigLockedColoredOutput type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(AliasOutput), serix.TypeSettings{}.WithObjectCode(new(AliasOutput).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasOutput), serix.TypeSettings{}.WithObjectCode(new(AliasOutput).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasOutput type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(ExtendedLockedOutput), serix.TypeSettings{}.WithObjectCode(new(ExtendedLockedOutput).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(ExtendedLockedOutput), serix.TypeSettings{}.WithObjectCode(new(ExtendedLockedOutput).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
 	if err != nil {
 		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
 	}

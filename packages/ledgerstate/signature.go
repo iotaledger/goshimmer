@@ -17,16 +17,15 @@ import (
 )
 
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(BLSSignature), serix.TypeSettings{}.WithObjectCode(new(BLSSignature).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(BLSSignature), serix.TypeSettings{}.WithObjectCode(new(BLSSignature).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering BLSSignature type settings: %w", err))
 	}
-	err = s.RegisterTypeSettings(new(ED25519Signature), serix.TypeSettings{}.WithObjectCode(new(ED25519Signature).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(ED25519Signature), serix.TypeSettings{}.WithObjectCode(new(ED25519Signature).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering ED25519Signature type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*Signature)(nil), new(BLSSignature), new(ED25519Signature))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Signature)(nil), new(BLSSignature), new(ED25519Signature))
 	if err != nil {
 		panic(fmt.Errorf("error registering Signature interface implementations: %w", err))
 	}

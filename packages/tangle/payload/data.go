@@ -11,13 +11,12 @@ import (
 )
 
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(GenericDataPayload), serix.TypeSettings{}.WithObjectCode(new(GenericDataPayload).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(GenericDataPayload), serix.TypeSettings{}.WithObjectCode(new(GenericDataPayload).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
 
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
 	}

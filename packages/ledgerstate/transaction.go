@@ -44,13 +44,12 @@ func init() {
 		}
 		return tx, nil
 	})
-	s := serix.NewAPI()
 
-	err := s.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectCode(new(Transaction).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectCode(new(Transaction).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}

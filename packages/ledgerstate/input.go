@@ -17,12 +17,11 @@ import (
 )
 
 func init() {
-	s := serix.NewAPI()
-	err := s.RegisterTypeSettings(new(UTXOInput), serix.TypeSettings{}.WithObjectCode(new(UTXOInput).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(UTXOInput), serix.TypeSettings{}.WithObjectCode(new(UTXOInput).Type()))
 	if err != nil {
 		panic(fmt.Errorf("error registering UTXOInput type settings: %w", err))
 	}
-	err = s.RegisterInterfaceObjects((*Input)(nil), new(UTXOInput))
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Input)(nil), new(UTXOInput))
 	if err != nil {
 		panic(fmt.Errorf("error registering Input interface implementations: %w", err))
 	}
