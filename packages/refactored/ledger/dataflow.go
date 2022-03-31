@@ -48,7 +48,7 @@ func (d *DataFlow) checkTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
 		d.checkSolidityCommand,
 		d.checkOutputsCausallyRelatedCommand,
-		d.executeTransactionCommand,
+		d.checkTransactionExecutionCommand,
 	)
 }
 

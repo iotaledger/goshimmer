@@ -19,9 +19,7 @@ type Ledger struct {
 	ErrorEvent             *event.Event[error]
 
 	*Storage
-	*Solidifier
 	*Validator
-	*VM
 	*Booker
 
 	*DataFlow
@@ -46,9 +44,7 @@ func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) 
 
 	ledger.DataFlow = NewDataFlow(ledger)
 	ledger.Storage = NewStorage(ledger)
-	ledger.Solidifier = NewSolidifier(ledger)
-	ledger.Validator = NewValidator(ledger)
-	ledger.VM = NewVM(ledger, vm)
+	ledger.Validator = NewValidator(ledger, vm)
 	ledger.Booker = NewBooker(ledger)
 	ledger.Utils = NewUtils(ledger)
 

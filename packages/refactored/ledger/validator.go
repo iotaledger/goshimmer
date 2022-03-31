@@ -6,17 +6,35 @@ import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 type Validator struct {
 	*Ledger
+
+	vm utxo.VM
 }
 
-func NewValidator(ledger *Ledger) (new *Validator) {
+func NewValidator(ledger *Ledger, vm utxo.VM) (new *Validator) {
 	return &Validator{
 		Ledger: ledger,
+		vm:     vm,
 	}
+}
+
+func (v *Validator) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	if params.InputIDs.IsEmpty() {
+		params.InputIDs = v.resolveInputs(params.Transaction.Inputs())
+	}
+
+	cachedInputs := v.CachedOutputs(params.InputIDs)
+	defer cachedInputs.Release()
+	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
+		return errors.Errorf("not all outputs of %s available: %w", params.Transaction.ID(), ErrTransactionUnsolid)
+	}
+
+	return next(params)
 }
 
 func (v *Validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
@@ -33,6 +51,21 @@ func (v *Validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 	}
 
 	return next(params)
+}
+
+func (v *Validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	utxoOutputs, err := v.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
+	if err != nil {
+		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
+	}
+
+	params.Outputs = NewOutputs(generics.Map(utxoOutputs, NewOutput)...)
+
+	return next(params)
+}
+
+func (v *Validator) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
+	return utxo.NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
 }
 
 func (v *Validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
