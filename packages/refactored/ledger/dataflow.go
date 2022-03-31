@@ -18,8 +18,8 @@ func NewDataFlow(ledger *Ledger) *DataFlow {
 }
 
 func (d *DataFlow) Setup() {
-	d.TransactionBookedEvent.Attach(event.NewClosure[utxo.TransactionID](func(txID utxo.TransactionID) {
-		d.CachedTransaction(txID).Consume(func(tx *Transaction) {
+	d.TransactionBookedEvent.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
+		d.CachedTransaction(event.TransactionID).Consume(func(tx *Transaction) {
 			_ = d.Ledger.processTransaction(tx)
 		})
 	}))

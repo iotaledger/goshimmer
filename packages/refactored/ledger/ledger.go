@@ -15,7 +15,7 @@ import (
 
 type Ledger struct {
 	TransactionStoredEvent *event.Event[utxo.TransactionID]
-	TransactionBookedEvent *event.Event[utxo.TransactionID]
+	TransactionBookedEvent *event.Event[*TransactionBookedEvent]
 	ErrorEvent             *event.Event[error]
 
 	*Storage
@@ -33,7 +33,7 @@ type Ledger struct {
 func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
 		TransactionStoredEvent: event.New[utxo.TransactionID](),
-		TransactionBookedEvent: event.New[utxo.TransactionID](),
+		TransactionBookedEvent: event.New[*TransactionBookedEvent](),
 		ErrorEvent:             event.New[error](),
 
 		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),

@@ -58,7 +58,10 @@ func (b *Booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata
 	txMetadata.SetOutputIDs(outputs.IDs())
 	txMetadata.SetBooked(true)
 
-	b.TransactionBookedEvent.Trigger(txMetadata.ID())
+	b.TransactionBookedEvent.Trigger(&TransactionBookedEvent{
+		TransactionID: txMetadata.ID(),
+		Outputs:       outputs,
+	})
 }
 
 func (b *Booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
