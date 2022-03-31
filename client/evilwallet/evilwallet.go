@@ -705,9 +705,8 @@ func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate
 		}
 		evilInput = wallet.GetUnspentOutput()
 	}
-	input := wallet.GetUnspentOutput()
-
-	tx, err = e.CreateTransaction(WithInputs(input), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.OutputWallet), WithIssuer(wallet))
+	outBalance := getIotaColorAmount(evilInput.Balance)
+	tx, err = e.CreateTransaction(WithInputs(evilInput.OutputID), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.OutputWallet), WithIssuer(wallet))
 	return
 }
 
