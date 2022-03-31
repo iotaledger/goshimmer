@@ -3,9 +3,6 @@ package ledger
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
 type Solidifier struct {
@@ -30,14 +27,4 @@ func (s *Solidifier) checkSolidityCommand(params *dataFlowParams, next dataflow.
 	}
 
 	return next(params)
-}
-
-func (s *Solidifier) initConsumers(outputIDs OutputIDs, txID TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
-	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
-	_ = outputIDs.ForEach(func(outputID utxo.OutputID) (err error) {
-		cachedConsumers = append(cachedConsumers, s.CachedConsumer(outputID, txID, NewConsumer))
-		return nil
-	})
-
-	return cachedConsumers
 }

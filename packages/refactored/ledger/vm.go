@@ -32,6 +32,6 @@ func (v *VM) executeTransactionCommand(params *dataFlowParams, next dataflow.Nex
 	return next(params)
 }
 
-func (v *VM) resolveInputs(inputs []Input) (outputIDs OutputIDs) {
-	return NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
+func (v *VM) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
+	return utxo.NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
 }
