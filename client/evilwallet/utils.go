@@ -32,6 +32,15 @@ func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.O
 	return outputIDs
 }
 
+func getOutputByJSON(jsonOutput *jsonmodels.Output) (output ledgerstate.Output) {
+	output, err := jsonOutput.ToLedgerstateOutput()
+	if err != nil {
+		return
+	}
+
+	return output
+}
+
 func getIotaColorAmount(balance *ledgerstate.ColoredBalances) uint64 {
 	outBalance := uint64(0)
 	balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {

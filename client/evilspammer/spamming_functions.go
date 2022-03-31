@@ -2,10 +2,11 @@ package evilspammer
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"sync"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -34,7 +35,7 @@ func ValueSpammingFunc(s *Spammer) {
 }
 
 func CustomConflictSpammingFunc(s *Spammer) {
-	conflictBatch, err := s.SpamWallet.PrepareCustomConflicts(s.EvilScenario.ConflictBatch, s.EvilScenario.OutputWallet)
+	conflictBatch, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
 	}
@@ -50,12 +51,11 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				s.PostTransaction(tx)
+				clt.PostTransaction(tx)
 			}(clients[i], tx)
 		}
 		wg.Wait()
 	}
 	s.State.batchPrepared.Add(1)
-	s.SpamWallet.ClearAliases()
 	s.CheckIfAllSent()
 }

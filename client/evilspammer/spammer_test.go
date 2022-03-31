@@ -1,10 +1,11 @@
 package evilspammer
 
 import (
-	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSpamTransactions(t *testing.T) {

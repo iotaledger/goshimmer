@@ -5,34 +5,56 @@ import (
 )
 
 func SingleTransactionBatch() EvilBatch {
-	return EvilBatch{{[]Option{WithInputs("1"), WithOutput(&OutputOption{aliasName: "2"})}}}
+	return EvilBatch{{ScenarioAlias{Inputs: []string{"1"}, Outputs: []string{"2"}}}}
 }
 
 func DoubleSpendBatch(spentNum int) EvilBatch {
-	conflictSlice := make(ConflictSlice, 0)
+	conflictSlice := make(EvilBatch, 0)
+	aliasCounter := 1
+	// each double spend uses a different unspent output
+	inputStartNum := spentNum * 2
+
 	for i := 1; i <= spentNum; i++ {
-		conflictSlice = append(conflictSlice, []Option{WithInputs("0"), WithOutput(&OutputOption{aliasName: strconv.Itoa(i)})})
+		conflictSlice = append(conflictSlice, []ScenarioAlias{
+			{Inputs: []string{strconv.Itoa(inputStartNum + i)}, Outputs: []string{strconv.Itoa(aliasCounter)}},
+			{Inputs: []string{strconv.Itoa(inputStartNum + i)}, Outputs: []string{strconv.Itoa(aliasCounter + 1)}},
+		})
+		aliasCounter += 2
 	}
-	return EvilBatch{conflictSlice}
+	return conflictSlice
+}
+
+func NSpendBatch(nSpent int) EvilBatch {
+	conflictSlice := make(EvilBatch, 0)
+	scenarioAlias := make([]ScenarioAlias, 0)
+	inputStartNum := nSpent + 1
+
+	for i := 1; i <= nSpent; i++ {
+		scenarioAlias = append(scenarioAlias,
+			ScenarioAlias{
+				Inputs:  []string{strconv.Itoa(inputStartNum)},
+				Outputs: []string{strconv.Itoa(i)}},
+		)
+	}
+	conflictSlice = append(conflictSlice, scenarioAlias)
+	return conflictSlice
 }
 
 func Scenario1() EvilBatch {
-	return []ConflictSlice{
-		{
-			// split funds
-			[]Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}})},
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"1"}, Outputs: []string{"2", "3"}},
 		},
-		{
-			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4"})},
-			[]Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "5"})},
+		[]ScenarioAlias{
+			{Inputs: []string{"2"}, Outputs: []string{"4"}},
+			{Inputs: []string{"2"}, Outputs: []string{"5"}},
 		},
-		{
-			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "6"})},
-			[]Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "7"})},
+		[]ScenarioAlias{
+			{Inputs: []string{"3"}, Outputs: []string{"6"}},
+			{Inputs: []string{"3"}, Outputs: []string{"7"}},
 		},
-		{
-			// aggregated
-			[]Option{WithInputs("5", "6"), WithOutput(&OutputOption{aliasName: "8", amount: 1000000})},
+		[]ScenarioAlias{
+			{Inputs: []string{"6", "5"}, Outputs: []string{"8"}},
 		},
 	}
 }

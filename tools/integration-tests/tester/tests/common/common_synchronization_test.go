@@ -157,7 +157,7 @@ func TestConfirmMessage(t *testing.T) {
 	metadata, err := peers[0].GetMessageMetadata(msgID)
 	require.Nil(t, err)
 	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
-	tests.TryConfirmMessage(t, n, peers[:], msgID, 5*time.Second, 1*time.Millisecond)
+	tests.TryConfirmMessage(t, n, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
 }
 
 func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {

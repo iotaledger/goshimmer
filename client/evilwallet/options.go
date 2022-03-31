@@ -1,8 +1,9 @@
 package evilwallet
 
 import (
-	"github.com/cockroachdb/errors"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/types"
 
@@ -14,7 +15,7 @@ import (
 // Options is a struct that represents a collection of options that can be set when creating a message
 type Options struct {
 	aliasInputs              map[string]types.Empty
-	inputs                   []ledgerstate.Output
+	inputs                   []ledgerstate.OutputID
 	aliasOutputs             map[string]*ledgerstate.ColoredBalances
 	outputs                  []*ledgerstate.ColoredBalances
 	strongParents            map[string]types.Empty
@@ -39,7 +40,7 @@ type OutputOption struct {
 func NewOptions(options ...Option) (messageOptions *Options) {
 	messageOptions = &Options{
 		aliasInputs:           make(map[string]types.Empty),
-		inputs:                make([]ledgerstate.Output, 0),
+		inputs:                make([]ledgerstate.OutputID, 0),
 		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
 		outputs:               make([]*ledgerstate.ColoredBalances, 0),
 		strongParents:         make(map[string]types.Empty),
@@ -77,7 +78,7 @@ func (o *Options) areInputsProvidedWithoutAliases() bool {
 }
 
 func (o *Options) areOutputsProvidedWithoutAliases() bool {
-	return len(o.inputs) > 0
+	return len(o.outputs) > 0
 }
 
 // checkInputsAndOutputs checks if either all provided inputs/outputs are with aliases or all are without,
@@ -98,16 +99,20 @@ func (o *Options) checkInputsAndOutputs() error {
 }
 
 // WithInputs returns an Option that is used to provide the Inputs of the Transaction.
-func WithInputs(inputs ...interface{}) Option {
+func WithInputs(inputs interface{}) Option {
 	return func(options *Options) {
-		for _, input := range inputs {
-			switch in := input.(type) {
-			case string:
-				options.aliasInputs[in] = types.Void
-			case ledgerstate.Output:
-				options.inputs = append(options.inputs, in)
-			default:
-				panic("incorrect type provided as inputs option")
+		switch in := inputs.(type) {
+		case string:
+			options.aliasInputs[in] = types.Void
+		case []string:
+			for _, input := range in {
+				options.aliasInputs[input] = types.Void
+			}
+		case ledgerstate.OutputID:
+			options.inputs = append(options.inputs, in)
+		case []ledgerstate.OutputID:
+			for _, input := range in {
+				options.inputs = append(options.inputs, input)
 			}
 		}
 	}
@@ -120,7 +125,6 @@ func WithOutput(output *OutputOption) Option {
 			options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				output.color: output.amount,
 			})
-			return
 		} else {
 			options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 				output.color: output.amount,
