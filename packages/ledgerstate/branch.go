@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -145,6 +146,8 @@ func UnregisterBranchIDAliases() {
 // BranchIDs represents a collection of BranchIDs.
 type BranchIDs map[BranchID]types.Empty
 
+// TODO: BranchIDs should register lengthPrefixType
+
 // NewBranchIDs creates a new collection of BranchIDs from the given BranchIDs.
 func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	branchIDs = make(BranchIDs)
@@ -157,14 +160,14 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 
 // BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
 func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
-	branchIDsCount, err := marshalUtil.ReadUint64()
+	branchIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	branchIDs = make(BranchIDs)
-	for i := uint64(0); i < branchIDsCount; i++ {
+	for i := uint32(0); i < branchIDsCount; i++ {
 		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
 		if branchIDErr != nil {
 			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
@@ -280,6 +283,11 @@ func (b BranchIDs) Base58() (result []string) {
 	return
 }
 
+// LengthPrefixType returns type of the length prefix to use.
+func (b BranchIDs) LengthPrefixType() serializer.SeriLengthPrefixType {
+	return serializer.SeriLengthPrefixTypeAsUint32
+}
+
 // String returns a human readable version of the BranchIDs.
 func (b BranchIDs) String() string {
 	if len(b) == 0 {
@@ -315,8 +323,8 @@ type Branch struct {
 }
 type branchInner struct {
 	id                  BranchID
-	Parents             BranchIDs      `serix:"0,lengthPrefixType:uint32""`
-	Conflicts           ConflictIDs    `serix:"1,lengthPrefixType:uint32"`
+	Parents             BranchIDs      `serix:"0,lengthPrefixType=uint32"`
+	Conflicts           ConflictIDs    `serix:"1,lengthPrefixType=uint32"`
 	InclusionState      InclusionState `serix:"2"`
 	parentsMutex        sync.RWMutex
 	conflictsMutex      sync.RWMutex

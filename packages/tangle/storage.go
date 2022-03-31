@@ -200,7 +200,7 @@ func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMis
 func (s *Storage) MissingMessages() (ids []MessageID) {
 	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
 		cachedObject.Consume(func(object *MissingMessage) {
-			ids = append(ids, object.messageID)
+			ids = append(ids, object.missingMessageInner.MessageID)
 		})
 
 		return true
@@ -359,17 +359,19 @@ func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCal
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-			messageID:          EmptyMessageID,
-			solid:              true,
-			structureDetails: &markers.StructureDetails{
-				Rank:          0,
-				IsPastMarker:  false,
-				PastMarkers:   markers.NewMarkers(),
-				FutureMarkers: markers.NewMarkers(),
+			messageMetadataInner{
+				SolidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+				MessageID:          EmptyMessageID,
+				Solid:              true,
+				StructureDetails: &markers.StructureDetails{
+					Rank:          0,
+					IsPastMarker:  false,
+					PastMarkers:   markers.NewMarkers(),
+					FutureMarkers: markers.NewMarkers(),
+				},
+				Scheduled: true,
+				Booked:    true,
 			},
-			scheduled: true,
-			booked:    true,
 		}
 
 		genesisMetadata.Persist()
@@ -450,16 +452,16 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
 				res.SolidCount++
-				res.SumSolidificationReceivedTime += msgMetaData.solidificationTime.Sub(received)
+				res.SumSolidificationReceivedTime += msgMetaData.messageMetadataInner.SolidificationTime.Sub(received)
 			}
 			if msgMetaData.IsBooked() {
 				res.BookedCount++
-				res.SumBookedReceivedTime += msgMetaData.bookedTime.Sub(received)
+				res.SumBookedReceivedTime += msgMetaData.messageMetadataInner.BookedTime.Sub(received)
 			}
 			if msgMetaData.Scheduled() {
 				res.ScheduledCount++
-				res.SumSchedulerReceivedTime += msgMetaData.scheduledTime.Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.scheduledTime.Sub(msgMetaData.bookedTime)
+				res.SumSchedulerReceivedTime += msgMetaData.messageMetadataInner.ScheduledTime.Sub(received)
+				res.SumSchedulerBookedTime += msgMetaData.messageMetadataInner.ScheduledTime.Sub(msgMetaData.messageMetadataInner.BookedTime)
 			}
 		})
 		return true
@@ -481,9 +483,9 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := s.Approvers(messageMetadata.messageID)
+				cachedApprovers := s.Approvers(messageMetadata.messageMetadataInner.MessageID)
 				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.messageID)
+					tips = append(tips, messageMetadata.messageMetadataInner.MessageID)
 				}
 				cachedApprovers.Release()
 			}
@@ -596,14 +598,18 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	// approverType defines if the reference was create by a strong, weak, shallowlike or shallowdislike parent reference.
-	approverType ApproverType
+	approverInner `serix:"0"`
+}
 
+type approverInner struct {
 	// the message which got referenced by the approver message.
-	referencedMessageID MessageID
+	ReferencedMessageID MessageID `serix:"0"`
+
+	// ApproverType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
+	ApproverType ApproverType `serix:"1"`
 
 	// the message which approved/referenced the given referenced message.
-	approverMessageID MessageID
+	ApproverMessageID MessageID `serix:"2"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -611,9 +617,11 @@ type Approver struct {
 // NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
 	approver := &Approver{
-		approverType:        approverType,
-		referencedMessageID: referencedMessageID,
-		approverMessageID:   approverMessageID,
+		approverInner{
+			ApproverType:        approverType,
+			ReferencedMessageID: referencedMessageID,
+			ApproverMessageID:   approverMessageID,
+		},
 	}
 	return approver
 }
@@ -637,15 +645,15 @@ func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approv
 	if approver = a; approver == nil {
 		approver = new(Approver)
 	}
-	if approver.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if approver.approverInner.ReferencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
 		return
 	}
-	if approver.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
+	if approver.approverInner.ApproverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
 		return
 	}
-	if approver.approverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if approver.approverInner.ApproverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
 		return
 	}
@@ -655,17 +663,17 @@ func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approv
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	return a.approverType
+	return a.approverInner.ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	return a.referencedMessageID
+	return a.approverInner.ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	return a.approverMessageID
+	return a.approverInner.ApproverMessageID
 }
 
 // Bytes returns the bytes of the approver.
@@ -685,9 +693,9 @@ func (a *Approver) String() string {
 // This includes the referencedMessageID and the approverMessageID.
 func (a *Approver) ObjectStorageKey() []byte {
 	return marshalutil.New().
-		Write(a.referencedMessageID).
-		Write(a.approverType).
-		Write(a.approverMessageID).
+		Write(a.approverInner.ReferencedMessageID).
+		Write(a.approverInner.ApproverType).
+		Write(a.approverInner.ApproverMessageID).
 		Bytes()
 }
 
@@ -706,17 +714,22 @@ var _ objectstorage.StorableObject = new(Approver)
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	objectstorage.StorableObjectFlags
+	attachmentInner `serix:"0"`
+}
+type attachmentInner struct {
+	TransactionID ledgerstate.TransactionID `serix:"0"`
+	MessageID     MessageID                 `serix:"1"`
 
-	transactionID ledgerstate.TransactionID
-	messageID     MessageID
+	objectstorage.StorableObjectFlags
 }
 
 // NewAttachment creates an attachment object with the given information.
 func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
 	return &Attachment{
-		transactionID: transactionID,
-		messageID:     messageID,
+		attachmentInner{
+			TransactionID: transactionID,
+			MessageID:     messageID,
+		},
 	}
 }
 
@@ -741,11 +754,11 @@ func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (atta
 	if attachment = a; attachment == nil {
 		attachment = new(Attachment)
 	}
-	if attachment.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if attachment.attachmentInner.TransactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
-	if attachment.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if attachment.attachmentInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
 		return
 	}
@@ -755,12 +768,12 @@ func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (atta
 
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() ledgerstate.TransactionID {
-	return a.transactionID
+	return a.attachmentInner.TransactionID
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	return a.messageID
+	return a.attachmentInner.MessageID
 }
 
 // Bytes marshals the Attachment into a sequence of bytes.
@@ -778,7 +791,7 @@ func (a *Attachment) String() string {
 
 // ObjectStorageKey returns the key that is used to store the object in the database.
 func (a *Attachment) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(a.transactionID.Bytes(), a.MessageID().Bytes())
+	return byteutils.ConcatBytes(a.attachmentInner.TransactionID.Bytes(), a.MessageID().Bytes())
 }
 
 // ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
@@ -799,17 +812,23 @@ const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	objectstorage.StorableObjectFlags
+	missingMessageInner `serix:"0"`
+}
 
-	messageID    MessageID
-	missingSince time.Time
+type missingMessageInner struct {
+	MessageID    MessageID
+	MissingSince time.Time `serix:"0"`
+
+	objectstorage.StorableObjectFlags
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
 	return &MissingMessage{
-		messageID:    messageID,
-		missingSince: time.Now(),
+		missingMessageInner{
+			MessageID:    messageID,
+			MissingSince: time.Now(),
+		},
 	}
 }
 
@@ -834,11 +853,11 @@ func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		result = new(MissingMessage)
 	}
 
-	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
+	if result.missingMessageInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
 		return
 	}
-	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
+	if result.missingMessageInner.MissingSince, err = marshalUtil.ReadTime(); err != nil {
 		err = fmt.Errorf("failed to parse missingSince of missing message: %w", err)
 		return
 	}
@@ -848,12 +867,12 @@ func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 
 // MessageID returns the id of the message.
 func (m *MissingMessage) MessageID() MessageID {
-	return m.messageID
+	return m.missingMessageInner.MessageID
 }
 
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
-	return m.missingSince
+	return m.missingMessageInner.MissingSince
 }
 
 // Bytes returns a marshaled version of this MissingMessage.
@@ -864,15 +883,14 @@ func (m *MissingMessage) Bytes() []byte {
 // ObjectStorageKey returns the key of the stored missing message.
 // This returns the bytes of the messageID of the missing message.
 func (m *MissingMessage) ObjectStorageKey() []byte {
-	return m.messageID[:]
+	return m.missingMessageInner.MessageID[:]
 }
 
 // ObjectStorageValue returns the value of the stored missing message.
 func (m *MissingMessage) ObjectStorageValue() (result []byte) {
-	result, err := m.missingSince.MarshalBinary()
-	if err != nil {
-		panic(err)
-	}
+
+	marshalUtil := marshalutil.New()
+	result = marshalUtil.WriteTime(m.missingMessageInner.MissingSince).Bytes()
 
 	return
 }

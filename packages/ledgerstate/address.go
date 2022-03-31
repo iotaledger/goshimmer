@@ -2,8 +2,10 @@ package ledgerstate
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -11,9 +13,28 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
+
+//nolint:dupl
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectCode(new(ED25519Address).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ED25519Address type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectCode(new(BLSAddress).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering BLSAddress type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectCode(new(AliasAddress).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasAddress type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Address)(nil), new(ED25519Address), new(BLSAddress), new(AliasAddress))
+	if err != nil {
+		panic(fmt.Errorf("error registering Address interface implementations: %w", err))
+	}
+}
 
 // region AddressType //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -52,8 +73,6 @@ type Address interface {
 	// Type returns the AddressType of the Address.
 	Type() AddressType
 
-	serix.ObjectCodeProvider
-
 	// Digest returns the hashed version of the Addresses public key.
 	Digest() []byte
 
@@ -74,8 +93,6 @@ type Address interface {
 
 	// String returns a human readable version of the Address for debug purposes.
 	String() string
-
-	serix.ObjectCodeProvider
 }
 
 // AddressFromBytes unmarshals an Address from a sequence of bytes.
@@ -215,11 +232,6 @@ func (e *ED25519Address) Type() AddressType {
 	return ED25519AddressType
 }
 
-// ObjectCode returns the AddressType of the Address.
-func (e *ED25519Address) ObjectCode() interface{} {
-	return ED25519AddressType
-}
-
 // Digest returns the hashed version of the Addresses public key.
 func (e *ED25519Address) Digest() []byte {
 	return e.Digest2[:]
@@ -341,10 +353,6 @@ func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *B
 
 // Type returns the AddressType of the Address.
 func (b *BLSAddress) Type() AddressType {
-	return BLSAddressType
-}
-
-func (b *BLSAddress) ObjectCode() interface{} {
 	return BLSAddressType
 }
 
@@ -473,10 +481,6 @@ func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address 
 
 // Type returns the AddressType of the Address.
 func (a *AliasAddress) Type() AddressType {
-	return AliasAddressType
-}
-
-func (a *AliasAddress) ObjectCode() interface{} {
 	return AliasAddressType
 }
 

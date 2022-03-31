@@ -27,6 +27,29 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(new(SigLockedSingleOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedSingleOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedSingleOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(SigLockedColoredOutput), serix.TypeSettings{}.WithObjectCode(new(SigLockedColoredOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedColoredOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasOutput), serix.TypeSettings{}.WithObjectCode(new(AliasOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(ExtendedLockedOutput), serix.TypeSettings{}.WithObjectCode(new(ExtendedLockedOutput).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	if err != nil {
+		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
+	}
+}
+
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
 
 const (
@@ -240,7 +263,6 @@ type Output interface {
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
-	serix.ObjectCodeProvider
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
@@ -635,11 +657,6 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 	return SigLockedSingleOutputType
 }
 
-// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
-func (s *SigLockedSingleOutput) ObjectCode() interface{} {
-	return SigLockedSingleOutputType
-}
-
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
@@ -843,11 +860,6 @@ func (s *SigLockedColoredOutput) SetID(outputID OutputID) Output {
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
 func (s *SigLockedColoredOutput) Type() OutputType {
-	return SigLockedColoredOutputType
-}
-
-// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
-func (s *SigLockedColoredOutput) ObjectCode() interface{} {
 	return SigLockedColoredOutputType
 }
 
@@ -1405,11 +1417,6 @@ func (a *AliasOutput) SetID(outputID OutputID) Output {
 
 // Type return the type of the output.
 func (a *AliasOutput) Type() OutputType {
-	return AliasOutputType
-}
-
-// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
-func (a *AliasOutput) ObjectCode() interface{} {
 	return AliasOutputType
 }
 
@@ -2070,11 +2077,6 @@ func (o *ExtendedLockedOutput) Type() OutputType {
 	return ExtendedLockedOutputType
 }
 
-// ObjectCode returns the type of the Output which allows us to generically handle Outputs of different types.
-func (o *ExtendedLockedOutput) ObjectCode() interface{} {
-	return ExtendedLockedOutputType
-}
-
 // Balances returns the funds that are associated with the Output.
 func (o *ExtendedLockedOutput) Balances() *ColoredBalances {
 	return o.balances
@@ -2275,17 +2277,20 @@ var _ Output = new(ExtendedLockedOutput)
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
+	outputMetadataInner `serix:"0"`
+}
+type outputMetadataInner struct {
 	id                      OutputID
-	branchIDs               BranchIDs
+	BranchIDs               BranchIDs `serix:"0,lengthPrefixType=uint32"`
 	branchIDsMutex          sync.RWMutex
-	solid                   bool
+	Solid                   bool `serix:"1"`
 	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
+	SolidificationTime      time.Time `serix:"2"`
 	solidificationTimeMutex sync.RWMutex
-	consumerCount           int
+	ConsumerCount           uint64 `serix:"3"`
 	consumerMutex           sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
+	GradeOfFinality         gof.GradeOfFinality `serix:"4"`
+	GradeOfFinalityTime     time.Time           `serix:"5"`
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -2294,8 +2299,10 @@ type OutputMetadata struct {
 // NewOutputMetadata creates a new empty OutputMetadata object.
 func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 	return &OutputMetadata{
-		id:        outputID,
-		branchIDs: NewBranchIDs(),
+		outputMetadataInner: outputMetadataInner{
+			id:        outputID,
+			BranchIDs: NewBranchIDs(),
+		},
 	}
 }
 
@@ -2329,15 +2336,15 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	if outputMetadata.branchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if outputMetadata.outputMetadataInner.BranchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchIDs: %w", err)
 		return
 	}
-	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if outputMetadata.outputMetadataInner.Solid, err = marshalUtil.ReadBool(); err != nil {
 		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if outputMetadata.outputMetadataInner.SolidificationTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -2346,14 +2353,14 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		err = errors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	outputMetadata.consumerCount = int(consumerCount)
+	outputMetadata.outputMetadataInner.ConsumerCount = consumerCount
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
 		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+	outputMetadata.outputMetadataInner.GradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if outputMetadata.outputMetadataInner.GradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
 		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -2370,7 +2377,7 @@ func (o *OutputMetadata) BranchIDs() BranchIDs {
 	o.branchIDsMutex.RLock()
 	defer o.branchIDsMutex.RUnlock()
 
-	return o.branchIDs.Clone()
+	return o.outputMetadataInner.BranchIDs.Clone()
 }
 
 // SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
@@ -2378,11 +2385,11 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
-	if o.branchIDs.Equals(branchIDs) {
+	if o.outputMetadataInner.BranchIDs.Equals(branchIDs) {
 		return false
 	}
 
-	o.branchIDs = branchIDs.Clone()
+	o.outputMetadataInner.BranchIDs = branchIDs.Clone()
 	o.SetModified()
 	return true
 }
@@ -2392,13 +2399,13 @@ func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
-	if o.branchIDs.Contains(branchID) {
+	if o.outputMetadataInner.BranchIDs.Contains(branchID) {
 		return false
 	}
 
-	delete(o.branchIDs, MasterBranchID)
+	delete(o.outputMetadataInner.BranchIDs, MasterBranchID)
 
-	o.branchIDs.Add(branchID)
+	o.outputMetadataInner.BranchIDs.Add(branchID)
 	o.SetModified()
 	modified = true
 
@@ -2410,7 +2417,7 @@ func (o *OutputMetadata) Solid() bool {
 	o.solidMutex.RLock()
 	defer o.solidMutex.RUnlock()
 
-	return o.solid
+	return o.outputMetadataInner.Solid
 }
 
 // SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
@@ -2419,17 +2426,17 @@ func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
 	o.solidMutex.Lock()
 	defer o.solidMutex.Unlock()
 
-	if o.solid == solid {
+	if o.outputMetadataInner.Solid == solid {
 		return
 	}
 
 	if solid {
 		o.solidificationTimeMutex.Lock()
-		o.solidificationTime = time.Now()
+		o.outputMetadataInner.SolidificationTime = time.Now()
 		o.solidificationTimeMutex.Unlock()
 	}
 
-	o.solid = solid
+	o.outputMetadataInner.Solid = solid
 	o.SetModified()
 	modified = true
 
@@ -2441,7 +2448,7 @@ func (o *OutputMetadata) SolidificationTime() time.Time {
 	o.solidificationTimeMutex.RLock()
 	defer o.solidificationTimeMutex.RUnlock()
 
-	return o.solidificationTime
+	return o.outputMetadataInner.SolidificationTime
 }
 
 // ConsumerCount returns the number of transactions that have spent the Output.
@@ -2449,7 +2456,7 @@ func (o *OutputMetadata) ConsumerCount() int {
 	o.consumerMutex.RLock()
 	defer o.consumerMutex.RUnlock()
 
-	return o.consumerCount
+	return int(o.outputMetadataInner.ConsumerCount)
 }
 
 // RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
@@ -2458,7 +2465,7 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
-	o.consumerCount++
+	o.outputMetadataInner.ConsumerCount++
 	o.SetModified()
 
 	return
@@ -2468,7 +2475,7 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinality
+	return o.outputMetadataInner.GradeOfFinality
 }
 
 // SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
@@ -2476,12 +2483,12 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 	o.gradeOfFinalityMutex.Lock()
 	defer o.gradeOfFinalityMutex.Unlock()
 
-	if o.gradeOfFinality == gradeOfFinality {
+	if o.outputMetadataInner.GradeOfFinality == gradeOfFinality {
 		return
 	}
 
-	o.gradeOfFinality = gradeOfFinality
-	o.gradeOfFinalityTime = clock.SyncedTime()
+	o.outputMetadataInner.GradeOfFinality = gradeOfFinality
+	o.outputMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
 	modified = true
 	return
@@ -2491,7 +2498,7 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinalityTime
+	return o.outputMetadataInner.GradeOfFinalityTime
 }
 
 // Bytes marshals the OutputMetadata into a sequence of bytes.
@@ -2499,16 +2506,16 @@ func (o *OutputMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
 }
 
-// String returns a human readable version of the OutputMetadata.
+// String returns a human-readable version of the OutputMetadata.
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("branchIDs", o.BranchIDs()),
-		stringify.StructField("solid", o.Solid()),
-		stringify.StructField("solidificationTime", o.SolidificationTime()),
-		stringify.StructField("consumerCount", o.ConsumerCount()),
-		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
-		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
+		stringify.StructField("BranchIDs", o.BranchIDs()),
+		stringify.StructField("Solid", o.Solid()),
+		stringify.StructField("SolidificationTime", o.SolidificationTime()),
+		stringify.StructField("ConsumerCount", o.ConsumerCount()),
+		stringify.StructField("GradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("GradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
 }
 

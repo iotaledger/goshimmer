@@ -9,7 +9,7 @@ import (
 )
 
 func TestMarker(t *testing.T) {
-	marker := &Marker{SequenceID(1337), Index(1)}
+	marker := NewMarker(SequenceID(1337), Index(1))
 	assert.Equal(t, SequenceID(1337), marker.SequenceID())
 	assert.Equal(t, Index(1), marker.Index())
 
@@ -22,9 +22,9 @@ func TestMarker(t *testing.T) {
 
 func TestMarkers(t *testing.T) {
 	markers := NewMarkers(
-		&Marker{1337, 1},
-		&Marker{1338, 2},
-		&Marker{1339, 3},
+		NewMarker(1337, 1),
+		NewMarker(1338, 2),
+		NewMarker(1339, 3),
 	)
 
 	marshaledMarkers := markers.Bytes()
@@ -81,46 +81,46 @@ func TestMarkersByRank(t *testing.T) {
 
 func TestReferencedMarkers(t *testing.T) {
 	referencedMarkers := NewReferencedMarkers(NewMarkers(
-		&Marker{1, 3},
-		&Marker{2, 7},
+		NewMarker(1, 3),
+		NewMarker(2, 7),
 	))
 
 	referencedMarkers.Add(8, NewMarkers(
-		&Marker{4, 9},
+		NewMarker(4, 9),
 	))
 
 	referencedMarkers.Add(9, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 8},
+		NewMarker(1, 5),
+		NewMarker(2, 8),
 	))
 
 	referencedMarkers.Add(12, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
 	))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 3},
-		&Marker{2, 7},
-		&Marker{4, 9},
+		NewMarker(1, 3),
+		NewMarker(2, 7),
+		NewMarker(4, 9),
 	), referencedMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 8},
-		&Marker{4, 9},
+		NewMarker(1, 5),
+		NewMarker(2, 8),
+		NewMarker(4, 9),
 	), referencedMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 8},
-		&Marker{4, 9},
+		NewMarker(1, 5),
+		NewMarker(2, 8),
+		NewMarker(4, 9),
 	), referencedMarkers.Get(11))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
-		&Marker{4, 9},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
+		NewMarker(4, 9),
 	), referencedMarkers.Get(12))
 
 	marshaledReferencedMarkers := referencedMarkers.Bytes()
@@ -129,72 +129,72 @@ func TestReferencedMarkers(t *testing.T) {
 	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 3},
-		&Marker{2, 7},
-		&Marker{4, 9},
+		NewMarker(1, 3),
+		NewMarker(2, 7),
+		NewMarker(4, 9),
 	), unmarshalledReferencedMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 8},
-		&Marker{4, 9},
+		NewMarker(1, 5),
+		NewMarker(2, 8),
+		NewMarker(4, 9),
 	), unmarshalledReferencedMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 8},
-		&Marker{4, 9},
+		NewMarker(1, 5),
+		NewMarker(2, 8),
+		NewMarker(4, 9),
 	), unmarshalledReferencedMarkers.Get(11))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
-		&Marker{4, 9},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
+		NewMarker(4, 9),
 	), unmarshalledReferencedMarkers.Get(12))
 }
 
 func TestReferencedMarkersPanic(t *testing.T) {
 	referencedMarkers := NewReferencedMarkers(NewMarkers(
-		&Marker{1, 3},
+		NewMarker(1, 3),
 	))
 
 	referencedMarkers.Add(7, NewMarkers(
-		&Marker{4, 9},
+		NewMarker(4, 9),
 	))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 3},
+		NewMarker(1, 3),
 	), referencedMarkers.Get(4))
 }
 
 func TestReferencingMarkers(t *testing.T) {
 	referencingMarkers := NewReferencingMarkers()
-	referencingMarkers.Add(9, &Marker{1, 5})
-	referencingMarkers.Add(10, &Marker{3, 4})
-	referencingMarkers.Add(12, &Marker{1, 7})
-	referencingMarkers.Add(12, &Marker{2, 10})
+	referencingMarkers.Add(9, NewMarker(1, 5))
+	referencingMarkers.Add(10, NewMarker(3, 4))
+	referencingMarkers.Add(12, NewMarker(1, 7))
+	referencingMarkers.Add(12, NewMarker(2, 10))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 5),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), referencingMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 5),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), referencingMarkers.Get(9))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), referencingMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
 	), referencingMarkers.Get(12))
 
 	assert.Equal(t, NewMarkers(), referencingMarkers.Get(13))
@@ -205,26 +205,26 @@ func TestReferencingMarkers(t *testing.T) {
 	assert.Equal(t, len(marshaledReferencingMarkers), consumedBytes)
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 5),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), unmarshalledReferencingMarkers.Get(8))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 5},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 5),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), unmarshalledReferencingMarkers.Get(9))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
-		&Marker{3, 4},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
+		NewMarker(3, 4),
 	), unmarshalledReferencingMarkers.Get(10))
 
 	assert.Equal(t, NewMarkers(
-		&Marker{1, 7},
-		&Marker{2, 10},
+		NewMarker(1, 7),
+		NewMarker(2, 10),
 	), unmarshalledReferencingMarkers.Get(12))
 
 	assert.Equal(t, NewMarkers(), unmarshalledReferencingMarkers.Get(13))
@@ -234,8 +234,8 @@ func TestReferencingMarkers(t *testing.T) {
 
 func TestSequence(t *testing.T) {
 	sequence := NewSequence(1337, NewMarkers(
-		&Marker{1, 3},
-		&Marker{2, 6},
+		NewMarker(1, 3),
+		NewMarker(2, 6),
 	))
 
 	assert.Equal(t, SequenceID(1337), sequence.ID())

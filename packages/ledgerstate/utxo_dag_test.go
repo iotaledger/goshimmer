@@ -382,10 +382,14 @@ func TestOutputsUnspent(t *testing.T) {
 
 	outputsMetadata := []*OutputMetadata{
 		{
-			consumerCount: 0,
+			outputMetadataInner{
+				ConsumerCount: 0,
+			},
 		},
 		{
-			consumerCount: 1,
+			outputMetadataInner{
+				ConsumerCount: 1,
+			},
 		},
 	}
 

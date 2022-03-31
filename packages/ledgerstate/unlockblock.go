@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/cockroachdb/errors"
@@ -12,8 +13,27 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 )
 
-// region UnlockBlockType //////////////////////////////////////////////////////////////////////////////////////////////
+//nolint:dupl
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(new(AliasUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(AliasUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasUnlockBlock type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(ReferenceUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(ReferenceUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(new(SignatureUnlockBlock), serix.TypeSettings{}.WithObjectCode(new(SignatureUnlockBlock).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*UnlockBlock)(nil), new(AliasUnlockBlock), new(ReferenceUnlockBlock), new(SignatureUnlockBlock))
+	if err != nil {
+		panic(fmt.Errorf("error registering UnlockBlock interface implementations: %w", err))
+	}
+}
 
+// region UnlockBlockType. //////////////////////////////////////////////////////////////////////////////////////////////
 const (
 	// SignatureUnlockBlockType represents the type of a SignatureUnlockBlock.
 	SignatureUnlockBlockType UnlockBlockType = iota
@@ -53,8 +73,6 @@ type UnlockBlock interface {
 
 	// String returns a human readable version of the UnlockBlock.
 	String() string
-
-	serix.ObjectCodeProvider
 }
 
 // UnlockBlockFromBytes unmarshals an UnlockBlock from a sequence of bytes.
@@ -243,11 +261,6 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 	return SignatureUnlockBlockType
 }
 
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (s *SignatureUnlockBlock) ObjectCode() interface{} {
-	return SignatureUnlockBlockType
-}
-
 // Bytes returns a marshaled version of the UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
 	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signatureUnlockBlockInner.Signature.Bytes())
@@ -332,11 +345,6 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (r *ReferenceUnlockBlock) ObjectCode() interface{} {
-	return ReferenceUnlockBlockType
-}
-
 // Bytes returns a marshaled version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
@@ -415,11 +423,6 @@ func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
 
 // Type returns the UnlockBlockType of the UnlockBlock.
 func (r *AliasUnlockBlock) Type() UnlockBlockType {
-	return AliasUnlockBlockType
-}
-
-// ObjectCode returns the UnlockBlockType of the UnlockBlock.
-func (r *AliasUnlockBlock) ObjectCode() interface{} {
 	return AliasUnlockBlockType
 }
 

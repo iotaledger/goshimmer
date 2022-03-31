@@ -197,9 +197,9 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 			return
 		}
 
-		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
+		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverInner.ApproverMessageID)
 		if !approverScheduledConfirmed {
-			t.tangle.Storage.MessageMetadata(approver.approverMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			t.tangle.Storage.MessageMetadata(approver.approverInner.ApproverMessageID).Consume(func(messageMetadata *MessageMetadata) {
 				approverScheduledConfirmed = messageMetadata.Scheduled()
 			})
 		}

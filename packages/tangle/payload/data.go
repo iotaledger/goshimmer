@@ -1,11 +1,26 @@
 package payload
 
 import (
+	"fmt"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(new(GenericDataPayload), serix.TypeSettings{}.WithObjectCode(new(GenericDataPayload).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
+	}
+}
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
 var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPayloadUnmarshaler)
@@ -75,10 +90,6 @@ func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (ge
 	}
 
 	return
-}
-
-func (g *GenericDataPayload) ObjectCode() interface{} {
-	return g.payloadType
 }
 
 // Type returns the Type of the Payload.

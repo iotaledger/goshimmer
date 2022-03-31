@@ -12,9 +12,8 @@ import (
 func TestSerixPersistableBaseMana(t *testing.T) {
 	baseMana := newPersistableMana()
 	baseMana.NodeID = randomNodeID()
-	s := serix.NewAPI()
 
-	serixBytes, err := s.Encode(context.Background(), baseMana)
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), baseMana)
 	assert.NoError(t, err)
 	assert.Equal(t, baseMana.Bytes(), serixBytes)
 }

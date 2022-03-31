@@ -763,8 +763,11 @@ func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ..
 // potentially unbounded amount of Outputs, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type AddressOutputMapping struct {
-	address  Address
-	outputID OutputID
+	addressOutputMappingInner `serix:"0"`
+}
+type addressOutputMappingInner struct {
+	Address  Address  `serix:"0"`
+	OutputID OutputID `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -772,8 +775,10 @@ type AddressOutputMapping struct {
 // NewAddressOutputMapping returns a new AddressOutputMapping.
 func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputMapping {
 	return &AddressOutputMapping{
-		address:  address,
-		outputID: outputID,
+		addressOutputMappingInner{
+			Address:  address,
+			OutputID: outputID,
+		},
 	}
 }
 
@@ -801,11 +806,11 @@ func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalU
 	if addressOutputMapping = a; addressOutputMapping == nil {
 		addressOutputMapping = new(AddressOutputMapping)
 	}
-	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
+	if addressOutputMapping.addressOutputMappingInner.Address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
 		return
 	}
-	if addressOutputMapping.outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+	if addressOutputMapping.addressOutputMappingInner.OutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
 		return
 	}
@@ -815,12 +820,12 @@ func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalU
 
 // Address returns the Address of the AddressOutputMapping.
 func (a *AddressOutputMapping) Address() Address {
-	return a.address
+	return a.addressOutputMappingInner.Address
 }
 
 // OutputID returns the OutputID of the AddressOutputMapping.
 func (a *AddressOutputMapping) OutputID() OutputID {
-	return a.outputID
+	return a.addressOutputMappingInner.OutputID
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -831,15 +836,15 @@ func (a *AddressOutputMapping) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 	return stringify.Struct("AddressOutputMapping",
-		stringify.StructField("address", a.address),
-		stringify.StructField("outputID", a.outputID),
+		stringify.StructField("Address", a.addressOutputMappingInner.Address),
+		stringify.StructField("OutputID", a.addressOutputMappingInner.OutputID),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (a *AddressOutputMapping) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(a.address.Bytes(), a.outputID.Bytes())
+	return byteutils.ConcatBytes(a.addressOutputMappingInner.Address.Bytes(), a.addressOutputMappingInner.OutputID.Bytes())
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
@@ -862,10 +867,13 @@ var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, Tra
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type Consumer struct {
-	consumedInput OutputID
-	transactionID TransactionID
+	consumerInner `serix:"0"`
+}
+type consumerInner struct {
+	ConsumedInput OutputID
+	TransactionID TransactionID
+	Valid         types.TriBool `serix:"0"`
 	validMutex    sync.RWMutex
-	valid         types.TriBool
 
 	objectstorage.StorableObjectFlags
 }
@@ -873,9 +881,11 @@ type Consumer struct {
 // NewConsumer creates a Consumer object from the given information.
 func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid types.TriBool) *Consumer {
 	return &Consumer{
-		consumedInput: consumedInput,
-		transactionID: transactionID,
-		valid:         valid,
+		consumerInner{
+			ConsumedInput: consumedInput,
+			TransactionID: transactionID,
+			Valid:         valid,
+		},
 	}
 }
 
@@ -904,15 +914,15 @@ func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consum
 	if consumer = c; consumer == nil {
 		consumer = new(Consumer)
 	}
-	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
+	if consumer.consumerInner.ConsumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
 		return
 	}
-	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if consumer.consumerInner.TransactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
 		return
 	}
-	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
+	if consumer.consumerInner.Valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
@@ -922,12 +932,12 @@ func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consum
 
 // ConsumedInput returns the OutputID of the consumed Input.
 func (c *Consumer) ConsumedInput() OutputID {
-	return c.consumedInput
+	return c.consumerInner.ConsumedInput
 }
 
 // TransactionID returns the TransactionID of the consuming Transaction.
 func (c *Consumer) TransactionID() TransactionID {
-	return c.transactionID
+	return c.consumerInner.TransactionID
 }
 
 // Valid returns a flag that indicates if the spending Transaction is valid or not.
@@ -935,7 +945,7 @@ func (c *Consumer) Valid() (valid types.TriBool) {
 	c.validMutex.RLock()
 	defer c.validMutex.RUnlock()
 
-	return c.valid
+	return c.consumerInner.Valid
 }
 
 // SetValid updates the valid flag of the Consumer and returns true if the value was changed.
@@ -943,11 +953,11 @@ func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
 	c.validMutex.Lock()
 	defer c.validMutex.Unlock()
 
-	if valid == c.valid {
+	if valid == c.consumerInner.Valid {
 		return
 	}
 
-	c.valid = valid
+	c.consumerInner.Valid = valid
 	c.SetModified()
 	updated = true
 
@@ -962,15 +972,15 @@ func (c *Consumer) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
-		stringify.StructField("consumedInput", c.consumedInput),
-		stringify.StructField("transactionID", c.transactionID),
+		stringify.StructField("ConsumedInput", c.consumerInner.ConsumedInput),
+		stringify.StructField("TransactionID", c.consumerInner.TransactionID),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.transactionID.Bytes())
+	return byteutils.ConcatBytes(c.consumerInner.ConsumedInput.Bytes(), c.consumerInner.TransactionID.Bytes())
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object

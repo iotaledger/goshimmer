@@ -93,14 +93,14 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 
 // ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshaling).
 func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
-	conflictIDsCount, err := marshalUtil.ReadUint64()
+	conflictIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = errors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
 	conflictIDs = make(ConflictIDs)
-	for i := uint64(0); i < conflictIDsCount; i++ {
+	for i := uint32(0); i < conflictIDsCount; i++ {
 		conflictID, conflictIDErr := ConflictIDFromMarshalUtil(marshalUtil)
 		if conflictIDErr != nil {
 			err = errors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
@@ -175,7 +175,7 @@ type Conflict struct {
 	conflictInner `serix:"0"`
 }
 type conflictInner struct {
-	Id               ConflictID `serix:"0"`
+	ID               ConflictID `serix:"0"`
 	MemberCount      int64      `serix:"1"`
 	memberCountMutex sync.RWMutex
 
@@ -186,7 +186,7 @@ type conflictInner struct {
 func NewConflict(conflictID ConflictID) *Conflict {
 	return &Conflict{
 		conflictInner{
-			Id: conflictID,
+			ID: conflictID,
 		},
 	}
 }
@@ -216,7 +216,7 @@ func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 	if conflict = c; conflict == nil {
 		conflict = &Conflict{}
 	}
-	if conflict.Id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
+	if conflict.conflictInner.ID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 		return
 	}
@@ -232,7 +232,7 @@ func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (confli
 
 // ID returns the identifier of this Conflict.
 func (c *Conflict) ID() ConflictID {
-	return c.Id
+	return c.conflictInner.ID
 }
 
 // MemberCount returns the amount of Branches that are part of this Conflict.
@@ -285,7 +285,7 @@ func (c *Conflict) Bytes() []byte {
 // String returns a human readable version of the Conflict.
 func (c *Conflict) String() string {
 	return stringify.Struct("Conflict",
-		stringify.StructField("Id", c.ID()),
+		stringify.StructField("ID", c.ID()),
 		stringify.StructField("MemberCount", c.MemberCount()),
 	)
 }
@@ -293,7 +293,7 @@ func (c *Conflict) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Conflict) ObjectStorageKey() []byte {
-	return c.Id.Bytes()
+	return c.conflictInner.ID.Bytes()
 }
 
 // ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
