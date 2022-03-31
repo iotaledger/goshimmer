@@ -27,7 +27,7 @@ func TestDeepDoubleSpend(t *testing.T) {
 		},
 		{
 			// aggregated
-			[]Option{WithInputs("5", "6"), WithOutput(&OutputOption{aliasName: "8", amount: 1000000})},
+			[]Option{WithInputs([]string{"5", "6"}), WithOutput(&OutputOption{aliasName: "8", amount: 1000000})},
 		},
 	})
 	require.NoError(t, err)

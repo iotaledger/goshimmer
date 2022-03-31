@@ -174,15 +174,31 @@ func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 
 // GetOutput returns the Output of the given outputID.
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
+	output = o.getOutputFromWallet(outputID)
+
+	// get output info from via web api
+	if output == nil {
+		clt := o.connector.GetClient()
+		o := clt.GetOutput(outputID)
+		output = &Output{
+			OutputID: o.ID(),
+			Address:  o.Address(),
+			Balance:  o.Balances(),
+		}
+	}
+
+	return output
+}
+
+func (o *OutputManager) getOutputFromWallet(outputID ledgerstate.OutputID) (output *Output) {
 	o.RLock()
 	defer o.RUnlock()
 	w, ok := o.outputIDWalletMap[outputID.Base58()]
-	if !ok {
-		return nil
+	if ok {
+		addr := o.outputIDAddrMap[outputID.Base58()]
+		output = w.UnspentOutput(addr)
 	}
-	addr := o.outputIDAddrMap[outputID.Base58()]
-	out := w.UnspentOutput(addr)
-	return out
+	return
 }
 
 // RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.

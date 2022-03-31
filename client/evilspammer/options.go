@@ -1,8 +1,9 @@
 package evilspammer
 
 import (
-	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
 )
 
 type Options func(*Spammer)

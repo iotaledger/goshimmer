@@ -253,10 +253,9 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 	return txIDs
 }
 
-func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.Output, outputs []*OutputOption) {
+func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.OutputID, outputs []*OutputOption) {
 	evilInput := inputWallet.UnspentOutput(inputAddr)
-	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
-	input = out.SetID(evilInput.OutputID)
+	input = evilInput.OutputID
 
 	inputBalance := uint64(0)
 	evilInput.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
@@ -450,7 +449,7 @@ func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAlia
 func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.Input, err error) {
 	if buildOptions.areInputsProvidedWithoutAliases() {
 		for _, out := range buildOptions.inputs {
-			inputs = append(inputs, ledgerstate.NewUTXOInput(out.ID()))
+			inputs = append(inputs, ledgerstate.NewUTXOInput(out))
 		}
 		return
 	}
@@ -571,12 +570,13 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []led
 
 	for _, input := range buildOptions.inputs {
 		// get balance from output manager
-		input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		inputDetails := e.outputManager.GetOutput(input)
+		inputDetails.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			inputBalance += balance
 			return true
 		})
 		if remainderAddress == address.AddressEmpty.Address() {
-			remainderAddress = input.Address()
+			remainderAddress = inputDetails.Address
 		}
 	}
 
@@ -610,7 +610,8 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 		if buildOptions.areInputsProvidedWithoutAliases() {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
-				input.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+				inputDetails := e.outputManager.GetOutput(input)
+				inputDetails.Balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
 					totalBalance += balance
 					return true
 				})
@@ -686,43 +687,96 @@ func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs led
 }
 
 func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	wallet, err := e.wallets.FreshWallet()
+	inWallet, err := e.wallets.GetNextWallet(Fresh)
 	if err != nil {
-		return
+		return nil, err
 	}
-	evilInput := wallet.GetUnspentOutput()
-	outBalance := getIotaColorAmount(evilInput.Balance)
-	out := ledgerstate.NewSigLockedColoredOutput(evilInput.Balance, evilInput.Address)
-	input := out.SetID(evilInput.OutputID)
-	tx, err = e.CreateTransaction(WithInputs(input), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.OutputWallet), WithIssuer(wallet))
+	unspentOutput := inWallet.GetUnspentOutput()
+
+	tx, err = e.CreateTransaction(WithInputs(unspentOutput.OutputID), WithOutput(&OutputOption{aliasName: "2"}), WithIssuer(inWallet), WithOutputWallet(scenario.OutputWallet))
 	return
 }
 
 func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
-	txs, err = e.PrepareCustomConflicts(scenario.ConflictBatch, scenario.OutputWallet)
+	conflicts, err := e.prepareConflictSliceForScenario(scenario)
 	if err != nil {
 		return nil, err
 	}
+	scenario.conflictSlice = conflicts
+	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.OutputWallet)
+
 	return
+}
+
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflicts []ConflictSlice, err error) {
+	inWallet, err := e.wallets.GetNextWallet(Fresh)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register the alias name for the unspent outputs from inWallet.
+	for in := range scenario.inputsAlias {
+		unspentOutput := inWallet.GetUnspentOutput()
+		input := ledgerstate.NewUTXOInput(unspentOutput.OutputID)
+		e.aliasManager.AddInputAlias(input, in)
+	}
+
+	genOutputOptions := func(aliases []string) []*OutputOption {
+		outputOptions := make([]*OutputOption, 0)
+		for _, o := range aliases {
+			outputOptions = append(outputOptions, &OutputOption{aliasName: o})
+		}
+		return outputOptions
+	}
+
+	// make conflictSlice
+	conflictSlice := make([]ConflictSlice, 0)
+	for _, conflictMap := range scenario.ConflictBatch {
+		conflicts := make([][]Option, 0)
+		for _, aliases := range conflictMap {
+			outs := genOutputOptions(aliases.Outputs)
+			conflicts = append(conflicts, []Option{WithInputs(aliases.Inputs), WithOutputs(outs), WithIssuer(inWallet)})
+		}
+		conflictSlice = append(conflictSlice, conflicts)
+	}
+
+	return conflictSlice, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region EvilScenario ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type EvilBatch []ConflictSlice
+// The custom conflict in spammer can be provided like this:
+// EvilBatch{
+// 	{
+// 		ScenarioAlias{inputs: []{"1"}, outputs: []{"2","3"}}
+// 	},
+// 	{
+// 		ScenarioAlias{inputs: []{"2"}, outputs: []{"4"}},
+// 		ScenarioAlias{inputs: []{"2"}, outputs: []{"5"}}
+// 	}
+// }
+type ScenarioAlias struct {
+	Inputs  []string
+	Outputs []string
+}
+
+type EvilBatch [][]ScenarioAlias
 
 type EvilScenario struct {
 	ConflictBatch EvilBatch
+	conflictSlice []ConflictSlice
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
 	Reuse bool
 
 	OutputWallet *Wallet
 	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
 	batchOutputsAliases map[string]types.Empty
+	inputsAlias         map[string]types.Empty
 }
 
-func NewEvilScenario(conflictBatch []ConflictSlice, reuse bool, outputWallet *Wallet) *EvilScenario {
+func NewEvilScenario(conflictBatch EvilBatch, reuse bool, outputWallet *Wallet) *EvilScenario {
 	scenario := &EvilScenario{
 		Reuse:        reuse,
 		OutputWallet: outputWallet,
@@ -732,26 +786,42 @@ func NewEvilScenario(conflictBatch []ConflictSlice, reuse bool, outputWallet *Wa
 		scenario.ConflictBatch = SingleTransactionBatch()
 	} else {
 		scenario.ConflictBatch = conflictBatch
-		scenario.assignBatchOutputs()
+		scenario.readCustomConflictsPattern()
 	}
+
 	if outputWallet == nil {
 		scenario.OutputWallet = NewWallet()
 	}
 	return scenario
 }
 
-func (e *EvilScenario) assignBatchOutputs() {
+func (e *EvilScenario) readCustomConflictsPattern() {
 	e.batchOutputsAliases = make(map[string]types.Empty)
+	e.inputsAlias = make(map[string]types.Empty)
+	deleteFromOutput := make(map[string]types.Empty)
+
 	for _, conflictMap := range e.ConflictBatch {
-		for _, options := range conflictMap {
-			option := NewOptions(options...)
-			for outputAlis := range option.aliasOutputs {
-				// add output aliases that are not used in this conflict batch
-				if _, ok := option.aliasInputs[outputAlis]; !ok {
-					e.batchOutputsAliases[outputAlis] = types.Void
+		for _, aliases := range conflictMap {
+			// add output to batchOutputsAliases
+			for _, output := range aliases.Outputs {
+				if _, ok := e.batchOutputsAliases[output]; !ok {
+					e.batchOutputsAliases[output] = types.Void
+				}
+			}
+			// add input only if it's not in output, this will determine how many
+			// unspent outputs to take in each round of spamming.
+			for _, input := range aliases.Inputs {
+				if _, ok := e.batchOutputsAliases[input]; !ok {
+					e.inputsAlias[input] = types.Void
+				} else {
+					deleteFromOutput[input] = types.Void
 				}
 			}
 		}
+	}
+
+	for d := range deleteFromOutput {
+		delete(e.batchOutputsAliases, d)
 	}
 }
 

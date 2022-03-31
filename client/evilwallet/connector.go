@@ -159,6 +159,8 @@ type Client interface {
 	GetAddressUnspentOutputs(address string) (outputIDs []ledgerstate.OutputID, err error)
 	// GetTransactionGoF returns the GoF of a given transaction ID.
 	GetTransactionGoF(txID string) gof.GradeOfFinality
+	// GetOutput gets the output of a given outputID.
+	GetOutput(outputID ledgerstate.OutputID) ledgerstate.Output
 	// GetOutputGoF gets the first unspent outputs of a given address.
 	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
 	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
@@ -238,6 +240,16 @@ func (c *WebClient) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinal
 	}
 
 	return res.GradeOfFinality
+}
+
+// GetOutput gets the output of a given outputID.
+func (c *WebClient) GetOutput(outputID ledgerstate.OutputID) ledgerstate.Output {
+	res, err := c.api.GetOutput(outputID.Base58())
+	if err != nil {
+		return nil
+	}
+	output := getOutputByJSON(res)
+	return output
 }
 
 // GetTransactionGoF returns the GoF of a given transaction ID.
