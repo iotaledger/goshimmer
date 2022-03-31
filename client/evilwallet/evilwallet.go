@@ -721,18 +721,6 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflicts []ConflictSlice, err error) {
-	inWallet, err := e.wallets.GetNextWallet(Fresh)
-	if err != nil {
-		return nil, err
-	}
-
-	// Register the alias name for the unspent outputs from inWallet.
-	for in := range scenario.inputsAliases {
-		unspentOutput := inWallet.GetUnspentOutput()
-		input := ledgerstate.NewUTXOInput(unspentOutput.OutputID)
-		e.aliasManager.AddInputAlias(input, in)
-	}
-
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {
@@ -747,7 +735,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
-			conflicts = append(conflicts, []Option{WithInputs(aliases.Inputs), WithOutputs(outs), WithIssuer(inWallet)})
+			conflicts = append(conflicts, []Option{WithInputs(aliases.Inputs), WithOutputs(outs)})
 		}
 		conflictSlice = append(conflictSlice, conflicts)
 	}
@@ -790,10 +778,7 @@ type EvilScenario struct {
 	RestrictedInputWallet *Wallet
 
 	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
-
-	//
-	outputsAliases map[string]types.Empty
-	inputsAliases  map[string]types.Empty
+	batchOutputs map[string]types.Empty
 }
 
 func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
@@ -811,34 +796,29 @@ func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 	return scenario
 }
 
+// readCustomConflictsPattern determines outputs of the batch, needed for saving batch outputs to the outputWallet.
 func (e *EvilScenario) readCustomConflictsPattern() {
-	e.outputsAliases = make(map[string]types.Empty)
-	e.inputsAliases = make(map[string]types.Empty)
-	deleteFromOutput := make(map[string]types.Empty)
+	outputs := make(map[string]types.Empty)
+	inputs := make(map[string]types.Empty)
 
 	for _, conflictMap := range e.ConflictBatch {
-		for _, aliases := range conflictMap {
+		for _, conflicts := range conflictMap {
 			// add output to outputsAliases
-			for _, output := range aliases.Outputs {
-				if _, ok := e.outputsAliases[output]; !ok {
-					e.outputsAliases[output] = types.Void
-				}
+			for _, input := range conflicts.Inputs {
+				inputs[input] = types.Void
 			}
-			// add input only if it's not in output, this will determine how many
-			// unspent outputs to take in each round of spamming.
-			for _, input := range aliases.Inputs {
-				if _, ok := e.outputsAliases[input]; !ok {
-					e.inputsAliases[input] = types.Void
-				} else {
-					deleteFromOutput[input] = types.Void
-				}
+			for _, output := range conflicts.Outputs {
+				outputs[output] = types.Void
 			}
 		}
 	}
-
-	for d := range deleteFromOutput {
-		delete(e.outputsAliases, d)
+	// remove outputs that were never used as input in this EvilBatch to determine batch outputs
+	for output := range outputs {
+		if _, ok := inputs[output]; !ok {
+			delete(outputs, output)
+		}
 	}
+	e.batchOutputs = outputs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
