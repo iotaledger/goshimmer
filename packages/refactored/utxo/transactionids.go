@@ -137,3 +137,13 @@ func (o TransactionIDs) String() (humanReadable string) {
 
 	return "TransactionIDs(" + strings.Join(elementStrings, ", ") + ")"
 }
+
+func (o TransactionIDs) Iterator() *Iterator[TransactionID] {
+	txIDs := make([]TransactionID, 0)
+	_ = o.ForEach(func(txID TransactionID) (err error) {
+		txIDs = append(txIDs, txID)
+		return nil
+	})
+
+	return NewIterator(txIDs...)
+}
