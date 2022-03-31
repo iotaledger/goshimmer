@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -25,6 +26,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(NewMessageIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsByte))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 const (
 	// MessageVersion defines the Version of the message structure.
