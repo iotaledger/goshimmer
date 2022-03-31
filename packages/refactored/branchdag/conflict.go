@@ -221,13 +221,13 @@ var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, Br
 // Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
 type ConflictMember struct {
 	conflictID ConflictID
-	branchID   BranchID
+	branchID   *BranchID
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewConflictMember is the constructor of the ConflictMember reference.
-func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember {
+func NewConflictMember(conflictID ConflictID, branchID *BranchID) *ConflictMember {
 	return &ConflictMember{
 		conflictID: conflictID,
 		branchID:   branchID,
@@ -276,7 +276,7 @@ func (c *ConflictMember) ConflictID() ConflictID {
 }
 
 // BranchID returns the identifier of the Branch that this ConflictMember references.
-func (c *ConflictMember) BranchID() BranchID {
+func (c *ConflictMember) BranchID() *BranchID {
 	return c.branchID
 }
 

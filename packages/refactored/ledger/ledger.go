@@ -44,12 +44,12 @@ func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) 
 	}
 
 	ledger.Configure(options...)
-
 	ledger.DataFlow = NewDataFlow(ledger)
 	ledger.Storage = NewStorage(ledger)
 	ledger.Validator = NewValidator(ledger, vm)
 	ledger.Booker = NewBooker(ledger)
 	ledger.Utils = NewUtils(ledger)
+	ledger.setup()
 
 	return ledger
 }
@@ -69,8 +69,8 @@ func (l *Ledger) Configure(options ...Option) {
 }
 
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+	l.Lock(*tx.ID())
+	defer l.Unlock(*tx.ID())
 
 	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
@@ -79,11 +79,25 @@ func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
 	return l.DataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
+func (l *Ledger) setup() {
+	l.TransactionBookedEvent.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
+		l.processConsumingTransactions(event.Outputs.IDs())
+	}))
+}
+
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+	l.Lock(*tx.ID())
+	defer l.Unlock(*tx.ID())
 
 	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
+}
+
+func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
+	for it := l.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
+		go l.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
+			_ = l.processTransaction(tx)
+		})
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

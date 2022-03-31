@@ -36,7 +36,7 @@ func NewTestFramework(options ...Option) (new *TestFramework) {
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
 
-	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
+	genesisOutput := NewOutput(NewMockedOutput(&utxo.EmptyTransactionID, 0))
 	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 	genesisOutputMetadata.SetSolid(true)
 	genesisOutputMetadata.SetGradeOfFinality(gof.High)
@@ -99,7 +99,7 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 	txIDs = branchdag.NewBranchIDs()
 	for _, expectedBranchAlias := range txAliases {
 		if expectedBranchAlias == "MasterBranch" {
-			txIDs.Add(branchdag.MasterBranchID)
+			txIDs.Add(&branchdag.MasterBranchID)
 			continue
 		}
 
@@ -184,13 +184,13 @@ type MockedOutput struct {
 	id      *utxo.OutputID
 	idMutex sync.Mutex
 
-	txID  utxo.TransactionID
+	txID  *utxo.TransactionID
 	index uint16
 
 	objectstorage.StorableObjectFlags
 }
 
-func NewMockedOutput(txID utxo.TransactionID, index uint16) (new *MockedOutput) {
+func NewMockedOutput(txID *utxo.TransactionID, index uint16) (new *MockedOutput) {
 	return &MockedOutput{
 		txID:  txID,
 		index: index,
@@ -231,7 +231,7 @@ func (m *MockedOutput) SetID(id utxo.OutputID) {
 	m.id = &id
 }
 
-func (m *MockedOutput) TransactionID() (txID utxo.TransactionID) {
+func (m *MockedOutput) TransactionID() (txID *utxo.TransactionID) {
 	return m.txID
 }
 
@@ -309,23 +309,24 @@ func (m *MockedTransaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil
 	return nil
 }
 
-func (m *MockedTransaction) ID() (transactionID utxo.TransactionID) {
+func (m *MockedTransaction) ID() (transactionID *utxo.TransactionID) {
 	m.idMutex.Lock()
 	defer m.idMutex.Unlock()
 
 	if m.id == nil {
+		transactionID = new(utxo.TransactionID)
 		copy(transactionID[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
-		m.id = &transactionID
+		m.id = transactionID
 	}
 
-	return *m.id
+	return m.id
 }
 
-func (m *MockedTransaction) SetID(id utxo.TransactionID) {
+func (m *MockedTransaction) SetID(id *utxo.TransactionID) {
 	m.idMutex.Lock()
 	defer m.idMutex.Unlock()
 
-	m.id = &id
+	m.id = id
 }
 
 func (m *MockedTransaction) Inputs() []utxo.Input {

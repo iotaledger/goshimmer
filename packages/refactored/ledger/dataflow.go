@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
-	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -15,16 +14,6 @@ func NewDataFlow(ledger *Ledger) *DataFlow {
 	return &DataFlow{
 		ledger,
 	}
-}
-
-func (d *DataFlow) Setup() {
-	d.TransactionBookedEvent.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
-		for it := d.ConsumingTransactions(event.Outputs.IDs(), false).Iterator(); it.HasNext(); {
-			go d.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
-				_ = d.Ledger.processTransaction(tx)
-			})
-		}
-	}))
 }
 
 func (d *DataFlow) storeAndProcessTransaction() *dataflow.DataFlow[*dataFlowParams] {

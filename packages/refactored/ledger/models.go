@@ -52,7 +52,7 @@ var _ objectstorage.StorableObject = new(Transaction)
 // TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
 // a node.
 type TransactionMetadata struct {
-	id                      utxo.TransactionID
+	id                      *utxo.TransactionID
 	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
@@ -71,7 +71,7 @@ type TransactionMetadata struct {
 }
 
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
-func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
+func NewTransactionMetadata(transactionID *utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
 	newTransactionMetadata = &TransactionMetadata{
 		id:        transactionID,
 		branchIDs: branchdag.NewBranchIDs(),
@@ -140,7 +140,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 }
 
 // ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
-func (t *TransactionMetadata) ID() utxo.TransactionID {
+func (t *TransactionMetadata) ID() *utxo.TransactionID {
 	return t.id
 }
 
@@ -167,7 +167,7 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modif
 }
 
 // AddBranchID adds an identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
+func (t *TransactionMetadata) AddBranchID(branchID *branchdag.BranchID) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
@@ -175,7 +175,7 @@ func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified
 		return false
 	}
 
-	t.branchIDs.Delete(branchdag.MasterBranchID)
+	t.branchIDs.Delete(&branchdag.MasterBranchID)
 
 	t.branchIDs.Add(branchID)
 	t.SetModified()
@@ -442,7 +442,7 @@ type OutputMetadata struct {
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	firstConsumer           utxo.TransactionID
+	firstConsumer           *utxo.TransactionID
 	firstConsumerForked     bool
 	firstConsumerMutex      sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
@@ -541,7 +541,7 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified b
 }
 
 // AddBranchID adds an identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
+func (o *OutputMetadata) AddBranchID(branchID *branchdag.BranchID) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -549,7 +549,7 @@ func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool
 		return false
 	}
 
-	o.branchIDs.Delete(branchdag.MasterBranchID)
+	o.branchIDs.Delete(&branchdag.MasterBranchID)
 
 	o.branchIDs.Add(branchID)
 	o.SetModified()
@@ -602,11 +602,11 @@ func (o *OutputMetadata) Spent() bool {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
-	return o.firstConsumer != utxo.EmptyTransactionID
+	return o.firstConsumer != nil && *o.firstConsumer != utxo.EmptyTransactionID
 }
 
 // FirstConsumer returns the TransactionID that first spent the Output (or the EmptyTransactionID if it is unspent).
-func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
+func (o *OutputMetadata) FirstConsumer() *utxo.TransactionID {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
@@ -615,19 +615,19 @@ func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
 
 // RegisterProcessedConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
+func (o *OutputMetadata) RegisterProcessedConsumer(consumer *utxo.TransactionID) (isConflicting bool, consumerToFork *utxo.TransactionID) {
 	o.firstConsumerMutex.Lock()
 	defer o.firstConsumerMutex.Unlock()
 
-	if o.firstConsumer == utxo.EmptyTransactionID {
+	if o.firstConsumer == nil || *o.firstConsumer == utxo.EmptyTransactionID {
 		o.firstConsumer = consumer
 		o.SetModified()
 
-		return false, utxo.EmptyTransactionID
+		return false, &utxo.EmptyTransactionID
 	}
 
 	if o.firstConsumerForked {
-		return true, utxo.EmptyTransactionID
+		return true, &utxo.EmptyTransactionID
 	}
 
 	return true, o.firstConsumer
@@ -777,7 +777,7 @@ var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength
 // list of spending Transactions inside the Output.
 type Consumer struct {
 	consumedInput  utxo.OutputID
-	transactionID  utxo.TransactionID
+	transactionID  *utxo.TransactionID
 	processedMutex sync.RWMutex
 	processed      bool
 
@@ -785,7 +785,7 @@ type Consumer struct {
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
+func NewConsumer(consumedInput utxo.OutputID, transactionID *utxo.TransactionID) (new *Consumer) {
 	new = &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
@@ -842,7 +842,7 @@ func (c *Consumer) ConsumedInput() utxo.OutputID {
 }
 
 // TransactionID returns the TransactionID of the consuming Transaction.
-func (c *Consumer) TransactionID() utxo.TransactionID {
+func (c *Consumer) TransactionID() *utxo.TransactionID {
 	return c.transactionID
 }
 

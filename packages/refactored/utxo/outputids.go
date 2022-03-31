@@ -107,6 +107,24 @@ func (o OutputIDs) Filter(predicate func(outputID OutputID) bool) (filtered Outp
 	return filtered
 }
 
+func (o OutputIDs) Equal(other OutputIDs) (equal bool) {
+	if other.Size() != o.Size() {
+		return false
+	}
+
+	return other.ForEach(func(outputID OutputID) (err error) {
+		if !o.Has(outputID) {
+			return errors.New("abort")
+		}
+
+		return nil
+	}) == nil
+}
+
+func (o OutputIDs) Is(txID OutputID) bool {
+	return o.Size() == 1 && o.Has(txID)
+}
+
 func (o OutputIDs) Clone() (cloned OutputIDs) {
 	cloned = NewOutputIDs()
 	cloned.AddAll(o)

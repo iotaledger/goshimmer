@@ -63,7 +63,7 @@ func NewStorage(ledger *Ledger) (newStorage *Storage) {
 
 func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	created := false
-	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID utxo.TransactionID) *TransactionMetadata {
+	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID *utxo.TransactionID) *TransactionMetadata {
 		s.transactionStorage.Store(params.Transaction).Release()
 		created = true
 		return NewTransactionMetadata(txID)
@@ -93,7 +93,7 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 	return next(params)
 }
 
-func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID *utxo.TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
 	_ = outputIDs.ForEach(func(outputID utxo.OutputID) (err error) {
 		cachedConsumers = append(cachedConsumers, s.CachedConsumer(outputID, txID, NewConsumer))
@@ -104,12 +104,12 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 }
 
 // CachedTransaction retrieves the Transaction with the given TransactionID from the object storage.
-func (s *Storage) CachedTransaction(transactionID utxo.TransactionID) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
+func (s *Storage) CachedTransaction(transactionID *utxo.TransactionID) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
 	return s.transactionStorage.Load(transactionID.Bytes())
 }
 
 // CachedTransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
+func (s *Storage) CachedTransactionMetadata(transactionID *utxo.TransactionID, computeIfAbsentCallback ...func(transactionID *utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
@@ -150,7 +150,7 @@ func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 }
 
 // CachedConsumer retrieves the OutputMetadata with the given OutputID from the object storage.
-func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID *utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID *utxo.TransactionID) *Consumer) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
