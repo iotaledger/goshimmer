@@ -136,7 +136,7 @@ func (s *Spammer) Spam() {
 			case <-s.State.logTicker.C:
 				s.log.Infof("Messages issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-timeExceeded:
-				s.log.Infof("Maximum spam duration exceeded, stoping spammer....")
+				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
 				s.StopSpamming()
 				return
 			case <-s.done:

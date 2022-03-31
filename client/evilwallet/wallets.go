@@ -113,9 +113,9 @@ func (w *Wallets) IsFaucetWalletAvailable() bool {
 	return len(w.faucetWallets) > 0
 }
 
-// FreshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
+// freshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
 // it is removed and the next enqueued one is returned.
-func (w *Wallets) FreshWallet() (*Wallet, error) {
+func (w *Wallets) freshWallet() (*Wallet, error) {
 	wallet, err := w.GetNextWallet(Fresh)
 	if err != nil {
 		w.removeWallet(Fresh)
@@ -127,13 +127,13 @@ func (w *Wallets) FreshWallet() (*Wallet, error) {
 	return wallet, nil
 }
 
-// ReuseWallet returns the first non-empty wallet from the reuseWallets queue. If current wallet is empty,
+// reuseWallet returns the first non-empty wallet from the reuseWallets queue. If current wallet is empty,
 // it is removed and the next enqueued one is returned.
-func (w *Wallets) ReuseWallet() (*Wallet, error) {
+func (w *Wallets) reuseWallet() (*Wallet, error) {
 	wallet, err := w.GetNextWallet(Reuse)
 	if err != nil {
-		w.removeWallet(Fresh)
-		wallet, err = w.GetNextWallet(Fresh)
+		w.removeWallet(Reuse)
+		wallet, err = w.GetNextWallet(Reuse)
 		if err != nil {
 			return nil, err
 		}

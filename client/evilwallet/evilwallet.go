@@ -374,7 +374,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
-	err = e.updateOutputIDs(tx.ID(), tx.Essence().Outputs(), buildOptions.outputWallet)
+	err = e.updateOutputIDs(tx.Essence().Outputs(), buildOptions.outputWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +503,7 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) error {
 	// if input wallet is not specified, use Fresh faucet wallet
 	if buildOptions.inputWallet == nil {
-		if wallet, err := e.wallets.FreshWallet(); wallet != nil {
+		if wallet, err := e.wallets.freshWallet(); wallet != nil {
 			buildOptions.inputWallet = wallet
 		} else {
 			return errors.Newf("no Fresh wallet is available: %w", err)
@@ -676,7 +676,7 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 	return
 }
 
-func (e *EvilWallet) updateOutputIDs(txID ledgerstate.TransactionID, outputs ledgerstate.Outputs, outWallet *Wallet) error {
+func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wallet) error {
 	for _, output := range outputs {
 		err := e.outputManager.UpdateOutputID(outWallet, output.Address().Base58(), output.ID())
 		if err != nil {
@@ -715,8 +715,7 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][
 	if err != nil {
 		return nil, err
 	}
-	scenario.conflictSlice = conflicts
-	txs, err = e.PrepareCustomConflicts(scenario.conflictSlice, scenario.OutputWallet)
+	txs, err = e.PrepareCustomConflicts(conflicts, scenario.OutputWallet)
 
 	return
 }
@@ -728,7 +727,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 	}
 
 	// Register the alias name for the unspent outputs from inWallet.
-	for in := range scenario.inputsAlias {
+	for in := range scenario.inputsAliases {
 		unspentOutput := inWallet.GetUnspentOutput()
 		input := ledgerstate.NewUTXOInput(unspentOutput.OutputID)
 		e.aliasManager.AddInputAlias(input, in)
@@ -779,8 +778,8 @@ type ScenarioAlias struct {
 type EvilBatch [][]ScenarioAlias
 
 type EvilScenario struct {
+	// provides a user-friendly way of listing input and output aliases
 	ConflictBatch EvilBatch
-	conflictSlice []ConflictSlice
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
 	Reuse bool
 	// if provided, the outputs from the spam will be saved into this wallet, accepted types of wallet: Reuse, RestrictedReuse.
@@ -791,8 +790,10 @@ type EvilScenario struct {
 	RestrictedInputWallet *Wallet
 
 	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
-	batchOutputsAliases map[string]types.Empty
-	inputsAlias         map[string]types.Empty
+
+	//
+	outputsAliases map[string]types.Empty
+	inputsAliases  map[string]types.Empty
 }
 
 func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
@@ -805,44 +806,29 @@ func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 	for _, option := range options {
 		option(scenario)
 	}
+	scenario.readCustomConflictsPattern()
 
-	scenario.assignBatchOutputs()
 	return scenario
 }
 
-func (e *EvilScenario) assignBatchOutputs() {
-	e.batchOutputsAliases = make(map[string]types.Empty)
-	for _, conflictMap := range e.ConflictBatch {
-		for _, options := range conflictMap {
-			option := NewOptions(options...)
-			for outputAlis := range option.aliasOutputs {
-				// add output aliases that are not used in this conflict batch
-				if _, ok := option.aliasInputs[outputAlis]; !ok {
-					e.batchOutputsAliases[outputAlis] = types.Void
-				}
-			}
-		}
-	}
-}
-
 func (e *EvilScenario) readCustomConflictsPattern() {
-	e.batchOutputsAliases = make(map[string]types.Empty)
-	e.inputsAlias = make(map[string]types.Empty)
+	e.outputsAliases = make(map[string]types.Empty)
+	e.inputsAliases = make(map[string]types.Empty)
 	deleteFromOutput := make(map[string]types.Empty)
 
 	for _, conflictMap := range e.ConflictBatch {
 		for _, aliases := range conflictMap {
-			// add output to batchOutputsAliases
+			// add output to outputsAliases
 			for _, output := range aliases.Outputs {
-				if _, ok := e.batchOutputsAliases[output]; !ok {
-					e.batchOutputsAliases[output] = types.Void
+				if _, ok := e.outputsAliases[output]; !ok {
+					e.outputsAliases[output] = types.Void
 				}
 			}
 			// add input only if it's not in output, this will determine how many
 			// unspent outputs to take in each round of spamming.
 			for _, input := range aliases.Inputs {
-				if _, ok := e.batchOutputsAliases[input]; !ok {
-					e.inputsAlias[input] = types.Void
+				if _, ok := e.outputsAliases[input]; !ok {
+					e.inputsAliases[input] = types.Void
 				} else {
 					deleteFromOutput[input] = types.Void
 				}
@@ -851,7 +837,7 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 	}
 
 	for d := range deleteFromOutput {
-		delete(e.batchOutputsAliases, d)
+		delete(e.outputsAliases, d)
 	}
 }
 
