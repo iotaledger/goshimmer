@@ -1,74 +1,120 @@
 package ledger
 
 import (
-	"fmt"
 	"testing"
-	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLedger(t *testing.T) {
 	testFramework := NewTestFramework()
+	testFramework.CreateTransaction("G", 3, "Genesis")
+	testFramework.CreateTransaction("TX1", 1, "G.0")
+	testFramework.CreateTransaction("TX1*", 1, "G.0")
+	testFramework.CreateTransaction("TX2", 1, "G.1")
+	testFramework.CreateTransaction("TX2*", 1, "G.1")
+	testFramework.CreateTransaction("TX3", 1, "G.2")
+	testFramework.CreateTransaction("TX3*", 1, "G.2")
+	testFramework.CreateTransaction("TX4", 1, "TX1.0", "TX2.0")
+	testFramework.CreateTransaction("TX5", 1, "TX4.0")
+	testFramework.CreateTransaction("TX5*", 1, "TX4.0")
+	testFramework.CreateTransaction("TX6", 1, "TX5.0", "TX3.0")
+	testFramework.CreateTransaction("TX7", 1, "TX6.0")
+	testFramework.CreateTransaction("TX7*", 1, "TX6.0")
+	testFramework.CreateTransaction("TX8", 1, "TX7.0")
 
-	testFramework.CreateTransaction("TX1", 2, "Genesis")
-	testFramework.CreateTransaction("TX2", 2, "TX1.0")
-	testFramework.CreateTransaction("TX3", 2, "TX1.1")
+	{
+		for _, txAlias := range []string{"G", "TX1", "TX1*", "TX2", "TX2*", "TX3", "TX3*", "TX4", "TX5", "TX6", "TX7", "TX8"} {
+			assert.NoError(t, testFramework.IssueTransaction(txAlias))
+		}
 
-	fmt.Println(testFramework.IssueTransaction("TX2"))
+		testFramework.AssertBranchIDs(t, map[string][]string{
+			"G":    {"MasterBranch"},
+			"TX1":  {"TX1"},
+			"TX1*": {"TX1*"},
+			"TX2":  {"TX2"},
+			"TX2*": {"TX2*"},
+			"TX3":  {"TX3"},
+			"TX3*": {"TX3*"},
+			"TX4":  {"TX1", "TX2"},
+			"TX5":  {"TX1", "TX2"},
+			"TX6":  {"TX1", "TX2", "TX3"},
+			"TX7":  {"TX1", "TX2", "TX3"},
+			"TX8":  {"TX1", "TX2", "TX3"},
+		})
 
-	vm := NewMockedVM()
+		testFramework.AssertBranchDAG(t, map[string][]string{
+			"TX1":  {"MasterBranch"},
+			"TX1*": {"MasterBranch"},
+			"TX2":  {"MasterBranch"},
+			"TX2*": {"MasterBranch"},
+			"TX3":  {"MasterBranch"},
+			"TX3*": {"MasterBranch"},
+		})
+	}
 
-	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
-	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
-	genesisOutputMetadata.SetSolid(true)
-	genesisOutputMetadata.SetGradeOfFinality(gof.High)
+	{
+		assert.NoError(t, testFramework.IssueTransaction("TX7*"))
 
-	nonExistingOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 1))
+		testFramework.AssertBranchIDs(t, map[string][]string{
+			"G":    {"MasterBranch"},
+			"TX1":  {"TX1"},
+			"TX1*": {"TX1*"},
+			"TX2":  {"TX2"},
+			"TX2*": {"TX2*"},
+			"TX3":  {"TX3"},
+			"TX3*": {"TX3*"},
+			"TX4":  {"TX1", "TX2"},
+			"TX5":  {"TX1", "TX2"},
+			"TX6":  {"TX1", "TX2", "TX3"},
+			"TX7":  {"TX7"},
+			"TX7*": {"TX7*"},
+			"TX8":  {"TX7"},
+		})
 
-	ledger := New(mapdb.NewMapDB(), vm)
-	ledger.outputStorage.Store(genesisOutput).Release()
-	ledger.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+		testFramework.AssertBranchDAG(t, map[string][]string{
+			"TX1":  {"MasterBranch"},
+			"TX1*": {"MasterBranch"},
+			"TX2":  {"MasterBranch"},
+			"TX2*": {"MasterBranch"},
+			"TX3":  {"MasterBranch"},
+			"TX3*": {"MasterBranch"},
+			"TX7":  {"TX1", "TX2", "TX3"},
+			"TX7*": {"TX1", "TX2", "TX3"},
+		})
+	}
 
-	ledger.ErrorEvent.Attach(event.NewClosure[error](func(err error) {
-		fmt.Println(err)
-	}))
+	{
+		assert.NoError(t, testFramework.IssueTransaction("TX5*"))
 
-	genesisOutput.ID().RegisterAlias("Genesis1")
-	nonExistingOutput.ID().RegisterAlias("NonExisting")
+		testFramework.AssertBranchIDs(t, map[string][]string{
+			"G":    {"MasterBranch"},
+			"TX1":  {"TX1"},
+			"TX1*": {"TX1*"},
+			"TX2":  {"TX2"},
+			"TX2*": {"TX2*"},
+			"TX3":  {"TX3"},
+			"TX3*": {"TX3*"},
+			"TX4":  {"TX1", "TX2"},
+			"TX5":  {"TX5"},
+			"TX5*": {"TX5*"},
+			"TX6":  {"TX5", "TX3"},
+			"TX7":  {"TX7"},
+			"TX7*": {"TX7*"},
+			"TX8":  {"TX7"},
+		})
 
-	fmt.Println(genesisOutput.ID())
-	fmt.Println(nonExistingOutput.ID())
-
-	tx1 := NewMockedTransaction([]*MockedInput{
-		NewMockedInput(nonExistingOutput.ID()),
-	}, 2)
-
-	fmt.Println("CHECK: ", ledger.CheckTransaction(tx1))
-
-	tx1.ID().RegisterAlias("TX1")
-
-	fmt.Println(tx1.ID())
-
-	tx2 := NewMockedTransaction([]*MockedInput{
-		NewMockedInput(genesisOutput.ID()),
-	}, 3)
-
-	tx2.ID().RegisterAlias("TX2")
-
-	fmt.Println(tx2.ID())
-
-	fmt.Println(ledger.StoreAndProcessTransaction(tx1))
-	fmt.Println(ledger.StoreAndProcessTransaction(tx2))
-
-	time.Sleep(2000 * time.Millisecond)
-
-	// testFramework.NewTransaction("TX1", []string{"G"}, 2)
-	// testFramework.NewTransaction("TX2", []string{"TX1_1"}, 1)
-	// "G->TX1(2)"
-	// "TX1_1->TX2(3)"
+		testFramework.AssertBranchDAG(t, map[string][]string{
+			"TX1":  {"MasterBranch"},
+			"TX1*": {"MasterBranch"},
+			"TX2":  {"MasterBranch"},
+			"TX2*": {"MasterBranch"},
+			"TX3":  {"MasterBranch"},
+			"TX3*": {"MasterBranch"},
+			"TX5":  {"TX1", "TX2"},
+			"TX5*": {"TX1", "TX2"},
+			"TX7":  {"TX5", "TX3"},
+			"TX7*": {"TX5", "TX3"},
+		})
+	}
 }

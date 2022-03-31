@@ -5,12 +5,16 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"testing"
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/stretchr/testify/assert"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
@@ -32,12 +36,27 @@ func NewTestFramework(options ...Option) (new *TestFramework) {
 		outputIDsByAlias:    make(map[string]OutputID),
 	}
 
-	var genesisOutputID OutputID
-	genesisOutputID.RegisterAlias("Genesis")
+	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
+	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
+	genesisOutputMetadata.SetSolid(true)
+	genesisOutputMetadata.SetGradeOfFinality(gof.High)
 
-	new.outputIDsByAlias["Genesis"] = genesisOutputID
+	genesisOutput.ID().RegisterAlias("Genesis")
+	new.outputIDsByAlias["Genesis"] = genesisOutput.ID()
+
+	new.Ledger.outputStorage.Store(genesisOutput).Release()
+	new.Ledger.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 	return new
+}
+
+func (t *TestFramework) Transaction(txAlias string) (tx *MockedTransaction) {
+	tx, exists := t.transactionsByAlias[txAlias]
+	if !exists {
+		panic(fmt.Sprintf("tried to retrieve transaction with unknown alias: %s", txAlias))
+	}
+
+	return tx
 }
 
 func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) {
@@ -61,6 +80,50 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 		outputID.RegisterAlias(outputAlias)
 		t.outputIDsByAlias[outputAlias] = outputID
+	}
+}
+
+func (t *TestFramework) AssertBranchDAG(testing *testing.T, expectedParents map[string][]string) {
+	for branchAlias, expectedParentAliases := range expectedParents {
+		currentBranchID := t.Transaction(branchAlias).ID()
+
+		expectedBranchIDs := t.TransactionIDs(expectedParentAliases...)
+
+		assert.True(testing, t.Ledger.BranchDAG.Branch(currentBranchID).Consume(func(branch *branchdag.Branch) {
+			assert.Truef(testing, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
+		}))
+	}
+}
+
+func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs TransactionIDs) {
+	txIDs = branchdag.NewBranchIDs()
+	for _, expectedBranchAlias := range txAliases {
+		if expectedBranchAlias == "MasterBranch" {
+			txIDs.Add(branchdag.MasterBranchID)
+			continue
+		}
+
+		txIDs.Add(t.Transaction(expectedBranchAlias).ID())
+	}
+
+	return txIDs
+}
+
+func (t *TestFramework) AssertBranchIDs(testing *testing.T, expectedBranches map[string][]string) {
+	for txAlias, expectedBranchAliases := range expectedBranches {
+		currentTx := t.Transaction(txAlias)
+
+		expectedBranchIDs := t.TransactionIDs(expectedBranchAliases...)
+
+		assert.True(testing, t.Ledger.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
+			assert.Truef(testing, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())
+		}))
+
+		for i := uint16(0); i < currentTx.outputCount; i++ {
+			assert.True(testing, t.Ledger.CachedOutputMetadata(utxo.NewOutputID(currentTx.ID(), i, []byte(""))).Consume(func(outputMetadata *OutputMetadata) {
+				assert.Truef(testing, expectedBranchIDs.Equal(outputMetadata.BranchIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedBranchIDs, outputMetadata.BranchIDs())
+			}))
+		}
 	}
 }
 

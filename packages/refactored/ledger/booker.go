@@ -1,8 +1,8 @@
 package ledger
 
 import (
-	"fmt"
-
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/walker"
 
@@ -24,7 +24,13 @@ func (b *Booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 	if params.TransactionMetadata == nil {
 		cachedTransactionMetadata := b.CachedTransactionMetadata(params.Transaction.ID())
 		defer cachedTransactionMetadata.Release()
-		params.TransactionMetadata, _ = cachedTransactionMetadata.Unwrap()
+
+		transactionMetadata, exists := cachedTransactionMetadata.Unwrap()
+		if !exists {
+			return errors.Errorf("failed to load metadata of %s: %w", params.Transaction.ID(), cerrors.ErrFatal)
+		}
+
+		params.TransactionMetadata = transactionMetadata
 	}
 
 	if params.TransactionMetadata.Booked() {
@@ -143,7 +149,6 @@ func (b *Booker) propagateForkedBranchToFutureCone(txMetadata *TransactionMetada
 func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
 	if txMetadata.IsConflicting() {
 		b.BranchDAG.UpdateParentsAfterFork(txMetadata.ID(), forkedBranchID, previousParents)
-		fmt.Println("conflicting")
 		return false
 	}
 

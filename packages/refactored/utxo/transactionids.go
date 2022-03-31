@@ -51,7 +51,7 @@ func (o TransactionIDs) Add(transactionID TransactionID) (added bool) {
 
 func (o TransactionIDs) AddAll(transactionIDs TransactionIDs) (added bool) {
 	_ = transactionIDs.ForEach(func(transactionID TransactionID) (err error) {
-		added = added || o.Set(transactionID, types.Void)
+		added = o.Set(transactionID, types.Void) || added
 		return nil
 	})
 
@@ -130,7 +130,7 @@ func (o TransactionIDs) Bytes() (serialized []byte) {
 }
 
 func (o TransactionIDs) String() (humanReadable string) {
-	elementStrings := generics.Map(o.Slice(), TransactionID.Base58)
+	elementStrings := generics.Map(o.Slice(), TransactionID.String)
 	if len(elementStrings) == 0 {
 		return "TransactionIDs()"
 	}

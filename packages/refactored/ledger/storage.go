@@ -79,6 +79,8 @@ func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 		return errors.Errorf("%s is an unsolid reattachment: %w", params.Transaction.ID(), ErrTransactionUnsolid)
 	}
 
+	params.InputIDs = s.resolveInputs(params.Transaction.Inputs())
+
 	cachedConsumers := s.initConsumers(params.InputIDs, params.Transaction.ID())
 	defer cachedConsumers.Release()
 	params.Consumers = cachedConsumers.Unwrap(true)
