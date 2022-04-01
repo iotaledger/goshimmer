@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -28,10 +28,10 @@ type Ledger struct {
 	*Utils
 
 	*branchdag.BranchDAG
-	*syncutils.DAGMutex[[32]byte]
+	*syncutils.DAGMutex[utxo.TransactionID]
 }
 
-func New(store kvstore.KVStore, vm utxo2.VM, options ...Option) (ledger *Ledger) {
+func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
 		TransactionStoredEvent:          event.New[*TransactionStoredEvent](),
 		TransactionBookedEvent:          event.New[*TransactionBookedEvent](),
@@ -40,7 +40,7 @@ func New(store kvstore.KVStore, vm utxo2.VM, options ...Option) (ledger *Ledger)
 		ErrorEvent:                      event.New[error](),
 
 		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
-		DAGMutex:  syncutils.NewDAGMutex[[32]byte](),
+		DAGMutex:  syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
 	ledger.Configure(options...)
@@ -68,14 +68,14 @@ func (l *Ledger) Configure(options ...Option) {
 	}
 }
 
-func (l *Ledger) StoreAndProcessTransaction(tx utxo2.Transaction) (err error) {
-	l.Lock(tx.ID().Identifier)
-	defer l.Unlock(tx.ID().Identifier)
+func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
 
 	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
-func (l *Ledger) CheckTransaction(tx utxo2.Transaction) (err error) {
+func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
 	return l.DataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
@@ -86,13 +86,13 @@ func (l *Ledger) setup() {
 }
 
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
-	l.Lock(tx.ID().Identifier)
-	defer l.Unlock(tx.ID().Identifier)
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
 
 	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
 }
 
-func (l *Ledger) processConsumingTransactions(outputIDs utxo2.OutputIDs) {
+func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
 		go l.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
 			_ = l.processTransaction(tx)

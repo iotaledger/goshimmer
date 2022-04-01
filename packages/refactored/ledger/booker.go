@@ -116,13 +116,13 @@ func (b *Booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetada
 }
 
 func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx utxo2.OutputIDs) {
-	b.Lock(txMetadata.ID().Identifier)
+	b.Lock(txMetadata.ID())
 
 	conflictingInputs := b.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
 	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) {
-		b.Unlock(txMetadata.ID().Identifier)
+		b.Unlock(txMetadata.ID())
 		return
 	}
 
@@ -132,10 +132,10 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	})
 
 	if !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
-		b.Unlock(txMetadata.ID().Identifier)
+		b.Unlock(txMetadata.ID())
 		return
 	}
-	b.Unlock(txMetadata.ID().Identifier)
+	b.Unlock(txMetadata.ID())
 
 	b.propagateForkedBranchToFutureCone(txMetadata, previousParentBranches)
 
@@ -144,8 +144,8 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 
 func (b *Booker) propagateForkedBranchToFutureCone(forkedTxMetadata *TransactionMetadata, previousParentBranches branchdag.BranchIDs) {
 	b.WalkConsumingTransactionMetadata(forkedTxMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
-		b.Lock(consumingTxMetadata.ID().Identifier)
-		defer b.Unlock(consumingTxMetadata.ID().Identifier)
+		b.Lock(consumingTxMetadata.ID())
+		defer b.Unlock(consumingTxMetadata.ID())
 
 		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedTxMetadata.ID(), previousParentBranches) {
 			return
