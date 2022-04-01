@@ -5,21 +5,21 @@ import (
 )
 
 type TransactionStoredEvent struct {
-	TransactionID *utxo.TransactionID
+	TransactionID utxo.TransactionID
 }
 
 type TransactionBookedEvent struct {
-	TransactionID *utxo.TransactionID
+	TransactionID utxo.TransactionID
 	Outputs       Outputs
 }
 
 type TransactionForkedEvent struct {
-	TransactionID  *utxo.TransactionID
+	TransactionID  utxo.TransactionID
 	ParentBranches utxo.TransactionIDs
 }
 
 type TransactionBranchIDUpdatedEvent struct {
-	TransactionID    *utxo.TransactionID
-	AddedBranchID    *utxo.TransactionID
+	TransactionID    utxo.TransactionID
+	AddedBranchID    utxo.TransactionID
 	RemovedBranchIDs utxo.TransactionIDs
 }

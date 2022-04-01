@@ -3,7 +3,7 @@ package utxo
 // Transaction is the type that is used to describe instructions how to modify the ledger state.
 type Transaction interface {
 	// ID returns the identifier of the Transaction.
-	ID() (id *TransactionID)
+	ID() (id TransactionID)
 
 	// SetID sets the identifier of the Transaction.
 	//
@@ -12,7 +12,7 @@ type Transaction interface {
 	//
 	// This allows us to potentially skip the ID calculation in cases where the ID is known upfront (e.g. when loading
 	// Transactions from the object storage).
-	SetID(id *TransactionID)
+	SetID(id TransactionID)
 
 	// Inputs returns the inputs of the Transaction.
 	Inputs() (inputs []Input)

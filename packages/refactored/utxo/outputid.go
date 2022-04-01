@@ -17,7 +17,7 @@ import (
 type OutputID [OutputIDLength]byte
 
 // NewOutputID creates a new OutputID from the given execution results.
-func NewOutputID(transactionID *TransactionID, outputIndex uint16, outputMetadata []byte) (new OutputID) {
+func NewOutputID(transactionID TransactionID, outputIndex uint16, outputMetadata []byte) (new OutputID) {
 	serializedOutputIndex := make([]byte, 2)
 	binary.LittleEndian.PutUint16(serializedOutputIndex, outputIndex)
 

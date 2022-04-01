@@ -15,7 +15,7 @@ type Output interface {
 	SetID(id OutputID)
 
 	// TransactionID returns the identifier of the Transaction that created this Output.
-	TransactionID() (txID *TransactionID)
+	TransactionID() (txID TransactionID)
 
 	// Index returns the unique Index of the Output in respect to its TransactionID.
 	Index() (index uint16)

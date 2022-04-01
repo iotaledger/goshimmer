@@ -246,12 +246,12 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
 // we calculate this value lazy and use double-checked locking.
-func (t *Transaction) ID() *utxo.TransactionID {
+func (t *Transaction) ID() utxo.TransactionID {
 	t.idMutex.RLock()
 	if t.id != nil {
 		defer t.idMutex.RUnlock()
 
-		return t.id
+		return *t.id
 	}
 
 	t.idMutex.RUnlock()
@@ -259,20 +259,17 @@ func (t *Transaction) ID() *utxo.TransactionID {
 	defer t.idMutex.Unlock()
 
 	if t.id != nil {
-		return t.id
+		return *t.id
 	}
 
-	txID := utxo.TransactionID(blake2b.Sum256(t.Bytes()))
-	t.id = &txID
-
-	return &txID
+	return blake2b.Sum256(t.Bytes())
 }
 
-func (t *Transaction) SetID(id *utxo.TransactionID) {
+func (t *Transaction) SetID(id utxo.TransactionID) {
 	t.idMutex.Lock()
 	defer t.idMutex.Unlock()
 
-	t.id = id
+	t.id = &id
 }
 
 // Type returns the Type of the Payload.
@@ -330,7 +327,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 // code contract (make sure the struct implements all required methods)
 var _ payload.Payload = &Transaction{}
 
-var _ utxo.Transaction = new(Transaction)
+var _ utxo.Transaction = &Transaction{}
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = &Transaction{}

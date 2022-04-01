@@ -43,13 +43,13 @@ const (
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Output struct {
-	transactionID *utxo.TransactionID
+	transactionID utxo.TransactionID
 	index         uint16
 
 	OutputEssence
 }
 
-func NewOutput(transactionID *utxo.TransactionID, index uint16, essence OutputEssence) *Output {
+func NewOutput(transactionID utxo.TransactionID, index uint16, essence OutputEssence) *Output {
 	return &Output{
 		transactionID: transactionID,
 		index:         index,
@@ -75,7 +75,7 @@ func (o *Output) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err erro
 	return nil
 }
 
-func (o *Output) TransactionID() (txID *utxo.TransactionID) {
+func (o *Output) TransactionID() (txID utxo.TransactionID) {
 	return o.transactionID
 }
 

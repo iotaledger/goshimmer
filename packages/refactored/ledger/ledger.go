@@ -69,8 +69,8 @@ func (l *Ledger) Configure(options ...Option) {
 }
 
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
-	l.Lock(*tx.ID())
-	defer l.Unlock(*tx.ID())
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
 
 	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
@@ -86,8 +86,8 @@ func (l *Ledger) setup() {
 }
 
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
-	l.Lock(*tx.ID())
-	defer l.Unlock(*tx.ID())
+	l.Lock(tx.ID())
+	defer l.Unlock(tx.ID())
 
 	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
 }
