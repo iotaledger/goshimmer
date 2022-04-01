@@ -169,7 +169,7 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
+func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) (success bool) {
 	if tx == nil {
 		s.log.Debugf("transaction provided to PostTransaction is nil")
 		s.ErrCounter.CountError(ErrTransactionIsNil)
@@ -177,7 +177,6 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
 
 	var err error
 	var txID ledgerstate.TransactionID
-	clt := s.Clients.GetClient()
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)

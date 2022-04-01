@@ -40,7 +40,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				clt.PostTransaction(tx)
+				s.PostTransaction(tx, clt)
 			}(clients[i], tx)
 		}
 		wg.Wait()
