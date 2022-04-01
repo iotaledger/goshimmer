@@ -55,7 +55,7 @@ func (o OutputIDs) Add(outputID OutputID) (added bool) {
 
 func (o OutputIDs) AddAll(outputIDs OutputIDs) (added bool) {
 	_ = outputIDs.ForEach(func(outputID OutputID) (err error) {
-		added = added || o.Set(outputID, types.Void)
+		added = o.Set(outputID, types.Void) || added
 		return nil
 	})
 

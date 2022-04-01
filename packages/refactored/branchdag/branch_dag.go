@@ -113,7 +113,7 @@ func NewBranchDAG(store kvstore.KVStore, cacheTimeProvider *database.CacheTimePr
 
 // CreateBranch retrieves the Branch that corresponds to the given details. It automatically creates and
 // updates the Branch according to the new details if necessary.
-func (b *BranchDAG) CreateBranch(branchID *BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (created bool) {
+func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (created bool) {
 	b.inclusionStateMutex.RLock()
 
 	// create or load the branch
@@ -141,7 +141,7 @@ func (b *BranchDAG) CreateBranch(branchID *BranchID, parentBranchIDs BranchIDs, 
 		}
 
 		// store child references
-		_ = parentBranchIDs.ForEach(func(parentBranchID *BranchID) (err error) {
+		_ = parentBranchIDs.ForEach(func(parentBranchID BranchID) (err error) {
 			if cachedChildBranch, stored := b.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
 				cachedChildBranch.Release()
 			}
@@ -169,7 +169,7 @@ func (b *BranchDAG) CreateBranch(branchID *BranchID, parentBranchIDs BranchIDs, 
 }
 
 // UpdateParentsAfterFork changes the parents of a Branch (also updating the references of the ChildBranches).
-func (b *BranchDAG) UpdateParentsAfterFork(branchID, newParentBranchID *BranchID, previousParents BranchIDs) {
+func (b *BranchDAG) UpdateParentsAfterFork(branchID, newParentBranchID BranchID, previousParents BranchIDs) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
@@ -196,7 +196,7 @@ func (b *BranchDAG) UpdateParentsAfterFork(branchID, newParentBranchID *BranchID
 func (b *BranchDAG) RemoveConfirmedBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
 	pendingBranchIDs = NewBranchIDs()
 
-	branchWalker := walker.New[*BranchID]().PushAll(branchIDs.Slice()...)
+	branchWalker := walker.New[BranchID]().PushAll(branchIDs.Slice()...)
 	for branchWalker.HasNext() {
 		currentBranchID := branchWalker.Next()
 
@@ -209,19 +209,19 @@ func (b *BranchDAG) RemoveConfirmedBranches(branchIDs BranchIDs) (pendingBranchI
 	}
 
 	if pendingBranchIDs.Size() == 0 {
-		pendingBranchIDs = NewBranchIDs(&MasterBranchID)
+		pendingBranchIDs = NewBranchIDs(MasterBranchID)
 	}
 
 	return pendingBranchIDs
 }
 
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
-func (b *BranchDAG) SetBranchConfirmed(branchID *BranchID) (modified bool) {
+func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
-	confirmationWalker := walker.New[*BranchID]().Push(branchID)
-	rejectedWalker := walker.New[*BranchID]()
+	confirmationWalker := walker.New[BranchID]().Push(branchID)
+	rejectedWalker := walker.New[BranchID]()
 
 	for confirmationWalker.HasNext() {
 		currentBranchID := confirmationWalker.Next()
@@ -231,14 +231,14 @@ func (b *BranchDAG) SetBranchConfirmed(branchID *BranchID) (modified bool) {
 				return
 			}
 
-			_ = branch.Parents().ForEach(func(branchID *BranchID) (err error) {
+			_ = branch.Parents().ForEach(func(branchID BranchID) (err error) {
 				confirmationWalker.Push(branchID)
 				return nil
 			})
 
 			_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
 				b.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-					if *conflictMember.BranchID() != *currentBranchID {
+					if conflictMember.BranchID() != currentBranchID {
 						rejectedWalker.Push(conflictMember.BranchID())
 					}
 				})
@@ -269,7 +269,7 @@ func (b *BranchDAG) InclusionState(branchIDs BranchIDs) (inclusionState Inclusio
 	defer b.inclusionStateMutex.RUnlock()
 
 	inclusionState = Confirmed
-	_ = branchIDs.ForEach(func(branchID *BranchID) (err error) {
+	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
 		switch b.inclusionState(branchID) {
 		case Rejected:
 			inclusionState = Rejected
@@ -285,7 +285,7 @@ func (b *BranchDAG) InclusionState(branchIDs BranchIDs) (inclusionState Inclusio
 }
 
 // inclusionState returns the InclusionState of the given BranchID.
-func (b *BranchDAG) inclusionState(branchID *BranchID) (inclusionState InclusionState) {
+func (b *BranchDAG) inclusionState(branchID BranchID) (inclusionState InclusionState) {
 	if !b.Branch(branchID).Consume(func(branch *Branch) {
 		inclusionState = branch.InclusionState()
 	}) {
@@ -329,7 +329,7 @@ func (b *BranchDAG) Shutdown() {
 // region STORAGE API //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Branch retrieves the Branch with the given BranchID from the object storage.
-func (b *BranchDAG) Branch(branchID *BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
+func (b *BranchDAG) Branch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return b.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Branch {
 			return computeIfAbsentCallback[0]()
@@ -340,7 +340,7 @@ func (b *BranchDAG) Branch(branchID *BranchID, computeIfAbsentCallback ...func()
 }
 
 // ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
-func (b *BranchDAG) ChildBranches(branchID *BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
+func (b *BranchDAG) ChildBranches(branchID BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
 	cachedChildBranches = make(objectstorage.CachedObjects[*ChildBranch], 0)
 	b.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch]) bool {
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
@@ -381,7 +381,7 @@ func (b *BranchDAG) ConflictMembers(conflictID ConflictID) (cachedConflictMember
 
 // ForEachConflictingBranchID executes the callback for each Branch that is conflicting with the Branch
 // identified by the given BranchID.
-func (b *BranchDAG) ForEachConflictingBranchID(branchID *BranchID, callback func(conflictingBranchID *BranchID) bool) {
+func (b *BranchDAG) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID) bool) {
 	abort := false
 	b.Branch(branchID).Consume(func(branch *Branch) {
 		_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
@@ -404,11 +404,11 @@ func (b *BranchDAG) ForEachConflictingBranchID(branchID *BranchID, callback func
 
 // ForEachConnectedConflictingBranchID executes the callback for each Branch that is connected through a chain
 // of intersecting ConflictSets.
-func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID *BranchID, callback func(conflictingBranchID *BranchID)) {
-	traversedBranches := set.New[*BranchID]()
+func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
+	traversedBranches := set.New[BranchID]()
 	conflictSetsWalker := walker.New[ConflictID]()
 
-	processBranchAndQueueConflictSets := func(branchID *BranchID) {
+	processBranchAndQueueConflictSets := func(branchID BranchID) {
 		if !traversedBranches.Add(branchID) {
 			return
 		}
@@ -429,7 +429,7 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID *BranchID, call
 		})
 	}
 
-	traversedBranches.ForEach(func(element *BranchID) {
+	traversedBranches.ForEach(func(element BranchID) {
 		callback(element)
 	})
 }
@@ -440,7 +440,7 @@ func (b *BranchDAG) ForEachConnectedConflictingBranchID(branchID *BranchID, call
 
 // init is an internal utility function that initializes the BranchDAG by creating the root of the DAG (MasterBranch).
 func (b *BranchDAG) init() {
-	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewBranch(&MasterBranchID, NewBranchIDs(), NewConflictIDs()))
+	cachedMasterBranch, stored := b.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, NewBranchIDs(), NewConflictIDs()))
 	if stored {
 		cachedMasterBranch.Consume(func(branch *Branch) {
 			branch.setInclusionState(Confirmed)
@@ -449,7 +449,7 @@ func (b *BranchDAG) init() {
 }
 
 func (b *BranchDAG) anyParentRejected(conflictBranch *Branch) (parentRejected bool) {
-	_ = conflictBranch.Parents().ForEach(func(parentBranchID *BranchID) (err error) {
+	_ = conflictBranch.Parents().ForEach(func(parentBranchID BranchID) (err error) {
 		b.Branch(parentBranchID).Consume(func(parentBranch *Branch) {
 			if parentRejected = parentBranch.InclusionState() == Rejected; parentRejected {
 				return
@@ -492,7 +492,7 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *Branch) (conflictMemberCo
 
 // registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch
 // belonging to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
-func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID *BranchID) {
+func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
 	b.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
 		newConflict := NewConflict(conflictID)
 		newConflict.Persist()
@@ -524,7 +524,7 @@ type BranchDAGEvents struct {
 
 // BranchParentUpdate contains the new branch parents of a branch.
 type BranchParentUpdate struct {
-	ID         *BranchID
+	ID         BranchID
 	NewParents BranchIDs
 }
 

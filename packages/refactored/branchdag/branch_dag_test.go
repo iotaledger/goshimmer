@@ -25,7 +25,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	Branch2, exists := cachedBranch2.Unwrap()
 	require.True(t, exists)
 	assert.Equal(t, NewBranchIDs(MasterBranchID), Branch2.Parents())
-	assert.Equal(t, NewConflictIDs(ConflictID{0}, ConflictID{1}), Branch2.Conflicts())
+	assert.True(t, NewConflictIDs(ConflictID{0}, ConflictID{1}).Equal(Branch2.Conflicts()))
 
 	assert.True(t, branchDAG.CreateBranch(utxo.TransactionID{3}, NewBranchIDs(Branch2.ID()), NewConflictIDs(ConflictID{0}, ConflictID{1}, ConflictID{2})))
 	cachedBranch3 := branchDAG.Branch(utxo.TransactionID{3})
@@ -180,21 +180,23 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 }
 
 func TestArithmeticBranchIDs_Add(t *testing.T) {
-	branchID1 := BranchIDFromRandomness()
-	branchID2 := BranchIDFromRandomness()
-	branchID3 := BranchIDFromRandomness()
+	var branchID1 BranchID
+	_ = branchID1.FromRandomness()
+	var branchID2 BranchID
+	_ = branchID2.FromRandomness()
+	var branchID3 BranchID
+	_ = branchID3.FromRandomness()
 
-	RegisterBranchIDAlias(branchID1, "branchID1")
-	RegisterBranchIDAlias(branchID2, "branchID2")
-	RegisterBranchIDAlias(branchID3, "branchID3")
+	branchID1.RegisterAlias("branchID1")
+	branchID2.RegisterAlias("branchID2")
+	branchID3.RegisterAlias("branchID3")
 
 	arithmeticBranchIDs := NewArithmeticBranchIDs()
-
 	arithmeticBranchIDs.Add(NewBranchIDs(branchID1, branchID2))
 	arithmeticBranchIDs.Add(NewBranchIDs(branchID1, branchID3))
 	arithmeticBranchIDs.Subtract(NewBranchIDs(branchID2, branchID2))
 
-	assert.Equal(t, NewBranchIDs(branchID1, branchID3), arithmeticBranchIDs.BranchIDs())
+	assert.True(t, NewBranchIDs(branchID1, branchID3).Equal(arithmeticBranchIDs.BranchIDs()))
 }
 
 func assertInclusionStates(t *testing.T, branchDAG *BranchDAG, branchIDsMapping map[string]BranchID, expectedInclusionStates map[string]InclusionState) {
@@ -219,7 +221,7 @@ func createBranch(t *testing.T, branchDAG *BranchDAG, branchAlias string, parent
 	cachedBranch := branchDAG.Branch(randomTxID)
 	cachedBranch.Release()
 
-	RegisterBranchIDAlias(branchID, branchAlias)
+	randomTxID.RegisterAlias(branchAlias)
 
 	return randomTxID
 }

@@ -15,7 +15,7 @@ import (
 
 // Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
 type Branch struct {
-	id                  *BranchID
+	id                  BranchID
 	parents             BranchIDs
 	parentsMutex        sync.RWMutex
 	conflicts           ConflictIDs
@@ -26,7 +26,7 @@ type Branch struct {
 }
 
 // NewBranch creates a new Branch from the given details.
-func NewBranch(id *BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
+func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 	c := &Branch{
 		id:        id,
 		parents:   parents.Clone(),
@@ -82,7 +82,7 @@ func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *
 }
 
 // ID returns the identifier of the Branch.
-func (b *Branch) ID() *BranchID {
+func (b *Branch) ID() BranchID {
 	return b.id
 }
 
@@ -193,14 +193,14 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	parentBranchID *BranchID
-	childBranchID  *BranchID
+	parentBranchID BranchID
+	childBranchID  BranchID
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
-func NewChildBranch(parentBranchID, childBranchID *BranchID) *ChildBranch {
+func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	return &ChildBranch{
 		parentBranchID: parentBranchID,
 		childBranchID:  childBranchID,
@@ -247,12 +247,12 @@ func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (chi
 }
 
 // ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
-func (c *ChildBranch) ParentBranchID() (parentBranchID *BranchID) {
+func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
 	return c.parentBranchID
 }
 
 // ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
-func (c *ChildBranch) ChildBranchID() (childBranchID *BranchID) {
+func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
 	return c.childBranchID
 }
 
@@ -307,16 +307,16 @@ func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranch
 
 // Add adds all BranchIDs to the collection.
 func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID *BranchID) (err error) {
-		a[*branchID]++
+	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
+		a[branchID]++
 		return nil
 	})
 }
 
 // Subtract subtracts all BranchIDs from the collection.
 func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID *BranchID) (err error) {
-		a[*branchID]--
+	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
+		a[branchID]--
 		return nil
 	})
 }
@@ -326,7 +326,7 @@ func (a ArithmeticBranchIDs) BranchIDs() (branchIDs BranchIDs) {
 	branchIDs = NewBranchIDs()
 	for branchID, value := range a {
 		if value >= 1 {
-			branchIDs.Add(&branchID)
+			branchIDs.Add(branchID)
 		}
 	}
 
