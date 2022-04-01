@@ -1,25 +1,25 @@
 package ledger
 
 import (
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 type TransactionStoredEvent struct {
-	TransactionID utxo.TransactionID
+	TransactionID utxo2.TransactionID
 }
 
 type TransactionBookedEvent struct {
-	TransactionID utxo.TransactionID
+	TransactionID utxo2.TransactionID
 	Outputs       Outputs
 }
 
 type TransactionForkedEvent struct {
-	TransactionID  utxo.TransactionID
-	ParentBranches utxo.TransactionIDs
+	TransactionID  utxo2.TransactionID
+	ParentBranches utxo2.TransactionIDs
 }
 
 type TransactionBranchIDUpdatedEvent struct {
-	TransactionID    utxo.TransactionID
-	AddedBranchID    utxo.TransactionID
-	RemovedBranchIDs utxo.TransactionIDs
+	TransactionID    utxo2.TransactionID
+	AddedBranchID    utxo2.TransactionID
+	RemovedBranchIDs utxo2.TransactionIDs
 }

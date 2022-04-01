@@ -16,7 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,7 +314,7 @@ func (m *MockedTransaction) ID() (transactionID utxo.TransactionID) {
 	defer m.idMutex.Unlock()
 
 	if m.id == nil {
-		copy(transactionID[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
+		copy(transactionID.Identifier[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
 		m.id = &transactionID
 	}
 

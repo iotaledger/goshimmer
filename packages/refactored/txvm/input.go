@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////

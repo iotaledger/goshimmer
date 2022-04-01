@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 const (

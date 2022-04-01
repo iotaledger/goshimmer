@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 func TestLedgerstate_SetBranchConfirmed(t *testing.T) {

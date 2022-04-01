@@ -7,16 +7,16 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 type Validator struct {
 	*Ledger
 
-	vm utxo.VM
+	vm utxo2.VM
 }
 
-func NewValidator(ledger *Ledger, vm utxo.VM) (new *Validator) {
+func NewValidator(ledger *Ledger, vm utxo2.VM) (new *Validator) {
 	return &Validator{
 		Ledger: ledger,
 		vm:     vm,
@@ -64,8 +64,8 @@ func (v *Validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 	return next(params)
 }
 
-func (v *Validator) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
-	return utxo.NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
+func (v *Validator) resolveInputs(inputs []utxo2.Input) (outputIDs utxo2.OutputIDs) {
+	return utxo2.NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
 }
 
 func (v *Validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
@@ -74,7 +74,7 @@ func (v *Validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (rel
 		return false
 	}
 
-	v.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+	v.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
 		if !txMetadata.Booked() {
 			return
 		}

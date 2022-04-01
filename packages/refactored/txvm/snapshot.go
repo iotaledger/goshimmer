@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // Snapshot defines a snapshot of the ledger state.
@@ -47,7 +48,7 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		if err := binary.Write(writer, binary.LittleEndian, transactionID.Bytes()); err != nil {
 			return 0, fmt.Errorf("unable to write transactionID with %s: %w", transactionID, err)
 		}
-		bytesWritten += utxo.TransactionIDLength
+		bytesWritten += types.IdentifierLength
 
 		if err := binary.Write(writer, binary.LittleEndian, record.Essence.Bytes()); err != nil {
 			return 0, fmt.Errorf("unable to write transaction with %s: %w", transactionID, err)
@@ -140,7 +141,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		if err := binary.Read(reader, binary.LittleEndian, &txID); err != nil {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
-		bytesRead += int64(utxo.TransactionIDLength)
+		bytesRead += int64(types.IdentifierLength)
 
 		transactionBytes := make([]byte, transactionLength)
 		if err := binary.Read(reader, binary.LittleEndian, &transactionBytes); err != nil {

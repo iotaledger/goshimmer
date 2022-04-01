@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/refactored/old"
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // Supply returns supply of the instance.
@@ -14,7 +14,7 @@ func (u *UtxoDB) Supply() uint64 {
 }
 
 // IsConfirmed checks if the transaction is in the UTXODB ledger.
-func (u *UtxoDB) IsConfirmed(txid *utxo.TransactionID) bool {
+func (u *UtxoDB) IsConfirmed(txid *utxo2.TransactionID) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	_, ok := u.transactions[*txid]
@@ -22,7 +22,7 @@ func (u *UtxoDB) IsConfirmed(txid *utxo.TransactionID) bool {
 }
 
 // GetOutput finds an output by ID (either spent or unspent).
-func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(txvm.OutputEssence)) bool {
+func (u *UtxoDB) GetOutput(outID utxo2.OutputID, f func(txvm.OutputEssence)) bool {
 	out, ok := u.utxo[outID]
 	if ok {
 		f(out)
@@ -37,7 +37,7 @@ func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(txvm.OutputEssence)) bool
 }
 
 // GetOutputMetadata finds an output by ID and returns its (mocked) metadata.
-func (u *UtxoDB) GetOutputMetadata(outID utxo.OutputID, f func(*old.OutputMetadata)) bool {
+func (u *UtxoDB) GetOutputMetadata(outID utxo2.OutputID, f func(*old.OutputMetadata)) bool {
 	var out txvm.OutputEssence
 	u.GetOutput(outID, func(o txvm.OutputEssence) {
 		out = o
@@ -91,7 +91,7 @@ func (u *UtxoDB) AddTransaction(tx *txvm.Transaction) error {
 }
 
 // GetTransaction retrieves value transaction by its hash (ID).
-func (u *UtxoDB) GetTransaction(id utxo.TransactionID) (*txvm.Transaction, bool) {
+func (u *UtxoDB) GetTransaction(id utxo2.TransactionID) (*txvm.Transaction, bool) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -99,7 +99,7 @@ func (u *UtxoDB) GetTransaction(id utxo.TransactionID) (*txvm.Transaction, bool)
 }
 
 // MustGetTransaction same as GetTransaction only panics if transaction is not in UTXODB.
-func (u *UtxoDB) MustGetTransaction(id utxo.TransactionID) *txvm.Transaction {
+func (u *UtxoDB) MustGetTransaction(id utxo2.TransactionID) *txvm.Transaction {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 	return u.mustGetTransaction(id)
@@ -179,19 +179,19 @@ func (u *UtxoDB) GetAliasOutputs(addr txvm.Address) []*txvm.AliasOutput {
 }
 
 // findUnspentOutputByID returns unspent output with existence flag.
-func (u *UtxoDB) findUnspentOutputByID(id utxo.OutputID) (txvm.OutputEssence, bool) {
+func (u *UtxoDB) findUnspentOutputByID(id utxo2.OutputID) (txvm.OutputEssence, bool) {
 	if out, ok := u.utxo[id]; ok {
 		return out, true
 	}
 	return nil, false
 }
 
-func (u *UtxoDB) getTransaction(id utxo.TransactionID) (*txvm.Transaction, bool) {
+func (u *UtxoDB) getTransaction(id utxo2.TransactionID) (*txvm.Transaction, bool) {
 	tx, ok := u.transactions[id]
 	return tx, ok
 }
 
-func (u *UtxoDB) mustGetTransaction(id utxo.TransactionID) *txvm.Transaction {
+func (u *UtxoDB) mustGetTransaction(id utxo2.TransactionID) *txvm.Transaction {
 	tx, ok := u.transactions[id]
 	if !ok {
 		panic(xerrors.Errorf("utxodb.mustGetTransaction: tx id doesn't exist: %s", id.String()))
@@ -210,7 +210,7 @@ func (u *UtxoDB) getAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
 	return ret
 }
 
-func (u *UtxoDB) getOutputTotal(outid utxo.OutputID) (uint64, error) {
+func (u *UtxoDB) getOutputTotal(outid utxo2.OutputID) (uint64, error) {
 	out, ok := u.utxo[outid]
 	if !ok {
 		return 0, xerrors.Errorf("getOutputTotal: no such output: %s", outid.String())

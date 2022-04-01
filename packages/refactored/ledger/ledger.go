@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,7 +31,7 @@ type Ledger struct {
 	*syncutils.DAGMutex[[32]byte]
 }
 
-func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
+func New(store kvstore.KVStore, vm utxo2.VM, options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
 		TransactionStoredEvent:          event.New[*TransactionStoredEvent](),
 		TransactionBookedEvent:          event.New[*TransactionBookedEvent](),
@@ -68,14 +68,14 @@ func (l *Ledger) Configure(options ...Option) {
 	}
 }
 
-func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+func (l *Ledger) StoreAndProcessTransaction(tx utxo2.Transaction) (err error) {
+	l.Lock(tx.ID().Identifier)
+	defer l.Unlock(tx.ID().Identifier)
 
 	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
-func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
+func (l *Ledger) CheckTransaction(tx utxo2.Transaction) (err error) {
 	return l.DataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
@@ -86,13 +86,13 @@ func (l *Ledger) setup() {
 }
 
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+	l.Lock(tx.ID().Identifier)
+	defer l.Unlock(tx.ID().Identifier)
 
 	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
 }
 
-func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
+func (l *Ledger) processConsumingTransactions(outputIDs utxo2.OutputIDs) {
 	for it := l.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
 		go l.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
 			_ = l.processTransaction(tx)

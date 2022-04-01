@@ -1,7 +1,8 @@
 package branchdag
 
 import (
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 type ConflictID = utxo.OutputID
@@ -16,8 +17,8 @@ var NewConflictIDs = utxo.NewOutputIDs
 
 var NewBranchIDs = utxo.NewTransactionIDs
 
-var MasterBranchID = utxo.EmptyTransactionID
+var MasterBranchID BranchID
 
-var BranchIDLength = utxo.TransactionIDLength
+var BranchIDLength = types.IdentifierLength
 
-var ConflictIDLength = utxo.OutputIDLength
+var ConflictIDLength = types.IdentifierLength

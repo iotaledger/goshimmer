@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 const (
@@ -29,12 +29,12 @@ type UtxoDB struct {
 	supply          uint64
 	genesisKeyPair  *ed25519.KeyPair
 	genesisAddress  txvm.Address
-	transactions    map[utxo.TransactionID]*txvm.Transaction
-	utxo            map[utxo.OutputID]txvm.OutputEssence
-	consumedOutputs map[utxo.OutputID]txvm.OutputEssence
-	consumedBy      map[utxo.OutputID]utxo.TransactionID
+	transactions    map[utxo2.TransactionID]*txvm.Transaction
+	utxo            map[utxo2.OutputID]txvm.OutputEssence
+	consumedOutputs map[utxo2.OutputID]txvm.OutputEssence
+	consumedBy      map[utxo2.OutputID]utxo2.TransactionID
 	mutex           *sync.RWMutex
-	genesisTxID     utxo.TransactionID
+	genesisTxID     utxo2.TransactionID
 }
 
 // New creates new UTXODB instance.
@@ -46,10 +46,10 @@ func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 		supply:          supply,
 		genesisKeyPair:  genesisKeyPair,
 		genesisAddress:  genesisAddress,
-		transactions:    make(map[utxo.TransactionID]*txvm.Transaction),
-		utxo:            make(map[utxo.OutputID]txvm.OutputEssence),
-		consumedOutputs: make(map[utxo.OutputID]txvm.OutputEssence),
-		consumedBy:      make(map[utxo.OutputID]utxo.TransactionID),
+		transactions:    make(map[utxo2.TransactionID]*txvm.Transaction),
+		utxo:            make(map[utxo2.OutputID]txvm.OutputEssence),
+		consumedOutputs: make(map[utxo2.OutputID]txvm.OutputEssence),
+		consumedBy:      make(map[utxo2.OutputID]utxo2.TransactionID),
 		mutex:           &sync.RWMutex{},
 	}
 	u.genesisInit(timestamp)
@@ -93,7 +93,7 @@ func (u *UtxoDB) NewKeyPairByIndex(index int) (*ed25519.KeyPair, *txvm.ED25519Ad
 
 func (u *UtxoDB) genesisInit(timestamp time.Time) {
 	// create genesis transaction
-	inputs := txvm.NewInputs(txvm.NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0, []byte(""))))
+	inputs := txvm.NewInputs(txvm.NewUTXOInput(utxo2.NewOutputID(utxo2.TransactionID{}, 0, []byte(""))))
 	output := txvm.NewSigLockedSingleOutput(defaultSupply, u.GetGenesisAddress())
 	outputs := txvm.NewOutputs(output)
 	essence := txvm.NewTransactionEssence(essenceVersion, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
@@ -106,7 +106,7 @@ func (u *UtxoDB) genesisInit(timestamp time.Time) {
 	u.utxo[output.ID()] = output.Clone()
 }
 
-func (u *UtxoDB) GenesisTransactionID() utxo.TransactionID {
+func (u *UtxoDB) GenesisTransactionID() utxo2.TransactionID {
 	return u.genesisTxID
 }
 

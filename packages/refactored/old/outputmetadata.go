@@ -17,6 +17,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+
 	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/utxo"
 )
 
@@ -24,7 +26,7 @@ import (
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
-	id                      utxo2.OutputID
+	id                      utxo.OutputID
 	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
@@ -41,7 +43,7 @@ type OutputMetadata struct {
 }
 
 // NewOutputMetadata creates a new empty OutputMetadata object.
-func NewOutputMetadata(outputID utxo2.OutputID) *OutputMetadata {
+func NewOutputMetadata(outputID utxo.OutputID) *OutputMetadata {
 	return &OutputMetadata{
 		id:        outputID,
 		branchIDs: branchdag.NewBranchIDs(),
@@ -110,7 +112,7 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 }
 
 // ID returns the OutputID of the Output that the OutputMetadata belongs to.
-func (o *OutputMetadata) ID() utxo2.OutputID {
+func (o *OutputMetadata) ID() utxo.OutputID {
 	return o.id
 }
 
@@ -203,7 +205,7 @@ func (o *OutputMetadata) ConsumerCount() int {
 
 // RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) RegisterConsumer(consumer utxo2.TransactionID) (previousConsumerCount int) {
+func (o *OutputMetadata) RegisterConsumer(consumer utxo.TransactionID) (previousConsumerCount int) {
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
@@ -291,8 +293,8 @@ var _ objectstorage.StorableObject = new(OutputMetadata)
 type OutputsMetadata []*OutputMetadata
 
 // OutputIDs returns the OutputIDs of the Outputs in the list.
-func (o OutputsMetadata) OutputIDs() (outputIDs []utxo2.OutputID) {
-	outputIDs = make([]utxo2.OutputID, len(o))
+func (o OutputsMetadata) OutputIDs() (outputIDs []utxo.OutputID) {
+	outputIDs = make([]utxo.OutputID, len(o))
 	for i, outputMetadata := range o {
 		outputIDs[i] = outputMetadata.ID()
 	}
@@ -349,11 +351,11 @@ func (o OutputsMetadata) String() string {
 
 // OutputsMetadataByID represents a map of OutputMetadatas where every OutputMetadata is stored with its corresponding
 // OutputID as the key.
-type OutputsMetadataByID map[utxo2.OutputID]*OutputMetadata
+type OutputsMetadataByID map[utxo.OutputID]*OutputMetadata
 
 // IDs returns the OutputIDs that are used as keys in the collection.
-func (o OutputsMetadataByID) IDs() (outputIDs []utxo2.OutputID) {
-	outputIDs = make([]utxo2.OutputID, 0, len(o))
+func (o OutputsMetadataByID) IDs() (outputIDs []utxo.OutputID) {
+	outputIDs = make([]utxo.OutputID, 0, len(o))
 	for outputID := range o {
 		outputIDs = append(outputIDs, outputID)
 	}
@@ -373,7 +375,7 @@ func (o OutputsMetadataByID) ConflictIDs() (conflictIDs branchdag.ConflictIDs) {
 }
 
 // Filter returns the OutputsMetadataByID that are sharing a set membership with the given Inputs.
-func (o OutputsMetadataByID) Filter(outputIDsToInclude []utxo2.OutputID) (intersectionOfInputs OutputsMetadataByID) {
+func (o OutputsMetadataByID) Filter(outputIDsToInclude []utxo.OutputID) (intersectionOfInputs OutputsMetadataByID) {
 	intersectionOfInputs = make(OutputsMetadataByID)
 	for _, outputID := range outputIDsToInclude {
 		if output, exists := o[outputID]; exists {

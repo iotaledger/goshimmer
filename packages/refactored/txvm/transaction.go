@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -262,7 +262,7 @@ func (t *Transaction) ID() utxo.TransactionID {
 		return *t.id
 	}
 
-	return blake2b.Sum256(t.Bytes())
+	return utxo.TransactionID{Identifier: blake2b.Sum256(t.Bytes())}
 }
 
 func (t *Transaction) SetID(id utxo.TransactionID) {

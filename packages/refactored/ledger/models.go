@@ -15,17 +15,17 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region Transaction ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Transaction struct {
-	utxo.Transaction
+	utxo2.Transaction
 	objectstorage.StorableObjectFlags
 }
 
-func NewTransaction(transaction utxo.Transaction) (new *Transaction) {
+func NewTransaction(transaction utxo2.Transaction) (new *Transaction) {
 	return &Transaction{
 		Transaction: transaction,
 	}
@@ -52,7 +52,7 @@ var _ objectstorage.StorableObject = new(Transaction)
 // TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
 // a node.
 type TransactionMetadata struct {
-	id                      utxo.TransactionID
+	id                      utxo2.TransactionID
 	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
@@ -61,7 +61,7 @@ type TransactionMetadata struct {
 	solidificationTimeMutex sync.RWMutex
 	lazyBooked              bool
 	lazyBookedMutex         sync.RWMutex
-	outputIDs               utxo.OutputIDs
+	outputIDs               utxo2.OutputIDs
 	outputIDsMutex          sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
 	gradeOfFinalityTime     time.Time
@@ -71,7 +71,7 @@ type TransactionMetadata struct {
 }
 
 // NewTransactionMetadata creates a new empty TransactionMetadata object.
-func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
+func NewTransactionMetadata(transactionID utxo2.TransactionID) (newTransactionMetadata *TransactionMetadata) {
 	newTransactionMetadata = &TransactionMetadata{
 		id:        transactionID,
 		branchIDs: branchdag.NewBranchIDs(),
@@ -140,7 +140,7 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 }
 
 // ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
-func (t *TransactionMetadata) ID() utxo.TransactionID {
+func (t *TransactionMetadata) ID() utxo2.TransactionID {
 	return t.id
 }
 
@@ -247,7 +247,7 @@ func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
 }
 
 // OutputIDs returns the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
+func (t *TransactionMetadata) OutputIDs() utxo2.OutputIDs {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
@@ -255,7 +255,7 @@ func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
 }
 
 // SetOutputIDs sets the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) {
+func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo2.OutputIDs) {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
@@ -348,11 +348,11 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Output struct {
-	utxo.Output
+	utxo2.Output
 	objectstorage.StorableObjectFlags
 }
 
-func NewOutput(output utxo.Output) (new *Output) {
+func NewOutput(output utxo2.Output) (new *Output) {
 	return &Output{
 		Output: output,
 	}
@@ -370,11 +370,11 @@ func (o *Output) ObjectStorageValue() []byte {
 	return o.Bytes()
 }
 
-func (o *Output) utxoOutput() utxo.Output {
+func (o *Output) utxoOutput() utxo2.Output {
 	return o.Output
 }
 
-func (o *Output) ID() (id utxo.OutputID) {
+func (o *Output) ID() (id utxo2.OutputID) {
 	return o.Output.ID()
 }
 
@@ -385,11 +385,11 @@ var _ objectstorage.StorableObject = new(Output)
 // region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Outputs struct {
-	*orderedmap.OrderedMap[utxo.OutputID, *Output]
+	*orderedmap.OrderedMap[utxo2.OutputID, *Output]
 }
 
 func NewOutputs(outputs ...*Output) (new Outputs) {
-	new = Outputs{orderedmap.New[utxo.OutputID, *Output]()}
+	new = Outputs{orderedmap.New[utxo2.OutputID, *Output]()}
 	for _, output := range outputs {
 		new.Set(output.ID(), output)
 	}
@@ -397,18 +397,18 @@ func NewOutputs(outputs ...*Output) (new Outputs) {
 	return new
 }
 
-func (o Outputs) IDs() (ids utxo.OutputIDs) {
-	outputIDs := make([]utxo.OutputID, 0)
-	o.OrderedMap.ForEach(func(id utxo.OutputID, _ *Output) bool {
+func (o Outputs) IDs() (ids utxo2.OutputIDs) {
+	outputIDs := make([]utxo2.OutputID, 0)
+	o.OrderedMap.ForEach(func(id utxo2.OutputID, _ *Output) bool {
 		outputIDs = append(outputIDs, id)
 		return true
 	})
 
-	return utxo.NewOutputIDs(outputIDs...)
+	return utxo2.NewOutputIDs(outputIDs...)
 }
 
 func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) {
-	o.OrderedMap.ForEach(func(_ utxo.OutputID, output *Output) bool {
+	o.OrderedMap.ForEach(func(_ utxo2.OutputID, output *Output) bool {
 		if err = callback(output); err != nil {
 			return false
 		}
@@ -419,8 +419,8 @@ func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) 
 	return err
 }
 
-func (o Outputs) UTXOOutputs() (slice []utxo.Output) {
-	slice = make([]utxo.Output, 0)
+func (o Outputs) UTXOOutputs() (slice []utxo2.Output) {
+	slice = make([]utxo2.Output, 0)
 	_ = o.ForEach(func(output *Output) error {
 		slice = append(slice, output.Output)
 		return nil
@@ -435,14 +435,14 @@ func (o Outputs) UTXOOutputs() (slice []utxo.Output) {
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
-	id                      utxo.OutputID
+	id                      utxo2.OutputID
 	branchIDs               branchdag.BranchIDs
 	branchIDsMutex          sync.RWMutex
 	solid                   bool
 	solidMutex              sync.RWMutex
 	solidificationTime      time.Time
 	solidificationTimeMutex sync.RWMutex
-	firstConsumer           utxo.TransactionID
+	firstConsumer           utxo2.TransactionID
 	firstConsumerForked     bool
 	firstConsumerMutex      sync.RWMutex
 	gradeOfFinality         gof.GradeOfFinality
@@ -453,7 +453,7 @@ type OutputMetadata struct {
 }
 
 // NewOutputMetadata creates a new empty OutputMetadata object.
-func NewOutputMetadata(outputID utxo.OutputID) *OutputMetadata {
+func NewOutputMetadata(outputID utxo2.OutputID) *OutputMetadata {
 	return &OutputMetadata{
 		id:        outputID,
 		branchIDs: branchdag.NewBranchIDs(),
@@ -514,7 +514,7 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 }
 
 // ID returns the OutputID of the Output that the OutputMetadata belongs to.
-func (o *OutputMetadata) ID() utxo.OutputID {
+func (o *OutputMetadata) ID() utxo2.OutputID {
 	return o.id
 }
 
@@ -602,11 +602,11 @@ func (o *OutputMetadata) Spent() bool {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
-	return o.firstConsumer != utxo.EmptyTransactionID
+	return o.firstConsumer != utxo2.EmptyTransactionID
 }
 
 // FirstConsumer returns the TransactionID that first spent the Output (or the EmptyTransactionID if it is unspent).
-func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
+func (o *OutputMetadata) FirstConsumer() utxo2.TransactionID {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
@@ -615,19 +615,19 @@ func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
 
 // RegisterProcessedConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
 // returns the previous consumer count.
-func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
+func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo2.TransactionID) (isConflicting bool, consumerToFork utxo2.TransactionID) {
 	o.firstConsumerMutex.Lock()
 	defer o.firstConsumerMutex.Unlock()
 
-	if o.firstConsumer == utxo.EmptyTransactionID {
+	if o.firstConsumer == utxo2.EmptyTransactionID {
 		o.firstConsumer = consumer
 		o.SetModified()
 
-		return false, utxo.EmptyTransactionID
+		return false, utxo2.EmptyTransactionID
 	}
 
 	if o.firstConsumerForked {
-		return true, utxo.EmptyTransactionID
+		return true, utxo2.EmptyTransactionID
 	}
 
 	return true, o.firstConsumer
@@ -708,11 +708,11 @@ var _ objectstorage.StorableObject = new(OutputMetadata)
 // region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
 type OutputsMetadata struct {
-	*orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata]
+	*orderedmap.OrderedMap[utxo2.OutputID, *OutputMetadata]
 }
 
 func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata) {
-	new = OutputsMetadata{orderedmap.New[utxo.OutputID, *OutputMetadata]()}
+	new = OutputsMetadata{orderedmap.New[utxo2.OutputID, *OutputMetadata]()}
 	for _, outputMetadata := range outputsMetadata {
 		new.Set(outputMetadata.ID(), outputMetadata)
 	}
@@ -733,8 +733,8 @@ func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) b
 	return filtered
 }
 
-func (o OutputsMetadata) IDs() (ids utxo.OutputIDs) {
-	ids = utxo.NewOutputIDs()
+func (o OutputsMetadata) IDs() (ids utxo2.OutputIDs) {
+	ids = utxo2.NewOutputIDs()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		ids.Add(outputMetadata.ID())
 		return nil
@@ -754,7 +754,7 @@ func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 }
 
 func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (err error)) (err error) {
-	o.OrderedMap.ForEach(func(_ utxo.OutputID, outputMetadata *OutputMetadata) bool {
+	o.OrderedMap.ForEach(func(_ utxo2.OutputID, outputMetadata *OutputMetadata) bool {
 		if err = callback(outputMetadata); err != nil {
 			return false
 		}
@@ -770,14 +770,14 @@ func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength, utxo.TransactionIDLength}...)
+var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{utxo2.OutputIDLength, utxo2.TransactionIDLength}...)
 
 // Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type Consumer struct {
-	consumedInput  utxo.OutputID
-	transactionID  utxo.TransactionID
+	consumedInput  utxo2.OutputID
+	transactionID  utxo2.TransactionID
 	processedMutex sync.RWMutex
 	processed      bool
 
@@ -785,7 +785,7 @@ type Consumer struct {
 }
 
 // NewConsumer creates a Consumer object from the given information.
-func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
+func NewConsumer(consumedInput utxo2.OutputID, transactionID utxo2.TransactionID) (new *Consumer) {
 	new = &Consumer{
 		consumedInput: consumedInput,
 		transactionID: transactionID,
@@ -837,12 +837,12 @@ func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consum
 }
 
 // ConsumedInput returns the OutputID of the consumed Input.
-func (c *Consumer) ConsumedInput() utxo.OutputID {
+func (c *Consumer) ConsumedInput() utxo2.OutputID {
 	return c.consumedInput
 }
 
 // TransactionID returns the TransactionID of the consuming Transaction.
-func (c *Consumer) TransactionID() utxo.TransactionID {
+func (c *Consumer) TransactionID() utxo2.TransactionID {
 	return c.transactionID
 }
 
