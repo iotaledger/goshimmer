@@ -14,13 +14,11 @@ func TestSpamTransactions(t *testing.T) {
 	err := evilWallet.RequestFreshBigFaucetWallet()
 	require.NoError(t, err)
 
-	scenario := evilwallet.NewEvilScenario()
+	// simple transaction spam is the default scenario if none WithScenarioCustomConflicts option is provided in WithEvilScenario function.
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithBatchesSent(20),
-		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
-		WithEvilScenario(scenario),
 	}
 	spammer := NewSpammer(options...)
 	spammer.Spam()
@@ -39,7 +37,6 @@ func TestSpamDoubleSpend(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithSpamDuration(time.Second * 19),
-		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
 	}
 	txOptions := append(options, WithEvilScenario(scenarioTx))
@@ -56,21 +53,16 @@ func TestSpamDoubleSpend(t *testing.T) {
 
 }
 
-func TestReuseOutputs(t *testing.T) {
+func TestReuseRestrictedOutputs(t *testing.T) {
 	evilWallet := evilwallet.NewEvilWallet()
 
 	err := evilWallet.RequestFreshBigFaucetWallet()
 	require.NoError(t, err)
 
-	outWallet := evilWallet.NewWallet(evilwallet.Reuse)
+	// outputs from tx spam will be saved here, this wallet can be later reused as an input wallet for deep spam
 	restrictedOutWallet := evilWallet.NewWallet(evilwallet.RestrictedReuse)
 
 	scenarioTx := evilwallet.NewEvilScenario(evilwallet.WithScenarioReuseOutputWallet(restrictedOutWallet))
-
-	scenarioDeepTx := evilwallet.NewEvilScenario(
-		evilwallet.WithScenarioReuseOutputWallet(outWallet),
-		evilwallet.WithScenarioDeepSpamEnabled(),
-	)
 
 	customScenario := evilwallet.NewEvilScenario(
 		evilwallet.WithScenarioDeepSpamEnabled(),
@@ -81,18 +73,55 @@ func TestReuseOutputs(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithSpamDuration(time.Second * 10),
-		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
 	}
 	txOptions := append(options, WithEvilScenario(scenarioTx))
-	deepTxOptions := append(options, WithEvilScenario(scenarioDeepTx))
 	customOptions := append(options, WithEvilScenario(customScenario))
 
 	txSpammer := NewSpammer(txOptions...)
-	txDeepSpammer := NewSpammer(deepTxOptions...)
 	customDeepSpammer := NewSpammer(customOptions...)
 
 	txSpammer.Spam()
-	txDeepSpammer.Spam()
+	//txDeepSpammer.Spam()
+	customDeepSpammer.Spam()
+}
+
+func TestReuseOutputsOnTheFly(t *testing.T) {
+	evilWallet := evilwallet.NewEvilWallet()
+
+	err := evilWallet.RequestFreshBigFaucetWallet()
+	require.NoError(t, err)
+
+	//outWallet := evilWallet.NewWallet(evilwallet.Reuse)
+	restrictedOutWallet := evilWallet.NewWallet(evilwallet.RestrictedReuse)
+
+	scenarioTx := evilwallet.NewEvilScenario(evilwallet.WithScenarioReuseOutputWallet(restrictedOutWallet))
+
+	//scenarioDeepTx := evilwallet.NewEvilScenario(
+	//	evilwallet.WithScenarioReuseOutputWallet(outWallet),
+	//	evilwallet.WithScenarioDeepSpamEnabled(),
+	//)
+
+	customScenario := evilwallet.NewEvilScenario(
+		evilwallet.WithScenarioDeepSpamEnabled(),
+		evilwallet.WithScenarioInputWalletForDeepSpam(restrictedOutWallet),
+		evilwallet.WithScenarioCustomConflicts(evilwallet.Scenario1()),
+	)
+
+	options := []Options{
+		WithSpamRate(5, time.Second),
+		WithSpamDuration(time.Second * 10),
+		WithSpamWallet(evilWallet),
+	}
+	txOptions := append(options, WithEvilScenario(scenarioTx))
+	//deepTxOptions := append(options, WithEvilScenario(scenarioDeepTx))
+	customOptions := append(options, WithEvilScenario(customScenario))
+
+	txSpammer := NewSpammer(txOptions...)
+	//txDeepSpammer := NewSpammer(deepTxOptions...)
+	customDeepSpammer := NewSpammer(customOptions...)
+
+	txSpammer.Spam()
+	//txDeepSpammer.Spam()
 	customDeepSpammer.Spam()
 }

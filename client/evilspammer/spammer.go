@@ -49,7 +49,7 @@ type Spammer struct {
 	NumberOfSpends            int
 }
 
-// NewSpammer constructor of Spammer
+// NewSpammer is a constructor of Spammer.
 func NewSpammer(options ...Options) *Spammer {
 	state := &State{
 		txSent:        atomic.NewInt64(0),
@@ -58,7 +58,9 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 	s := &Spammer{
 		SpamDetails:    DefaultSpamDetails,
+		spamFunc:       CustomConflictSpammingFunc,
 		State:          state,
+		EvilScenario:   evilwallet.NewEvilScenario(),
 		done:           make(chan bool),
 		shutdown:       make(chan types.Empty),
 		NumberOfSpends: 2,

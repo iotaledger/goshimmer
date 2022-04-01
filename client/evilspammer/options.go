@@ -78,7 +78,7 @@ func WithLogTickerInterval(interval time.Duration) Options {
 }
 
 // WithSpammingFunc sets core function of the spammer with spamming logic, needs to use done spammer's channel to communicate.
-// end of spamming and errors.
+// end of spamming and errors. Default one is the CustomConflictSpammingFunc.
 func WithSpammingFunc(spammerFunc func(s *Spammer)) Options {
 	return func(s *Spammer) {
 		s.spamFunc = spammerFunc
