@@ -39,8 +39,10 @@ type Wallets struct {
 	wallets map[walletID]*Wallet
 	// we store here non-empty wallets ids of wallets with Fresh faucet outputs.
 	faucetWallets []walletID
-	reuseWallets  []walletID
-	mu            sync.RWMutex
+	// reuse wallets are stored without an order, so they are picked up randomly.
+	// Boolean flag indicates if wallet is ready - no new addresses will be generated, so empty wallets can be deleted.
+	reuseWallets map[walletID]bool
+	mu           sync.RWMutex
 
 	lastWalletID atomic.Int64
 }
@@ -60,7 +62,9 @@ func (w *Wallets) NewWallet(walletType WalletType) *Wallet {
 	wallet.ID = walletID(w.lastWalletID.Add(1))
 
 	w.addWallet(wallet)
-
+	if walletType == Reuse {
+		w.addReuseWallet(wallet)
+	}
 	return wallet
 }
 
@@ -70,9 +74,9 @@ func (w *Wallets) GetWallet(walletID walletID) *Wallet {
 }
 
 // GetNextWallet get next non-empty wallet based on provided type.
-func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
+func (w *Wallets) GetNextWallet(walletType WalletType, minOutputsLeft int) (*Wallet, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
 	switch walletType {
 	case Fresh:
@@ -85,7 +89,17 @@ func (w *Wallets) GetNextWallet(walletType WalletType) (*Wallet, error) {
 		}
 		return wallet, nil
 	case Reuse:
-		return nil, nil
+		for id, ready := range w.reuseWallets {
+			wal := w.wallets[id]
+			if wal.UnspentOutputsLeft() > minOutputsLeft {
+				return wal, nil
+			}
+			// no outputs will be ever added to this wallet, so it can be deleted
+			if wal.IsEmpty() && ready {
+				w.removeReuseWallet(id)
+			}
+		}
+		return nil, errors.New("no reuse wallets available")
 	}
 
 	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
@@ -98,6 +112,14 @@ func (w *Wallets) addWallet(wallet *Wallet) {
 
 	w.wallets[wallet.ID] = wallet
 
+}
+
+// addWallet stores newly created wallet.
+func (w *Wallets) addReuseWallet(wallet *Wallet) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.reuseWallets[wallet.ID] = false
 }
 
 // GetUnspentOutput gets first found unspent output for a given walletType
@@ -116,10 +138,10 @@ func (w *Wallets) IsFaucetWalletAvailable() bool {
 // freshWallet returns the first non-empty wallet from the faucetWallets queue. If current wallet is empty,
 // it is removed and the next enqueued one is returned.
 func (w *Wallets) freshWallet() (*Wallet, error) {
-	wallet, err := w.GetNextWallet(Fresh)
+	wallet, err := w.GetNextWallet(Fresh, 1)
 	if err != nil {
-		w.removeWallet(Fresh)
-		wallet, err = w.GetNextWallet(Fresh)
+		w.removeFreshWallet()
+		wallet, err = w.GetNextWallet(Fresh, 1)
 		if err != nil {
 			return nil, err
 		}
@@ -129,30 +151,32 @@ func (w *Wallets) freshWallet() (*Wallet, error) {
 
 // reuseWallet returns the first non-empty wallet from the reuseWallets queue. If current wallet is empty,
 // it is removed and the next enqueued one is returned.
-func (w *Wallets) reuseWallet() (*Wallet, error) {
-	wallet, err := w.GetNextWallet(Reuse)
+func (w *Wallets) reuseWallet(outputsNeeded int) *Wallet {
+	wallet, err := w.GetNextWallet(Reuse, outputsNeeded)
 	if err != nil {
-		w.removeWallet(Reuse)
-		wallet, err = w.GetNextWallet(Reuse)
-		if err != nil {
-			return nil, err
-		}
+		return nil
 	}
-	return wallet, nil
+	return wallet
 }
 
 // removeWallet removes wallet, for Fresh wallet it will be the first wallet in a queue.
-func (w *Wallets) removeWallet(wType WalletType) {
+func (w *Wallets) removeFreshWallet() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	switch wType {
-	case Fresh:
-		if w.IsFaucetWalletAvailable() {
-			removedID := w.faucetWallets[0]
-			w.faucetWallets = w.faucetWallets[1:]
-			delete(w.wallets, removedID)
-		}
+	if w.IsFaucetWalletAvailable() {
+		removedID := w.faucetWallets[0]
+		w.faucetWallets = w.faucetWallets[1:]
+		delete(w.wallets, removedID)
+	}
+	return
+}
+
+// removeWallet removes wallet, for Fresh wallet it will be the first wallet in a queue.
+func (w *Wallets) removeReuseWallet(walletID walletID) {
+	if _, ok := w.reuseWallets[walletID]; ok {
+		delete(w.reuseWallets, walletID)
+		delete(w.wallets, walletID)
 	}
 	return
 }
@@ -170,7 +194,7 @@ func (w *Wallets) SetWalletReady(wallet *Wallet) {
 	case Fresh:
 		w.faucetWallets = append(w.faucetWallets, wallet.ID)
 	case Reuse:
-		w.reuseWallets = append(w.reuseWallets, wallet.ID)
+		w.reuseWallets[wallet.ID] = true
 	}
 }
 
@@ -296,6 +320,11 @@ func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances 
 // IsEmpty returns true if the wallet is empty.
 func (w *Wallet) IsEmpty() bool {
 	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
+}
+
+// UnspentOutputsLeft returns how many unused outputs are available in wallet.
+func (w *Wallet) UnspentOutputsLeft() int {
+	return int(w.lastAddrIdxUsed.Load() - w.lastAddrSpent.Load())
 }
 
 // GetUnspentOutput returns an unspent output on the oldest address ordered by index.

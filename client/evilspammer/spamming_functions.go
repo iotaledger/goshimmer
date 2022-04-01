@@ -23,17 +23,6 @@ func DataSpammingFunction(s *Spammer) {
 	s.CheckIfAllSent()
 }
 
-func ValueSpammingFunc(s *Spammer) {
-	tx, err := s.SpamWallet.PrepareTransaction(s.EvilScenario)
-	if err != nil {
-		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-		return
-	}
-	s.PostTransaction(tx)
-	s.State.batchPrepared.Add(1)
-	s.CheckIfAllSent()
-}
-
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {

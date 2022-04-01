@@ -24,6 +24,8 @@ type Options struct {
 	shallowDislikeParents    map[string]types.Empty
 	inputWallet              *Wallet
 	outputWallet             *Wallet
+	outputBatchAliases       map[string]types.Empty
+	reuse                    bool
 	issuingTime              time.Time
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
@@ -197,6 +199,20 @@ func WithIssuer(issuer *Wallet) Option {
 func WithOutputWallet(wallet *Wallet) Option {
 	return func(options *Options) {
 		options.outputWallet = wallet
+	}
+}
+
+// WithOutputBatchAliases returns a MessageOption that is used to determine which outputs should be added to the outWallet.
+func WithOutputBatchAliases(outputAliases map[string]types.Empty) Option {
+	return func(options *Options) {
+		options.outputBatchAliases = outputAliases
+	}
+}
+
+// WithReuseOutputs returns a MessageOption that is used to enable deep spamming with Reuse wallet outputs.
+func WithReuseOutputs() Option {
+	return func(options *Options) {
+		options.reuse = true
 	}
 }
 

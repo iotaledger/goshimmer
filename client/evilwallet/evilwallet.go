@@ -388,8 +388,9 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 	return
 }
 
+// updateInputWallet determine inputWallet based on the first input from AliasManager,
+// if input wallet is not specified, use Fresh faucet wallet.
 func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
-	// determine inputWallet based on the first input from AliasManager
 	for alias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(alias)
 		if ok {
@@ -401,7 +402,6 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 		}
 		break
 	}
-	// if input wallet is not specified, use Fresh faucet wallet
 	err := e.useFreshIfInputWalletNotProvided(buildOptions)
 	if err != nil {
 		return err
@@ -503,6 +503,14 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) error {
 	// if input wallet is not specified, use Fresh faucet wallet
 	if buildOptions.inputWallet == nil {
+		// deep spam enabled and no input reuse wallet provided, use evil wallet reuse wallet if enough outputs are available
+		if buildOptions.reuse {
+			outputsNeeded := len(buildOptions.inputs)
+			if wallet := e.wallets.reuseWallet(outputsNeeded); wallet != nil {
+				buildOptions.inputWallet = wallet
+				return nil
+			}
+		}
 		if wallet, err := e.wallets.freshWallet(); wallet != nil {
 			buildOptions.inputWallet = wallet
 		} else {
@@ -686,30 +694,6 @@ func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wal
 	return nil
 }
 
-func (e *EvilWallet) PrepareTransaction(scenario *EvilScenario) (tx *ledgerstate.Transaction, err error) {
-	var wallet *Wallet
-	var evilInput *Output
-	if scenario.Reuse {
-		wallet, err = e.wallets.reuseWallet()
-		if err != nil {
-			return
-		}
-		if wallet != nil {
-			evilInput = wallet.GetUnspentOutput()
-		}
-	}
-	if evilInput == nil {
-		wallet, err = e.wallets.freshWallet()
-		if err != nil {
-			return
-		}
-		evilInput = wallet.GetUnspentOutput()
-	}
-	outBalance := getIotaColorAmount(evilInput.Balance)
-	tx, err = e.CreateTransaction(WithInputs(evilInput.OutputID), WithOutputs([]*OutputOption{{amount: outBalance}}), WithOutputWallet(scenario.OutputWallet), WithIssuer(wallet))
-	return
-}
-
 func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
 	conflicts, err := e.prepareConflictSliceForScenario(scenario)
 	if err != nil {
@@ -735,7 +719,18 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
-			conflicts = append(conflicts, []Option{WithInputs(aliases.Inputs), WithOutputs(outs)})
+			option := []Option{WithInputs(aliases.Inputs), WithOutputs(outs)}
+			if scenario.OutputWallet != nil {
+				option = append(option, WithOutputWallet(scenario.OutputWallet))
+				option = append(option, WithOutputBatchAliases(scenario.batchOutputs))
+			}
+			if scenario.RestrictedInputWallet != nil {
+				option = append(option, WithIssuer(scenario.RestrictedInputWallet))
+			}
+			if scenario.Reuse {
+				option = append(option, WithReuseOutputs())
+			}
+			conflicts = append(conflicts, option)
 		}
 		conflictSlice = append(conflictSlice, conflicts)
 	}

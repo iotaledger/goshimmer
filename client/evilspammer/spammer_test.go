@@ -14,13 +14,11 @@ func TestSpamTransactions(t *testing.T) {
 	err := evilWallet.RequestFreshBigFaucetWallet()
 	require.NoError(t, err)
 
-	outWallet := evilWallet.NewWallet(evilwallet.Reuse)
-
-	scenario := evilwallet.NewEvilScenario(evilwallet.WithScenarioReuseOutputWallet(outWallet))
+	scenario := evilwallet.NewEvilScenario()
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithBatchesSent(20),
-		WithSpammingFunc(ValueSpammingFunc),
+		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
 		WithEvilScenario(scenario),
 	}
@@ -40,7 +38,7 @@ func TestSpamDoubleSpend(t *testing.T) {
 
 	options := []Options{
 		WithSpamRate(5, time.Second),
-		WithSpamDuration(time.Second * 10),
+		WithSpamDuration(time.Second * 19),
 		WithSpammingFunc(CustomConflictSpammingFunc),
 		WithSpamWallet(evilWallet),
 	}
