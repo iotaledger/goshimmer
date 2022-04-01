@@ -54,26 +54,26 @@ func (t *TransactionID) FromBase58(base58String string) (err error) {
 	return
 }
 
-// FromMarshalUtil unmarshals an TransactionID using a MarshalUtil (for easier unmarshalling).
+// NewFromMarshalUtil unmarshals an TransactionID using a MarshalUtil (for easier unmarshalling).
 func (t TransactionID) NewFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (txID TransactionID, err error) {
 	outputIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	copy(t[:], outputIDBytes)
+	copy(txID[:], outputIDBytes)
 
 	return
 }
 
 // FromMarshalUtil unmarshals an TransactionID using a MarshalUtil (for easier unmarshalling).
-func (t TransactionID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+func (t *TransactionID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	outputIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	copy(t[:], outputIDBytes)
+	copy((*t)[:], outputIDBytes)
 
 	return
 }
