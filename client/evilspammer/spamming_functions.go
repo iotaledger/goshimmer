@@ -24,7 +24,7 @@ func DataSpammingFunction(s *Spammer) {
 }
 
 func CustomConflictSpammingFunc(s *Spammer) {
-	conflictBatch, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
+	conflictBatch, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
 	}
@@ -46,5 +46,6 @@ func CustomConflictSpammingFunc(s *Spammer) {
 		wg.Wait()
 	}
 	s.State.batchPrepared.Add(1)
+	s.EvilWallet.ClearAliases()
 	s.CheckIfAllSent()
 }

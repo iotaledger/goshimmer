@@ -52,7 +52,7 @@ func WithBatchesSent(maxBatchesSent int) Options {
 // WithSpamWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario
 func WithSpamWallet(initWallets *evilwallet.EvilWallet) Options {
 	return func(s *Spammer) {
-		s.SpamWallet = initWallets
+		s.EvilWallet = initWallets
 	}
 }
 

@@ -170,9 +170,9 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 
 // RequestFreshFaucetWallet creates a new wallet and fills the wallet with 100 outputs created from funds
 // requested from the Faucet.
-func (e *EvilWallet) RequestFreshFaucetWallet() (wallet *Wallet, err error) {
+func (e *EvilWallet) RequestFreshFaucetWallet() (err error) {
 	initWallet := NewWallet()
-	wallet, err = e.requestAndSplitFaucetFunds(initWallet)
+	wallet, err := e.requestAndSplitFaucetFunds(initWallet)
 	if err != nil {
 		return
 	}

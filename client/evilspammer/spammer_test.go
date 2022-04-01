@@ -11,13 +11,14 @@ import (
 func TestSpamTransactions(t *testing.T) {
 	evilWallet := evilwallet.NewEvilWallet()
 
-	err := evilWallet.RequestFreshBigFaucetWallet()
+	// request 100 outputs for spamming
+	err := evilWallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
 	// simple transaction spam is the default scenario if none WithScenarioCustomConflicts option is provided in WithEvilScenario function.
 	options := []Options{
 		WithSpamRate(5, time.Second),
-		WithBatchesSent(20),
+		WithBatchesSent(5),
 		WithSpamWallet(evilWallet),
 	}
 	spammer := NewSpammer(options...)
@@ -26,43 +27,57 @@ func TestSpamTransactions(t *testing.T) {
 
 func TestSpamDoubleSpend(t *testing.T) {
 	evilWallet := evilwallet.NewEvilWallet()
-
-	err := evilWallet.RequestFreshBigFaucetWallet()
+	err := evilWallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
-	scenarioTx := evilwallet.NewEvilScenario()
-	scenarioDs := evilwallet.NewEvilScenario(evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(5)))
-	customScenario := evilwallet.NewEvilScenario(evilwallet.WithScenarioCustomConflicts(evilwallet.Scenario1()))
+	scenarioDs := evilwallet.NewEvilScenario(
+		evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(5)),
+	)
 
 	options := []Options{
 		WithSpamRate(5, time.Second),
-		WithSpamDuration(time.Second * 19),
+		WithSpamDuration(time.Second * 10),
 		WithSpamWallet(evilWallet),
 	}
-	txOptions := append(options, WithEvilScenario(scenarioTx))
 	dsOptions := append(options, WithEvilScenario(scenarioDs))
-	customOptions := append(options, WithEvilScenario(customScenario))
 
-	txSpammer := NewSpammer(txOptions...)
 	dsSpammer := NewSpammer(dsOptions...)
+	dsSpammer.Spam()
+}
+
+func TestCustomConflictScenario(t *testing.T) {
+	evilWallet := evilwallet.NewEvilWallet()
+	// request 10000 outputs for spamming
+	err := evilWallet.RequestFreshBigFaucetWallet()
+	require.NoError(t, err)
+
+	customScenario := evilwallet.NewEvilScenario(
+		evilwallet.WithScenarioCustomConflicts(evilwallet.Scenario1()),
+	)
+
+	options := []Options{
+		WithSpamRate(5, time.Second),
+		WithSpamDuration(time.Second * 10),
+		WithSpamWallet(evilWallet),
+	}
+	customOptions := append(options, WithEvilScenario(customScenario))
 	customSpammer := NewSpammer(customOptions...)
 
-	txSpammer.Spam()
-	dsSpammer.Spam()
 	customSpammer.Spam()
-
 }
 
 func TestReuseRestrictedOutputs(t *testing.T) {
 	evilWallet := evilwallet.NewEvilWallet()
 
-	err := evilWallet.RequestFreshBigFaucetWallet()
+	err := evilWallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
 	// outputs from tx spam will be saved here, this wallet can be later reused as an input wallet for deep spam
 	restrictedOutWallet := evilWallet.NewWallet(evilwallet.RestrictedReuse)
 
-	scenarioTx := evilwallet.NewEvilScenario(evilwallet.WithScenarioReuseOutputWallet(restrictedOutWallet))
+	scenarioTx := evilwallet.NewEvilScenario(
+		evilwallet.WithScenarioReuseOutputWallet(restrictedOutWallet),
+	)
 
 	customScenario := evilwallet.NewEvilScenario(
 		evilwallet.WithScenarioDeepSpamEnabled(),
