@@ -325,12 +325,12 @@ func (t *Transaction) ObjectStorageValue() []byte {
 }
 
 // code contract (make sure the struct implements all required methods)
-var _ payload.Payload = &Transaction{}
+var _ payload.Payload = new(Transaction)
 
-var _ utxo.Transaction = &Transaction{}
+var _ utxo.Transaction = new(Transaction)
 
 // code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = &Transaction{}
+var _ objectstorage.StorableObject = new(Transaction)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
