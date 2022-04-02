@@ -8,21 +8,14 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 )
 
 // Identifier is the type that represents the identifier of a Transaction.
 type Identifier [IdentifierLength]byte
 
-// FromTransactionBytes sets the Identifier from the given execution results.
-func (t *Identifier) FromTransactionBytes(transactionBytes []byte) {
-	*t = blake2b.Sum256(transactionBytes)
-}
-
 // FromRandomness fills the Identifier with random information.
 func (t *Identifier) FromRandomness() (err error) {
 	_, err = rand.Read((*t)[:])
-
 	return
 }
 
@@ -73,6 +66,17 @@ func (t Identifier) RegisterAlias(alias string) {
 	_idAliases[t] = alias
 }
 
+func (t Identifier) Alias() (alias string) {
+	_idAliasesMutex.RLock()
+	defer _idAliasesMutex.RUnlock()
+
+	if existingAlias, exists := _idAliases[t]; exists {
+		return existingAlias
+	}
+
+	return t.Base58()
+}
+
 func (t Identifier) UnregisterAlias() {
 	_idAliasesMutex.Lock()
 	defer _idAliasesMutex.Unlock()
@@ -92,17 +96,10 @@ func (t Identifier) Base58() string {
 
 // String creates a human-readable version of the Identifier.
 func (t Identifier) String() string {
-	_idAliasesMutex.RLock()
-	defer _idAliasesMutex.RUnlock()
-
-	if alias, exists := _idAliases[t]; exists {
-		return alias
-	}
-
-	return "Identifier(" + t.Base58() + ")"
+	return "Identifier(" + t.Alias() + ")"
 }
 
-// IdentifierLength contains the byte size of a Identifier.
+// IdentifierLength contains the byte size of a marshaled Identifier.
 const IdentifierLength = 32
 
 var (

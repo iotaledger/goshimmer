@@ -85,9 +85,9 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 func (t *TestFramework) AssertBranchDAG(testing *testing.T, expectedParents map[string][]string) {
 	for branchAlias, expectedParentAliases := range expectedParents {
-		currentBranchID := t.Transaction(branchAlias).ID()
+		currentBranchID := branchdag.NewBranchID(t.Transaction(branchAlias).ID())
 
-		expectedBranchIDs := t.TransactionIDs(expectedParentAliases...)
+		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
 		assert.True(testing, t.Ledger.BranchDAG.Branch(currentBranchID).Consume(func(branch *branchdag.Branch) {
 			assert.Truef(testing, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
@@ -96,24 +96,33 @@ func (t *TestFramework) AssertBranchDAG(testing *testing.T, expectedParents map[
 }
 
 func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.TransactionIDs) {
-	txIDs = branchdag.NewBranchIDs()
+	txIDs = utxo.NewTransactionIDs()
 	for _, expectedBranchAlias := range txAliases {
-		if expectedBranchAlias == "MasterBranch" {
-			txIDs.Add(branchdag.MasterBranchID)
-			continue
-		}
-
 		txIDs.Add(t.Transaction(expectedBranchAlias).ID())
 	}
 
 	return txIDs
 }
 
+func (t *TestFramework) BranchIDs(txAliases ...string) (branchIDs branchdag.BranchIDs) {
+	branchIDs = branchdag.NewBranchIDs()
+	for _, expectedBranchAlias := range txAliases {
+		if expectedBranchAlias == "MasterBranch" {
+			branchIDs.Add(branchdag.MasterBranchID)
+			continue
+		}
+
+		branchIDs.Add(branchdag.NewBranchID(t.Transaction(expectedBranchAlias).ID()))
+	}
+
+	return branchIDs
+}
+
 func (t *TestFramework) AssertBranchIDs(testing *testing.T, expectedBranches map[string][]string) {
 	for txAlias, expectedBranchAliases := range expectedBranches {
 		currentTx := t.Transaction(txAlias)
 
-		expectedBranchIDs := t.TransactionIDs(expectedBranchAliases...)
+		expectedBranchIDs := t.BranchIDs(expectedBranchAliases...)
 
 		assert.True(testing, t.Ledger.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
 			assert.Truef(testing, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())

@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 type Booker struct {
@@ -64,15 +64,16 @@ func (b *Booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata
 	})
 }
 
-func (b *Booker) inheritBranchIDs(txID utxo2.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
+func (b *Booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
 		return b.RemoveConfirmedBranches(inputsMetadata.BranchIDs())
 	}
 
-	b.CreateBranch(txID, b.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), conflictingInputIDs)
+	branchID := branchdag.NewBranchID(txID)
+	b.CreateBranch(branchID, b.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), conflictingInputIDs)
 
-	_ = consumersToFork.ForEach(func(transactionID utxo2.TransactionID) (err error) {
+	_ = consumersToFork.ForEach(func(transactionID utxo.TransactionID) (err error) {
 		b.WithTransactionAndMetadata(transactionID, func(tx *Transaction, txMetadata *TransactionMetadata) {
 			b.forkTransaction(tx, txMetadata, conflictingInputIDs)
 		})
@@ -80,7 +81,7 @@ func (b *Booker) inheritBranchIDs(txID utxo2.TransactionID, inputsMetadata Outpu
 		return nil
 	})
 
-	return branchdag.NewBranchIDs(txID)
+	return branchdag.NewBranchIDs(branchID)
 }
 
 func (b *Booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
@@ -95,9 +96,9 @@ func (b *Booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
 	})
 }
 
-func (b *Booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetadata OutputsMetadata) (conflictingInputIDs utxo2.OutputIDs, consumersToFork utxo2.TransactionIDs) {
-	conflictingInputIDs = utxo2.NewOutputIDs()
-	consumersToFork = utxo2.NewTransactionIDs()
+func (b *Booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (conflictingInputIDs utxo.OutputIDs, consumersToFork utxo.TransactionIDs) {
+	conflictingInputIDs = utxo.NewOutputIDs()
+	consumersToFork = utxo.NewTransactionIDs()
 
 	_ = inputsMetadata.ForEach(func(outputMetadata *OutputMetadata) error {
 		isConflicting, consumerToFork := outputMetadata.RegisterProcessedConsumer(txID)
@@ -105,7 +106,7 @@ func (b *Booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetada
 			conflictingInputIDs.Add(outputMetadata.ID())
 		}
 
-		if consumerToFork != utxo2.EmptyTransactionID {
+		if consumerToFork != utxo.EmptyTransactionID {
 			consumersToFork.Add(consumerToFork)
 		}
 
@@ -115,13 +116,14 @@ func (b *Booker) determineConflictDetails(txID utxo2.TransactionID, inputsMetada
 	return conflictingInputIDs, consumersToFork
 }
 
-func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx utxo2.OutputIDs) {
+func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx utxo.OutputIDs) {
 	b.Lock(txMetadata.ID())
 
 	conflictingInputs := b.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
-	if !b.CreateBranch(txMetadata.ID(), previousParentBranches, conflictingInputs) {
+	forkedBranchID := branchdag.NewBranchID(txMetadata.ID())
+	if !b.CreateBranch(forkedBranchID, previousParentBranches, conflictingInputs) {
 		b.Unlock(txMetadata.ID())
 		return
 	}
@@ -131,23 +133,23 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 		ParentBranches: previousParentBranches,
 	})
 
-	if !b.updateBranchesAfterFork(txMetadata, txMetadata.ID(), previousParentBranches) {
+	if !b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches) {
 		b.Unlock(txMetadata.ID())
 		return
 	}
 	b.Unlock(txMetadata.ID())
 
-	b.propagateForkedBranchToFutureCone(txMetadata, previousParentBranches)
+	b.propagateForkedBranchToFutureCone(txMetadata.OutputIDs(), forkedBranchID, previousParentBranches)
 
 	return
 }
 
-func (b *Booker) propagateForkedBranchToFutureCone(forkedTxMetadata *TransactionMetadata, previousParentBranches branchdag.BranchIDs) {
-	b.WalkConsumingTransactionMetadata(forkedTxMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
+func (b *Booker) propagateForkedBranchToFutureCone(outputIDs utxo.OutputIDs, forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs) {
+	b.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		b.Lock(consumingTxMetadata.ID())
 		defer b.Unlock(consumingTxMetadata.ID())
 
-		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedTxMetadata.ID(), previousParentBranches) {
+		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedBranchID, previousParentBranches) {
 			return
 		}
 
@@ -157,7 +159,7 @@ func (b *Booker) propagateForkedBranchToFutureCone(forkedTxMetadata *Transaction
 
 func (b *Booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
 	if txMetadata.IsConflicting() {
-		b.BranchDAG.UpdateParentsAfterFork(txMetadata.ID(), forkedBranchID, previousParents)
+		b.BranchDAG.UpdateParentsAfterFork(branchdag.NewBranchID(txMetadata.ID()), forkedBranchID, previousParents)
 		return false
 	}
 
