@@ -8,12 +8,18 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 )
 
 // region Identifier ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Identifier is the type that represents the identifier of a Transaction.
 type Identifier [IdentifierLength]byte
+
+// NewIdentifier returns a new Identifier for the given data.
+func NewIdentifier(data []byte) (new Identifier) {
+	return blake2b.Sum256(data)
+}
 
 // FromRandomness fills the Identifier with random information.
 func (t *Identifier) FromRandomness() (err error) {
