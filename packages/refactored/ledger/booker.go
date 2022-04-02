@@ -71,7 +71,7 @@ func (b *Booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata Output
 	}
 
 	branchID := branchdag.NewBranchID(txID)
-	b.CreateBranch(branchID, b.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), conflictingInputIDs)
+	b.CreateBranch(branchID, b.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), branchdag.NewConflictIDs(generics.Map(conflictingInputIDs.Slice(), branchdag.NewConflictID)...))
 
 	_ = consumersToFork.ForEach(func(transactionID utxo.TransactionID) (err error) {
 		b.WithTransactionAndMetadata(transactionID, func(tx *Transaction, txMetadata *TransactionMetadata) {
@@ -123,7 +123,7 @@ func (b *Booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	previousParentBranches := txMetadata.BranchIDs()
 
 	forkedBranchID := branchdag.NewBranchID(txMetadata.ID())
-	if !b.CreateBranch(forkedBranchID, previousParentBranches, conflictingInputs) {
+	if !b.CreateBranch(forkedBranchID, previousParentBranches, branchdag.NewConflictIDs(generics.Map(conflictingInputs.Slice(), branchdag.NewConflictID)...)) {
 		b.Unlock(txMetadata.ID())
 		return
 	}

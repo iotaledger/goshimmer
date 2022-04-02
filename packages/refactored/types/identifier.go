@@ -10,6 +10,8 @@ import (
 	"github.com/mr-tron/base58"
 )
 
+// region Identifier ///////////////////////////////////////////////////////////////////////////////////////////////////
+
 // Identifier is the type that represents the identifier of a Transaction.
 type Identifier [IdentifierLength]byte
 
@@ -60,17 +62,17 @@ func (t *Identifier) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err 
 }
 
 func (t Identifier) RegisterAlias(alias string) {
-	_idAliasesMutex.Lock()
-	defer _idAliasesMutex.Unlock()
+	_identifierAliasesMutex.Lock()
+	defer _identifierAliasesMutex.Unlock()
 
-	_idAliases[t] = alias
+	_identifierAliases[t] = alias
 }
 
 func (t Identifier) Alias() (alias string) {
-	_idAliasesMutex.RLock()
-	defer _idAliasesMutex.RUnlock()
+	_identifierAliasesMutex.RLock()
+	defer _identifierAliasesMutex.RUnlock()
 
-	if existingAlias, exists := _idAliases[t]; exists {
+	if existingAlias, exists := _identifierAliases[t]; exists {
 		return existingAlias
 	}
 
@@ -78,10 +80,10 @@ func (t Identifier) Alias() (alias string) {
 }
 
 func (t Identifier) UnregisterAlias() {
-	_idAliasesMutex.Lock()
-	defer _idAliasesMutex.Unlock()
+	_identifierAliasesMutex.Lock()
+	defer _identifierAliasesMutex.Unlock()
 
-	delete(_idAliases, t)
+	delete(_identifierAliases, t)
 }
 
 // Bytes returns a marshaled version of the Identifier.
@@ -103,6 +105,8 @@ func (t Identifier) String() string {
 const IdentifierLength = 32
 
 var (
-	_idAliases      = make(map[Identifier]string)
-	_idAliasesMutex = sync.RWMutex{}
+	_identifierAliases      = make(map[Identifier]string)
+	_identifierAliasesMutex = sync.RWMutex{}
 )
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

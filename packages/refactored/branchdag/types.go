@@ -44,10 +44,36 @@ func NewBranchIDs(ids ...BranchID) (new BranchIDs) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type ConflictID = utxo.OutputID
+// region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-type ConflictIDs = utxo.OutputIDs
+const ConflictIDLength = types.IdentifierLength
 
-var NewConflictIDs = utxo.NewOutputIDs
+type ConflictID struct {
+	types.Identifier
+}
 
-var ConflictIDLength = types.IdentifierLength
+func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
+	return ConflictID{outputID.Identifier}
+}
+
+// Unmarshal unmarshals a ConflictID using a MarshalUtil (for easier unmarshalling).
+func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (txID ConflictID, err error) {
+	err = txID.Identifier.FromMarshalUtil(marshalUtil)
+	return
+}
+
+func (t ConflictID) String() (humanReadable string) {
+	return "ConflictID(" + t.Alias() + ")"
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictIDs //////////////////////////////////////////////////////////////////////////////////////////////////
+
+type ConflictIDs = *set.AdvancedSet[ConflictID]
+
+func NewConflictIDs(ids ...ConflictID) (new ConflictIDs) {
+	return set.NewAdvancedSet[ConflictID](ids...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
