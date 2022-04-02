@@ -21,8 +21,8 @@ func NewBranchID(txID utxo.TransactionID) (new BranchID) {
 }
 
 // Unmarshal unmarshals a BranchID using a MarshalUtil (for easier unmarshalling).
-func (t BranchID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (txID BranchID, err error) {
-	err = txID.Identifier.FromMarshalUtil(marshalUtil)
+func (t BranchID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
+	err = branchID.Identifier.FromMarshalUtil(marshalUtil)
 	return
 }
 
@@ -57,8 +57,8 @@ func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
 }
 
 // Unmarshal unmarshals a ConflictID using a MarshalUtil (for easier unmarshalling).
-func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (txID ConflictID, err error) {
-	err = txID.Identifier.FromMarshalUtil(marshalUtil)
+func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
+	err = conflictID.Identifier.FromMarshalUtil(marshalUtil)
 	return
 }
 
