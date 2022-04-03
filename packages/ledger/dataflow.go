@@ -3,7 +3,7 @@ package ledger
 import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 type dataFlow struct {

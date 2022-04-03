@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////

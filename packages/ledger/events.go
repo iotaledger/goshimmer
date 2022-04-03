@@ -3,8 +3,8 @@ package ledger
 import (
 	"github.com/iotaledger/hive.go/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 type Events struct {

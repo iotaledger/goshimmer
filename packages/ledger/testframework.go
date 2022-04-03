@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////

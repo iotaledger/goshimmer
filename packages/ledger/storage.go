@@ -10,8 +10,8 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vm"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,7 +1,7 @@
 package vm
 
 import (
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // VM is a generic interface for UTXO-based VMs.
