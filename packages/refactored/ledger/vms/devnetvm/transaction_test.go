@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 var sampleColor = Color{2}
@@ -24,7 +24,7 @@ func TestTransaction_Bytes(t *testing.T) {
 		issuerIdentity.ID(),
 		issuerIdentity.ID(),
 		NewInputs(
-			NewUTXOInput(utxo2.NewOutputID(utxo2.TransactionID{}, 0, []byte(""))),
+			NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0, []byte(""))),
 		),
 		NewOutputs(
 			NewSigLockedSingleOutput(12, NewED25519Address(issuerKeyPair.PublicKey)),
@@ -43,12 +43,12 @@ func TestTransaction_Bytes(t *testing.T) {
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
 	party1KeyChain, party1SrcAddress, party1DestAddress, party1RemainderAddress := setupKeyChainAndAddresses(t)
-	party1ControlledOutputID := utxo2.NewOutputID(utxo2.TransactionID{}, 1, []byte(""))
+	party1ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 1, []byte(""))
 	party2KeyChain, party2SrcAddress, party2DestAddress, party2RemainderAddress := setupKeyChainAndAddresses(t)
-	party2ControlledOutputID := utxo2.NewOutputID(utxo2.TransactionID{}, 2, []byte(""))
+	party2ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 2, []byte(""))
 
 	// initialize fake ledger state with unspent Outputs
-	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[utxo2.OutputID]map[Color]uint64{
+	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[utxo.OutputID]map[Color]uint64{
 		party1SrcAddress: {
 			party1ControlledOutputID: {
 				sampleColor: 200,
@@ -136,7 +136,7 @@ func setupKeyChainAndAddresses(t *testing.T) (keyChain map[Address]ed25519.KeyPa
 }
 
 // setupUnspentOutputsDB creates a fake database with Outputs.
-func setupUnspentOutputsDB(outputs map[Address]map[utxo2.OutputID]map[Color]uint64) (unspentOutputsDB OutputsByID) {
+func setupUnspentOutputsDB(outputs map[Address]map[utxo.OutputID]map[Color]uint64) (unspentOutputsDB OutputsByID) {
 	unspentOutputsDB = make(OutputsByID)
 	for address, outputs := range outputs {
 		for outputID, balances := range outputs {

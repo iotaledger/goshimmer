@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"bytes"
@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -43,13 +43,13 @@ const (
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Output struct {
-	transactionID utxo2.TransactionID
+	transactionID utxo.TransactionID
 	index         uint16
 
 	OutputEssence
 }
 
-func NewOutput(transactionID utxo2.TransactionID, index uint16, essence OutputEssence) *Output {
+func NewOutput(transactionID utxo.TransactionID, index uint16, essence OutputEssence) *Output {
 	return &Output{
 		transactionID: transactionID,
 		index:         index,
@@ -75,7 +75,7 @@ func (o *Output) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err erro
 	return nil
 }
 
-func (o *Output) TransactionID() (txID utxo2.TransactionID) {
+func (o *Output) TransactionID() (txID utxo.TransactionID) {
 	return o.transactionID
 }
 
@@ -90,13 +90,13 @@ func (o *Output) Index() (index uint16) {
 // OutputEssence is a generic interface for the different types of Outputs (with different unlock behaviors).
 type OutputEssence interface {
 	// ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
-	ID() utxo2.OutputID
+	ID() utxo.OutputID
 
 	// SetID allows to set the identifier of the OutputEssence. We offer a setter for the property since Outputs that are
 	// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 	// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 	// only accessed when the OutputEssence is supposed to be persisted.
-	SetID(outputID utxo2.OutputID)
+	SetID(outputID utxo.OutputID)
 
 	// Type returns the OutputType which allows us to generically handle Outputs of different types.
 	Type() OutputType
@@ -191,7 +191,7 @@ func OutputEssenceFromObjectStorage(key []byte, data []byte) (output objectstora
 		return nil, errors.Errorf("failed to parse OutputEssence from bytes: %w", err)
 	}
 
-	var outputID utxo2.OutputID
+	var outputID utxo.OutputID
 	if _, err = outputID.FromBytes(key); err != nil {
 		return nil, errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
@@ -254,7 +254,7 @@ func NewOutputs(optionalOutputs ...OutputEssence) (outputs Outputs) {
 	return
 }
 
-func OutputsFromUTXOOutputs(utxoOutputs []utxo2.Output) (outputs Outputs) {
+func OutputsFromUTXOOutputs(utxoOutputs []utxo.Output) (outputs Outputs) {
 	outputs = make(Outputs, len(utxoOutputs))
 	for i, utxoOutput := range utxoOutputs {
 		outputs[i] = utxoOutput.(OutputEssence)
@@ -299,10 +299,10 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	return
 }
 
-func (o Outputs) UTXOOutputs() (utxoOutputs []utxo2.Output) {
-	utxoOutputs = make([]utxo2.Output, len(o))
+func (o Outputs) UTXOOutputs() (utxoOutputs []utxo.Output) {
+	utxoOutputs = make([]utxo.Output, len(o))
 	for i, output := range o {
-		utxoOutputs[i] = output.(utxo2.Output)
+		utxoOutputs[i] = output.(utxo.Output)
 	}
 
 	return utxoOutputs
@@ -385,7 +385,7 @@ func (o Outputs) Strings() (result []string) {
 // region OutputsByID //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // OutputsByID represents a map of Outputs where every OutputEssence is stored with its corresponding OutputID as the key.
-type OutputsByID map[utxo2.OutputID]OutputEssence
+type OutputsByID map[utxo.OutputID]OutputEssence
 
 // NewOutputsByID returns a map of Outputs where every OutputEssence is stored with its corresponding OutputID as the key.
 func NewOutputsByID(optionalOutputs ...OutputEssence) (outputsByID OutputsByID) {
@@ -444,7 +444,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an OutputEssence that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	id      utxo2.OutputID
+	id      utxo.OutputID
 	idMutex sync.RWMutex
 	balance uint64
 	address Address
@@ -513,7 +513,7 @@ func (s *SigLockedSingleOutput) FromMarshalUtil(marshalUtil *marshalutil.Marshal
 }
 
 // ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
-func (s *SigLockedSingleOutput) ID() utxo2.OutputID {
+func (s *SigLockedSingleOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
@@ -524,7 +524,7 @@ func (s *SigLockedSingleOutput) ID() utxo2.OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the OutputEssence is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID utxo2.OutputID) {
+func (s *SigLockedSingleOutput) SetID(outputID utxo.OutputID) {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
@@ -582,7 +582,7 @@ func (s *SigLockedSingleOutput) Address() Address {
 
 // Input returns an Input that references the OutputEssence.
 func (s *SigLockedSingleOutput) Input() Input {
-	if s.ID() == (utxo2.OutputID{}) {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID yet cannot be converted to an Input")
 	}
 
@@ -649,7 +649,7 @@ var _ OutputEssence = new(SigLockedSingleOutput)
 // SigLockedColoredOutput is an OutputEssence that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	id       utxo2.OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address
@@ -710,7 +710,7 @@ func (s *SigLockedColoredOutput) FromMarshalUtil(marshalUtil *marshalutil.Marsha
 }
 
 // ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
-func (s *SigLockedColoredOutput) ID() utxo2.OutputID {
+func (s *SigLockedColoredOutput) ID() utxo.OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
@@ -721,7 +721,7 @@ func (s *SigLockedColoredOutput) ID() utxo2.OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the OutputEssence is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID utxo2.OutputID) {
+func (s *SigLockedColoredOutput) SetID(outputID utxo.OutputID) {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
@@ -775,7 +775,7 @@ func (s *SigLockedColoredOutput) Address() Address {
 
 // Input returns an Input that references the OutputEssence.
 func (s *SigLockedColoredOutput) Input() Input {
-	if s.ID() == (utxo2.OutputID{}) {
+	if s.ID() == (utxo.OutputID{}) {
 		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -871,7 +871,7 @@ const (
 // It can only be used in a chained manner.
 type AliasOutput struct {
 	// common for all outputs
-	outputID      utxo2.OutputID
+	outputID      utxo.OutputID
 	outputIDMutex sync.RWMutex
 	balances      *ColoredBalances
 
@@ -1267,7 +1267,7 @@ func (a *AliasOutput) clone() *AliasOutput {
 }
 
 // ID is the ID of the output.
-func (a *AliasOutput) ID() utxo2.OutputID {
+func (a *AliasOutput) ID() utxo.OutputID {
 	a.outputIDMutex.RLock()
 	defer a.outputIDMutex.RUnlock()
 
@@ -1275,7 +1275,7 @@ func (a *AliasOutput) ID() utxo2.OutputID {
 }
 
 // SetID set the output ID after unmarshalling.
-func (a *AliasOutput) SetID(outputID utxo2.OutputID) {
+func (a *AliasOutput) SetID(outputID utxo.OutputID) {
 	a.outputIDMutex.Lock()
 	defer a.outputIDMutex.Unlock()
 
@@ -1299,7 +1299,7 @@ func (a *AliasOutput) Address() Address {
 
 // Input makes input from the output.
 func (a *AliasOutput) Input() Input {
-	if a.ID() == (utxo2.OutputID{}) {
+	if a.ID() == (utxo.OutputID{}) {
 		panic("AliasOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 
@@ -1761,7 +1761,7 @@ var _ OutputEssence = new(AliasOutput)
 // - can be time locked until deadline
 // - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
-	id       utxo2.OutputID
+	id       utxo.OutputID
 	idMutex  sync.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
@@ -1915,7 +1915,7 @@ func (o *ExtendedLockedOutput) compressFlags() bitmask.BitMask {
 }
 
 // ID returns the identifier of the OutputEssence that is used to address the OutputEssence in the UTXODAG.
-func (o *ExtendedLockedOutput) ID() utxo2.OutputID {
+func (o *ExtendedLockedOutput) ID() utxo.OutputID {
 	o.idMutex.RLock()
 	defer o.idMutex.RUnlock()
 
@@ -1926,7 +1926,7 @@ func (o *ExtendedLockedOutput) ID() utxo2.OutputID {
 // created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
 // the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
 // only accessed when the OutputEssence is supposed to be persisted by the node.
-func (o *ExtendedLockedOutput) SetID(outputID utxo2.OutputID) {
+func (o *ExtendedLockedOutput) SetID(outputID utxo.OutputID) {
 	o.idMutex.Lock()
 	defer o.idMutex.Unlock()
 
@@ -1992,7 +1992,7 @@ func (o *ExtendedLockedOutput) FallbackAddress() (addy Address) {
 
 // Input returns an Input that references the OutputEssence.
 func (o *ExtendedLockedOutput) Input() Input {
-	if o.ID() == (utxo2.OutputID{}) {
+	if o.ID() == (utxo.OutputID{}) {
 		panic("ExtendedLockedOutput: Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
 	}
 

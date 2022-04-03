@@ -15,9 +15,10 @@ import (
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -313,7 +314,7 @@ func GetBranchSequenceIDs(c echo.Context) (err error) {
 	// }
 	//
 	// sequenceIDs := make([]string, 0)
-	// deps.Tangle.Booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
+	// deps.Tangle.booker.MarkersManager.SequenceAliasMapping(markers.NewSequenceAlias(branchID.Bytes())).Consume(func(sequenceAliasMapping *markers.SequenceAliasMapping) {
 	//	sequenceAliasMapping.ForEachSequenceID(func(sequenceID markers.SequenceID) bool {
 	//		sequenceIDs = append(sequenceIDs, strconv.FormatUint(uint64(sequenceID), 10))
 	//		return true

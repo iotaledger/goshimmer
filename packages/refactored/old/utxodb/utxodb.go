@@ -3,9 +3,10 @@ package utxodb
 import (
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vms/devnetvm"
+
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/refactored/old"
-	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // Supply returns supply of the instance.
@@ -14,7 +15,7 @@ func (u *UtxoDB) Supply() uint64 {
 }
 
 // IsConfirmed checks if the transaction is in the UTXODB ledger.
-func (u *UtxoDB) IsConfirmed(txid *utxo2.TransactionID) bool {
+func (u *UtxoDB) IsConfirmed(txid *utxo.TransactionID) bool {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 	_, ok := u.transactions[*txid]
@@ -22,7 +23,7 @@ func (u *UtxoDB) IsConfirmed(txid *utxo2.TransactionID) bool {
 }
 
 // GetOutput finds an output by ID (either spent or unspent).
-func (u *UtxoDB) GetOutput(outID utxo2.OutputID, f func(txvm.OutputEssence)) bool {
+func (u *UtxoDB) GetOutput(outID utxo.OutputID, f func(devnetvm.OutputEssence)) bool {
 	out, ok := u.utxo[outID]
 	if ok {
 		f(out)
@@ -37,9 +38,9 @@ func (u *UtxoDB) GetOutput(outID utxo2.OutputID, f func(txvm.OutputEssence)) boo
 }
 
 // GetOutputMetadata finds an output by ID and returns its (mocked) metadata.
-func (u *UtxoDB) GetOutputMetadata(outID utxo2.OutputID, f func(*old.OutputMetadata)) bool {
-	var out txvm.OutputEssence
-	u.GetOutput(outID, func(o txvm.OutputEssence) {
+func (u *UtxoDB) GetOutputMetadata(outID utxo.OutputID, f func(*old.OutputMetadata)) bool {
+	var out devnetvm.OutputEssence
+	u.GetOutput(outID, func(o devnetvm.OutputEssence) {
 		out = o
 	})
 	if out == nil {
@@ -57,12 +58,12 @@ func (u *UtxoDB) GetOutputMetadata(outID utxo2.OutputID, f func(*old.OutputMetad
 
 // AddTransaction adds transaction to UTXODB or return an error.
 // The function ensures consistency of the UTXODB ledger.
-func (u *UtxoDB) AddTransaction(tx *txvm.Transaction) error {
+func (u *UtxoDB) AddTransaction(tx *devnetvm.Transaction) error {
 	u.mutex.Lock()
 	defer u.mutex.Unlock()
 
 	// serialize/deserialize for proper semantic check
-	tx, err := new(txvm.Transaction).FromBytes(tx.Bytes())
+	tx, err := new(devnetvm.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return err
 	}
@@ -71,7 +72,7 @@ func (u *UtxoDB) AddTransaction(tx *txvm.Transaction) error {
 	}
 	// delete consumed (referenced) outputs from the ledger
 	for _, inp := range tx.Essence().Inputs() {
-		utxoInp := inp.(*txvm.UTXOInput)
+		utxoInp := inp.(*devnetvm.UTXOInput)
 
 		consumed, ok := u.findUnspentOutputByID(utxoInp.ReferencedOutputID())
 		if !ok {
@@ -91,7 +92,7 @@ func (u *UtxoDB) AddTransaction(tx *txvm.Transaction) error {
 }
 
 // GetTransaction retrieves value transaction by its hash (ID).
-func (u *UtxoDB) GetTransaction(id utxo2.TransactionID) (*txvm.Transaction, bool) {
+func (u *UtxoDB) GetTransaction(id utxo.TransactionID) (*devnetvm.Transaction, bool) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -99,14 +100,14 @@ func (u *UtxoDB) GetTransaction(id utxo2.TransactionID) (*txvm.Transaction, bool
 }
 
 // MustGetTransaction same as GetTransaction only panics if transaction is not in UTXODB.
-func (u *UtxoDB) MustGetTransaction(id utxo2.TransactionID) *txvm.Transaction {
+func (u *UtxoDB) MustGetTransaction(id utxo.TransactionID) *devnetvm.Transaction {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 	return u.mustGetTransaction(id)
 }
 
 // GetAddressOutputs returns unspent outputs contained in the address.
-func (u *UtxoDB) GetAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
+func (u *UtxoDB) GetAddressOutputs(addr devnetvm.Address) []devnetvm.OutputEssence {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -114,11 +115,11 @@ func (u *UtxoDB) GetAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
 }
 
 // GetAddressBalances return all colored balances of the address.
-func (u *UtxoDB) GetAddressBalances(addr txvm.Address) map[txvm.Color]uint64 {
-	ret := make(map[txvm.Color]uint64)
+func (u *UtxoDB) GetAddressBalances(addr devnetvm.Address) map[devnetvm.Color]uint64 {
+	ret := make(map[devnetvm.Color]uint64)
 	outputs := u.GetAddressOutputs(addr)
 	for _, out := range outputs {
-		out.Balances().ForEach(func(col txvm.Color, bal uint64) bool {
+		out.Balances().ForEach(func(col devnetvm.Color, bal uint64) bool {
 			s := ret[col]
 			ret[col] = s + bal
 			return true
@@ -128,19 +129,19 @@ func (u *UtxoDB) GetAddressBalances(addr txvm.Address) map[txvm.Color]uint64 {
 }
 
 // Balance returns balances of specific color.
-func (u *UtxoDB) Balance(addr txvm.Address, color txvm.Color) uint64 {
+func (u *UtxoDB) Balance(addr devnetvm.Address, color devnetvm.Color) uint64 {
 	bals := u.GetAddressBalances(addr)
 	ret := bals[color]
 	return ret
 }
 
 // BalanceIOTA number of iotas in the address.
-func (u *UtxoDB) BalanceIOTA(addr txvm.Address) uint64 {
-	return u.Balance(addr, txvm.ColorIOTA)
+func (u *UtxoDB) BalanceIOTA(addr devnetvm.Address) uint64 {
+	return u.Balance(addr, devnetvm.ColorIOTA)
 }
 
 // CollectUnspentOutputsFromInputs returns unspent outputs by inputs of the transaction.
-func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.OutputEssence, error) {
+func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *devnetvm.TransactionEssence) ([]devnetvm.OutputEssence, error) {
 	u.mutex.RLock()
 	defer u.mutex.RUnlock()
 
@@ -148,7 +149,7 @@ func (u *UtxoDB) CollectUnspentOutputsFromInputs(essence *txvm.TransactionEssenc
 }
 
 // CheckNewTransaction checks consistency of the transaction the same way as ledgerstate.
-func (u *UtxoDB) CheckNewTransaction(tx *txvm.Transaction, lock ...bool) error {
+func (u *UtxoDB) CheckNewTransaction(tx *devnetvm.Transaction, lock ...bool) error {
 	if len(lock) > 0 && lock[0] {
 		u.mutex.RLock()
 		defer u.mutex.RUnlock()
@@ -157,21 +158,21 @@ func (u *UtxoDB) CheckNewTransaction(tx *txvm.Transaction, lock ...bool) error {
 	if err != nil {
 		return err
 	}
-	if !txvm.TransactionBalancesValid(inputs, tx.Essence().Outputs()) {
+	if !devnetvm.TransactionBalancesValid(inputs, tx.Essence().Outputs()) {
 		return xerrors.Errorf("sum of consumed and spent balances is not 0")
 	}
-	if ok, err := txvm.UnlockBlocksValidWithError(inputs, tx); !ok || err != nil {
+	if ok, err := devnetvm.UnlockBlocksValidWithError(inputs, tx); !ok || err != nil {
 		return xerrors.Errorf("CheckNewTransaction: input unlocking failed: %v", err)
 	}
 	return nil
 }
 
 // GetAliasOutputs collects all outputs of type ledgerstate.AliasOutput for the transaction.
-func (u *UtxoDB) GetAliasOutputs(addr txvm.Address) []*txvm.AliasOutput {
+func (u *UtxoDB) GetAliasOutputs(addr devnetvm.Address) []*devnetvm.AliasOutput {
 	outs := u.GetAddressOutputs(addr)
-	ret := make([]*txvm.AliasOutput, 0)
+	ret := make([]*devnetvm.AliasOutput, 0)
 	for _, out := range outs {
-		if o, ok := out.(*txvm.AliasOutput); ok {
+		if o, ok := out.(*devnetvm.AliasOutput); ok {
 			ret = append(ret, o)
 		}
 	}
@@ -179,19 +180,19 @@ func (u *UtxoDB) GetAliasOutputs(addr txvm.Address) []*txvm.AliasOutput {
 }
 
 // findUnspentOutputByID returns unspent output with existence flag.
-func (u *UtxoDB) findUnspentOutputByID(id utxo2.OutputID) (txvm.OutputEssence, bool) {
+func (u *UtxoDB) findUnspentOutputByID(id utxo.OutputID) (devnetvm.OutputEssence, bool) {
 	if out, ok := u.utxo[id]; ok {
 		return out, true
 	}
 	return nil, false
 }
 
-func (u *UtxoDB) getTransaction(id utxo2.TransactionID) (*txvm.Transaction, bool) {
+func (u *UtxoDB) getTransaction(id utxo.TransactionID) (*devnetvm.Transaction, bool) {
 	tx, ok := u.transactions[id]
 	return tx, ok
 }
 
-func (u *UtxoDB) mustGetTransaction(id utxo2.TransactionID) *txvm.Transaction {
+func (u *UtxoDB) mustGetTransaction(id utxo.TransactionID) *devnetvm.Transaction {
 	tx, ok := u.transactions[id]
 	if !ok {
 		panic(xerrors.Errorf("utxodb.mustGetTransaction: tx id doesn't exist: %s", id.String()))
@@ -199,9 +200,9 @@ func (u *UtxoDB) mustGetTransaction(id utxo2.TransactionID) *txvm.Transaction {
 	return tx
 }
 
-func (u *UtxoDB) getAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
+func (u *UtxoDB) getAddressOutputs(addr devnetvm.Address) []devnetvm.OutputEssence {
 	addrArr := addr.Array()
-	ret := make([]txvm.OutputEssence, 0)
+	ret := make([]devnetvm.OutputEssence, 0)
 	for _, out := range u.utxo {
 		if out.Address().Array() == addrArr {
 			ret = append(ret, out)
@@ -210,13 +211,13 @@ func (u *UtxoDB) getAddressOutputs(addr txvm.Address) []txvm.OutputEssence {
 	return ret
 }
 
-func (u *UtxoDB) getOutputTotal(outid utxo2.OutputID) (uint64, error) {
+func (u *UtxoDB) getOutputTotal(outid utxo.OutputID) (uint64, error) {
 	out, ok := u.utxo[outid]
 	if !ok {
 		return 0, xerrors.Errorf("getOutputTotal: no such output: %s", outid.String())
 	}
 	ret := uint64(0)
-	out.Balances().ForEach(func(_ txvm.Color, bal uint64) bool {
+	out.Balances().ForEach(func(_ devnetvm.Color, bal uint64) bool {
 		ret += bal
 		return true
 	})
@@ -237,13 +238,13 @@ func (u *UtxoDB) checkLedgerBalance() {
 	}
 }
 
-func (u *UtxoDB) collectUnspentOutputsFromInputs(essence *txvm.TransactionEssence) ([]txvm.OutputEssence, error) {
-	ret := make([]txvm.OutputEssence, len(essence.Inputs()))
+func (u *UtxoDB) collectUnspentOutputsFromInputs(essence *devnetvm.TransactionEssence) ([]devnetvm.OutputEssence, error) {
+	ret := make([]devnetvm.OutputEssence, len(essence.Inputs()))
 	for i, inp := range essence.Inputs() {
-		if inp.Type() != txvm.UTXOInputType {
+		if inp.Type() != devnetvm.UTXOInputType {
 			return nil, xerrors.New("CollectUnspentOutputsFromInputs: wrong input type")
 		}
-		utxoInp := inp.(*txvm.UTXOInput)
+		utxoInp := inp.(*devnetvm.UTXOInput)
 		var ok bool
 		oid := utxoInp.ReferencedOutputID()
 		if ret[i], ok = u.findUnspentOutputByID(oid); !ok {

@@ -19,9 +19,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 // region UTXODAG //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -32,14 +30,14 @@ type UTXODAG struct {
 	events *UTXODAGEvents
 
 	ledgerstate *Ledger
-	vm          utxo2.VM
+	vm          utxo.VM
 
 	addressOutputMappingStorage *objectstorage.ObjectStorage[*AddressOutputMapping]
 	shutdownOnce                sync.Once
 }
 
 // NewUTXODAG create a new UTXODAG from the given details.
-func NewUTXODAG(ledgerstate *Ledger, vm utxo2.VM) (utxoDAG *UTXODAG) {
+func NewUTXODAG(ledgerstate *Ledger, vm utxo.VM) (utxoDAG *UTXODAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
@@ -47,9 +45,9 @@ func NewUTXODAG(ledgerstate *Ledger, vm utxo2.VM) (utxoDAG *UTXODAG) {
 		},
 		ledgerstate:                 ledgerstate,
 		vm:                          vm,
-		transactionStorage:          objectstorage.New[utxo2.Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}), options.transactionStorageOptions...),
+		transactionStorage:          objectstorage.New[utxo.Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}), options.transactionStorageOptions...),
 		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
-		outputStorage:               objectstorage.New[utxo2.Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}), options.outputStorageOptions...),
+		outputStorage:               objectstorage.New[utxo.Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}), options.outputStorageOptions...),
 		outputMetadataStorage:       objectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
 		consumerStorage:             objectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixConsumerStorage}), options.consumerStorageOptions...),
 		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedger, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),
@@ -75,7 +73,7 @@ func (u *UTXODAG) Shutdown() {
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-func (u *UTXODAG) CheckTransaction(transaction utxo2.Transaction) (err error) {
+func (u *UTXODAG) CheckTransaction(transaction utxo.Transaction) (err error) {
 	inputs, allAvailable, err := u.vm.ResolveInput(transaction.Inputs()...)
 	if err != nil {
 		return errors.Errorf("failed to resolve inputs of Transaction with %s: %w", transaction.ID(), cerrors.ErrFatal)
@@ -103,7 +101,7 @@ func (u *UTXODAG) CheckTransaction(transaction utxo2.Transaction) (err error) {
 }
 
 // TransactionBranchIDs returns the BranchIDs of the given Transaction.
-func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag2.BranchIDs, err error) {
+func (u *UTXODAG) TransactionBranchIDs(transactionID TransactionID) (branchIDs branchdag.BranchIDs, err error) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		branchIDs = transactionMetadata.BranchIDs()
 	}) {
@@ -140,8 +138,8 @@ func (u *UTXODAG) TransactionGradeOfFinality(transactionID TransactionID) (grade
 }
 
 // BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-func (u *UTXODAG) BranchGradeOfFinality(branchID branchdag2.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == branchdag2.MasterBranchID {
+func (u *UTXODAG) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == branchdag.MasterBranchID {
 		return gof.High, nil
 	}
 
@@ -197,7 +195,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 
 			// store OutputMetadata
 			metadata := NewOutputMetadata(output.ID())
-			metadata.AddBranchID(branchdag2.MasterBranchID)
+			metadata.AddBranchID(branchdag.MasterBranchID)
 			metadata.SetSolid(true)
 			metadata.SetGradeOfFinality(gof.High)
 			cachedMetadata, stored := u.outputMetadataStorage.StoreIfAbsent(metadata)
@@ -209,7 +207,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 		// store TransactionMetadata
 		txMetadata := NewTransactionMetadata(txID)
 		txMetadata.SetSolid(true)
-		txMetadata.AddBranchID(branchdag2.MasterBranchID)
+		txMetadata.AddBranchID(branchdag.MasterBranchID)
 		txMetadata.SetGradeOfFinality(gof.High)
 
 		u.transactionMetadataStorage.ComputeIfAbsent(txID.Bytes(), func(key []byte) *TransactionMetadata {
@@ -253,7 +251,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 		// Because we are forking the transaction, automatically all the outputs and the transaction itself need to go
 		// into the newly forked branch (own branch) and override all other existing branches. These are now mapped via
 		// the BranchDAG (parents of forked branch).
-		forkedBranchIDs := branchdag2.NewBranchIDs(forkedBranchID)
+		forkedBranchIDs := branchdag.NewBranchIDs(forkedBranchID)
 		outputIds := u.createdOutputIDsOfTransaction(transactionID)
 		for _, outputID := range outputIds {
 			if !u.CachedOutputMetadata(outputID).Consume(func(outputMetadata *OutputMetadata) {
@@ -279,7 +277,7 @@ func (u *UTXODAG) forkConsumer(transactionID TransactionID, conflictingInputs Ou
 
 // propagateBranch is an internal utility function that propagates changes in the perception of the BranchDAG
 // after introducing a new Branch.
-func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID branchdag2.BranchID) (updatedOutputs []OutputID) {
+func (u *UTXODAG) propagateBranch(transactionID TransactionID, forkedBranchID branchdag.BranchID) (updatedOutputs []OutputID) {
 	if !u.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *TransactionMetadata) {
 		if transactionMetadata.IsConflicting() {
 			for transactionBranchID := range transactionMetadata.BranchIDs() {
@@ -329,7 +327,7 @@ func (u *UTXODAG) ConsumedOutputs(transaction *Transaction) (cachedInputs object
 
 // outputsMetadata is an internal utility function that returns the Metadata of the Outputs that are used as
 // Inputs by the given Transaction.
-func (u *UTXODAG) outputsMetadata(outputs []utxo2.Output) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+func (u *UTXODAG) outputsMetadata(outputs []utxo.Output) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
 	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], 0)
 	for _, output := range outputs {
 		cachedOutputsMetadata = append(cachedOutputsMetadata, u.CachedOutputMetadata(output.ID()))
@@ -340,7 +338,7 @@ func (u *UTXODAG) outputsMetadata(outputs []utxo2.Output) (cachedOutputsMetadata
 
 // consumedOutputsPastConeValid is an internal utility function that checks if the given Outputs do not directly or
 // indirectly reference each other in their own past cone.
-func (u *UTXODAG) consumedOutputsPastConeValid(outputs []utxo2.Output, outputsMetadata OutputsMetadata) (pastConeValid bool) {
+func (u *UTXODAG) consumedOutputsPastConeValid(outputs []utxo.Output, outputsMetadata OutputsMetadata) (pastConeValid bool) {
 	if u.outputsUnspent(outputsMetadata) {
 		pastConeValid = true
 		return
@@ -490,7 +488,7 @@ type UTXODAGEvents struct {
 
 // TransactionIDEventHandler is an event handler for an event with a TransactionID.
 func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(utxo2.TransactionID))(params[0].(utxo2.TransactionID))
+	handler.(func(utxo.TransactionID))(params[0].(utxo.TransactionID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -500,8 +498,8 @@ func TransactionIDEventHandler(handler interface{}, params ...interface{}) {
 // TransactionBranchIDUpdatedByForkEvent is an event that gets triggered, whenever the BranchID of a Transaction is
 // changed.
 type TransactionBranchIDUpdatedByForkEvent struct {
-	TransactionID  utxo2.TransactionID
-	ForkedBranchID branchdag2.BranchID
+	TransactionID  utxo.TransactionID
+	ForkedBranchID branchdag.BranchID
 }
 
 // TransactionBranchIDUpdatedByForkEventHandler is an event handler for an event with a
@@ -518,7 +516,7 @@ func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ..
 // potentially unbounded amount of Outputs, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the OutputEssence.
 type AddressOutputMapping struct {
-	address  txvm.Address
+	address  devnetvm.Address
 	outputID OutputID
 
 	objectstorage.StorableObjectFlags

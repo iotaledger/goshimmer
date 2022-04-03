@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"bytes"

@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////

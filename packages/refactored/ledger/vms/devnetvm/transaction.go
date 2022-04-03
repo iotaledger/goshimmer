@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 

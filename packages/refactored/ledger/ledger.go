@@ -6,95 +6,71 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Ledger is an implementation of a "realities-ledger" that manages Outputs according to the principles of the
+// quadruple-entry accounting. It acts as a wrapper for the underlying components and exposes the public facing API.
 type Ledger struct {
-	TransactionStoredEvent          *event.Event[*TransactionStoredEvent]
-	TransactionBookedEvent          *event.Event[*TransactionBookedEvent]
-	TransactionForkedEvent          *event.Event[*TransactionForkedEvent]
-	TransactionBranchIDUpdatedEvent *event.Event[*TransactionBranchIDUpdatedEvent]
-	ErrorEvent                      *event.Event[error]
+	Events    *Events
+	Options   *Options
+	BranchDAG *branchdag.BranchDAG
+	Storage   *storage
 
-	*DataFlow
-	*Storage
-	*Validator
-	*Booker
-	*Options
-	*Utils
-
-	*branchdag.BranchDAG
-	*syncutils.DAGMutex[utxo.TransactionID]
+	dataFlow  *dataFlow
+	validator *validator
+	booker    *booker
+	utils     *utils
+	mutex     *syncutils.DAGMutex[utxo.TransactionID]
 }
 
-func New(store kvstore.KVStore, vm utxo.VM, options ...Option) (ledger *Ledger) {
+func New(options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
-		TransactionStoredEvent:          event.New[*TransactionStoredEvent](),
-		TransactionBookedEvent:          event.New[*TransactionBookedEvent](),
-		TransactionForkedEvent:          event.New[*TransactionForkedEvent](),
-		TransactionBranchIDUpdatedEvent: event.New[*TransactionBranchIDUpdatedEvent](),
-		ErrorEvent:                      event.New[error](),
-
-		BranchDAG: branchdag.NewBranchDAG(store, database.NewCacheTimeProvider(0)),
-		DAGMutex:  syncutils.NewDAGMutex[utxo.TransactionID](),
+		Events:  NewEvents(),
+		Options: NewOptions(options...),
+		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.Configure(options...)
-	ledger.DataFlow = NewDataFlow(ledger)
-	ledger.Storage = NewStorage(ledger)
-	ledger.Validator = NewValidator(ledger, vm)
-	ledger.Booker = NewBooker(ledger)
-	ledger.Utils = NewUtils(ledger)
-	ledger.setup()
+	ledger.BranchDAG = branchdag.NewBranchDAG(ledger.Options.Store, ledger.Options.CacheTimeProvider)
+	ledger.Storage = newStorage(ledger)
+	ledger.dataFlow = newDataFlow(ledger)
+	ledger.validator = newValidator(ledger)
+	ledger.booker = newBooker(ledger)
+	ledger.utils = newUtils(ledger)
+
+	ledger.Events.TransactionBooked.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
+		ledger.processConsumingTransactions(event.Outputs.IDs())
+	}))
 
 	return ledger
 }
 
-func (l *Ledger) Configure(options ...Option) {
-	if l.Options == nil {
-		l.Options = &Options{
-			Store:              mapdb.NewMapDB(),
-			CacheTimeProvider:  database.NewCacheTimeProvider(0),
-			LazyBookingEnabled: true,
-		}
-	}
-
-	for _, option := range options {
-		option(l.Options)
-	}
+func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
+	return l.dataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+	l.mutex.Lock(tx.ID())
+	defer l.mutex.Unlock(tx.ID())
 
-	return l.DataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
-}
-
-func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
-	return l.DataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
-}
-
-func (l *Ledger) setup() {
-	l.TransactionBookedEvent.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
-		l.processConsumingTransactions(event.Outputs.IDs())
-	}))
+	return l.dataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
 }
 
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
-	l.Lock(tx.ID())
-	defer l.Unlock(tx.ID())
+	l.mutex.Lock(tx.ID())
+	defer l.mutex.Unlock(tx.ID())
 
-	return l.DataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
+	return l.dataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
 }
 
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
-	for it := l.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
-		go l.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
+	for it := l.utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
+		consumingTransactionID := it.Next()
+		go l.Storage.CachedTransaction(consumingTransactionID).Consume(func(tx *Transaction) {
 			_ = l.processTransaction(tx)
 		})
 	}
@@ -104,37 +80,51 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Options is a container for all configurable parameters of the Ledger.
+type Options struct {
+	Store             kvstore.KVStore
+	CacheTimeProvider *database.CacheTimeProvider
+	VM                utxo.VM
+}
+
+func NewOptions(options ...Option) (new *Options) {
+	return (&Options{
+		Store:             mapdb.NewMapDB(),
+		CacheTimeProvider: database.NewCacheTimeProvider(0),
+		VM:                NewMockedVM(),
+	}).Apply(options...)
+}
+
+func (o *Options) Apply(options ...Option) (self *Options) {
+	for _, option := range options {
+		option(o)
+	}
+
+	return o
+}
+
 // Option represents the return type of optional parameters that can be handed into the constructor of the Ledger
 // to configure its behavior.
 type Option func(*Options)
 
-// Options is a container for all configurable parameters of the Ledger.
-type Options struct {
-	Store              kvstore.KVStore
-	CacheTimeProvider  *database.CacheTimeProvider
-	LazyBookingEnabled bool
-}
-
-// Store is an Option for the Ledger that allows to specify which storage layer is supposed to be used to persist
+// WithStore is an Option for the Ledger that allows to specify which storage layer is supposed to be used to persist
 // data.
-func Store(store kvstore.KVStore) Option {
+func WithStore(store kvstore.KVStore) Option {
 	return func(options *Options) {
 		options.Store = store
 	}
 }
 
-// CacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
-func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
+// WithCacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
+func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *Options) {
 		options.CacheTimeProvider = cacheTimeProvider
 	}
 }
 
-// LazyBookingEnabled is an Option for the Ledger that allows to specify if the ledger state should lazy book
-// conflicts that look like they have been decided already.
-func LazyBookingEnabled(enabled bool) Option {
+func WithVM(vm utxo.VM) Option {
 	return func(options *Options) {
-		options.LazyBookingEnabled = enabled
+		options.VM = vm
 	}
 }
 

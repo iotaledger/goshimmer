@@ -4,8 +4,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/database"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -135,7 +136,7 @@ func (t *Tangle) Setup() {
 	}))
 
 	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
+		t.Events.Error.Trigger(errors.Errorf("error in booker: %w", err))
 	}))
 
 	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {

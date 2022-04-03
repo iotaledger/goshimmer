@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"encoding/binary"
@@ -9,8 +9,8 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/refactored/types"
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
 )
 
 // Snapshot defines a snapshot of the ledger state.

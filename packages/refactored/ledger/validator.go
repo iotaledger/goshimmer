@@ -7,28 +7,25 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
-type Validator struct {
+type validator struct {
 	*Ledger
-
-	vm utxo2.VM
 }
 
-func NewValidator(ledger *Ledger, vm utxo2.VM) (new *Validator) {
-	return &Validator{
+func newValidator(ledger *Ledger) (new *validator) {
+	return &validator{
 		Ledger: ledger,
-		vm:     vm,
 	}
 }
 
-func (v *Validator) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	if params.InputIDs.IsEmpty() {
-		params.InputIDs = v.resolveInputs(params.Transaction.Inputs())
+		params.InputIDs = v.utils.resolveInputs(params.Transaction.Inputs())
 	}
 
-	cachedInputs := v.CachedOutputs(params.InputIDs)
+	cachedInputs := v.Storage.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
 	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
 		return errors.Errorf("not all outputs of %s available: %w", params.Transaction.ID(), ErrTransactionUnsolid)
@@ -37,8 +34,8 @@ func (v *Validator) checkSolidityCommand(params *dataFlowParams, next dataflow.N
 	return next(params)
 }
 
-func (v *Validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	cachedOutputsMetadata := v.CachedOutputsMetadata(params.InputIDs)
+func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	cachedOutputsMetadata := v.Storage.CachedOutputsMetadata(params.InputIDs)
 	defer cachedOutputsMetadata.Release()
 
 	params.InputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap(true)...)
@@ -53,8 +50,8 @@ func (v *Validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 	return next(params)
 }
 
-func (v *Validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	utxoOutputs, err := v.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
+func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+	utxoOutputs, err := v.Options.VM.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
@@ -64,17 +61,13 @@ func (v *Validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 	return next(params)
 }
 
-func (v *Validator) resolveInputs(inputs []utxo2.Input) (outputIDs utxo2.OutputIDs) {
-	return utxo2.NewOutputIDs(generics.Map(inputs, v.vm.ResolveInput)...)
-}
-
-func (v *Validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
+func (v *validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
 	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).Spent).IDs()
 	if spentOutputIDs.Size() == 0 {
 		return false
 	}
 
-	v.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo2.OutputID]) {
+	v.utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		if !txMetadata.Booked() {
 			return
 		}

@@ -3,43 +3,43 @@ package ledger
 import (
 	"github.com/iotaledger/hive.go/generics/dataflow"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
-type DataFlow struct {
+type dataFlow struct {
 	*Ledger
 }
 
-func NewDataFlow(ledger *Ledger) *DataFlow {
-	return &DataFlow{
+func newDataFlow(ledger *Ledger) *dataFlow {
+	return &dataFlow{
 		ledger,
 	}
 }
 
-func (d *DataFlow) storeAndProcessTransaction() *dataflow.DataFlow[*dataFlowParams] {
+func (d *dataFlow) storeAndProcessTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
-		d.storeTransactionCommand,
+		d.Storage.storeTransactionCommand,
 		d.processTransaction().ChainedCommand,
 	)
 }
 
-func (d *DataFlow) processTransaction() *dataflow.DataFlow[*dataFlowParams] {
+func (d *dataFlow) processTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
-		d.checkAlreadyBookedCommand,
+		d.booker.checkAlreadyBookedCommand,
 		d.checkTransaction().ChainedCommand,
-		d.bookTransactionCommand,
+		d.booker.bookTransactionCommand,
 	).WithErrorCallback(func(err error, params *dataFlowParams) {
-		d.ErrorEvent.Trigger(err)
+		d.Events.Error.Trigger(err)
 
 		// TODO: mark Transaction as invalid and trigger invalid event
 	})
 }
 
-func (d *DataFlow) checkTransaction() *dataflow.DataFlow[*dataFlowParams] {
+func (d *dataFlow) checkTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	return dataflow.New[*dataFlowParams](
-		d.checkSolidityCommand,
-		d.checkOutputsCausallyRelatedCommand,
-		d.checkTransactionExecutionCommand,
+		d.validator.checkSolidityCommand,
+		d.validator.checkOutputsCausallyRelatedCommand,
+		d.validator.checkTransactionExecutionCommand,
 	)
 }
 

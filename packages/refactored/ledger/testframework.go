@@ -8,15 +8,14 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/generics"
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +29,7 @@ type TestFramework struct {
 
 func NewTestFramework(options ...Option) (new *TestFramework) {
 	new = &TestFramework{
-		Ledger: New(mapdb.NewMapDB(), NewMockedVM(), options...),
+		Ledger: New(options...),
 
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
@@ -44,8 +43,8 @@ func NewTestFramework(options ...Option) (new *TestFramework) {
 	genesisOutput.ID().RegisterAlias("Genesis")
 	new.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 
-	new.Ledger.outputStorage.Store(genesisOutput).Release()
-	new.Ledger.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+	new.Ledger.Storage.outputStorage.Store(genesisOutput).Release()
+	new.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 	return new
 }
@@ -124,12 +123,12 @@ func (t *TestFramework) AssertBranchIDs(testing *testing.T, expectedBranches map
 
 		expectedBranchIDs := t.BranchIDs(expectedBranchAliases...)
 
-		assert.True(testing, t.Ledger.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
+		assert.True(testing, t.Ledger.Storage.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
 			assert.Truef(testing, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())
 		}))
 
 		for i := uint16(0); i < currentTx.outputCount; i++ {
-			assert.True(testing, t.Ledger.CachedOutputMetadata(utxo.NewOutputID(currentTx.ID(), i, []byte(""))).Consume(func(outputMetadata *OutputMetadata) {
+			assert.True(testing, t.Ledger.Storage.CachedOutputMetadata(utxo.NewOutputID(currentTx.ID(), i, []byte(""))).Consume(func(outputMetadata *OutputMetadata) {
 				assert.Truef(testing, expectedBranchIDs.Equal(outputMetadata.BranchIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedBranchIDs, outputMetadata.BranchIDs())
 			}))
 		}

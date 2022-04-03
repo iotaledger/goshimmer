@@ -8,8 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	utxo2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	txvm2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/vms/txvm"
 )
 
 const (
@@ -21,17 +21,17 @@ const (
 	RequestFundsAmount = 1000000 // 1Mi
 )
 
-var essenceVersion = txvm.TransactionEssenceVersion(0)
+var essenceVersion = txvm2.TransactionEssenceVersion(0)
 
 // UtxoDB is the structure which contains all UTXODB transactions and ledger.
 type UtxoDB struct {
 	seed            *ed25519.Seed
 	supply          uint64
 	genesisKeyPair  *ed25519.KeyPair
-	genesisAddress  txvm.Address
-	transactions    map[utxo2.TransactionID]*txvm.Transaction
-	utxo            map[utxo2.OutputID]txvm.OutputEssence
-	consumedOutputs map[utxo2.OutputID]txvm.OutputEssence
+	genesisAddress  txvm2.Address
+	transactions    map[utxo2.TransactionID]*txvm2.Transaction
+	utxo            map[utxo2.OutputID]txvm2.OutputEssence
+	consumedOutputs map[utxo2.OutputID]txvm2.OutputEssence
 	consumedBy      map[utxo2.OutputID]utxo2.TransactionID
 	mutex           *sync.RWMutex
 	genesisTxID     utxo2.TransactionID
@@ -40,15 +40,15 @@ type UtxoDB struct {
 // New creates new UTXODB instance.
 func newUtxodb(seed *ed25519.Seed, supply uint64, timestamp time.Time) *UtxoDB {
 	genesisKeyPair := seed.KeyPair(uint64(genesisIndex))
-	genesisAddress := txvm.NewED25519Address(genesisKeyPair.PublicKey)
+	genesisAddress := txvm2.NewED25519Address(genesisKeyPair.PublicKey)
 	u := &UtxoDB{
 		seed:            seed,
 		supply:          supply,
 		genesisKeyPair:  genesisKeyPair,
 		genesisAddress:  genesisAddress,
-		transactions:    make(map[utxo2.TransactionID]*txvm.Transaction),
-		utxo:            make(map[utxo2.OutputID]txvm.OutputEssence),
-		consumedOutputs: make(map[utxo2.OutputID]txvm.OutputEssence),
+		transactions:    make(map[utxo2.TransactionID]*txvm2.Transaction),
+		utxo:            make(map[utxo2.OutputID]txvm2.OutputEssence),
+		consumedOutputs: make(map[utxo2.OutputID]txvm2.OutputEssence),
 		consumedBy:      make(map[utxo2.OutputID]utxo2.TransactionID),
 		mutex:           &sync.RWMutex{},
 	}
@@ -86,20 +86,20 @@ func NewRandom(supply ...uint64) *UtxoDB {
 }
 
 // NewKeyPairByIndex creates key pair and address generated from the seed and the index.
-func (u *UtxoDB) NewKeyPairByIndex(index int) (*ed25519.KeyPair, *txvm.ED25519Address) {
+func (u *UtxoDB) NewKeyPairByIndex(index int) (*ed25519.KeyPair, *txvm2.ED25519Address) {
 	kp := u.seed.KeyPair(uint64(index))
-	return kp, txvm.NewED25519Address(kp.PublicKey)
+	return kp, txvm2.NewED25519Address(kp.PublicKey)
 }
 
 func (u *UtxoDB) genesisInit(timestamp time.Time) {
 	// create genesis transaction
-	inputs := txvm.NewInputs(txvm.NewUTXOInput(utxo2.NewOutputID(utxo2.TransactionID{}, 0, []byte(""))))
-	output := txvm.NewSigLockedSingleOutput(defaultSupply, u.GetGenesisAddress())
-	outputs := txvm.NewOutputs(output)
-	essence := txvm.NewTransactionEssence(essenceVersion, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
-	signature := txvm.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
-	unlockBlock := txvm.NewSignatureUnlockBlock(signature)
-	genesisTx := txvm.NewTransaction(essence, txvm.UnlockBlocks{unlockBlock})
+	inputs := txvm2.NewInputs(txvm2.NewUTXOInput(utxo2.NewOutputID(utxo2.TransactionID{}, 0, []byte(""))))
+	output := txvm2.NewSigLockedSingleOutput(defaultSupply, u.GetGenesisAddress())
+	outputs := txvm2.NewOutputs(output)
+	essence := txvm2.NewTransactionEssence(essenceVersion, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
+	signature := txvm2.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
+	unlockBlock := txvm2.NewSignatureUnlockBlock(signature)
+	genesisTx := txvm2.NewTransaction(essence, txvm2.UnlockBlocks{unlockBlock})
 
 	u.genesisTxID = genesisTx.ID()
 	u.transactions[u.genesisTxID] = genesisTx
@@ -116,28 +116,28 @@ func (u *UtxoDB) GetGenesisKeyPair() *ed25519.KeyPair {
 }
 
 // GetGenesisAddress return address of genesis.
-func (u *UtxoDB) GetGenesisAddress() txvm.Address {
+func (u *UtxoDB) GetGenesisAddress() txvm2.Address {
 	return u.genesisAddress
 }
 
-func (u *UtxoDB) mustRequestFundsTx(target txvm.Address, timestamp time.Time) *txvm.Transaction {
+func (u *UtxoDB) mustRequestFundsTx(target txvm2.Address, timestamp time.Time) *txvm2.Transaction {
 	sourceOutputs := u.GetAddressOutputs(u.GetGenesisAddress())
 	if len(sourceOutputs) != 1 {
 		panic("number of genesis outputs must be 1")
 	}
-	remainder, _ := sourceOutputs[0].Balances().Get(txvm.ColorIOTA)
-	o1 := txvm.NewSigLockedSingleOutput(RequestFundsAmount, target)
-	o2 := txvm.NewSigLockedSingleOutput(remainder-RequestFundsAmount, u.GetGenesisAddress())
-	outputs := txvm.NewOutputs(o1, o2)
-	inputs := txvm.NewInputs(txvm.NewUTXOInput(sourceOutputs[0].ID()))
-	essence := txvm.NewTransactionEssence(0, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
-	signature := txvm.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
-	unlockBlocks := []txvm.UnlockBlock{txvm.NewSignatureUnlockBlock(signature)}
-	return txvm.NewTransaction(essence, unlockBlocks)
+	remainder, _ := sourceOutputs[0].Balances().Get(txvm2.ColorIOTA)
+	o1 := txvm2.NewSigLockedSingleOutput(RequestFundsAmount, target)
+	o2 := txvm2.NewSigLockedSingleOutput(remainder-RequestFundsAmount, u.GetGenesisAddress())
+	outputs := txvm2.NewOutputs(o1, o2)
+	inputs := txvm2.NewInputs(txvm2.NewUTXOInput(sourceOutputs[0].ID()))
+	essence := txvm2.NewTransactionEssence(0, timestamp, identity.ID{}, identity.ID{}, inputs, outputs)
+	signature := txvm2.NewED25519Signature(u.genesisKeyPair.PublicKey, u.genesisKeyPair.PrivateKey.Sign(essence.Bytes()))
+	unlockBlocks := []txvm2.UnlockBlock{txvm2.NewSignatureUnlockBlock(signature)}
+	return txvm2.NewTransaction(essence, unlockBlocks)
 }
 
 // RequestFunds implements faucet: it sends 1337 IOTA tokens from genesis to the given address.
-func (u *UtxoDB) RequestFunds(target txvm.Address, timestamp ...time.Time) (*txvm.Transaction, error) {
+func (u *UtxoDB) RequestFunds(target txvm2.Address, timestamp ...time.Time) (*txvm2.Transaction, error) {
 	t := time.Now()
 	if len(timestamp) > 0 {
 		t = timestamp[0]

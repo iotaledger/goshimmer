@@ -1,9 +1,29 @@
 package ledger
 
 import (
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/hive.go/generics/event"
+
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
+
+type Events struct {
+	TransactionStored          *event.Event[*TransactionStoredEvent]
+	TransactionBooked          *event.Event[*TransactionBookedEvent]
+	TransactionForked          *event.Event[*TransactionForkedEvent]
+	TransactionBranchIDUpdated *event.Event[*TransactionBranchIDUpdatedEvent]
+	Error                      *event.Event[error]
+}
+
+func NewEvents() (new *Events) {
+	return &Events{
+		TransactionStored:          event.New[*TransactionStoredEvent](),
+		TransactionBooked:          event.New[*TransactionBookedEvent](),
+		TransactionForked:          event.New[*TransactionForkedEvent](),
+		TransactionBranchIDUpdated: event.New[*TransactionBranchIDUpdatedEvent](),
+		Error:                      event.New[error](),
+	}
+}
 
 type TransactionStoredEvent struct {
 	TransactionID utxo.TransactionID

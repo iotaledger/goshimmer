@@ -1,4 +1,4 @@
-package txvm
+package devnetvm
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 // region AliasOutput Tests

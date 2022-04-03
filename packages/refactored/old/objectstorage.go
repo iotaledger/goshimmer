@@ -5,10 +5,11 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
+	txvm2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/vms/txvm"
+
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
-	"github.com/iotaledger/goshimmer/packages/refactored/txvm"
-	"github.com/iotaledger/goshimmer/packages/refactored/types/utxo"
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
 const (
@@ -94,7 +95,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	}
 
 	options.childBranchStorageOptions = []objectstorage.Option{
-		branchdag.ChildBranchKeyPartition,
+		branchdag2.ChildBranchKeyPartition,
 		cacheProvider.CacheTime(branchCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -106,7 +107,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 	}
 
 	options.conflictMemberStorageOptions = []objectstorage.Option{
-		branchdag.ConflictMemberKeyPartition,
+		branchdag2.ConflictMemberKeyPartition,
 		cacheProvider.CacheTime(conflictCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -127,7 +128,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 		cacheProvider.CacheTime(outputCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
-		objectstorage.WithObjectFactory(txvm.OutputEssenceFromObjectStorage),
+		objectstorage.WithObjectFactory(txvm2.OutputEssenceFromObjectStorage),
 	}
 
 	options.outputMetadataStorageOptions = []objectstorage.Option{
@@ -143,7 +144,7 @@ func buildObjectStorageOptions(cacheProvider *database.CacheTimeProvider) *stora
 
 	options.addressOutputMappingStorageOptions = []objectstorage.Option{
 		cacheProvider.CacheTime(addressCacheTime),
-		objectstorage.PartitionKey(txvm.AddressLength, utxo.OutputIDLength),
+		objectstorage.PartitionKey(txvm2.AddressLength, utxo.OutputIDLength),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	}

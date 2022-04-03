@@ -1,7 +1,7 @@
 package consensus
 
 import (
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 )
 
 // WeightFunc returns the approval weight for the given branch.

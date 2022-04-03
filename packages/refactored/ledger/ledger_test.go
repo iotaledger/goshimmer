@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/branchdag"
+	branchdag2 "github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {
@@ -150,7 +150,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
 			assert.NoError(t, testFramework.IssueTransaction(txAlias))
 		}
-		require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXA").ID())))
+		require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag2.NewBranchID(testFramework.Transaction("TXA").ID())))
 
 		testFramework.AssertBranchIDs(t, map[string][]string{
 			"G":   {"MasterBranch"},
@@ -171,12 +171,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXI": {"MasterBranch"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
 	}
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
@@ -203,12 +203,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXI": {"MasterBranch"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
 	}
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
@@ -238,12 +238,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXI": {"MasterBranch"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
 	}
 
 	// When creating the conflicting TX (G) of the top layer branches F & G are spawned by the fork of G
@@ -276,17 +276,17 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
 	}
 
-	require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXD").ID())))
+	require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag2.NewBranchID(testFramework.Transaction("TXD").ID())))
 
 	// TX L combines a child (G) of a Rejected branch (C) and a pending branch H, resulting in (G,H)
 	{
@@ -319,18 +319,18 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG", "TXH")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Pending, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG", "TXH")))
 	}
 
-	require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXH").ID())))
+	require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag2.NewBranchID(testFramework.Transaction("TXH").ID())))
 
 	// The new TX M should be now booked under G, as branch H confirmed, just G because we don't propagate H further.
 	{
@@ -364,14 +364,14 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
-		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
-		assert.Equal(t, branchdag.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG", "TXH")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXB")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXC")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXD")))
+		assert.Equal(t, branchdag2.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXH")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXI")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXF")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
+		assert.Equal(t, branchdag2.Rejected, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG", "TXH")))
 	}
 }
