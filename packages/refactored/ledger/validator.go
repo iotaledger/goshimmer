@@ -4,9 +4,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
@@ -56,7 +56,7 @@ func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
 
-	params.Outputs = NewOutputs(generics.Map(utxoOutputs, NewOutput)...)
+	params.Outputs = NewOutputs(lo.Map(utxoOutputs, NewOutput)...)
 
 	return next(params)
 }

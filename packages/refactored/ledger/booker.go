@@ -4,9 +4,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
@@ -52,7 +52,7 @@ func (b *booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata
 
 	b.storeOutputs(outputs, branchIDs)
 
-	generics.ForEach(consumers, func(consumer *Consumer) { consumer.SetBooked() })
+	lo.ForEach(consumers, func(consumer *Consumer) { consumer.SetBooked() })
 
 	txMetadata.SetBranchIDs(branchIDs)
 	txMetadata.SetOutputIDs(outputs.IDs())
@@ -71,7 +71,7 @@ func (b *booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata Output
 	}
 
 	branchID := branchdag.NewBranchID(txID)
-	b.BranchDAG.CreateBranch(branchID, b.BranchDAG.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), branchdag.NewConflictIDs(generics.Map(conflictingInputIDs.Slice(), branchdag.NewConflictID)...))
+	b.BranchDAG.CreateBranch(branchID, b.BranchDAG.RemoveConfirmedBranches(inputsMetadata.BranchIDs()), branchdag.NewConflictIDs(lo.Map(conflictingInputIDs.Slice(), branchdag.NewConflictID)...))
 
 	_ = consumersToFork.ForEach(func(transactionID utxo.TransactionID) (err error) {
 		b.utils.WithTransactionAndMetadata(transactionID, func(tx *Transaction, txMetadata *TransactionMetadata) {
@@ -123,7 +123,7 @@ func (b *booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 	previousParentBranches := txMetadata.BranchIDs()
 
 	forkedBranchID := branchdag.NewBranchID(txMetadata.ID())
-	if !b.BranchDAG.CreateBranch(forkedBranchID, previousParentBranches, branchdag.NewConflictIDs(generics.Map(conflictingInputs.Slice(), branchdag.NewConflictID)...)) {
+	if !b.BranchDAG.CreateBranch(forkedBranchID, previousParentBranches, branchdag.NewConflictIDs(lo.Map(conflictingInputs.Slice(), branchdag.NewConflictID)...)) {
 		b.mutex.Unlock(txMetadata.ID())
 		return
 	}

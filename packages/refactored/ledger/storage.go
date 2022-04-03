@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vm"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +26,7 @@ type storage struct {
 	ledger *Ledger
 }
 
-func transactionFactory(vm utxo.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var txID utxo.TransactionID
 		if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
@@ -44,7 +45,7 @@ func transactionFactory(vm utxo.VM) func(key []byte, data []byte) (output object
 	}
 }
 
-func outputFactory(vm utxo.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+func outputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var outputID utxo.OutputID
 		if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {

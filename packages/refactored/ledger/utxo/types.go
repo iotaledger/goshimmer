@@ -3,9 +3,8 @@ package utxo
 import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/refactored/types"
 )
 
 // region TransactionID ////////////////////////////////////////////////////////////////////////////////////////////////

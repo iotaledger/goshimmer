@@ -1,25 +1,5 @@
 package utxo
 
-// region VM ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// VM is a generic interface for UTXO-based VMs.
-type VM interface {
-	// ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
-	// if the execution fails.
-	ExecuteTransaction(transaction Transaction, inputs []Output, gasLimit ...uint64) (outputs []Output, err error)
-
-	// ParseTransaction un-serializes a Transaction from the given sequence of bytes.
-	ParseTransaction([]byte) (transaction Transaction, err error)
-
-	// ParseOutput un-serializes an Output from the given sequence of bytes.
-	ParseOutput([]byte) (output Output, err error)
-
-	// ResolveInput translates the Input into an OutputID.
-	ResolveInput(input Input) (outputID OutputID)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction is the type that is used to describe instructions how to modify the ledger state.

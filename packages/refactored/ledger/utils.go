@@ -1,10 +1,10 @@
 package ledger
 
 import (
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
@@ -19,7 +19,7 @@ func newUtils(ledger *Ledger) (new *utils) {
 }
 
 func (u *utils) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
-	return utxo.NewOutputIDs(generics.Map(inputs, u.Options.VM.ResolveInput)...)
+	return utxo.NewOutputIDs(lo.Map(inputs, u.Options.VM.ResolveInput)...)
 }
 
 func (u *utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (consumingTransactions utxo.TransactionIDs) {

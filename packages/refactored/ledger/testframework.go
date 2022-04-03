@@ -7,15 +7,16 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/refactored/generics"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vm"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -337,7 +338,7 @@ func (m *MockedTransaction) SetID(id utxo.TransactionID) {
 }
 
 func (m *MockedTransaction) Inputs() []utxo.Input {
-	return generics.Map(m.inputs, (*MockedInput).utxoInput)
+	return lo.Map(m.inputs, (*MockedInput).utxoInput)
 }
 
 func (m *MockedTransaction) Bytes() []byte {
@@ -407,6 +408,6 @@ func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Out
 	return
 }
 
-var _ utxo.VM = new(MockedVM)
+var _ vm.VM = new(MockedVM)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -4,11 +4,12 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/refactored/syncutils"
+	"github.com/iotaledger/goshimmer/packages/refactored/ledger/vm"
 )
 
 // region Ledger ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,7 +85,7 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 type Options struct {
 	Store             kvstore.KVStore
 	CacheTimeProvider *database.CacheTimeProvider
-	VM                utxo.VM
+	VM                vm.VM
 }
 
 func NewOptions(options ...Option) (new *Options) {
@@ -122,7 +123,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option
 	}
 }
 
-func WithVM(vm utxo.VM) Option {
+func WithVM(vm vm.VM) Option {
 	return func(options *Options) {
 		options.VM = vm
 	}
