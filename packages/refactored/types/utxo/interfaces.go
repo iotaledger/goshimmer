@@ -1,20 +1,26 @@
 package utxo
 
-// VM is a generic interface for UTXO-based VMs that are compatible with the IOTA 2.0 consensus.
+// region VM ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// VM is a generic interface for UTXO-based VMs.
 type VM interface {
 	// ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 	// if the execution fails.
-	ExecuteTransaction(transaction Transaction, inputs []Output, executionLimit ...uint64) (outputs []Output, err error)
+	ExecuteTransaction(transaction Transaction, inputs []Output, gasLimit ...uint64) (outputs []Output, err error)
 
-	// ParseTransaction unmarshals a Transaction from the given sequence of bytes.
+	// ParseTransaction un-serializes a Transaction from the given sequence of bytes.
 	ParseTransaction([]byte) (transaction Transaction, err error)
 
-	// ParseOutput unmarshals an Output from the given sequence of bytes.
+	// ParseOutput un-serializes an Output from the given sequence of bytes.
 	ParseOutput([]byte) (output Output, err error)
 
 	// ResolveInput translates the Input into an OutputID.
 	ResolveInput(input Input) (outputID OutputID)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction is the type that is used to describe instructions how to modify the ledger state.
 type Transaction interface {
@@ -40,7 +46,11 @@ type Transaction interface {
 	String() (humanReadable string)
 }
 
-// Input is an entity that allows to encode information about which Outputs are supposed to be used by a Transaction.
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Input ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Input is an entity that allows to "address" which Outputs are supposed to be used by a Transaction.
 type Input interface {
 	// Bytes returns a serialized version of the Input.
 	Bytes() (serialized []byte)
@@ -48,6 +58,10 @@ type Input interface {
 	// String returns a human-readable version of the Input.
 	String() (humanReadable string)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Output is the container for the data produced by executing a Transaction.
 type Output interface {
@@ -75,3 +89,5 @@ type Output interface {
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -13,7 +13,7 @@ import (
 
 // region Identifier ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Identifier is the type that represents the identifier of a Transaction.
+// Identifier is a 32 byte hash value that can be used to uniquely identify some blob of data.
 type Identifier [IdentifierLength]byte
 
 // NewIdentifier returns a new Identifier for the given data.
@@ -21,52 +21,50 @@ func NewIdentifier(data []byte) (new Identifier) {
 	return blake2b.Sum256(data)
 }
 
-// FromRandomness fills the Identifier with random information.
+// FromRandomness generates a random Identifier.
 func (t *Identifier) FromRandomness() (err error) {
 	_, err = rand.Read((*t)[:])
 	return
 }
 
-// FromBytes unmarshals an Identifier from a sequence of bytes.
+// FromBytes un-serializes an Identifier from a sequence of bytes.
 func (t *Identifier) FromBytes(bytes []byte) (consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Identifier from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
-	return
+	if err = t.FromMarshalUtil(marshalUtil); err != nil {
+		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse Identifier from MarshalUtil: %w", err)
+	}
+
+	return marshalUtil.ReadOffset(), nil
 }
 
-// FromBase58 creates an Identifier from a base58 encoded string.
+// FromBase58 un-serializes an Identifier from a base58 encoded string.
 func (t *Identifier) FromBase58(base58String string) (err error) {
 	decodedBytes, err := base58.Decode(base58String)
 	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded Identifier (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
+		return errors.Errorf("error while decoding base58 encoded Identifier (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 	}
 
 	if _, err = t.FromBytes(decodedBytes); err != nil {
-		err = errors.Errorf("failed to parse Identifier from bytes: %w", err)
-		return
+		return errors.Errorf("failed to parse Identifier from bytes: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals an Identifier using a MarshalUtil (for easier unmarshalling).
+// FromMarshalUtil un-serializes an Identifier from a MarshalUtil.
 func (t *Identifier) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	outputIdentifierBytes, err := marshalUtil.ReadBytes(IdentifierLength)
 	if err != nil {
-		err = errors.Errorf("failed to parse Identifier (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return errors.Errorf("failed to parse Identifier (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	copy((*t)[:], outputIdentifierBytes)
 
 	return
 }
 
+// RegisterAlias allows to register a human-readable alias for the Identifier which will be used as a replacement for
+// the String method.
 func (t Identifier) RegisterAlias(alias string) {
 	_identifierAliasesMutex.Lock()
 	defer _identifierAliasesMutex.Unlock()
@@ -74,6 +72,7 @@ func (t Identifier) RegisterAlias(alias string) {
 	_identifierAliases[t] = alias
 }
 
+// Alias returns the human-readable alias of the Identifier (or the base58 encoded bytes of no alias was set).
 func (t Identifier) Alias() (alias string) {
 	_identifierAliasesMutex.RLock()
 	defer _identifierAliasesMutex.RUnlock()
@@ -85,6 +84,7 @@ func (t Identifier) Alias() (alias string) {
 	return t.Base58()
 }
 
+// UnregisterAlias allows to unregister a previously registered alias.
 func (t Identifier) UnregisterAlias() {
 	_identifierAliasesMutex.Lock()
 	defer _identifierAliasesMutex.Unlock()
@@ -92,26 +92,29 @@ func (t Identifier) UnregisterAlias() {
 	delete(_identifierAliases, t)
 }
 
-// Bytes returns a marshaled version of the Identifier.
-func (t Identifier) Bytes() []byte {
+// Bytes returns a serialized version of the Identifier.
+func (t Identifier) Bytes() (serialized []byte) {
 	return t[:]
 }
 
 // Base58 returns a base58 encoded version of the Identifier.
-func (t Identifier) Base58() string {
+func (t Identifier) Base58() (base58Encoded string) {
 	return base58.Encode(t[:])
 }
 
-// String creates a human-readable version of the Identifier.
-func (t Identifier) String() string {
+// String returns a human-readable version of the Identifier.
+func (t Identifier) String() (humanReadable string) {
 	return "Identifier(" + t.Alias() + ")"
 }
 
-// IdentifierLength contains the byte size of a marshaled Identifier.
+// IdentifierLength contains the byte length of a serialized Identifier.
 const IdentifierLength = 32
 
 var (
-	_identifierAliases      = make(map[Identifier]string)
+	// _identifierAliases contains a dictionary of identifiers associated to their human-readable alias.
+	_identifierAliases = make(map[Identifier]string)
+
+	// _identifierAliasesMutex is the mutex that is used to synchronize access to the previous map.
 	_identifierAliasesMutex = sync.RWMutex{}
 )
 
