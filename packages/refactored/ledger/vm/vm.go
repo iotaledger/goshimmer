@@ -4,8 +4,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
 )
 
-// region VM ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // VM is a generic interface for UTXO-based VMs.
 type VM interface {
 	// ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
@@ -21,5 +19,3 @@ type VM interface {
 	// ResolveInput translates the Input into an OutputID.
 	ResolveInput(input utxo.Input) (outputID utxo.OutputID)
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
