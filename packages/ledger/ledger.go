@@ -36,12 +36,16 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.BranchDAG = branchdag.NewBranchDAG(ledger.Options.Store, ledger.Options.CacheTimeProvider)
 	ledger.Storage = newStorage(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.utils = newUtils(ledger)
+
+	ledger.BranchDAG = branchdag.NewBranchDAG(
+		branchdag.WithStore(ledger.Options.Store),
+		branchdag.WithCacheTimeProvider(ledger.Options.CacheTimeProvider),
+	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -51,21 +55,21 @@ func New(options ...Option) (ledger *Ledger) {
 }
 
 func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
-	return l.dataFlow.checkTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
+	return l.dataFlow.checkTransaction().Run(newDataFlowParams(NewTransaction(tx)))
 }
 
 func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
-	return l.dataFlow.storeAndProcessTransaction().Run(&dataFlowParams{Transaction: NewTransaction(tx)})
+	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(NewTransaction(tx)))
 }
 
 func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
-	return l.dataFlow.processTransaction().Run(&dataFlowParams{Transaction: tx})
+	return l.dataFlow.processTransaction().Run(newDataFlowParams(tx))
 }
 
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {

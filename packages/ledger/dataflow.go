@@ -6,6 +6,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
+// region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////
+
 type dataFlow struct {
 	*Ledger
 }
@@ -43,6 +45,16 @@ func (d *dataFlow) checkTransaction() *dataflow.DataFlow[*dataFlowParams] {
 	)
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region dataFlowParams ///////////////////////////////////////////////////////////////////////////////////////////////
+
+func newDataFlowParams(tx *Transaction) (new *dataFlowParams) {
+	return &dataFlowParams{
+		Transaction: tx,
+	}
+}
+
 type dataFlowParams struct {
 	Transaction         *Transaction
 	TransactionMetadata *TransactionMetadata
@@ -52,3 +64,5 @@ type dataFlowParams struct {
 	Consumers           []*Consumer
 	Outputs             Outputs
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

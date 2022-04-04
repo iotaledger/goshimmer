@@ -1,11 +1,11 @@
 package branchdag
 
 import (
-	"strconv"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -289,96 +289,236 @@ var _ objectstorage.StorableObject = new(ChildBranch)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ArithmeticBranchIDs //////////////////////////////////////////////////////////////////////////////////////////
+// region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ArithmeticBranchIDs represents an arithmetic collection of BranchIDs that allows us to add and subtract them from
-// each other.
-type ArithmeticBranchIDs map[BranchID]int
+// Conflict represents a set of Branches that are conflicting with each other.
+type Conflict struct {
+	id               ConflictID
+	memberCount      int
+	memberCountMutex sync.RWMutex
 
-// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object.
-func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranchIDs ArithmeticBranchIDs) {
-	newArithmeticBranchIDs = make(ArithmeticBranchIDs)
-	if len(optionalBranchIDs) >= 1 {
-		newArithmeticBranchIDs.Add(optionalBranchIDs[0])
+	objectstorage.StorableObjectFlags
+}
+
+// NewConflict is the constructor for new Conflicts.
+func NewConflict(conflictID ConflictID) *Conflict {
+	return &Conflict{
+		id: conflictID,
 	}
-
-	return newArithmeticBranchIDs
 }
 
-// Add adds all BranchIDs to the collection.
-func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
-		a[branchID]++
-		return nil
-	})
+// FromObjectStorage creates a Conflict from sequences of key and bytes.
+func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
+	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
+	}
+	return
 }
 
-// Subtract subtracts all BranchIDs from the collection.
-func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
-		a[branchID]--
-		return nil
-	})
-}
-
-// BranchIDs returns the BranchIDs represented by this collection.
-func (a ArithmeticBranchIDs) BranchIDs() (branchIDs BranchIDs) {
-	branchIDs = NewBranchIDs()
-	for branchID, value := range a {
-		if value >= 1 {
-			branchIDs.Add(branchID)
-		}
+// FromBytes unmarshals a Conflict from a sequence of bytes.
+func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
+		return
 	}
 
 	return
 }
 
-// String returns a human-readable version of the ArithmeticBranchIDs.
-func (a ArithmeticBranchIDs) String() string {
-	if len(a) == 0 {
-		return "ArithmeticBranchIDs() = " + a.BranchIDs().String()
+// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshalling).
+func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
+	if conflict = c; conflict == nil {
+		conflict = &Conflict{}
 	}
 
-	result := "ArithmeticBranchIDs("
-	i := 0
-	for branchID, value := range a {
-		switch {
-		case value == 1:
-			if i != 0 {
-				result += " + "
-			}
-
-			result += branchID.String()
-			i++
-		case value > 1:
-			if i != 0 {
-				result += " + "
-			}
-
-			result += strconv.Itoa(value) + "*" + branchID.String()
-			i++
-		case value == 0:
-		case value == -1:
-			if i != 0 {
-				result += " - "
-			} else {
-				result += "-"
-			}
-
-			result += branchID.String()
-			i++
-		case value < -1:
-			if i != 0 {
-				result += " - "
-			}
-
-			result += strconv.Itoa(-value) + "*" + branchID.String()
-			i++
-		}
+	if err = conflict.id.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 	}
-	result += ") = " + a.BranchIDs().String()
+	memberCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return nil, errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	conflict.memberCount = int(memberCount)
 
-	return result
+	return
 }
+
+// ID returns the identifier of this Conflict.
+func (c *Conflict) ID() ConflictID {
+	return c.id
+}
+
+// MemberCount returns the amount of Branches that are part of this Conflict.
+func (c *Conflict) MemberCount() int {
+	c.memberCountMutex.RLock()
+	defer c.memberCountMutex.RUnlock()
+
+	return c.memberCount
+}
+
+// IncreaseMemberCount increase the MemberCount of this Conflict.
+func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+	delta := 1
+	if len(optionalDelta) >= 1 {
+		delta = optionalDelta[0]
+	}
+
+	c.memberCountMutex.Lock()
+	defer c.memberCountMutex.Unlock()
+
+	c.memberCount += delta
+	c.SetModified()
+	newMemberCount = c.memberCount
+
+	return c.memberCount
+}
+
+// DecreaseMemberCount decreases the MemberCount of this Conflict.
+func (c *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+	delta := 1
+	if len(optionalDelta) >= 1 {
+		delta = optionalDelta[0]
+	}
+
+	c.memberCountMutex.Lock()
+	defer c.memberCountMutex.Unlock()
+
+	c.memberCount -= delta
+	c.SetModified()
+	newMemberCount = c.memberCount
+
+	return
+}
+
+// Bytes returns a marshaled version of the Conflict.
+func (c *Conflict) Bytes() []byte {
+	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
+}
+
+// String returns a human-readable version of the Conflict.
+func (c *Conflict) String() string {
+	return stringify.Struct("Conflict",
+		stringify.StructField("id", c.ID()),
+		stringify.StructField("memberCount", c.MemberCount()),
+	)
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *Conflict) ObjectStorageKey() []byte {
+	return c.id.Bytes()
+}
+
+// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (c *Conflict) ObjectStorageValue() []byte {
+	return marshalutil.New(marshalutil.Uint64Size).
+		WriteUint64(uint64(c.MemberCount())).
+		Bytes()
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &Conflict{}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
+
+// ConflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
+var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
+
+// ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
+// potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
+// Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
+type ConflictMember struct {
+	conflictID ConflictID
+	branchID   BranchID
+
+	objectstorage.StorableObjectFlags
+}
+
+// NewConflictMember is the constructor of the ConflictMember reference.
+func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember {
+	return &ConflictMember{
+		conflictID: conflictID,
+		branchID:   branchID,
+	}
+}
+
+// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
+func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
+	}
+	return
+}
+
+// FromBytes unmarshals a ConflictMember from a sequence of bytes.
+func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
+	marshalUtil := marshalutil.New(bytes)
+	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshalling).
+func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
+	if conflictMember = c; conflictMember == nil {
+		conflictMember = &ConflictMember{}
+	}
+
+	if err = conflictMember.conflictID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+	}
+	if err = conflictMember.branchID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse BranchID: %w", err)
+	}
+
+	return
+}
+
+// ConflictID returns the identifier of the Conflict that this ConflictMember belongs to.
+func (c *ConflictMember) ConflictID() ConflictID {
+	return c.conflictID
+}
+
+// BranchID returns the identifier of the Branch that this ConflictMember references.
+func (c *ConflictMember) BranchID() BranchID {
+	return c.branchID
+}
+
+// Bytes returns a marshaled version of this ConflictMember.
+func (c *ConflictMember) Bytes() []byte {
+	return c.ObjectStorageKey()
+}
+
+// String returns a human-readable version of this ConflictMember.
+func (c *ConflictMember) String() string {
+	return stringify.Struct("ConflictMember",
+		stringify.StructField("conflictID", c.conflictID),
+		stringify.StructField("branchID", c.branchID),
+	)
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ConflictMember) ObjectStorageKey() []byte {
+	return byteutils.ConcatBytes(c.conflictID.Bytes(), c.branchID.Bytes())
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (c *ConflictMember) ObjectStorageValue() []byte {
+	return nil
+}
+
+// code contract (make sure the type implements all required methods)
+var _ objectstorage.StorableObject = &ConflictMember{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
