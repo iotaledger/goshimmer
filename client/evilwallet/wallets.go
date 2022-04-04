@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"sync"
 
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
@@ -52,6 +53,7 @@ func NewWallets() *Wallets {
 	return &Wallets{
 		wallets:       make(map[walletID]*Wallet),
 		faucetWallets: make([]walletID, 0),
+		reuseWallets:  make(map[walletID]bool),
 		lastWalletID:  *atomic.NewInt64(-1),
 	}
 }
@@ -92,6 +94,8 @@ func (w *Wallets) GetNextWallet(walletType WalletType, minOutputsLeft int) (*Wal
 		for id, ready := range w.reuseWallets {
 			wal := w.wallets[id]
 			if wal.UnspentOutputsLeft() > minOutputsLeft {
+				// if are solid
+
 				return wal, nil
 			}
 			// no outputs will be ever added to this wallet, so it can be deleted

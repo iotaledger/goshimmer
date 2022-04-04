@@ -1,6 +1,7 @@
 package evilspammer
 
 import (
+	"github.com/cockroachdb/errors"
 	"time"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
@@ -112,7 +113,7 @@ func (s *Spammer) setupSpamDetails() {
 func (s *Spammer) initLogger() {
 	config := configuration.New()
 	_ = logger.InitGlobalLogger(config)
-	logger.SetLevel(logger.LevelInfo)
+	logger.SetLevel(logger.LevelDebug)
 	s.log = logger.NewLogger("Spammer")
 }
 
@@ -182,7 +183,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)
-		s.ErrCounter.CountError(ErrFailPostTransaction)
+		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
 	count := s.State.txSent.Add(1)

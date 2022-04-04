@@ -3,6 +3,7 @@ package evilspammer
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/client/evilwallet"

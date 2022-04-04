@@ -23,7 +23,7 @@ const (
 	FaucetRequestSplitNumber = 100
 
 	waitForConfirmation = 60 * time.Second
-	waitForTxSolid      = 2 * time.Second
+	WaitForTxSolid      = 2 * time.Second
 
 	maxGoroutines = 5
 )
@@ -279,14 +279,10 @@ func (e *EvilWallet) ClearAliases() {
 	e.aliasManager.ClearAliases()
 }
 
-func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice, outputWallet *Wallet) (conflictBatch [][]*ledgerstate.Transaction, err error) {
-	if outputWallet == nil {
-		return nil, errors.Errorf("no output wallet provided")
-	}
+func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice) (conflictBatch [][]*ledgerstate.Transaction, err error) {
 	for _, conflictMap := range conflictsMaps {
 		var txs []*ledgerstate.Transaction
 		for _, options := range conflictMap {
-			options = append(options, WithOutputWallet(outputWallet))
 			tx, err2 := e.CreateTransaction(options...)
 			if err2 != nil {
 				return nil, err2
@@ -300,8 +296,7 @@ func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice, outpu
 
 // SendCustomConflicts sends transactions with the given conflictsMaps.
 func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err error) {
-	outputWallet := e.NewWallet()
-	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps, outputWallet)
+	conflictBatch, err := e.PrepareCustomConflicts(conflictsMaps)
 	if err != nil {
 		return err
 	}
@@ -323,7 +318,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 		wg.Wait()
 
 		// wait until transactions are solid
-		time.Sleep(waitForTxSolid)
+		time.Sleep(WaitForTxSolid)
 	}
 	return
 }
@@ -356,7 +351,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 	if err != nil {
 		return nil, err
 	}
-	outputs, addrAliasMap, err := e.prepareOutputs(buildOptions)
+	outputs, addrAliasMap, savedOutputs, err := e.prepareOutputs(buildOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +369,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
-	err = e.updateOutputIDs(tx.Essence().Outputs(), buildOptions.outputWallet)
+	err = e.updateOutputIDs(tx.Essence().Outputs(), buildOptions.outputWallet, savedOutputs)
 	if err != nil {
 		return nil, err
 	}
@@ -463,16 +458,17 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.
 	return inputs, nil
 }
 
-func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output, addrAliasMap map[ledgerstate.Address]string, err error) {
+func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, savedOutputs map[ledgerstate.Address]types.Empty, err error) {
 	// if outputs were provided with aliases
 	if !buildOptions.areOutputsProvidedWithoutAliases() {
-		outputs, addrAliasMap, err = e.matchOutputsWithAliases(buildOptions)
+		outputs, addrAliasMap, savedOutputs, err = e.matchOutputsWithAliases(buildOptions)
 	} else {
 		for _, balance := range buildOptions.outputs {
 			evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
 			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			outputs = append(outputs, output)
 		}
@@ -531,26 +527,39 @@ func (e *EvilWallet) updateIssuerWalletForAlias(buildOptions *Options, in ledger
 // matchOutputsWithAliases creates outputs based on balances provided via options.
 // Outputs are not yet added to the Alias Manager, as they have no ID before the transaction is created.
 // Thus, they are tracker in address to alias map.
-func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []ledgerstate.Output, addrAliasMap map[ledgerstate.Address]string, err error) {
+func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, savedOutputs map[ledgerstate.Address]types.Empty, err error) {
 	err = e.updateOutputBalances(buildOptions)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	addrAliasMap = make(map[ledgerstate.Address]string)
-	for alias, balance := range buildOptions.aliasOutputs {
-		evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
-		output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
+	if buildOptions.outputWallet.walletType == Reuse {
+		for alias, balance := range buildOptions.aliasOutputs {
+			tempWallet := e.NewWallet()
+			// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
+			var evilOutput *Output
+			if _, ok := buildOptions.outputBatchAliases[alias]; ok {
+				evilOutput = e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
+			} else {
+				evilOutput = e.outputManager.CreateEmptyOutput(tempWallet, balance)
+			}
+			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
 
-		outputs = append(outputs, output)
-		addrAliasMap[evilOutput.Address] = alias
-	}
-	for _, balance := range buildOptions.outputs {
-		evilOutput := e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
-		output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
-		if err != nil {
-			return nil, nil, err
+			outputs = append(outputs, output)
+			addrAliasMap[evilOutput.Address] = alias
 		}
-		outputs = append(outputs, output)
+	} else {
+
+		for alias, balance := range buildOptions.aliasOutputs {
+			// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
+			var evilOutput *Output
+			evilOutput = e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
+			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
+
+			outputs = append(outputs, output)
+			addrAliasMap[evilOutput.Address] = alias
+		}
 	}
 
 	return
@@ -658,6 +667,7 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
 		addr, err2 := e.getAddressFromInput(input)
+		fmt.Println("makeTransaction  ", i, ": ", addr.Base58())
 		if err2 != nil {
 			return nil, err2
 		}
@@ -684,11 +694,13 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 	return
 }
 
-func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wallet) error {
+func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wallet, savedOutputs map[ledgerstate.Address]types.Empty) error {
 	for _, output := range outputs {
-		err := e.outputManager.UpdateOutputID(outWallet, output.Address().Base58(), output.ID())
-		if err != nil {
-			return err
+		if _, ok := savedOutputs[output.Address()]; ok {
+			err := e.outputManager.UpdateOutputID(outWallet, output.Address().Base58(), output.ID())
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -699,7 +711,7 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][
 	if err != nil {
 		return nil, err
 	}
-	txs, err = e.PrepareCustomConflicts(conflicts, scenario.OutputWallet)
+	txs, err = e.PrepareCustomConflicts(conflicts)
 
 	return
 }
@@ -809,7 +821,7 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 	}
 	// remove outputs that were never used as input in this EvilBatch to determine batch outputs
 	for output := range outputs {
-		if _, ok := inputs[output]; !ok {
+		if _, ok := inputs[output]; ok {
 			delete(outputs, output)
 		}
 	}
