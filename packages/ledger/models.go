@@ -483,7 +483,9 @@ func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata
 // FromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
 func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
 	if outputMetadata = o; outputMetadata == nil {
-		outputMetadata = &OutputMetadata{}
+		outputMetadata = &OutputMetadata{
+			branchIDs: branchdag.NewBranchIDs(),
+		}
 	}
 
 	if err = outputMetadata.id.FromMarshalUtil(marshalUtil); err != nil {

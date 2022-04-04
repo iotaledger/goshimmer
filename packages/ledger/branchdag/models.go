@@ -62,7 +62,10 @@ func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 // FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshalling).
 func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
 	if branch = b; b == nil {
-		branch = &Branch{}
+		branch = &Branch{
+			parents:   NewBranchIDs(),
+			conflicts: NewConflictIDs(),
+		}
 	}
 
 	if err = branch.id.FromMarshalUtil(marshalUtil); err != nil {
