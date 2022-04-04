@@ -15,8 +15,6 @@ import (
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-const BranchIDLength = types.IdentifierLength
-
 type BranchID struct {
 	types.Identifier
 }
@@ -36,6 +34,8 @@ func (t BranchID) String() (humanReadable string) {
 }
 
 var MasterBranchID BranchID
+
+const BranchIDLength = types.IdentifierLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

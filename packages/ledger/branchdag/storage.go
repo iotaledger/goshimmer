@@ -6,8 +6,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
@@ -107,61 +105,6 @@ func (s *Storage) ConflictMembers(conflictID ConflictID) (cachedConflictMembers 
 	}, objectstorage.WithIteratorPrefix(conflictID.Bytes()))
 
 	return
-}
-
-// ForEachConflictingBranchID executes the callback for each Branch that is conflicting with the Branch
-// identified by the given BranchID.
-func (s *Storage) ForEachConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID) bool) {
-	abort := false
-	s.Branch(branchID).Consume(func(branch *Branch) {
-		_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
-			s.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-				if abort || conflictMember.BranchID() == branchID {
-					return
-				}
-
-				abort = !callback(conflictMember.BranchID())
-			})
-
-			if abort {
-				return errors.New("abort")
-			}
-
-			return nil
-		})
-	})
-}
-
-// ForEachConnectedConflictingBranchID executes the callback for each Branch that is connected through a chain
-// of intersecting ConflictSets.
-func (s *Storage) ForEachConnectedConflictingBranchID(branchID BranchID, callback func(conflictingBranchID BranchID)) {
-	traversedBranches := set.New[BranchID]()
-	conflictSetsWalker := walker.New[ConflictID]()
-
-	processBranchAndQueueConflictSets := func(branchID BranchID) {
-		if !traversedBranches.Add(branchID) {
-			return
-		}
-
-		s.Branch(branchID).Consume(func(branch *Branch) {
-			_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
-				conflictSetsWalker.Push(conflictID)
-				return nil
-			})
-		})
-	}
-
-	processBranchAndQueueConflictSets(branchID)
-
-	for conflictSetsWalker.HasNext() {
-		s.ConflictMembers(conflictSetsWalker.Next()).Consume(func(conflictMember *ConflictMember) {
-			processBranchAndQueueConflictSets(conflictMember.BranchID())
-		})
-	}
-
-	traversedBranches.ForEach(func(element BranchID) {
-		callback(element)
-	})
 }
 
 // Prune resets the database and deletes all objects (for testing or "node resets").
