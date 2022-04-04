@@ -38,7 +38,6 @@ func NewTestFramework(options ...Option) (new *TestFramework) {
 
 	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
 	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
-	genesisOutputMetadata.SetSolid(true)
 	genesisOutputMetadata.SetGradeOfFinality(gof.High)
 
 	genesisOutput.ID().RegisterAlias("Genesis")
@@ -136,6 +135,21 @@ func (t *TestFramework) AssertBranchIDs(testing *testing.T, expectedBranches map
 	}
 }
 
+func (t *TestFramework) AssertBooked(testing *testing.T, expectedBookedMap map[string]bool) {
+	for txAlias, expectedBooked := range expectedBookedMap {
+		currentTx := t.Transaction(txAlias)
+		assert.Truef(testing, t.Ledger.Storage.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
+			assert.Equalf(testing, expectedBooked, txMetadata.Booked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.Booked())
+			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
+				assert.Equalf(testing, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.Booked())
+				return nil
+			})
+		}), "failed to load metadata of %s", currentTx.ID())
+
+	}
+}
+
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 	transaction, exists := t.transactionsByAlias[txAlias]
 	if !exists {
@@ -143,6 +157,10 @@ func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 	}
 
 	return t.Ledger.StoreAndProcessTransaction(transaction)
+}
+
+func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint16) (mockedOutputID utxo.OutputID) {
+	return utxo.NewOutputID(tx.ID(), outputIndex, []byte(""))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

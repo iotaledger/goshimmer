@@ -52,6 +52,7 @@ func (d *dataFlow) checkTransaction() *dataflow.DataFlow[*dataFlowParams] {
 func newDataFlowParams(tx *Transaction) (new *dataFlowParams) {
 	return &dataFlowParams{
 		Transaction: tx,
+		InputIDs:    utxo.NewOutputIDs(),
 	}
 }
 

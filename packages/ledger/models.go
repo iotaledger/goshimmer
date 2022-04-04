@@ -52,20 +52,20 @@ var _ objectstorage.StorableObject = new(Transaction)
 // TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
 // a node.
 type TransactionMetadata struct {
-	id                      utxo.TransactionID
-	branchIDs               branchdag.BranchIDs
-	branchIDsMutex          sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
-	solidificationTimeMutex sync.RWMutex
-	lazyBooked              bool
-	lazyBookedMutex         sync.RWMutex
-	outputIDs               utxo.OutputIDs
-	outputIDsMutex          sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
-	gradeOfFinalityMutex    sync.RWMutex
+	id                   utxo.TransactionID
+	branchIDs            branchdag.BranchIDs
+	branchIDsMutex       sync.RWMutex
+	booked               bool
+	bookingMutex         sync.RWMutex
+	bookingTime          time.Time
+	bookingTimeMutex     sync.RWMutex
+	lazyBooked           bool
+	lazyBookedMutex      sync.RWMutex
+	outputIDs            utxo.OutputIDs
+	outputIDsMutex       sync.RWMutex
+	gradeOfFinality      gof.GradeOfFinality
+	gradeOfFinalityTime  time.Time
+	gradeOfFinalityMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -75,6 +75,7 @@ func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMet
 	newTransactionMetadata = &TransactionMetadata{
 		id:        transactionID,
 		branchIDs: branchdag.NewBranchIDs(),
+		outputIDs: utxo.NewOutputIDs(),
 	}
 	newTransactionMetadata.SetModified()
 	newTransactionMetadata.Persist()
@@ -106,7 +107,10 @@ func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *Tran
 // FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshalling).
 func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
 	if transactionMetadata = t; transactionMetadata == nil {
-		transactionMetadata = &TransactionMetadata{}
+		transactionMetadata = &TransactionMetadata{
+			branchIDs: branchdag.NewBranchIDs(),
+			outputIDs: utxo.NewOutputIDs(),
+		}
 	}
 
 	if err = transactionMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
@@ -115,10 +119,10 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	if err = transactionMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse BranchID: %w", err)
 	}
-	if transactionMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
+	if transactionMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
 		return nil, errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if transactionMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
+	if transactionMetadata.bookingTime, err = marshalUtil.ReadTime(); err != nil {
 		return nil, errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
@@ -184,41 +188,41 @@ func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified
 
 // Booked returns true if the Transaction has been marked as solid.
 func (t *TransactionMetadata) Booked() bool {
-	t.solidMutex.RLock()
-	defer t.solidMutex.RUnlock()
+	t.bookingMutex.RLock()
+	defer t.bookingMutex.RUnlock()
 
-	return t.solid
+	return t.booked
 }
 
 // SetBooked updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates
-// the solidification time if the Transaction was marked as solid.
-func (t *TransactionMetadata) SetBooked(solid bool) (modified bool) {
-	t.solidMutex.Lock()
-	defer t.solidMutex.Unlock()
+// the booking time if the Transaction was marked as solid.
+func (t *TransactionMetadata) SetBooked(booked bool) (modified bool) {
+	t.bookingMutex.Lock()
+	defer t.bookingMutex.Unlock()
 
-	if t.solid == solid {
+	if t.booked == booked {
 		return
 	}
 
-	if solid {
-		t.solidificationTimeMutex.Lock()
-		t.solidificationTime = time.Now()
-		t.solidificationTimeMutex.Unlock()
+	if booked {
+		t.bookingTimeMutex.Lock()
+		t.bookingTime = time.Now()
+		t.bookingTimeMutex.Unlock()
 	}
 
-	t.solid = solid
+	t.booked = booked
 	t.SetModified()
 	modified = true
 
 	return
 }
 
-// SolidificationTime returns the time when the Transaction was marked as solid.
-func (t *TransactionMetadata) SolidificationTime() time.Time {
-	t.solidificationTimeMutex.RLock()
-	defer t.solidificationTimeMutex.RUnlock()
+// BookingTime returns the time when the Transaction was marked as booked.
+func (t *TransactionMetadata) BookingTime() time.Time {
+	t.bookingTimeMutex.RLock()
+	defer t.bookingTimeMutex.RUnlock()
 
-	return t.solidificationTime
+	return t.bookingTime
 }
 
 // LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
@@ -251,7 +255,7 @@ func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
-	return t.outputIDs
+	return t.outputIDs.Clone()
 }
 
 // SetOutputIDs sets the OutputIDs that this Transaction created.
@@ -312,7 +316,7 @@ func (t *TransactionMetadata) String() string {
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
 		stringify.StructField("processed", t.Booked()),
-		stringify.StructField("solidificationTime", t.SolidificationTime()),
+		stringify.StructField("solidificationTime", t.BookingTime()),
 		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("outputIDs", t.OutputIDs()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
@@ -332,7 +336,7 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
 		WriteBool(t.Booked()).
-		WriteTime(t.SolidificationTime()).
+		WriteTime(t.BookingTime()).
 		WriteBool(t.LazyBooked()).
 		Write(t.OutputIDs()).
 		WriteUint8(uint8(t.GradeOfFinality())).
@@ -435,19 +439,15 @@ func (o Outputs) UTXOOutputs() (slice []utxo.Output) {
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
-	id                      utxo.OutputID
-	branchIDs               branchdag.BranchIDs
-	branchIDsMutex          sync.RWMutex
-	solid                   bool
-	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
-	solidificationTimeMutex sync.RWMutex
-	firstConsumer           utxo.TransactionID
-	firstConsumerForked     bool
-	firstConsumerMutex      sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
-	gradeOfFinalityMutex    sync.RWMutex
+	id                   utxo.OutputID
+	branchIDs            branchdag.BranchIDs
+	branchIDsMutex       sync.RWMutex
+	firstConsumer        utxo.TransactionID
+	firstConsumerForked  bool
+	firstConsumerMutex   sync.RWMutex
+	gradeOfFinality      gof.GradeOfFinality
+	gradeOfFinalityTime  time.Time
+	gradeOfFinalityMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
 }
@@ -491,12 +491,6 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	}
 	if err = outputMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse BranchIDs: %w", err)
-	}
-	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		return nil, errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		return nil, errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if err = outputMetadata.firstConsumer.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -556,45 +550,6 @@ func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool
 	modified = true
 
 	return
-}
-
-// Solid returns true if the Output has been marked as solid.
-func (o *OutputMetadata) Solid() bool {
-	o.solidMutex.RLock()
-	defer o.solidMutex.RUnlock()
-
-	return o.solid
-}
-
-// SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
-// solidification time if the Output was marked as solid.
-func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
-	o.solidMutex.Lock()
-	defer o.solidMutex.Unlock()
-
-	if o.solid == solid {
-		return
-	}
-
-	if solid {
-		o.solidificationTimeMutex.Lock()
-		o.solidificationTime = time.Now()
-		o.solidificationTimeMutex.Unlock()
-	}
-
-	o.solid = solid
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// SolidificationTime returns the time when the Output was marked as solid.
-func (o *OutputMetadata) SolidificationTime() time.Time {
-	o.solidificationTimeMutex.RLock()
-	defer o.solidificationTimeMutex.RUnlock()
-
-	return o.solidificationTime
 }
 
 // Spent returns true if the Output has been spent already.
@@ -673,8 +628,6 @@ func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
 		stringify.StructField("branchIDs", o.BranchIDs()),
-		stringify.StructField("solid", o.Solid()),
-		stringify.StructField("solidificationTime", o.SolidificationTime()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
@@ -692,8 +645,6 @@ func (o *OutputMetadata) ObjectStorageKey() []byte {
 func (o *OutputMetadata) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(o.BranchIDs()).
-		WriteBool(o.Solid()).
-		WriteTime(o.SolidificationTime()).
 		Write(o.FirstConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
 		WriteTime(o.GradeOfFinalityTime()).
