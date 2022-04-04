@@ -534,32 +534,19 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []l
 		return nil, nil, nil, err
 	}
 	addrAliasMap = make(map[ledgerstate.Address]string)
-	if buildOptions.outputWallet.walletType == Reuse {
-		for alias, balance := range buildOptions.aliasOutputs {
-			tempWallet := e.NewWallet()
-			// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
-			var evilOutput *Output
-			if _, ok := buildOptions.outputBatchAliases[alias]; ok {
-				evilOutput = e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
-			} else {
-				evilOutput = e.outputManager.CreateEmptyOutput(tempWallet, balance)
-			}
-			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
-
-			outputs = append(outputs, output)
-			addrAliasMap[evilOutput.Address] = alias
-		}
-	} else {
-
-		for alias, balance := range buildOptions.aliasOutputs {
-			// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
-			var evilOutput *Output
+	tempWallet := e.NewWallet()
+	for alias, balance := range buildOptions.aliasOutputs {
+		// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
+		var evilOutput *Output
+		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
 			evilOutput = e.outputManager.CreateEmptyOutput(buildOptions.outputWallet, balance)
-			output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
-
-			outputs = append(outputs, output)
-			addrAliasMap[evilOutput.Address] = alias
+		} else {
+			evilOutput = e.outputManager.CreateEmptyOutput(tempWallet, balance)
 		}
+		output := ledgerstate.NewSigLockedColoredOutput(balance, evilOutput.Address)
+
+		outputs = append(outputs, output)
+		addrAliasMap[evilOutput.Address] = alias
 	}
 
 	return
@@ -732,9 +719,9 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
 			option := []Option{WithInputs(aliases.Inputs), WithOutputs(outs)}
+			option = append(option, WithOutputBatchAliases(scenario.batchOutputs))
 			if scenario.OutputWallet != nil {
 				option = append(option, WithOutputWallet(scenario.OutputWallet))
-				option = append(option, WithOutputBatchAliases(scenario.batchOutputs))
 			}
 			if scenario.RestrictedInputWallet != nil {
 				option = append(option, WithIssuer(scenario.RestrictedInputWallet))
