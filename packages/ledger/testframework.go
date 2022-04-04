@@ -24,14 +24,16 @@ import (
 type TestFramework struct {
 	Ledger *Ledger
 
+	t                   *testing.T
 	transactionsByAlias map[string]*MockedTransaction
 	outputIDsByAlias    map[string]utxo.OutputID
 }
 
-func NewTestFramework(options ...Option) (new *TestFramework) {
+func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	new = &TestFramework{
 		Ledger: New(options...),
 
+		t:                   t,
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
@@ -82,14 +84,14 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 	}
 }
 
-func (t *TestFramework) AssertBranchDAG(testing *testing.T, expectedParents map[string][]string) {
+func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 	for branchAlias, expectedParentAliases := range expectedParents {
 		currentBranchID := branchdag.NewBranchID(t.Transaction(branchAlias).ID())
 
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
-		assert.True(testing, t.Ledger.BranchDAG.Storage.Branch(currentBranchID).Consume(func(branch *branchdag.Branch) {
-			assert.Truef(testing, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
+		assert.True(t.t, t.Ledger.BranchDAG.Storage.Branch(currentBranchID).Consume(func(branch *branchdag.Branch) {
+			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
 		}))
 	}
 }
@@ -117,37 +119,68 @@ func (t *TestFramework) BranchIDs(txAliases ...string) (branchIDs branchdag.Bran
 	return branchIDs
 }
 
-func (t *TestFramework) AssertBranchIDs(testing *testing.T, expectedBranches map[string][]string) {
+func (t *TestFramework) AssertBranchIDs(expectedBranches map[string][]string) {
 	for txAlias, expectedBranchAliases := range expectedBranches {
 		currentTx := t.Transaction(txAlias)
 
 		expectedBranchIDs := t.BranchIDs(expectedBranchAliases...)
 
-		assert.True(testing, t.Ledger.Storage.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
-			assert.Truef(testing, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())
-		}))
+		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
+			assert.Truef(t.t, expectedBranchIDs.Equal(txMetadata.BranchIDs()), "Transaction(%s): expected %s is not equal to actual %s", txAlias, expectedBranchIDs, txMetadata.BranchIDs())
+		})
 
-		for i := uint16(0); i < currentTx.outputCount; i++ {
-			assert.True(testing, t.Ledger.Storage.CachedOutputMetadata(utxo.NewOutputID(currentTx.ID(), i, []byte(""))).Consume(func(outputMetadata *OutputMetadata) {
-				assert.Truef(testing, expectedBranchIDs.Equal(outputMetadata.BranchIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedBranchIDs, outputMetadata.BranchIDs())
-			}))
-		}
+		t.ConsumeTransactionOutputs(currentTx, func(outputMetadata *OutputMetadata) {
+			assert.Truef(t.t, expectedBranchIDs.Equal(outputMetadata.BranchIDs()), "Output(%s): expected %s is not equal to actual %s", outputMetadata.ID(), expectedBranchIDs, outputMetadata.BranchIDs())
+		})
 	}
 }
 
-func (t *TestFramework) AssertBooked(testing *testing.T, expectedBookedMap map[string]bool) {
+func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 	for txAlias, expectedBooked := range expectedBookedMap {
 		currentTx := t.Transaction(txAlias)
-		assert.Truef(testing, t.Ledger.Storage.CachedTransactionMetadata(currentTx.ID()).Consume(func(txMetadata *TransactionMetadata) {
-			assert.Equalf(testing, expectedBooked, txMetadata.Booked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.Booked())
+		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
+			assert.Equalf(t.t, expectedBooked, txMetadata.Booked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.Booked())
+
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
-				assert.Equalf(testing, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+				// Check if output exists according to the Booked status of the enclosing Transaction.
+				assert.Equalf(t.t, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
 					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.Booked())
 				return nil
 			})
-		}), "failed to load metadata of %s", currentTx.ID())
-
+		})
 	}
+}
+
+func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
+	for _, txAlias := range txAliases {
+		t.ConsumeTransactionMetadata(t.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
+			allBooked = txMetadata.Booked()
+		})
+
+		if !allBooked {
+			return
+		}
+	}
+
+	return
+}
+
+func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
+	assert.Truef(t.t, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
+}
+
+func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
+	assert.True(t.t, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+}
+
+func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {
+	t.ConsumeTransactionMetadata(mockTx.ID(), func(txMetadata *TransactionMetadata) {
+		assert.EqualValuesf(t.t, mockTx.outputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
+
+		for _, outputID := range txMetadata.OutputIDs().Slice() {
+			t.ConsumeOutputMetadata(outputID, consumer)
+		}
+	})
 }
 
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
