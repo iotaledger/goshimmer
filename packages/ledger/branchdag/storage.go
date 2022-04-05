@@ -26,24 +26,24 @@ type Storage struct {
 func newStorage(branchDAG *BranchDAG) (new *Storage) {
 	new = &Storage{
 		branchStorage: objectstorage.New[*Branch](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixBranchStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
 			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixChildBranchStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
 			ChildBranchKeyPartition,
 			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictStorage: objectstorage.New[*Conflict](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConflictStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictStorage}),
 			branchDAG.options.cacheTimeProvider.CacheTime(consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConflictMemberStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
 			ConflictMemberKeyPartition,
 			branchDAG.options.cacheTimeProvider.CacheTime(conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

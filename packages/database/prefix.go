@@ -13,8 +13,11 @@ const (
 	// PrefixMarkers defines the storage prefix for the markers used to optimize structural checks in the tangle.
 	PrefixMarkers
 
-	// PrefixLedger defines the storage prefix for the ledgerstate package.
+	// PrefixLedger defines the storage prefix for the ledger package.
 	PrefixLedger
+
+	// PrefixBranchDAG defines the storage prefix for the branchDAG package.
+	PrefixBranchDAG
 
 	// PrefixMana defines the storage prefix for the mana package.
 	PrefixMana

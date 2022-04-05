@@ -393,7 +393,17 @@ func (m *MockedTransaction) Inputs() []utxo.Input {
 }
 
 func (m *MockedTransaction) Bytes() []byte {
-	return nil
+	marshalUtil := marshalutil.New().
+		WriteUint16(uint16(len(m.inputs)))
+
+	for i := 0; i < len(m.inputs); i++ {
+		marshalUtil.Write(m.inputs[i])
+	}
+
+	return marshalUtil.
+		WriteUint16(m.outputCount).
+		WriteUint64(m.uniqueEssence).
+		Bytes()
 }
 
 func (m *MockedTransaction) String() (humanReadable string) {
