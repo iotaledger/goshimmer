@@ -22,21 +22,21 @@ type Branch struct {
 	conflictsMutex      sync.RWMutex
 	inclusionState      InclusionState
 	inclusionStateMutex sync.RWMutex
+
 	objectstorage.StorableObjectFlags
 }
 
 // NewBranch creates a new Branch from the given details.
-func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
-	c := &Branch{
+func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Branch) {
+	new = &Branch{
 		id:        id,
 		parents:   parents.Clone(),
 		conflicts: conflicts.Clone(),
 	}
+	new.SetModified()
+	new.Persist()
 
-	c.SetModified()
-	c.Persist()
-
-	return c
+	return new
 }
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
