@@ -9,7 +9,7 @@ import (
 )
 
 func TestBranchDAG_RetrieveBranch(t *testing.T) {
-	branchDAG := NewBranchDAG()
+	branchDAG := New()
 	defer branchDAG.Shutdown()
 
 	var (
@@ -30,7 +30,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	require.NoError(t, conflictID3.FromRandomness())
 
 	assert.True(t, branchDAG.CreateBranch(branchID2, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0, conflictID1)))
-	cachedBranch2 := branchDAG.Storage.Branch(branchID2)
+	cachedBranch2 := branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists := cachedBranch2.Unwrap()
 	require.True(t, exists)
@@ -38,7 +38,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.True(t, NewConflictIDs(conflictID0, conflictID1).Equal(Branch2.Conflicts()))
 
 	assert.True(t, branchDAG.CreateBranch(branchID3, NewBranchIDs(Branch2.ID()), NewConflictIDs(conflictID0, conflictID1, conflictID2)))
-	cachedBranch3 := branchDAG.Storage.Branch(branchID3)
+	cachedBranch3 := branchDAG.Storage.CachedBranch(branchID3)
 	defer cachedBranch3.Release()
 	Branch3, exists := cachedBranch3.Unwrap()
 	require.True(t, exists)
@@ -47,7 +47,8 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, NewConflictIDs(conflictID0, conflictID1, conflictID2), Branch3.Conflicts())
 
 	assert.False(t, branchDAG.CreateBranch(branchID2, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0, conflictID1, conflictID2)))
-	cachedBranch2 = branchDAG.Storage.Branch(branchID2)
+	assert.True(t, branchDAG.AddBranchToConflicts(branchID2, NewConflictIDs(conflictID0, conflictID1, conflictID2)))
+	cachedBranch2 = branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists = cachedBranch2.Unwrap()
 	require.True(t, exists)
@@ -55,7 +56,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, NewConflictIDs(conflictID0, conflictID1, conflictID2), Branch2.Conflicts())
 
 	assert.True(t, branchDAG.CreateBranch(branchID4, NewBranchIDs(Branch3.ID(), Branch3.ID()), NewConflictIDs(conflictID3)))
-	cachedBranch4 := branchDAG.Storage.Branch(branchID4)
+	cachedBranch4 := branchDAG.Storage.CachedBranch(branchID4)
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
 	require.True(t, exists)
@@ -63,7 +64,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 }
 
 func TestBranchDAG_ConflictMembers(t *testing.T) {
-	branchDAG := NewBranchDAG()
+	branchDAG := New()
 	defer branchDAG.Shutdown()
 
 	var (
@@ -79,13 +80,13 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 
 	// create initial branches
 	assert.True(t, branchDAG.CreateBranch(branchID2, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0)))
-	cachedBranch2 := branchDAG.Storage.Branch(branchID2)
+	cachedBranch2 := branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	branch2, exists := cachedBranch2.Unwrap()
 	assert.True(t, exists)
 
 	assert.True(t, branchDAG.CreateBranch(branchID3, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0)))
-	cachedBranch3 := branchDAG.Storage.Branch(branchID3)
+	cachedBranch3 := branchDAG.Storage.CachedBranch(branchID3)
 	defer cachedBranch3.Release()
 	branch3, exists := cachedBranch3.Unwrap()
 	assert.True(t, exists)
@@ -95,14 +96,14 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {},
 	}
 	actualConflictMembers := map[BranchID]struct{}{}
-	branchDAG.Storage.ConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember) {
+	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add branch 4
 	assert.True(t, branchDAG.CreateBranch(branchID4, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0)))
-	cachedBranch4 := branchDAG.Storage.Branch(branchID4)
+	cachedBranch4 := branchDAG.Storage.CachedBranch(branchID4)
 	defer cachedBranch4.Release()
 	branch4, exists := cachedBranch4.Unwrap()
 	assert.True(t, exists)
@@ -112,14 +113,14 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
 	}
 	actualConflictMembers = map[BranchID]struct{}{}
-	branchDAG.Storage.ConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember) {
+	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember) {
 		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
 func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
-	branchDAG := NewBranchDAG()
+	branchDAG := New()
 	defer branchDAG.Shutdown()
 
 	var (
@@ -244,7 +245,7 @@ func createBranch(t *testing.T, branchDAG *BranchDAG, branchAlias string, parent
 	}
 
 	assert.True(t, branchDAG.CreateBranch(randomBranchID, parents, conflictIDs))
-	cachedBranch := branchDAG.Storage.Branch(randomBranchID)
+	cachedBranch := branchDAG.Storage.CachedBranch(randomBranchID)
 	cachedBranch.Release()
 
 	randomBranchID.RegisterAlias(branchAlias)

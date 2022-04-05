@@ -1,36 +1,64 @@
 package branchdag
 
 import (
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Events is a container that acts as a dictionary for the existing events of a BranchDAG.
 type Events struct {
-	// BranchCreated gets triggered when a new Branch is created.
-	BranchCreated *events.Event
+	// BranchCreated is an event that gets triggered whenever a new Branch is created.
+	BranchCreated *event.Event[*BranchCreatedEvent]
 
-	// BranchParentsUpdated gets triggered whenever a Branch's parents are updated.
-	BranchParentsUpdated *events.Event
+	// BranchConflictsUpdated is an event that gets triggered whenever the ConflictIDs of a Branch are updated.
+	BranchConflictsUpdated *event.Event[*BranchConflictsUpdatedEvent]
+
+	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Branch are updated.
+	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent]
 }
 
-func NewEvents() *Events {
+// newEvents returns a new Events object.
+func newEvents() *Events {
 	return &Events{
-		BranchCreated: events.NewEvent(func(handler interface{}, params ...interface{}) {
-			handler.(func(BranchID))(params[0].(BranchID))
-		}),
-		BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),
+		BranchCreated:          event.New[*BranchCreatedEvent](),
+		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent](),
+		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent](),
 	}
 }
 
-// BranchParentUpdate contains the new branch parents of a branch.
-type BranchParentUpdate struct {
-	ID         BranchID
-	NewParents BranchIDs
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchCreatedEvent ///////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchCreatedEvent is a container that acts as a dictionary for the BranchCreated event related parameters.
+type BranchCreatedEvent struct {
+	BranchID        BranchID
+	ParentBranchIDs BranchIDs
+	ConflictIDs     ConflictIDs
 }
 
-func branchParentUpdateEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(branchParents *BranchParentUpdate))(params[0].(*BranchParentUpdate))
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchConflictsUpdatedEvent //////////////////////////////////////////////////////////////////////////////////
+
+// BranchConflictsUpdatedEvent is a container that acts as a dictionary for the BranchConflictsUpdated event related
+// parameters.
+type BranchConflictsUpdatedEvent struct {
+	BranchID       BranchID
+	NewConflictIDs ConflictIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchParentsUpdatedEvent ////////////////////////////////////////////////////////////////////////////////////
+
+// BranchParentsUpdatedEvent is a container that acts as a dictionary for the BranchParentsUpdated event related
+// parameters.
+type BranchParentsUpdatedEvent struct {
+	BranchID        BranchID
+	AddedBranch     BranchID
+	RemovedBranches BranchIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

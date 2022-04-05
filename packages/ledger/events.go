@@ -15,7 +15,7 @@ type Events struct {
 	Error                      *event.Event[error]
 }
 
-func NewEvents() (new *Events) {
+func newEvents() (new *Events) {
 	return &Events{
 		TransactionStored:          event.New[*TransactionStoredEvent](),
 		TransactionBooked:          event.New[*TransactionBookedEvent](),

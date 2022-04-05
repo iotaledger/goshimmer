@@ -51,7 +51,7 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 }
 
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	utxoOutputs, err := v.Options.VM.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
+	utxoOutputs, err := v.options.VM.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}

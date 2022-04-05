@@ -19,7 +19,7 @@ func newUtils(ledger *Ledger) (new *utils) {
 }
 
 func (u *utils) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
-	return utxo.NewOutputIDs(lo.Map(inputs, u.Options.VM.ResolveInput)...)
+	return utxo.NewOutputIDs(lo.Map(inputs, u.options.VM.ResolveInput)...)
 }
 
 func (u *utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (consumingTransactions utxo.TransactionIDs) {
