@@ -129,39 +129,31 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
-	confirmationWalker := walker.New[BranchID]().Push(branchID)
-	rejectedWalker := walker.New[BranchID]()
+	rejectionWalker := walker.New[BranchID]()
 
-	for confirmationWalker.HasNext() {
-		currentBranchID := confirmationWalker.Next()
-
-		b.Storage.CachedBranch(currentBranchID).Consume(func(branch *Branch) {
+	for confirmationWalker := NewBranchIDs(branchID).Iterator(); confirmationWalker.HasNext(); {
+		b.Storage.CachedBranch(confirmationWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
 
-			for it := branch.Parents().Iterator(); it.HasNext(); {
-				confirmationWalker.Push(it.Next())
-			}
+			confirmationWalker.PushAll(branch.Parents().Slice()...)
 
-			for it := branch.Conflicts().Iterator(); it.HasNext(); {
-				b.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember) {
-					if conflictMember.BranchID() != currentBranchID {
-						rejectedWalker.Push(conflictMember.BranchID())
-					}
-				})
-			}
+			b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID BranchID) bool {
+				rejectionWalker.Push(conflictingBranchID)
+				return true
+			})
 		})
 	}
 
-	for rejectedWalker.HasNext() {
-		b.Storage.CachedBranch(rejectedWalker.Next()).Consume(func(branch *Branch) {
+	for rejectionWalker.HasNext() {
+		b.Storage.CachedBranch(rejectionWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
 
 			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
-				rejectedWalker.Push(childBranch.ChildBranchID())
+				rejectionWalker.Push(childBranch.ChildBranchID())
 			})
 		})
 	}
