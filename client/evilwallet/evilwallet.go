@@ -279,9 +279,14 @@ func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputW
 
 // region EvilWallet functionality ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ClearAliases remove all registered alias names.
-func (e *EvilWallet) ClearAliases() {
-	e.aliasManager.ClearAliases()
+// ClearAliases remove only provided aliases from AliasManager.
+func (e *EvilWallet) ClearAliases(aliases ScenarioAlias) {
+	e.aliasManager.ClearAliases(aliases)
+}
+
+// ClearAllAliases remove all registered alias names.
+func (e *EvilWallet) ClearAllAliases() {
+	e.aliasManager.ClearAllAliases()
 }
 
 func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice) (conflictBatch [][]*ledgerstate.Transaction, err error) {
