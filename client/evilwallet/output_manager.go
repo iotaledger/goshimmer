@@ -2,6 +2,8 @@ package evilwallet
 
 import (
 	"fmt"
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
 
@@ -44,6 +46,8 @@ type OutputManager struct {
 	wallets           *Wallets
 	outputIDWalletMap map[string]*Wallet
 	outputIDAddrMap   map[string]string
+	// stores solid outputs per node
+	issuerSolidOutIDMap map[string]map[string]types.Empty
 
 	sync.RWMutex
 }
@@ -51,13 +55,15 @@ type OutputManager struct {
 // NewOutputManager creates an OutputManager instance.
 func NewOutputManager(connector Connector, wallets *Wallets) *OutputManager {
 	return &OutputManager{
-		connector:         connector,
-		wallets:           wallets,
-		outputIDWalletMap: make(map[string]*Wallet),
-		outputIDAddrMap:   make(map[string]string),
+		connector:           connector,
+		wallets:             wallets,
+		outputIDWalletMap:   make(map[string]*Wallet),
+		outputIDAddrMap:     make(map[string]string),
+		issuerSolidOutIDMap: make(map[string]map[string]types.Empty),
 	}
 }
 
+// SetOutputIDWalletMap sets wallet for the provided outputID.
 func (o *OutputManager) SetOutputIDWalletMap(outputID string, wallet *Wallet) {
 	o.Lock()
 	defer o.Unlock()
@@ -65,6 +71,7 @@ func (o *OutputManager) SetOutputIDWalletMap(outputID string, wallet *Wallet) {
 	o.outputIDWalletMap[outputID] = wallet
 }
 
+// SetOutputIDAddrMap sets address for the provided outputID.
 func (o *OutputManager) SetOutputIDAddrMap(outputID string, addr string) {
 	o.Lock()
 	defer o.Unlock()
@@ -72,6 +79,7 @@ func (o *OutputManager) SetOutputIDAddrMap(outputID string, addr string) {
 	o.outputIDAddrMap[outputID] = addr
 }
 
+// OutputIDWalletMap returns wallet corresponding to the outputID stored in OutputManager.
 func (o *OutputManager) OutputIDWalletMap(outputID string) *Wallet {
 	o.RLock()
 	defer o.RUnlock()
@@ -79,11 +87,36 @@ func (o *OutputManager) OutputIDWalletMap(outputID string) *Wallet {
 	return o.outputIDWalletMap[outputID]
 }
 
+// OutputIDAddrMap returns address corresponding to the outputID stored in OutputManager.
 func (o *OutputManager) OutputIDAddrMap(outputID string) (addr string) {
 	o.RLock()
 	defer o.RUnlock()
 
 	addr = o.outputIDAddrMap[outputID]
+	return
+}
+
+// SetOutputIDSolidForIssuer sets solid flag for the provided outputID and issuer.
+func (o *OutputManager) SetOutputIDSolidForIssuer(outputID string, issuer string) {
+	o.Lock()
+	defer o.Unlock()
+
+	if _, ok := o.issuerSolidOutIDMap[issuer]; !ok {
+		o.issuerSolidOutIDMap[issuer] = make(map[string]types.Empty)
+	}
+	o.issuerSolidOutIDMap[issuer][outputID] = types.Void
+}
+
+// IssuerSolidOutIDMap checks whether output was marked as solid for a given node.
+func (o *OutputManager) IssuerSolidOutIDMap(issuer, outputID string) (isSolid bool) {
+	o.RLock()
+	defer o.RUnlock()
+
+	if solidOutputs, ok := o.issuerSolidOutIDMap[issuer]; ok {
+		if _, isSolid = solidOutputs[outputID]; isSolid {
+			return
+		}
+	}
 	return
 }
 
@@ -259,7 +292,7 @@ func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, 
 	s := time.Now()
 	clt := o.connector.GetClient()
 	confirmed = false
-	for ; time.Since(s) < waitFor; time.Sleep(1 * time.Second) {
+	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
 		gof := clt.GetOutputGoF(outputID)
 		if gof == GoFConfirmed {
 			confirmed = true
@@ -297,7 +330,7 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 	s := time.Now()
 	clt := o.connector.GetClient()
 	var confirmed bool
-	for ; time.Since(s) < waitFor; time.Sleep(2 * time.Second) {
+	for ; time.Since(s) < waitFor; time.Sleep(awaitConfirmationSleep) {
 		if gof := clt.GetTransactionGoF(txID); gof == GoFConfirmed {
 			confirmed = true
 			break
@@ -307,4 +340,48 @@ func (o *OutputManager) AwaitTransactionToBeConfirmed(txID string, waitFor time.
 		return fmt.Errorf("transaction %s not confirmed in time", txID)
 	}
 	return nil
+}
+
+// AwaitOutputToBeSolid awaits for solidification of a single output by provided clt.
+func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor time.Duration) error {
+	s := time.Now()
+	var solid bool
+
+	for ; time.Since(s) < waitFor; time.Sleep(awaitSolidificationSleep) {
+		solid = o.IssuerSolidOutIDMap(clt.Url(), outID)
+		if solid {
+			break
+		}
+		if isSolid, err := clt.GetOutputSolidity(outID); err != nil && isSolid {
+			solid = true
+
+			break
+		}
+	}
+	if !solid {
+		return errors.Newf("output %s not solidified in time", outID)
+	}
+	return nil
+}
+
+// AwaitOutputsToBeSolid awaits for all provided outputs are solid for a provided client.
+func (o *OutputManager) AwaitOutputsToBeSolid(outputs []string, clt Client, maxGoroutines int) {
+	wg := sync.WaitGroup{}
+	semaphore := make(chan bool, maxGoroutines)
+
+	for _, outID := range outputs {
+		wg.Add(1)
+		go func(outID string) {
+			defer wg.Done()
+			semaphore <- true
+			defer func() {
+				<-semaphore
+			}()
+			err := o.AwaitOutputToBeSolid(outID, clt, waitForSolidification)
+			if err != nil {
+				return
+			}
+		}(outID)
+	}
+	wg.Wait()
 }

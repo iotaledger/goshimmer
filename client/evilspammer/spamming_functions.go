@@ -28,6 +28,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 	if err != nil {
 		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
 	}
+
 	for _, txs := range conflictBatch {
 		clients := s.Clients.GetClients(len(txs))
 		if len(txs) > len(clients) {
@@ -40,7 +41,11 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				s.PostTransaction(tx, clt)
+				//s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
+				ok := s.PostTransaction(tx, clt)
+				if ok {
+					s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
+				}
 			}(clients[i], tx)
 		}
 		wg.Wait()

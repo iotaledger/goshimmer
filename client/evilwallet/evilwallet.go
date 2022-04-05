@@ -22,8 +22,13 @@ const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber = 100
 
-	waitForConfirmation = 60 * time.Second
-	WaitForTxSolid      = 2 * time.Second
+	waitForConfirmation   = 60 * time.Second
+	waitForSolidification = 10 * time.Second
+
+	awaitConfirmationSleep   = time.Second
+	awaitSolidificationSleep = time.Millisecond * 500
+
+	WaitForTxSolid = 2 * time.Second
 
 	maxGoroutines = 5
 )
@@ -754,6 +759,20 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 	}
 
 	return conflictSlice, nil
+}
+
+func (e *EvilWallet) AwaitInputsSolidity(inputs ledgerstate.Inputs, clt Client) {
+	awaitSolid := make([]string, 0)
+	for _, in := range inputs {
+		awaitSolid = append(awaitSolid, in.Base58())
+	}
+	e.outputManager.AwaitOutputsToBeSolid(awaitSolid, clt, maxGoroutines)
+}
+
+func (e *EvilWallet) SetTxOutputsSolid(outputs ledgerstate.Outputs, clientID string) {
+	for _, out := range outputs {
+		e.outputManager.SetOutputIDSolidForIssuer(out.ID().Base58(), clientID)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
