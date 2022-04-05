@@ -342,7 +342,6 @@ func (w *Wallet) GetUnspentOutput() *Output {
 func (w *Wallet) Sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	w.RLock()
 	defer w.RUnlock()
-
 	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
 	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))

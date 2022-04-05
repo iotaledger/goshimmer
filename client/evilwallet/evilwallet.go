@@ -667,10 +667,13 @@ func (e *EvilWallet) makeTransaction(inputs ledgerstate.Inputs, outputs ledgerst
 		if err2 != nil {
 			return nil, err2
 		}
+		var wallet *Wallet
 		if w == nil { // aliases provided with inputs, use wallet saved in outputManager
-			w = e.outputManager.OutputIDWalletMap(input.Base58())
+			wallet = e.outputManager.OutputIDWalletMap(input.Base58())
+		} else {
+			wallet = w
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.Sign(addr, txEssence))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(wallet.Sign(addr, txEssence))
 	}
 	return ledgerstate.NewTransaction(txEssence, unlockBlocks), nil
 }
