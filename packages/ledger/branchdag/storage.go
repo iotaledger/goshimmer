@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
@@ -80,8 +81,25 @@ func (s *Storage) CachedChildBranches(branchID BranchID) (cachedChildBranches ob
 }
 
 // CachedConflict loads a Conflict from the object storage.
-func (s *Storage) CachedConflict(conflictID ConflictID) *objectstorage.CachedObject[*Conflict] {
+func (s *Storage) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict) *objectstorage.CachedObject[*Conflict] {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
+			return computeIfAbsentCallback[0](conflictID)
+		})
+	}
+
 	return s.conflictStorage.Load(conflictID.Bytes())
+}
+
+// CachedConflictMember loads a cached ConflictMember from the object storage.
+func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID, computeIfAbsentCallback ...func(conflictID ConflictID, branchID BranchID) *ConflictMember) *objectstorage.CachedObject[*ConflictMember] {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()), func(key []byte) *ConflictMember {
+			return computeIfAbsentCallback[0](conflictID, branchID)
+		})
+	}
+
+	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()))
 }
 
 // CachedConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.

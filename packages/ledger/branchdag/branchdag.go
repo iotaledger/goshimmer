@@ -13,14 +13,13 @@ import (
 type BranchDAG struct {
 	// Events is a dictionary for BranchDAG related events.
 	Events *Events
-
 	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
-
 	// Utils is a dictionary for utility methods that simplify the interaction with the BranchDAG.
 	Utils *Utils
-
-	options             *options
+	// options is a dictionary for configuration parameters of the BranchDAG.
+	options *options
+	// inclusionStateMutex is a mutex that prevents that two .
 	inclusionStateMutex sync.RWMutex
 }
 
@@ -40,13 +39,8 @@ func New(options ...Option) (new *BranchDAG) {
 // if it already existed. It triggers a BranchCreated event if the branch was successfully created.
 func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (created bool) {
 	b.inclusionStateMutex.RLock()
-	b.Storage.CachedBranch(branchID, func() *Branch {
-		created = true
-		return NewBranch(branchID, parentBranchIDs, NewConflictIDs())
-	}).Consume(func(branch *Branch) {
-		if !created {
-			return
-		}
+	b.Storage.CachedBranch(branchID, func() (branch *Branch) {
+		branch = NewBranch(branchID, parentBranchIDs, NewConflictIDs())
 
 		b.addConflictMembers(branch, conflictIDs)
 		b.createChildBranchReferences(branchID, parentBranchIDs)
@@ -54,7 +48,11 @@ func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, c
 		if b.anyParentRejected(branch) || b.anyConflictMemberConfirmed(branch) {
 			branch.setInclusionState(Rejected)
 		}
-	})
+
+		created = true
+
+		return branch
+	}).Release()
 	b.inclusionStateMutex.RUnlock()
 
 	if created {
@@ -117,21 +115,10 @@ func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, remove
 // addressed by the given BranchIDs.
 func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
 	pendingBranchIDs = NewBranchIDs()
-
-	branchWalker := walker.New[BranchID]().PushAll(branchIDs.Slice()...)
-	for branchWalker.HasNext() {
-		currentBranchID := branchWalker.Next()
-
-		b.Storage.CachedBranch(currentBranchID).Consume(func(branch *Branch) {
-			if branch.InclusionState() == Confirmed {
-				return
-			}
-			pendingBranchIDs.Add(branch.ID())
-		})
-	}
-
-	if pendingBranchIDs.Size() == 0 {
-		pendingBranchIDs = NewBranchIDs(MasterBranchID)
+	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
+		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
+			pendingBranchIDs.Add(currentBranchID)
+		}
 	}
 
 	return pendingBranchIDs
@@ -241,7 +228,7 @@ func (b *BranchDAG) anyParentRejected(branch *Branch) (rejected bool) {
 	return false
 }
 
-// anyConflictMemberConfirmed checks if any of the conflicting Branches of a Branch is Confirmed.
+// anyConflictMemberConfirmed checks if any of a Branch's conflicts is Confirmed.
 func (b *BranchDAG) anyConflictMemberConfirmed(branch *Branch) (confirmed bool) {
 	b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID BranchID) bool {
 		confirmed = b.inclusionState(conflictingBranchID) == Confirmed
@@ -251,21 +238,14 @@ func (b *BranchDAG) anyConflictMemberConfirmed(branch *Branch) (confirmed bool) 
 	return confirmed
 }
 
-// registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch
-// belonging to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
+// registerConflictMember registers a Branch in a Conflict by creating the references (if necessary) and increasing the
+// member counter of the Conflict.
 func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
-	b.Storage.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
-		newConflict := NewConflict(conflictID)
-		newConflict.Persist()
-		newConflict.SetModified()
-
-		return newConflict
-	}).Consume(func(conflict *Conflict) {
-		if cachedConflictMember, stored := b.Storage.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
+	b.Storage.CachedConflict(conflictID, NewConflict).Consume(func(conflict *Conflict) {
+		b.Storage.CachedConflictMember(conflictID, branchID, func(conflictID ConflictID, branchID BranchID) *ConflictMember {
 			conflict.IncreaseMemberCount()
-
-			cachedConflictMember.Release()
-		}
+			return NewConflictMember(conflictID, branchID)
+		}).Release()
 	})
 }
 
