@@ -77,7 +77,7 @@ func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *
 	if err = branch.conflicts.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse conflicts: %w", err)
 	}
-	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
+	if err = branch.inclusionState.FromMarshalUtil(marshalUtil); err != nil {
 		return nil, errors.Errorf("failed to parse inclusionState: %w", err)
 	}
 
