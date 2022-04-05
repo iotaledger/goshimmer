@@ -28,7 +28,7 @@ func New(options ...Option) (new *BranchDAG) {
 		Events:  newEvents(),
 		options: newOptions(options...),
 	}
-	new.Storage = newStorage(new)
+	new.Storage = newStorage(new.options)
 	new.Utils = newUtils(new)
 
 	return
@@ -38,7 +38,7 @@ func New(options ...Option) (new *BranchDAG) {
 // if it already existed. It triggers a BranchCreated event if the branch was successfully created.
 func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (created bool) {
 	b.inclusionStateMutex.RLock()
-	b.Storage.CachedBranch(branchID, func() (branch *Branch) {
+	b.Storage.CachedBranch(branchID, func(BranchID) (branch *Branch) {
 		branch = NewBranch(branchID, parentBranchIDs, NewConflictIDs())
 
 		b.addConflictMembers(branch, conflictIDs)
@@ -200,9 +200,7 @@ func (b *BranchDAG) addConflictMembers(branch *Branch, conflictIDs ConflictIDs) 
 // createChildBranchReferences creates the named ChildBranch references.
 func (b *BranchDAG) createChildBranchReferences(parentBranchIDs BranchIDs, childBranchID BranchID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
-		if cachedChildBranch, stored := b.Storage.childBranchStorage.StoreIfAbsent(NewChildBranch(it.Next(), childBranchID)); stored {
-			cachedChildBranch.Release()
-		}
+		b.Storage.CachedChildBranch(it.Next(), childBranchID, NewChildBranch).Release()
 	}
 }
 

@@ -203,11 +203,15 @@ type ChildBranch struct {
 }
 
 // NewChildBranch is the constructor of the ChildBranch reference.
-func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
-	return &ChildBranch{
+func NewChildBranch(parentBranchID, childBranchID BranchID) (new *ChildBranch) {
+	new = &ChildBranch{
 		parentBranchID: parentBranchID,
 		childBranchID:  childBranchID,
 	}
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
