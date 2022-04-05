@@ -212,6 +212,7 @@ type Wallet struct {
 	indexAddrMap      map[uint64]string
 	addrIndexMap      map[string]uint64
 	inputTransactions map[string]types.Empty
+	reuseAddressPool  map[string]types.Empty
 	seed              *seed.Seed
 
 	lastAddrIdxUsed atomic.Int64 // used during filling in wallet with new outputs
@@ -241,7 +242,15 @@ func NewWallet(wType ...WalletType) *Wallet {
 		RWMutex:           &sync.RWMutex{},
 	}
 
+	if walletType == Reuse {
+		wallet.reuseAddressPool = make(map[string]types.Empty)
+	}
 	return wallet
+}
+
+// Type returns the wallet type.
+func (w *Wallet) Type() WalletType {
+	return w.walletType
 }
 
 // Address returns a new and unused address of a given wallet.
@@ -319,21 +328,66 @@ func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances 
 }
 
 // IsEmpty returns true if the wallet is empty.
-func (w *Wallet) IsEmpty() bool {
-	return w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
+func (w *Wallet) IsEmpty() (empty bool) {
+	switch w.walletType {
+	case Reuse:
+		empty = len(w.reuseAddressPool) == 0
+	default:
+		empty = w.lastAddrSpent.Load() == w.lastAddrIdxUsed.Load() || w.UnspentOutputsLength() == 0
+	}
+	return
 }
 
 // UnspentOutputsLeft returns how many unused outputs are available in wallet.
-func (w *Wallet) UnspentOutputsLeft() int {
-	return int(w.lastAddrIdxUsed.Load() - w.lastAddrSpent.Load())
+func (w *Wallet) UnspentOutputsLeft() (left int) {
+	switch w.walletType {
+	case Reuse:
+		left = len(w.reuseAddressPool)
+	default:
+		left = int(w.lastAddrIdxUsed.Load() - w.lastAddrSpent.Load())
+	}
+	return
+}
+
+// AddReuseAddress adds address to the reuse ready outputs' addresses pool for a Reuse wallet.
+func (w *Wallet) AddReuseAddress(addr string) {
+	w.Lock()
+	defer w.Unlock()
+
+	if w.walletType == Reuse {
+		w.reuseAddressPool[addr] = types.Void
+	}
+}
+
+// GetReuseAddress get random address from reuse addresses reuseOutputsAddresses pool. Address is removed from the pool after selecting.
+func (w *Wallet) GetReuseAddress() string {
+	w.Lock()
+	defer w.Unlock()
+
+	if w.walletType == Reuse {
+		if len(w.reuseAddressPool) > 0 {
+			for addr := range w.reuseAddressPool {
+				delete(w.reuseAddressPool, addr)
+				return addr
+			}
+		}
+	}
+	return ""
 }
 
 // GetUnspentOutput returns an unspent output on the oldest address ordered by index.
 func (w *Wallet) GetUnspentOutput() *Output {
-	if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
-		idx := w.lastAddrSpent.Add(1)
-		addr := w.IndexAddrMap(uint64(idx))
+	switch w.walletType {
+	case Reuse:
+		addr := w.GetReuseAddress()
 		return w.UnspentOutput(addr)
+	default:
+		if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
+			idx := w.lastAddrSpent.Add(1)
+			addr := w.IndexAddrMap(uint64(idx))
+			out := w.UnspentOutput(addr)
+			return out
+		}
 	}
 	return nil
 }

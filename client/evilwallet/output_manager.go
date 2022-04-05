@@ -207,6 +207,7 @@ func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 }
 
 // GetOutput returns the Output of the given outputID.
+// Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
 	output = o.getOutputFromWallet(outputID)
 
@@ -352,9 +353,8 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 		if solid {
 			break
 		}
-		if isSolid, err := clt.GetOutputSolidity(outID); err != nil && isSolid {
-			solid = true
-
+		if isSolid, _ := clt.GetOutputSolidity(outID); isSolid {
+			solid = isSolid
 			break
 		}
 	}
@@ -365,9 +365,10 @@ func (o *OutputManager) AwaitOutputToBeSolid(outID string, clt Client, waitFor t
 }
 
 // AwaitOutputsToBeSolid awaits for all provided outputs are solid for a provided client.
-func (o *OutputManager) AwaitOutputsToBeSolid(outputs []string, clt Client, maxGoroutines int) {
+func (o *OutputManager) AwaitOutputsToBeSolid(outputs []string, clt Client, maxGoroutines int) (allSolid bool) {
 	wg := sync.WaitGroup{}
 	semaphore := make(chan bool, maxGoroutines)
+	allSolid = true
 
 	for _, outID := range outputs {
 		wg.Add(1)
@@ -379,9 +380,11 @@ func (o *OutputManager) AwaitOutputsToBeSolid(outputs []string, clt Client, maxG
 			}()
 			err := o.AwaitOutputToBeSolid(outID, clt, waitForSolidification)
 			if err != nil {
+				allSolid = false
 				return
 			}
 		}(outID)
 	}
 	wg.Wait()
+	return
 }
