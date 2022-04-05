@@ -106,7 +106,7 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 	return
 }
 
-// CreateEmptyOutput creates output without outputID, stores it in wallet w and return output instance.
+// CreateEmptyOutput creates output without outputID, stores it in the wallet w and returns an output instance.
 // OutputManager maps are not updated, as outputID is not known yet.
 func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance *ledgerstate.ColoredBalances) *Output {
 	addr := w.Address()
@@ -128,6 +128,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	return out
 }
 
+// AddOutput adds existing output from wallet w to the OutputManager.
 func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
 	outputID := output.ID()
 	idx := w.AddrIndexMap(output.Address().Base58())

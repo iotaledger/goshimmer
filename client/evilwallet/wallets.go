@@ -1,8 +1,6 @@
 package evilwallet
 
 import (
-	"sync"
-
 	"github.com/cockroachdb/errors"
 	"sync"
 
@@ -255,7 +253,6 @@ func (w *Wallet) Address() address.Address {
 	addr := w.seed.Address(index)
 	w.indexAddrMap[index] = addr.Base58()
 	w.addrIndexMap[addr.Base58()] = index
-
 	return addr
 }
 
@@ -341,22 +338,6 @@ func (w *Wallet) GetUnspentOutput() *Output {
 	return nil
 }
 
-// createOutputs creates n outputs by splitting the given balance equally between them.
-func (w *Wallet) createOutputs(nOutputs int, inputBalance *ledgerstate.ColoredBalances) (outputs []ledgerstate.Output) {
-	amount, _ := inputBalance.Get(ledgerstate.ColorIOTA)
-	outputBalances := SplitBalanceEqually(nOutputs, amount)
-	for i := 0; i < nOutputs; i++ {
-		addr := w.Address()
-		output := ledgerstate.NewSigLockedSingleOutput(outputBalances[i], addr.Address())
-		outputs = append(outputs, output)
-		// correct ID will be updated after txn confirmation
-		w.AddUnspentOutput(addr.Address(), addr.Index, output.ID(), ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: outputBalances[i],
-		}))
-	}
-	return
-}
-
 // Sign signs the tx essence.
 func (w *Wallet) Sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
 	w.RLock()
@@ -373,7 +354,7 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()
 	if !ok {
-		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%s, addr: %s", outputID.Base58(), addr)
+		return errors.Newf("could not find unspent output under provided address in the wallet, outID:%s, addr: %s", outputID.Base58(), addr)
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID
