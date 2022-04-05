@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -36,7 +37,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":    {"MasterBranch"},
+			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
 			"TX2":  {"TX2"},
@@ -51,12 +52,12 @@ func TestLedger_BookInOrder(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TX1":  {"MasterBranch"},
-			"TX1*": {"MasterBranch"},
-			"TX2":  {"MasterBranch"},
-			"TX2*": {"MasterBranch"},
-			"TX3":  {"MasterBranch"},
-			"TX3*": {"MasterBranch"},
+			"TX1":  {},
+			"TX1*": {},
+			"TX2":  {},
+			"TX2*": {},
+			"TX3":  {},
+			"TX3*": {},
 		})
 	}
 
@@ -64,7 +65,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 		assert.NoError(t, testFramework.IssueTransaction("TX7*"))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":    {"MasterBranch"},
+			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
 			"TX2":  {"TX2"},
@@ -80,12 +81,12 @@ func TestLedger_BookInOrder(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TX1":  {"MasterBranch"},
-			"TX1*": {"MasterBranch"},
-			"TX2":  {"MasterBranch"},
-			"TX2*": {"MasterBranch"},
-			"TX3":  {"MasterBranch"},
-			"TX3*": {"MasterBranch"},
+			"TX1":  {},
+			"TX1*": {},
+			"TX2":  {},
+			"TX2*": {},
+			"TX3":  {},
+			"TX3*": {},
 			"TX7":  {"TX1", "TX2", "TX3"},
 			"TX7*": {"TX1", "TX2", "TX3"},
 		})
@@ -95,7 +96,7 @@ func TestLedger_BookInOrder(t *testing.T) {
 		assert.NoError(t, testFramework.IssueTransaction("TX5*"))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":    {"MasterBranch"},
+			"G":    {},
 			"TX1":  {"TX1"},
 			"TX1*": {"TX1*"},
 			"TX2":  {"TX2"},
@@ -112,12 +113,12 @@ func TestLedger_BookInOrder(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TX1":  {"MasterBranch"},
-			"TX1*": {"MasterBranch"},
-			"TX2":  {"MasterBranch"},
-			"TX2*": {"MasterBranch"},
-			"TX3":  {"MasterBranch"},
-			"TX3*": {"MasterBranch"},
+			"TX1":  {},
+			"TX1*": {},
+			"TX2":  {},
+			"TX2*": {},
+			"TX3":  {},
+			"TX3*": {},
 			"TX5":  {"TX1", "TX2"},
 			"TX5*": {"TX1", "TX2"},
 			"TX7":  {"TX5", "TX3"},
@@ -157,7 +158,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXA").ID())))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -167,12 +168,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -188,7 +189,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		assert.NoError(t, testFramework.IssueTransaction("TXE"))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -199,12 +200,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -222,7 +223,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -234,12 +235,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -257,7 +258,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -270,12 +271,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
@@ -299,7 +300,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -313,12 +314,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
@@ -343,7 +344,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -358,12 +359,12 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
@@ -384,114 +385,137 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 	testFramework := NewTestFramework(t)
 
 	createdAliases := make([]string, 0)
+	bookedAliases := make(map[string]bool)
 
-	testFramework.CreateTransaction("G", 100, "Genesis")
-	assert.NoError(t, testFramework.IssueTransaction("G"))
+	// Create UTXO-DAG from transactions 100 layers deep.
+	{
+		testFramework.CreateTransaction("G", 10, "Genesis")
+		assert.NoError(t, testFramework.IssueTransaction("G"))
 
-	// Bottom layer
-	genesisOutput := 0
-	for txnum := 0; txnum < 10; txnum++ {
-		consumedAliases := make([]string, 0)
-		consumedGenesis := genesisOutput
-		for ; consumedGenesis < genesisOutput+10; consumedGenesis++ {
-			consumedAliases = append(consumedAliases, fmt.Sprintf("G.%d", consumedGenesis))
-		}
-		genesisOutput = consumedGenesis
+		for layer := 0; layer < 100; layer++ {
+			for txNum := 0; txNum < 10; txNum++ {
+				txAlias := fmt.Sprintf("TX-%d-%d", layer, txNum)
+				createdAliases = append(createdAliases, txAlias)
+				consumedAliases := make([]string, 0)
 
-		txAlias := fmt.Sprintf("TX.0.%d", txnum)
-		createdAliases = append(createdAliases, txAlias)
-		testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
+				if layer == 0 {
+					// We need to treat the bottom layer differently since it consumes from Genesis.
+					consumedAliases = append(consumedAliases, fmt.Sprintf("G.%d", txNum))
 
-		fmt.Println("", txAlias)
-		fmt.Println(consumedAliases)
+					// Fork bottom layer.
+					txAlias := fmt.Sprintf("TX-0-%d*", txNum)
+					createdAliases = append(createdAliases, txAlias)
+					testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
 
-		// ??????????????????????????????????????????
-		testFramework.IssueTransaction(txAlias)
-	}
+					bookedAliases[txAlias] = true
+				} else {
+					for inputConsumed := 0; inputConsumed < 10; inputConsumed++ {
+						consumedAliases = append(consumedAliases, fmt.Sprintf("TX-%d-%d.%d", layer-1, txNum, inputConsumed))
+					}
+				}
 
-	for layer := 1; layer < 100; layer++ {
-		for txnum := 0; txnum < 10; txnum++ {
-			consumedAliases := make([]string, 10)
-			for inputconsumed := 0; inputconsumed < 10; inputconsumed++ {
-				consumedAliases[inputconsumed] = fmt.Sprintf("TX.%d.%d.%d", layer-1, txnum, inputconsumed)
+				testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
+				bookedAliases[txAlias] = true
 			}
-
-			txAlias := fmt.Sprintf("TX.%d.%d", layer, txnum)
-			createdAliases = append(createdAliases, txAlias)
-			testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
-
-			fmt.Println("", txAlias)
-			fmt.Println(consumedAliases)
 		}
 	}
 
-	// Forking bottom layer
-	genesisOutput = 0
-	for txnum := 0; txnum < 10; txnum++ {
-		consumedAliases := make([]string, 0)
-		consumedGenesis := genesisOutput
-		for ; consumedGenesis < genesisOutput+10; consumedGenesis++ {
-			consumedAliases = append(consumedAliases, fmt.Sprintf("G.%d", consumedGenesis))
-		}
-		genesisOutput = consumedGenesis
-
-		txAlias := fmt.Sprintf("TX.0.%d*", txnum)
-		createdAliases = append(createdAliases, txAlias)
-		testFramework.CreateTransaction(txAlias, 10, consumedAliases...)
-	}
-
-	// Create ad-hoc transactions to mix and match branches propagated from the bottom layer
-	testFramework.CreateTransaction("TX.10.0", 10, "TX.0.0.0", "TX.0.1.0", "TX.0.2.0", "TX.0.3.0", "TX.0.4.0", "TX.0.5.0", "TX.0.6.0", "TX.0.7.0", "TX.0.8.0", "TX.0.9.0")
-	//testFramework.CreateTransaction("TX.10.1", 10, "TX.0.0.0", "TX.0.0*.0")
-	//createdAliases = append(createdAliases, "TX.10.0")
-	//createdAliases = append(createdAliases, "TX.10.1")
-
-	// Shuffle and issue all transactions created so far
-	rand.Shuffle(len(createdAliases), func(i, j int) {
-		createdAliases[i], createdAliases[j] = createdAliases[j], createdAliases[i]
-	})
-	for _, createdAlias := range createdAliases {
-		go func(createdAlias string) {
-			testFramework.IssueTransaction(createdAlias)
-		}(createdAlias)
-	}
-
-	issuedBooked := make(map[string]bool)
-	for _, issuedAlias := range createdAliases {
-		issuedBooked[issuedAlias] = true
-	}
-
-	assert.Eventually(t, func() bool {
-		return testFramework.AllBooked(createdAliases...)
-	}, 5*time.Second, 100*time.Millisecond)
-
-	testFramework.AssertBooked(issuedBooked)
-
-	/* BOOM
-	testFramework.IssueTransaction("TX.10.0")
-	assert.Eventually(t, func() bool {
-		return testFramework.AllBooked("TX.10.0")
-	}, 5*time.Second, 100*time.Millisecond)
-	*/
-
-	mappedBranches := make(map[string][]string)
-	for _, issuedAlias := range createdAliases {
-		branchNum := strings.Split(issuedAlias, "")[len(issuedAlias)-1]
-		if branchNum == "*" {
-			continue
-		}
-		branch := fmt.Sprintf("TX.0.%s", branchNum)
-		mappedBranches[issuedAlias] = []string{branch}
-	}
-
-	testFramework.AssertBranchIDs(mappedBranches)
-
-	/*
-		testFramework.AssertBranchIDs(map[string][]string{
-			"TX.10.0": {"TX.0.0", "TX.0.1", "TX.0.2", "TX.0.3", "TX.0.4", "TX.0.5", "TX.0.6", "TX.0.7", "TX.0.8", "TX.0.9"},
-			//"TX.10.1": {"TX.0.0", "TX.0.0*"},
+	// Shuffle and issue all transactions created so far concurrently.
+	{
+		rand.Shuffle(len(createdAliases), func(i, j int) {
+			createdAliases[i], createdAliases[j] = createdAliases[j], createdAliases[i]
 		})
-	*/
+		for _, createdAlias := range createdAliases {
+			go func(createdAlias string) {
+				err := testFramework.IssueTransaction(createdAlias)
+				if err != nil && !errors.Is(err, ErrTransactionUnsolid) {
+					panic(err)
+				}
+			}(createdAlias)
+		}
+	}
+
+	// Create ad-hoc TX11 to mix and match branches propagated from the bottom layer.
+	{
+		testFramework.CreateTransaction("TX11", 10, "TX-99-0.0", "TX-99-1.0", "TX-99-2.0", "TX-99-3.0", "TX-99-4.0", "TX-99-5.0", "TX-99-6.0", "TX-99-7.0", "TX-99-8.0", "TX-99-9.0")
+		assert.ErrorIs(t, testFramework.IssueTransaction("TX11"), ErrTransactionUnsolid)
+	}
+
+	// Verify branches for all transactions in the layers.
+	{
+		assert.Eventually(t, func() bool {
+			return testFramework.AllBooked(createdAliases...)
+		}, 5*time.Second, 100*time.Millisecond)
+		testFramework.AssertBooked(bookedAliases)
+
+		mappedBranches := make(map[string][]string)
+		for _, issuedAlias := range createdAliases {
+			branchNum := strings.Split(issuedAlias, "-")[2]
+			mappedBranches[issuedAlias] = []string{fmt.Sprintf("TX-0-%s", branchNum)}
+		}
+		testFramework.AssertBranchIDs(mappedBranches)
+	}
+
+	// Verify branches for TX11.
+	{
+		assert.Eventually(t, func() bool {
+			return testFramework.AllBooked("TX11")
+		}, 5*time.Second, 100*time.Millisecond)
+
+		testFramework.AssertBranchIDs(map[string][]string{
+			"TX11": {"TX-0-0", "TX-0-1", "TX-0-2", "TX-0-3", "TX-0-4", "TX-0-5", "TX-0-6", "TX-0-7", "TX-0-8", "TX-0-9"},
+		})
+	}
+
+	// Create TX12 with deeper double spends.
+	{
+		testFramework.CreateTransaction("TX12", 10, "TX-0-0.0", "TX-0-1.0", "TX-0-2.0", "TX-0-3.0", "TX-0-4.0", "TX-0-5.0", "TX-0-6.0", "TX-0-7.0", "TX-0-8.0", "TX-0-9.0")
+		assert.NoError(t, testFramework.IssueTransaction("TX12"))
+
+		testFramework.AssertBranchIDs(map[string][]string{
+			"TX11": {"TX-1-0", "TX-1-1", "TX-1-2", "TX-1-3", "TX-1-4", "TX-1-5", "TX-1-6", "TX-1-7", "TX-1-8", "TX-1-9"},
+			"TX12": {"TX12"},
+		})
+
+		testFramework.AssertBranchDAG(map[string][]string{
+			"TX-0-0": {},
+			"TX-0-1": {},
+			"TX-0-2": {},
+			"TX-0-3": {},
+			"TX-0-4": {},
+			"TX-0-5": {},
+			"TX-0-6": {},
+			"TX-0-7": {},
+			"TX-0-8": {},
+			"TX-0-9": {},
+			"TX-1-0": {"TX-0-0"},
+			"TX-1-1": {"TX-0-1"},
+			"TX-1-2": {"TX-0-2"},
+			"TX-1-3": {"TX-0-3"},
+			"TX-1-4": {"TX-0-4"},
+			"TX-1-5": {"TX-0-5"},
+			"TX-1-6": {"TX-0-6"},
+			"TX-1-7": {"TX-0-7"},
+			"TX-1-8": {"TX-0-8"},
+			"TX-1-9": {"TX-0-9"},
+			"TX12":   {"TX-0-0", "TX-0-1", "TX-0-2", "TX-0-3", "TX-0-4", "TX-0-5", "TX-0-6", "TX-0-7", "TX-0-8", "TX-0-9"},
+		})
+
+		mappedBranches := make(map[string][]string)
+		for _, issuedAlias := range createdAliases {
+			layer := strings.Split(issuedAlias, "-")[1]
+			branchNum := strings.Split(issuedAlias, "-")[2]
+
+			var branch string
+			if layer == "0" {
+				branch = fmt.Sprintf("TX-0-%s", branchNum)
+			} else {
+				branch = fmt.Sprintf("TX-1-%s", branchNum)
+			}
+			mappedBranches[issuedAlias] = []string{branch}
+		}
+		testFramework.AssertBranchIDs(mappedBranches)
+	}
 }
 
 func TestLedger_SolidifyMultiThreaded(t *testing.T) {
@@ -512,11 +536,11 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 	testFramework.CreateTransaction("TXM", 1, "TXL.0")
 
 	// forks
-	//testFramework.CreateTransaction("TXD", 1, "G.1")
-	//testFramework.CreateTransaction("TXD", 1, "G.1")
-	//testFramework.CreateTransaction("TXI", 1, "G.2")
+	// testFramework.CreateTransaction("TXD", 1, "G.1")
+	// testFramework.CreateTransaction("TXD", 1, "G.1")
+	// testFramework.CreateTransaction("TXI", 1, "G.2")
 	// Step 3: Top Layer
-	//testFramework.CreateTransaction("TXF", 1, "TXE.0")
+	// testFramework.CreateTransaction("TXF", 1, "TXE.0")
 
 	// Issue first batch of Transactions
 	{
@@ -529,9 +553,9 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
-			"TXA": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
+			"G":   {},
+			"TXA": {},
+			"TXH": {},
 		})
 
 		testFramework.AssertBooked(map[string]bool{
@@ -554,13 +578,13 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}, 5*time.Second, time.Millisecond)
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
-			"TXA": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXE": {"MasterBranch"},
-			"TXG": {"MasterBranch"},
-			"TXL": {"MasterBranch"},
-			"TXM": {"MasterBranch"},
+			"G":   {},
+			"TXA": {},
+			"TXH": {},
+			"TXE": {},
+			"TXG": {},
+			"TXL": {},
+			"TXM": {},
 		})
 
 		testFramework.AssertBooked(map[string]bool{
@@ -574,8 +598,6 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 	}
 
-	return
-
 	// Mark A as Confirmed
 	{
 		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
@@ -584,7 +606,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		require.True(t, testFramework.Ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXA").ID())))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -594,12 +616,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -615,7 +637,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		assert.NoError(t, testFramework.IssueTransaction("TXE"))
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -626,12 +648,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -649,7 +671,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -661,12 +683,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 		})
 
 		assert.Equal(t, branchdag.Confirmed, testFramework.Ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXA")))
@@ -684,7 +706,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -697,12 +719,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
@@ -726,7 +748,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -740,12 +762,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
@@ -770,7 +792,7 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		}
 
 		testFramework.AssertBranchIDs(map[string][]string{
-			"G":   {"MasterBranch"},
+			"G":   {},
 			"TXA": {"TXA"},
 			"TXB": {"TXB"},
 			"TXC": {"TXC"},
@@ -785,12 +807,12 @@ func TestLedger_SolidifyMultiThreaded(t *testing.T) {
 		})
 
 		testFramework.AssertBranchDAG(map[string][]string{
-			"TXA": {"MasterBranch"},
-			"TXB": {"MasterBranch"},
-			"TXC": {"MasterBranch"},
-			"TXD": {"MasterBranch"},
-			"TXH": {"MasterBranch"},
-			"TXI": {"MasterBranch"},
+			"TXA": {},
+			"TXB": {},
+			"TXC": {},
+			"TXD": {},
+			"TXH": {},
+			"TXI": {},
 			"TXF": {"TXC"},
 			"TXG": {"TXC"},
 		})
