@@ -101,12 +101,16 @@ func (c Color) Compare(otherColor Color) int {
 // ColoredBalances represents a collection of balances associated to their respective Color that maintains a
 // deterministic order of the present Colors.
 type ColoredBalances struct {
-	balances *orderedmap.OrderedMap[Color, uint64] `serix:"0"`
+	coloredBalancesInner `serix:"0"`
+}
+
+type coloredBalancesInner struct {
+	Balances *orderedmap.OrderedMap[Color, uint64] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewColoredBalances returns a new deterministically ordered collection of ColoredBalances.
 func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBalances) {
-	coloredBalances = &ColoredBalances{balances: orderedmap.New[Color, uint64]()}
+	coloredBalances = &ColoredBalances{coloredBalancesInner{Balances: orderedmap.New[Color, uint64]()}}
 
 	// deterministically sort colors
 	sortedColors := make([]Color, 0, len(balances))
@@ -121,7 +125,7 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 
 	// add sorted colors to the underlying map
 	for _, color := range sortedColors {
-		coloredBalances.balances.Set(color, balances[color])
+		coloredBalances.coloredBalancesInner.Balances.Set(color, balances[color])
 	}
 
 	return
@@ -176,7 +180,7 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 			return
 		}
 
-		coloredBalances.balances.Set(color, balance)
+		coloredBalances.coloredBalancesInner.Balances.Set(color, balance)
 
 		previousColor = &color
 	}
@@ -186,33 +190,35 @@ func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color
 
 // Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
 func (c *ColoredBalances) Get(color Color) (uint64, bool) {
-	return c.balances.Get(color)
+	return c.coloredBalancesInner.Balances.Get(color)
 }
 
 // ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
 func (c *ColoredBalances) ForEach(consumer func(color Color, balance uint64) bool) {
-	c.balances.ForEach(consumer)
+	c.coloredBalancesInner.Balances.ForEach(consumer)
 }
 
 // Size returns the amount of individual balances in the ColoredBalances.
 func (c *ColoredBalances) Size() int {
-	return c.balances.Size()
+	return c.coloredBalancesInner.Balances.Size()
 }
 
 // Clone returns a copy of the ColoredBalances.
 func (c *ColoredBalances) Clone() *ColoredBalances {
 	copiedBalances := orderedmap.New[Color, uint64]()
-	c.balances.ForEach(copiedBalances.Set)
+	c.coloredBalancesInner.Balances.ForEach(copiedBalances.Set)
 
 	return &ColoredBalances{
-		balances: copiedBalances,
+		coloredBalancesInner{
+			Balances: copiedBalances,
+		},
 	}
 }
 
 // Bytes returns a marshaled version of the ColoredBalances.
 func (c *ColoredBalances) Bytes() []byte {
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(c.balances.Size()))
+	marshalUtil.WriteUint32(uint32(c.coloredBalancesInner.Balances.Size()))
 	c.ForEach(func(color Color, balance uint64) bool {
 		marshalUtil.WriteBytes(color.Bytes())
 		marshalUtil.WriteUint64(balance)
@@ -220,10 +226,6 @@ func (c *ColoredBalances) Bytes() []byte {
 		return true
 	})
 	return marshalUtil.Bytes()
-}
-
-func (c *ColoredBalances) Encode() ([]byte, error) {
-	return c.Bytes(), nil
 }
 
 // Map returns a vanilla golang map (unordered) containing the existing balances. Since the ColoredBalances are

@@ -19,28 +19,129 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-func TestSerixMessage(t *testing.T) {
+func TestSerixMessage_Correct(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
 
 	msg, err := NewMessage(
 		NewParentMessageIDs().
-			AddAll(StrongParentType, NewMessageIDs(MessageID{1}, MessageID{2}, MessageID{3}, MessageID{4})).
-			AddAll(WeakParentType, NewMessageIDs(MessageID{1}, MessageID{2})).
-			AddAll(ShallowLikeParentType, NewMessageIDs(MessageID{1}, MessageID{2})).
-			AddAll(ShallowLikeParentType, NewMessageIDs(MessageID{1}, MessageID{2})),
+			AddAll(ShallowLikeParentType, NewMessageIDs(numberMessageID(7), numberMessageID(8))).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(StrongParentType, NewMessageIDs(numberMessageID(1), numberMessageID(7))).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(5), numberMessageID(6))),
 		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
 	assert.NoError(t, err)
+	fmt.Println(msg)
 
-	// fmt.Println(msg)
-
-	result, err := serix.DefaultAPI.Encode(context.Background(), msg)
+	result, err := serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
 	assert.NoError(t, err)
 
 	fmt.Println("Bytes", len(msg.Bytes()), msg.Bytes())
 	fmt.Println("Serix", len(result), result)
 
 	assert.Equal(t, msg.Bytes(), result)
+}
+
+func TestSerixMessage_NoParentBlocks(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs(),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.Error(t, err)
+
+}
+
+func TestSerixMessage_EmptyParentBlock(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(ShallowLikeParentType, NewMessageIDs()).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(StrongParentType, NewMessageIDs(numberMessageID(1), numberMessageID(7))).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(5), numberMessageID(6))),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+	fmt.Println(msg)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.Error(t, err)
+}
+
+func TestSerixMessage_EmptyStrongParents(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(ShallowLikeParentType, NewMessageIDs(numberMessageID(7), numberMessageID(8))).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(StrongParentType, NewMessageIDs()).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(5), numberMessageID(6))),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+	fmt.Println(msg)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.Error(t, err, ErrNoStrongParents)
+}
+
+func TestSerixMessage_NoStrongParents(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(ShallowLikeParentType, NewMessageIDs(numberMessageID(7), numberMessageID(8))).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(5), numberMessageID(6))),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.Error(t, err, ErrNoStrongParents)
+}
+
+func TestSerixMessage_IllegalCrossReferences(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(ShallowLikeParentType, NewMessageIDs(numberMessageID(5), numberMessageID(8))).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(StrongParentType, NewMessageIDs(numberMessageID(1), numberMessageID(7))).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(5), numberMessageID(6))),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+	fmt.Println(msg)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.NoError(t, err, ErrConflictingReferenceAcrossBlocks)
+}
+
+func TestSerixMessage_LegalCrossReferences(t *testing.T) {
+	keyPair := ed25519.GenerateKeyPair()
+	pl := payload.NewGenericDataPayload([]byte{1, 1, 1, 1, 1})
+
+	msg, err := NewMessage(
+		NewParentMessageIDs().
+			AddAll(ShallowLikeParentType, NewMessageIDs(numberMessageID(7), numberMessageID(8))).
+			AddAll(ShallowDislikeParentType, NewMessageIDs(numberMessageID(2))).
+			AddAll(StrongParentType, NewMessageIDs(numberMessageID(7), numberMessageID(7))).
+			AddAll(WeakParentType, NewMessageIDs(numberMessageID(7), numberMessageID(6))),
+		time.Now(), keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	assert.NoError(t, err)
+	fmt.Println(msg)
+
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	assert.NoError(t, err)
 }
 
 func TestSerixMarkerMessageMapping(t *testing.T) {
@@ -78,7 +179,6 @@ func TestSerixLatestMarkerVotes(t *testing.T) {
 
 	assert.Equal(t, obj.ObjectStorageKey(), byteutils.ConcatBytes(serixBytesSeq, serixBytesVoter))
 
-	// TODO: thresholdmap serialization
 	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
@@ -117,14 +217,13 @@ func TestSerixBranchVoters(t *testing.T) {
 
 func TestSerixMarkerIndexBranchIDMapping(t *testing.T) {
 	obj := NewMarkerIndexBranchIDMapping(1)
-	obj.SetBranchIDs(3, ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness(), ledgerstate.BranchIDFromRandomness()))
+	obj.SetBranchIDs(3, ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
 
 	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.SequenceID())
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 
-	// TODO threshold map needs to be serialized
 	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
@@ -166,7 +265,8 @@ func TestSerixMessageMetadata(t *testing.T) {
 	obj := NewMessageMetadata(randomMessageID())
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetSolid(true)
-	obj.SetAddedBranchIDs(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness(), ledgerstate.BranchIDFromRandomness()))
+	obj.SetAddedBranchIDs(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
+	obj.SetSubtractedBranchIDs(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
 	obj.SetQueuedTime(time.Now())
 	obj.SetScheduled(true)
 	obj.SetBooked(true)
@@ -175,8 +275,13 @@ func TestSerixMessageMetadata(t *testing.T) {
 		FutureMarkers: markers.NewMarkers(),
 	})
 
-	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.MessageID)
 	assert.NoError(t, err)
 
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
+
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.NoError(t, err)
+
+	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }

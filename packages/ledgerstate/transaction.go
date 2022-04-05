@@ -653,7 +653,7 @@ type TransactionMetadata struct {
 
 type transactionMetadataInner struct {
 	ID                      TransactionID
-	BranchIDs               BranchIDs `serix:"0,lengthPrefixType=uint32"`
+	BranchIDs               BranchIDs `serix:"0"`
 	branchIDsMutex          sync.RWMutex
 	Solid                   bool `serix:"1"`
 	solidMutex              sync.RWMutex

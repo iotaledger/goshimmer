@@ -429,7 +429,7 @@ type LatestMarkerVotes struct {
 type latestMarkerVotesInner struct {
 	SequenceID        markers.SequenceID
 	Voter             Voter
-	LatestMarkerVotes *thresholdmap.ThresholdMap[markers.Index, VotePower] `serix:"0"`
+	LatestMarkerVotes *thresholdmap.ThresholdMap[markers.Index, VotePower] `serix:"0,lengthPrefixType=uint32"`
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags

@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 
@@ -10,10 +11,19 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(NewConflictIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/bls"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -62,6 +61,7 @@ func TestSerixExtendedLockedOutput(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), serixBytes)
 }
+
 func TestSerixSigLockedColoredOutput(t *testing.T) {
 	// OrderedMap uses encode
 	obj := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}), randEd25119Address())
@@ -178,7 +178,7 @@ func TestSerixTransactionMetadata(t *testing.T) {
 	obj := NewTransactionMetadata(tx.ID())
 	obj.SetSolid(true)
 	obj.SetGradeOfFinality(gof.High)
-	obj.SetBranchIDs(NewBranchIDs(BranchIDFromRandomness(), BranchIDFromRandomness()))
+	obj.SetBranchIDs(NewBranchIDs(BranchIDFromRandomness()))
 	obj.SetLazyBooked(false)
 
 	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
@@ -204,7 +204,7 @@ func TestSerixTransactionPayload(t *testing.T) {
 func TestSerixBranchIDs(t *testing.T) {
 	obj := NewBranchIDs(BranchIDFromRandomness())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj, serix.WithTypeSettings(new(serix.TypeSettings).WithLengthPrefixType(serializer.UInt32ByteSize)))
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
 	fmt.Println("Bytes", len(obj.Bytes()), obj.Bytes())

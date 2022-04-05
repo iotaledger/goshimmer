@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,10 +13,18 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(NewBranchIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -323,8 +332,8 @@ type Branch struct {
 }
 type branchInner struct {
 	id                  BranchID
-	Parents             BranchIDs      `serix:"0,lengthPrefixType=uint32"`
-	Conflicts           ConflictIDs    `serix:"1,lengthPrefixType=uint32"`
+	Parents             BranchIDs      `serix:"0"`
+	Conflicts           ConflictIDs    `serix:"1"`
 	InclusionState      InclusionState `serix:"2"`
 	parentsMutex        sync.RWMutex
 	conflictsMutex      sync.RWMutex

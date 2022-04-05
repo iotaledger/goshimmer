@@ -3,6 +3,7 @@ package tangle
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"sort"
 	"strings"
@@ -36,6 +37,12 @@ func randomMessageID() MessageID {
 	msgBytes := randomBytes(MessageIDLength)
 	result, _, _ := MessageIDFromBytes(msgBytes)
 	return result
+}
+
+func numberMessageID(id uint32) MessageID {
+	var msgBytes [32]byte
+	binary.LittleEndian.PutUint32(msgBytes[28:], id)
+	return msgBytes
 }
 
 func randomParents(count int) MessageIDs {

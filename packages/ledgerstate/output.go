@@ -2281,7 +2281,7 @@ type OutputMetadata struct {
 }
 type outputMetadataInner struct {
 	id                      OutputID
-	BranchIDs               BranchIDs `serix:"0,lengthPrefixType=uint32"`
+	BranchIDs               BranchIDs `serix:"0"`
 	branchIDsMutex          sync.RWMutex
 	Solid                   bool `serix:"1"`
 	solidMutex              sync.RWMutex

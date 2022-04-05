@@ -13,9 +13,19 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -160,8 +170,8 @@ type Markers struct {
 
 type markersInner struct {
 	Markers      map[SequenceID]Index `serix:"0,lengthPrefixType=uint32"`
-	HighestIndex Index                `serix:"1"`
-	LowestIndex  Index                `serix:"2"`
+	HighestIndex Index
+	LowestIndex  Index
 	markersMutex sync.RWMutex
 }
 
@@ -512,7 +522,7 @@ type ReferencingMarkers struct {
 }
 
 type referencingMarkersInner struct {
-	referencingIndexesBySequence markerReferences `serix:"0"`
+	ReferencingIndexesBySequence markerReferences `serix:"0,lengthPrefixType=uint32"`
 	mutex                        sync.RWMutex
 }
 
@@ -520,7 +530,7 @@ type referencingMarkersInner struct {
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 	referencingMarkers = &ReferencingMarkers{
 		referencingMarkersInner{
-			referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
+			ReferencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 		},
 	}
 
@@ -543,11 +553,11 @@ func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMar
 func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencingMarkers *ReferencingMarkers, err error) {
 	referencingMarkers = &ReferencingMarkers{
 		referencingMarkersInner{
-			referencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
+			ReferencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 		},
 	}
 
-	referencingMarkers.referencingIndexesBySequence, err = markerReferencesFromMarshalUtil(marshalUtil, thresholdmap.UpperThresholdMode)
+	referencingMarkers.ReferencingIndexesBySequence, err = markerReferencesFromMarshalUtil(marshalUtil, thresholdmap.UpperThresholdMode)
 	return referencingMarkers, err
 }
 
@@ -556,10 +566,10 @@ func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	thresholdMap, thresholdMapExists := r.referencingIndexesBySequence[referencingMarker.SequenceID()]
+	thresholdMap, thresholdMapExists := r.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
 	if !thresholdMapExists {
 		thresholdMap = thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode)
-		r.referencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
+		r.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
 	thresholdMap.Set(uint64(index), referencingMarker.Index())
@@ -571,7 +581,7 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	defer r.mutex.RUnlock()
 
 	referencingMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
 		if referencingIndex, exists := thresholdMap.Get(uint64(index)); exists {
 			referencingMarkers.Set(sequenceID, referencingIndex)
 		}
@@ -586,10 +596,10 @@ func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
 	defer r.mutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(len(r.referencingIndexesBySequence)))
-	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
+	marshalUtil.WriteUint32(uint32(len(r.ReferencingIndexesBySequence)))
+	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
 		marshalUtil.Write(sequenceID)
-		marshalUtil.WriteUint64(uint64(thresholdMap.Size()))
+		marshalUtil.WriteUint32(uint32(thresholdMap.Size()))
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			marshalUtil.WriteUint64(node.Key())
 			marshalUtil.WriteUint64(uint64(node.Value()))
@@ -601,11 +611,6 @@ func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
 	return marshalUtil.Bytes()
 }
 
-// Encode returns a marshaled version of the ReferencingMarkers.
-func (r *ReferencingMarkers) Encode() ([]byte, error) {
-	return r.Bytes(), nil
-}
-
 // String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 	r.mutex.RLock()
@@ -613,7 +618,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 
 	indexes := make([]Index, 0)
 	referencingMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range r.referencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			index := Index(node.Key())
 			referencingIndex := node.Value()
@@ -673,7 +678,7 @@ type ReferencedMarkers struct {
 	referencedMarkersInner `serix:"0"`
 }
 type referencedMarkersInner struct {
-	ReferencedIndexesBySequence markerReferences `serix:"0"`
+	ReferencedIndexesBySequence markerReferences `serix:"0,lengthPrefixType=uint32"`
 	mutex                       sync.RWMutex
 }
 
@@ -761,10 +766,10 @@ func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
 	defer r.mutex.RUnlock()
 
 	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(len(r.referencedMarkersInner.ReferencedIndexesBySequence)))
+	marshalUtil.WriteUint32(uint32(len(r.referencedMarkersInner.ReferencedIndexesBySequence)))
 	for sequenceID, thresholdMap := range r.referencedMarkersInner.ReferencedIndexesBySequence {
 		marshalUtil.Write(sequenceID)
-		marshalUtil.WriteUint64(uint64(thresholdMap.Size()))
+		marshalUtil.WriteUint32(uint32(thresholdMap.Size()))
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			marshalUtil.WriteUint64(node.Key())
 			marshalUtil.WriteUint64(uint64(node.Value()))
@@ -774,11 +779,6 @@ func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
 	}
 
 	return marshalUtil.Bytes()
-}
-
-// Encode returns a marshaled version of the ReferencedMarkers.
-func (r *ReferencedMarkers) Encode() ([]byte, error) {
-	return r.Bytes(), nil
 }
 
 // String returns a human-readable version of the ReferencedMarkers.
@@ -1044,19 +1044,19 @@ type markerReferences map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]
 func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode thresholdmap.Mode) (referenceMarkers markerReferences, err error) {
 	referenceMarkers = make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index])
 
-	sequenceCount, err := marshalUtil.ReadUint64()
+	sequenceCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	for i := uint64(0); i < sequenceCount; i++ {
+	for i := uint32(0); i < sequenceCount; i++ {
 		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
 		if sequenceIDErr != nil {
 			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
 			return
 		}
 
-		referenceCount, referenceCountErr := marshalUtil.ReadUint64()
+		referenceCount, referenceCountErr := marshalUtil.ReadUint32()
 		if referenceCountErr != nil {
 			err = errors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
 			return
@@ -1064,7 +1064,7 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 		thresholdMap := thresholdmap.New[uint64, Index](mode)
 		switch mode {
 		case thresholdmap.LowerThresholdMode:
-			for j := uint64(0); j < referenceCount; j++ {
+			for j := uint32(0); j < referenceCount; j++ {
 				referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
 				if referencingIndexErr != nil {
 					err = errors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
@@ -1080,7 +1080,7 @@ func markerReferencesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, mode 
 				thresholdMap.Set(referencingIndex, Index(referencedIndex))
 			}
 		case thresholdmap.UpperThresholdMode:
-			for j := uint64(0); j < referenceCount; j++ {
+			for j := uint32(0); j < referenceCount; j++ {
 				referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
 				if referencedIndexErr != nil {
 					err = errors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)

@@ -8,14 +8,30 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSerixSequence(t *testing.T) {
-
-	// TODO: thresholdmap
-	obj := NewSequence(1, NewMarkers(NewMarker(1, 5)))
+func TestSerixReferencedMarkers(t *testing.T) {
+	obj := NewReferencedMarkers(NewMarkers(NewMarker(1, 5)))
 
 	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
-	// Skip OutputID and TransactionID which are serialized by the Bytes method, but are used only as a object storage key.
+	assert.Equal(t, obj.Bytes(), serixBytes)
+}
+
+func TestSerixReferencingMarkers(t *testing.T) {
+	obj := NewReferencingMarkers()
+	obj.Add(3, NewMarker(1, 5))
+	obj.Add(5, NewMarker(2, 5))
+
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.NoError(t, err)
+	assert.Equal(t, obj.Bytes(), serixBytes)
+}
+
+func TestSerixSequence(t *testing.T) {
+	obj := NewSequence(1, NewMarkers(NewMarker(1, 5)))
+	obj.AddReferencingMarker(3, NewMarker(1, 5))
+	obj.AddReferencingMarker(5, NewMarker(2, 5))
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
 }
 
@@ -29,7 +45,7 @@ func TestSerixMarker(t *testing.T) {
 }
 
 func TestSerixMarkers(t *testing.T) {
-	obj := NewMarkers(NewMarker(1, 2), NewMarker(2, 3))
+	obj := NewMarkers(NewMarker(1, 2))
 
 	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
