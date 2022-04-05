@@ -111,12 +111,12 @@ func TestReuseOutputsOnTheFly(t *testing.T) {
 		evilwallet.WithScenarioDeepSpamEnabled(),
 		evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
 		evilwallet.WithScenarioReuseOutputWallet(outWallet),
-		evilwallet.WithScenarioCustomConflicts(evilwallet.NoConflictsScenario1()),
+		evilwallet.WithScenarioCustomConflicts(evilwallet.Scenario1()),
 	)
 
 	options := []Options{
-		WithSpamRate(10, time.Minute),
-		WithBatchesSent(5),
+		WithSpamRate(1, time.Second),
+		WithBatchesSent(200),
 		WithSpamWallet(evilWallet),
 	}
 	customOptions := append(options, WithEvilScenario(customScenario))

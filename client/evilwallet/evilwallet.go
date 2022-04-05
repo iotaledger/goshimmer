@@ -722,17 +722,17 @@ func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wal
 	return nil
 }
 
-func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, err error) {
-	conflicts, err := e.prepareConflictSliceForScenario(scenario)
+func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, allAliases ScenarioAlias, err error) {
+	conflicts, allAliases, err := e.prepareConflictSliceForScenario(scenario)
 	if err != nil {
-		return nil, err
+		return
 	}
 	txs, err = e.PrepareCustomConflicts(conflicts)
 
 	return
 }
 
-func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflicts []ConflictSlice, err error) {
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias, err error) {
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {
@@ -742,13 +742,14 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 	}
 
 	// make conflictSlice
-	conflictSlice := make([]ConflictSlice, 0)
-	for _, conflictMap := range scenario.ConflictBatch {
+	prefixedBatch, allAliases, batchOutputs := scenario.ConflictBatchWithPrefix()
+	conflictSlice = make([]ConflictSlice, 0)
+	for _, conflictMap := range prefixedBatch {
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
 			option := []Option{WithInputs(aliases.Inputs), WithOutputs(outs)}
-			option = append(option, WithOutputBatchAliases(scenario.batchOutputs))
+			option = append(option, WithOutputBatchAliases(batchOutputs))
 			if scenario.OutputWallet != nil {
 				option = append(option, WithOutputWallet(scenario.OutputWallet))
 			}
@@ -763,7 +764,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		conflictSlice = append(conflictSlice, conflicts)
 	}
 
-	return conflictSlice, nil
+	return
 }
 
 func (e *EvilWallet) AwaitInputsSolidity(inputs ledgerstate.Inputs, clt Client) {
@@ -800,9 +801,17 @@ type ScenarioAlias struct {
 	Outputs []string
 }
 
+func NewScenarioAlias() ScenarioAlias {
+	return ScenarioAlias{
+		Inputs:  make([]string, 0),
+		Outputs: make([]string, 0),
+	}
+}
+
 type EvilBatch [][]ScenarioAlias
 
 type EvilScenario struct {
+	ID string
 	// provides a user-friendly way of listing input and output aliases
 	ConflictBatch EvilBatch
 	// determines whether outputs of the batch  should be reused during the spam to create deep UTXO tree structure.
@@ -813,32 +822,31 @@ type EvilScenario struct {
 	// if provided and reuse set to true, outputs from this wallet will be used for deep spamming, allows for controllable building of UTXO deep structures.
 	// if not provided evil wallet will use Reuse wallet if any is available. Accepts only RestrictedReuse wallet type.
 	RestrictedInputWallet *Wallet
-
-	// outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
-	batchOutputs map[string]types.Empty
+	// used together with scenario ID to create a prefix for distinct batch alias creation
+	BatchesCreated *atomic.Uint64
 }
 
 func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 	scenario := &EvilScenario{
-		ConflictBatch: SingleTransactionBatch(),
-		Reuse:         false,
-		OutputWallet:  NewWallet(),
+		ConflictBatch:  SingleTransactionBatch(),
+		Reuse:          false,
+		OutputWallet:   NewWallet(),
+		BatchesCreated: atomic.NewUint64(0),
 	}
 
 	for _, option := range options {
 		option(scenario)
 	}
-	scenario.readCustomConflictsPattern()
-
+	scenario.ID = base58.Encode([]byte(fmt.Sprintf("%v%v%v", scenario.ConflictBatch, scenario.Reuse, scenario.OutputWallet.ID)))[:11]
 	return scenario
 }
 
 // readCustomConflictsPattern determines outputs of the batch, needed for saving batch outputs to the outputWallet.
-func (e *EvilScenario) readCustomConflictsPattern() {
+func (e *EvilScenario) readCustomConflictsPattern(batch EvilBatch) (batchOutputs map[string]types.Empty) {
 	outputs := make(map[string]types.Empty)
 	inputs := make(map[string]types.Empty)
 
-	for _, conflictMap := range e.ConflictBatch {
+	for _, conflictMap := range batch {
 		for _, conflicts := range conflictMap {
 			// add output to outputsAliases
 			for _, input := range conflicts.Inputs {
@@ -855,7 +863,38 @@ func (e *EvilScenario) readCustomConflictsPattern() {
 			delete(outputs, output)
 		}
 	}
-	e.batchOutputs = outputs
+	batchOutputs = outputs
+	return
+}
+
+// NextBatchPrefix creates a new batch prefix by increasing the number of created batches for this scenario.
+func (e *EvilScenario) nextBatchPrefix() string {
+	return e.ID + strconv.Itoa(int(e.BatchesCreated.Add(1)))
+}
+
+// ConflictBatchWithPrefix generates a new conflict batch with scenario prefix created from scenario ID and batch count.
+// BatchOutputs are outputs of the batch that can be reused in deep spamming by collecting them in Reuse wallet.
+func (e *EvilScenario) ConflictBatchWithPrefix() (prefixedBatch EvilBatch, allAliases ScenarioAlias, batchOutputs map[string]types.Empty) {
+	allAliases = NewScenarioAlias()
+	prefix := e.nextBatchPrefix()
+	for _, conflictMap := range e.ConflictBatch {
+		scenarioAlias := make([]ScenarioAlias, 0)
+		for _, aliases := range conflictMap {
+			sa := NewScenarioAlias()
+			for _, in := range aliases.Inputs {
+				sa.Inputs = append(sa.Inputs, prefix+in)
+				allAliases.Inputs = append(allAliases.Inputs, prefix+in)
+			}
+			for _, out := range aliases.Outputs {
+				sa.Outputs = append(sa.Outputs, prefix+out)
+				allAliases.Outputs = append(allAliases.Outputs, prefix+out)
+			}
+			scenarioAlias = append(scenarioAlias, sa)
+		}
+		prefixedBatch = append(prefixedBatch, scenarioAlias)
+	}
+	batchOutputs = e.readCustomConflictsPattern(prefixedBatch)
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
