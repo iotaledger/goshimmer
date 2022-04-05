@@ -371,22 +371,29 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
+	e.updateOutputManager(tx, tempAddresses, buildOptions, tempWallet)
+
 	err = e.updateOutputIDs(tx.Essence().Outputs(), buildOptions.outputWallet, tempWallet, tempAddresses)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, o := range tx.Essence().Outputs() {
-		if _, ok := tempAddresses[o.Address()]; ok {
-			e.outputManager.AddOutput(buildOptions.outputWallet, o)
-		} else {
-			e.outputManager.AddOutput(tempWallet, o)
-		}
-	}
-
 	e.registerOutputAliases(tx.Essence().Outputs(), addrAliasMap)
 
 	return
+}
+
+// updateOutputManager adds output to the OutputManager if
+func (e *EvilWallet) updateOutputManager(tx *ledgerstate.Transaction, tempAddresses map[ledgerstate.Address]types.Empty, buildOptions *Options, tempWallet *Wallet) {
+	for _, o := range tx.Essence().Outputs() {
+		if e.outputManager.GetOutput(o.ID()) == nil {
+			if _, ok := tempAddresses[o.Address()]; ok {
+				e.outputManager.AddOutput(buildOptions.outputWallet, o)
+			} else {
+				e.outputManager.AddOutput(tempWallet, o)
+			}
+		}
+	}
 }
 
 // updateInputWallet if input wallet is not specified, or aliases were provided without inputs (batch inputs) use Fresh faucet wallet.

@@ -116,7 +116,7 @@ func TestReuseOutputsOnTheFly(t *testing.T) {
 
 	options := []Options{
 		WithSpamRate(10, time.Minute),
-		WithBatchesSent(5000),
+		WithBatchesSent(5),
 		WithSpamWallet(evilWallet),
 	}
 	customOptions := append(options, WithEvilScenario(customScenario))

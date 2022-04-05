@@ -180,11 +180,14 @@ func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output
 	// get output info from via web api
 	if output == nil {
 		clt := o.connector.GetClient()
-		o := clt.GetOutput(outputID)
+		out := clt.GetOutput(outputID)
+		if out == nil {
+			return nil
+		}
 		output = &Output{
-			OutputID: o.ID(),
-			Address:  o.Address(),
-			Balance:  o.Balances(),
+			OutputID: out.ID(),
+			Address:  out.Address(),
+			Balance:  out.Balances(),
 		}
 	}
 
