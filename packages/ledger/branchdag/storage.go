@@ -33,25 +33,25 @@ func newStorage(options *options) (new *Storage) {
 		branchStorage: objectstorage.New[*Branch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
 			ChildBranchKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictStorage: objectstorage.New[*Conflict](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictStorage}),
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
 			ConflictMemberKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.StoreOnCreation(true),
 		),
 	}

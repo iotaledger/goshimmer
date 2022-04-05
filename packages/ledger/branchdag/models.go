@@ -13,25 +13,32 @@ import (
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
+// Branch is a type representing a container for transactions and outputs spawning off from a conflicting transaction.
 type Branch struct {
-	id                  BranchID
-	parents             BranchIDs
-	parentsMutex        sync.RWMutex
-	conflicts           ConflictIDs
-	conflictsMutex      sync.RWMutex
-	inclusionState      InclusionState
+	// id contains the identifier of the Branch.
+	id BranchID
+	// parents contains the parent BranchIDs that this Branch depends on.
+	parents BranchIDs
+	// parentsMutex contains a mutex that is used to synchronize parallel access to the parents.
+	parentsMutex sync.RWMutex
+	// conflictIDs contains the identifiers of the conflicts that this Branch is part of.
+	conflictIDs ConflictIDs
+	// conflictIDsMutex contains a mutex that is used to synchronize parallel access to the conflictIDs.
+	conflictIDsMutex sync.RWMutex
+	// inclusionState contains the InclusionState of the Branch.
+	inclusionState InclusionState
+	// inclusionStateMutex contains a mutex that is used to synchronize parallel access to the inclusionState.
 	inclusionStateMutex sync.RWMutex
-
+	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
 // NewBranch creates a new Branch from the given details.
 func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Branch) {
 	new = &Branch{
-		id:        id,
-		parents:   parents.Clone(),
-		conflicts: conflicts.Clone(),
+		id:          id,
+		parents:     parents.Clone(),
+		conflictIDs: conflicts.Clone(),
 	}
 	new.SetModified()
 	new.Persist()
@@ -39,46 +46,39 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Bran
 	return new
 }
 
-// FromObjectStorage creates an Branch from sequences of key and bytes.
+// FromObjectStorage un-serializes a Branch from an object storage.
 func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
+	result := new(Branch)
+
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}
-	return result, err
+
+	return result, nil
 }
 
-// FromBytes unmarshals a Branch from a sequence of bytes.
-func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes a Branch from a sequence of bytes.
+func (b *Branch) FromBytes(bytes []byte) (err error) {
+	if err = b.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshalling).
-func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
-	if branch = b; b == nil {
-		branch = &Branch{
-			parents:   NewBranchIDs(),
-			conflicts: NewConflictIDs(),
-		}
+// FromMarshalUtil un-serializes a Branch using a MarshalUtil.
+func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = b.id.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse id: %w", err)
 	}
-
-	if err = branch.id.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse id: %w", err)
+	if err = b.parents.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse Branch parents: %w", err)
 	}
-	if err = branch.parents.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse Branch parents: %w", err)
+	if err = b.conflictIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse conflicts: %w", err)
 	}
-	if err = branch.conflicts.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse conflicts: %w", err)
-	}
-	if err = branch.inclusionState.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse inclusionState: %w", err)
+	if err = b.inclusionState.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse inclusionState: %w", err)
 	}
 
 	return
@@ -89,31 +89,7 @@ func (b *Branch) ID() BranchID {
 	return b.id
 }
 
-// InclusionState returns the InclusionState of the Branch.
-func (b *Branch) InclusionState() (inclusionState InclusionState) {
-	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
-
-	return b.inclusionState
-}
-
-// setInclusionState sets the InclusionState of the Branch (it is private because the InclusionState should be
-// set through the corresponding method in the BranchDAG).
-func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool) {
-	b.inclusionStateMutex.Lock()
-	defer b.inclusionStateMutex.Unlock()
-
-	if modified = b.inclusionState != inclusionState; !modified {
-		return
-	}
-
-	b.inclusionState = inclusionState
-	b.SetModified()
-
-	return
-}
-
-// Parents returns the BranchIDs of the Branches parents in the BranchDAG.
+// Parents returns the parent BranchIDs that this Branch depends on.
 func (b *Branch) Parents() BranchIDs {
 	b.parentsMutex.RLock()
 	defer b.parentsMutex.RUnlock()
@@ -121,7 +97,7 @@ func (b *Branch) Parents() BranchIDs {
 	return b.parents.Clone()
 }
 
-// SetParents updates the parents of the Branch.
+// SetParents updates the parent BranchIDs that this Branch depends on. It returns true of the Branch was modified.
 func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
 	b.parentsMutex.Lock()
 	defer b.parentsMutex.Unlock()
@@ -133,26 +109,22 @@ func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
 	return
 }
 
-// Conflicts returns the Conflicts that the Branch is part of.
-func (b *Branch) Conflicts() (conflicts ConflictIDs) {
-	b.conflictsMutex.RLock()
-	defer b.conflictsMutex.RUnlock()
+// ConflictIDs returns the identifiers of the conflicts that this Branch is part of.
+func (b *Branch) ConflictIDs() (conflicts ConflictIDs) {
+	b.conflictIDsMutex.RLock()
+	defer b.conflictIDsMutex.RUnlock()
 
-	conflicts = b.conflicts.Clone()
+	conflicts = b.conflictIDs.Clone()
 
 	return
 }
 
-// AddConflict registers the membership of the Branch in the given Conflict.
-func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
-	b.conflictsMutex.Lock()
-	defer b.conflictsMutex.Unlock()
+// InclusionState returns the InclusionState of the Branch.
+func (b *Branch) InclusionState() (inclusionState InclusionState) {
+	b.inclusionStateMutex.RLock()
+	defer b.inclusionStateMutex.RUnlock()
 
-	if added = b.conflicts.Add(conflictID); added {
-		b.SetModified()
-	}
-
-	return added
+	return b.inclusionState
 }
 
 // Bytes returns a marshaled version of the Branch.
@@ -165,7 +137,8 @@ func (b *Branch) String() string {
 	return stringify.Struct("Branch",
 		stringify.StructField("id", b.ID()),
 		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("conflicts", b.Conflicts()),
+		stringify.StructField("conflictIDs", b.ConflictIDs()),
+		stringify.StructField("inclusionState", b.InclusionState()),
 	)
 }
 
@@ -180,9 +153,36 @@ func (b *Branch) ObjectStorageKey() []byte {
 func (b *Branch) ObjectStorageValue() []byte {
 	return marshalutil.New().
 		Write(b.Parents()).
-		Write(b.Conflicts()).
+		Write(b.ConflictIDs()).
 		Write(b.InclusionState()).
 		Bytes()
+}
+
+// addConflict registers the membership of the Branch in the given Conflict.
+func (b *Branch) addConflict(conflictID ConflictID) (added bool) {
+	b.conflictIDsMutex.Lock()
+	defer b.conflictIDsMutex.Unlock()
+
+	if added = b.conflictIDs.Add(conflictID); added {
+		b.SetModified()
+	}
+
+	return added
+}
+
+// setInclusionState sets the InclusionState of the Branch.
+func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool) {
+	b.inclusionStateMutex.Lock()
+	defer b.inclusionStateMutex.Unlock()
+
+	if modified = b.inclusionState != inclusionState; !modified {
+		return
+	}
+
+	b.inclusionState = inclusionState
+	b.SetModified()
+
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

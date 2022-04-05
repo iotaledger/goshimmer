@@ -124,7 +124,8 @@ func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs
 	return pendingBranchIDs
 }
 
-// SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
+// SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed - it automatically sets also the
+// conflicting branches to be rejected.
 func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
@@ -189,7 +190,7 @@ func (b *BranchDAG) addConflictMembers(branch *Branch, conflictIDs ConflictIDs) 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
-		if added = branch.AddConflict(conflictID); added {
+		if added = branch.addConflict(conflictID); added {
 			b.registerConflictMember(conflictID, branch.ID())
 		}
 	}
