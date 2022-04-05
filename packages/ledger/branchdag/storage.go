@@ -1,9 +1,11 @@
 package branchdag
 
 import (
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
@@ -13,42 +15,41 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Storage struct {
-	*BranchDAG
-
 	branchStorage         *objectstorage.ObjectStorage[*Branch]
 	childBranchStorage    *objectstorage.ObjectStorage[*ChildBranch]
 	conflictStorage       *objectstorage.ObjectStorage[*Conflict]
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
+	branchDAG             *BranchDAG
+	shutdownOnce          sync.Once
 }
 
-func NewStorage(branchDAG *BranchDAG) (new *Storage) {
+func newStorage(branchDAG *BranchDAG) (new *Storage) {
 	new = &Storage{
-		BranchDAG: branchDAG,
-
 		branchStorage: objectstorage.New[*Branch](
-			branchDAG.options.Store.WithRealm([]byte{database.PrefixLedger, PrefixBranchStorage}),
-			branchDAG.options.CacheTimeProvider.CacheTime(branchCacheTime),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixBranchStorage}),
+			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
-			branchDAG.options.Store.WithRealm([]byte{database.PrefixLedger, PrefixChildBranchStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixChildBranchStorage}),
 			ChildBranchKeyPartition,
-			branchDAG.options.CacheTimeProvider.CacheTime(branchCacheTime),
+			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictStorage: objectstorage.New[*Conflict](
-			branchDAG.options.Store.WithRealm([]byte{database.PrefixLedger, PrefixConflictStorage}),
-			branchDAG.options.CacheTimeProvider.CacheTime(consumerCacheTime),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConflictStorage}),
+			branchDAG.options.cacheTimeProvider.CacheTime(consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
-			branchDAG.options.Store.WithRealm([]byte{database.PrefixLedger, PrefixConflictMemberStorage}),
+			branchDAG.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConflictMemberStorage}),
 			ConflictMemberKeyPartition,
-			branchDAG.options.CacheTimeProvider.CacheTime(conflictCacheTime),
+			branchDAG.options.cacheTimeProvider.CacheTime(conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
+		branchDAG: branchDAG,
 	}
 
 	new.init()
@@ -56,8 +57,8 @@ func NewStorage(branchDAG *BranchDAG) (new *Storage) {
 	return new
 }
 
-// Branch retrieves the Branch with the given BranchID from the object storage.
-func (s *Storage) Branch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
+// CachedBranch retrieves the Branch with the given BranchID from the object storage.
+func (s *Storage) CachedBranch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Branch {
 			return computeIfAbsentCallback[0]()
@@ -67,8 +68,8 @@ func (s *Storage) Branch(branchID BranchID, computeIfAbsentCallback ...func() *B
 	return s.branchStorage.Load(branchID.Bytes())
 }
 
-// ChildBranches loads the references to the ChildBranches of the given Branch from the object storage.
-func (s *Storage) ChildBranches(branchID BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
+// CachedChildBranches loads the references to the CachedChildBranches of the given Branch from the object storage.
+func (s *Storage) CachedChildBranches(branchID BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
 	cachedChildBranches = make(objectstorage.CachedObjects[*ChildBranch], 0)
 	s.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch]) bool {
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
@@ -79,24 +80,30 @@ func (s *Storage) ChildBranches(branchID BranchID) (cachedChildBranches objectst
 	return
 }
 
-// ForEachBranch iterates over all the branches and executes consumer.
-func (s *Storage) ForEachBranch(consumer func(branch *Branch)) {
-	s.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Branch]) bool {
-		cachedObject.Consume(func(branch *Branch) {
-			consumer(branch)
+// CachedConflict loads a Conflict from the object storage.
+func (s *Storage) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict) *objectstorage.CachedObject[*Conflict] {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
+			return computeIfAbsentCallback[0](conflictID)
 		})
+	}
 
-		return true
-	})
-}
-
-// Conflict loads a Conflict from the object storage.
-func (s *Storage) Conflict(conflictID ConflictID) *objectstorage.CachedObject[*Conflict] {
 	return s.conflictStorage.Load(conflictID.Bytes())
 }
 
-// ConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
-func (s *Storage) ConflictMembers(conflictID ConflictID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember]) {
+// CachedConflictMember loads a cached ConflictMember from the object storage.
+func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID, computeIfAbsentCallback ...func(conflictID ConflictID, branchID BranchID) *ConflictMember) *objectstorage.CachedObject[*ConflictMember] {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()), func(key []byte) *ConflictMember {
+			return computeIfAbsentCallback[0](conflictID, branchID)
+		})
+	}
+
+	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()))
+}
+
+// CachedConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
+func (s *Storage) CachedConflictMembers(conflictID ConflictID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember]) {
 	cachedConflictMembers = make(objectstorage.CachedObjects[*ConflictMember], 0)
 	s.conflictMemberStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ConflictMember]) bool {
 		cachedConflictMembers = append(cachedConflictMembers, cachedObject)

@@ -90,7 +90,7 @@ func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
-		assert.True(t.t, t.Ledger.BranchDAG.Storage.Branch(currentBranchID).Consume(func(branch *branchdag.Branch) {
+		assert.True(t.t, t.Ledger.BranchDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *branchdag.Branch) {
 			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
 		}))
 	}

@@ -4,137 +4,121 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-
-	"github.com/iotaledger/goshimmer/packages/database"
 )
 
-// region BranchDAG ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// BranchDAG represents the DAG of Branches which contains the business logic to manage the creation and maintenance of
-// the Branches which represents containers for the different perceptions of the ledger state that exist in the tangle.
+// BranchDAG is an entity that manages conflicting versions of a quadruple-entry-accounting ledger and their causal
+// relationships.
 type BranchDAG struct {
-	Events  *Events
+	// Events is a dictionary for BranchDAG related events.
+	Events *Events
+	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
-
-	options             *Options
-	shutdownOnce        sync.Once
+	// Utils is a dictionary for utility methods that simplify the interaction with the BranchDAG.
+	Utils *Utils
+	// options is a dictionary for configuration parameters of the BranchDAG.
+	options *options
+	// inclusionStateMutex is a mutex that prevents that two .
 	inclusionStateMutex sync.RWMutex
 }
 
-// NewBranchDAG returns a new BranchDAG instance that stores its state in the given KVStore.
-func NewBranchDAG(options ...Option) (newBranchDAG *BranchDAG) {
-	newBranchDAG = &BranchDAG{
-		Events:  NewEvents(),
-		options: NewOptions(options...),
+// New returns a new BranchDAG from the given options.
+func New(options ...Option) (new *BranchDAG) {
+	new = &BranchDAG{
+		Events:  newEvents(),
+		options: newOptions(options...),
 	}
-	newBranchDAG.Storage = NewStorage(newBranchDAG)
+	new.Storage = newStorage(new)
+	new.Utils = newUtils(new)
 
 	return
 }
 
-// CreateBranch retrieves the Branch that corresponds to the given details. It automatically creates and
-// updates the Branch according to the new details if necessary.
+// CreateBranch tries to create a Branch with the given details. It returns true if the Branch could be created or false
+// if it already existed. It triggers a BranchCreated event if the branch was successfully created.
 func (b *BranchDAG) CreateBranch(branchID BranchID, parentBranchIDs BranchIDs, conflictIDs ConflictIDs) (created bool) {
 	b.inclusionStateMutex.RLock()
+	b.Storage.CachedBranch(branchID, func() (branch *Branch) {
+		branch = NewBranch(branchID, parentBranchIDs, NewConflictIDs())
 
-	// create or load the branch
-	b.Storage.Branch(branchID, func() *Branch {
-		branch := NewBranch(branchID, parentBranchIDs, conflictIDs)
-
-		created = true
-
-		return branch
-	}).Consume(func(branch *Branch) {
-		// If the branch existed already we simply update its conflict members.
-		//
-		// An existing Branch can only become a new member of a conflict set if that conflict set was newly created in which
-		// case none of the members of that set can either be Confirmed or Rejected. This means that our InclusionState does
-		// not change, and we don't need to update and propagate it.
-		if !created {
-			_ = conflictIDs.ForEach(func(conflictID ConflictID) (err error) {
-				if branch.AddConflict(conflictID) {
-					b.registerConflictMember(conflictID, branchID)
-				}
-
-				return nil
-			})
-			return
-		}
-
-		// store child references
-		_ = parentBranchIDs.ForEach(func(parentBranchID BranchID) (err error) {
-			if cachedChildBranch, stored := b.Storage.childBranchStorage.StoreIfAbsent(NewChildBranch(parentBranchID, branchID)); stored {
-				cachedChildBranch.Release()
-			}
-			return nil
-		})
-
-		// store ConflictMember references
-		_ = conflictIDs.ForEach(func(conflictID ConflictID) (err error) {
-			b.registerConflictMember(conflictID, branchID)
-			return nil
-		})
+		b.addConflictMembers(branch, conflictIDs)
+		b.createChildBranchReferences(branchID, parentBranchIDs)
 
 		if b.anyParentRejected(branch) || b.anyConflictMemberConfirmed(branch) {
 			branch.setInclusionState(Rejected)
 		}
-	})
 
+		created = true
+
+		return branch
+	}).Release()
 	b.inclusionStateMutex.RUnlock()
 
 	if created {
-		b.Events.BranchCreated.Trigger(branchID)
+		b.Events.BranchCreated.Trigger(&BranchCreatedEvent{
+			BranchID:        branchID,
+			ParentBranchIDs: parentBranchIDs,
+			ConflictIDs:     conflictIDs,
+		})
 	}
 
 	return created
 }
 
-// UpdateParentsAfterFork changes the parents of a Branch (also updating the references of the ChildBranches).
-func (b *BranchDAG) UpdateParentsAfterFork(branchID, newParentBranchID BranchID, previousParents BranchIDs) {
+// AddBranchToConflicts adds the given Branch to the named conflicts.
+func (b *BranchDAG) AddBranchToConflicts(branchID BranchID, newConflictIDs ConflictIDs) (updated bool) {
 	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
-
-	b.Storage.Branch(branchID).Consume(func(branch *Branch) {
-		parentBranchIDs := branch.Parents()
-		if !parentBranchIDs.Add(newParentBranchID) {
-			return
-		}
-
-		parentBranchIDs.DeleteAll(previousParents)
-
-		if cachedChildBranch, stored := b.Storage.childBranchStorage.StoreIfAbsent(NewChildBranch(newParentBranchID, branchID)); stored {
-			cachedChildBranch.Release()
-		}
-
-		if branch.SetParents(parentBranchIDs) {
-			b.Events.BranchParentsUpdated.Trigger(&BranchParentUpdate{branchID, parentBranchIDs})
-		}
+	b.Storage.CachedBranch(branchID).Consume(func(branch *Branch) {
+		updated = b.addConflictMembers(branch, newConflictIDs)
 	})
-}
+	b.inclusionStateMutex.RUnlock()
 
-// RemoveConfirmedBranches returns the BranchIDs of the pending and rejected Branches that are
-// addressed by the given BranchIDs.
-func (b *BranchDAG) RemoveConfirmedBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
-	pendingBranchIDs = NewBranchIDs()
-
-	branchWalker := walker.New[BranchID]().PushAll(branchIDs.Slice()...)
-	for branchWalker.HasNext() {
-		currentBranchID := branchWalker.Next()
-
-		b.Storage.Branch(currentBranchID).Consume(func(branch *Branch) {
-			if branch.InclusionState() == Confirmed {
-				return
-			}
-			pendingBranchIDs.Add(branch.ID())
+	if updated {
+		b.Events.BranchConflictsUpdated.Trigger(&BranchConflictsUpdatedEvent{
+			BranchID:       branchID,
+			NewConflictIDs: newConflictIDs,
 		})
 	}
 
-	if pendingBranchIDs.Size() == 0 {
-		pendingBranchIDs = NewBranchIDs(MasterBranchID)
+	return updated
+}
+
+// UpdateBranchParents changes the parents of a Branch (also updating the references of the CachedChildBranches).
+func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, removedBranchIDs BranchIDs) (updated bool) {
+	b.inclusionStateMutex.RLock()
+	b.Storage.CachedBranch(branchID).Consume(func(branch *Branch) {
+		parentBranchIDs := branch.Parents()
+		if !parentBranchIDs.Add(addedBranchID) {
+			return
+		}
+
+		b.removeChildBranchReferences(parentBranchIDs.DeleteAll(removedBranchIDs), branchID)
+		b.createChildBranchReferences(branchID, NewBranchIDs(addedBranchID))
+
+		updated = branch.SetParents(parentBranchIDs)
+	})
+	b.inclusionStateMutex.RUnlock()
+
+	if updated {
+		b.Events.BranchParentsUpdated.Trigger(&BranchParentsUpdatedEvent{
+			BranchID:        branchID,
+			AddedBranch:     addedBranchID,
+			RemovedBranches: removedBranchIDs,
+		})
+	}
+
+	return updated
+}
+
+// FilterPendingBranches returns the BranchIDs of the pending and rejected Branches that are
+// addressed by the given BranchIDs.
+func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
+	pendingBranchIDs = NewBranchIDs()
+	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
+		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
+			pendingBranchIDs.Add(currentBranchID)
+		}
 	}
 
 	return pendingBranchIDs
@@ -151,35 +135,32 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	for confirmationWalker.HasNext() {
 		currentBranchID := confirmationWalker.Next()
 
-		b.Storage.Branch(currentBranchID).Consume(func(branch *Branch) {
+		b.Storage.CachedBranch(currentBranchID).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
 
-			_ = branch.Parents().ForEach(func(branchID BranchID) (err error) {
-				confirmationWalker.Push(branchID)
-				return nil
-			})
+			for it := branch.Parents().Iterator(); it.HasNext(); {
+				confirmationWalker.Push(it.Next())
+			}
 
-			_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
-				b.Storage.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
+			for it := branch.Conflicts().Iterator(); it.HasNext(); {
+				b.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember) {
 					if conflictMember.BranchID() != currentBranchID {
 						rejectedWalker.Push(conflictMember.BranchID())
 					}
 				})
-
-				return nil
-			})
+			}
 		})
 	}
 
 	for rejectedWalker.HasNext() {
-		b.Storage.Branch(rejectedWalker.Next()).Consume(func(branch *Branch) {
+		b.Storage.CachedBranch(rejectedWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
 
-			b.Storage.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
+			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				rejectedWalker.Push(childBranch.ChildBranchID())
 			})
 		})
@@ -194,17 +175,14 @@ func (b *BranchDAG) InclusionState(branchIDs BranchIDs) (inclusionState Inclusio
 	defer b.inclusionStateMutex.RUnlock()
 
 	inclusionState = Confirmed
-	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
-		switch b.inclusionState(branchID) {
+	for it := branchIDs.Iterator(); it.HasNext(); {
+		switch b.inclusionState(it.Next()) {
 		case Rejected:
-			inclusionState = Rejected
-			return errors.New("abort")
+			return Rejected
 		case Pending:
 			inclusionState = Pending
 		}
-
-		return nil
-	})
+	}
 
 	return inclusionState
 }
@@ -213,9 +191,67 @@ func (b *BranchDAG) Shutdown() {
 	b.Storage.Shutdown()
 }
 
+func (b *BranchDAG) addConflictMembers(branch *Branch, conflictIDs ConflictIDs) (added bool) {
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+
+		if added = branch.AddConflict(conflictID); added {
+			b.registerConflictMember(conflictID, branch.ID())
+		}
+	}
+
+	return added
+}
+
+func (b *BranchDAG) createChildBranchReferences(branchID BranchID, parentBranchIDs BranchIDs) {
+	for it := parentBranchIDs.Iterator(); it.HasNext(); {
+		if cachedChildBranch, stored := b.Storage.childBranchStorage.StoreIfAbsent(NewChildBranch(it.Next(), branchID)); stored {
+			cachedChildBranch.Release()
+		}
+	}
+}
+
+func (b *BranchDAG) removeChildBranchReferences(parentBranches BranchIDs, childBranchID BranchID) {
+	for it := parentBranches.Iterator(); it.HasNext(); {
+		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), childBranchID.Bytes()))
+	}
+}
+
+// anyParentRejected checks if any of a Branches parents is rejected.
+func (b *BranchDAG) anyParentRejected(branch *Branch) (rejected bool) {
+	for it := branch.Parents().Iterator(); it.HasNext(); {
+		if b.inclusionState(it.Next()) == Rejected {
+			return true
+		}
+	}
+
+	return false
+}
+
+// anyConflictMemberConfirmed checks if any of a Branch's conflicts is Confirmed.
+func (b *BranchDAG) anyConflictMemberConfirmed(branch *Branch) (confirmed bool) {
+	b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID BranchID) bool {
+		confirmed = b.inclusionState(conflictingBranchID) == Confirmed
+		return !confirmed
+	})
+
+	return confirmed
+}
+
+// registerConflictMember registers a Branch in a Conflict by creating the references (if necessary) and increasing the
+// member counter of the Conflict.
+func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
+	b.Storage.CachedConflict(conflictID, NewConflict).Consume(func(conflict *Conflict) {
+		b.Storage.CachedConflictMember(conflictID, branchID, func(conflictID ConflictID, branchID BranchID) *ConflictMember {
+			conflict.IncreaseMemberCount()
+			return NewConflictMember(conflictID, branchID)
+		}).Release()
+	})
+}
+
 // inclusionState returns the InclusionState of the given BranchID.
 func (b *BranchDAG) inclusionState(branchID BranchID) (inclusionState InclusionState) {
-	if !b.Storage.Branch(branchID).Consume(func(branch *Branch) {
+	if !b.Storage.CachedBranch(branchID).Consume(func(branch *Branch) {
 		inclusionState = branch.InclusionState()
 	}) {
 		panic(fmt.Sprintf("failed to load %s", branchID))
@@ -223,109 +259,3 @@ func (b *BranchDAG) inclusionState(branchID BranchID) (inclusionState InclusionS
 
 	return inclusionState
 }
-
-func (b *BranchDAG) anyParentRejected(conflictBranch *Branch) (parentRejected bool) {
-	_ = conflictBranch.Parents().ForEach(func(parentBranchID BranchID) (err error) {
-		b.Storage.Branch(parentBranchID).Consume(func(parentBranch *Branch) {
-			if parentRejected = parentBranch.InclusionState() == Rejected; parentRejected {
-				return
-			}
-		})
-
-		if parentRejected {
-			return errors.New("abort")
-		}
-
-		return nil
-	})
-
-	return
-}
-
-// anyConflictMemberConfirmed makes a Branch rejected if any of its conflicting Branches is
-// Confirmed.
-func (b *BranchDAG) anyConflictMemberConfirmed(branch *Branch) (conflictMemberConfirmed bool) {
-	_ = branch.Conflicts().ForEach(func(conflictID ConflictID) (err error) {
-		b.Storage.ConflictMembers(conflictID).Consume(func(conflictMember *ConflictMember) {
-			if conflictMemberConfirmed || conflictMember.BranchID() == branch.ID() {
-				return
-			}
-
-			b.Storage.Branch(conflictMember.BranchID()).Consume(func(conflictingBranch *Branch) {
-				conflictMemberConfirmed = conflictingBranch.InclusionState() == Confirmed
-			})
-		})
-
-		if conflictMemberConfirmed {
-			return errors.New("abort")
-		}
-
-		return nil
-	})
-
-	return
-}
-
-// registerConflictMember is an internal utility function that creates the ConflictMember references of a Branch
-// belonging to a given Conflict. It automatically creates the Conflict if it doesn't exist, yet.
-func (b *BranchDAG) registerConflictMember(conflictID ConflictID, branchID BranchID) {
-	b.Storage.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
-		newConflict := NewConflict(conflictID)
-		newConflict.Persist()
-		newConflict.SetModified()
-
-		return newConflict
-	}).Consume(func(conflict *Conflict) {
-		if cachedConflictMember, stored := b.Storage.conflictMemberStorage.StoreIfAbsent(NewConflictMember(conflictID, branchID)); stored {
-			conflict.IncreaseMemberCount()
-
-			cachedConflictMember.Release()
-		}
-	})
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Options is a container for all configurable parameters of the BranchDAG.
-type Options struct {
-	Store             kvstore.KVStore
-	CacheTimeProvider *database.CacheTimeProvider
-}
-
-func NewOptions(options ...Option) (new *Options) {
-	return (&Options{
-		Store:             mapdb.NewMapDB(),
-		CacheTimeProvider: database.NewCacheTimeProvider(0),
-	}).Apply(options...)
-}
-
-func (o *Options) Apply(options ...Option) (self *Options) {
-	for _, option := range options {
-		option(o)
-	}
-
-	return o
-}
-
-// Option represents the return type of optional parameters that can be handed into the constructor of the Ledger
-// to configure its behavior.
-type Option func(*Options)
-
-// WithStore is an Option for the Ledger that allows to specify which storage layer is supposed to be used to persist
-// data.
-func WithStore(store kvstore.KVStore) Option {
-	return func(options *Options) {
-		options.Store = store
-	}
-}
-
-// WithCacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
-func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
-	return func(options *Options) {
-		options.CacheTimeProvider = cacheTimeProvider
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

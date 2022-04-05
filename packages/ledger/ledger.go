@@ -18,34 +18,30 @@ import (
 // quadruple-entry accounting. It acts as a wrapper for the underlying components and exposes the public facing API.
 type Ledger struct {
 	Events    *Events
-	Options   *Options
 	BranchDAG *branchdag.BranchDAG
 	Storage   *storage
 
-	dataFlow  *dataFlow
 	validator *validator
 	booker    *booker
+	dataFlow  *dataFlow
 	utils     *utils
+	options   *options
 	mutex     *syncutils.DAGMutex[utxo.TransactionID]
 }
 
 func New(options ...Option) (ledger *Ledger) {
 	ledger = &Ledger{
-		Events:  NewEvents(),
-		Options: NewOptions(options...),
+		Events:  newEvents(),
+		options: newOptions(options...),
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
+	ledger.BranchDAG = branchdag.New(branchdag.WithStore(ledger.options.Store), branchdag.WithCacheTimeProvider(ledger.options.CacheTimeProvider))
 	ledger.Storage = newStorage(ledger)
-	ledger.dataFlow = newDataFlow(ledger)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
+	ledger.dataFlow = newDataFlow(ledger)
 	ledger.utils = newUtils(ledger)
-
-	ledger.BranchDAG = branchdag.NewBranchDAG(
-		branchdag.WithStore(ledger.Options.Store),
-		branchdag.WithCacheTimeProvider(ledger.Options.CacheTimeProvider),
-	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -83,24 +79,24 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Options is a container for all configurable parameters of the Ledger.
-type Options struct {
+// options is a container for all configurable parameters of the Ledger.
+type options struct {
 	Store             kvstore.KVStore
 	CacheTimeProvider *database.CacheTimeProvider
 	VM                vm.VM
 }
 
-func NewOptions(options ...Option) (new *Options) {
-	return (&Options{
+func newOptions(option ...Option) (new *options) {
+	return (&options{
 		Store:             mapdb.NewMapDB(),
 		CacheTimeProvider: database.NewCacheTimeProvider(0),
 		VM:                NewMockedVM(),
-	}).Apply(options...)
+	}).Apply(option...)
 }
 
-func (o *Options) Apply(options ...Option) (self *Options) {
+func (o *options) Apply(options ...Option) (self *options) {
 	for _, option := range options {
 		option(o)
 	}
@@ -110,25 +106,25 @@ func (o *Options) Apply(options ...Option) (self *Options) {
 
 // Option represents the return type of optional parameters that can be handed into the constructor of the Ledger
 // to configure its behavior.
-type Option func(*Options)
+type Option func(*options)
 
 // WithStore is an Option for the Ledger that allows to specify which storage layer is supposed to be used to persist
 // data.
 func WithStore(store kvstore.KVStore) Option {
-	return func(options *Options) {
+	return func(options *options) {
 		options.Store = store
 	}
 }
 
 // WithCacheTimeProvider is an Option for the Tangle that allows to override hard coded cache time.
 func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
-	return func(options *Options) {
+	return func(options *options) {
 		options.CacheTimeProvider = cacheTimeProvider
 	}
 }
 
 func WithVM(vm vm.VM) Option {
-	return func(options *Options) {
+	return func(options *options) {
 		options.VM = vm
 	}
 }

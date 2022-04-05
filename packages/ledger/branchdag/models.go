@@ -304,10 +304,14 @@ type Conflict struct {
 }
 
 // NewConflict is the constructor for new Conflicts.
-func NewConflict(conflictID ConflictID) *Conflict {
-	return &Conflict{
+func NewConflict(conflictID ConflictID) (new *Conflict) {
+	new = &Conflict{
 		id: conflictID,
 	}
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage creates a Conflict from sequences of key and bytes.
@@ -443,11 +447,15 @@ type ConflictMember struct {
 }
 
 // NewConflictMember is the constructor of the ConflictMember reference.
-func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember {
-	return &ConflictMember{
+func NewConflictMember(conflictID ConflictID, branchID BranchID) (new *ConflictMember) {
+	new = &ConflictMember{
 		conflictID: conflictID,
 		branchID:   branchID,
 	}
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.

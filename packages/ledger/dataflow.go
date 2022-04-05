@@ -8,6 +8,7 @@ import (
 
 // region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// dataFlow is a component of the realities-ledger that connects the different commands into data flows that can be executed as chain-of-command pattern.
 type dataFlow struct {
 	*Ledger
 }
