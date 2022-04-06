@@ -1,6 +1,7 @@
 package evilspammer
 
 import (
+	"github.com/cockroachdb/errors"
 	"time"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
@@ -29,13 +30,13 @@ type State struct {
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
 // Mandatory options: WithClients, WithSpammingFunc
 // Not mandatory options, if not provided spammer will use default settings:
-// WithSpamDetails, WithSpamWallet, WithErrorCounter, WithLogTickerInterval
+// WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval
 type Spammer struct {
 	SpamDetails *SpamDetails
 	State       *State
 
 	Clients      evilwallet.Connector
-	SpamWallet   *evilwallet.EvilWallet
+	EvilWallet   *evilwallet.EvilWallet
 	EvilScenario *evilwallet.EvilScenario
 	ErrCounter   *ErrorCounter
 	log          Logger
@@ -49,7 +50,7 @@ type Spammer struct {
 	NumberOfSpends            int
 }
 
-// NewSpammer constructor of Spammer
+// NewSpammer is a constructor of Spammer.
 func NewSpammer(options ...Options) *Spammer {
 	state := &State{
 		txSent:        atomic.NewInt64(0),
@@ -58,7 +59,9 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 	s := &Spammer{
 		SpamDetails:    DefaultSpamDetails,
+		spamFunc:       CustomConflictSpammingFunc,
 		State:          state,
+		EvilScenario:   evilwallet.NewEvilScenario(),
 		done:           make(chan bool),
 		shutdown:       make(chan types.Empty),
 		NumberOfSpends: 2,
@@ -69,12 +72,12 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 
 	s.setup()
-	s.Clients = s.SpamWallet.Connector()
+	s.Clients = s.EvilWallet.Connector()
 	return s
 }
 
 func (s *Spammer) setup() {
-	s.Clients = s.SpamWallet.Connector()
+	s.Clients = s.EvilWallet.Connector()
 
 	s.setupSpamDetails()
 
@@ -110,7 +113,7 @@ func (s *Spammer) setupSpamDetails() {
 func (s *Spammer) initLogger() {
 	config := configuration.New()
 	_ = logger.InitGlobalLogger(config)
-	logger.SetLevel(logger.LevelInfo)
+	logger.SetLevel(logger.LevelDebug)
 	s.log = logger.NewLogger("Spammer")
 }
 
@@ -136,7 +139,7 @@ func (s *Spammer) Spam() {
 			case <-s.State.logTicker.C:
 				s.log.Infof("Messages issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-timeExceeded:
-				s.log.Infof("Maximum spam duration exceeded, stoping spammer....")
+				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
 				s.StopSpamming()
 				return
 			case <-s.done:
@@ -169,24 +172,43 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction) (success bool) {
+func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) {
 	if tx == nil {
 		s.log.Debugf("transaction provided to PostTransaction is nil")
 		s.ErrCounter.CountError(ErrTransactionIsNil)
 	}
+	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
+	if !allSolid {
+		s.ErrCounter.CountError(errors.Errorf("not all inputs are solid, txID: %s", tx.ID().Base58()))
+		return
+	}
 
 	var err error
 	var txID ledgerstate.TransactionID
-	clt := s.Clients.GetClient()
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debugf("error: %v", err)
-		s.ErrCounter.CountError(ErrFailPostTransaction)
+		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
+	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
+		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
+	}
+
 	count := s.State.txSent.Add(1)
 	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
-	return true
+	return
+}
+
+func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *ledgerstate.Transaction) (ok bool) {
+	ok = true
+	if s.EvilScenario.Reuse {
+		ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
+	}
+	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
+		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

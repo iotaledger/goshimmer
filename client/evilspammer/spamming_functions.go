@@ -23,22 +23,12 @@ func DataSpammingFunction(s *Spammer) {
 	s.CheckIfAllSent()
 }
 
-func ValueSpammingFunc(s *Spammer) {
-	tx, err := s.SpamWallet.PrepareTransaction(s.EvilScenario)
-	if err != nil {
-		s.ErrCounter.CountError(ErrFailToPrepareTransaction)
-		return
-	}
-	s.PostTransaction(tx)
-	s.State.batchPrepared.Add(1)
-	s.CheckIfAllSent()
-}
-
 func CustomConflictSpammingFunc(s *Spammer) {
-	conflictBatch, err := s.SpamWallet.PrepareCustomConflictsSpam(s.EvilScenario)
+	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
 		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
 	}
+
 	for _, txs := range conflictBatch {
 		clients := s.Clients.GetClients(len(txs))
 		if len(txs) > len(clients) {
@@ -51,11 +41,12 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				clt.PostTransaction(tx)
+				s.PostTransaction(tx, clt)
 			}(clients[i], tx)
 		}
 		wg.Wait()
 	}
 	s.State.batchPrepared.Add(1)
+	s.EvilWallet.ClearAliases(aliases)
 	s.CheckIfAllSent()
 }

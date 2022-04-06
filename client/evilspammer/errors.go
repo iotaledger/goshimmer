@@ -31,16 +31,15 @@ func NewErrorCount() *ErrorCounter {
 }
 
 func (e *ErrorCounter) CountError(err error) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	// check if error is already in the map
 	if _, ok := e.errorsMap[err]; !ok {
-		e.mutex.Lock()
 		e.errorsMap[err] = atomic.NewInt64(0)
-		e.mutex.Unlock()
 	}
 	e.errInTotalCount.Add(1)
-	e.mutex.Lock()
 	e.errorsMap[err].Add(1)
-	e.mutex.Unlock()
 }
 
 func (e *ErrorCounter) GetTotalErrorCount() int64 {

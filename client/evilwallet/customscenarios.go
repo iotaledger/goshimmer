@@ -58,3 +58,15 @@ func Scenario1() EvilBatch {
 		},
 	}
 }
+
+func NoConflictsScenario1() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"1"}, Outputs: []string{"3", "4"}},
+			{Inputs: []string{"2"}, Outputs: []string{"5", "6"}},
+			{Inputs: []string{"6", "4"}, Outputs: []string{"7"}},
+			{Inputs: []string{"3", "5"}, Outputs: []string{"8"}},
+			{Inputs: []string{"8", "7"}, Outputs: []string{"11"}},
+		},
+	}
+}

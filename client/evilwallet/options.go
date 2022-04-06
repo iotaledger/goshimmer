@@ -24,6 +24,8 @@ type Options struct {
 	shallowDislikeParents    map[string]types.Empty
 	inputWallet              *Wallet
 	outputWallet             *Wallet
+	outputBatchAliases       map[string]types.Empty
+	reuse                    bool
 	issuingTime              time.Time
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
@@ -200,6 +202,20 @@ func WithOutputWallet(wallet *Wallet) Option {
 	}
 }
 
+// WithOutputBatchAliases returns a MessageOption that is used to determine which outputs should be added to the outWallet.
+func WithOutputBatchAliases(outputAliases map[string]types.Empty) Option {
+	return func(options *Options) {
+		options.outputBatchAliases = outputAliases
+	}
+}
+
+// WithReuseOutputs returns a MessageOption that is used to enable deep spamming with Reuse wallet outputs.
+func WithReuseOutputs() Option {
+	return func(options *Options) {
+		options.reuse = true
+	}
+}
+
 // WithIssuingTime returns a MessageOption that is used to set issuing time of the Message.
 func WithIssuingTime(issuingTime time.Time) Option {
 	return func(options *Options) {
@@ -239,6 +255,50 @@ type FaucetRequestOption func(*FaucetRequestOptions)
 func WithOutputAlias(aliasName string) FaucetRequestOption {
 	return func(options *FaucetRequestOptions) {
 		options.outputAliasName = aliasName
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EvilScenario Options /////////////////////////////////////////////////////////////////////////////////////////
+
+type ScenarioOption func(scenario *EvilScenario)
+
+// WithScenarioCustomConflicts specifies the EvilBatch that describes the UTXO structure that should be used for the spam.
+func WithScenarioCustomConflicts(batch EvilBatch) ScenarioOption {
+	return func(options *EvilScenario) {
+		if batch != nil {
+			options.ConflictBatch = batch
+		}
+	}
+}
+
+// WithScenarioDeepSpamEnabled enables deep spam, the outputs from available Reuse wallets or RestrictedReuse wallet
+// if provided with WithReuseInputWalletForDeepSpam option will be used for spam instead fresh faucet outputs.
+func WithScenarioDeepSpamEnabled() ScenarioOption {
+	return func(options *EvilScenario) {
+		options.Reuse = true
+	}
+}
+
+// WithScenarioReuseOutputWallet the outputs from the spam will be saved into this wallet, accepted types of wallet: Reuse, RestrictedReuse.
+func WithScenarioReuseOutputWallet(wallet *Wallet) ScenarioOption {
+	return func(options *EvilScenario) {
+		if wallet != nil {
+			if wallet.walletType == Reuse || wallet.walletType == RestrictedReuse {
+				options.OutputWallet = wallet
+			}
+		}
+	}
+}
+
+// WithScenarioInputWalletForDeepSpam reuse set to true, outputs from this wallet will be used for deep spamming,
+// allows for controllable building of UTXO deep structures. Accepts only RestrictedReuse wallet type.
+func WithScenarioInputWalletForDeepSpam(wallet *Wallet) ScenarioOption {
+	return func(options *EvilScenario) {
+		if wallet.walletType == RestrictedReuse {
+			options.RestrictedInputWallet = wallet
+		}
 	}
 }
 
