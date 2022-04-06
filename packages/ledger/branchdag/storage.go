@@ -2,6 +2,7 @@ package branchdag
 
 import (
 	"sync"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -33,25 +34,37 @@ func newStorage(options *options) (new *Storage) {
 		branchStorage: objectstorage.New[*Branch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
-			objectstorage.LeakDetectionEnabled(true),
+			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+				MaxConsumersPerObject: 10,
+				MaxConsumerHoldTime:   5 * time.Second,
+			}),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
 			childBranchKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
-			objectstorage.LeakDetectionEnabled(true),
+			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+				MaxConsumersPerObject: 10,
+				MaxConsumerHoldTime:   5 * time.Second,
+			}),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictStorage: objectstorage.New[*Conflict](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictStorage}),
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(true),
+			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+				MaxConsumersPerObject: 10,
+				MaxConsumerHoldTime:   5 * time.Second,
+			}),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
 			ConflictMemberKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(true),
+			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
+				MaxConsumersPerObject: 10,
+				MaxConsumerHoldTime:   5 * time.Second,
+			}),
 			objectstorage.StoreOnCreation(true),
 		),
 	}

@@ -108,21 +108,17 @@ type options struct {
 	conflictMemberCacheTime time.Duration
 }
 
-// defaultOptions contains the default configuration parameters of the BranchDAG.
-var defaultOptions = options{
-	store:                   mapdb.NewMapDB(),
-	cacheTimeProvider:       database.NewCacheTimeProvider(0),
-	branchCacheTime:         60 * time.Second,
-	childBranchCacheTime:    60 * time.Second,
-	conflictCacheTime:       60 * time.Second,
-	conflictMemberCacheTime: 10 * time.Second,
-}
-
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
 // default options.
 func newOptions(option ...Option) (new *options) {
-	clonedDefaultOptions := defaultOptions
-	return clonedDefaultOptions.apply(option...)
+	return (&options{
+		store:                   mapdb.NewMapDB(),
+		cacheTimeProvider:       database.NewCacheTimeProvider(0),
+		branchCacheTime:         60 * time.Second,
+		childBranchCacheTime:    60 * time.Second,
+		conflictCacheTime:       60 * time.Second,
+		conflictMemberCacheTime: 10 * time.Second,
+	}).apply(option...)
 }
 
 // apply modifies the options object by overriding the handed in options.
