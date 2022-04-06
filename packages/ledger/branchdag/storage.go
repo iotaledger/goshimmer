@@ -20,8 +20,6 @@ type Storage struct {
 	branchStorage *objectstorage.ObjectStorage[*Branch]
 	// childBranchStorage is an object storage used to persist ChildBranch objects.
 	childBranchStorage *objectstorage.ObjectStorage[*ChildBranch]
-	// conflictStorage is an object storage used to persist Conflict objects.
-	conflictStorage *objectstorage.ObjectStorage[*Conflict]
 	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
 	// shutdownOnce is used to ensure that the shutdown routine is executed only a single time.
@@ -48,14 +46,6 @@ func newStorage(options *options) (new *Storage) {
 				MaxConsumerHoldTime:   5 * time.Second,
 			}),
 			objectstorage.StoreOnCreation(true),
-		),
-		conflictStorage: objectstorage.New[*Conflict](
-			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictStorage}),
-			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
-				MaxConsumersPerObject: 10,
-				MaxConsumerHoldTime:   5 * time.Second,
-			}),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
@@ -109,18 +99,6 @@ func (s *Storage) CachedChildBranches(branchID BranchID) (cachedChildBranches ob
 	return
 }
 
-// CachedConflict retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can
-// be used to dynamically initialize a non-existing Conflict.
-func (s *Storage) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict) *objectstorage.CachedObject[*Conflict] {
-	if len(computeIfAbsentCallback) >= 1 {
-		return s.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
-			return computeIfAbsentCallback[0](conflictID)
-		})
-	}
-
-	return s.conflictStorage.Load(conflictID.Bytes())
-}
-
 // CachedConflictMember retrieves the CachedObject representing the named ConflictMember. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing ConflictMember.
 func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID, computeIfAbsentCallback ...func(conflictID ConflictID, branchID BranchID) *ConflictMember) *objectstorage.CachedObject[*ConflictMember] {
@@ -150,7 +128,6 @@ func (s *Storage) Prune() (err error) {
 	for _, storagePrune := range []func() error{
 		s.branchStorage.Prune,
 		s.childBranchStorage.Prune,
-		s.conflictStorage.Prune,
 		s.conflictMemberStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
@@ -169,7 +146,6 @@ func (s *Storage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.branchStorage.Shutdown()
 		s.childBranchStorage.Shutdown()
-		s.conflictStorage.Shutdown()
 		s.conflictMemberStorage.Shutdown()
 	})
 }
@@ -193,8 +169,6 @@ const (
 	PrefixBranchStorage byte = iota
 	// PrefixChildBranchStorage defines the storage prefix for the ChildBranch object storage.
 	PrefixChildBranchStorage
-	// PrefixConflictStorage defines the storage prefix for the Conflict object storage.
-	PrefixConflictStorage
 	// PrefixConflictMemberStorage defines the storage prefix for the ConflictMember object storage.
 	PrefixConflictMemberStorage
 )
