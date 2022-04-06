@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -53,6 +54,92 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
 	}
+
+	err = serix.DefaultAPI.RegisterValidators(TransactionEssenceVersion(byte(0)), validateTransactionEssenceVersionBytes, validateTransactionEssenceVersion)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssenceVersion validators: %w", err))
+	}
+
+	InputsArrayRules := &serializer.ArrayRules{
+		Min:            MinInputCount,
+		Max:            MaxInputCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithArrayRules(InputsArrayRules))
+	if err != nil {
+		panic(fmt.Errorf("error registering Inputs type settings: %w", err))
+	}
+
+	OutputsArrayRules := &serializer.ArrayRules{
+		Min:            MinOutputCount,
+		Max:            MaxOutputCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithArrayRules(OutputsArrayRules))
+	if err != nil {
+		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterValidators(new(Transaction), validateTransactionBytes, validateTransaction)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
+	}
+}
+
+func validateTransactionEssenceVersion(version TransactionEssenceVersion) (err error) {
+	// Validate strong parent block
+	if version != 0 {
+		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return nil
+}
+
+func validateTransactionEssenceVersionBytes(_ []byte) (err error) {
+	return
+}
+
+func validateTransaction(tx *Transaction) (err error) {
+	maxReferencedUnlockIndex := len(tx.transactionInner.Essence.Inputs()) - 1
+	for i, unlockBlock := range tx.transactionInner.UnlockBlocks {
+		switch unlockBlock.Type() {
+		case SignatureUnlockBlockType:
+			continue
+		case ReferenceUnlockBlockType:
+			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
+				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		case AliasUnlockBlockType:
+			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
+				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
+				return
+			}
+		}
+	}
+
+	for i, output := range tx.transactionInner.Essence.Outputs() {
+		output.SetID(NewOutputID(tx.ID(), uint16(i)))
+		// check if an alias output is deadlocked to itself
+		// for origin alias outputs, alias address is only known once the ID of the output is set
+		if output.Type() == AliasOutputType {
+			alias := output.(*AliasOutput)
+			aliasAddress := alias.GetAliasAddress()
+			if alias.GetStateAddress().Equals(aliasAddress) {
+				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				return
+			}
+			if alias.GetGoverningAddress().Equals(aliasAddress) {
+				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+				return
+			}
+		}
+	}
+	return nil
+}
+
+func validateTransactionBytes(_ []byte) (err error) {
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -289,13 +376,13 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 	}
 
 	// validation from here
-	// TODO: check transaction essence version
-	// TODO make sure that inputs are in lexical order
-	// TODO make sure that outputs are in lexical order
-	// TODO: min/max output count
-	// TODO: min/max input count
-	// TODO: no duplicates in outputs
-	// TODO: no duplicates in inputs
+	// TODO: check transaction essence version - added
+	// TODO make sure that inputs are in lexical order - added
+	// TODO make sure that outputs are in lexical order - added
+	// TODO: min/max output count - added
+	// TODO: min/max input count - added
+	// TODO: no duplicates in outputs - added
+	// TODO: no duplicates in inputs - added
 
 	maxReferencedUnlockIndex := len(transaction.transactionInner.Essence.Inputs()) - 1
 	for i, unlockBlock := range transaction.transactionInner.UnlockBlocks {

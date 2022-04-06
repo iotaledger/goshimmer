@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -356,10 +357,13 @@ type messageInner struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
-
-	return &Message{messageInner{
-		Version:         MessageVersion,
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) (*Message, error) {
+	version := MessageVersion
+	if len(versionOpt) == 1 {
+		version = versionOpt[0]
+	}
+	msg := &Message{messageInner{
+		Version:         version,
 		Parents:         references,
 		IssuerPublicKey: issuerPublicKey,
 		IssuingTime:     issuingTime,
@@ -367,7 +371,9 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 		Payload:         msgPayload,
 		Nonce:           nonce,
 		Signature:       signature,
-	}}, nil
+	}}
+
+	return msg, nil
 }
 
 // newMessageWithValidation creates a new message while performing ths following syntactical checks:
@@ -379,20 +385,15 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 7. Blocks should be ordered by type in ascending order.
 
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-func newMessageWithValidation(version uint8, parentsBlocks map[ParentsType]MessageIDs, issuingTime time.Time,
-	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
-	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, version ...uint8) (result *Message, err error) {
+	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
 
-	return &Message{messageInner{
-		Version:         version,
-		Parents:         parentsBlocks,
-		IssuerPublicKey: issuerPublicKey,
-		IssuingTime:     issuingTime,
-		SequenceNumber:  sequenceNumber,
-		Payload:         msgPayload,
-		Nonce:           nonce,
-		Signature:       signature,
-	}}, nil
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
 }
 
 // validate messagesIDs are unique across blocks
@@ -535,7 +536,7 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
 	}
 
-	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
+	msg, err := newMessageWithValidation(parentsBlocks, issuingTime, issuerPublicKey, msgSequenceNumber, msgPayload, nonce, signature, version)
 	if err != nil {
 		return nil, err
 	}

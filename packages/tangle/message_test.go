@@ -557,7 +557,7 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 
 func TestMessage_NewMessage(t *testing.T) {
 	t.Run("CASE: No parents at all", func(t *testing.T) {
-		_, err := NewMessage(
+		_, err := newMessageWithValidation(
 			ParentMessageIDs{},
 			time.Now(),
 			ed25519.PublicKey{},
@@ -661,8 +661,8 @@ func TestMessage_Bytes(t *testing.T) {
 	})
 
 	t.Run("CASE: Max msg size", func(t *testing.T) {
-		// 4 bytes for payload size field
-		data := make([]byte, payload.MaxSize-4)
+		// 4 bytes for payload size field + 4 bytes for to denote
+		data := make([]byte, payload.MaxSize-8)
 		msg, err := NewMessage(
 			ParentMessageIDs{
 				StrongParentType:         randomParents(MaxParentsCount),
@@ -701,7 +701,7 @@ func TestMessage_Bytes(t *testing.T) {
 		t.Logf("%s", msg)
 		msgBytes := msg.Bytes()
 		// 4 full parents blocks - 1 parent block with 1 parent
-		assert.Equal(t, MaxMessageSize-payload.MaxSize+4-(3*(1+1+8*32)+(7*32)), len(msgBytes))
+		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(3*(1+1+8*32)+(7*32)), len(msgBytes))
 	})
 }
 
@@ -727,8 +727,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
 		assert.Equal(t, msg.ParentsByType(WeakParentType), result.ParentsByType(WeakParentType))
-		// TODO
-		// assert.Equal(t, msg.ParentsCount(), result.ParentsCount())
+		assert.Equal(t, msg.Parents, result.Parents)
 		assert.Equal(t, msg.IssuerPublicKey(), result.IssuerPublicKey())
 		// time is in different representation but it denotes the same time
 		assert.True(t, msg.IssuingTime().Equal(result.IssuingTime()))
@@ -853,7 +852,7 @@ func randomTransaction() *ledgerstate.Transaction {
 		ledgerstate.ColorIOTA: uint64(100),
 	}), w.address)
 	outputs = append(outputs, output)
-	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
+	essence := ledgerstate.NewTransactionEssence(0, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
 
 	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
 

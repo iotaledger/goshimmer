@@ -201,8 +201,8 @@ func TestSerixLatestBranchVotes(t *testing.T) {
 func TestSerixBranchVoters(t *testing.T) {
 	obj := NewBranchVoters(ledgerstate.BranchIDFromRandomness())
 	voters := NewVoters()
-	voters.Add(identity.GenerateLocalIdentity().ID())
-	voters.Add(identity.GenerateLocalIdentity().ID())
+	voters.SerializableSet.Add(identity.GenerateLocalIdentity().ID())
+	voters.SerializableSet.Add(identity.GenerateLocalIdentity().ID())
 	obj.AddVoters(voters)
 
 	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.BranchID())

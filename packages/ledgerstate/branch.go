@@ -155,8 +155,6 @@ func UnregisterBranchIDAliases() {
 // BranchIDs represents a collection of BranchIDs.
 type BranchIDs map[BranchID]types.Empty
 
-// TODO: BranchIDs should register lengthPrefixType
-
 // NewBranchIDs creates a new collection of BranchIDs from the given BranchIDs.
 func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	branchIDs = make(BranchIDs)

@@ -26,7 +26,7 @@ type markerIndexBranchIDMap struct {
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.UpperThresholdMode, markers.IndexComparator)}
+	return &markerIndexBranchIDMap{customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
 }
 
 // Encode returns a serialized byte slice of the object.
@@ -36,7 +36,7 @@ func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
-	m.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	m.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
 	return m.SerializableThresholdMap.Decode(b)
 }
 
@@ -256,21 +256,6 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	})
 
 	return marshalUtil.Bytes()
-}
-
-// markerIndexComparator is a comparator for marker Indexes.
-func markerIndexComparator(a, b interface{}) int {
-	aCasted := a.(markers.Index)
-	bCasted := b.(markers.Index)
-
-	switch {
-	case aCasted < bCasted:
-		return -1
-	case aCasted > bCasted:
-		return 1
-	default:
-		return 0
-	}
 }
 
 // code contract (make sure the type implements all required methods).
