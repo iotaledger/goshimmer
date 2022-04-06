@@ -73,6 +73,9 @@ func (b *Branch) FromBytes(bytes []byte) (err error) {
 
 // FromMarshalUtil un-serializes a Branch using a MarshalUtil.
 func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	b.parents = NewBranchIDs()
+	b.conflictIDs = NewConflictIDs()
+
 	if err = b.id.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse id: %w", err)
 	}
