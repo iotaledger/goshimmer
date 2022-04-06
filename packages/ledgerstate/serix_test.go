@@ -189,6 +189,7 @@ func TestSerixTransactionMetadata(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 }
+
 func TestSerixTransactionPayload(t *testing.T) {
 	ledgerstate := setupDependencies(t)
 	defer ledgerstate.Shutdown()
@@ -201,6 +202,7 @@ func TestSerixTransactionPayload(t *testing.T) {
 	// skip payload length which is not written when serializing transaction directly
 	assert.Equal(t, tx.Bytes()[4:], serializedBytes)
 }
+
 func TestSerixBranchIDs(t *testing.T) {
 	obj := NewBranchIDs(BranchIDFromRandomness())
 

@@ -364,6 +364,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 		}{output, marshaledOutput})
 	}
 
+	// TODO: does this need to be sorted?
 	// sort outputs
 	sort.Slice(sortedOutputs, func(i, j int) bool {
 		return bytes.Compare(sortedOutputs[i].outputSerialized, sortedOutputs[j].outputSerialized) < 0
@@ -392,6 +393,7 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 		err = errors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
+	// TODO: min/max output count
 	if outputsCount < MinOutputCount {
 		err = errors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, cerrors.ErrParseBytesFailed)
 		return

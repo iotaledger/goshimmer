@@ -343,7 +343,7 @@ type messageInner struct {
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
-	Payload         payload.Payload   `serix:"5,payload"`
+	Payload         payload.Payload   `serix:"5,optional"`
 	Nonce           uint64            `serix:"6"`
 	Signature       ed25519.Signature `serix:"7"`
 
@@ -848,7 +848,7 @@ type messageMetadataInner struct {
 	ReceivedTime        time.Time                 `serix:"1"`
 	SolidificationTime  time.Time                 `serix:"2"`
 	Solid               bool                      `serix:"3"`
-	StructureDetails    *markers.StructureDetails `serix:"4"`
+	StructureDetails    *markers.StructureDetails `serix:"4,optional"`
 	AddedBranchIDs      ledgerstate.BranchIDs     `serix:"5"`
 	SubtractedBranchIDs ledgerstate.BranchIDs     `serix:"6"`
 	Scheduled           bool                      `serix:"7"`

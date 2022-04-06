@@ -204,7 +204,7 @@ func TestSerixBranchVoters(t *testing.T) {
 	voters.Add(identity.GenerateLocalIdentity().ID())
 	voters.Add(identity.GenerateLocalIdentity().ID())
 	obj.AddVoters(voters)
-	// TODO fix when set can be serialized
+
 	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.BranchID())
 	assert.NoError(t, err)
 
@@ -261,7 +261,7 @@ func TestSerixApprover(t *testing.T) {
 	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
 }
 
-func TestSerixMessageMetadata(t *testing.T) {
+func TestSerixMessageMetadata_WithStructureDetails(t *testing.T) {
 	obj := NewMessageMetadata(randomMessageID())
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetSolid(true)
@@ -274,6 +274,27 @@ func TestSerixMessageMetadata(t *testing.T) {
 		PastMarkers:   markers.NewMarkers(),
 		FutureMarkers: markers.NewMarkers(),
 	})
+
+	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.MessageID)
+	assert.NoError(t, err)
+
+	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
+
+	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.NoError(t, err)
+
+	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
+}
+
+func TestSerixMessageMetadata_EmptyStructureDetails(t *testing.T) {
+	obj := NewMessageMetadata(randomMessageID())
+	obj.SetGradeOfFinality(gof.High)
+	obj.SetSolid(true)
+	obj.SetAddedBranchIDs(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
+	obj.SetSubtractedBranchIDs(ledgerstate.NewBranchIDs(ledgerstate.BranchIDFromRandomness()))
+	obj.SetQueuedTime(time.Now())
+	obj.SetScheduled(true)
+	obj.SetBooked(true)
 
 	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.MessageID)
 	assert.NoError(t, err)

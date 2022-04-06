@@ -1,16 +1,19 @@
 package tangle
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -146,8 +149,7 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 var _ objectstorage.StorableObject = new(BranchWeight)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Voter ////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region SerializableSet ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Voter is a type wrapper for identity.ID and defines a node that supports a branch or marker.
 type Voter = identity.ID
@@ -158,19 +160,17 @@ type Voter = identity.ID
 
 // Voters is a set of node identities that votes for a particular Branch.
 type Voters struct {
-	set.Set[Voter] `serix:"0,nest"`
+	customtypes.SerializableSet[Voter]
 }
 
 // NewVoters is the constructor of the Voters type.
 func NewVoters() (voters *Voters) {
-	return &Voters{
-		Set: set.New[Voter](),
-	}
+	return &Voters{customtypes.NewSerializableSet[Voter]()}
 }
 
 // AddAll adds all new Voters to the Set.
 func (v *Voters) AddAll(voters *Voters) {
-	voters.ForEach(func(voter Voter) {
+	voters.SerializableSet.ForEach(func(voter Voter) {
 		v.Set.Add(voter)
 	})
 }
@@ -178,19 +178,63 @@ func (v *Voters) AddAll(voters *Voters) {
 // Clone returns a copy of the Voters.
 func (v *Voters) Clone() (clonedVoters *Voters) {
 	clonedVoters = NewVoters()
-	v.ForEach(func(voter Voter) {
-		clonedVoters.Add(voter)
+	v.SerializableSet.ForEach(func(voter Voter) {
+		clonedVoters.SerializableSet.Add(voter)
 	})
 
 	return
 }
 
+// Encode returns a serialized byte slice of the object.
+func (v *Voters) Encode() ([]byte, error) {
+	seri := serializer.NewSerializer()
+
+	seri.WriteNum(uint32(v.SerializableSet.Size()), func(err error) error {
+		return errors.Wrap(err, "failed to write voters size to serializer")
+	})
+
+	v.SerializableSet.ForEach(func(voter Voter) {
+		bytes, err := serix.DefaultAPI.Encode(context.Background(), voter)
+		if err != nil {
+			seri.AbortIf(func(err error) error {
+				return errors.Wrap(err, "failed to serialize Voter")
+			})
+		}
+		seri.WriteBytes(bytes, func(err error) error {
+			return errors.Wrap(err, "failed to write voter to serializer")
+		})
+	})
+	return seri.Serialize()
+}
+
+// Decode deserializes bytes into a valid object.
+func (v *Voters) Decode(b []byte) (bytesRead int, err error) {
+	//v.Set = set.New[Voter]()
+	//
+	//var votersCount uint32
+	//bytesReadSize, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &votersCount)
+	//if err != nil {
+	//	return 0, err
+	//}
+	//
+	//for i := uint32(0); i < votersCount; i++ {
+	//	var voter Voter
+	//	bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &bytesReadVoter)
+	//	if err != nil {
+	//		return 0, err
+	//	}
+	//	bytesRead += bytesReadVoter
+	//	v.Add(voter)
+	//}
+	return bytesRead, nil
+}
+
 // Intersect creates an intersection of two set of Voters.
 func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
 	intersection = NewVoters()
-	v.ForEach(func(voter Voter) {
-		if other.Has(voter) {
-			intersection.Add(voter)
+	v.SerializableSet.ForEach(func(voter Voter) {
+		if other.SerializableSet.Has(voter) {
+			intersection.SerializableSet.Add(voter)
 		}
 	})
 	return
@@ -199,7 +243,7 @@ func (v *Voters) Intersect(other *Voters) (intersection *Voters) {
 // String returns a human-readable version of the Voters.
 func (v *Voters) String() string {
 	structBuilder := stringify.StructBuilder("Voters")
-	v.ForEach(func(voter Voter) {
+	v.SerializableSet.ForEach(func(voter Voter) {
 		structBuilder.AddField(stringify.StructField(voter.String(), "true"))
 	})
 
@@ -281,7 +325,7 @@ func (b *BranchVoters) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (br
 			return
 		}
 
-		branchVoters.branchVotersInner.Voters.Add(voter)
+		branchVoters.branchVotersInner.Voters.SerializableSet.Add(voter)
 	}
 
 	return
@@ -297,7 +341,7 @@ func (b *BranchVoters) Has(voter Voter) bool {
 	b.votersMutex.RLock()
 	defer b.votersMutex.RUnlock()
 
-	return b.branchVotersInner.Voters.Has(voter)
+	return b.branchVotersInner.Voters.SerializableSet.Has(voter)
 }
 
 // AddVoter adds a new Voter to the tracked BranchID.
@@ -305,7 +349,7 @@ func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
 	b.votersMutex.Lock()
 	defer b.votersMutex.Unlock()
 
-	if added = b.branchVotersInner.Voters.Add(voter); !added {
+	if added = b.branchVotersInner.Voters.SerializableSet.Add(voter); !added {
 		return
 	}
 	b.SetModified()
@@ -315,8 +359,8 @@ func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
 
 // AddVoters adds the Voters set to the tracked BranchID.
 func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
-	voters.ForEach(func(voter Voter) {
-		if b.branchVotersInner.Voters.Add(voter) {
+	voters.SerializableSet.ForEach(func(voter Voter) {
+		if b.branchVotersInner.Voters.SerializableSet.Add(voter) {
 			added = true
 		}
 	})
@@ -333,7 +377,7 @@ func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
 	b.votersMutex.Lock()
 	defer b.votersMutex.Unlock()
 
-	if deleted = b.branchVotersInner.Voters.Delete(voter); !deleted {
+	if deleted = b.branchVotersInner.Voters.SerializableSet.Delete(voter); !deleted {
 		return
 	}
 	b.SetModified()
@@ -374,10 +418,10 @@ func (b *BranchVoters) ObjectStorageValue() []byte {
 	b.votersMutex.RLock()
 	defer b.votersMutex.RUnlock()
 
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + b.branchVotersInner.Voters.Size()*identity.IDLength)
-	marshalUtil.WriteUint32(uint32(b.branchVotersInner.Voters.Size()))
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + b.branchVotersInner.Voters.SerializableSet.Size()*identity.IDLength)
+	marshalUtil.WriteUint32(uint32(b.branchVotersInner.Voters.SerializableSet.Size()))
 
-	b.branchVotersInner.Voters.ForEach(func(voter Voter) {
+	b.branchVotersInner.Voters.SerializableSet.ForEach(func(voter Voter) {
 		marshalUtil.WriteBytes(voter.Bytes())
 	})
 
@@ -407,6 +451,29 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region latestMarkerVotesMap /////////////////////////////////////////////////////////////////////////////////////////
+
+type latestMarkerVotesMap struct {
+	*customtypes.SerializableThresholdMap[markers.Index, VotePower]
+}
+
+func newLatestMarkerVotesMap() *latestMarkerVotesMap {
+	return &latestMarkerVotesMap{customtypes.NewSerializableThresholdMap[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)}
+}
+
+// Encode returns a serialized byte slice of the object.
+func (l *latestMarkerVotesMap) Encode() ([]byte, error) {
+	return l.SerializableThresholdMap.Encode()
+}
+
+// Decode deserializes bytes into a valid object.
+func (l *latestMarkerVotesMap) Decode(b []byte) (bytesRead int, err error) {
+	l.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	return l.SerializableThresholdMap.Decode(b)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
 // VotePower is used to establish an absolute order of votes, regarldless of their arrival order.
@@ -429,7 +496,7 @@ type LatestMarkerVotes struct {
 type latestMarkerVotesInner struct {
 	SequenceID        markers.SequenceID
 	Voter             Voter
-	LatestMarkerVotes *thresholdmap.ThresholdMap[markers.Index, VotePower] `serix:"0,lengthPrefixType=uint32"`
+	LatestMarkerVotes *latestMarkerVotesMap `serix:"0"`
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
@@ -441,7 +508,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 		latestMarkerVotesInner{
 			SequenceID:        sequenceID,
 			Voter:             voter,
-			LatestMarkerVotes: thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator),
+			LatestMarkerVotes: newLatestMarkerVotesMap(),
 		},
 	}
 
@@ -488,7 +555,7 @@ func (l *LatestMarkerVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil
 		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
 	}
 
-	latestMarkerVotes.latestMarkerVotesInner.LatestMarkerVotes = thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	latestMarkerVotes.latestMarkerVotesInner.LatestMarkerVotes = newLatestMarkerVotesMap()
 	for i := uint32(0); i < mapSize; i++ {
 		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
 		if markerIndexErr != nil {

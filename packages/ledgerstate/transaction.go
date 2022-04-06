@@ -288,6 +288,15 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
+	// validation from here
+	// TODO: check transaction essence version
+	// TODO make sure that inputs are in lexical order
+	// TODO make sure that outputs are in lexical order
+	// TODO: min/max output count
+	// TODO: min/max input count
+	// TODO: no duplicates in outputs
+	// TODO: no duplicates in inputs
+
 	maxReferencedUnlockIndex := len(transaction.transactionInner.Essence.Inputs()) - 1
 	for i, unlockBlock := range transaction.transactionInner.UnlockBlocks {
 		switch unlockBlock.Type() {
@@ -441,7 +450,7 @@ type transactionEssenceInner struct {
 	ConsensusPledgeID identity.ID     `serix:"3"`
 	Inputs            Inputs          `serix:"4,lengthPrefixType=uint16"`
 	Outputs           Outputs         `serix:"5,lengthPrefixType=uint16"`
-	Payload           payload.Payload `serix:"6,payload"`
+	Payload           payload.Payload `serix:"6,optional"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.

@@ -12,11 +12,35 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
+
+// region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
+
+type markerIndexBranchIDMap struct {
+	*customtypes.SerializableThresholdMap[markers.Index, ledgerstate.BranchIDs]
+}
+
+func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
+	return &markerIndexBranchIDMap{customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.UpperThresholdMode, markers.IndexComparator)}
+}
+
+// Encode returns a serialized byte slice of the object.
+func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
+	return m.SerializableThresholdMap.Encode()
+}
+
+// Decode deserializes bytes into a valid object.
+func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
+	m.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	return m.SerializableThresholdMap.Decode(b)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MarkerIndexBranchIDMapping ///////////////////////////////////////////////////////////////////////////////////
 
@@ -26,7 +50,7 @@ type MarkerIndexBranchIDMapping struct {
 }
 type markerIndexBranchIDInner struct {
 	SequenceID   markers.SequenceID
-	Mapping      *thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs] `serix:"0,lengthPrefixType=uint32"`
+	Mapping      *markerIndexBranchIDMap `serix:"0"`
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -37,7 +61,7 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		markerIndexBranchIDInner{
 			SequenceID: sequenceID,
-			Mapping:    thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
+			Mapping:    newMarkerIndexBranchIDMap(),
 		},
 	}
 
@@ -83,7 +107,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
+	markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping = newMarkerIndexBranchIDMap()
 	for j := uint32(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {

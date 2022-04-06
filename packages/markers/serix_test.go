@@ -64,5 +64,6 @@ func TestSerixStructureDetails(t *testing.T) {
 	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj)
 	assert.NoError(t, err)
 
-	assert.Equal(t, obj.Bytes(), serixBytesKey)
+	// skip first four bytes as it indicates length of the serialized object, which is not included in the serix version
+	assert.Equal(t, obj.Bytes()[4:], serixBytesKey)
 }

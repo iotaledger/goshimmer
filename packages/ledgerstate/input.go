@@ -145,7 +145,7 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 			inputSerialized []byte
 		}{input, marshaledInput})
 	}
-
+	// TODO: does it need to be sorted here? Is ordering in serialized form enough?
 	// sort inputs
 	sort.Slice(sortedInputs, func(i, j int) bool {
 		return bytes.Compare(sortedInputs[i].inputSerialized, sortedInputs[j].inputSerialized) < 0

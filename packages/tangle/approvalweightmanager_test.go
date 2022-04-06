@@ -835,7 +835,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+	votes.latestMarkerVotesInner.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
 		index := node.Key()
 		seq := node.Value()
 
