@@ -33,9 +33,14 @@ func newEvents() *Events {
 
 // BranchCreatedEvent is a container that acts as a dictionary for the BranchCreated event related parameters.
 type BranchCreatedEvent struct {
-	BranchID        BranchID
+	// BranchID contains the identifier of the newly created Branch.
+	BranchID BranchID
+
+	// ParentBranchIDs contains the parent Branches of the newly created Branch.
 	ParentBranchIDs BranchIDs
-	ConflictIDs     ConflictIDs
+
+	// ConflictIDs contains the set of conflicts that this Branch is involved with.
+	ConflictIDs ConflictIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +50,10 @@ type BranchCreatedEvent struct {
 // BranchConflictsUpdatedEvent is a container that acts as a dictionary for the BranchConflictsUpdated event related
 // parameters.
 type BranchConflictsUpdatedEvent struct {
-	BranchID       BranchID
+	// BranchID contains the identifier of the updated Branch.
+	BranchID BranchID
+
+	// NewConflictIDs contains the set of conflicts that this Branch was added to.
 	NewConflictIDs ConflictIDs
 }
 
@@ -56,8 +64,13 @@ type BranchConflictsUpdatedEvent struct {
 // BranchParentsUpdatedEvent is a container that acts as a dictionary for the BranchParentsUpdated event related
 // parameters.
 type BranchParentsUpdatedEvent struct {
-	BranchID        BranchID
-	AddedBranch     BranchID
+	// BranchID contains the identifier of the updated Branch.
+	BranchID BranchID
+
+	// AddedBranch contains the forked parent Branch that replaces the removed parents.
+	AddedBranch BranchID
+
+	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Branch.
 	RemovedBranches BranchIDs
 }
 

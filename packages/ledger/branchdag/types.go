@@ -15,111 +15,86 @@ import (
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// BranchID is a unique identifier for a Branch.
 type BranchID struct {
 	types.Identifier
 }
 
+// NewBranchID returns a new BranchID from the given TransactionID.
 func NewBranchID(txID utxo.TransactionID) (new BranchID) {
 	return BranchID{txID.Identifier}
 }
 
-// Unmarshal unmarshals a BranchID using a MarshalUtil (for easier unmarshalling).
+// Unmarshal un-serializes a BranchID using a MarshalUtil.
 func (t BranchID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	err = branchID.Identifier.FromMarshalUtil(marshalUtil)
 	return
 }
 
+// String returns a human-readable version of the BranchID.
 func (t BranchID) String() (humanReadable string) {
 	return "BranchID(" + t.Alias() + ")"
 }
 
+// MasterBranchID contains the null-value of the BranchID type.
 var MasterBranchID BranchID
 
+// BranchIDLength contains the byte length of a serialized BranchID.
 const BranchIDLength = types.IdentifierLength
 
+// init is used to register a human-readable alias for the MasterBranchID.
 func init() {
-	MasterBranchID.RegisterAlias("MasterBranch")
+	MasterBranchID.RegisterAlias("MasterBranchID")
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region BranchIDs ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// BranchIDs represents a collection of BranchIDs.
 type BranchIDs = *set.AdvancedSet[BranchID]
 
+// NewBranchIDs returns a new BranchID collection with the given elements.
 func NewBranchIDs(ids ...BranchID) (new BranchIDs) {
 	return set.NewAdvancedSet[BranchID](ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
-
-const ConflictIDLength = types.IdentifierLength
-
-type ConflictID struct {
-	types.Identifier
-}
-
-func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
-	return ConflictID{outputID.Identifier}
-}
-
-// Unmarshal unmarshals a ConflictID using a MarshalUtil (for easier unmarshalling).
-func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
-	err = conflictID.Identifier.FromMarshalUtil(marshalUtil)
-	return
-}
-
-func (t ConflictID) String() (humanReadable string) {
-	return "ConflictID(" + t.Alias() + ")"
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ConflictIDs //////////////////////////////////////////////////////////////////////////////////////////////////
-
-type ConflictIDs = *set.AdvancedSet[ConflictID]
-
-func NewConflictIDs(ids ...ConflictID) (new ConflictIDs) {
-	return set.NewAdvancedSet[ConflictID](ids...)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region ArithmeticBranchIDs //////////////////////////////////////////////////////////////////////////////////////////
 
-// ArithmeticBranchIDs represents an arithmetic collection of BranchIDs that allows us to add and subtract them from
-// each other.
+// ArithmeticBranchIDs represents a set of BranchIDs that allows to perform basic arithmetic set operations (like
+// addition or subtraction).
+//
+// It keeps track of the exact amount of occurrences of each Branch, so adding the same Branch twice will result in the
+// Branch existing twice in the set.
 type ArithmeticBranchIDs map[BranchID]int
 
-// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object.
-func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (newArithmeticBranchIDs ArithmeticBranchIDs) {
-	newArithmeticBranchIDs = make(ArithmeticBranchIDs)
-	if len(optionalBranchIDs) >= 1 {
-		newArithmeticBranchIDs.Add(optionalBranchIDs[0])
+// NewArithmeticBranchIDs returns a new ArithmeticBranchIDs object optionally initialized with the named BranchIDs.
+func NewArithmeticBranchIDs(optionalBranchIDs ...BranchIDs) (new ArithmeticBranchIDs) {
+	new = make(ArithmeticBranchIDs)
+	for _, branchIDs := range optionalBranchIDs {
+		new.Add(branchIDs)
 	}
 
-	return newArithmeticBranchIDs
+	return new
 }
 
-// Add adds all BranchIDs to the collection.
+// Add adds the BranchIDs to the set.
 func (a ArithmeticBranchIDs) Add(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
-		a[branchID]++
-		return nil
-	})
+	for it := branchIDs.Iterator(); it.HasNext(); {
+		a[it.Next()]++
+	}
 }
 
-// Subtract subtracts all BranchIDs from the collection.
+// Subtract removes the BranchIDs from the set.
 func (a ArithmeticBranchIDs) Subtract(branchIDs BranchIDs) {
-	_ = branchIDs.ForEach(func(branchID BranchID) (err error) {
-		a[branchID]--
-		return nil
-	})
+	for it := branchIDs.Iterator(); it.HasNext(); {
+		a[it.Next()]--
+	}
 }
 
-// BranchIDs returns the BranchIDs represented by this collection.
+// BranchIDs returns the BranchIDs with a positive amount of occurrences.
 func (a ArithmeticBranchIDs) BranchIDs() (branchIDs BranchIDs) {
 	branchIDs = NewBranchIDs()
 	for branchID, value := range a {
@@ -181,50 +156,65 @@ func (a ArithmeticBranchIDs) String() string {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ConflictID is a unique identifier for a Conflict.
+type ConflictID struct {
+	types.Identifier
+}
+
+// NewConflictID returns a new ConflictID from the given OutputID.
+func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
+	return ConflictID{outputID.Identifier}
+}
+
+// Unmarshal un-serializes a ConflictID using a MarshalUtil.
+func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
+	err = conflictID.Identifier.FromMarshalUtil(marshalUtil)
+	return
+}
+
+// String returns a human-readable version of the ConflictID.
+func (t ConflictID) String() (humanReadable string) {
+	return "ConflictID(" + t.Alias() + ")"
+}
+
+// ConflictIDLength contains the byte length of a serialized ConflictID.
+const ConflictIDLength = types.IdentifierLength
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ConflictIDs //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// ConflictIDs represents a collection of ConflictIDs.
+type ConflictIDs = *set.AdvancedSet[ConflictID]
+
+// NewConflictIDs returns a new ConflictID collection with the given elements.
+func NewConflictIDs(ids ...ConflictID) (new ConflictIDs) {
+	return set.NewAdvancedSet[ConflictID](ids...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// InclusionState represents the confirmation status of elements in the ledger.
+// InclusionState represents the confirmation status of branches in the BranchDAG.
 type InclusionState uint8
 
-const (
-	// Pending represents elements that have neither been confirmed nor rejected.
-	Pending InclusionState = iota
-
-	// Confirmed represents elements that have been confirmed and will stay part of the ledger state forever.
-	Confirmed
-
-	// Rejected represents elements that have been rejected and will not be included in the ledger state.
-	Rejected
-)
-
-// InclusionStateFromBytes unmarshals an InclusionState from a sequence of bytes.
-func InclusionStateFromBytes(bytes []byte) (inclusionState InclusionState, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse InclusionState from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// InclusionStateFromMarshalUtil unmarshals an InclusionState from using a MarshalUtil (for easier unmarshalling).
-func InclusionStateFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inclusionState InclusionState, err error) {
+// FromMarshalUtil un-serializes an InclusionState using a MarshalUtil.
+func (i *InclusionState) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	untypedInclusionState, err := marshalUtil.ReadUint8()
 	if err != nil {
-		err = errors.Errorf("failed to parse InclusionState (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		return errors.Errorf("failed to parse InclusionState (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if *i = InclusionState(untypedInclusionState); *i > Rejected {
+		return errors.Errorf("invalid %s: %w", *i, cerrors.ErrParseBytesFailed)
 	}
 
-	if inclusionState = InclusionState(untypedInclusionState); inclusionState > Rejected {
-		err = errors.Errorf("invalid %s: %w", inclusionState, cerrors.ErrParseBytesFailed)
-	}
-
-	return
+	return nil
 }
 
-// String returns a human-readable representation of the InclusionState.
+// String returns a human-readable version of the InclusionState.
 func (i InclusionState) String() string {
 	switch i {
 	case Pending:
@@ -238,9 +228,20 @@ func (i InclusionState) String() string {
 	}
 }
 
-// Bytes returns a marshaled representation of the InclusionState.
+// Bytes returns a serialized version of the InclusionState.
 func (i InclusionState) Bytes() []byte {
 	return marshalutil.New(marshalutil.Uint8Size).WriteUint8(uint8(i)).Bytes()
 }
+
+const (
+	// Pending represents elements that have neither been confirmed nor rejected.
+	Pending InclusionState = iota
+
+	// Confirmed represents elements that have been confirmed and will stay part of the ledger state forever.
+	Confirmed
+
+	// Rejected represents elements that have been rejected and will not be included in the ledger state.
+	Rejected
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

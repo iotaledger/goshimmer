@@ -2,7 +2,6 @@ package branchdag
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -14,42 +13,43 @@ import (
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Storage is a BranchDAG component that bundles the storage related API.
 type Storage struct {
-	branchStorage         *objectstorage.ObjectStorage[*Branch]
-	childBranchStorage    *objectstorage.ObjectStorage[*ChildBranch]
-	conflictStorage       *objectstorage.ObjectStorage[*Conflict]
+	// branchStorage is an object storage used to persist Branch objects.
+	branchStorage *objectstorage.ObjectStorage[*Branch]
+
+	// childBranchStorage is an object storage used to persist ChildBranch objects.
+	childBranchStorage *objectstorage.ObjectStorage[*ChildBranch]
+
+	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
-	branchDAG             *BranchDAG
-	shutdownOnce          sync.Once
+	
+	// shutdownOnce is used to ensure that the shutdown routine is executed only a single time.
+	shutdownOnce sync.Once
 }
 
-func newStorage(branchDAG *BranchDAG) (new *Storage) {
+// newStorage returns a new Storage instance configured with the given options.
+func newStorage(options *options) (new *Storage) {
 	new = &Storage{
 		branchStorage: objectstorage.New[*Branch](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
-			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
+			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
+			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
-			ChildBranchKeyPartition,
-			branchDAG.options.cacheTimeProvider.CacheTime(branchCacheTime),
+			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
+			childBranchKeyPartition,
+			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
-		),
-		conflictStorage: objectstorage.New[*Conflict](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictStorage}),
-			branchDAG.options.cacheTimeProvider.CacheTime(consumerCacheTime),
-			objectstorage.LeakDetectionEnabled(false),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
-			branchDAG.options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
-			ConflictMemberKeyPartition,
-			branchDAG.options.cacheTimeProvider.CacheTime(conflictCacheTime),
+			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
+			conflictMemberKeyPartition,
+			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
-		branchDAG: branchDAG,
 	}
 
 	new.init()
@@ -57,41 +57,43 @@ func newStorage(branchDAG *BranchDAG) (new *Storage) {
 	return new
 }
 
-// CachedBranch retrieves the Branch with the given BranchID from the object storage.
-func (s *Storage) CachedBranch(branchID BranchID, computeIfAbsentCallback ...func() *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
+// CachedBranch retrieves the CachedObject representing the named Branch. The optional computeIfAbsentCallback can be
+// used to dynamically initialize a non-existing Branch.
+func (s *Storage) CachedBranch(branchID BranchID, computeIfAbsentCallback ...func(branchID BranchID) *Branch) (cachedBranch *objectstorage.CachedObject[*Branch]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Branch {
-			return computeIfAbsentCallback[0]()
+			return computeIfAbsentCallback[0](branchID)
 		})
 	}
 
 	return s.branchStorage.Load(branchID.Bytes())
 }
 
-// CachedChildBranches loads the references to the CachedChildBranches of the given Branch from the object storage.
+// CachedChildBranch retrieves the CachedObject representing the named ChildBranch. The optional computeIfAbsentCallback
+// can be used to dynamically initialize a non-existing ChildBranch.
+func (s *Storage) CachedChildBranch(parentBranchID, childBranchID BranchID, computeIfAbsentCallback ...func(parentBranchID, childBranchID BranchID) *ChildBranch) *objectstorage.CachedObject[*ChildBranch] {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.childBranchStorage.ComputeIfAbsent(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranchID.Bytes()), func(key []byte) *ChildBranch {
+			return computeIfAbsentCallback[0](parentBranchID, childBranchID)
+		})
+	}
+
+	return s.childBranchStorage.Load(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranchID.Bytes()))
+}
+
+// CachedChildBranches retrieves the CachedObjects containing the ChildBranch references approving the named Branch.
 func (s *Storage) CachedChildBranches(branchID BranchID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch]) {
 	cachedChildBranches = make(objectstorage.CachedObjects[*ChildBranch], 0)
 	s.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch]) bool {
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
-
 		return true
 	}, objectstorage.WithIteratorPrefix(branchID.Bytes()))
 
 	return
 }
 
-// CachedConflict loads a Conflict from the object storage.
-func (s *Storage) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict) *objectstorage.CachedObject[*Conflict] {
-	if len(computeIfAbsentCallback) >= 1 {
-		return s.conflictStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict {
-			return computeIfAbsentCallback[0](conflictID)
-		})
-	}
-
-	return s.conflictStorage.Load(conflictID.Bytes())
-}
-
-// CachedConflictMember loads a cached ConflictMember from the object storage.
+// CachedConflictMember retrieves the CachedObject representing the named ConflictMember. The optional
+// computeIfAbsentCallback can be used to dynamically initialize a non-existing ConflictMember.
 func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID, computeIfAbsentCallback ...func(conflictID ConflictID, branchID BranchID) *ConflictMember) *objectstorage.CachedObject[*ConflictMember] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()), func(key []byte) *ConflictMember {
@@ -102,7 +104,7 @@ func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID,
 	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()))
 }
 
-// CachedConflictMembers loads the referenced ConflictMembers of a Conflict from the object storage.
+// CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named Conflict.
 func (s *Storage) CachedConflictMembers(conflictID ConflictID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember]) {
 	cachedConflictMembers = make(objectstorage.CachedObjects[*ConflictMember], 0)
 	s.conflictMemberStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ConflictMember]) bool {
@@ -114,12 +116,11 @@ func (s *Storage) CachedConflictMembers(conflictID ConflictID) (cachedConflictMe
 	return
 }
 
-// Prune resets the database and deletes all objects (for testing or "node resets").
+// Prune resets the database and deletes all entities.
 func (s *Storage) Prune() (err error) {
 	for _, storagePrune := range []func() error{
 		s.branchStorage.Prune,
 		s.childBranchStorage.Prune,
-		s.conflictStorage.Prune,
 		s.conflictMemberStorage.Prune,
 	} {
 		if err = storagePrune(); err != nil {
@@ -133,16 +134,16 @@ func (s *Storage) Prune() (err error) {
 	return
 }
 
-// Shutdown shuts down the BranchDAG and persists its state.
+// Shutdown shuts down the KVStores that are used to persist data.
 func (s *Storage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.branchStorage.Shutdown()
 		s.childBranchStorage.Shutdown()
-		s.conflictStorage.Shutdown()
 		s.conflictMemberStorage.Shutdown()
 	})
 }
 
+// init initializes the Storage by creating the entities related to the MasterBranch.
 func (s *Storage) init() {
 	cachedMasterBranch, stored := s.branchStorage.StoreIfAbsent(NewBranch(MasterBranchID, NewBranchIDs(), NewConflictIDs()))
 	if stored {
@@ -159,25 +160,10 @@ func (s *Storage) init() {
 const (
 	// PrefixBranchStorage defines the storage prefix for the Branch object storage.
 	PrefixBranchStorage byte = iota
-
 	// PrefixChildBranchStorage defines the storage prefix for the ChildBranch object storage.
 	PrefixChildBranchStorage
-
-	// PrefixConflictStorage defines the storage prefix for the Conflict object storage.
-	PrefixConflictStorage
-
 	// PrefixConflictMemberStorage defines the storage prefix for the ConflictMember object storage.
 	PrefixConflictMemberStorage
-)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region constants and configurations /////////////////////////////////////////////////////////////////////////////////
-
-const (
-	branchCacheTime   = 60 * time.Second
-	conflictCacheTime = 60 * time.Second
-	consumerCacheTime = 10 * time.Second
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -45,7 +45,7 @@ const TransactionIDLength = types.IdentifierLength
 // TransactionIDs represents a collection of TransactionIDs.
 type TransactionIDs = *set.AdvancedSet[TransactionID]
 
-// NewTransactionIDs returns a new TransactionIDs collection with the given elements.
+// NewTransactionIDs returns a new TransactionID collection with the given elements.
 func NewTransactionIDs(ids ...TransactionID) (new TransactionIDs) {
 	return set.NewAdvancedSet[TransactionID](ids...)
 }
@@ -90,7 +90,7 @@ const OutputIDLength = types.IdentifierLength
 // OutputIDs represents a collection of OutputIDs.
 type OutputIDs = *set.AdvancedSet[OutputID]
 
-// NewOutputIDs returns a new OutputIDs collection with the given elements.
+// NewOutputIDs returns a new OutputID collection with the given elements.
 func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
 	return set.NewAdvancedSet[OutputID](ids...)
 }
