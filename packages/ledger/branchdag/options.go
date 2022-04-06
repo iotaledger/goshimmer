@@ -57,18 +57,6 @@ func WithChildBranchCacheTime(childBranchCacheTime time.Duration) Option {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region WithConflictCacheTime ////////////////////////////////////////////////////////////////////////////////////////
-
-// WithConflictCacheTime is an Option for the BranchDAG that allows to configure how long Conflict objects stay cached
-// after they have been released.
-func WithConflictCacheTime(conflictCacheTime time.Duration) Option {
-	return func(options *options) {
-		options.conflictCacheTime = conflictCacheTime
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region WithConflictMemberCacheTime //////////////////////////////////////////////////////////////////////////////////
 
 // WithConflictMemberCacheTime is an Option for the BranchDAG that allows to configure how long ConflictMember objects
@@ -83,8 +71,7 @@ func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 
 // region Option ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Option represents the return type of optional parameters that can be handed into the constructor of the BranchDAG to
-// configure its behavior.
+// Option represents a configurable parameter for the BranchDAG that modifies its behavior.
 type Option func(*options)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -95,14 +82,16 @@ type Option func(*options)
 type options struct {
 	// store contains the KVStore that is used to persist data.
 	store kvstore.KVStore
+
 	// cacheTimeProvider contains the CacheTimeProvider that overrides the local cache times.
 	cacheTimeProvider *database.CacheTimeProvider
+
 	// branchCacheTime contains the duration that Branch objects stay cached after they have been released.
 	branchCacheTime time.Duration
+
 	// childBranchCacheTime contains the duration that ChildBranch objects stay cached after they have been released.
 	childBranchCacheTime time.Duration
-	// conflictCacheTime contains the duration that Conflict objects stay cached after they have been released.
-	conflictCacheTime time.Duration
+
 	// conflictMemberCacheTime contains the duration that ConflictMember objects stay cached after they have been
 	// released.
 	conflictMemberCacheTime time.Duration
@@ -116,7 +105,6 @@ func newOptions(option ...Option) (new *options) {
 		cacheTimeProvider:       database.NewCacheTimeProvider(0),
 		branchCacheTime:         60 * time.Second,
 		childBranchCacheTime:    60 * time.Second,
-		conflictCacheTime:       60 * time.Second,
 		conflictMemberCacheTime: 10 * time.Second,
 	}).apply(option...)
 }

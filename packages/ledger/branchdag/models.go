@@ -16,18 +16,25 @@ import (
 type Branch struct {
 	// id contains the identifier of the Branch.
 	id BranchID
+
 	// parents contains the parent BranchIDs that this Branch depends on.
 	parents BranchIDs
+
 	// parentsMutex contains a mutex that is used to synchronize parallel access to the parents.
 	parentsMutex sync.RWMutex
+
 	// conflictIDs contains the identifiers of the conflicts that this Branch is part of.
 	conflictIDs ConflictIDs
+
 	// conflictIDsMutex contains a mutex that is used to synchronize parallel access to the conflictIDs.
 	conflictIDsMutex sync.RWMutex
+
 	// inclusionState contains the InclusionState of the Branch.
 	inclusionState InclusionState
+
 	// inclusionStateMutex contains a mutex that is used to synchronize parallel access to the inclusionState.
 	inclusionStateMutex sync.RWMutex
+
 	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
@@ -192,8 +199,10 @@ var _ objectstorage.StorableObject = new(Branch)
 type ChildBranch struct {
 	// parentBranchID contains the identifier of the parent Branch.
 	parentBranchID BranchID
+
 	// childBranchID contains the identifier of the child Branch.
 	childBranchID BranchID
+
 	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
@@ -291,8 +300,10 @@ var childBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 type ConflictMember struct {
 	// conflictID contains the identifier of the conflict.
 	conflictID ConflictID
+
 	// branchID contains the identifier of the Branch.
 	branchID BranchID
+
 	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }

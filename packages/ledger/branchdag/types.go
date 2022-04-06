@@ -201,15 +201,6 @@ func NewConflictIDs(ids ...ConflictID) (new ConflictIDs) {
 // InclusionState represents the confirmation status of branches in the BranchDAG.
 type InclusionState uint8
 
-const (
-	// Pending represents elements that have neither been confirmed nor rejected.
-	Pending InclusionState = iota
-	// Confirmed represents elements that have been confirmed and will stay part of the ledger state forever.
-	Confirmed
-	// Rejected represents elements that have been rejected and will not be included in the ledger state.
-	Rejected
-)
-
 // FromMarshalUtil un-serializes an InclusionState using a MarshalUtil.
 func (i *InclusionState) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	untypedInclusionState, err := marshalUtil.ReadUint8()
@@ -241,5 +232,16 @@ func (i InclusionState) String() string {
 func (i InclusionState) Bytes() []byte {
 	return marshalutil.New(marshalutil.Uint8Size).WriteUint8(uint8(i)).Bytes()
 }
+
+const (
+	// Pending represents elements that have neither been confirmed nor rejected.
+	Pending InclusionState = iota
+
+	// Confirmed represents elements that have been confirmed and will stay part of the ledger state forever.
+	Confirmed
+
+	// Rejected represents elements that have been rejected and will not be included in the ledger state.
+	Rejected
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@ import (
 
 // Utils is a BranchDAG component that bundles utility related API to simplify common interactions with the BranchDAG.
 type Utils struct {
+	// branchDAG contains a reference to the BranchDAG instance that created these Utils.
 	branchDAG *BranchDAG
 }
 

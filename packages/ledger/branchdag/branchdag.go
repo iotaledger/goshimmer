@@ -12,12 +12,16 @@ import (
 type BranchDAG struct {
 	// Events is a dictionary for BranchDAG related events.
 	Events *Events
+
 	// Storage is a dictionary for storage related API endpoints.
 	Storage *Storage
+
 	// Utils is a dictionary for utility methods that simplify the interaction with the BranchDAG.
 	Utils *Utils
+
 	// options is a dictionary for configuration parameters of the BranchDAG.
 	options *options
+
 	// inclusionStateMutex is a mutex that prevents that two processes simultaneously write the InclusionState.
 	inclusionStateMutex sync.RWMutex
 }

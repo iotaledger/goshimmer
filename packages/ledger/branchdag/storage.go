@@ -2,7 +2,6 @@ package branchdag
 
 import (
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
@@ -18,10 +17,13 @@ import (
 type Storage struct {
 	// branchStorage is an object storage used to persist Branch objects.
 	branchStorage *objectstorage.ObjectStorage[*Branch]
+
 	// childBranchStorage is an object storage used to persist ChildBranch objects.
 	childBranchStorage *objectstorage.ObjectStorage[*ChildBranch]
+
 	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
+	
 	// shutdownOnce is used to ensure that the shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
 }
@@ -32,29 +34,20 @@ func newStorage(options *options) (new *Storage) {
 		branchStorage: objectstorage.New[*Branch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
-			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
-				MaxConsumersPerObject: 10,
-				MaxConsumerHoldTime:   5 * time.Second,
-			}),
+			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
 			childBranchKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
-			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
-				MaxConsumersPerObject: 10,
-				MaxConsumerHoldTime:   5 * time.Second,
-			}),
+			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
 			conflictMemberKeyPartition,
-			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
-			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
-				MaxConsumersPerObject: 10,
-				MaxConsumerHoldTime:   5 * time.Second,
-			}),
+			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
+			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 	}
