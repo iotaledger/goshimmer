@@ -2,30 +2,31 @@ package main
 
 import (
 	"flag"
+	"github.com/iotaledger/goshimmer/tools/evil-spammer/evillogger"
+	"github.com/iotaledger/goshimmer/tools/evil-spammer/interactive"
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/iotaledger/hive.go/logger"
 )
 
 var (
-	log           = logger.NewLogger("main")
+	log           = evillogger.New("main")
 	optionFlagSet = flag.NewFlagSet("script flag set", flag.ExitOnError)
 )
 
 func main() {
-
 	parseFlags()
 
 	// run selected test scenario
 	switch Script {
+	case "interactive":
+		interactive.Run()
 	case "basic":
 		CustomSpam(&customSpamParams)
 	case "quick":
 		QuickTest(&quickTest)
 	default:
-		log.Warnf("Unknown parameter for script, possible values: basic, quick, increasingDS, reasonableDS, verifyLedger")
+		log.Warnf("Unknown parameter for script, possible values: basic, quick, interactive")
 	}
 }
 
