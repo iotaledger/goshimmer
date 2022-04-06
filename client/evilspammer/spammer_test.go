@@ -19,7 +19,7 @@ func TestSpamTransactions(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithBatchesSent(5),
-		WithSpamWallet(evilWallet),
+		WithEvilWallet(evilWallet),
 	}
 	spammer := NewSpammer(options...)
 	spammer.Spam()
@@ -37,7 +37,7 @@ func TestSpamDoubleSpend(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithSpamDuration(time.Second * 10),
-		WithSpamWallet(evilWallet),
+		WithEvilWallet(evilWallet),
 	}
 	dsOptions := append(options, WithEvilScenario(scenarioDs))
 
@@ -58,7 +58,7 @@ func TestCustomConflictScenario(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithSpamDuration(time.Second * 10),
-		WithSpamWallet(evilWallet),
+		WithEvilWallet(evilWallet),
 	}
 	customOptions := append(options, WithEvilScenario(customScenario))
 	customSpammer := NewSpammer(customOptions...)
@@ -88,7 +88,7 @@ func TestReuseRestrictedOutputs(t *testing.T) {
 	options := []Options{
 		WithSpamRate(5, time.Second),
 		WithBatchesSent(1000),
-		WithSpamWallet(evilWallet),
+		WithEvilWallet(evilWallet),
 	}
 	txOptions := append(options, WithEvilScenario(scenarioTx))
 	customOptions := append(options, WithEvilScenario(customScenario))
@@ -117,7 +117,7 @@ func TestReuseOutputsOnTheFly(t *testing.T) {
 	options := []Options{
 		WithSpamRate(1, time.Second),
 		WithBatchesSent(200),
-		WithSpamWallet(evilWallet),
+		WithEvilWallet(evilWallet),
 	}
 	customOptions := append(options, WithEvilScenario(customScenario))
 

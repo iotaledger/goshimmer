@@ -41,17 +41,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 			wg.Add(1)
 			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
 				defer wg.Done()
-				allSolid := handleSolidityForReuseOutputs(clt, tx, s)
-				if !allSolid {
-					s.ErrCounter.CountError(errors.Errorf("not all inputs are solid, txID: %s", tx.ID().Base58()))
-					return
-				}
-				ok := s.PostTransaction(tx, clt)
-				if ok {
-					if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
-						s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
-					}
-				}
+				s.PostTransaction(tx, clt)
 			}(clients[i], tx)
 		}
 		wg.Wait()
@@ -59,15 +49,4 @@ func CustomConflictSpammingFunc(s *Spammer) {
 	s.State.batchPrepared.Add(1)
 	s.EvilWallet.ClearAliases(aliases)
 	s.CheckIfAllSent()
-}
-
-func handleSolidityForReuseOutputs(clt evilwallet.Client, tx *ledgerstate.Transaction, s *Spammer) (ok bool) {
-	ok = true
-	if s.EvilScenario.Reuse {
-		ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
-	}
-	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
-		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())
-	}
-	return
 }

@@ -30,7 +30,7 @@ type State struct {
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
 // Mandatory options: WithClients, WithSpammingFunc
 // Not mandatory options, if not provided spammer will use default settings:
-// WithSpamDetails, WithSpamWallet, WithErrorCounter, WithLogTickerInterval
+// WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval
 type Spammer struct {
 	SpamDetails *SpamDetails
 	State       *State
@@ -172,10 +172,15 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) (success bool) {
+func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) {
 	if tx == nil {
 		s.log.Debugf("transaction provided to PostTransaction is nil")
 		s.ErrCounter.CountError(ErrTransactionIsNil)
+	}
+	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
+	if !allSolid {
+		s.ErrCounter.CountError(errors.Errorf("not all inputs are solid, txID: %s", tx.ID().Base58()))
+		return
 	}
 
 	var err error
@@ -186,9 +191,24 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
+	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
+		s.EvilWallet.SetTxOutputsSolid(tx.Essence().Outputs(), clt.Url())
+	}
+
 	count := s.State.txSent.Add(1)
 	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
-	return true
+	return
+}
+
+func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *ledgerstate.Transaction) (ok bool) {
+	ok = true
+	if s.EvilScenario.Reuse {
+		ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
+	}
+	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
+		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())
+	}
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
