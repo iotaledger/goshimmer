@@ -51,7 +51,7 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamTransaction(wallet, outWallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second)
+				SpamTransaction(wallet, outWallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second)
 			}()
 		case "ds":
 			wg.Add(1)
@@ -67,27 +67,6 @@ func CustomSpam(params *CustomSpamParams) {
 
 	wg.Wait()
 	log.Info("Basic spamming finished!")
-}
-
-// TODO: refactor this with evilspammer
-func prepareFundsForCustomSpam(clients *evilspammer.Clients, params *CustomSpamParams, counter *evilspammer.ErrorCounter) *evilspammer.Wallets {
-	numOutputs := 0
-
-	if len(params.MsgToBeSent) > 0 {
-		for _, num := range params.MsgToBeSent {
-			numOutputs += num
-		}
-	} else {
-		for i := range params.DurationsInSec {
-			numOutputs += int(time.Duration(params.DurationsInSec[i])*time.Second/params.TimeUnit) * params.Rates[i]
-		}
-	}
-	spamWallets, err := evilspammer.PrepareFunds(clients, numOutputs, 5, counter)
-	if err != nil {
-		log.Error(err)
-		return nil
-	}
-	return spamWallets
 }
 
 func SpamTransaction(wallet *evilwallet.EvilWallet, outWallet *evilwallet.Wallet, rate int, timeUnit, duration time.Duration) {
@@ -122,6 +101,7 @@ func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration ti
 		evilspammer.WithSpamDuration(duration),
 		evilspammer.WithBatchesSent(numMsgToSend),
 		evilspammer.WithSpamWallet(wallet),
+		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
 	}
 	spammer := evilspammer.NewSpammer(options...)
 	spammer.Spam()
