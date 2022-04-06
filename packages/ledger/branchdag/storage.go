@@ -49,7 +49,7 @@ func newStorage(options *options) (new *Storage) {
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
-			ConflictMemberKeyPartition,
+			conflictMemberKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.conflictCacheTime),
 			objectstorage.LeakDetectionEnabled(true, objectstorage.LeakDetectionOptions{
 				MaxConsumersPerObject: 10,

@@ -46,7 +46,7 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Bran
 }
 
 // FromObjectStorage un-serializes a Branch from an object storage.
-func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+func (b *Branch) FromObjectStorage(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
 	result := new(Branch)
 	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
 		return nil, errors.Errorf("failed to parse Branch from bytes: %w", err)
@@ -83,12 +83,12 @@ func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err erro
 }
 
 // ID returns the identifier of the Branch.
-func (b *Branch) ID() BranchID {
+func (b *Branch) ID() (id BranchID) {
 	return b.id
 }
 
 // Parents returns the parent BranchIDs that this Branch depends on.
-func (b *Branch) Parents() BranchIDs {
+func (b *Branch) Parents() (parents BranchIDs) {
 	b.parentsMutex.RLock()
 	defer b.parentsMutex.RUnlock()
 
@@ -108,11 +108,11 @@ func (b *Branch) SetParents(parents BranchIDs) (modified bool) {
 }
 
 // ConflictIDs returns the identifiers of the conflicts that this Branch is part of.
-func (b *Branch) ConflictIDs() (conflicts ConflictIDs) {
+func (b *Branch) ConflictIDs() (conflictIDs ConflictIDs) {
 	b.conflictIDsMutex.RLock()
 	defer b.conflictIDsMutex.RUnlock()
 
-	conflicts = b.conflictIDs.Clone()
+	conflictIDs = b.conflictIDs.Clone()
 
 	return
 }
@@ -126,12 +126,12 @@ func (b *Branch) InclusionState() (inclusionState InclusionState) {
 }
 
 // Bytes returns a serialized version of the Branch.
-func (b *Branch) Bytes() []byte {
+func (b *Branch) Bytes() (serialized []byte) {
 	return b.ObjectStorageValue()
 }
 
 // String returns a human-readable version of the Branch.
-func (b *Branch) String() string {
+func (b *Branch) String() (humanReadable string) {
 	return stringify.Struct("Branch",
 		stringify.StructField("id", b.ID()),
 		stringify.StructField("parents", b.Parents()),
@@ -140,15 +140,13 @@ func (b *Branch) String() string {
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *Branch) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (b *Branch) ObjectStorageKey() (key []byte) {
 	return b.ID().Bytes()
 }
 
-// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (b *Branch) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (b *Branch) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
 		Write(b.Parents()).
 		Write(b.ConflictIDs()).
@@ -214,7 +212,7 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) (new *ChildBranch) {
 
 // FromObjectStorage un-serializes a ChildBranch from an object storage.
 func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	result := new(Branch)
+	result := new(ChildBranch)
 	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
 		return nil, errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 	}
@@ -254,30 +252,28 @@ func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
 }
 
 // Bytes returns a serialized version of the ChildBranch.
-func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
+func (c *ChildBranch) Bytes() (serialized []byte) {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
 // String returns a human-readable version of the ChildBranch.
-func (c *ChildBranch) String() (humanReadableChildBranch string) {
+func (c *ChildBranch) String() (humanReadable string) {
 	return stringify.Struct("ChildBranch",
 		stringify.StructField("parentBranchID", c.ParentBranchID()),
 		stringify.StructField("childBranchID", c.ChildBranchID()),
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (c *ChildBranch) ObjectStorageKey() (key []byte) {
 	return marshalutil.New(BranchIDLength + BranchIDLength).
 		WriteBytes(c.parentBranchID.Bytes()).
 		WriteBytes(c.childBranchID.Bytes()).
 		Bytes()
 }
 
-// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (c *ChildBranch) ObjectStorageValue() (value []byte) {
 	return nil
 }
 
@@ -291,20 +287,17 @@ var childBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 
 // region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// ConflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
-var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
-
-// ConflictMember represents the relationship between a Conflict and its Branches. Since an Output can have a
-// potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
-// Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
+// ConflictMember represents the reference between a Conflict and its contained Branch.
 type ConflictMember struct {
+	// conflictID contains the identifier of the conflict.
 	conflictID ConflictID
-	branchID   BranchID
-
+	// branchID contains the identifier of the Branch.
+	branchID BranchID
+	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewConflictMember is the constructor of the ConflictMember reference.
+// NewConflictMember return a new ConflictMember reference from the named conflict to the named Branch.
 func NewConflictMember(conflictID ConflictID, branchID BranchID) (new *ConflictMember) {
 	new = &ConflictMember{
 		conflictID: conflictID,
@@ -316,78 +309,74 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) (new *ConflictM
 	return new
 }
 
-// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
+// FromObjectStorage un-serializes a ConflictMember from an object storage.
 func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
+	result := new(ConflictMember)
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 	}
-	return
+
+	return result, nil
 }
 
-// FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes a ConflictMember from a sequence of bytes.
+func (c *ConflictMember) FromBytes(bytes []byte) (err error) {
+	if err = c.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshalling).
-func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
-	if conflictMember = c; conflictMember == nil {
-		conflictMember = &ConflictMember{}
+// FromMarshalUtil un-serializes a ConflictMember using a MarshalUtil.
+func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = c.conflictID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+	}
+	if err = c.branchID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
 	}
 
-	if err = conflictMember.conflictID.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-	}
-	if err = conflictMember.branchID.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse BranchID: %w", err)
-	}
-
-	return
+	return nil
 }
 
-// ConflictID returns the identifier of the Conflict that this ConflictMember belongs to.
-func (c *ConflictMember) ConflictID() ConflictID {
+// ConflictID returns the identifier of the Conflict.
+func (c *ConflictMember) ConflictID() (conflictID ConflictID) {
 	return c.conflictID
 }
 
-// BranchID returns the identifier of the Branch that this ConflictMember references.
-func (c *ConflictMember) BranchID() BranchID {
+// BranchID returns the identifier of the Branch.
+func (c *ConflictMember) BranchID() (branchID BranchID) {
 	return c.branchID
 }
 
-// Bytes returns a marshaled version of this ConflictMember.
-func (c *ConflictMember) Bytes() []byte {
+// Bytes returns a serialized version of the ConflictMember.
+func (c *ConflictMember) Bytes() (serialized []byte) {
 	return c.ObjectStorageKey()
 }
 
-// String returns a human-readable version of this ConflictMember.
-func (c *ConflictMember) String() string {
+// String returns a human-readable version of the ConflictMember.
+func (c *ConflictMember) String() (humanReadable string) {
 	return stringify.Struct("ConflictMember",
 		stringify.StructField("conflictID", c.conflictID),
 		stringify.StructField("branchID", c.branchID),
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *ConflictMember) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (c *ConflictMember) ObjectStorageKey() (key []byte) {
 	return byteutils.ConcatBytes(c.conflictID.Bytes(), c.branchID.Bytes())
 }
 
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (c *ConflictMember) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (c *ConflictMember) ObjectStorageValue() (value []byte) {
 	return nil
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &ConflictMember{}
+var _ objectstorage.StorableObject = new(ConflictMember)
+
+// conflictMemberKeyPartition defines the partition of the storage key of the ConflictMember model.
+var conflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, BranchIDLength)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
