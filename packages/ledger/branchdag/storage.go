@@ -37,7 +37,7 @@ func newStorage(options *options) (new *Storage) {
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
 			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
-			ChildBranchKeyPartition,
+			childBranchKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
 			objectstorage.LeakDetectionEnabled(true),
 			objectstorage.StoreOnCreation(true),

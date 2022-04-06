@@ -13,7 +13,7 @@ import (
 
 // region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch is a type representing a container for transactions and outputs spawning off from a conflicting transaction.
+// Branch represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Branch struct {
 	// id contains the identifier of the Branch.
 	id BranchID
@@ -33,7 +33,7 @@ type Branch struct {
 	objectstorage.StorableObjectFlags
 }
 
-// NewBranch creates a new Branch from the given details.
+// NewBranch return a new Branch from the given details.
 func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Branch) {
 	new = &Branch{
 		id:          id,
@@ -49,7 +49,6 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Bran
 // FromObjectStorage un-serializes a Branch from an object storage.
 func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
 	result := new(Branch)
-
 	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
 		return nil, errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}
@@ -81,7 +80,7 @@ func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err erro
 		return errors.Errorf("failed to parse inclusionState: %w", err)
 	}
 
-	return
+	return nil
 }
 
 // ID returns the identifier of the Branch.
@@ -97,12 +96,12 @@ func (b *Branch) Parents() BranchIDs {
 	return b.parents.Clone()
 }
 
-// SetParents updates the parent BranchIDs that this Branch depends on. It returns true of the Branch was modified.
-func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
+// SetParents updates the parent BranchIDs that this Branch depends on. It returns true if the Branch was modified.
+func (b *Branch) SetParents(parents BranchIDs) (modified bool) {
 	b.parentsMutex.Lock()
 	defer b.parentsMutex.Unlock()
 
-	b.parents = parentBranches
+	b.parents = parents
 	b.SetModified()
 	modified = true
 
@@ -127,7 +126,7 @@ func (b *Branch) InclusionState() (inclusionState InclusionState) {
 	return b.inclusionState
 }
 
-// Bytes returns a marshaled version of the Branch.
+// Bytes returns a serialized version of the Branch.
 func (b *Branch) Bytes() []byte {
 	return b.ObjectStorageValue()
 }
@@ -185,24 +184,24 @@ func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool
 	return
 }
 
+// code contract (make sure the struct implements all required methods)
+var _ objectstorage.StorableObject = new(Branch)
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ChildBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
-var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
-
-// ChildBranch represents the relationship between a Branch and its children. Since a Branch can have a potentially
-// unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
-// inside the Branch.
+// ChildBranch represents the reference between a Branch and its children.
 type ChildBranch struct {
+	// parentBranchID contains the identifier of the parent Branch.
 	parentBranchID BranchID
-	childBranchID  BranchID
-
+	// childBranchID contains the identifier of the child Branch.
+	childBranchID BranchID
+	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewChildBranch is the constructor of the ChildBranch reference.
+// NewChildBranch return a new ChildBranch reference from the named parent to the named child.
 func NewChildBranch(parentBranchID, childBranchID BranchID) (new *ChildBranch) {
 	new = &ChildBranch{
 		parentBranchID: parentBranchID,
@@ -214,61 +213,53 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) (new *ChildBranch) {
 	return new
 }
 
-// FromObjectStorage creates an ChildBranch from sequences of key and bytes.
+// FromObjectStorage un-serializes a ChildBranch from an object storage.
 func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
-		return result, err
+	result := new(Branch)
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 	}
-	return result, err
+
+	return result, nil
 }
 
-// FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes a ChildBranch from a sequence of bytes.
+func (c *ChildBranch) FromBytes(bytes []byte) (err error) {
+	if err = c.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
-func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	if childBranch = c; childBranch == nil {
-		childBranch = new(ChildBranch)
+// FromMarshalUtil un-serializes a ChildBranch using a MarshalUtil.
+func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = c.parentBranchID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
+	}
+	if err = c.childBranchID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
 	}
 
-	if err = childBranch.parentBranchID.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
-		return
-	}
-	if err = childBranch.childBranchID.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
+	return nil
 }
 
-// ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
+// ParentBranchID returns the identifier of the parent Branch.
 func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
 	return c.parentBranchID
 }
 
-// ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
+// ChildBranchID returns the identifier of the child Branch.
 func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
 	return c.childBranchID
 }
 
-// Bytes returns a marshaled version of the ChildBranch.
+// Bytes returns a serialized version of the ChildBranch.
 func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
-// String returns a human readable version of the ChildBranch.
+// String returns a human-readable version of the ChildBranch.
 func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	return stringify.Struct("ChildBranch",
 		stringify.StructField("parentBranchID", c.ParentBranchID()),
@@ -288,11 +279,14 @@ func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
 // ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
-	return []byte{}
+	return nil
 }
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(ChildBranch)
+
+// childBranchKeyPartition defines the partition of the storage key of the ChildBranch model.
+var childBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchIDLength)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
