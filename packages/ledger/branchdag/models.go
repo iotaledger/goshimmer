@@ -292,16 +292,19 @@ var childBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Conflict represents a set of Branches that are conflicting with each other.
+// Conflict represents a set of branches that are conflicting with each other.
 type Conflict struct {
-	id               ConflictID
-	memberCount      int
+	// id contains the identifier of the Conflict.
+	id ConflictID
+	// memberCount contains the amount of branches contained in this Conflict.
+	memberCount int
+	// memberCountMutex contains a mutex that is used to synchronize parallel access to the memberCount.
 	memberCountMutex sync.RWMutex
-
+	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewConflict is the constructor for new Conflicts.
+// NewConflict returns a new Conflict with the given identifier.
 func NewConflict(conflictID ConflictID) (new *Conflict) {
 	new = &Conflict{
 		id: conflictID,
@@ -312,59 +315,54 @@ func NewConflict(conflictID ConflictID) (new *Conflict) {
 	return new
 }
 
-// FromObjectStorage creates a Conflict from sequences of key and bytes.
+// FromObjectStorage un-serializes a Conflict from an object storage.
 func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
-	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
+	result := new(Conflict)
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse Conflict from bytes: %w", err)
 	}
-	return
+
+	return result, nil
 }
 
-// FromBytes unmarshals a Conflict from a sequence of bytes.
-func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes a Conflict from a sequence of bytes.
+func (c *Conflict) FromBytes(bytes []byte) (err error) {
+	if err = c.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshalling).
-func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
-	if conflict = c; conflict == nil {
-		conflict = &Conflict{}
-	}
-
-	if err = conflict.id.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+// FromMarshalUtil un-serializes a Branch using a MarshalUtil.
+func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = c.id.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
 	}
 	memberCount, err := marshalUtil.ReadUint64()
 	if err != nil {
-		return nil, errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	conflict.memberCount = int(memberCount)
+	c.memberCount = int(memberCount)
 
-	return
+	return nil
 }
 
-// ID returns the identifier of this Conflict.
+// ID returns the identifier of the Conflict.
 func (c *Conflict) ID() ConflictID {
 	return c.id
 }
 
 // MemberCount returns the amount of Branches that are part of this Conflict.
-func (c *Conflict) MemberCount() int {
+func (c *Conflict) MemberCount() (memberCount int) {
 	c.memberCountMutex.RLock()
 	defer c.memberCountMutex.RUnlock()
 
 	return c.memberCount
 }
 
-// IncreaseMemberCount increase the MemberCount of this Conflict.
-func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+// IncreaseMemberCount increases the member count of this Conflict.
+func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newCount int) {
 	delta := 1
 	if len(optionalDelta) >= 1 {
 		delta = optionalDelta[0]
@@ -375,13 +373,13 @@ func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int
 
 	c.memberCount += delta
 	c.SetModified()
-	newMemberCount = c.memberCount
+	newCount = c.memberCount
 
 	return c.memberCount
 }
 
-// DecreaseMemberCount decreases the MemberCount of this Conflict.
-func (c *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCount int) {
+// DecreaseMemberCount decreases the member count of this Conflict.
+func (c *Conflict) DecreaseMemberCount(optionalDelta ...int) (newCount int) {
 	delta := 1
 	if len(optionalDelta) >= 1 {
 		delta = optionalDelta[0]
@@ -392,12 +390,12 @@ func (c *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCount int
 
 	c.memberCount -= delta
 	c.SetModified()
-	newMemberCount = c.memberCount
+	newCount = c.memberCount
 
 	return
 }
 
-// Bytes returns a marshaled version of the Conflict.
+// Bytes returns a serialized version of the Conflict.
 func (c *Conflict) Bytes() []byte {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
@@ -416,8 +414,8 @@ func (c *Conflict) ObjectStorageKey() []byte {
 	return c.id.Bytes()
 }
 
-// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
+// ObjectStorageValue marshals the Conflict into a sequence of bytes. The id is not serialized here as it is only used
+// as a key in the ObjectStorage.
 func (c *Conflict) ObjectStorageValue() []byte {
 	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(c.MemberCount())).
