@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-// BranchDAG is an entity that manages conflicting versions of a quadruple-entry-accounting ledger and their causal
+// BranchDAG is an entity that manages conflicting versions of a quadruple-entry accounting ledger and their causal
 // relationships.
 type BranchDAG struct {
 	// Events is a dictionary for BranchDAG related events.

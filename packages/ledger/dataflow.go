@@ -8,7 +8,7 @@ import (
 
 // region dataFlow /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// dataFlow is a Ledger component that defines the data flow (h)ow the different commands are chained together).
+// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together).
 type dataFlow struct {
 	// ledger contains a reference to the Ledger that created the Utils.
 	ledger *Ledger
