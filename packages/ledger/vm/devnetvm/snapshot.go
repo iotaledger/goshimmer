@@ -8,9 +8,9 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/refactored/types"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // Snapshot defines a snapshot of the ledger state.
