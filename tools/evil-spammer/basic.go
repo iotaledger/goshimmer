@@ -16,6 +16,7 @@ type CustomSpamParams struct {
 	MsgToBeSent           []int
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
+	NSpend                int
 }
 
 func CustomSpam(params *CustomSpamParams) {
@@ -59,6 +60,18 @@ func CustomSpam(params *CustomSpamParams) {
 				defer wg.Done()
 				SpamDoubleSpends(wallet, outWallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts)
 			}()
+		case "nds":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				SpamNDoubleSpends(wallet, outWallet, params.Rates[i], params.NSpend, params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts)
+			}()
+		case "nestedConflicts":
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				SpamNestedConflictcs(wallet, outWallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second)
+			}()
 
 		default:
 			log.Warn("Spamming type not recognized. Try one of following: tx, ds, msg")
@@ -90,6 +103,31 @@ func SpamDoubleSpends(wallet *evilwallet.EvilWallet, outWallet *evilwallet.Walle
 		evilspammer.WithSpamWallet(wallet),
 		evilspammer.WithTimeDelayForDoubleSpend(delayBetweenConflicts),
 		evilspammer.WithEvilScenario(scenarioDs),
+	}
+	spammer := evilspammer.NewSpammer(options...)
+	spammer.Spam()
+}
+
+func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, outWallet *evilwallet.Wallet, rate, nSpend int, timeUnit, duration, delayBetweenConflicts time.Duration) {
+	scenario := evilwallet.NewEvilScenario(evilwallet.NSpendBatch(nSpend), false, outWallet)
+	options := []evilspammer.Options{
+		evilspammer.WithSpamRate(rate, timeUnit),
+		evilspammer.WithSpamDuration(duration),
+		evilspammer.WithSpamWallet(wallet),
+		evilspammer.WithTimeDelayForDoubleSpend(delayBetweenConflicts),
+		evilspammer.WithEvilScenario(scenario),
+	}
+	spammer := evilspammer.NewSpammer(options...)
+	spammer.Spam()
+}
+
+func SpamNestedConflictcs(wallet *evilwallet.EvilWallet, outWallet *evilwallet.Wallet, rate, numDsToSend int, timeUnit, duration time.Duration) {
+	scenario := evilwallet.NewEvilScenario(evilwallet.Scenario1(), false, outWallet)
+	options := []evilspammer.Options{
+		evilspammer.WithSpamRate(rate, timeUnit),
+		evilspammer.WithSpamDuration(duration),
+		evilspammer.WithSpamWallet(wallet),
+		evilspammer.WithEvilScenario(scenario),
 	}
 	spammer := evilspammer.NewSpammer(options...)
 	spammer.Spam()
