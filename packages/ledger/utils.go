@@ -8,24 +8,29 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-type utils struct {
-	*Ledger
+// Utils is a Ledger component that bundles utility related API to simplify common interactions with the Ledger.
+type Utils struct {
+	// ledger contains a reference to the Ledger that created the Utils.
+	ledger *Ledger
 }
 
-func newUtils(ledger *Ledger) (new *utils) {
-	return &utils{
-		Ledger: ledger,
+// newUtils returns a new Utils instance for the given Ledger.
+func newUtils(ledger *Ledger) (new *Utils) {
+	return &Utils{
+		ledger: ledger,
 	}
 }
 
-func (u *utils) resolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
-	return utxo.NewOutputIDs(lo.Map(inputs, u.options.VM.ResolveInput)...)
+// ResolveInputs returns the OutputIDs that were referenced by the given Inputs.
+func (u *Utils) ResolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
+	return utxo.NewOutputIDs(lo.Map(inputs, u.ledger.options.vm.ResolveInput)...)
 }
 
-func (u *utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (consumingTransactions utxo.TransactionIDs) {
+// UnprocessedConsumingTransactions returns the unprocessed consuming transactions of the named OutputIDs.
+func (u *Utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (consumingTransactions utxo.TransactionIDs) {
 	consumingTransactions = utxo.NewTransactionIDs()
 	for it := outputIDs.Iterator(); it.HasNext(); {
-		u.Storage.CachedConsumers(it.Next()).Consume(func(consumer *Consumer) {
+		u.ledger.Storage.CachedConsumers(it.Next()).Consume(func(consumer *Consumer) {
 			if consumer.Processed() {
 				return
 			}
@@ -37,7 +42,8 @@ func (u *utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (cons
 	return consumingTransactions
 }
 
-func (u *utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
+// WalkConsumingTransactionID walks over the TransactionIDs that consume the named OutputIDs.
+func (u *Utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID])) {
 	if entryPoints.Size() == 0 {
 		return
 	}
@@ -45,7 +51,7 @@ func (u *utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback 
 	seenTransactions := set.New[utxo.TransactionID](false)
 	futureConeWalker := walker.New[utxo.OutputID](false).PushAll(entryPoints.Slice()...)
 	for futureConeWalker.HasNext() {
-		u.Storage.CachedConsumers(futureConeWalker.Next()).Consume(func(consumer *Consumer) {
+		u.ledger.Storage.CachedConsumers(futureConeWalker.Next()).Consume(func(consumer *Consumer) {
 			if futureConeWalker.WalkStopped() || !seenTransactions.Add(consumer.TransactionID()) {
 				return
 			}
@@ -55,27 +61,21 @@ func (u *utils) WalkConsumingTransactionID(entryPoints utxo.OutputIDs, callback 
 	}
 }
 
-func (u *utils) WalkConsumingTransactionMetadata(entryPoints utxo.OutputIDs, callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
+// WalkConsumingTransactionMetadata walks over the transactions that consume the named OutputIDs and calls the callback
+// with their corresponding TransactionMetadata.
+func (u *Utils) WalkConsumingTransactionMetadata(entryPoints utxo.OutputIDs, callback func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
 	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
-		u.Storage.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
+		u.ledger.Storage.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(txMetadata, walker)
 		})
 	})
 }
 
-func (u *utils) WalkConsumingTransactionAndMetadata(entryPoints utxo.OutputIDs, callback func(tx *Transaction, txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID])) {
-	u.WalkConsumingTransactionID(entryPoints, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
-		u.Storage.CachedTransactionMetadata(consumingTxID).Consume(func(txMetadata *TransactionMetadata) {
-			u.Storage.CachedTransaction(consumingTxID).Consume(func(tx *Transaction) {
-				callback(tx, txMetadata, walker)
-			})
-		})
-	})
-}
-
-func (u *utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx *Transaction, txMetadata *TransactionMetadata)) {
-	u.Storage.CachedTransaction(txID).Consume(func(tx *Transaction) {
-		u.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+// WithTransactionAndMetadata walks over the transactions that consume the named OutputIDs and calls the callback
+// with their corresponding Transaction and TransactionMetadata.
+func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx *Transaction, txMetadata *TransactionMetadata)) {
+	u.ledger.Storage.CachedTransaction(txID).Consume(func(tx *Transaction) {
+		u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(tx, txMetadata)
 		})
 	})

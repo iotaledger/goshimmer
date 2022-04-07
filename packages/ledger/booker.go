@@ -11,19 +11,23 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
+// booker is a Ledger component that bundles the booking related API.
 type booker struct {
-	*Ledger
+	// ledger contains a reference to the Ledger that created the booker.
+	ledger *Ledger
 }
 
+// newBooker returns a new booker instance for the given Ledger.
 func newBooker(ledger *Ledger) (new *booker) {
 	return &booker{
-		Ledger: ledger,
+		ledger: ledger,
 	}
 }
 
+// checkAlreadyBookedCommand is a ChainedCommand that aborts the DataFlow if a Transaction has already been booked.
 func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	if params.TransactionMetadata == nil {
-		cachedTransactionMetadata := b.Storage.CachedTransactionMetadata(params.Transaction.ID())
+		cachedTransactionMetadata := b.ledger.Storage.CachedTransactionMetadata(params.Transaction.ID())
 		defer cachedTransactionMetadata.Release()
 
 		transactionMetadata, exists := cachedTransactionMetadata.Unwrap()
@@ -41,12 +45,14 @@ func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 	return next(params)
 }
 
+// bookTransactionCommand is a ChainedCommand that books a Transaction.
 func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	b.bookTransaction(params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 
 	return next(params)
 }
 
+// bookTransaction books a Transaction in the Ledger and creates its Outputs.
 func (b *booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs Outputs) {
 	branchIDs := b.inheritBranchIDs(txMetadata.ID(), inputsMetadata)
 
@@ -58,23 +64,24 @@ func (b *booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata
 	txMetadata.SetOutputIDs(outputs.IDs())
 	txMetadata.SetBooked(true)
 
-	b.Events.TransactionBooked.Trigger(&TransactionBookedEvent{
+	b.ledger.Events.TransactionBooked.Trigger(&TransactionBookedEvent{
 		TransactionID: txMetadata.ID(),
 		Outputs:       outputs,
 	})
 }
 
+// inheritedBranchIDs determines the BranchIDs that a Transaction should inherit when being booked.
 func (b *booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs branchdag.BranchIDs) {
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
-		return b.BranchDAG.FilterPendingBranches(inputsMetadata.BranchIDs())
+		return b.ledger.BranchDAG.FilterPendingBranches(inputsMetadata.BranchIDs())
 	}
 
 	branchID := branchdag.NewBranchID(txID)
-	b.BranchDAG.CreateBranch(branchID, b.BranchDAG.FilterPendingBranches(inputsMetadata.BranchIDs()), branchdag.NewConflictIDs(lo.Map(conflictingInputIDs.Slice(), branchdag.NewConflictID)...))
+	b.ledger.BranchDAG.CreateBranch(branchID, b.ledger.BranchDAG.FilterPendingBranches(inputsMetadata.BranchIDs()), branchdag.NewConflictIDs(lo.Map(conflictingInputIDs.Slice(), branchdag.NewConflictID)...))
 
 	_ = consumersToFork.ForEach(func(transactionID utxo.TransactionID) (err error) {
-		b.utils.WithTransactionAndMetadata(transactionID, func(tx *Transaction, txMetadata *TransactionMetadata) {
+		b.ledger.Utils.WithTransactionAndMetadata(transactionID, func(tx *Transaction, txMetadata *TransactionMetadata) {
 			b.forkTransaction(tx, txMetadata, conflictingInputIDs)
 		})
 
@@ -84,18 +91,20 @@ func (b *booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata Output
 	return branchdag.NewBranchIDs(branchID)
 }
 
+// storeOutputs stores the Outputs in the Ledger.
 func (b *booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
 	_ = outputs.ForEach(func(output *Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
 
-		b.Storage.outputMetadataStorage.Store(outputMetadata).Release()
-		b.Storage.outputStorage.Store(output).Release()
+		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+		b.ledger.Storage.outputStorage.Store(output).Release()
 
 		return nil
 	})
 }
 
+// determineConflictDetails determines whether a Transaction is conflicting and returns the conflict details.
 func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (conflictingInputIDs utxo.OutputIDs, consumersToFork utxo.TransactionIDs) {
 	conflictingInputIDs = utxo.NewOutputIDs()
 	consumersToFork = utxo.NewTransactionIDs()
@@ -116,40 +125,42 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 	return conflictingInputIDs, consumersToFork
 }
 
+// forkTransaction forks an existing Transaction.
 func (b *booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadata, outputsSpentByConflictingTx utxo.OutputIDs) {
-	b.mutex.Lock(txMetadata.ID())
+	b.ledger.mutex.Lock(txMetadata.ID())
 
-	conflictingInputs := b.utils.resolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
+	conflictingInputs := b.ledger.Utils.ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 	previousParentBranches := txMetadata.BranchIDs()
 
 	forkedBranchID := branchdag.NewBranchID(txMetadata.ID())
 	conflictIDs := branchdag.NewConflictIDs(lo.Map(conflictingInputs.Slice(), branchdag.NewConflictID)...)
-	if !b.BranchDAG.CreateBranch(forkedBranchID, previousParentBranches, conflictIDs) {
-		b.BranchDAG.AddBranchToConflicts(forkedBranchID, conflictIDs)
-		b.mutex.Unlock(txMetadata.ID())
+	if !b.ledger.BranchDAG.CreateBranch(forkedBranchID, previousParentBranches, conflictIDs) {
+		b.ledger.BranchDAG.AddBranchToConflicts(forkedBranchID, conflictIDs)
+		b.ledger.mutex.Unlock(txMetadata.ID())
 		return
 	}
 
-	b.Events.TransactionForked.Trigger(&TransactionForkedEvent{
+	b.ledger.Events.TransactionForked.Trigger(&TransactionForkedEvent{
 		TransactionID:  txMetadata.ID(),
 		ParentBranches: previousParentBranches,
 	})
 
 	if !b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches) {
-		b.mutex.Unlock(txMetadata.ID())
+		b.ledger.mutex.Unlock(txMetadata.ID())
 		return
 	}
-	b.mutex.Unlock(txMetadata.ID())
+	b.ledger.mutex.Unlock(txMetadata.ID())
 
 	b.propagateForkedBranchToFutureCone(txMetadata.OutputIDs(), forkedBranchID, previousParentBranches)
 
 	return
 }
 
+// propagateForkedBranchToFutureCone propagates a newly introduced Branch to its future cone.
 func (b *booker) propagateForkedBranchToFutureCone(outputIDs utxo.OutputIDs, forkedBranchID branchdag.BranchID, previousParentBranches branchdag.BranchIDs) {
-	b.utils.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-		b.mutex.Lock(consumingTxMetadata.ID())
-		defer b.mutex.Unlock(consumingTxMetadata.ID())
+	b.ledger.Utils.WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+		b.ledger.mutex.Lock(consumingTxMetadata.ID())
+		defer b.ledger.mutex.Unlock(consumingTxMetadata.ID())
 
 		if !b.updateBranchesAfterFork(consumingTxMetadata, forkedBranchID, previousParentBranches) {
 			return
@@ -159,9 +170,10 @@ func (b *booker) propagateForkedBranchToFutureCone(outputIDs utxo.OutputIDs, for
 	})
 }
 
+// updateBranchesAfterFork updates the BranchIDs of a Transaction after a fork.
 func (b *booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forkedBranchID branchdag.BranchID, previousParents branchdag.BranchIDs) bool {
 	if txMetadata.IsConflicting() {
-		b.BranchDAG.UpdateBranchParents(branchdag.NewBranchID(txMetadata.ID()), forkedBranchID, previousParents)
+		b.ledger.BranchDAG.UpdateBranchParents(branchdag.NewBranchID(txMetadata.ID()), forkedBranchID, previousParents)
 		return false
 	}
 
@@ -172,15 +184,15 @@ func (b *booker) updateBranchesAfterFork(txMetadata *TransactionMetadata, forked
 	newBranchIDs := txMetadata.BranchIDs().Clone()
 	newBranchIDs.DeleteAll(previousParents)
 	newBranchIDs.Add(forkedBranchID)
-	newBranches := b.BranchDAG.FilterPendingBranches(newBranchIDs)
+	newBranches := b.ledger.BranchDAG.FilterPendingBranches(newBranchIDs)
 
-	b.Storage.CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *OutputMetadata) {
+	b.ledger.Storage.CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *OutputMetadata) {
 		outputMetadata.SetBranchIDs(newBranches)
 	})
 
 	txMetadata.SetBranchIDs(newBranches)
 
-	b.Events.TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
+	b.ledger.Events.TransactionBranchIDUpdated.Trigger(&TransactionBranchIDUpdatedEvent{
 		TransactionID:    txMetadata.ID(),
 		AddedBranchID:    forkedBranchID,
 		RemovedBranchIDs: previousParents,

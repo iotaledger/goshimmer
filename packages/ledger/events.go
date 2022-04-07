@@ -7,14 +7,27 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
+// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Events is a container that acts as a dictionary for the existing events of a Ledger.
 type Events struct {
-	TransactionStored          *event.Event[*TransactionStoredEvent]
-	TransactionBooked          *event.Event[*TransactionBookedEvent]
-	TransactionForked          *event.Event[*TransactionForkedEvent]
+	// TransactionStored is an event that gets triggered whenever a new Transaction is stored.
+	TransactionStored *event.Event[*TransactionStoredEvent]
+
+	// TransactionBooked is an event that gets triggered whenever a Transaction is booked.
+	TransactionBooked *event.Event[*TransactionBookedEvent]
+
+	// TransactionForked is an event that gets triggered whenever a Transaction is forked.
+	TransactionForked *event.Event[*TransactionForkedEvent]
+
+	// TransactionBranchIDUpdated is an event that gets triggered whenever the Branch of a Transaction is updated.
 	TransactionBranchIDUpdated *event.Event[*TransactionBranchIDUpdatedEvent]
-	Error                      *event.Event[error]
+
+	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
+	Error *event.Event[error]
 }
 
+// newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
 		TransactionStored:          event.New[*TransactionStoredEvent](),
@@ -25,22 +38,57 @@ func newEvents() (new *Events) {
 	}
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionStoredEvent ///////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionStoredEvent is a container that acts as a dictionary for the TransactionStored event related parameters.
 type TransactionStoredEvent struct {
+	// TransactionID contains the identifier of the stored Transaction.
 	TransactionID utxo.TransactionID
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBookedEvent ///////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionBookedEvent is a container that acts as a dictionary for the TransactionBooked event related parameters.
 type TransactionBookedEvent struct {
+	// TransactionID contains the identifier of the booked Transaction.
 	TransactionID utxo.TransactionID
-	Outputs       Outputs
+
+	// Outputs contains the set of Outputs that this Transaction created.
+	Outputs Outputs
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionForkedEvent ///////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionForkedEvent is a container that acts as a dictionary for the TransactionForked event related parameters.
 type TransactionForkedEvent struct {
-	TransactionID  utxo.TransactionID
+	// TransactionID contains the identifier of the forked Transaction.
+	TransactionID utxo.TransactionID
+
+	// ParentBranches contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
 	ParentBranches branchdag.BranchIDs
 }
 
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionBranchIDUpdatedEvent //////////////////////////////////////////////////////////////////////////////
+
+// TransactionBranchIDUpdatedEvent is a container that acts as a dictionary for the TransactionBranchIDUpdated event
+// related parameters.
 type TransactionBranchIDUpdatedEvent struct {
-	TransactionID    utxo.TransactionID
-	AddedBranchID    branchdag.BranchID
+	// TransactionID contains the identifier of the Transaction whose BranchIDs were updated.
+	TransactionID utxo.TransactionID
+
+	// AddedBranchID contains the identifier of the Branch that was added to the BranchIDs of the Transaction.
+	AddedBranchID branchdag.BranchID
+
+	// RemovedBranchIDs contains the set of the BranchIDs that were removed while updating the Transaction.
 	RemovedBranchIDs branchdag.BranchIDs
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
