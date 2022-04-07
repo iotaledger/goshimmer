@@ -31,7 +31,7 @@ func QuickTest(params *QuickTestParams) {
 		evilspammer.WithSpamRate(params.Rate, params.TimeUnit),
 		evilspammer.WithSpamDuration(params.Duration),
 		evilspammer.WithErrorCounter(counter),
-		evilspammer.WithSpamWallet(evilWallet),
+		evilspammer.WithEvilWallet(evilWallet),
 	}
 	msgOptions := append(baseOptions,
 		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
