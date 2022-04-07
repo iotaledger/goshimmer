@@ -169,7 +169,7 @@ func (t *TransactionMetadata) ID() (id utxo.TransactionID) {
 	return t.id
 }
 
-// BranchIDs returns the conflicting BranchIDs that this Transaction depends on.
+// BranchIDs returns the conflicting BranchIDs that the Transaction depends on.
 func (t *TransactionMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 	t.branchIDsMutex.RLock()
 	defer t.branchIDsMutex.RUnlock()
@@ -402,7 +402,7 @@ func (o Outputs) IDs() (ids utxo.OutputIDs) {
 }
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
-func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) {
+func (o Outputs) ForEach(callback func(output *Output) error) (err error) {
 	o.OrderedMap.ForEach(func(_ utxo.OutputID, output *Output) bool {
 		if err = callback(output); err != nil {
 			return false
@@ -429,92 +429,105 @@ func (o Outputs) utxoOutputs() (slice []utxo.Output) {
 
 // region OutputMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// OutputMetadata contains additional Output information that are derived from the local perception of the node.
+// OutputMetadata represents a container for additional information about an Output.
 type OutputMetadata struct {
-	id                   utxo.OutputID
-	branchIDs            branchdag.BranchIDs
-	branchIDsMutex       sync.RWMutex
-	firstConsumer        utxo.TransactionID
-	firstConsumerForked  bool
-	firstConsumerMutex   sync.RWMutex
-	gradeOfFinality      gof.GradeOfFinality
-	gradeOfFinalityTime  time.Time
+	// id contains the identifier of the Output.
+	id utxo.OutputID
+
+	// branchIDs contains the conflicting BranchIDs that this Output depends on.
+	branchIDs branchdag.BranchIDs
+
+	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
+	branchIDsMutex sync.RWMutex
+
+	// firstConsumer contains the first Transaction that ever consumed the Output.
+	firstConsumer utxo.TransactionID
+
+	// firstConsumerForked contains a boolean flag that indicates if the firstConsumer was forked.
+	firstConsumerForked bool
+
+	// firstConsumerMutex contains a mutex that is used to synchronize parallel access to the firstConsumer.
+	firstConsumerMutex sync.RWMutex
+
+	// gradeOfFinality contains the confirmation status of the Output.
+	gradeOfFinality gof.GradeOfFinality
+
+	// gradeOfFinalityTime contains the last time the gradeOfFinality was updated.
+	gradeOfFinalityTime time.Time
+
+	// gradeOfFinalityMutex contains a mutex that is used to synchronize parallel access to the gradeOfFinality.
 	gradeOfFinalityMutex sync.RWMutex
 
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewOutputMetadata creates a new empty OutputMetadata object.
-func NewOutputMetadata(outputID utxo.OutputID) *OutputMetadata {
+// NewOutputMetadata returns new OutputMetadata for the given OutputID.
+func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	return &OutputMetadata{
 		id:        outputID,
 		branchIDs: branchdag.NewBranchIDs(),
 	}
 }
 
-// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
-func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
+// FromObjectStorage un-serializes OutputMetadata from an object storage.
+func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (outputMetadata objectstorage.StorableObject, err error) {
+	result := new(OutputMetadata)
+	if err = o.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 	}
-	return outputMetadata, err
+
+	return result, nil
 }
 
-// FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputMetadata, err = o.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes TransactionMetadata from a sequence of bytes.
+func (o *OutputMetadata) FromBytes(bytes []byte) (err error) {
+	if err = o.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshalling).
-func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
-	if outputMetadata = o; outputMetadata == nil {
-		outputMetadata = &OutputMetadata{
-			branchIDs: branchdag.NewBranchIDs(),
-		}
-	}
+// FromMarshalUtil un-serializes TransactionMetadata using a MarshalUtil.
+func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	o.branchIDs = branchdag.NewBranchIDs()
 
-	if err = outputMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse OutputID: %w", err)
+	if err = o.id.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse OutputID: %w", err)
 	}
-	if err = outputMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse BranchIDs: %w", err)
+	if err = o.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse BranchIDs: %w", err)
 	}
-	if err = outputMetadata.firstConsumer.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if err = o.firstConsumer.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse first consumer (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
-		return nil, errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	o.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if o.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		return errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	return
+
+	return nil
 }
 
-// ID returns the OutputID of the Output that the OutputMetadata belongs to.
-func (o *OutputMetadata) ID() utxo.OutputID {
+// ID returns the identifier of the Output that this OutputMetadata belongs to.
+func (o *OutputMetadata) ID() (id utxo.OutputID) {
 	return o.id
 }
 
-// BranchIDs returns the identifiers of the Branches that the Output was booked in.
-func (o *OutputMetadata) BranchIDs() branchdag.BranchIDs {
+// BranchIDs returns the conflicting BranchIDs that the Output depends on.
+func (o *OutputMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 	o.branchIDsMutex.RLock()
 	defer o.branchIDsMutex.RUnlock()
 
 	return o.branchIDs.Clone()
 }
 
-// SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
+// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
 func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
@@ -525,29 +538,12 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified b
 
 	o.branchIDs = branchIDs.Clone()
 	o.SetModified()
+
 	return true
 }
 
-// AddBranchID adds an identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
-	o.branchIDsMutex.Lock()
-	defer o.branchIDsMutex.Unlock()
-
-	if o.branchIDs.Has(branchID) {
-		return false
-	}
-
-	o.branchIDs.Delete(branchdag.MasterBranchID)
-
-	o.branchIDs.Add(branchID)
-	o.SetModified()
-	modified = true
-
-	return
-}
-
-// Spent returns true if the Output has been spent already.
-func (o *OutputMetadata) Spent() bool {
+// Spent returns true if the Output has been spent.
+func (o *OutputMetadata) Spent() (spent bool) {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
