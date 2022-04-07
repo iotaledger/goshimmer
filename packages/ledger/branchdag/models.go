@@ -35,11 +35,11 @@ type Branch struct {
 	// inclusionStateMutex contains a mutex that is used to synchronize parallel access to the inclusionState.
 	inclusionStateMutex sync.RWMutex
 
-	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewBranch return a new Branch from the given details.
+// NewBranch returns a new Branch from the given details.
 func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) (new *Branch) {
 	new = &Branch{
 		id:          id,
@@ -206,7 +206,7 @@ type ChildBranch struct {
 	// childBranchID contains the identifier of the child Branch.
 	childBranchID BranchID
 
-	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
@@ -307,7 +307,7 @@ type ConflictMember struct {
 	// branchID contains the identifier of the Branch.
 	branchID BranchID
 
-	// StorableObjectFlags embeds the properties and methods required to manage to object storage related flags.
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 

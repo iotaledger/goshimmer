@@ -107,13 +107,13 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 		expectedConflictMembers := t.BranchIDs(expectedConflictMembersAliases...)
 
 		// Check count of conflict members for this conflictID.
-		cachedConflictMembers := t.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID)
+		cachedConflictMembers := t.ledger.BranchDAG.Storage.CachedConflictMembers(conflictID)
 		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", conflictID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
 		cachedConflictMembers.Release()
 
 		// Verify that all named branches are stored as conflict members.
 		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.Ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "did not find conflict member %s,%s", conflictID, branchID)
+			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "did not find conflict member %s,%s", conflictID, branchID)
 
 			conflictIDs, exists := branchConflicts[branchID]
 			if !exists {
@@ -202,7 +202,7 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 }
 
 func (t *TestFramework) ConsumeBranch(branchID branchdag.BranchID, consumer func(branch *branchdag.Branch)) {
-	assert.Truef(t.t, t.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
+	assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
 }
 
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
@@ -214,7 +214,7 @@ func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer f
 }
 
 func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output *Output)) {
-	assert.True(t.t, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
+	assert.True(t.t, t.ledger.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
 func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {

@@ -20,29 +20,38 @@ import (
 
 // region Transaction ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Transaction is a wrapped utxo.Transaction that can be stored in the object storage.
 type Transaction struct {
+	// Transaction contains the wrapped utxo.Transaction.
 	utxo.Transaction
+
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
+// NewTransaction returns a new Transaction from the given utxo.Transaction.
 func NewTransaction(transaction utxo.Transaction) (new *Transaction) {
 	return &Transaction{
 		Transaction: transaction,
 	}
 }
 
-func (o *Transaction) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
+// FromObjectStorage un-serializes a Transaction from an object storage (it is disabled because we use the VMs parser).
+func (o *Transaction) FromObjectStorage([]byte, []byte) (transaction objectstorage.StorableObject, err error) {
 	panic("this should never be called - we use a custom factory method from the VM")
 }
 
-func (o *Transaction) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (o *Transaction) ObjectStorageKey() (key []byte) {
 	return o.ID().Bytes()
 }
 
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
 func (o *Transaction) ObjectStorageValue() []byte {
 	return o.Bytes()
 }
 
+// code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(Transaction)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
