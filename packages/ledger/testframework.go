@@ -88,18 +88,40 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 }
 
 func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
+	// Parent -> child references.
+	childBranches := make(map[branchdag.BranchID]branchdag.BranchIDs)
+
 	for branchAlias, expectedParentAliases := range expectedParents {
 		currentBranchID := branchdag.NewBranchID(t.Transaction(branchAlias).ID())
-
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
+		// Verify child -> parent references.
 		t.ConsumeBranch(currentBranchID, func(branch *branchdag.Branch) {
 			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
 		})
+
+		for _, parentBranchID := range expectedBranchIDs.Slice() {
+			if _, exists := childBranches[parentBranchID]; !exists {
+				childBranches[parentBranchID] = branchdag.NewBranchIDs()
+			}
+			childBranches[parentBranchID].Add(currentBranchID)
+		}
+	}
+
+	// Verify parent -> child references.
+	for parentBranchID, childBranchIDs := range childBranches {
+		cachedChildBranches := t.ledger.BranchDAG.Storage.CachedChildBranches(parentBranchID)
+		assert.Equalf(t.t, childBranchIDs.Size(), len(cachedChildBranches), "child branches count does not match for parent branch %s, expected=%s, actual=%s", parentBranchID, childBranchIDs, cachedChildBranches.Unwrap())
+		cachedChildBranches.Release()
+
+		for _, childBranchID := range childBranchIDs.Slice() {
+			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *branchdag.ChildBranch) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
+		}
 	}
 }
 
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
+	// Branch -> conflictIDs.
 	branchConflicts := make(map[branchdag.BranchID]branchdag.ConflictIDs)
 
 	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
@@ -111,16 +133,14 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", conflictID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
 		cachedConflictMembers.Release()
 
-		// Verify that all named branches are stored as conflict members.
+		// Verify that all named branches are stored as conflict members (conflictID -> branchIDs).
 		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "did not find conflict member %s,%s", conflictID, branchID)
+			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
 
-			conflictIDs, exists := branchConflicts[branchID]
-			if !exists {
-				conflictIDs = branchdag.NewConflictIDs()
-				branchConflicts[branchID] = conflictIDs
+			if _, exists := branchConflicts[branchID]; !exists {
+				branchConflicts[branchID] = branchdag.NewConflictIDs()
 			}
-			conflictIDs.Add(conflictID)
+			branchConflicts[branchID].Add(conflictID)
 		}
 	}
 
