@@ -4,7 +4,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
 type VM struct{}
@@ -49,4 +50,4 @@ func (d *VM) executeTransaction(transaction *Transaction, inputs Outputs) (outpu
 	return transaction.Essence().Outputs(), nil
 }
 
-var _ utxo.VM = new(VM)
+var _ vm.VM = new(VM)

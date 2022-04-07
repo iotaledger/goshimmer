@@ -19,7 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/refactored/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
