@@ -20,7 +20,7 @@ import (
 
 // region Transaction ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Transaction is a wrapped utxo.Transaction that can be stored in the object storage.
+// Transaction represents a wrapped utxo.Transaction that can be stored in the object storage.
 type Transaction struct {
 	// Transaction contains the wrapped utxo.Transaction.
 	utxo.Transaction
@@ -58,31 +58,52 @@ var _ objectstorage.StorableObject = new(Transaction)
 
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionMetadata contains additional information about a Transaction that is derived from the local perception of
-// a node.
+// TransactionMetadata represents a container for additional information about a Transaction.
 type TransactionMetadata struct {
-	id                   utxo.TransactionID
-	branchIDs            branchdag.BranchIDs
-	branchIDsMutex       sync.RWMutex
-	booked               bool
-	bookingMutex         sync.RWMutex
-	bookingTime          time.Time
-	bookingTimeMutex     sync.RWMutex
-	lazyBooked           bool
-	lazyBookedMutex      sync.RWMutex
-	outputIDs            utxo.OutputIDs
-	outputIDsMutex       sync.RWMutex
-	gradeOfFinality      gof.GradeOfFinality
-	gradeOfFinalityTime  time.Time
+	// id contains the identifier of the Transaction.
+	id utxo.TransactionID
+
+	// branchIDs contains the conflicting BranchIDs that this Transaction depends on.
+	branchIDs branchdag.BranchIDs
+
+	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
+	branchIDsMutex sync.RWMutex
+
+	// booked contains a boolean flag that indicates if the Transaction was booked already.
+	booked bool
+
+	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
+	bookedMutex sync.RWMutex
+
+	// bookingTime contains the time the Transaction was booked.
+	bookingTime time.Time
+
+	// bookingTimeMutex contains a mutex that is used to synchronize parallel access to the bookingTime.
+	bookingTimeMutex sync.RWMutex
+
+	// outputIDs contains the identifiers of the Outputs that the Transaction created.
+	outputIDs utxo.OutputIDs
+
+	// outputIDsMutex contains a mutex that is used to synchronize parallel access to the outputIDs.
+	outputIDsMutex sync.RWMutex
+
+	// gradeOfFinality contains the confirmation status of the Transaction.
+	gradeOfFinality gof.GradeOfFinality
+
+	// gradeOfFinalityTime contains the last time the gradeOfFinality was updated.
+	gradeOfFinalityTime time.Time
+
+	// gradeOfFinalityMutex contains a mutex that is used to synchronize parallel access to the gradeOfFinality.
 	gradeOfFinalityMutex sync.RWMutex
 
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewTransactionMetadata creates a new empty TransactionMetadata object.
-func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
+// NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
+func NewTransactionMetadata(txID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
 	newTransactionMetadata = &TransactionMetadata{
-		id:        transactionID,
+		id:        txID,
 		branchIDs: branchdag.NewBranchIDs(),
 		outputIDs: utxo.NewOutputIDs(),
 	}
@@ -92,80 +113,71 @@ func NewTransactionMetadata(transactionID utxo.TransactionID) (newTransactionMet
 	return newTransactionMetadata
 }
 
-// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
-func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	transactionMetadata, err := t.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
-		return transactionMetadata, err
+// FromObjectStorage un-serializes TransactionMetadata from an object storage.
+func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (transactionMetadata objectstorage.StorableObject, err error) {
+	result := new(TransactionMetadata)
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
 	}
 
-	return transactionMetadata, err
+	return result, nil
 }
 
-// FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes TransactionMetadata from a sequence of bytes.
+func (t *TransactionMetadata) FromBytes(bytes []byte) (err error) {
+	if err = t.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
 	}
-	return
+
+	return nil
 }
 
-// FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshalling).
-func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
-	if transactionMetadata = t; transactionMetadata == nil {
-		transactionMetadata = &TransactionMetadata{
-			branchIDs: branchdag.NewBranchIDs(),
-			outputIDs: utxo.NewOutputIDs(),
-		}
-	}
+// FromMarshalUtil un-serializes TransactionMetadata using a MarshalUtil.
+func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	t.branchIDs = branchdag.NewBranchIDs()
+	t.outputIDs = utxo.NewOutputIDs()
 
-	if err = transactionMetadata.id.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse TransactionID: %w", err)
+	if err = t.id.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse TransactionID: %w", err)
 	}
-	if err = transactionMetadata.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse BranchID: %w", err)
+	if err = t.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse BranchID: %w", err)
 	}
-	if transactionMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
-		return nil, errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if t.booked, err = marshalUtil.ReadBool(); err != nil {
+		return errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if transactionMetadata.bookingTime, err = marshalUtil.ReadTime(); err != nil {
-		return nil, errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
+	if t.bookingTime, err = marshalUtil.ReadTime(); err != nil {
+		return errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	if transactionMetadata.lazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		return nil, errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-	if err = transactionMetadata.outputIDs.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse OutputIDs: %w", err)
+	if err = t.outputIDs.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse OutputIDs: %w", err)
 	}
 	gradeOfFinality, err := marshalUtil.ReadUint8()
 	if err != nil {
-		return nil, errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
-	transactionMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if transactionMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		return nil, errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
+	t.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
+	if t.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
+		return errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
-	return
+	return nil
 }
 
-// ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
-func (t *TransactionMetadata) ID() utxo.TransactionID {
+// ID returns the identifier of the Transaction that this TransactionMetadata belongs to.
+func (t *TransactionMetadata) ID() (id utxo.TransactionID) {
 	return t.id
 }
 
-// BranchIDs returns the identifiers of the Branches that the Transaction was booked in.
-func (t *TransactionMetadata) BranchIDs() branchdag.BranchIDs {
+// BranchIDs returns the conflicting BranchIDs that this Transaction depends on.
+func (t *TransactionMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 	t.branchIDsMutex.RLock()
 	defer t.branchIDsMutex.RUnlock()
 
 	return t.branchIDs.Clone()
 }
 
-// SetBranchIDs sets the identifiers of the Branches that the Transaction was booked in.
+// SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
 func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
@@ -176,38 +188,22 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modif
 
 	t.branchIDs = branchIDs.Clone()
 	t.SetModified()
+
 	return true
 }
 
-// AddBranchID adds an identifier of the Branch that the Transaction was booked in.
-func (t *TransactionMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
-	t.branchIDsMutex.Lock()
-	defer t.branchIDsMutex.Unlock()
-
-	if t.branchIDs.Has(branchID) {
-		return false
-	}
-
-	t.branchIDs.Delete(branchdag.MasterBranchID)
-
-	t.branchIDs.Add(branchID)
-	t.SetModified()
-	return true
-}
-
-// Booked returns true if the Transaction has been marked as solid.
-func (t *TransactionMetadata) Booked() bool {
-	t.bookingMutex.RLock()
-	defer t.bookingMutex.RUnlock()
+// Booked returns a boolean flag indicating whether the Transaction has been booked.
+func (t *TransactionMetadata) Booked() (booked bool) {
+	t.bookedMutex.RLock()
+	defer t.bookedMutex.RUnlock()
 
 	return t.booked
 }
 
-// SetBooked updates the solid flag of the Transaction. It returns true if the solid flag was modified and updates
-// the booking time if the Transaction was marked as solid.
+// SetBooked sets a boolean flag indicating whether the Transaction has been booked.
 func (t *TransactionMetadata) SetBooked(booked bool) (modified bool) {
-	t.bookingMutex.Lock()
-	defer t.bookingMutex.Unlock()
+	t.bookedMutex.Lock()
+	defer t.bookedMutex.Unlock()
 
 	if t.booked == booked {
 		return
@@ -221,71 +217,50 @@ func (t *TransactionMetadata) SetBooked(booked bool) (modified bool) {
 
 	t.booked = booked
 	t.SetModified()
-	modified = true
 
-	return
+	return true
 }
 
-// BookingTime returns the time when the Transaction was marked as booked.
-func (t *TransactionMetadata) BookingTime() time.Time {
+// BookingTime returns the time when the Transaction was booked.
+func (t *TransactionMetadata) BookingTime() (bookingTime time.Time) {
 	t.bookingTimeMutex.RLock()
 	defer t.bookingTimeMutex.RUnlock()
 
 	return t.bookingTime
 }
 
-// LazyBooked returns a boolean flag that indicates if the Transaction has been analyzed regarding the conflicting
-// status of its consumed Branches.
-func (t *TransactionMetadata) LazyBooked() (lazyBooked bool) {
-	t.lazyBookedMutex.RLock()
-	defer t.lazyBookedMutex.RUnlock()
-
-	return t.lazyBooked
-}
-
-// SetLazyBooked updates the lazy booked flag of the Output. It returns true if the value was modified.
-func (t *TransactionMetadata) SetLazyBooked(lazyBooked bool) (modified bool) {
-	t.lazyBookedMutex.Lock()
-	defer t.lazyBookedMutex.Unlock()
-
-	if t.lazyBooked == lazyBooked {
-		return
-	}
-
-	t.lazyBooked = lazyBooked
-	t.SetModified()
-	modified = true
-
-	return
-}
-
-// OutputIDs returns the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) OutputIDs() utxo.OutputIDs {
+// OutputIDs returns the identifiers of the Outputs that the Transaction created.
+func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
 
 	return t.outputIDs.Clone()
 }
 
-// SetOutputIDs sets the OutputIDs that this Transaction created.
-func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) {
+// SetOutputIDs sets the identifiers of the Outputs that the Transaction created.
+func (t *TransactionMetadata) SetOutputIDs(outputIDs utxo.OutputIDs) (modified bool) {
 	t.outputIDsMutex.RLock()
 	defer t.outputIDsMutex.RUnlock()
+
+	if t.outputIDs.Equal(outputIDs) {
+		return false
+	}
 
 	t.outputIDs = outputIDs
 	t.SetModified()
 
-	return
+	return true
 }
 
-// GradeOfFinality returns the grade of finality.
-func (t *TransactionMetadata) GradeOfFinality() gof.GradeOfFinality {
+// GradeOfFinality returns the confirmation status of the Transaction.
+func (t *TransactionMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
 	t.gradeOfFinalityMutex.RLock()
 	defer t.gradeOfFinalityMutex.RUnlock()
+
 	return t.gradeOfFinality
 }
 
-// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+// SetGradeOfFinality sets the confirmation status of the Transaction.
 func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	t.gradeOfFinalityMutex.Lock()
 	defer t.gradeOfFinalityMutex.Unlock()
@@ -297,56 +272,52 @@ func (t *TransactionMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFina
 	t.gradeOfFinality = gradeOfFinality
 	t.gradeOfFinalityTime = clock.SyncedTime()
 	t.SetModified()
-	modified = true
-	return
+
+	return true
 }
 
-// GradeOfFinalityTime returns the time when the Transaction's gradeOfFinality was set.
-func (t *TransactionMetadata) GradeOfFinalityTime() time.Time {
+// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
+func (t *TransactionMetadata) GradeOfFinalityTime() (gradeOfFinalityTime time.Time) {
 	t.gradeOfFinalityMutex.RLock()
 	defer t.gradeOfFinalityMutex.RUnlock()
 
 	return t.gradeOfFinalityTime
 }
 
-// IsConflicting returns true if the Transaction is conflicting with another Transaction (has its own Branch).
-func (t *TransactionMetadata) IsConflicting() bool {
+// IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Branch).
+func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
 	return t.BranchIDs().Is(branchdag.NewBranchID(t.ID()))
 }
 
-// Bytes marshals the TransactionMetadata into a sequence of bytes.
-func (t *TransactionMetadata) Bytes() []byte {
+// Bytes returns a serialized version of the TransactionMetadata.
+func (t *TransactionMetadata) Bytes() (serialized []byte) {
 	return byteutils.ConcatBytes(t.ObjectStorageKey(), t.ObjectStorageValue())
 }
 
 // String returns a human-readable version of the TransactionMetadata.
-func (t *TransactionMetadata) String() string {
+func (t *TransactionMetadata) String() (humanReadable string) {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
 		stringify.StructField("processed", t.Booked()),
 		stringify.StructField("solidificationTime", t.BookingTime()),
-		stringify.StructField("lazyBooked", t.LazyBooked()),
 		stringify.StructField("outputIDs", t.OutputIDs()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (t *TransactionMetadata) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (t *TransactionMetadata) ObjectStorageKey() (key []byte) {
 	return t.id.Bytes()
 }
 
-// ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes. The ID is not serialized here as it is
-// only used as a key in the ObjectStorage.
-func (t *TransactionMetadata) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (t *TransactionMetadata) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
 		WriteBool(t.Booked()).
 		WriteTime(t.BookingTime()).
-		WriteBool(t.LazyBooked()).
 		Write(t.OutputIDs()).
 		WriteUint8(uint8(t.GradeOfFinality())).
 		WriteTime(t.GradeOfFinalityTime()).
@@ -360,47 +331,56 @@ var _ objectstorage.StorableObject = &TransactionMetadata{}
 
 // region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Output is a wrapped utxo.Output that can be stored in the object storage.
 type Output struct {
+	// Output contains the wrapped utxo.Output.
 	utxo.Output
+
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
+// NewOutput returns a new Output from the given utxo.Output.
 func NewOutput(output utxo.Output) (new *Output) {
 	return &Output{
 		Output: output,
 	}
 }
 
+// FromObjectStorage un-serializes an Output from an object storage (it is disabled because we use the VMs parser).
 func (o *Output) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
 	panic("this should never be called - we use a custom factory method from the VM")
 }
 
-func (o *Output) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (o *Output) ObjectStorageKey() (key []byte) {
 	return o.ID().Bytes()
 }
 
-func (o *Output) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (o *Output) ObjectStorageValue() (value []byte) {
 	return o.Bytes()
 }
 
-func (o *Output) utxoOutput() utxo.Output {
+// utxoOutput returns the wrapped utxo.Output.
+func (o *Output) utxoOutput() (unwrapped utxo.Output) {
 	return o.Output
 }
 
-func (o *Output) ID() (id utxo.OutputID) {
-	return o.Output.ID()
-}
-
+// code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(Output)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// Outputs represents a collection of Output objects indexed by their OutputID.
 type Outputs struct {
+	// OrderedMap is the underlying data structure that holds the Outputs.
 	*orderedmap.OrderedMap[utxo.OutputID, *Output]
 }
 
+// NewOutputs returns a new Output collection with the given elements.
 func NewOutputs(outputs ...*Output) (new Outputs) {
 	new = Outputs{orderedmap.New[utxo.OutputID, *Output]()}
 	for _, output := range outputs {
@@ -410,6 +390,7 @@ func NewOutputs(outputs ...*Output) (new Outputs) {
 	return new
 }
 
+// IDs returns the identifiers of the stored Outputs.
 func (o Outputs) IDs() (ids utxo.OutputIDs) {
 	outputIDs := make([]utxo.OutputID, 0)
 	o.OrderedMap.ForEach(func(id utxo.OutputID, _ *Output) bool {
@@ -420,6 +401,7 @@ func (o Outputs) IDs() (ids utxo.OutputIDs) {
 	return utxo.NewOutputIDs(outputIDs...)
 }
 
+// ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
 func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) {
 	o.OrderedMap.ForEach(func(_ utxo.OutputID, output *Output) bool {
 		if err = callback(output); err != nil {
@@ -432,7 +414,8 @@ func (o Outputs) ForEach(callback func(output *Output) (err error)) (err error) 
 	return err
 }
 
-func (o Outputs) UTXOOutputs() (slice []utxo.Output) {
+// utxoOutputs returns a slice of unwrapped Outputs.
+func (o Outputs) utxoOutputs() (slice []utxo.Output) {
 	slice = make([]utxo.Output, 0)
 	_ = o.ForEach(func(output *Output) error {
 		slice = append(slice, output.Output)
