@@ -44,9 +44,6 @@ func (p *Printer) PrintLine() {
 
 func (p *Printer) menu() {
 
-	p.Println("Evil Wallet status:", 2)
-	p.evilWalletStatus()
-	p.PrintLine()
 }
 func (p *Printer) printBanner() {
 	fmt.Println("▓█████  ██▒   █▓ ██▓ ██▓                                                   \n▓█   ▀ ▓██░   █▒▓██▒▓██▒                                                   \n▒███    ▓██  █▒░▒██▒▒██░                                                   \n▒▓█  ▄   ▒██ █░░░██░▒██░                                                   \n░▒████▒   ▒▀█░  ░██░░██████▒                                               \n░░ ▒░ ░   ░ ▐░  ░▓  ░ ▒░▓  ░                                               \n ░ ░  ░   ░ ░░   ▒ ░░ ░ ▒  ░                                               \n   ░        ░░   ▒ ░  ░ ░                                                  \n   ░  ░      ░   ░      ░  ░                                               \n            ░                                                              \n           ██████  ██▓███   ▄▄▄       ███▄ ▄███▓ ███▄ ▄███▓▓█████  ██▀███  \n         ▒██    ▒ ▓██░  ██▒▒████▄    ▓██▒▀█▀ ██▒▓██▒▀█▀ ██▒▓█   ▀ ▓██ ▒ ██▒\n         ░ ▓██▄   ▓██░ ██▓▒▒██  ▀█▄  ▓██    ▓██░▓██    ▓██░▒███   ▓██ ░▄█ ▒\n           ▒   ██▒▒██▄█▓▒ ▒░██▄▄▄▄██ ▒██    ▒██ ▒██    ▒██ ▒▓█  ▄ ▒██▀▀█▄  \n         ▒██████▒▒▒██▒ ░  ░ ▓█   ▓██▒▒██▒   ░██▒▒██▒   ░██▒░▒████▒░██▓ ▒██▒\n         ▒ ▒▓▒ ▒ ░▒▓▒░ ░  ░ ▒▒   ▓▒█░░ ▒░   ░  ░░ ▒░   ░  ░░░ ▒░ ░░ ▒▓ ░▒▓░\n         ░ ░▒  ░ ░░▒ ░       ▒   ▒▒ ░░  ░      ░░  ░      ░ ░ ░  ░  ░▒ ░ ▒░\n         ░  ░  ░  ░░         ░   ▒   ░      ░   ░      ░      ░     ░░   ░ \n               ░                 ░  ░       ░          ░      ░  ░   ░     \n                                                                           ")
@@ -54,14 +51,24 @@ func (p *Printer) printBanner() {
 	p.Println("Interactive mode enabled", 1)
 }
 
-func (p *Printer) evilWalletStatus() {
+func (p *Printer) EvilWalletStatus() {
 	//p.mode.evilWallet.
 	nOut := 12
+	p.Println("Evil Wallet status:", 2)
 	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", nOut), 2)
 	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", nOut), 2)
 	p.PrintlnPoint(fmt.Sprintf("Spammed messages: %d", nOut), 2)
 	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", nOut), 2)
 	p.PrintlnPoint(fmt.Sprintf("Spammed conflicts: %d", nOut), 2)
+
+	p.PrintLine()
+}
+
+func (p *Printer) FarewellMessage() {
+	//p.mode.evilWallet.
+	p.PrintThickLine()
+	fmt.Println("                              GOODBYE")
+	p.PrintLine()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
