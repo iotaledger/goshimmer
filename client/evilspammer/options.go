@@ -49,10 +49,10 @@ func WithBatchesSent(maxBatchesSent int) Options {
 	}
 }
 
-// WithSpamWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario
-func WithSpamWallet(initWallets *evilwallet.EvilWallet) Options {
+// WithEvilWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario
+func WithEvilWallet(initWallets *evilwallet.EvilWallet) Options {
 	return func(s *Spammer) {
-		s.SpamWallet = initWallets
+		s.EvilWallet = initWallets
 	}
 }
 
@@ -78,7 +78,7 @@ func WithLogTickerInterval(interval time.Duration) Options {
 }
 
 // WithSpammingFunc sets core function of the spammer with spamming logic, needs to use done spammer's channel to communicate.
-// end of spamming and errors.
+// end of spamming and errors. Default one is the CustomConflictSpammingFunc.
 func WithSpammingFunc(spammerFunc func(s *Spammer)) Options {
 	return func(s *Spammer) {
 		s.spamFunc = spammerFunc

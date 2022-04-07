@@ -26,6 +26,5 @@ func TestDoubleSpend(t *testing.T) {
 	_, err = clients[1].PostTransaction(txB)
 	require.NoError(t, err)
 
-	evilwallet.ClearAliases()
-	//EvilWallet.ConflictManager.AddConflict(WithConflictID("1"), WithConflictMembers("2", "3"))
+	evilwallet.ClearAllAliases()
 }

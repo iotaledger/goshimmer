@@ -149,6 +149,8 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 }
 
 type Client interface {
+	// Url returns a client API url.
+	Url() (cltID string)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *ledgerstate.Transaction) (ledgerstate.TransactionID, error)
 	// PostData sends the given data (payload) by creating a message in the backend.
@@ -169,16 +171,27 @@ type Client interface {
 	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
 	// GetTransaction gets the transaction.
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
+	// GetOutputSolidity checks if the transaction is solid.
+	GetOutputSolidity(outID string) (solid bool, err error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
 type WebClient struct {
 	api *client.GoShimmerAPI
+	url string
+}
+
+// Url returns a client API Url.
+func (c *WebClient) Url() string {
+	return c.url
 }
 
 // NewWebClient creates Connector from provided GoShimmerAPI urls.
 func NewWebClient(url string, setters ...client.Option) *WebClient {
-	return &WebClient{api: client.NewGoShimmerAPI(url, setters...)}
+	return &WebClient{
+		api: client.NewGoShimmerAPI(url, setters...),
+		url: url,
+	}
 }
 
 // SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
@@ -283,6 +296,15 @@ func (c *WebClient) GetTransaction(txID string) (resp *jsonmodels.Transaction, e
 	if err != nil {
 		return
 	}
+	return
+}
+
+func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
+	resp, err := c.api.GetOutputMetadata(outID)
+	if err != nil {
+		return
+	}
+	solid = resp.Solid
 	return
 }
 

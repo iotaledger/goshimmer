@@ -63,13 +63,26 @@ func (a *AliasManager) GetOutput(aliasName string) ledgerstate.Output {
 	return a.outputMap[aliasName]
 }
 
-// ClearAliases clears all aliases.
-func (a *AliasManager) ClearAliases() {
+// ClearAllAliases clears all aliases.
+func (a *AliasManager) ClearAllAliases() {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	a.inputMap = make(map[string]ledgerstate.Input)
 	a.outputMap = make(map[string]ledgerstate.Output)
+}
+
+// ClearAliases clears provided aliases.
+func (a *AliasManager) ClearAliases(aliases ScenarioAlias) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	for _, in := range aliases.Inputs {
+		delete(a.inputMap, in)
+	}
+	for _, out := range aliases.Outputs {
+		delete(a.outputMap, out)
+	}
 }
 
 // AddOutputAliases batch adds the outputs their respective aliases.

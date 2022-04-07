@@ -11,10 +11,10 @@ func TestFaucetRequests(t *testing.T) {
 
 	clients := evilwallet.GetClients(2)
 
-	_, err := evilwallet.RequestFreshFaucetWallet()
+	err := evilwallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
-	_, err = evilwallet.RequestFreshFaucetWallet()
+	err = evilwallet.RequestFreshFaucetWallet()
 	require.NoError(t, err)
 
 	for i := 0; i < 200; i++ {
@@ -26,7 +26,7 @@ func TestFaucetRequests(t *testing.T) {
 		require.NoError(t, err)
 		_, err = clients[1].PostTransaction(txB)
 		require.NoError(t, err)
-		evilwallet.ClearAliases()
+		evilwallet.ClearAllAliases()
 	}
 
 	err = evilwallet.RequestFreshBigFaucetWallet()
