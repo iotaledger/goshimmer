@@ -16,8 +16,8 @@ import (
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
 	ManaType        Type        `serix:"0"`
-	BaseValues      []float64   `serix:"1"`
-	EffectiveValues []float64   `serix:"2"`
+	BaseValues      []float64   `serix:"1,lengthPrefixType=uint16"`
+	EffectiveValues []float64   `serix:"2,lengthPrefixType=uint16"`
 	LastUpdated     time.Time   `serix:"3"`
 	NodeID          identity.ID `serix:"4"`
 
