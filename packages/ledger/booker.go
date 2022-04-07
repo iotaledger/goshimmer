@@ -145,10 +145,7 @@ func (b *booker) forkTransaction(tx *Transaction, txMetadata *TransactionMetadat
 		ParentBranches: previousParentBranches,
 	})
 
-	if !b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches) {
-		b.ledger.mutex.Unlock(txMetadata.ID())
-		return
-	}
+	b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches)
 	b.ledger.mutex.Unlock(txMetadata.ID())
 
 	b.propagateForkedBranchToFutureCone(txMetadata.OutputIDs(), forkedBranchID, previousParentBranches)
