@@ -10,22 +10,25 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
+// validator is a Ledger component that bundles the API that is used to check the validity of a Transaction.
 type validator struct {
-	*Ledger
+	ledger *Ledger
 }
 
+// newValidator returns a new validator instance for the given Ledger.
 func newValidator(ledger *Ledger) (new *validator) {
 	return &validator{
-		Ledger: ledger,
+		ledger: ledger,
 	}
 }
 
+// checkSolidityCommand is a ChainedCommand that aborts the DataFlow if the Transaction is not solid.
 func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	if params.InputIDs.IsEmpty() {
-		params.InputIDs = v.utils.resolveInputs(params.Transaction.Inputs())
+		params.InputIDs = v.ledger.Utils.ResolveInputs(params.Transaction.Inputs())
 	}
 
-	cachedInputs := v.Storage.CachedOutputs(params.InputIDs)
+	cachedInputs := v.ledger.Storage.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
 	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
 		return errors.Errorf("not all outputs of %s available: %w", params.Transaction.ID(), ErrTransactionUnsolid)
@@ -34,8 +37,10 @@ func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.N
 	return next(params)
 }
 
+// checkOutputsCausallyRelatedCommand is a ChainedCommand that aborts the DataFlow if the spent Outputs reference each
+// other.
 func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	cachedOutputsMetadata := v.Storage.CachedOutputsMetadata(params.InputIDs)
+	cachedOutputsMetadata := v.ledger.Storage.CachedOutputsMetadata(params.InputIDs)
 	defer cachedOutputsMetadata.Release()
 
 	params.InputsMetadata = NewOutputsMetadata(cachedOutputsMetadata.Unwrap(true)...)
@@ -50,8 +55,10 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 	return next(params)
 }
 
+// checkTransactionExecutionCommand is a ChainedCommand that aborts the DataFlow if the Transaction could not be
+// executed (is invalid).
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	utxoOutputs, err := v.options.VM.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
+	utxoOutputs, err := v.ledger.options.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.UTXOOutputs())
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
@@ -61,13 +68,14 @@ func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 	return next(params)
 }
 
+// outputsCausallyRelated returns true if the Outputs denoted by the given OutputsMetadata reference each other.
 func (v *validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
 	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).Spent).IDs()
 	if spentOutputIDs.Size() == 0 {
 		return false
 	}
 
-	v.utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+	v.ledger.Utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		if !txMetadata.Booked() {
 			return
 		}

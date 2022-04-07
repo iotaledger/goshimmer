@@ -22,16 +22,15 @@ import (
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Ledger *Ledger
-
 	t                   *testing.T
+	ledger              *Ledger
 	transactionsByAlias map[string]*MockedTransaction
 	outputIDsByAlias    map[string]utxo.OutputID
 }
 
 func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	new = &TestFramework{
-		Ledger: New(options...),
+		ledger: New(options...),
 
 		t:                   t,
 		transactionsByAlias: make(map[string]*MockedTransaction),
@@ -45,8 +44,8 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	genesisOutput.ID().RegisterAlias("Genesis")
 	new.outputIDsByAlias["Genesis"] = genesisOutput.ID()
 
-	new.Ledger.Storage.outputStorage.Store(genesisOutput).Release()
-	new.Ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
+	new.ledger.Storage.outputStorage.Store(genesisOutput).Release()
+	new.ledger.Storage.outputMetadataStorage.Store(genesisOutputMetadata).Release()
 
 	return new
 }
@@ -180,7 +179,7 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
 				// Check if output exists according to the Booked status of the enclosing Transaction.
-				assert.Equalf(t.t, expectedBooked, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
+				assert.Equalf(t.t, expectedBooked, t.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
 					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.Booked())
 				return nil
 			})
@@ -207,11 +206,11 @@ func (t *TestFramework) ConsumeBranch(branchID branchdag.BranchID, consumer func
 }
 
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
-	assert.Truef(t.t, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
+	assert.Truef(t.t, t.ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
 }
 
 func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
-	assert.True(t.t, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+	assert.True(t.t, t.ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
 }
 
 func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output *Output)) {
@@ -234,7 +233,7 @@ func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 		panic(fmt.Sprintf("unknown transaction alias: %s", txAlias))
 	}
 
-	return t.Ledger.StoreAndProcessTransaction(transaction)
+	return t.ledger.StoreAndProcessTransaction(transaction)
 }
 
 func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint16) (mockedOutputID utxo.OutputID) {

@@ -23,7 +23,7 @@ type Storage struct {
 
 	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
-	
+
 	// shutdownOnce is used to ensure that the shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
 }
@@ -104,7 +104,8 @@ func (s *Storage) CachedConflictMember(conflictID ConflictID, branchID BranchID,
 	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(conflictID.Bytes(), branchID.Bytes()))
 }
 
-// CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named Conflict.
+// CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named
+// conflict.
 func (s *Storage) CachedConflictMembers(conflictID ConflictID) (cachedConflictMembers objectstorage.CachedObjects[*ConflictMember]) {
 	cachedConflictMembers = make(objectstorage.CachedObjects[*ConflictMember], 0)
 	s.conflictMemberStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ConflictMember]) bool {
