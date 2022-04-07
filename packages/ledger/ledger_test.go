@@ -517,3 +517,49 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 		testFramework.AssertBranchIDs(mappedBranches)
 	}
 }
+
+func TestLedger_ForkAlreadyConflictingTransaction(t *testing.T) {
+	testFramework := NewTestFramework(t)
+
+	testFramework.CreateTransaction("G", 3, "Genesis")
+	testFramework.CreateTransaction("TX1", 1, "G.0", "G.1")
+	testFramework.CreateTransaction("TX2", 1, "G.0")
+	testFramework.CreateTransaction("TX3", 1, "G.1")
+
+	for _, txAlias := range []string{"G", "TX1", "TX2", "TX3"} {
+		assert.NoError(t, testFramework.IssueTransaction(txAlias))
+	}
+
+	testFramework.AssertBranchIDs(map[string][]string{
+		"G":   {},
+		"TX1": {"TX1"},
+		"TX2": {"TX2"},
+		"TX3": {"TX3"},
+	})
+
+	testFramework.AssertBranchDAG(map[string][]string{
+		"TX1": {},
+		"TX2": {},
+		"TX3": {},
+	})
+
+	testFramework.AssertConflicts(map[string][]string{
+		"G.0": {"TX1", "TX2"},
+		"G.1": {"TX1", "TX3"},
+	})
+}
+
+func TestLedger_TransactionCausallyRelated(t *testing.T) {
+	testFramework := NewTestFramework(t)
+
+	testFramework.CreateTransaction("G", 3, "Genesis")
+	testFramework.CreateTransaction("TX1", 1, "G.0")
+	testFramework.CreateTransaction("TX2", 1, "TX1.0")
+	testFramework.CreateTransaction("TX3", 1, "G.0", "TX2.0")
+
+	for _, txAlias := range []string{"G", "TX1", "TX2"} {
+		assert.NoError(t, testFramework.IssueTransaction(txAlias))
+	}
+
+	assert.EqualError(t, testFramework.IssueTransaction("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
+}

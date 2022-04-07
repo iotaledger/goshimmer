@@ -60,15 +60,19 @@ func (t *TestFramework) Transaction(txAlias string) (tx *MockedTransaction) {
 	return tx
 }
 
+func (t *TestFramework) OutputID(alias string) (outputID utxo.OutputID) {
+	outputID, exists := t.outputIDsByAlias[alias]
+	if !exists {
+		panic(fmt.Sprintf("unknown output alias: %s", alias))
+	}
+
+	return outputID
+}
+
 func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, inputAliases ...string) {
 	mockedInputs := make([]*MockedInput, 0)
 	for _, inputAlias := range inputAliases {
-		outputID, exists := t.outputIDsByAlias[inputAlias]
-		if !exists {
-			panic(fmt.Sprintf("unknown input alias: %s", inputAlias))
-		}
-
-		mockedInputs = append(mockedInputs, NewMockedInput(outputID))
+		mockedInputs = append(mockedInputs, NewMockedInput(t.OutputID(inputAlias)))
 	}
 
 	tx := NewMockedTransaction(mockedInputs, outputCount)
@@ -90,9 +94,42 @@ func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
-		assert.True(t.t, t.Ledger.BranchDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *branchdag.Branch) {
+		t.ConsumeBranch(currentBranchID, func(branch *branchdag.Branch) {
 			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
-		}))
+		})
+	}
+}
+
+func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
+	branchConflicts := make(map[branchdag.BranchID]branchdag.ConflictIDs)
+
+	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
+		conflictID := branchdag.NewConflictID(t.OutputID(outputAlias))
+		expectedConflictMembers := t.BranchIDs(expectedConflictMembersAliases...)
+
+		// Check count of conflict members for this conflictID.
+		cachedConflictMembers := t.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID)
+		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", conflictID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
+		cachedConflictMembers.Release()
+
+		// Verify that all named branches are stored as conflict members.
+		for _, branchID := range expectedConflictMembers.Slice() {
+			assert.Truef(t.t, t.Ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "did not find conflict member %s,%s", conflictID, branchID)
+
+			conflictIDs, exists := branchConflicts[branchID]
+			if !exists {
+				conflictIDs = branchdag.NewConflictIDs()
+				branchConflicts[branchID] = conflictIDs
+			}
+			conflictIDs.Add(conflictID)
+		}
+	}
+
+	// Make sure that all branches have all specified conflictIDs (reverse mapping).
+	for branchID, expectedConflicts := range branchConflicts {
+		t.ConsumeBranch(branchID, func(branch *branchdag.Branch) {
+			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictIDs())
+		})
 	}
 }
 
@@ -165,12 +202,20 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 	return
 }
 
+func (t *TestFramework) ConsumeBranch(branchID branchdag.BranchID, consumer func(branch *branchdag.Branch)) {
+	assert.Truef(t.t, t.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
+}
+
 func (t *TestFramework) ConsumeTransactionMetadata(txID utxo.TransactionID, consumer func(txMetadata *TransactionMetadata)) {
 	assert.Truef(t.t, t.Ledger.Storage.CachedTransactionMetadata(txID).Consume(consumer), "failed to load metadata of %s", txID)
 }
 
 func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer func(outputMetadata *OutputMetadata)) {
 	assert.True(t.t, t.Ledger.Storage.CachedOutputMetadata(outputID).Consume(consumer))
+}
+
+func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output *Output)) {
+	assert.True(t.t, t.Ledger.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
 func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {
