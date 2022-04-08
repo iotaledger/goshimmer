@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -36,6 +37,10 @@ func (d *dataFlow) processTransaction() (dataFlow *dataflow.DataFlow[*dataFlowPa
 		d.checkTransaction().ChainedCommand,
 		d.ledger.booker.bookTransactionCommand,
 	).WithErrorCallback(func(err error, params *dataFlowParams) {
+		if errors.Is(err, ErrTransactionUnsolid) {
+			return
+		}
+		
 		d.ledger.Events.Error.Trigger(err)
 
 		// TODO: mark Transaction as invalid and trigger invalid event

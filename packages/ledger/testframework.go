@@ -25,22 +25,31 @@ import (
 // UTXO-DAG by specifying transactions outputs/inputs via aliases.
 // It makes use of a simplified MockedVM, with MockedTransaction, MockedOutput and MockedInput.
 type TestFramework struct {
-	t                   *testing.T
-	ledger              *Ledger
-	transactionsByAlias map[string]*MockedTransaction
-	outputIDsByAlias    map[string]utxo.OutputID
+	// t contains a reference to the testing instance.
+	t *testing.T
 
+	// ledger contains a reference to the Ledger instance that the TestFramework is using.
+	ledger *Ledger
+
+	// transactionsByAlias contains a dictionary that maps a human-readable alias to a MockedTransaction.
+	transactionsByAlias map[string]*MockedTransaction
+
+	// transactionsByAliasMutex contains a mutex that is used to synchronize parallel access to the transactionsByAlias.
 	transactionsByAliasMutex sync.RWMutex
-	outputIDsByAliasMutex    sync.RWMutex
+
+	// outputIDsByAlias contains a dictionary that maps a human-readable alias to an OutputID.
+	outputIDsByAlias map[string]utxo.OutputID
+
+	// outputIDsByAliasMutex contains a mutex that is used to synchronize parallel access to the outputIDsByAlias.
+	outputIDsByAliasMutex sync.RWMutex
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
 // consumed by the first transaction.
 func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 	new = &TestFramework{
-		ledger: New(options...),
-
 		t:                   t,
+		ledger:              New(options...),
 		transactionsByAlias: make(map[string]*MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
@@ -307,11 +316,12 @@ func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, con
 
 // MockedInput is a mocked entity that allows to "address" which Outputs are supposed to be used by a Transaction.
 type MockedInput struct {
+	// outputID contains the referenced OutputID.
 	outputID utxo.OutputID
 }
 
 // NewMockedInput creates a new MockedInput from an utxo.OutputID.
-func NewMockedInput(outputID utxo.OutputID) *MockedInput {
+func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
 	return &MockedInput{outputID: outputID}
 }
 
@@ -329,21 +339,23 @@ func (m *MockedInput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err
 }
 
 // Bytes returns a serialized version of the MockedInput.
-func (m *MockedInput) Bytes() (serializedInput []byte) {
+func (m *MockedInput) Bytes() (serialized []byte) {
 	return m.outputID.Bytes()
 }
 
 // String returns a human-readable version of the MockedInput.
-func (m *MockedInput) String() (humanReadableInput string) {
+func (m *MockedInput) String() (humanReadable string) {
 	return stringify.Struct("MockedInput",
 		stringify.StructField("outputID", m.outputID),
 	)
 }
 
-func (m *MockedInput) utxoInput() utxo.Input {
+// utxoInput type-casts the MockedInput to a utxo.Input.
+func (m *MockedInput) utxoInput() (input utxo.Input) {
 	return m
 }
 
+// code contract (make sure the struct implements all required methods).
 var _ utxo.Input = new(MockedInput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -352,12 +364,20 @@ var _ utxo.Input = new(MockedInput)
 
 // MockedOutput is the container for the data produced by executing a MockedTransaction.
 type MockedOutput struct {
-	id      *utxo.OutputID
+	// id contains the identifier of the Output.
+	id *utxo.OutputID
+
+	// idMutex contains a mutex that is used to synchronize parallel access to the id.
 	idMutex sync.Mutex
 
-	txID  utxo.TransactionID
+	// txID contains the identifier of the Transaction that created this MockedOutput.
+	txID utxo.TransactionID
+
+	// index contains the index of the Output in respect to it's creating Transaction (the nth Output will have the
+	// index n).
 	index uint16
 
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
@@ -417,7 +437,7 @@ func (m *MockedOutput) Index() (index uint16) {
 }
 
 // Bytes returns a serialized version of the MockedOutput.
-func (m *MockedOutput) Bytes() (serializedOutput []byte) {
+func (m *MockedOutput) Bytes() (serialized []byte) {
 	return marshalutil.New().
 		Write(m.txID).
 		WriteUint16(m.index).
@@ -425,7 +445,7 @@ func (m *MockedOutput) Bytes() (serializedOutput []byte) {
 }
 
 // String returns a human-readable version of the MockedOutput.
-func (m *MockedOutput) String() (humanReadableOutput string) {
+func (m *MockedOutput) String() (humanReadable string) {
 	return stringify.Struct("MockedOutput",
 		stringify.StructField("id", m.ID()),
 		stringify.StructField("transactionID", m.TransactionID()),
@@ -433,23 +453,31 @@ func (m *MockedOutput) String() (humanReadableOutput string) {
 	)
 }
 
+// code contract (make sure the struct implements all required methods).
 var _ utxo.Output = new(MockedOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region MockedTransaction ////////////////////////////////////////////////////////////////////////////////////////////
 
-var _uniqueEssenceCounter uint64
-
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
-	id      *utxo.TransactionID
+	// id contains the identifier of the MockedTransaction.
+	id *utxo.TransactionID
+
+	// idMutex contains a mutex that is used to synchronize parallel access to the id.
 	idMutex sync.Mutex
 
-	inputs        []*MockedInput
-	outputCount   uint16
+	// inputs contains the list of MockedInput objects that address the consumed Outputs.
+	inputs []*MockedInput
+
+	// outputCount contains the number of Outputs that this MockedTransaction creates.
+	outputCount uint16
+
+	// uniqueEssence contains a unique value for each created MockedTransaction to ensure a unique TransactionID.
 	uniqueEssence uint64
 
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
@@ -493,13 +521,13 @@ func (m *MockedTransaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil
 }
 
 // ID returns the identifier of the Transaction.
-func (m *MockedTransaction) ID() (transactionID utxo.TransactionID) {
+func (m *MockedTransaction) ID() (txID utxo.TransactionID) {
 	m.idMutex.Lock()
 	defer m.idMutex.Unlock()
 
 	if m.id == nil {
-		copy(transactionID.Identifier[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
-		m.id = &transactionID
+		copy(txID.Identifier[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
+		m.id = &txID
 	}
 
 	return *m.id
@@ -514,12 +542,12 @@ func (m *MockedTransaction) SetID(id utxo.TransactionID) {
 }
 
 // Inputs returns the inputs of the Transaction.
-func (m *MockedTransaction) Inputs() []utxo.Input {
+func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
 	return lo.Map(m.inputs, (*MockedInput).utxoInput)
 }
 
 // Bytes returns a serialized version of the MockedTransaction.
-func (m *MockedTransaction) Bytes() []byte {
+func (m *MockedTransaction) Bytes() (serialized []byte) {
 	marshalUtil := marshalutil.New().
 		WriteUint16(uint16(len(m.inputs)))
 
@@ -552,7 +580,11 @@ func (m *MockedTransaction) String() (humanReadable string) {
 	)
 }
 
+// code contract (make sure the struct implements all required methods).
 var _ utxo.Transaction = new(MockedTransaction)
+
+// _uniqueEssenceCounter contains a counter that is used to generate unique TransactionIDs.
+var _uniqueEssenceCounter uint64
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -604,6 +636,7 @@ func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Out
 	return
 }
 
+// code contract (make sure the struct implements all required methods).
 var _ vm.VM = new(MockedVM)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
