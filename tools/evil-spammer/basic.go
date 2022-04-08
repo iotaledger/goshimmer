@@ -89,7 +89,11 @@ func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration
 	}
 	if deepSpam {
 		outWallet := wallet.NewWallet(evilwallet.Reuse)
-		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+		scenarioOptions = append(scenarioOptions,
+			evilwallet.WithScenarioDeepSpamEnabled(),
+			evilwallet.WithScenarioReuseOutputWallet(outWallet),
+			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
+		)
 	}
 	scenarioTx := evilwallet.NewEvilScenario(scenarioOptions...)
 
@@ -109,7 +113,11 @@ func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, time
 	}
 	if deepSpam {
 		outWallet := wallet.NewWallet(evilwallet.Reuse)
-		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+		scenarioOptions = append(scenarioOptions,
+			evilwallet.WithScenarioDeepSpamEnabled(),
+			evilwallet.WithScenarioReuseOutputWallet(outWallet),
+			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
+		)
 	}
 	scenarioDs := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
@@ -129,7 +137,11 @@ func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit
 	}
 	if deepSpam {
 		outWallet := wallet.NewWallet(evilwallet.Reuse)
-		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+		scenarioOptions = append(scenarioOptions,
+			evilwallet.WithScenarioDeepSpamEnabled(),
+			evilwallet.WithScenarioReuseOutputWallet(outWallet),
+			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
+		)
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
@@ -149,7 +161,11 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	}
 	if deepSpam {
 		outWallet := wallet.NewWallet(evilwallet.Reuse)
-		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+		scenarioOptions = append(scenarioOptions,
+			evilwallet.WithScenarioDeepSpamEnabled(),
+			evilwallet.WithScenarioReuseOutputWallet(outWallet),
+			evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
+		)
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
