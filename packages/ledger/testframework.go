@@ -19,8 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
-// TODO: add lock for maps
-
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TestFramework provides common testing functionality for the ledger package. As such, it helps to easily build an
@@ -31,6 +29,9 @@ type TestFramework struct {
 	ledger              *Ledger
 	transactionsByAlias map[string]*MockedTransaction
 	outputIDsByAlias    map[string]utxo.OutputID
+
+	transactionsByAliasMutex sync.RWMutex
+	outputIDsByAliasMutex    sync.RWMutex
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
@@ -60,6 +61,9 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 // Transaction gets the created MockedTransaction by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) Transaction(txAlias string) (tx *MockedTransaction) {
+	t.transactionsByAliasMutex.RLock()
+	defer t.transactionsByAliasMutex.RUnlock()
+
 	tx, exists := t.transactionsByAlias[txAlias]
 	if !exists {
 		panic(fmt.Sprintf("tried to retrieve transaction with unknown alias: %s", txAlias))
@@ -71,6 +75,9 @@ func (t *TestFramework) Transaction(txAlias string) (tx *MockedTransaction) {
 // OutputID gets the created utxo.OutputID by the given alias.
 // Panics if it doesn't exist.
 func (t *TestFramework) OutputID(alias string) (outputID utxo.OutputID) {
+	t.outputIDsByAliasMutex.RLock()
+	defer t.outputIDsByAliasMutex.RUnlock()
+
 	outputID, exists := t.outputIDsByAlias[alias]
 	if !exists {
 		panic(fmt.Sprintf("unknown output alias: %s", alias))
@@ -114,9 +121,14 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 		mockedInputs = append(mockedInputs, NewMockedInput(t.OutputID(inputAlias)))
 	}
 
+	t.transactionsByAliasMutex.Lock()
+	defer t.transactionsByAliasMutex.Unlock()
 	tx := NewMockedTransaction(mockedInputs, outputCount)
 	tx.ID().RegisterAlias(txAlias)
 	t.transactionsByAlias[txAlias] = tx
+
+	t.outputIDsByAliasMutex.Lock()
+	defer t.outputIDsByAliasMutex.Unlock()
 
 	for i := uint16(0); i < outputCount; i++ {
 		outputID := t.MockOutputFromTx(tx, i)
@@ -129,12 +141,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 // IssueTransaction issues the transaction given by txAlias.
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
-	transaction, exists := t.transactionsByAlias[txAlias]
-	if !exists {
-		panic(fmt.Sprintf("unknown transaction alias: %s", txAlias))
-	}
-
-	return t.ledger.StoreAndProcessTransaction(transaction)
+	return t.ledger.StoreAndProcessTransaction(t.Transaction(txAlias))
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.
