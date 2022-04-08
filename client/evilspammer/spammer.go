@@ -174,12 +174,12 @@ func (s *Spammer) StopSpamming() {
 // counts transactions and provides debug logs.
 func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) {
 	if tx == nil {
-		s.log.Debugf("transaction provided to PostTransaction is nil")
+		s.log.Debug(ErrTransactionIsNil)
 		s.ErrCounter.CountError(ErrTransactionIsNil)
 	}
 	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
 	if !allSolid {
-		s.ErrCounter.CountError(errors.Errorf("not all inputs are solid, txID: %s", tx.ID().Base58()))
+		s.ErrCounter.CountError(errors.Errorf("%v, txID: %s", ErrInputsNotSolid, tx.ID().Base58()))
 		return
 	}
 
@@ -187,7 +187,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	var txID ledgerstate.TransactionID
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
-		s.log.Debugf("error: %v", err)
+		s.log.Debug(err)
 		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
