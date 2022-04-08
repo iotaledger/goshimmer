@@ -66,7 +66,7 @@ func newStorage(ledger *Ledger) (new *storage) {
 			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConsumerStorage}),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
-			ConsumerPartitionKeys,
+			consumerPartitionKeys,
 		),
 		ledger: ledger,
 	}

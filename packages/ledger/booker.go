@@ -110,7 +110,7 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 	consumersToFork = utxo.NewTransactionIDs()
 
 	_ = inputsMetadata.ForEach(func(outputMetadata *OutputMetadata) error {
-		isConflicting, consumerToFork := outputMetadata.RegisterProcessedConsumer(txID)
+		isConflicting, consumerToFork := outputMetadata.RegisterBookedConsumer(txID)
 		if isConflicting {
 			conflictingInputIDs.Add(outputMetadata.ID())
 		}

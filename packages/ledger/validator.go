@@ -70,7 +70,7 @@ func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 
 // outputsCausallyRelated returns true if the Outputs denoted by the given OutputsMetadata reference each other.
 func (v *validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
-	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).Spent).IDs()
+	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).IsSpent).IDs()
 	if spentOutputIDs.Size() == 0 {
 		return false
 	}

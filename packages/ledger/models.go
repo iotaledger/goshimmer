@@ -440,7 +440,7 @@ type OutputMetadata struct {
 	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
 	branchIDsMutex sync.RWMutex
 
-	// firstConsumer contains the first Transaction that ever consumed the Output.
+	// firstConsumer contains the first Transaction that ever spent the Output.
 	firstConsumer utxo.TransactionID
 
 	// firstConsumerForked contains a boolean flag that indicates if the firstConsumer was forked.
@@ -473,7 +473,7 @@ func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 // FromObjectStorage un-serializes OutputMetadata from an object storage.
 func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (outputMetadata objectstorage.StorableObject, err error) {
 	result := new(OutputMetadata)
-	if err = o.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
 		return nil, errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 	}
 
@@ -542,25 +542,17 @@ func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified b
 	return true
 }
 
-// Spent returns true if the Output has been spent.
-func (o *OutputMetadata) Spent() (spent bool) {
-	o.firstConsumerMutex.RLock()
-	defer o.firstConsumerMutex.RUnlock()
-
-	return o.firstConsumer != utxo.EmptyTransactionID
-}
-
-// FirstConsumer returns the TransactionID that first spent the Output (or the EmptyTransactionID if it is unspent).
-func (o *OutputMetadata) FirstConsumer() utxo.TransactionID {
+// FirstConsumer returns the first Transaction that ever spent the Output.
+func (o *OutputMetadata) FirstConsumer() (firstConsumer utxo.TransactionID) {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
 	return o.firstConsumer
 }
 
-// RegisterProcessedConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
-// returns the previous consumer count.
-func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
+// RegisterBookedConsumer registers a booked consumer and checks if it is conflicting with another consumer that wasn't
+// forked, yet.
+func (o *OutputMetadata) RegisterBookedConsumer(consumer utxo.TransactionID) (isConflicting bool, consumerToFork utxo.TransactionID) {
 	o.firstConsumerMutex.Lock()
 	defer o.firstConsumerMutex.Unlock()
 
@@ -578,43 +570,52 @@ func (o *OutputMetadata) RegisterProcessedConsumer(consumer utxo.TransactionID) 
 	return true, o.firstConsumer
 }
 
-// GradeOfFinality returns the grade of finality.
-func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
+// GradeOfFinality returns the confirmation status of the Output.
+func (o *OutputMetadata) GradeOfFinality() (gradeOfFinality gof.GradeOfFinality) {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
+
 	return o.gradeOfFinality
 }
 
-// SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
+// SetGradeOfFinality sets the confirmation status of the Output.
 func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	o.gradeOfFinalityMutex.Lock()
 	defer o.gradeOfFinalityMutex.Unlock()
 
 	if o.gradeOfFinality == gradeOfFinality {
-		return
+		return false
 	}
 
 	o.gradeOfFinality = gradeOfFinality
 	o.gradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
-	modified = true
-	return
+
+	return true
 }
 
-// GradeOfFinalityTime returns the time the Output's gradeOfFinality was set.
-func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
+// GradeOfFinalityTime returns the last time the GradeOfFinality was updated.
+func (o *OutputMetadata) GradeOfFinalityTime() (gradeOfFinality time.Time) {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
 	return o.gradeOfFinalityTime
 }
 
-// Bytes marshals the OutputMetadata into a sequence of bytes.
-func (o *OutputMetadata) Bytes() []byte {
+// IsSpent returns true if the Output has been spent.
+func (o *OutputMetadata) IsSpent() (spent bool) {
+	o.firstConsumerMutex.RLock()
+	defer o.firstConsumerMutex.RUnlock()
+
+	return o.firstConsumer != utxo.EmptyTransactionID
+}
+
+// Bytes returns a serialized version of the OutputMetadata.
+func (o *OutputMetadata) Bytes() (serialized []byte) {
 	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
 }
 
 // String returns a human-readable version of the OutputMetadata.
-func (o *OutputMetadata) String() string {
+func (o *OutputMetadata) String() (humanReadable string) {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
 		stringify.StructField("branchIDs", o.BranchIDs()),
@@ -624,15 +625,13 @@ func (o *OutputMetadata) String() string {
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (o *OutputMetadata) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (o *OutputMetadata) ObjectStorageKey() (key []byte) {
 	return o.id.Bytes()
 }
 
-// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
-func (o *OutputMetadata) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (o *OutputMetadata) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
 		Write(o.BranchIDs()).
 		Write(o.FirstConsumer()).
@@ -648,10 +647,13 @@ var _ objectstorage.StorableObject = new(OutputMetadata)
 
 // region OutputsMetadata //////////////////////////////////////////////////////////////////////////////////////////////
 
+// OutputsMetadata represents a collection of OutputMetadata objects indexed by their OutputID.
 type OutputsMetadata struct {
+	// OrderedMap is the underlying data structure that holds the OutputMetadata objects.
 	*orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata]
 }
 
+// NewOutputsMetadata returns a new OutputMetadata collection with the given elements.
 func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata) {
 	new = OutputsMetadata{orderedmap.New[utxo.OutputID, *OutputMetadata]()}
 	for _, outputMetadata := range outputsMetadata {
@@ -674,6 +676,7 @@ func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) b
 	return filtered
 }
 
+// IDs returns the identifiers of the stored OutputMetadata objects.
 func (o OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 	ids = utxo.NewOutputIDs()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
@@ -684,6 +687,7 @@ func (o OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 	return ids
 }
 
+// BranchIDs returns a union of all BranchIDs of the contained OutputMetadata objects.
 func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 	branchIDs = branchdag.NewBranchIDs()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
@@ -694,7 +698,8 @@ func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 	return branchIDs
 }
 
-func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (err error)) (err error) {
+// ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
+func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) error) (err error) {
 	o.OrderedMap.ForEach(func(_ utxo.OutputID, outputMetadata *OutputMetadata) bool {
 		if err = callback(outputMetadata); err != nil {
 			return false
@@ -710,22 +715,25 @@ func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) (
 
 // region Consumer /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// ConsumerPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object storage.
-var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength, utxo.TransactionIDLength}...)
-
-// Consumer represents the relationship between an Output and its spending Transactions. Since an Output can have a
-// potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
-// list of spending Transactions inside the Output.
+// Consumer represents the reference between an Output and its spending Transaction.
 type Consumer struct {
-	consumedInput  utxo.OutputID
-	transactionID  utxo.TransactionID
-	processedMutex sync.RWMutex
-	processed      bool
+	// consumedInput contains the identifier of the Output that was spent.
+	consumedInput utxo.OutputID
 
+	// transactionID contains the identifier of the spending Transaction.
+	transactionID utxo.TransactionID
+
+	// booked contains a boolean flag that indicates whether the Consumer was completely booked.
+	booked bool
+
+	// bookedMutex contains a mutex that is used to synchronize parallel access to the booked flag.
+	bookedMutex sync.RWMutex
+
+	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
 }
 
-// NewConsumer creates a Consumer object from the given information.
+// NewConsumer return a new Consumer reference from the named Output to the named Transaction.
 func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
 	new = &Consumer{
 		consumedInput: consumedInput,
@@ -738,80 +746,75 @@ func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) 
 	return new
 }
 
-// FromObjectStorage creates a Consumer from sequences of key and bytes.
-func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
-	if err != nil {
-		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
+// FromObjectStorage un-serializes a Consumer from an object storage.
+func (c *Consumer) FromObjectStorage(key, bytes []byte) (consumer objectstorage.StorableObject, err error) {
+	result := new(Consumer)
+	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
+		return nil, errors.Errorf("failed to parse Consumer from bytes: %w", err)
 	}
-	return result, err
+
+	return result, nil
 }
 
-// FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
-		return
+// FromBytes un-serializes a Consumer from a sequence of bytes.
+func (c *Consumer) FromBytes(bytes []byte) (err error) {
+	if err = c.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+		return errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
 	}
 
-	return
+	return nil
 }
 
-// FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
-func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
-	if consumer = c; consumer == nil {
-		consumer = new(Consumer)
+// FromMarshalUtil un-serializes a Consumer using a MarshalUtil.
+func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = c.consumedInput.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
+	}
+	if err = c.transactionID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
+	}
+	if c.booked, err = marshalUtil.ReadBool(); err != nil {
+		return errors.Errorf("failed to parse processed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
-	if err = consumer.consumedInput.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
-	}
-	if err = consumer.transactionID.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-	}
-	if consumer.processed, err = marshalUtil.ReadBool(); err != nil {
-		return nil, errors.Errorf("failed to parse processed flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-
-	return
+	return nil
 }
 
-// ConsumedInput returns the OutputID of the consumed Input.
-func (c *Consumer) ConsumedInput() utxo.OutputID {
+// ConsumedInput returns the identifier of the Output that was spent.
+func (c *Consumer) ConsumedInput() (outputID utxo.OutputID) {
 	return c.consumedInput
 }
 
-// TransactionID returns the TransactionID of the consuming Transaction.
-func (c *Consumer) TransactionID() utxo.TransactionID {
+// TransactionID returns the identifier of the spending Transaction.
+func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
 	return c.transactionID
 }
 
-// Processed returns a flag that indicates if the spending Transaction is valid or not.
-func (c *Consumer) Processed() (processed bool) {
-	c.processedMutex.RLock()
-	defer c.processedMutex.RUnlock()
+// IsBooked returns a boolean flag that indicates whether the Consumer was completely booked.
+func (c *Consumer) IsBooked() (processed bool) {
+	c.bookedMutex.RLock()
+	defer c.bookedMutex.RUnlock()
 
-	return c.processed
+	return c.booked
 }
 
-// SetBooked updates the valid flag of the Consumer and returns true if the value was changed.
+// SetBooked sets a boolean flag that indicates whether the Consumer was completely booked.
 func (c *Consumer) SetBooked() (updated bool) {
-	c.processedMutex.Lock()
-	defer c.processedMutex.Unlock()
+	c.bookedMutex.Lock()
+	defer c.bookedMutex.Unlock()
 
-	if c.processed {
+	if c.booked {
 		return
 	}
 
-	c.processed = true
+	c.booked = true
 	c.SetModified()
 	updated = true
 
 	return
 }
 
-// Bytes marshals the Consumer into a sequence of bytes.
+// Bytes returns a serialized version of the Consumer.
 func (c *Consumer) Bytes() []byte {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
@@ -821,25 +824,26 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", c.consumedInput),
 		stringify.StructField("transactionID", c.transactionID),
-		stringify.StructField("processed", c.Processed()),
+		stringify.StructField("processed", c.IsBooked()),
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *Consumer) ObjectStorageKey() []byte {
+// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
+func (c *Consumer) ObjectStorageKey() (key []byte) {
 	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.transactionID.Bytes())
 }
 
-// ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
-// storage.
-func (c *Consumer) ObjectStorageValue() []byte {
+// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
+func (c *Consumer) ObjectStorageValue() (value []byte) {
 	return marshalutil.New(marshalutil.BoolSize).
-		WriteBool(c.Processed()).
+		WriteBool(c.IsBooked()).
 		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(Consumer)
+
+// consumerPartitionKeys defines the partition of the storage key of the Consumer model.
+var consumerPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength, utxo.TransactionIDLength}...)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

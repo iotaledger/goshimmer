@@ -31,7 +31,7 @@ func (u *Utils) UnprocessedConsumingTransactions(outputIDs utxo.OutputIDs) (cons
 	consumingTransactions = utxo.NewTransactionIDs()
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		u.ledger.Storage.CachedConsumers(it.Next()).Consume(func(consumer *Consumer) {
-			if consumer.Processed() {
+			if consumer.IsBooked() {
 				return
 			}
 
