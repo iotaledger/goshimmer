@@ -195,12 +195,12 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 	for txAlias, expectedBooked := range expectedBookedMap {
 		currentTx := t.Transaction(txAlias)
 		t.ConsumeTransactionMetadata(currentTx.ID(), func(txMetadata *TransactionMetadata) {
-			assert.Equalf(t.t, expectedBooked, txMetadata.Booked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.Booked())
+			assert.Equalf(t.t, expectedBooked, txMetadata.IsBooked(), "Transaction(%s): expected booked(%s) but has booked(%s)", txAlias, expectedBooked, txMetadata.IsBooked())
 
 			_ = txMetadata.OutputIDs().ForEach(func(outputID utxo.OutputID) (err error) {
 				// Check if output exists according to the Booked status of the enclosing Transaction.
 				assert.Equalf(t.t, expectedBooked, t.ledger.Storage.CachedOutputMetadata(outputID).Consume(func(_ *OutputMetadata) {}),
-					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.Booked())
+					"Output(%s): expected booked(%s) but has booked(%s)", outputID, expectedBooked, txMetadata.IsBooked())
 				return nil
 			})
 		})
@@ -210,7 +210,7 @@ func (t *TestFramework) AssertBooked(expectedBookedMap map[string]bool) {
 func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 	for _, txAlias := range txAliases {
 		t.ConsumeTransactionMetadata(t.Transaction(txAlias).ID(), func(txMetadata *TransactionMetadata) {
-			allBooked = txMetadata.Booked()
+			allBooked = txMetadata.IsBooked()
 		})
 
 		if !allBooked {

@@ -155,7 +155,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"ShallowDislikeApprovers",
 	"BranchID",
 	"Scheduled",
-	"Booked",
+	"IsBooked",
 	"Invalid",
 	"Rank",
 	"IsPastMarker",

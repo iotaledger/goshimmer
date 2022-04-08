@@ -176,7 +176,7 @@ func (s *storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 	params.TransactionMetadata, _ = cachedTransactionMetadata.Unwrap()
 
 	if !created {
-		if params.TransactionMetadata.Booked() {
+		if params.TransactionMetadata.IsBooked() {
 			return nil
 		}
 

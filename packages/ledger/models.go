@@ -101,16 +101,16 @@ type TransactionMetadata struct {
 }
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
-func NewTransactionMetadata(txID utxo.TransactionID) (newTransactionMetadata *TransactionMetadata) {
-	newTransactionMetadata = &TransactionMetadata{
+func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
+	new = &TransactionMetadata{
 		id:        txID,
 		branchIDs: branchdag.NewBranchIDs(),
 		outputIDs: utxo.NewOutputIDs(),
 	}
-	newTransactionMetadata.SetModified()
-	newTransactionMetadata.Persist()
+	new.SetModified()
+	new.Persist()
 
-	return newTransactionMetadata
+	return new
 }
 
 // FromObjectStorage un-serializes TransactionMetadata from an object storage.
@@ -192,8 +192,8 @@ func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modif
 	return true
 }
 
-// Booked returns a boolean flag indicating whether the Transaction has been booked.
-func (t *TransactionMetadata) Booked() (booked bool) {
+// IsBooked returns a boolean flag indicating whether the Transaction has been booked.
+func (t *TransactionMetadata) IsBooked() (booked bool) {
 	t.bookedMutex.RLock()
 	defer t.bookedMutex.RUnlock()
 
@@ -299,8 +299,8 @@ func (t *TransactionMetadata) String() (humanReadable string) {
 	return stringify.Struct("TransactionMetadata",
 		stringify.StructField("id", t.ID()),
 		stringify.StructField("branchID", t.BranchIDs()),
-		stringify.StructField("processed", t.Booked()),
-		stringify.StructField("solidificationTime", t.BookingTime()),
+		stringify.StructField("booked", t.IsBooked()),
+		stringify.StructField("bookingTime", t.BookingTime()),
 		stringify.StructField("outputIDs", t.OutputIDs()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
@@ -309,14 +309,14 @@ func (t *TransactionMetadata) String() (humanReadable string) {
 
 // ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
 func (t *TransactionMetadata) ObjectStorageKey() (key []byte) {
-	return t.id.Bytes()
+	return t.ID().Bytes()
 }
 
 // ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
 func (t *TransactionMetadata) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
-		WriteBool(t.Booked()).
+		WriteBool(t.IsBooked()).
 		WriteTime(t.BookingTime()).
 		Write(t.OutputIDs()).
 		WriteUint8(uint8(t.GradeOfFinality())).
@@ -325,7 +325,7 @@ func (t *TransactionMetadata) ObjectStorageValue() (value []byte) {
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &TransactionMetadata{}
+var _ objectstorage.StorableObject = new(TransactionMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -598,11 +598,12 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 func (o *OutputMetadata) GradeOfFinalityTime() (gradeOfFinality time.Time) {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
+
 	return o.gradeOfFinalityTime
 }
 
 // IsSpent returns true if the Output has been spent.
-func (o *OutputMetadata) IsSpent() (spent bool) {
+func (o *OutputMetadata) IsSpent() (isSpent bool) {
 	o.firstConsumerMutex.RLock()
 	defer o.firstConsumerMutex.RUnlock()
 
@@ -627,7 +628,7 @@ func (o *OutputMetadata) String() (humanReadable string) {
 
 // ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
 func (o *OutputMetadata) ObjectStorageKey() (key []byte) {
-	return o.id.Bytes()
+	return o.ID().Bytes()
 }
 
 // ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
@@ -815,12 +816,12 @@ func (c *Consumer) SetBooked() (updated bool) {
 }
 
 // Bytes returns a serialized version of the Consumer.
-func (c *Consumer) Bytes() []byte {
+func (c *Consumer) Bytes() (serialized []byte) {
 	return byteutils.ConcatBytes(c.ObjectStorageKey(), c.ObjectStorageValue())
 }
 
 // String returns a human-readable version of the Consumer.
-func (c *Consumer) String() (humanReadableConsumer string) {
+func (c *Consumer) String() (humanReadable string) {
 	return stringify.Struct("Consumer",
 		stringify.StructField("consumedInput", c.consumedInput),
 		stringify.StructField("transactionID", c.transactionID),
