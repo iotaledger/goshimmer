@@ -4,10 +4,35 @@ import (
 	"strconv"
 )
 
+var scenariosMap map[string]EvilBatch
+
+func init() {
+	scenariosMap = make(map[string]EvilBatch)
+	scenariosMap["single-tx"] = SingleTransactionBatch()
+	scenariosMap["ds"] = NSpendBatch(2)
+	scenariosMap["conflict-circle"] = ConflictSetCircle(4)
+	scenariosMap["guava"] = Scenario1()
+	scenariosMap["orange"] = Scenario2()
+	scenariosMap["mango"] = Scenario3()
+	scenariosMap["pear"] = Scenario4()
+	scenariosMap["lemon"] = Scenario5()
+	scenariosMap["banana"] = Scenario6()
+	scenariosMap["kiwi"] = Scenario7()
+	scenariosMap["peace"] = NoConflictsScenario1()
+}
+
+// GetScenario returns an evil batch based i=on its name.
+func GetScenario(scenarioName string) (batch EvilBatch, ok bool) {
+	batch, ok = scenariosMap[scenarioName]
+	return
+}
+
+// SingleTransactionBatch returns an EvilBatch that is a single transaction.
 func SingleTransactionBatch() EvilBatch {
 	return EvilBatch{{ScenarioAlias{Inputs: []string{"1"}, Outputs: []string{"2"}}}}
 }
 
+// DoubleSpendBatch returns an EvilBatch that is a spentNum spend.
 func DoubleSpendBatch(spentNum int) EvilBatch {
 	conflictSlice := make(EvilBatch, 0)
 	aliasCounter := 1
@@ -22,6 +47,23 @@ func DoubleSpendBatch(spentNum int) EvilBatch {
 		aliasCounter += 2
 	}
 	return conflictSlice
+}
+
+// ConflictSetCircle creates a circular conflict set for a given size, e.g. for size=3, conflict set: A-B-C-A.
+func ConflictSetCircle(size int) EvilBatch {
+	scenarioAlias := make([]ScenarioAlias, 0)
+	inputStartNum := size
+
+	for i := 0; i < inputStartNum; i++ {
+		in := i
+		in2 := (in + 1) % inputStartNum
+		scenarioAlias = append(scenarioAlias,
+			ScenarioAlias{
+				Inputs:  []string{strconv.Itoa(in), strconv.Itoa(in2)},
+				Outputs: []string{strconv.Itoa(inputStartNum + i)},
+			})
+	}
+	return EvilBatch{scenarioAlias}
 }
 
 func NSpendBatch(nSpent int) EvilBatch {
@@ -40,6 +82,7 @@ func NSpendBatch(nSpent int) EvilBatch {
 	return conflictSlice
 }
 
+// Scenario1 describes two double spends and aggregates them.
 func Scenario1() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
@@ -59,13 +102,146 @@ func Scenario1() EvilBatch {
 	}
 }
 
+// Scenario2 is a reflection of UTXO unit test scenario example B - packages/ledgerstate/utxo_dag_test_exampleB.png
+func Scenario2() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"A"}, Outputs: []string{"C"}},
+			{Inputs: []string{"B"}, Outputs: []string{"D"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"C", "D"}, Outputs: []string{"E"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"D"}, Outputs: []string{"F"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"B"}, Outputs: []string{"G"}},
+		},
+	}
+}
+
+// Scenario3 is a reflection of UTXO unit test scenario example C - packages/ledgerstate/utxo_dag_test_exampleC.png
+func Scenario3() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"A"}, Outputs: []string{"C"}},
+			{Inputs: []string{"B"}, Outputs: []string{"D"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"C", "D"}, Outputs: []string{"E"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"A"}, Outputs: []string{"G"}},
+			{Inputs: []string{"B"}, Outputs: []string{"F"}},
+		},
+	}
+}
+
+// Scenario4 is a reflection of ledgerstate unit test for branch confirmation - packages/ledgerstate/ledgerstate_test_SetBranchConfirmed.png
+func Scenario4() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"1"}, Outputs: []string{"A"}},
+			{Inputs: []string{"1"}, Outputs: []string{"B"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"2"}, Outputs: []string{"C"}},
+			{Inputs: []string{"2"}, Outputs: []string{"D"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"3"}, Outputs: []string{"H"}},
+			{Inputs: []string{"3"}, Outputs: []string{"I"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"A", "C"}, Outputs: []string{"E"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"E"}, Outputs: []string{"F", "G"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"H", "G"}, Outputs: []string{"L"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"L"}, Outputs: []string{"M"}},
+		},
+	}
+}
+
+// Scenario5 uses ConflictSetCircle with size 4 and aggregate its outputs.
+func Scenario5() EvilBatch {
+	circularConflict := ConflictSetCircle(4)
+	circularConflict = append(circularConflict, []ScenarioAlias{{
+		Inputs:  []string{"4", "6"},
+		Outputs: []string{"8"},
+	}})
+	circularConflict = append(circularConflict, []ScenarioAlias{{
+		Inputs:  []string{"5", "7"},
+		Outputs: []string{"9"},
+	}})
+	return circularConflict
+}
+
+// Scenario6 returns 5 levels deep scenario.
+func Scenario6() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"1"}, Outputs: []string{"A", "B"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"A"}, Outputs: []string{"C", "D"}},
+			{Inputs: []string{"B"}, Outputs: []string{"E"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"C"}, Outputs: []string{"F", "G"}},
+			{Inputs: []string{"C", "D"}, Outputs: []string{"H"}},
+			{Inputs: []string{"D"}, Outputs: []string{"I"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"F", "D"}, Outputs: []string{"J", "K"}},
+			{Inputs: []string{"G"}, Outputs: []string{"L", "M"}},
+			{Inputs: []string{"I"}, Outputs: []string{"N", "O"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"L", "I"}, Outputs: []string{"P"}},
+			{Inputs: []string{"N"}, Outputs: []string{"Q", "R"}},
+		},
+	}
+}
+
+// Scenario7 three level deep scenario, with two separate conflict sets aggregated.
+func Scenario7() EvilBatch {
+	return EvilBatch{
+		[]ScenarioAlias{
+			{Inputs: []string{"A"}, Outputs: []string{"E"}},
+			{Inputs: []string{"A", "B"}, Outputs: []string{"F"}},
+			{Inputs: []string{"B"}, Outputs: []string{"G"}},
+			{Inputs: []string{"C"}, Outputs: []string{"H"}},
+			{Inputs: []string{"D"}, Outputs: []string{"I"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"E", "G"}, Outputs: []string{"J", "K"}},
+			{Inputs: []string{"H"}, Outputs: []string{"L"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"K", "L"}, Outputs: []string{"M"}},
+			{Inputs: []string{"L", "I"}, Outputs: []string{"N"}},
+		},
+	}
+}
+
+// NoConflictsScenario1 returns batch with no conflicts that is 3 levels deep.
 func NoConflictsScenario1() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
 			{Inputs: []string{"1"}, Outputs: []string{"3", "4"}},
 			{Inputs: []string{"2"}, Outputs: []string{"5", "6"}},
+		},
+		[]ScenarioAlias{
 			{Inputs: []string{"6", "4"}, Outputs: []string{"7"}},
 			{Inputs: []string{"3", "5"}, Outputs: []string{"8"}},
+		},
+		[]ScenarioAlias{
 			{Inputs: []string{"8", "7"}, Outputs: []string{"11"}},
 		},
 	}
