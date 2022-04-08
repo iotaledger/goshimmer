@@ -26,7 +26,7 @@ func CustomSpam(params *CustomSpamParams) {
 
 	fundsNeeded := false
 	for _, spamType := range params.SpamTypes {
-		if spamType == "ds" || spamType == "tx" {
+		if spamType == "ds" || spamType == "tx" || spamType == "nds" || spamType == "nestedConflicts" {
 			fundsNeeded = true
 		}
 	}
