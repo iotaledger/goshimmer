@@ -13,7 +13,7 @@ import (
 // region WithVM ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithVM is an Option for the Ledger that allows to configure which VM is supposed to be used to process transactions.
-func WithVM(vm vm.VM) Option {
+func WithVM(vm vm.VM) (option Option) {
 	return func(options *options) {
 		options.vm = vm
 	}
@@ -25,7 +25,7 @@ func WithVM(vm vm.VM) Option {
 
 // WithStore is an Option for the Ledger that allows to configure which KVStore is supposed to be used to persist data
 // (the default option is to use a MapDB).
-func WithStore(store kvstore.KVStore) Option {
+func WithStore(store kvstore.KVStore) (option Option) {
 	return func(options *options) {
 		options.store = store
 	}
@@ -37,7 +37,7 @@ func WithStore(store kvstore.KVStore) Option {
 
 // WithCacheTimeProvider is an Option for the Ledger that allows to configure which CacheTimeProvider is supposed to
 // be used.
-func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
+func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) (option Option) {
 	return func(options *options) {
 		options.cacheTimeProvider = cacheTimeProvider
 	}
@@ -49,7 +49,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option
 
 // WithTransactionCacheTime is an Option for the Ledger that allows to configure how long Transaction objects stay
 // cached after they have been released.
-func WithTransactionCacheTime(transactionCacheTime time.Duration) Option {
+func WithTransactionCacheTime(transactionCacheTime time.Duration) (option Option) {
 	return func(options *options) {
 		options.transactionCacheTime = transactionCacheTime
 	}
@@ -61,7 +61,7 @@ func WithTransactionCacheTime(transactionCacheTime time.Duration) Option {
 
 // WithTransactionMetadataCacheTime is an Option for the Ledger that allows to configure how long TransactionMetadata
 // objects stay cached after they have been released.
-func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration) Option {
+func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration) (option Option) {
 	return func(options *options) {
 		options.transactionMetadataCacheTime = transactionMetadataCacheTime
 	}
@@ -73,7 +73,7 @@ func WithTransactionMetadataCacheTime(transactionMetadataCacheTime time.Duration
 
 // WithOutputCacheTime is an Option for the Ledger that allows to configure how long Output objects stay cached after
 // they have been released.
-func WithOutputCacheTime(outputCacheTime time.Duration) Option {
+func WithOutputCacheTime(outputCacheTime time.Duration) (option Option) {
 	return func(options *options) {
 		options.outputCacheTime = outputCacheTime
 	}
@@ -85,7 +85,7 @@ func WithOutputCacheTime(outputCacheTime time.Duration) Option {
 
 // WithOutputMetadataCacheTime is an Option for the Ledger that allows to configure how long OutputMetadata objects stay
 // cached after they have been released.
-func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) Option {
+func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) (option Option) {
 	return func(options *options) {
 		options.outputMetadataCacheTime = outputMetadataCacheTime
 	}
@@ -97,7 +97,7 @@ func WithOutputMetadataCacheTime(outputMetadataCacheTime time.Duration) Option {
 
 // WithConsumerCacheTime is an Option for the Ledger that allows to configure how long Consumer objects stay cached
 // after they have been released.
-func WithConsumerCacheTime(consumerCacheTime time.Duration) Option {
+func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
 	return func(options *options) {
 		options.consumerCacheTime = consumerCacheTime
 	}

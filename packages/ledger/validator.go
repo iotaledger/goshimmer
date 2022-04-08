@@ -76,7 +76,7 @@ func (v *validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (rel
 	}
 
 	v.ledger.Utils.WalkConsumingTransactionMetadata(spentOutputIDs, func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-		if !txMetadata.Booked() {
+		if !txMetadata.IsBooked() {
 			return
 		}
 
