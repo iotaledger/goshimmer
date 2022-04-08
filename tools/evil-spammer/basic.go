@@ -17,7 +17,8 @@ type CustomSpamParams struct {
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
 	NSpend                int
-	scenario              evilwallet.EvilBatch
+	Scenario              evilwallet.EvilBatch
+	DeepSpam              bool
 }
 
 func CustomSpam(params *CustomSpamParams) {
@@ -26,7 +27,7 @@ func CustomSpam(params *CustomSpamParams) {
 
 	fundsNeeded := false
 	for _, spamType := range params.SpamTypes {
-		if spamType == "ds" || spamType == "tx" || spamType == "nds" || spamType == "nestedConflicts" {
+		if spamType != "msg" {
 			fundsNeeded = true
 		}
 	}
@@ -51,25 +52,25 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second)
+				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DeepSpam)
 			}()
 		case "ds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamDoubleSpends(wallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts)
+				SpamDoubleSpends(wallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts, params.DeepSpam)
 			}()
 		case "nds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts)
+				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts, params.DeepSpam)
 			}()
-		case "nestedConflicts":
+		case "custom":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, evilwallet.Scenario1())
+				SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.Scenario, params.DeepSpam)
 			}()
 
 		default:
@@ -81,10 +82,16 @@ func CustomSpam(params *CustomSpamParams) {
 	log.Info("Basic spamming finished!")
 }
 
-func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration) {
-	scenarioTx := evilwallet.NewEvilScenario(
+func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, deepSpam bool) {
+
+	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(evilwallet.SingleTransactionBatch()),
-	)
+	}
+	if deepSpam {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+	}
+	scenarioTx := evilwallet.NewEvilScenario(scenarioOptions...)
 
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
@@ -96,10 +103,15 @@ func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration
 	spammer.Spam()
 }
 
-func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, timeUnit, duration, delayBetweenConflicts time.Duration) {
-	scenarioDs := evilwallet.NewEvilScenario(
+func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
+	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(numDsToSend)),
-	)
+	}
+	if deepSpam {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+	}
+	scenarioDs := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
 		evilspammer.WithSpamDuration(duration),
@@ -111,10 +123,15 @@ func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, time
 	spammer.Spam()
 }
 
-func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit, duration, delayBetweenConflicts time.Duration) {
-	scenario := evilwallet.NewEvilScenario(
+func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
+	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(evilwallet.NSpendBatch(nSpend)),
-	)
+	}
+	if deepSpam {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+	}
+	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
 		evilspammer.WithSpamDuration(duration),
@@ -126,10 +143,15 @@ func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit
 	spammer.Spam()
 }
 
-func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch) {
-	scenario := evilwallet.NewEvilScenario(
+func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch, deepSpam bool) {
+	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(conflictBatch),
-	)
+	}
+	if deepSpam {
+		outWallet := wallet.NewWallet(evilwallet.Reuse)
+		scenarioOptions = append(scenarioOptions, evilwallet.WithScenarioDeepSpamEnabled(), evilwallet.WithScenarioReuseOutputWallet(outWallet))
+	}
+	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	options := []evilspammer.Options{
 		evilspammer.WithSpamRate(rate, timeUnit),
 		evilspammer.WithSpamDuration(duration),

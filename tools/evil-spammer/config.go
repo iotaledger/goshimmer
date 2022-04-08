@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"time"
 )
 
@@ -21,6 +22,8 @@ var (
 		MsgToBeSent:           []int{},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
+		Scenario:              evilwallet.Scenario1(),
+		DeepSpam:              false,
 	}
 	quickTest = QuickTestParams{
 		ClientUrls:            urls,
