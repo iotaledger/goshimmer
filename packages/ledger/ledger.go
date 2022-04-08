@@ -85,11 +85,10 @@ func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 }
 
 // processConsumingTransactions tries to book the transactions approving the given OutputIDs (it is used to propagate
-// solidity).
+// the booked status).
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.Utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
-		consumingTransactionID := it.Next()
-		go l.Storage.CachedTransaction(consumingTransactionID).Consume(func(tx *Transaction) {
+		go l.Storage.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
 			_ = l.processTransaction(tx)
 		})
 	}

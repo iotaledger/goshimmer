@@ -142,7 +142,7 @@ func (s *storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 
 // CachedConsumer retrieves the CachedObject representing the named Consumer. The optional computeIfAbsentCallback can
 // be used to dynamically initialize a non-existing Consumer.
-func (s *storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedOutput *objectstorage.CachedObject[*Consumer]) {
+func (s *storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *objectstorage.CachedObject[*Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
