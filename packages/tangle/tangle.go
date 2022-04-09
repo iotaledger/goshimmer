@@ -1,21 +1,21 @@
 package tangle
 
 import (
-	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -38,6 +38,7 @@ type Tangle struct {
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
 	Dispatcher            *Dispatcher
+	PayloadBooker         *PayloadBooker
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -45,22 +46,20 @@ type Tangle struct {
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
-	LedgerState           *LedgerState
+	Ledger                *Ledger
 	Utils                 *Utils
 	WeightProvider        WeightProvider
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
-
-	setupParserOnce sync.Once
 }
 
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
-	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
-	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
-	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	IsBranchConfirmed(branchID branchdag.BranchID) bool
+	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
+	IsOutputConfirmed(outputID utxo.OutputID) bool
 	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
 }
@@ -85,9 +84,10 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Ledger = NewLedger(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.PayloadBooker = NewPayloadBooker(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
@@ -120,13 +120,15 @@ func (t *Tangle) Configure(options ...Option) {
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
 func (t *Tangle) Setup() {
+	t.Parser.Setup()
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.Dispatcher.Setup()
+	t.PayloadBooker.Setup()
 	t.Booker.Setup()
-	t.LedgerState.Setup()
+	t.Ledger.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -146,7 +148,6 @@ func (t *Tangle) Setup() {
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
-	t.setupParserOnce.Do(t.Parser.Setup)
 	t.Parser.Parse(messageBytes, peer)
 }
 
@@ -181,7 +182,7 @@ func (t *Tangle) Shutdown() {
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
-	t.LedgerState.Shutdown()
+	t.Ledger.Shutdown()
 	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
@@ -344,7 +345,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
+// MergeBranches is an Option for the Tangle that prevents the Ledger from merging Branches.
 func MergeBranches(mergeBranches bool) Option {
 	return func(o *Options) {
 		o.LedgerState.MergeBranches = mergeBranches

@@ -192,7 +192,7 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
-		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
+		conflictingTransactions := f.tangle.Ledger.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
 		if len(conflictingTransactions) != 0 {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:

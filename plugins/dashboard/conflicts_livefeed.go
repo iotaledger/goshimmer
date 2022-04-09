@@ -116,13 +116,13 @@ func runConflictLiveFeed() {
 
 		onBranchCreatedClosure := events.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := events.NewClosure(onBranchWeightChanged)
-		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
@@ -136,7 +136,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.LedgerState.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.Ledger.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
 		b.IssuingTime = transaction.Essence().Timestamp()
 	})
 
@@ -147,7 +147,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
+	deps.Tangle.Ledger.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		b.ConflictIDs = branch.Conflicts()
 
 		for conflictID := range b.ConflictIDs {
@@ -163,7 +163,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 			}
 
 			// update all existing branches with a possible new conflict membership
-			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+			deps.Tangle.Ledger.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
 			})
 		}
@@ -189,7 +189,7 @@ func onBranchWeightChanged(e *tangle.BranchWeightChangedEvent) {
 	}
 
 	b.AW = math.Round(e.Weight*precision) / precision
-	b.GoF, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(b.BranchID)
+	b.GoF, _ = deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(b.BranchID)
 	b.UpdatedTime = clock.SyncedTime()
 	conflicts.addBranch(b)
 

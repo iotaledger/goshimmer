@@ -55,9 +55,9 @@ func (t *TangleLedger) EventTransactionBooked() *events.Event {
 
 // GetUnspentOutputs returns the available UTXOs for an address.
 func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
-	t.tangleInstance.LedgerState.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
+	t.tangleInstance.Ledger.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
 		ok := true
-		t.tangleInstance.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		t.tangleInstance.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() != 0 {
 				ok = false
 				return
@@ -75,7 +75,7 @@ func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f f
 		return false
 	}
 
-	t.tangleInstance.LedgerState.Transaction(txid).Consume(f)
+	t.tangleInstance.Ledger.Transaction(txid).Consume(f)
 	return true
 }
 
@@ -90,10 +90,10 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 
 // GetOutput finds an output by ID (either spent or unspent).
 func (t *TangleLedger) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
-	return t.tangleInstance.LedgerState.CachedOutput(outID).Consume(f)
+	return t.tangleInstance.Ledger.CachedOutput(outID).Consume(f)
 }
 
 // GetOutputMetadata finds an output by ID and returns its metadata.
 func (t *TangleLedger) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
-	return t.tangleInstance.LedgerState.CachedOutputMetadata(outID).Consume(f)
+	return t.tangleInstance.Ledger.CachedOutputMetadata(outID).Consume(f)
 }

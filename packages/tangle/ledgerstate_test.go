@@ -15,7 +15,7 @@ func TestLoadSnapshot(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	ledgerState := tangle.LedgerState
+	ledgerState := tangle.Ledger
 
 	wallets := createWallets(1)
 

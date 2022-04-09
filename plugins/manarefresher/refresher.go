@@ -84,7 +84,7 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.Al
 	tx = ledgerstate.NewTransaction(essence, r.wallet.unlockBlocks(essence))
 
 	// check transaction validity
-	if transactionErr := deps.Tangle.LedgerState.CheckTransaction(tx); transactionErr != nil {
+	if transactionErr := deps.Tangle.Ledger.CheckTransaction(tx); transactionErr != nil {
 		return nil, transactionErr
 	}
 

@@ -239,19 +239,19 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	deps.Tangle.LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.Ledger.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + grade of finality status from branch of the output
-		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 
-		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
 		})
 
@@ -259,7 +259,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		// obtain information about the consumer of the output being considered
-		confirmedConsumerID := deps.Tangle.LedgerState.ConfirmedConsumer(output.ID())
+		confirmedConsumerID := deps.Tangle.Ledger.ConfirmedConsumer(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),

@@ -128,7 +128,7 @@ func configureBranchConfirmationMetrics() {
 	}
 	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
 
-	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {

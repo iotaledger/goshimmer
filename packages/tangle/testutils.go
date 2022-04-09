@@ -208,7 +208,7 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledgerstate.TransactionMetadata) {
-	m.tangle.LedgerState.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	m.tangle.Ledger.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txMeta = transactionMetadata
 	})
 	return
@@ -217,7 +217,7 @@ func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta 
 // Transaction returns the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate.Transaction) {
-	m.tangle.LedgerState.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
+	m.tangle.Ledger.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
 		tx = transaction
 	})
 	return
@@ -225,7 +225,7 @@ func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate
 
 // OutputMetadata returns the given output metadata.
 func (m *MessageTestFramework) OutputMetadata(outputID ledgerstate.OutputID) (outMeta *ledgerstate.OutputMetadata) {
-	m.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	m.tangle.Ledger.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		outMeta = outputMetadata
 	})
 	return
@@ -245,7 +245,7 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerst
 // This function thus only works on the message creating ledger.Branch.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Branch(messageAlias string) (b *ledgerstate.Branch) {
-	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *ledgerstate.Branch) {
+	m.tangle.Ledger.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *ledgerstate.Branch) {
 		b = branch
 	})
 	return
@@ -307,13 +307,13 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	if err := m.tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+	if err := m.tangle.Ledger.LoadSnapshot(snapshot); err != nil {
 		panic(err)
 	}
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.Ledger.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.Ledger.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
@@ -322,8 +322,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias := range m.options.coloredGenesisOutputs {
-		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.Ledger.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+			m.tangle.Ledger.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
 			})

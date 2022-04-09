@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
@@ -42,11 +41,23 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
 	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
+	s.Events.MessageSolid.Attach(events.NewClosure(s.Solidify))
 }
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, NewMessageIDs(messageID), true)
+	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			s.checkMessageSolidity(message, messageMetadata)
+		})
+	})
+}
+
+func (s *Solidifier) processApprovers(messageID MessageID) {
+	// TODO: this should be handled with eventloop
+	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		go s.Solidify(approver.ApproverMessageID())
+	})
 }
 
 // RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
@@ -66,7 +77,7 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) {
 	if !s.isMessageSolid(message, messageMetadata) {
 		return
 	}
@@ -79,6 +90,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
+	// TODO: replace with DAGsmutex
 	lockBuilder := syncutils.MultiMutexLockBuilder{}
 	lockBuilder.AddLock(messageMetadata.ID())
 
@@ -94,10 +106,6 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 	s.Events.MessageSolid.Trigger(message.ID())
-
-	s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
-		walker.Push(approver.ApproverMessageID())
-	})
 }
 
 // isMessageSolid checks if the given Message is solid.

@@ -49,7 +49,7 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := deps.Tangle.LedgerState.SnapshotUTXO()
+	snapshot := deps.Tangle.Ledger.SnapshotUTXO()
 
 	aMana, err := snapshotAccessMana()
 	if err != nil {

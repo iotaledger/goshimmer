@@ -100,22 +100,22 @@ func configureEvents() {
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
-//func logPledgeEvent(ev *mana.PledgedEvent) {
+// func logPledgeEvent(ev *mana.PledgedEvent) {
 //	if ev.ManaType == mana.ConsensusMana {
 //		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
 //		consensusEventsLogsStorageSize.Inc()
 //	}
-//}
+// }
 //
-//func logRevokeEvent(ev *mana.RevokedEvent) {
+// func logRevokeEvent(ev *mana.RevokedEvent) {
 //	if ev.ManaType == mana.ConsensusMana {
 //		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
 //		consensusEventsLogsStorageSize.Inc()
 //	}
-//}
+// }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
@@ -145,7 +145,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.LedgerState.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		deps.Tangle.Ledger.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -158,7 +158,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+			deps.Tangle.Ledger.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
 				if transaction == nil {
 					return
 				}
@@ -459,7 +459,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.LedgerState.CachedOutputMetadata(outputID)
+	cachedOutputMetadata := deps.Tangle.Ledger.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
@@ -469,14 +469,14 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	deps.Tangle.LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.Ledger.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := deps.Tangle.LedgerState.Transaction(outputID.TransactionID())
+	cachedTx := deps.Tangle.Ledger.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx, _ := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()
@@ -488,8 +488,8 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
-//// GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
-//func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
+// // GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
+// func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
 //	logs := make(map[identity.ID]*EventsLogs)
 //	lookup := make(map[identity.ID]bool)
 //	getAll := true
@@ -548,18 +548,18 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	}
 //
 //	return logs, err
-//}
+// }
 //
-//// GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
-//func GetPastConsensusManaVectorMetadata() *mana.ConsensusBasePastManaVectorMetadata {
+// // GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
+// func GetPastConsensusManaVectorMetadata() *mana.ConsensusBasePastManaVectorMetadata {
 //	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 //	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 //	defer cachedMetadata.Release()
 //	return cachedMetadata.Unwrap()
-//}
+// }
 //
-//// GetPastConsensusManaVector builds a consensus base mana vector in the past.
-//func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []mana.Event, error) {
+// // GetPastConsensusManaVector builds a consensus base mana vector in the past.
+// func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []mana.Event, error) {
 //	baseManaVector, err := mana.NewBaseManaVector(mana.ConsensusMana)
 //	if err != nil {
 //		return nil, nil, err
@@ -628,18 +628,18 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	}
 //
 //	return cbmvPast, eventLogs, nil
-//}
+// }
 //
-//func getConsensusEventLogsStorageSize() uint32 {
+// func getConsensusEventLogsStorageSize() uint32 {
 //	var size uint32
 //	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 //		size++
 //		return true
 //	}, objectstorage.WithIteratorSkipCache(true))
 //	return size
-//}
+// }
 //
-//func pruneConsensusEventLogsStorage() {
+// func pruneConsensusEventLogsStorage() {
 //	if consensusEventsLogsStorageSize.Load() < maxConsensusEventsInStorage {
 //		return
 //	}
@@ -757,7 +757,7 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 //	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
 //	manaLogger.Infof("%d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
-//}
+// }
 
 func cleanupManaVectors() {
 	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
@@ -776,11 +776,11 @@ type AllowedPledge struct {
 	Allowed         set.Set[identity.ID]
 }
 
-//// EventsLogs represents the events logs.
-//type EventsLogs struct {
+// // EventsLogs represents the events logs.
+// type EventsLogs struct {
 //	Pledge []*mana.PledgedEvent `json:"pledge"`
 //	Revoke []*mana.RevokedEvent `json:"revoke"`
-//}
+// }
 
 // QueryAllowed returns if the mana plugin answers queries or not.
 func QueryAllowed() (allowed bool) {

@@ -132,7 +132,7 @@ func configure(plugin *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
-		if err = deps.Tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+		if err = deps.Tangle.Ledger.LoadSnapshot(snapshot); err != nil {
 			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
 		}
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
@@ -188,7 +188,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
-	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget

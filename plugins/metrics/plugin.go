@@ -128,7 +128,7 @@ func run(_ *node.Plugin) {
 }
 
 func registerLocalMetrics() {
-	//// Events declared in other packages which we want to listen to here ////
+	// // Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
 	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
@@ -263,7 +263,7 @@ func registerLocalMetrics() {
 		if err != nil {
 			return
 		}
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 				delete(activeBranches, conflictingBranchID)
@@ -277,7 +277,7 @@ func registerLocalMetrics() {
 		delete(activeBranches, branchID)
 	}))
 
-	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 		if _, exists := activeBranches[branchID]; !exists {

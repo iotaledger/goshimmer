@@ -30,7 +30,7 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	deps.Tangle.Ledger.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -72,18 +72,18 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+	deps.Tangle.Ledger.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		transactionID := ledgerstate.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = deps.Tangle.LedgerState.ConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = deps.Tangle.Ledger.ConflictSet(transactionID).Base58s()
 
-		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
 		})
 
-		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.Ledger.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
 		})

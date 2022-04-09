@@ -292,8 +292,8 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	Plugin.LogInfof("Looking for existing funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
-		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
-			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.Ledger.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
+			deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {
@@ -325,9 +325,9 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	remainderAddress := s.replenishmentState.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	deps.Tangle.LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
+	deps.Tangle.Ledger.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
@@ -365,11 +365,11 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		// make sure only one output per address will be added
 		foundOnCurrentAddress = false
 
-		deps.Tangle.LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.Ledger.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
 			if foundOnCurrentAddress {
 				return
 			}
-			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance != s.tokensPerSupplyOutput {
@@ -574,7 +574,7 @@ func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, iss
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
-	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		newFaucetRemainderBalance := s.replenishmentState.RemainderOutputBalance() - s.tokensUsedOnSupplyReplenishment
 
 		// derive information from outputs

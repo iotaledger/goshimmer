@@ -2619,12 +2619,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message27", WithStrongParents("Message19"))
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
-		testFramework.tangle.LedgerState.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("E")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.Ledger.SetBranchConfirmed(testFramework.BranchID("E"))
+		testFramework.tangle.Ledger.Branch(testFramework.BranchID("E")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Confirmed)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("D")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.Ledger.Branch(testFramework.BranchID("D")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -2952,11 +2952,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("H")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.Ledger.Branch(testFramework.BranchID("H")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
-		testFramework.tangle.LedgerState.Branch(testFramework.BranchID("I")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.Ledger.Branch(testFramework.BranchID("I")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -3677,7 +3677,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 	// ISSUE Message6
 	{
 
-		tg.LedgerState.SetBranchConfirmed(testFramework.BranchID("red"))
+		tg.Ledger.SetBranchConfirmed(testFramework.BranchID("red"))
 
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"))
 

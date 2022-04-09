@@ -107,7 +107,7 @@ func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+	deps.Tangle.Ledger.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 			delete(activeBranches, conflictingBranchID)
@@ -125,19 +125,19 @@ func measureInitialBranchCounts() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	deps.Tangle.Ledger.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
-			branchGoF, err := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+			branchGoF, err := deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(branch.ID())
 			if err != nil {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
+				deps.Tangle.Ledger.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
@@ -152,7 +152,7 @@ func measureInitialBranchCounts() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}

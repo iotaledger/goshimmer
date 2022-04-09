@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -16,12 +20,9 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -871,8 +872,8 @@ type MessageMetadata struct {
 	solid               bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
-	addedBranchIDs      ledgerstate.BranchIDs
-	subtractedBranchIDs ledgerstate.BranchIDs
+	addedBranchIDs      branchdag.BranchIDs
+	subtractedBranchIDs branchdag.BranchIDs
 	scheduled           bool
 	scheduledTime       time.Time
 	discardedTime       time.Time
@@ -904,8 +905,8 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
 		messageID:           messageID,
 		receivedTime:        clock.SyncedTime(),
-		addedBranchIDs:      ledgerstate.NewBranchIDs(),
-		subtractedBranchIDs: ledgerstate.NewBranchIDs(),
+		addedBranchIDs:      branchdag.NewBranchIDs(),
+		subtractedBranchIDs: branchdag.NewBranchIDs(),
 	}
 }
 
@@ -952,11 +953,11 @@ func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) 
 		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
 		return
 	}
-	if messageMetadata.addedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if err = messageMetadata.addedBranchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
 		return
 	}
-	if messageMetadata.subtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
+	if err = messageMetadata.subtractedBranchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
 		return
 	}
@@ -1073,11 +1074,11 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs branchdag.BranchIDs) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Equals(addedBranchIDs) {
+	if m.addedBranchIDs.Equal(addedBranchIDs) {
 		return false
 	}
 
@@ -1089,11 +1090,11 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 }
 
 // AddBranchID sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified bool) {
+func (m *MessageMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Contains(branchID) {
+	if m.addedBranchIDs.Has(branchID) {
 		return
 	}
 
@@ -1103,7 +1104,7 @@ func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified b
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
-func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
+func (m *MessageMetadata) AddedBranchIDs() branchdag.BranchIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
@@ -1111,11 +1112,11 @@ func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
-func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs branchdag.BranchIDs) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.subtractedBranchIDs.Equals(subtractedBranchIDs) {
+	if m.subtractedBranchIDs.Equal(subtractedBranchIDs) {
 		return false
 	}
 
@@ -1127,7 +1128,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 }
 
 // SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
-func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchIDs {
+func (m *MessageMetadata) SubtractedBranchIDs() branchdag.BranchIDs {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 
