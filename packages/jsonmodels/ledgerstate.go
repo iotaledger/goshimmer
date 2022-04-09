@@ -8,9 +8,8 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // region Address //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,7 +21,7 @@ type Address struct {
 }
 
 // NewAddress returns an Address from the given ledgerstate.Address.
-func NewAddress(address ledgerstate.Address) *Address {
+func NewAddress(address devnetvm.Address) *Address {
 	return &Address{
 		Type:   address.Type().String(),
 		Base58: address.Base58(),
@@ -41,7 +40,7 @@ type Output struct {
 }
 
 // NewOutput returns an Output from the given ledgerstate.Output.
-func NewOutput(output ledgerstate.Output) (result *Output) {
+func NewOutput(output devnetvm.Output) (result *Output) {
 	return &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
@@ -50,12 +49,12 @@ func NewOutput(output ledgerstate.Output) (result *Output) {
 }
 
 // ToLedgerstateOutput converts the json output object into a goshimmer representation.
-func (o *Output) ToLedgerstateOutput() (ledgerstate.Output, error) {
-	outputType, err := ledgerstate.OutputTypeFromString(o.Type)
+func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
+	outputType, err := devnetvm.OutputTypeFromString(o.Type)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse output type: %w", err)
 	}
-	id, iErr := ledgerstate.OutputIDFromBase58(o.OutputID.Base58)
+	id, iErr := devnetvm.OutputIDFromBase58(o.OutputID.Base58)
 	if iErr != nil {
 		return nil, errors.Errorf("failed to parse outputID: %w", iErr)
 	}
