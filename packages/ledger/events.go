@@ -23,6 +23,8 @@ type Events struct {
 	// TransactionBranchIDUpdated is an event that gets triggered whenever the Branch of a Transaction is updated.
 	TransactionBranchIDUpdated *event.Event[*TransactionBranchIDUpdatedEvent]
 
+	TransactionInvalid *event.Event[*TransactionInvalidEvent]
+
 	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
 	Error *event.Event[error]
 }
@@ -34,6 +36,7 @@ func newEvents() (new *Events) {
 		TransactionBooked:          event.New[*TransactionBookedEvent](),
 		TransactionForked:          event.New[*TransactionForkedEvent](),
 		TransactionBranchIDUpdated: event.New[*TransactionBranchIDUpdatedEvent](),
+		TransactionInvalid:         event.New[*TransactionInvalidEvent](),
 		Error:                      event.New[error](),
 	}
 }
@@ -89,6 +92,19 @@ type TransactionBranchIDUpdatedEvent struct {
 
 	// RemovedBranchIDs contains the set of the BranchIDs that were removed while updating the Transaction.
 	RemovedBranchIDs branchdag.BranchIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionInvalidEvent //////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionInvalidEvent is a container that acts as a dictionary for the TransactionInvalid event related parameters.
+type TransactionInvalidEvent struct {
+	// TransactionID contains the identifier of the Transaction that was found to be invalid.
+	TransactionID utxo.TransactionID
+
+	// Reason contains the error that caused the Transaction to be considered invalid.
+	Reason error
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

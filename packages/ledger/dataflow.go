@@ -36,15 +36,7 @@ func (d *dataFlow) processTransaction() (dataFlow *dataflow.DataFlow[*dataFlowPa
 		d.ledger.booker.checkAlreadyBookedCommand,
 		d.checkTransaction().ChainedCommand,
 		d.ledger.booker.bookTransactionCommand,
-	).WithErrorCallback(func(err error, params *dataFlowParams) {
-		if errors.Is(err, ErrTransactionUnsolid) {
-			return
-		}
-		
-		d.ledger.Events.Error.Trigger(err)
-
-		// TODO: mark Transaction as invalid and trigger invalid event
-	})
+	).WithErrorCallback(d.handleError)
 }
 
 // checkTransaction returns a DataFlow that checks the validity of a Transaction.
@@ -54,6 +46,24 @@ func (d *dataFlow) checkTransaction() (dataFlow *dataflow.DataFlow[*dataFlowPara
 		d.ledger.validator.checkOutputsCausallyRelatedCommand,
 		d.ledger.validator.checkTransactionExecutionCommand,
 	)
+}
+
+// handleError handles any kind of error that is encountered while processing the DataFlows.
+func (d *dataFlow) handleError(err error, params *dataFlowParams) {
+	if errors.Is(err, ErrTransactionUnsolid) {
+		return
+	}
+
+	if errors.Is(err, ErrTransactionInvalid) {
+		d.ledger.Events.TransactionInvalid.Trigger(&TransactionInvalidEvent{
+			TransactionID: params.Transaction.ID(),
+			Reason:        err,
+		})
+
+		return
+	}
+
+	d.ledger.Events.Error.Trigger(err)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
