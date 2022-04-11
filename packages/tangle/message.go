@@ -12,7 +12,6 @@ import (
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -20,6 +19,8 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -643,6 +644,13 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 			})
 		}
 	}
+}
+
+func (m *Message) Parents() (parents []MessageID) {
+	m.ForEachParent(func(parent Parent) {
+		parents = append(parents, parent.ID)
+	})
+	return
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.

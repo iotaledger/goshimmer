@@ -3,6 +3,8 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/syncutils"
+
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -32,13 +34,14 @@ const (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
+	dagMutex syncutils.DAGMutex[MessageID]
+
 	Options               *Options
 	Parser                *Parser
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
 	Dispatcher            *Dispatcher
-	PayloadBooker         *PayloadBooker
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -74,6 +77,7 @@ type ConfirmationEvents struct {
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
+		dagMutex: syncutils.NewDAGMutex(),
 		Events: &Events{
 			MessageInvalid: events.NewEvent(MessageInvalidCaller),
 			Error:          events.NewEvent(events.ErrorCaller),
@@ -87,7 +91,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Ledger = NewLedger(tangle)
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
-	tangle.PayloadBooker = NewPayloadBooker(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
@@ -126,7 +129,6 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.Dispatcher.Setup()
-	t.PayloadBooker.Setup()
 	t.Booker.Setup()
 	t.Ledger.Setup()
 	t.ApprovalWeightManager.Setup()

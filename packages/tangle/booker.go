@@ -1,16 +1,19 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/event"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
@@ -47,11 +50,11 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.PayloadBooker.Events.PayloadBooked.Attach(events.NewClosure(func(messageID MessageID) {
-		if err := b.BookMessage(messageID); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s: %w", messageID, err))
-		}
+	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
+	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
+		b.processBookedTransaction(event.TransactionID)
 	}))
+	b.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(b.propagateBooking))
 
 	b.tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID MessageID) {
 		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
@@ -117,6 +120,95 @@ func (b *Booker) Shutdown() {
 	b.MarkersManager.Shutdown()
 }
 
+// region BOOK PAYLOAD LOGIC ///////////////////////////////////////////////////////////////////////////////////////////
+
+// bookPayload books the Payload of a Message.
+func (b *Booker) bookPayload(messageID MessageID) {
+	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+			b.tangle.dagMutex.RLock(message.Parents()...)
+			b.tangle.dagMutex.Lock(messageID)
+			defer b.tangle.dagMutex.RUnlock(message.Parents()...)
+			defer b.tangle.dagMutex.Unlock(messageID)
+
+			if !b.readyForBooking(message, messageMetadata) {
+				return
+			}
+
+			payload := message.Payload()
+			tx, ok := payload.(utxo.Transaction)
+			if !ok {
+				// Data payloads are considered as booked immediately.
+				if err := b.BookMessage(message, messageMetadata); err != nil {
+					b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
+				}
+				return
+			}
+
+			b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
+
+			err := b.tangle.Ledger.StoreAndProcessTransaction(tx)
+			if err != nil {
+				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
+				//  delete attachments of transaction
+				fmt.Println(err)
+			}
+
+			// TODO: if transaction successfully booked
+			if err := b.BookMessage(message, messageMetadata); err != nil {
+				b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
+			}
+		})
+	})
+}
+
+func (b *Booker) processBookedTransaction(id utxo.TransactionID) {
+	b.tangle.Storage.Attachments(id).Consume(func(attachment *Attachment) {
+		// TODO: use context in event to check and ignore message that called StoreAndProcessTransaction to avoid unnecessary locking/duplicate execution
+
+		// TODO: this is now executed sequentially. Is this a problem or should we fire one event for each of the attachments to make it async?
+		b.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+			b.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+				b.tangle.dagMutex.RLock(message.Parents()...)
+				b.tangle.dagMutex.Lock(attachment.MessageID())
+				defer b.tangle.dagMutex.RUnlock(message.Parents()...)
+				defer b.tangle.dagMutex.Unlock(attachment.MessageID())
+
+				if !b.readyForBooking(message, messageMetadata) {
+					return
+				}
+
+				if err := b.BookMessage(message, messageMetadata); err != nil {
+					b.Events.Error.Trigger(errors.Errorf("failed to book message with %s when processing booked transaction %s: %w", attachment.MessageID(), id, err))
+				}
+			})
+		})
+	})
+}
+
+func (b *Booker) propagateBooking(messageID MessageID) {
+	// TODO: this should be handled with eventloop
+	b.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		go b.bookPayload(approver.ApproverMessageID())
+	})
+}
+
+func (b *Booker) readyForBooking(message *Message, metadata *MessageMetadata) (ready bool) {
+	if metadata.IsBooked() {
+		return false
+	}
+
+	ready = true
+	message.ForEachParent(func(parent Parent) {
+		b.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+			ready = ready && messageMetadata.IsBooked()
+		})
+	})
+	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region BOOK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // BookMessage tries to book the given Message (and potentially its contained Transaction) into the ledger and the Tangle.
@@ -125,35 +217,29 @@ func (b *Booker) Shutdown() {
 // branch inheritance rules of the like switch and markers are inherited. If everything is valid, the message is marked
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
-func (b *Booker) BookMessage(messageID MessageID) (err error) {
-	// TODO: lock message and potentially read lock parents
+func (b *Booker) BookMessage(message *Message, messageMetadata *MessageMetadata) (err error) {
+	// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
+	// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
+	// therefore we would know the payload branch from the solidifier and we could check for this
 
-	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
-			// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
-			// therefore we would know the payload branch from the solidifier and we could check for this
+	// Like and dislike references need to point to Messages containing transactions to evaluate opinion.
+	for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
+		if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
+			messageMetadata.SetObjectivelyInvalid(true)
+			err = errors.Errorf("message like or dislike reference does not contain a transaction %s", messageMetadata.ID())
+			b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageMetadata.ID(), Error: err})
+			return
+		}
+	}
 
-			// Like and dislike references need to point to Messages containing transactions to evaluate opinion.
-			for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
-				if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
-					messageMetadata.SetObjectivelyInvalid(true)
-					err = errors.Errorf("message like or dislike reference does not contain a transaction %s", messageID)
-					b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-					return
-				}
-			}
+	if err = b.inheritBranchIDs(message, messageMetadata); err != nil {
+		err = errors.Errorf("failed to inherit BranchIDs of Message with %s: %w", messageMetadata.ID(), err)
+		return
+	}
 
-			if err = b.inheritBranchIDs(message, messageMetadata); err != nil {
-				err = errors.Errorf("failed to inherit BranchIDs of Message with %s: %w", messageID, err)
-				return
-			}
+	messageMetadata.SetBooked(true)
 
-			messageMetadata.SetBooked(true)
-
-			b.Events.MessageBooked.Trigger(message.ID())
-		})
-	})
+	b.Events.MessageBooked.Trigger(message.ID())
 
 	return
 }

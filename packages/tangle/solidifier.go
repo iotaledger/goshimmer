@@ -41,7 +41,7 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
 	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
-	s.Events.MessageSolid.Attach(events.NewClosure(s.Solidify))
+	s.Events.MessageSolid.Attach(events.NewClosure(s.processApprovers))
 }
 
 // Solidify solidifies the given Message.
@@ -78,6 +78,9 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
 func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) {
+	s.tangle.dagMutex.Lock(messageMetadata.ID())
+	defer s.tangle.dagMutex.Unlock(message.ID())
+
 	if !s.isMessageSolid(message, messageMetadata) {
 		return
 	}
@@ -90,21 +93,10 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return
 	}
 
-	// TODO: replace with DAGsmutex
-	lockBuilder := syncutils.MultiMutexLockBuilder{}
-	lockBuilder.AddLock(messageMetadata.ID())
-
-	message.ForEachParent(func(parent Parent) {
-		lockBuilder.AddLock(parent.ID)
-	})
-	lock := lockBuilder.Build()
-
-	s.triggerMutex.Lock(lock...)
-	defer s.triggerMutex.Unlock(lock...)
-
 	if !messageMetadata.SetSolid(true) {
 		return
 	}
+	// TODO: if we attach to this asynchronously it is okay to trigger the event here, otherwise we should do it in Solidify
 	s.Events.MessageSolid.Trigger(message.ID())
 }
 
