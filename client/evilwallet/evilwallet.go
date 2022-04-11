@@ -422,10 +422,11 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 		}
 		break
 	}
-	err := e.useFreshIfInputWalletNotProvided(buildOptions)
+	wallet, err := e.useFreshIfInputWalletNotProvided(buildOptions)
 	if err != nil {
 		return err
 	}
+	buildOptions.inputWallet = wallet
 	return nil
 }
 
@@ -509,10 +510,15 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
 		if !ok {
-			// No output found for given alias, use internal Fresh output if wallets are non-empty.
-			out := e.wallets.GetUnspentOutput(buildOptions.inputWallet)
-			if out == nil {
+			wallet, err2 := e.useFreshIfInputWalletNotProvided(buildOptions)
+			if err2 != nil {
+				err = err2
 				return
+			}
+			// No output found for given alias, use internal Fresh output if wallets are non-empty.
+			out := e.wallets.GetUnspentOutput(wallet)
+			if out == nil {
+				return nil, errors.New("could not get unspent output")
 			}
 			in = ledgerstate.NewUTXOInput(out.OutputID)
 			e.aliasManager.AddInputAlias(in, inputAlias)
@@ -522,24 +528,23 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []led
 	return inputs, nil
 }
 
-func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) error {
+func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*Wallet, error) {
 	// if input wallet is not specified, use Fresh faucet wallet
 	if buildOptions.inputWallet == nil {
 		// deep spam enabled and no input reuse wallet provided, use evil wallet reuse wallet if enough outputs are available
 		if buildOptions.reuse {
 			outputsNeeded := len(buildOptions.inputs)
 			if wallet := e.wallets.reuseWallet(outputsNeeded); wallet != nil {
-				buildOptions.inputWallet = wallet
-				return nil
+				return wallet, nil
 			}
 		}
 		if wallet, err := e.wallets.freshWallet(); wallet != nil {
-			buildOptions.inputWallet = wallet
+			return wallet, nil
 		} else {
-			return errors.Newf("no Fresh wallet is available: %w", err)
+			return nil, errors.Newf("no Fresh wallet is available: %w", err)
 		}
 	}
-	return nil
+	return buildOptions.inputWallet, nil
 }
 
 // matchOutputsWithAliases creates outputs based on balances provided via options.
