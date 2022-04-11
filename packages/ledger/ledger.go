@@ -17,7 +17,7 @@ type Ledger struct {
 	Events *Events
 
 	// Storage is a dictionary for storage related API endpoints.
-	Storage *storage
+	Storage *Storage
 
 	// Utils is a dictionary for utility methods that simplify the interaction with the Ledger.
 	Utils *Utils
@@ -83,6 +83,10 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 // PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid).
 func (l *Ledger) PruneTransaction(txID utxo.TransactionID) {
 	// TODO: IMPLEMENT PRUNING LOGIC
+}
+func (l *Ledger) Shutdown() {
+	l.Storage.Shutdown()
+	l.BranchDAG.Shutdown()
 }
 
 // processTransaction tries to book a single Transaction.
