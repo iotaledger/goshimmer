@@ -1,6 +1,8 @@
 package evilwallet
 
 import (
+	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -94,33 +96,15 @@ func (e *EvilWallet) Connector() Connector {
 // also register the alias name for the unspent output if provided.
 func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (err error, initWallet *Wallet) {
 	initWallet = e.NewWallet(Fresh)
-	addr := initWallet.Address()
 	buildOptions := NewFaucetRequestOptions(options...)
 
-	addrStr := addr.Base58()
-
-	// request funds from faucet
-	clt := e.connector.GetClient()
-	err = clt.SendFaucetRequest(addrStr)
+	outputID, err := e.requestFaucetFunds(initWallet)
 	if err != nil {
 		return
 	}
 
-	out := e.outputManager.CreateOutputFromAddress(initWallet, addr, faucetBalance)
-	if out == nil {
-		err = errors.New("no outputIDs found on address ")
-		return
-	}
-
-	// track output in output manager and make sure it's confirmed
-	allConfirmed := e.outputManager.Track([]ledgerstate.OutputID{out.OutputID})
-	if !allConfirmed {
-		err = errors.New("output not confirmed")
-		return
-	}
-
 	if buildOptions.outputAliasName != "" {
-		input := ledgerstate.NewUTXOInput(out.OutputID)
+		input := ledgerstate.NewUTXOInput(outputID)
 		e.aliasManager.AddInputAlias(input, buildOptions.outputAliasName)
 	}
 
@@ -157,19 +141,11 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) {
 // requested from the Faucet.
 func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 	initWallet := NewWallet()
-	funds, err := e.requestAndSplitFaucetFunds(initWallet)
+	funds, err := e.requestAndSplitFaucetFunds(initWallet, FaucetRequestSplitNumber*FaucetRequestSplitNumber)
 	if err != nil {
 		return
 	}
-	w := e.NewWallet(Fresh)
-	txIDs := e.splitOutputs(funds, w, FaucetRequestSplitNumber)
-
-	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
-	err = e.outputManager.UpdateOutputsFromTxs(txIDs)
-	if err != nil {
-		return
-	}
-	e.wallets.SetWalletReady(w)
+	e.wallets.SetWalletReady(funds)
 	return
 }
 
@@ -177,7 +153,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() (err error) {
 // requested from the Faucet.
 func (e *EvilWallet) RequestFreshFaucetWallet() (err error) {
 	initWallet := NewWallet()
-	wallet, err := e.requestAndSplitFaucetFunds(initWallet)
+	wallet, err := e.requestAndSplitFaucetFunds(initWallet, FaucetRequestSplitNumber)
 	if err != nil {
 		return
 	}
@@ -185,20 +161,15 @@ func (e *EvilWallet) RequestFreshFaucetWallet() (err error) {
 	return
 }
 
-func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet) (wallet *Wallet, err error) {
+func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet *Wallet, splitNum int) (wallet *Wallet, err error) {
 	_, err = e.requestFaucetFunds(initWallet)
 	if err != nil {
 		return
 	}
 	//first split 1 to FaucetRequestSplitNumber outputs
 	wallet = e.NewWallet(Fresh)
-	//e.outputManager.AwaitWalletOutputsToBeConfirmed(initWallet)
-	txIDs := e.splitOutputs(initWallet, wallet, FaucetRequestSplitNumber)
-	e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
-	err = e.outputManager.UpdateOutputsFromTxs(txIDs)
-	if err != nil {
-		return
-	}
+	err = e.splitOutputs(initWallet, wallet, splitNum)
+
 	return
 }
 
@@ -214,6 +185,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 		err = errors.New("could not get output from a given address")
 		return
 	}
+	// track output in output manager and make sure it's confirmed
 	ok := e.outputManager.Track([]ledgerstate.OutputID{output.OutputID})
 	if !ok {
 		err = errors.New("not all outputs has been confirmed")
@@ -223,42 +195,78 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID ledgerstate.Ou
 	return
 }
 
-func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber int) []string {
+func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber int) error {
+	var txIDs []string
 	wg := sync.WaitGroup{}
 
-	txIDs := make([]string, inputWallet.UnspentOutputsLength())
 	if inputWallet.IsEmpty() {
-		return []string{}
+		return errors.New("inputWallet is empty")
 	}
 
-	inputNum := 0
-	for addr := range inputWallet.UnspentOutputs() {
-		wg.Add(1)
-		go func(inputNum int, addr string) {
-			defer wg.Done()
-
-			input, outputs := e.handleInputOutputDuringSplitOutputs(splitNumber, inputWallet, addr)
-
-			tx, err := e.CreateTransaction(WithInputs(input), WithOutputs(outputs),
-				WithIssuer(inputWallet), WithOutputWallet(outputWallet))
-			if err != nil {
-				return
-			}
-
-			clt := e.connector.GetClient()
-			txID, err := clt.PostTransaction(tx)
-			if err != nil {
-				return
-			}
-			txIDs[inputNum] = txID.Base58()
-		}(inputNum, addr)
-		inputNum++
+	// we split 100 outputs in each round
+	round := 0
+	for i := splitNumber; i > 1; round++ {
+		i /= FaucetRequestSplitNumber
 	}
-	wg.Wait()
-	return txIDs
+
+	var tmpOutWallet, tmpInWallet *Wallet
+	for i := 0; i < round; i++ {
+		// prepare wallet for next round, new tmpOutWallet are not managed by evil wallet
+		if i == 0 {
+			tmpInWallet = inputWallet
+		} else {
+			tmpInWallet = tmpOutWallet
+		}
+
+		if i == round-1 {
+			tmpOutWallet = outputWallet
+		} else {
+			tmpOutWallet = NewWallet(Fresh)
+		}
+
+		txIDs = make([]string, int(math.Pow(FaucetRequestSplitNumber, float64(i))))
+		inputNum := 0
+		for addr := range tmpInWallet.UnspentOutputs() {
+			wg.Add(1)
+			go func(inputNum int, addr string) {
+				defer wg.Done()
+
+				input, outputs := e.handleInputOutputDuringSplitOutputs(FaucetRequestSplitNumber, tmpInWallet, addr)
+
+				tx, err := e.CreateTransaction(WithInputs(input), WithOutputs(outputs),
+					WithIssuer(tmpInWallet), WithOutputWallet(tmpOutWallet))
+				if err != nil {
+					return
+				}
+
+				clt := e.connector.GetClient()
+				txID, err := clt.PostTransaction(tx)
+				if err != nil {
+					return
+				}
+
+				txIDs[inputNum] = txID.Base58()
+			}(inputNum, addr)
+			inputNum++
+		}
+		wg.Wait()
+
+		// wait txs to be confirmed in each round
+		e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
+		err := e.outputManager.UpdateOutputsFromTxs(txIDs)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }
 
 func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.OutputID, outputs []*OutputOption) {
+	if inputWallet.UnspentOutputsLength() == 0 {
+		fmt.Println("no unspent outputs")
+	}
 	evilInput := inputWallet.UnspentOutput(inputAddr)
 	input = evilInput.OutputID
 
