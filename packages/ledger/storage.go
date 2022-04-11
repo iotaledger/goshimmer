@@ -14,8 +14,8 @@ import (
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// storage is a Ledger component that bundles the storage related API.
-type storage struct {
+// Storage is a Ledger component that bundles the storage related API.
+type Storage struct {
 	// transactionStorage is an object storage used to persist Transactions objects.
 	transactionStorage *objectstorage.ObjectStorage[*Transaction]
 
@@ -36,8 +36,8 @@ type storage struct {
 }
 
 // newStorage returns a new storage instance for the given Ledger.
-func newStorage(ledger *Ledger) (new *storage) {
-	return &storage{
+func newStorage(ledger *Ledger) (new *Storage) {
+	return &Storage{
 		transactionStorage: objectstorage.New[*Transaction](
 			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
@@ -74,7 +74,7 @@ func newStorage(ledger *Ledger) (new *storage) {
 
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback
 // can be used to dynamically initialize a non-existing Transaction.
-func (s *storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *Transaction) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
+func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *Transaction) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.transactionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *Transaction {
 			return computeIfAbsentCallback[0](transactionID)
@@ -86,7 +86,7 @@ func (s *storage) CachedTransaction(transactionID utxo.TransactionID, computeIfA
 
 // CachedTransactionMetadata retrieves the CachedObject representing the named TransactionMetadata. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing TransactionMetadata.
-func (s *storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
+func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
@@ -98,7 +98,7 @@ func (s *storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 
 // CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Output.
-func (s *storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *Output) (cachedOutput *objectstorage.CachedObject[*Output]) {
+func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *Output) (cachedOutput *objectstorage.CachedObject[*Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.outputStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) *Output {
 			return computeIfAbsentCallback[0](outputID)
@@ -109,7 +109,7 @@ func (s *storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback .
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
-func (s *storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objectstorage.CachedObjects[*Output]) {
+func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objectstorage.CachedObjects[*Output]) {
 	cachedOutputs = make(objectstorage.CachedObjects[*Output], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		cachedOutputs = append(cachedOutputs, s.CachedOutput(it.Next()))
@@ -120,7 +120,7 @@ func (s *storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objects
 
 // CachedOutputMetadata retrieves the CachedObject representing the named OutputMetadata. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing OutputMetadata.
-func (s *storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
+func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.outputMetadataStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) *OutputMetadata {
 			return computeIfAbsentCallback[0](outputID)
@@ -131,7 +131,7 @@ func (s *storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCa
 }
 
 // CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
-func (s *storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
+func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputsMetadata objectstorage.CachedObjects[*OutputMetadata]) {
 	cachedOutputsMetadata = make(objectstorage.CachedObjects[*OutputMetadata], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		cachedOutputsMetadata = append(cachedOutputsMetadata, s.CachedOutputMetadata(it.Next()))
@@ -142,7 +142,7 @@ func (s *storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 
 // CachedConsumer retrieves the CachedObject representing the named Consumer. The optional computeIfAbsentCallback can
 // be used to dynamically initialize a non-existing Consumer.
-func (s *storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *objectstorage.CachedObject[*Consumer]) {
+func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *objectstorage.CachedObject[*Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
@@ -153,7 +153,7 @@ func (s *storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID
 }
 
 // CachedConsumers retrieves the CachedObjects containing the named Consumers.
-func (s *storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
 	s.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
@@ -164,7 +164,7 @@ func (s *storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 }
 
 // storeTransactionCommand is a ChainedCommand that stores a Transaction.
-func (s *storage) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
+func (s *Storage) storeTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	created := false
 	cachedTransactionMetadata := s.CachedTransactionMetadata(params.Transaction.ID(), func(txID utxo.TransactionID) *TransactionMetadata {
 		s.transactionStorage.Store(params.Transaction).Release()
@@ -197,7 +197,7 @@ func (s *storage) storeTransactionCommand(params *dataFlowParams, next dataflow.
 }
 
 // initConsumers creates the Consumers of a Transaction if they didn't exist before.
-func (s *storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
+func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionID) (cachedConsumers objectstorage.CachedObjects[*Consumer]) {
 	cachedConsumers = make(objectstorage.CachedObjects[*Consumer], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		cachedConsumers = append(cachedConsumers, s.CachedConsumer(it.Next(), txID, NewConsumer))

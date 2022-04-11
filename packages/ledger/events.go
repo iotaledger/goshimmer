@@ -23,6 +23,7 @@ type Events struct {
 	// TransactionBranchIDUpdated is an event that gets triggered whenever the Branch of a Transaction is updated.
 	TransactionBranchIDUpdated *event.Event[*TransactionBranchIDUpdatedEvent]
 
+	// TransactionInvalid is an event that gets triggered whenever a Transaction is found to be invalid.
 	TransactionInvalid *event.Event[*TransactionInvalidEvent]
 
 	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
