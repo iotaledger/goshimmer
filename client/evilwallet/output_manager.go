@@ -63,16 +63,16 @@ func NewOutputManager(connector Connector, wallets *Wallets) *OutputManager {
 	}
 }
 
-// SetOutputIDWalletMap sets wallet for the provided outputID.
-func (o *OutputManager) SetOutputIDWalletMap(outputID string, wallet *Wallet) {
+// setOutputIDWalletMap sets wallet for the provided outputID.
+func (o *OutputManager) setOutputIDWalletMap(outputID string, wallet *Wallet) {
 	o.Lock()
 	defer o.Unlock()
 
 	o.outputIDWalletMap[outputID] = wallet
 }
 
-// SetOutputIDAddrMap sets address for the provided outputID.
-func (o *OutputManager) SetOutputIDAddrMap(outputID string, addr string) {
+// setOutputIDAddrMap sets address for the provided outputID.
+func (o *OutputManager) setOutputIDAddrMap(outputID string, addr string) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -156,8 +156,8 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	}
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), addr.Base58())
+	o.setOutputIDWalletMap(outputID.Base58(), w)
+	o.setOutputIDAddrMap(outputID.Base58(), addr.Base58())
 	return out
 }
 
@@ -166,16 +166,16 @@ func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output 
 	outputID := output.ID()
 	idx := w.AddrIndexMap(output.Address().Base58())
 	out := w.AddUnspentOutput(output.Address(), idx, outputID, output.Balances())
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
+	o.setOutputIDWalletMap(outputID.Base58(), w)
+	o.setOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
 	return out
 }
 
 // UpdateOutputID updates the output wallet  and address.
 func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outputID ledgerstate.OutputID) error {
 	err := w.UpdateUnspentOutputID(addr, outputID)
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), addr)
+	o.setOutputIDWalletMap(outputID.Base58(), w)
+	o.setOutputIDAddrMap(outputID.Base58(), addr)
 	return err
 }
 
@@ -211,7 +211,7 @@ func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
 	output = o.getOutputFromWallet(outputID)
 
-	// get output info from via web api
+	// get output info via web api
 	if output == nil {
 		clt := o.connector.GetClient()
 		out := clt.GetOutput(outputID)
