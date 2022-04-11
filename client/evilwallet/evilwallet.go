@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -263,9 +262,6 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 }
 
 func (e *EvilWallet) handleInputOutputDuringSplitOutputs(splitNumber int, inputWallet *Wallet, inputAddr string) (input ledgerstate.OutputID, outputs []*OutputOption) {
-	if inputWallet.UnspentOutputsLength() == 0 {
-		fmt.Println("no unspent outputs")
-	}
 	evilInput := inputWallet.UnspentOutput(inputAddr)
 	input = evilInput.OutputID
 
