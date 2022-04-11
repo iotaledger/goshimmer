@@ -38,8 +38,8 @@ type OutputOption struct {
 	amount    uint64
 }
 
-// NewOptions is the constructor for the MessageTestFrameworkMessageOptions.
-func NewOptions(options ...Option) (option *Options) {
+// NewOptions is the constructor for the tx creation.
+func NewOptions(options ...Option) (option *Options, err error) {
 	option = &Options{
 		aliasInputs:           make(map[string]types.Empty),
 		inputs:                make([]ledgerstate.OutputID, 0),
@@ -53,6 +53,16 @@ func NewOptions(options ...Option) (option *Options) {
 
 	for _, opt := range options {
 		opt(option)
+	}
+
+	// check if alias and non-alias are mixed in use.
+	if err = option.checkInputsAndOutputs(); err != nil {
+		return nil, err
+	}
+
+	// input and output wallets must be provided if inputs/outputs are not aliases.
+	if err = option.isWalletProvidedForInputsOutputs(); err != nil {
+		return nil, err
 	}
 
 	if option.outputWallet == nil {
@@ -78,6 +88,20 @@ func (o *Options) isBalanceProvided() bool {
 		})
 	}
 	return provided
+}
+
+func (o *Options) isWalletProvidedForInputsOutputs() error {
+	if o.areInputsProvidedWithoutAliases() {
+		if o.inputWallet == nil {
+			return errors.New("no input wallet provided for inputs without aliases")
+		}
+	}
+	if o.areOutputsProvidedWithoutAliases() {
+		if o.outputWallet == nil {
+			return errors.New("no output wallet provided for outputs without aliases")
+		}
+	}
+	return nil
 }
 
 func (o *Options) areInputsProvidedWithoutAliases() bool {

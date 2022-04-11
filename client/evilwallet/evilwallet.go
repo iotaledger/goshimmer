@@ -345,13 +345,7 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 // 1 - inputs are provided directly without associated alias, 2- alias is provided, and input is already stored in an alias manager,
 // 3 - alias is provided, and there are no inputs assigned in Alias manager, so aliases are assigned to next ready inputs from input wallet.
 func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Transaction, err error) {
-	buildOptions := NewOptions(options...)
-	err = buildOptions.checkInputsAndOutputs()
-	if err != nil {
-		return
-	}
-
-	err = e.isWalletProvidedForInputsOutputs(buildOptions)
+	buildOptions, err := NewOptions(options...)
 	if err != nil {
 		return nil, err
 	}
@@ -411,21 +405,6 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 	err := e.useFreshIfInputWalletNotProvided(buildOptions)
 	if err != nil {
 		return err
-	}
-	return nil
-}
-
-// isWalletProvidedForInputs checks if inputs without corresponding aliases are provided with corresponding input wallet.
-func (e *EvilWallet) isWalletProvidedForInputsOutputs(buildOptions *Options) error {
-	if buildOptions.areInputsProvidedWithoutAliases() {
-		if buildOptions.inputWallet == nil {
-			return errors.New("no input wallet provided for inputs without aliases")
-		}
-	}
-	if buildOptions.areOutputsProvidedWithoutAliases() {
-		if buildOptions.outputWallet == nil {
-			return errors.New("no output wallet provided for outputs without aliases")
-		}
 	}
 	return nil
 }
