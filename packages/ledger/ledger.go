@@ -60,6 +60,10 @@ func New(options ...Option) (ledger *Ledger) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
 	}))
 
+	ledger.Events.TransactionInvalid.Attach(event.NewClosure[*TransactionInvalidEvent](func(event *TransactionInvalidEvent) {
+		ledger.PruneTransaction(event.TransactionID)
+	}))
+
 	return ledger
 }
 
@@ -74,6 +78,11 @@ func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
 	defer l.mutex.Unlock(tx.ID())
 
 	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(NewTransaction(tx)))
+}
+
+// PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid).
+func (l *Ledger) PruneTransaction(txID utxo.TransactionID) {
+	// TODO: IMPLEMENT PRUNING LOGIC
 }
 
 // processTransaction tries to book a single Transaction.
