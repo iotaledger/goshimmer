@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -150,7 +151,7 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 
 // IssueTransaction issues the transaction given by txAlias.
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
-	return t.ledger.StoreAndProcessTransaction(t.Transaction(txAlias))
+	return t.ledger.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.

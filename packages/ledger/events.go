@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"context"
+
 	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
@@ -63,6 +65,9 @@ type TransactionBookedEvent struct {
 
 	// Outputs contains the set of Outputs that this Transaction created.
 	Outputs Outputs
+
+	// Context contains a Context provided by the caller that triggered this event.
+	Context context.Context
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,6 +81,9 @@ type TransactionForkedEvent struct {
 
 	// ParentBranches contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
 	ParentBranches branchdag.BranchIDs
+
+	// Context contains a Context provided by the caller that triggered this event.
+	Context context.Context
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -106,6 +114,9 @@ type TransactionInvalidEvent struct {
 
 	// Reason contains the error that caused the Transaction to be considered invalid.
 	Reason error
+
+	// Context contains a Context provided by the caller that triggered this event.
+	Context context.Context
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

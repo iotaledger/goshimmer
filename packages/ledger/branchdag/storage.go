@@ -24,7 +24,7 @@ type Storage struct {
 	// conflictMemberStorage is an object storage used to persist ConflictMember objects.
 	conflictMemberStorage *objectstorage.ObjectStorage[*ConflictMember]
 
-	// shutdownOnce is used to ensure that the shutdown routine is executed only a single time.
+	// shutdownOnce is used to ensure that the Shutdown routine is executed only a single time.
 	shutdownOnce sync.Once
 }
 

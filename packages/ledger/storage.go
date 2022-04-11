@@ -1,8 +1,11 @@
 package ledger
 
 import (
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -33,6 +36,9 @@ type Storage struct {
 
 	// ledger contains a reference to the Ledger that created the storage.
 	ledger *Ledger
+
+	// shutdownOnce is used to ensure that the Shutdown routine is executed only a single time.
+	shutdownOnce sync.Once
 }
 
 // newStorage returns a new storage instance for the given Ledger.
@@ -161,6 +167,35 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
 
 	return
+}
+
+// Prune resets the database and deletes all entities.
+func (s *Storage) Prune() (err error) {
+	for _, storagePrune := range []func() error{
+		s.transactionStorage.Prune,
+		s.transactionMetadataStorage.Prune,
+		s.outputStorage.Prune,
+		s.outputMetadataStorage.Prune,
+		s.consumerStorage.Prune,
+	} {
+		if err = storagePrune(); err != nil {
+			err = errors.Errorf("failed to prune the object storage (%v): %w", err, cerrors.ErrFatal)
+			return
+		}
+	}
+
+	return
+}
+
+// Shutdown shuts down the KVStores that are used to persist data.
+func (s *Storage) Shutdown() {
+	s.shutdownOnce.Do(func() {
+		s.transactionStorage.Shutdown()
+		s.transactionMetadataStorage.Shutdown()
+		s.outputStorage.Shutdown()
+		s.outputMetadataStorage.Shutdown()
+		s.consumerStorage.Shutdown()
+	})
 }
 
 // storeTransactionCommand is a ChainedCommand that stores a Transaction.
