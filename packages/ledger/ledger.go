@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"context"
+
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 
@@ -68,16 +70,16 @@ func New(options ...Option) (ledger *Ledger) {
 }
 
 // CheckTransaction checks the validity of a Transaction.
-func (l *Ledger) CheckTransaction(tx utxo.Transaction) (err error) {
-	return l.dataFlow.checkTransaction().Run(newDataFlowParams(NewTransaction(tx)))
+func (l *Ledger) CheckTransaction(ctx context.Context, tx utxo.Transaction) (err error) {
+	return l.dataFlow.checkTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
 }
 
 // StoreAndProcessTransaction stores and processes the given Transaction.
-func (l *Ledger) StoreAndProcessTransaction(tx utxo.Transaction) (err error) {
+func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transaction) (err error) {
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
-	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(NewTransaction(tx)))
+	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
 }
 
 // PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid).
@@ -94,7 +96,7 @@ func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
-	return l.dataFlow.processTransaction().Run(newDataFlowParams(tx))
+	return l.dataFlow.processTransaction().Run(newDataFlowParams(context.Background(), tx))
 }
 
 // processConsumingTransactions tries to book the transactions approving the given OutputIDs (it is used to propagate

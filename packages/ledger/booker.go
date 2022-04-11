@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
@@ -46,13 +48,13 @@ func (b *booker) checkAlreadyBookedCommand(params *dataFlowParams, next dataflow
 
 // bookTransactionCommand is a ChainedCommand that books a Transaction.
 func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	b.bookTransaction(params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
+	b.bookTransaction(params.Context, params.TransactionMetadata, params.InputsMetadata, params.Consumers, params.Outputs)
 
 	return next(params)
 }
 
 // bookTransaction books a Transaction in the Ledger and creates its Outputs.
-func (b *booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs Outputs) {
+func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs Outputs) {
 	branchIDs := b.inheritBranchIDs(txMetadata.ID(), inputsMetadata)
 
 	b.storeOutputs(outputs, branchIDs)
@@ -66,6 +68,7 @@ func (b *booker) bookTransaction(txMetadata *TransactionMetadata, inputsMetadata
 	b.ledger.Events.TransactionBooked.Trigger(&TransactionBookedEvent{
 		TransactionID: txMetadata.ID(),
 		Outputs:       outputs,
+		Context:       ctx,
 	})
 }
 

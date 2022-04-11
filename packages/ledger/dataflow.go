@@ -1,6 +1,8 @@
 package ledger
 
 import (
+	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 
@@ -58,6 +60,7 @@ func (d *dataFlow) handleError(err error, params *dataFlowParams) {
 		d.ledger.Events.TransactionInvalid.Trigger(&TransactionInvalidEvent{
 			TransactionID: params.Transaction.ID(),
 			Reason:        err,
+			Context:       params.Context,
 		})
 
 		return
@@ -72,6 +75,9 @@ func (d *dataFlow) handleError(err error, params *dataFlowParams) {
 
 // dataFlowParams is a container for parameters that have to be determined when booking a Transactions.
 type dataFlowParams struct {
+	// Context can be handed in by external callers and gets passed through in the events.
+	Context context.Context
+
 	// Transaction contains the Transaction that is being processed.
 	Transaction *Transaction
 
@@ -95,8 +101,9 @@ type dataFlowParams struct {
 }
 
 // newDataFlowParams returns a new dataFlowParams instance for the given Transaction.
-func newDataFlowParams(tx *Transaction) (new *dataFlowParams) {
+func newDataFlowParams(ctx context.Context, tx *Transaction) (new *dataFlowParams) {
 	return &dataFlowParams{
+		Context:     ctx,
 		Transaction: tx,
 		InputIDs:    utxo.NewOutputIDs(),
 	}
