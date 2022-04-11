@@ -2,10 +2,11 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 

@@ -39,8 +39,8 @@ type OutputOption struct {
 }
 
 // NewOptions is the constructor for the MessageTestFrameworkMessageOptions.
-func NewOptions(options ...Option) (messageOptions *Options) {
-	messageOptions = &Options{
+func NewOptions(options ...Option) (option *Options) {
+	option = &Options{
 		aliasInputs:           make(map[string]types.Empty),
 		inputs:                make([]ledgerstate.OutputID, 0),
 		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
@@ -51,9 +51,14 @@ func NewOptions(options ...Option) (messageOptions *Options) {
 		shallowDislikeParents: make(map[string]types.Empty),
 	}
 
-	for _, option := range options {
-		option(messageOptions)
+	for _, opt := range options {
+		opt(option)
 	}
+
+	if option.outputWallet == nil {
+		option.outputWallet = NewWallet()
+	}
+
 	return
 }
 

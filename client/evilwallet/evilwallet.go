@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 
@@ -347,9 +346,6 @@ func (e *EvilWallet) SendCustomConflicts(conflictsMaps []ConflictSlice) (err err
 // 3 - alias is provided, and there are no inputs assigned in Alias manager, so aliases are assigned to next ready inputs from input wallet.
 func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Transaction, err error) {
 	buildOptions := NewOptions(options...)
-	// wallet used only for outputs in the middle of the batch, that will never be reused outside custom conflict batch creation.
-	tempWallet := e.NewWallet()
-
 	err = buildOptions.checkInputsAndOutputs()
 	if err != nil {
 		return
@@ -365,13 +361,11 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
-	e.createNewOutputWalletIfNotProvided(buildOptions)
-
 	inputs, err := e.prepareInputs(buildOptions)
 	if err != nil {
 		return nil, err
 	}
-	outputs, addrAliasMap, tempAddresses, err := e.prepareOutputs(buildOptions, tempWallet)
+	outputs, addrAliasMap, err := e.prepareOutputs(buildOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -389,26 +383,16 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
-	e.addOutputsToOutputManager(tx, tempAddresses, buildOptions, tempWallet)
-
-	err = e.updateOutputIDs(tx.Essence().Outputs(), buildOptions.outputWallet, tempWallet, tempAddresses)
-	if err != nil {
-		return nil, err
-	}
-
+	e.addOutputsToOutputManager(tx, buildOptions.outputWallet)
 	e.registerOutputAliases(tx.Essence().Outputs(), addrAliasMap)
 
 	return
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if
-func (e *EvilWallet) addOutputsToOutputManager(tx *ledgerstate.Transaction, tempAddresses map[ledgerstate.Address]types.Empty, buildOptions *Options, tempWallet *Wallet) {
+func (e *EvilWallet) addOutputsToOutputManager(tx *ledgerstate.Transaction, outWallet *Wallet) {
 	for _, o := range tx.Essence().Outputs() {
-		if _, ok := tempAddresses[o.Address()]; ok {
-			e.outputManager.AddOutput(tempWallet, o)
-		} else {
-			e.outputManager.AddOutput(buildOptions.outputWallet, o)
-		}
+		e.outputManager.AddOutput(outWallet, o)
 	}
 }
 
@@ -446,12 +430,6 @@ func (e *EvilWallet) isWalletProvidedForInputsOutputs(buildOptions *Options) err
 	return nil
 }
 
-func (e *EvilWallet) createNewOutputWalletIfNotProvided(buildOptions *Options) {
-	if buildOptions.outputWallet == nil {
-		buildOptions.outputWallet = NewWallet()
-	}
-}
-
 func (e *EvilWallet) registerOutputAliases(outputs ledgerstate.Outputs, addrAliasMap map[ledgerstate.Address]string) {
 	if len(addrAliasMap) == 0 {
 		return
@@ -486,19 +464,19 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.
 }
 
 // prepareOutputs creates outputs for different scenarios, if no aliases were provided, new empty outputs are created from buildOptions.outputs balances.
-func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (outputs []ledgerstate.Output,
-	addrAliasMap map[ledgerstate.Address]string, tempAddresses map[ledgerstate.Address]types.Empty, err error) {
+func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, err error) {
 	// if outputs were provided with aliases
 	if buildOptions.areOutputsProvidedWithoutAliases() {
 		for _, balance := range buildOptions.outputs {
 			output := ledgerstate.NewSigLockedColoredOutput(balance, buildOptions.outputWallet.Address().Address())
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, nil, err
 			}
 			outputs = append(outputs, output)
 		}
 	} else {
-		outputs, addrAliasMap, tempAddresses, err = e.matchOutputsWithAliases(buildOptions, tempWallet)
+		outputs, addrAliasMap, err = e.matchOutputsWithAliases(buildOptions)
 	}
 	return
 }
@@ -548,24 +526,15 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) err
 // Thus, they are tracker in address to alias map. If the scenario is used, the outputBatchAliases map is provided
 // that indicates which outputs should be saved to the outputWallet.All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
-func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []ledgerstate.Output,
-	addrAliasMap map[ledgerstate.Address]string, tempAddresses map[ledgerstate.Address]types.Empty, err error) {
-	tempAddresses = make(map[ledgerstate.Address]types.Empty)
+func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, err error) {
 	err = e.updateOutputBalances(buildOptions)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	addrAliasMap = make(map[ledgerstate.Address]string)
 	for alias, balance := range buildOptions.aliasOutputs {
-		// only outputs in buildOptions.outputBatchAliases are created with outWallet, for others we use temporary wallet
-		var addr ledgerstate.Address
-		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
-			addr = buildOptions.outputWallet.Address().Address()
-		} else {
-			addr = tempWallet.Address().Address()
-			tempAddresses[addr] = types.Void
-		}
-
+		var addr = buildOptions.outputWallet.Address().Address()
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, addr))
 		addrAliasMap[addr] = alias
 	}
@@ -705,22 +674,6 @@ func (e *EvilWallet) getAddressFromInput(input ledgerstate.Input) (addr ledgerst
 	}
 	addr = out.Address
 	return
-}
-
-func (e *EvilWallet) updateOutputIDs(outputs ledgerstate.Outputs, outWallet *Wallet, tempWallet *Wallet, tempAddresses map[ledgerstate.Address]types.Empty) error {
-	for _, output := range outputs {
-		var wallet *Wallet
-		if _, ok := tempAddresses[output.Address()]; ok {
-			wallet = tempWallet
-		} else {
-			wallet = outWallet
-		}
-		err := e.outputManager.UpdateOutputID(wallet, output.Address().Base58(), output.ID())
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (e *EvilWallet) PrepareCustomConflictsSpam(scenario *EvilScenario) (txs [][]*ledgerstate.Transaction, allAliases ScenarioAlias, err error) {
