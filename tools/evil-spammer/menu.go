@@ -1,6 +1,9 @@
-package interactive
+package main
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+)
 
 // region Printer /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -53,22 +56,29 @@ func (p *Printer) printBanner() {
 
 func (p *Printer) EvilWalletStatus() {
 	//p.mode.evilWallet.
-	nOut := 12
 	p.Println("Evil Wallet status:", 2)
-	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", nOut), 2)
-	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", nOut), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed messages: %d", nOut), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", nOut), 2)
-	p.PrintlnPoint(fmt.Sprintf("Spammed conflicts: %d", nOut), 2)
+	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Fresh)), 2)
+	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Reuse)), 2)
+	p.PrintlnPoint(fmt.Sprintf("Spammed messages: %d", p.mode.msgSent.Load()), 2)
+	p.PrintlnPoint(fmt.Sprintf("Spammed transactions: %d", p.mode.txSent.Load()), 2)
+	p.PrintlnPoint(fmt.Sprintf("Spammed conflicts: %d", p.mode.conflictsSent.Load()), 2)
 
 	p.PrintLine()
 }
 
 func (p *Printer) FarewellMessage() {
 	//p.mode.evilWallet.
-	p.PrintThickLine()
+	p.PrintLine()
 	fmt.Println("                              GOODBYE")
 	p.PrintLine()
+}
+
+func (p *Printer) SettingFundsMessage() {
+	if p.mode.autoFundsPrepareEnabled {
+		p.Println("Auto funds creation enabled", 2)
+	} else {
+		p.Println("Auto funds creation disabled", 2)
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,7 +8,7 @@ var scenariosMap map[string]EvilBatch
 
 func init() {
 	scenariosMap = make(map[string]EvilBatch)
-	scenariosMap["single-tx"] = SingleTransactionBatch()
+	scenariosMap["tx"] = SingleTransactionBatch()
 	scenariosMap["ds"] = NSpendBatch(2)
 	scenariosMap["conflict-circle"] = ConflictSetCircle(4)
 	scenariosMap["guava"] = Scenario1()

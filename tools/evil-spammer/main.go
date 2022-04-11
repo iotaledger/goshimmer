@@ -4,7 +4,6 @@ import (
 	"flag"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/tools/evil-spammer/evillogger"
-	"github.com/iotaledger/goshimmer/tools/evil-spammer/interactive"
 	"os"
 	"strconv"
 	"strings"
@@ -21,7 +20,7 @@ func main() {
 	// run selected test scenario
 	switch Script {
 	case "interactive":
-		interactive.Run()
+		Run()
 	case "basic":
 		CustomSpam(&customSpamParams)
 	case "quick":
