@@ -83,10 +83,23 @@ func (w *Wallets) GetNextWallet(walletType WalletType, minOutputsLeft int) (*Wal
 		if !w.IsFaucetWalletAvailable() {
 			return nil, errors.New("no faucet wallets available, need to request more funds")
 		}
-		wallet := w.wallets[w.faucetWallets[0]]
-		if wallet.IsEmpty() {
-			return nil, errors.New("wallet is empty, need to request more funds")
+
+		var wallet *Wallet
+		removalCounter := 0
+		for _, ID := range w.faucetWallets {
+			wallet = w.wallets[ID]
+			if wallet.IsEmpty() {
+				removalCounter++
+			}
+			// break until a valid fresh wallet is found.
+			break
 		}
+
+		// clean up unavailable fresh wallets.
+		for i := 0; i < removalCounter; i++ {
+			w.removeFreshWallet()
+		}
+
 		return wallet, nil
 	case Reuse:
 		for id, ready := range w.reuseWallets {
@@ -142,11 +155,7 @@ func (w *Wallets) IsFaucetWalletAvailable() bool {
 func (w *Wallets) freshWallet() (*Wallet, error) {
 	wallet, err := w.GetNextWallet(Fresh, 1)
 	if err != nil {
-		w.removeFreshWallet()
-		wallet, err = w.GetNextWallet(Fresh, 1)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return wallet, nil
 }
