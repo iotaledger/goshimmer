@@ -7,15 +7,16 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 func TestLoadSnapshot(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	ledgerState := tangle.Ledger
+	ledgerState := tangle.LedgerstateOLD
 
 	wallets := createWallets(1)
 

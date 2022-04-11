@@ -10,8 +10,9 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -93,7 +94,7 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		ID: transactionID.Base58(),
 	}
 
-	deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		txInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
 		txInfo.AccessManaPledgeID = base58.Encode(transaction.Essence().AccessPledgeID().Bytes())
 		txInfo.ConsensusManaPledgeID = base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes())
@@ -105,11 +106,11 @@ func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID
 		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 
-	deps.Tangle.Ledger.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txInfo.SolidTime = transactionMetadata.SolidificationTime()
 		txInfo.BranchIDs = transactionMetadata.BranchIDs().Base58()
 
-		txInfo.Conflicting = deps.Tangle.Ledger.TransactionConflicting(transactionID)
+		txInfo.Conflicting = deps.Tangle.LedgerstateOLD.TransactionConflicting(transactionID)
 		txInfo.LazyBooked = transactionMetadata.LazyBooked()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()

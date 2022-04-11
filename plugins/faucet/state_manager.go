@@ -15,10 +15,11 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -292,8 +293,8 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	Plugin.LogInfof("Looking for existing funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
-		deps.Tangle.Ledger.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
-			deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
+			deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {
@@ -325,9 +326,9 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	remainderAddress := s.replenishmentState.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	deps.Tangle.Ledger.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
+	deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			if deps.Tangle.LedgerstateOLD.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
@@ -365,11 +366,11 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		// make sure only one output per address will be added
 		foundOnCurrentAddress = false
 
-		deps.Tangle.Ledger.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
 			if foundOnCurrentAddress {
 				return
 			}
-			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
+			if deps.Tangle.LedgerstateOLD.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
 				if !ok || iotaBalance != s.tokensPerSupplyOutput {
@@ -574,7 +575,7 @@ func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, iss
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
-	deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		newFaucetRemainderBalance := s.replenishmentState.RemainderOutputBalance() - s.tokensUsedOnSupplyReplenishment
 
 		// derive information from outputs

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -2619,12 +2620,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message27", WithStrongParents("Message19"))
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
-		testFramework.tangle.Ledger.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.Ledger.Branch(testFramework.BranchID("E")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.LedgerstateOLD.SetBranchConfirmed(testFramework.BranchID("E"))
+		testFramework.tangle.LedgerstateOLD.Branch(testFramework.BranchID("E")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Confirmed)
 		})
 
-		testFramework.tangle.Ledger.Branch(testFramework.BranchID("D")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.LedgerstateOLD.Branch(testFramework.BranchID("D")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -2952,11 +2953,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.Ledger.Branch(testFramework.BranchID("H")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.LedgerstateOLD.Branch(testFramework.BranchID("H")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
-		testFramework.tangle.Ledger.Branch(testFramework.BranchID("I")).Consume(func(branch *ledgerstate.Branch) {
+		testFramework.tangle.LedgerstateOLD.Branch(testFramework.BranchID("I")).Consume(func(branch *ledgerstate.Branch) {
 			assert.Equal(t, branch.InclusionState(), ledgerstate.Rejected)
 		})
 
@@ -3677,7 +3678,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 	// ISSUE Message6
 	{
 
-		tg.Ledger.SetBranchConfirmed(testFramework.BranchID("red"))
+		tg.LedgerstateOLD.SetBranchConfirmed(testFramework.BranchID("red"))
 
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"))
 

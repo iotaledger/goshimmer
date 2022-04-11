@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/txstream"
 )
@@ -17,7 +18,7 @@ type TangleLedger struct {
 	txBookedEvent   *events.Event
 }
 
-// ensure conformance to Ledger interface.
+// ensure conformance to LedgerstateOLD interface.
 var _ txstream.Ledger = &TangleLedger{}
 
 var txEventHandler = func(f interface{}, params ...interface{}) {
@@ -55,9 +56,9 @@ func (t *TangleLedger) EventTransactionBooked() *events.Event {
 
 // GetUnspentOutputs returns the available UTXOs for an address.
 func (t *TangleLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output ledgerstate.Output)) {
-	t.tangleInstance.Ledger.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
+	t.tangleInstance.LedgerstateOLD.CachedOutputsOnAddress(addr).Consume(func(output ledgerstate.Output) {
 		ok := true
-		t.tangleInstance.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		t.tangleInstance.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if outputMetadata.ConsumerCount() != 0 {
 				ok = false
 				return
@@ -75,7 +76,7 @@ func (t *TangleLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f f
 		return false
 	}
 
-	t.tangleInstance.Ledger.Transaction(txid).Consume(f)
+	t.tangleInstance.LedgerstateOLD.Transaction(txid).Consume(f)
 	return true
 }
 
@@ -90,10 +91,10 @@ func (t *TangleLedger) PostTransaction(tx *ledgerstate.Transaction) error {
 
 // GetOutput finds an output by ID (either spent or unspent).
 func (t *TangleLedger) GetOutput(outID ledgerstate.OutputID, f func(ledgerstate.Output)) bool {
-	return t.tangleInstance.Ledger.CachedOutput(outID).Consume(f)
+	return t.tangleInstance.LedgerstateOLD.CachedOutput(outID).Consume(f)
 }
 
 // GetOutputMetadata finds an output by ID and returns its metadata.
 func (t *TangleLedger) GetOutputMetadata(outID ledgerstate.OutputID, f func(*ledgerstate.OutputMetadata)) bool {
-	return t.tangleInstance.Ledger.CachedOutputMetadata(outID).Consume(f)
+	return t.tangleInstance.LedgerstateOLD.CachedOutputMetadata(outID).Consume(f)
 }

@@ -13,8 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -133,7 +134,7 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
-				deps.Tangle.Ledger.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+				deps.Tangle.LedgerstateOLD.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs := make([]string, 0)
 					for branchID := range txMetadata.BranchIDs() {
 						branchIDs = append(branchIDs, branchID.Base58())
@@ -153,7 +154,7 @@ func registerUTXOEvents() {
 	})
 
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-		deps.Tangle.Ledger.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerstateOLD.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOConfirmed,
 				Data: &utxoConfirmed{
@@ -206,7 +207,7 @@ func registerBranchEvents() {
 	})
 
 	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		branchGoF, _ := deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(e.BranchID)
+		branchGoF, _ := deps.Tangle.LedgerstateOLD.UTXODAG.BranchGradeOfFinality(e.BranchID)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
@@ -219,9 +220,9 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(createdClosure)
+	deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Attach(createdClosure)
 	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
-	deps.Tangle.Ledger.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
 
@@ -367,7 +368,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	var gof string
 	var confirmedTime int64
 	var branchIDs []string
-	deps.Tangle.Ledger.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+	deps.Tangle.LedgerstateOLD.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
 		branchIDs = txMetadata.BranchIDs().Base58()
@@ -388,17 +389,17 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 }
 
 func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
-	deps.Tangle.Ledger.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
+	deps.Tangle.LedgerstateOLD.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
 		conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
 		// get conflicts of a branch
 		for conflictID := range branch.Conflicts() {
 			conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
-			deps.Tangle.Ledger.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
+			deps.Tangle.LedgerstateOLD.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
 				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
 			})
 		}
 
-		branchGoF, _ := deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(branchID)
+		branchGoF, _ := deps.Tangle.LedgerstateOLD.UTXODAG.BranchGradeOfFinality(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
 			Parents:     branch.Parents().Base58(),

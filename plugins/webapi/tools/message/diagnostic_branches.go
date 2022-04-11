@@ -8,8 +8,9 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
@@ -30,7 +31,7 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.Ledger.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	deps.Tangle.LedgerstateOLD.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
 			return
@@ -72,18 +73,18 @@ func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchI
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.Ledger.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.UTXODAG.BranchGradeOfFinality(branch.ID())
+	deps.Tangle.LedgerstateOLD.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerstateOLD.UTXODAG.BranchGradeOfFinality(branch.ID())
 
 		transactionID := ledgerstate.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = deps.Tangle.Ledger.ConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = deps.Tangle.LedgerstateOLD.ConflictSet(transactionID).Base58s()
 
-		deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
 		})
 
-		deps.Tangle.Ledger.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
 		})

@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -80,7 +81,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 
 	// override message solidification data if message contains a transaction
 	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.Tangle.Ledger.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.SolidificationTime()
 			record.TransactionID = transactionID.Base58()
 			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
@@ -143,7 +144,7 @@ func onMessageFinalized(messageID tangle.MessageID) {
 	})
 
 	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.Tangle.Ledger.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.SolidificationTime()
 			record.TransactionID = transactionID.Base58()
 			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()

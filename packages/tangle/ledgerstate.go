@@ -8,32 +8,29 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 )
 
-// region Ledger //////////////////////////////////////////////////////////////////////////////////////////////////
+// region LedgerstateOLD //////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Ledger is a Tangle component that wraps the components of the ledger package and makes them available at a
+// LedgerstateOLD is a Tangle component that wraps the components of the ledger package and makes them available at a
 // "single point of contact".
-type Ledger struct {
+type LedgerstateOLD struct {
 	tangle      *Tangle
 	totalSupply uint64
-
-	*ledger.Ledger
 }
 
-// NewLedger is the constructor of the Ledger component.
-func NewLedger(tangle *Tangle) (ledgerState *Ledger) {
-	return &Ledger{
+// NewLedger is the constructor of the LedgerstateOLD component.
+func NewLedger(tangle *Tangle) (ledgerState *LedgerstateOLD) {
+	return &LedgerstateOLD{
 		tangle: tangle,
-		Ledger: ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider)),
 	}
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (l *Ledger) Setup() {
+func (l *LedgerstateOLD) Setup() {
 	l.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID branchdag.BranchID) {
 		if l.tangle.Options.LedgerState.MergeBranches {
 			l.BranchDAG.SetBranchConfirmed(branchID)
@@ -41,14 +38,14 @@ func (l *Ledger) Setup() {
 	}))
 }
 
-// Shutdown shuts down the Ledger and persists its state.
-func (l *Ledger) Shutdown() {
-	// TODO: l.Ledger.Shutdown()
+// Shutdown shuts down the LedgerstateOLD and persists its state.
+func (l *LedgerstateOLD) Shutdown() {
+	// TODO: l.LedgerstateOLD.Shutdown()
 }
 
 // TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
 // not pass.
-func (l *Ledger) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
+func (l *LedgerstateOLD) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
 	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
 		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetObjectivelyInvalid(true)
@@ -62,24 +59,24 @@ func (l *Ledger) TransactionValid(transaction *ledgerstate.Transaction, messageI
 }
 
 // TransactionConflicting returns whether the given transaction is part of a conflict.
-func (l *Ledger) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
+func (l *LedgerstateOLD) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
 	branchIDs := l.BranchIDs(transactionID)
 	return len(branchIDs) == 1 && branchIDs.Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // TransactionMetadata retrieves the TransactionMetadata with the given TransactionID from the object storage.
-func (l *Ledger) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *objectstorage.CachedObject[*ledgerstate.TransactionMetadata]) {
+func (l *LedgerstateOLD) TransactionMetadata(transactionID ledgerstate.TransactionID) (cachedTransactionMetadata *objectstorage.CachedObject[*ledgerstate.TransactionMetadata]) {
 	return l.UTXODAG.CachedTransactionMetadata(transactionID)
 }
 
 // Transaction retrieves the Transaction with the given TransactionID from the object storage.
-func (l *Ledger) Transaction(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.Transaction] {
+func (l *LedgerstateOLD) Transaction(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.Transaction] {
 	return l.UTXODAG.CachedTransaction(transactionID)
 }
 
-// BookTransaction books the given Transaction into the underlying Ledger and returns the target Branch and an
+// BookTransaction books the given Transaction into the underlying LedgerstateOLD and returns the target Branch and an
 // eventual error.
-func (l *Ledger) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranches ledgerstate.BranchIDs, err error) {
+func (l *LedgerstateOLD) BookTransaction(transaction *ledgerstate.Transaction, messageID MessageID) (targetBranches ledgerstate.BranchIDs, err error) {
 	targetBranches, err = l.UTXODAG.BookTransaction(transaction)
 	if err != nil {
 		err = errors.Errorf("failed to book Transaction: %w", err)
@@ -96,7 +93,7 @@ func (l *Ledger) BookTransaction(transaction *ledgerstate.Transaction, messageID
 }
 
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
-func (l *Ledger) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
+func (l *LedgerstateOLD) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
 	conflictIDs := make(ledgerstate.ConflictIDs)
 	conflictSet = make(ledgerstate.TransactionIDs)
 
@@ -114,7 +111,7 @@ func (l *Ledger) ConflictSet(transactionID ledgerstate.TransactionID) (conflictS
 }
 
 // BranchIDs returns the branchIDs of the given transactionID.
-func (l *Ledger) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
+func (l *LedgerstateOLD) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs ledgerstate.BranchIDs) {
 	l.UTXODAG.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		branchIDs = transactionMetadata.BranchIDs()
 	})
@@ -122,7 +119,7 @@ func (l *Ledger) BranchIDs(transactionID ledgerstate.TransactionID) (branchIDs l
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
-func (l *Ledger) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
+func (l *LedgerstateOLD) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 	l.UTXODAG.LoadSnapshot(snapshot)
 	// add attachment link between txs from snapshot and the genesis message (EmptyMessageID).
 	for txID, record := range snapshot.Transactions {
@@ -148,7 +145,7 @@ func (l *Ledger) LoadSnapshot(snapshot *ledgerstate.Snapshot) (err error) {
 }
 
 // SnapshotUTXO returns the UTXO snapshot, which is a list of transactions with unspent outputs.
-func (l *Ledger) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
+func (l *LedgerstateOLD) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 	// The following parameter should be larger than the max allowed timestamp variation, and the required time for confirmation.
 	// We can snapshot this far in the past, since global snapshots don't occur frequent, and it is ok to ignore the last few minutes.
 	minAge := 120 * time.Second
@@ -211,32 +208,32 @@ func (l *Ledger) SnapshotUTXO() (snapshot *ledgerstate.Snapshot) {
 }
 
 // ReturnTransaction returns a specific transaction.
-func (l *Ledger) ReturnTransaction(transactionID ledgerstate.TransactionID) (transaction *ledgerstate.Transaction) {
+func (l *LedgerstateOLD) ReturnTransaction(transactionID ledgerstate.TransactionID) (transaction *ledgerstate.Transaction) {
 	return l.UTXODAG.Transaction(transactionID)
 }
 
 // Transactions returns all the transactions.
-func (l *Ledger) Transactions() (transactions map[ledgerstate.TransactionID]*ledgerstate.Transaction) {
+func (l *LedgerstateOLD) Transactions() (transactions map[ledgerstate.TransactionID]*ledgerstate.Transaction) {
 	return l.UTXODAG.Transactions()
 }
 
 // CachedOutput returns the Output with the given ID.
-func (l *Ledger) CachedOutput(outputID ledgerstate.OutputID) *objectstorage.CachedObject[ledgerstate.Output] {
+func (l *LedgerstateOLD) CachedOutput(outputID ledgerstate.OutputID) *objectstorage.CachedObject[ledgerstate.Output] {
 	return l.UTXODAG.CachedOutput(outputID)
 }
 
 // CachedOutputMetadata returns the OutputMetadata with the given ID.
-func (l *Ledger) CachedOutputMetadata(outputID ledgerstate.OutputID) *objectstorage.CachedObject[*ledgerstate.OutputMetadata] {
+func (l *LedgerstateOLD) CachedOutputMetadata(outputID ledgerstate.OutputID) *objectstorage.CachedObject[*ledgerstate.OutputMetadata] {
 	return l.UTXODAG.CachedOutputMetadata(outputID)
 }
 
 // CachedTransactionMetadata returns the TransactionMetadata with the given ID.
-func (l *Ledger) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.TransactionMetadata] {
+func (l *LedgerstateOLD) CachedTransactionMetadata(transactionID ledgerstate.TransactionID) *objectstorage.CachedObject[*ledgerstate.TransactionMetadata] {
 	return l.UTXODAG.CachedTransactionMetadata(transactionID)
 }
 
 // CachedOutputsOnAddress retrieves all the Outputs that are associated with an address.
-func (l *Ledger) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs objectstorage.CachedObjects[ledgerstate.Output]) {
+func (l *LedgerstateOLD) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs objectstorage.CachedObjects[ledgerstate.Output]) {
 	l.UTXODAG.CachedAddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
 		cachedOutputs = append(cachedOutputs, l.CachedOutput(addressOutputMapping.OutputID()))
 	})
@@ -244,22 +241,22 @@ func (l *Ledger) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutp
 }
 
 // CheckTransaction contains fast checks that have to be performed before booking a Transaction.
-func (l *Ledger) CheckTransaction(transaction *ledgerstate.Transaction) (err error) {
+func (l *LedgerstateOLD) CheckTransaction(transaction *ledgerstate.Transaction) (err error) {
 	return l.UTXODAG.CheckTransaction(transaction)
 }
 
 // ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-func (l *Ledger) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs objectstorage.CachedObjects[ledgerstate.Output]) {
+func (l *LedgerstateOLD) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs objectstorage.CachedObjects[ledgerstate.Output]) {
 	return l.UTXODAG.ConsumedOutputs(transaction)
 }
 
 // Consumers returns the (cached) consumers of the given outputID.
-func (l *Ledger) Consumers(outputID ledgerstate.OutputID) (cachedTransactions objectstorage.CachedObjects[*ledgerstate.Consumer]) {
+func (l *LedgerstateOLD) Consumers(outputID ledgerstate.OutputID) (cachedTransactions objectstorage.CachedObjects[*ledgerstate.Consumer]) {
 	return l.UTXODAG.CachedConsumers(outputID)
 }
 
 // ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
-func (l *Ledger) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
+func (l *LedgerstateOLD) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
 	// default to no consumer, i.e. Genesis
 	consumerID = ledgerstate.GenesisTransactionID
 	l.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
@@ -274,7 +271,7 @@ func (l *Ledger) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID le
 }
 
 // TotalSupply returns the total supply.
-func (l *Ledger) TotalSupply() (totalSupply uint64) {
+func (l *LedgerstateOLD) TotalSupply() (totalSupply uint64) {
 	return l.totalSupply
 }
 

@@ -5,8 +5,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -84,7 +85,7 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*ledgerstate.Al
 	tx = ledgerstate.NewTransaction(essence, r.wallet.unlockBlocks(essence))
 
 	// check transaction validity
-	if transactionErr := deps.Tangle.Ledger.CheckTransaction(tx); transactionErr != nil {
+	if transactionErr := deps.Tangle.LedgerstateOLD.CheckTransaction(tx); transactionErr != nil {
 		return nil, transactionErr
 	}
 

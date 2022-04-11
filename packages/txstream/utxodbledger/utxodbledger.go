@@ -58,10 +58,10 @@ func (u *UtxoDBLedger) GetUnspentOutputs(addr ledgerstate.Address, f func(output
 // GetHighGoFTransaction fetches a transaction by ID, and executes the given callback if its GoF is high.
 func (u *UtxoDBLedger) GetHighGoFTransaction(txid ledgerstate.TransactionID, f func(ret *ledgerstate.Transaction)) (found bool) {
 	found = false
-	u.tangleInstance.Ledger.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
+	u.tangleInstance.LedgerstateOLD.TransactionMetadata(txid).Consume(func(txmeta *ledgerstate.TransactionMetadata) {
 		if txmeta.GradeOfFinality() == gof.High {
 			found = true
-			u.tangleInstance.Ledger.Transaction(txid).Consume(f)
+			u.tangleInstance.LedgerstateOLD.Transaction(txid).Consume(f)
 		}
 	})
 	return

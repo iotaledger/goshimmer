@@ -8,9 +8,10 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -239,19 +240,19 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	deps.Tangle.Ledger.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 		var metaData *ledgerstate.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + grade of finality status from branch of the output
-		deps.Tangle.Ledger.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 
-		deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
 		})
 
@@ -259,7 +260,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		// obtain information about the consumer of the output being considered
-		confirmedConsumerID := deps.Tangle.Ledger.ConfirmedConsumer(output.ID())
+		confirmedConsumerID := deps.Tangle.LedgerstateOLD.ConfirmedConsumer(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),

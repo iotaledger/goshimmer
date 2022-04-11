@@ -6,6 +6,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -49,7 +50,7 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := deps.Tangle.Ledger.SnapshotUTXO()
+	snapshot := deps.Tangle.LedgerstateOLD.SnapshotUTXO()
 
 	aMana, err := snapshotAccessMana()
 	if err != nil {

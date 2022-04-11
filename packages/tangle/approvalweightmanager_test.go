@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -890,7 +891,7 @@ func getSingleBranch(branches map[string]ledgerstate.BranchIDs, alias string) le
 
 func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchIDs, parentBranchIDs ledgerstate.BranchIDs, conflictID ledgerstate.ConflictID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	cachedBranch, _, err := tangle.Ledger.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
+	cachedBranch, _, err := tangle.LedgerstateOLD.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
 	require.NoError(t, err)
 
 	cachedBranch.Release()

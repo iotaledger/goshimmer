@@ -3,10 +3,11 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -83,7 +84,7 @@ func (b *BranchMarkersMapper) SetMessageID(marker *markers.Marker, messageID Mes
 
 // PendingBranchIDs returns the pending BranchIDs that are associated with the given Marker.
 func (b *BranchMarkersMapper) PendingBranchIDs(marker *markers.Marker) (branchIDs branchdag.BranchIDs) {
-	return b.tangle.Ledger.BranchDAG.FilterPendingBranches(b.branchIDs(marker))
+	return b.tangle.LedgerstateOLD.BranchDAG.FilterPendingBranches(b.branchIDs(marker))
 }
 
 // SetBranchIDs associates ledger.BranchIDs with the given Marker.

@@ -3,11 +3,12 @@ package dashboard
 import (
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
@@ -174,7 +175,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		deps.Tangle.Ledger.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
+		deps.Tangle.LedgerstateOLD.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
 			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
 		})
 	}

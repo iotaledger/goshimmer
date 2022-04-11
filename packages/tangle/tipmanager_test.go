@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -55,7 +56,7 @@ func TestTipManager_AddTip(t *testing.T) {
 		},
 	}
 
-	tangle.Ledger.LoadSnapshot(snapshot)
+	tangle.LedgerstateOLD.LoadSnapshot(snapshot)
 	// set up scenario (images/tipmanager-add-tips.png)
 	messages := make(map[string]*Message)
 
@@ -848,7 +849,7 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
 	// TODO: CheckTransaction should be removed here once the booker passes on errors
 	if message.payload.Type() == ledgerstate.TransactionType {
-		err := tangle.Ledger.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
+		err := tangle.LedgerstateOLD.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
 		require.NoError(t, err)
 	}
 	err := tangle.Booker.BookMessage(message.ID())

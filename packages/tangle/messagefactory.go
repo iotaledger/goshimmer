@@ -11,8 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -192,7 +193,7 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	parents, err = f.selector.Tips(p, parentsCount)
 
 	if p.Type() == ledgerstate.TransactionType {
-		conflictingTransactions := f.tangle.Ledger.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
+		conflictingTransactions := f.tangle.LedgerstateOLD.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
 		if len(conflictingTransactions) != 0 {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:

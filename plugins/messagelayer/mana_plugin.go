@@ -17,9 +17,10 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -115,7 +116,7 @@ func configureEvents() {
 // }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	deps.Tangle.Ledger.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
@@ -145,7 +146,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.Ledger.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		deps.Tangle.LedgerstateOLD.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -158,7 +159,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.Ledger.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+			deps.Tangle.LedgerstateOLD.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
 				if transaction == nil {
 					return
 				}
@@ -459,7 +460,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.Ledger.CachedOutputMetadata(outputID)
+	cachedOutputMetadata := deps.Tangle.LedgerstateOLD.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
@@ -469,14 +470,14 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	deps.Tangle.Ledger.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.LedgerstateOLD.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := deps.Tangle.Ledger.Transaction(outputID.TransactionID())
+	cachedTx := deps.Tangle.LedgerstateOLD.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx, _ := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()

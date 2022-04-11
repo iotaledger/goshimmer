@@ -68,7 +68,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
 
 	// maximum access mana-scaled inbox length
-	maxQueue := float64(maxBuffer) / float64(tangle.Ledger.TotalSupply())
+	maxQueue := float64(maxBuffer) / float64(tangle.LedgerstateOLD.TotalSupply())
 
 	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
 

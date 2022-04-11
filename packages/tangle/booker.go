@@ -51,7 +51,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
-	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
+	b.tangle.LedgerstateOLD.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
 		b.processBookedTransaction(event.TransactionID)
 	}))
 	b.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(b.propagateBooking))
@@ -63,7 +63,8 @@ func (b *Booker) Setup() {
 		})
 	}))
 
-	b.tangle.ledger.UTXODAG.Events().TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledger.TransactionBranchIDUpdatedByForkEvent) {
+	// TODO: hook to event TransactionForked
+	b.tangle.Ledger.Events.TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledger.TransactionBranchIDUpdatedByForkEvent) {
 		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -80,11 +81,11 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs branchdag.Bran
 		err = errors.Errorf("failed to retrieve booking details of Message with %s: %w", messageID, err)
 	}
 
-	if len(branchIDs) == 0 {
+	if branchIDs.IsEmpty() {
 		return branchdag.NewBranchIDs(branchdag.MasterBranchID), nil
 	}
 
-	if len(branchIDs) > 1 {
+	if !branchIDs.IsEmpty() {
 		branchIDs.Delete(branchdag.MasterBranchID)
 	}
 
@@ -102,12 +103,8 @@ func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs branchdag.Bran
 			return
 		}
 
-		b.tangle.Ledger.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-			resolvedBranchIDs, resolveErr := b.tangle.ledger.ResolvePendingBranchIDs(transactionMetadata.BranchIDs())
-			if resolveErr != nil {
-				err = errors.Errorf("failed to resolve conflict branch ids of transaction with %s: %w", transaction.ID(), resolveErr)
-				return
-			}
+		b.tangle.LedgerstateOLD.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+			resolvedBranchIDs := b.tangle.Ledger.BranchDAG.FilterPendingBranches(transactionMetadata.BranchIDs())
 			branchIDs.AddAll(resolvedBranchIDs)
 		})
 	})
@@ -328,7 +325,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	arithmeticBranchIDs.Subtract(dislikedBranchIDs)
 
 	// Make sure that we do not return confirmed branches (aka merge to master).
-	inheritedBranchIDs = b.tangle.Ledger.BranchDAG.FilterPendingBranches(arithmeticBranchIDs.BranchIDs())
+	inheritedBranchIDs = b.tangle.LedgerstateOLD.BranchDAG.FilterPendingBranches(arithmeticBranchIDs.BranchIDs())
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs, nil
 }
@@ -432,15 +429,15 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 				return
 			}
 
-			likedBranchIDs, likedBranchesErr := b.tangle.Ledger.TransactionBranchIDs(transaction.ID())
+			likedBranchIDs, likedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
 			if likedBranchesErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), likedBranchesErr)
 				return
 			}
 			collectedLikedBranchIDs.AddAll(likedBranchIDs)
 
-			for conflictingTransactionID := range b.tangle.Ledger.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.TransactionBranchIDs(conflictingTransactionID)
+			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
+				dislikedBranches, dislikedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -469,15 +466,15 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 				return
 			}
 
-			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.TransactionBranchIDs(transaction.ID())
+			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
 			if referenceDislikedBranchIDsErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), referenceDislikedBranchIDsErr)
 				return
 			}
 			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
 
-			for conflictingTransactionID := range b.tangle.Ledger.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.TransactionBranchIDs(conflictingTransactionID)
+			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
+				dislikedBranches, dislikedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -506,7 +503,7 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 				return
 			}
 
-			weakReferencePayloadBranch, weakReferenceErr := b.tangle.Ledger.TransactionBranchIDs(transaction.ID())
+			weakReferencePayloadBranch, weakReferenceErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
 			if weakReferenceErr != nil {
 				err = errors.Errorf("failed to retrieve BranchIDs of Transaction with %s contained in %s weakly referenced by %s: %w", transaction.ID(), parentMessageID, message.ID(), weakReferenceErr)
 				return
