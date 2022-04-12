@@ -36,8 +36,11 @@ func (t BranchID) String() (humanReadable string) {
 	return "BranchID(" + t.Alias() + ")"
 }
 
-// MasterBranchID contains the null-value of the BranchID type.
-var MasterBranchID BranchID
+// UndefinedBranchID contains the null-value of the BranchID type.
+var UndefinedBranchID BranchID
+
+// MasterBranchID contains the identifier of the master Branch.
+var MasterBranchID = BranchID{types.Identifier{1}}
 
 // BranchIDLength contains the byte length of a serialized BranchID.
 const BranchIDLength = types.IdentifierLength
