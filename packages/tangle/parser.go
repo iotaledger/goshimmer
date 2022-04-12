@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
 
@@ -479,13 +479,8 @@ type TransactionFilter struct {
 
 // Filter compares the timestamps between the message, and it's transaction payload and calls the corresponding callback.
 func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
-	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
-		transaction, err := new(ledgerstate.Transaction).FromBytes(payload.Bytes())
-		if err != nil {
-			f.getRejectCallback()(msg, err, peer)
-			return
-		}
-		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
+	if tx, ok := msg.Payload().(*devnetvm.Transaction); ok {
+		if !isMessageAndTransactionTimestampsValid(tx, msg) {
 			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
 			return
 		}
@@ -493,7 +488,7 @@ func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 	f.getAcceptCallback()(msg, peer)
 }
 
-func isMessageAndTransactionTimestampsValid(transaction *ledgerstate.Transaction, message *Message) bool {
+func isMessageAndTransactionTimestampsValid(transaction *devnetvm.Transaction, message *Message) bool {
 	transactionTimestamp := transaction.Essence().Timestamp()
 	messageTimestamp := message.IssuingTime()
 	return messageTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && messageTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin

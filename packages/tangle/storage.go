@@ -12,10 +12,10 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -95,7 +95,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		messageMetadataStorage:            objectstorage.New[*MessageMetadata](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMessageMetadata}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:                   objectstorage.New[*Approver](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixApprovers}), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		missingMessageStorage:             objectstorage.New[*MissingMessage](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMissingMessage}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.New[*Attachment](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixAttachments}), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.New[*Attachment](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixAttachments}), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(utxo.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: objectstorage.New[*MarkerIndexBranchIDMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerBranchIDMapping}), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchVotersStorage:               objectstorage.New[*BranchVoters](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchVoters}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestBranchVotesStorage:          objectstorage.New[*LatestBranchVotes](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixLatestBranchVotes}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -210,7 +210,7 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
+func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
 	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 	if !stored {
 		return
@@ -219,7 +219,7 @@ func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messa
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
-func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
+func (s *Storage) Attachments(transactionID utxo.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Attachment]) bool {
 		cachedAttachments = append(cachedAttachments, cachedObject)
 		return true
@@ -228,7 +228,7 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+func (s *Storage) AttachmentMessageIDs(transactionID utxo.TransactionID) (messageIDs MessageIDs) {
 	messageIDs = NewMessageIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		messageIDs.Add(attachment.MessageID())
@@ -237,7 +237,7 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 }
 
 // IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
-func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+func (s *Storage) IsTransactionAttachedByMessage(transactionID utxo.TransactionID, messageID MessageID) (attached bool) {
 	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
 }
 
@@ -280,7 +280,7 @@ func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageM
 }
 
 // DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, messageID MessageID) {
+func (s *Storage) DeleteMarkerMessageMapping(branchID branchdag.BranchID, messageID MessageID) {
 	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
 }
 
@@ -299,7 +299,7 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 }
 
 // BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
-func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
+func (s *Storage) BranchVoters(branchID branchdag.BranchID, computeIfAbsentCallback ...func(branchID branchdag.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
 			return computeIfAbsentCallback[0](branchID)
@@ -347,7 +347,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 }
 
 // BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
+func (s *Storage) BranchWeight(branchID branchdag.BranchID, computeIfAbsentCallback ...func(branchID branchdag.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
 			return computeIfAbsentCallback[0](branchID)
@@ -709,12 +709,12 @@ var _ objectstorage.StorableObject = new(Approver)
 type Attachment struct {
 	objectstorage.StorableObjectFlags
 
-	transactionID ledgerstate.TransactionID
+	transactionID utxo.TransactionID
 	messageID     MessageID
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
+func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
 	return &Attachment{
 		transactionID: transactionID,
 		messageID:     messageID,
@@ -742,7 +742,7 @@ func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (atta
 	if attachment = a; attachment == nil {
 		attachment = new(Attachment)
 	}
-	if attachment.transactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
+	if err := attachment.transactionID.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 		return
 	}
@@ -755,7 +755,7 @@ func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (atta
 }
 
 // TransactionID returns the transactionID of this Attachment.
-func (a *Attachment) TransactionID() ledgerstate.TransactionID {
+func (a *Attachment) TransactionID() utxo.TransactionID {
 	return a.transactionID
 }
 
@@ -792,7 +792,7 @@ func (a *Attachment) ObjectStorageValue() (data []byte) {
 var _ objectstorage.StorableObject = new(Attachment)
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
+const AttachmentLength = utxo.TransactionIDLength + MessageIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
