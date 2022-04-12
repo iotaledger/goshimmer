@@ -3,29 +3,21 @@ package gossip
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/libp2p/go-libp2p-core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"go.uber.org/atomic"
 
 	pb "github.com/iotaledger/goshimmer/packages/gossip/gossipproto"
 	"github.com/iotaledger/goshimmer/packages/ratelimiter"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-)
-
-var (
-	messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
-	messageWorkerQueueSize = 1000
-
-	messageRequestWorkerCount     = runtime.GOMAXPROCS(0)
-	messageRequestWorkerQueueSize = 100
 )
 
 // LoadMessageFunc defines a function that returns the message for the given id.
@@ -78,10 +70,8 @@ type Manager struct {
 	messagesRateLimiter        *ratelimiter.PeerRateLimiter
 	messageRequestsRateLimiter *ratelimiter.PeerRateLimiter
 
-	// messageWorkerPool defines a worker pool where all incoming messages are processed.
-	messageWorkerPool *workerpool.NonBlockingQueuedWorkerPool
-
-	messageRequestWorkerPool *workerpool.NonBlockingQueuedWorkerPool
+	pendingCount          atomic.Uint64
+	requesterPendingCount atomic.Uint64
 }
 
 // ManagerOption configures the Manager instance.
@@ -105,17 +95,6 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 		},
 		neighbors: map[identity.ID]*Neighbor{},
 	}
-	m.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		m.processMessagePacket(task.Param(0).(*pb.Packet_Message), task.Param(1).(*Neighbor))
-
-		task.Return(nil)
-	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
-
-	m.messageRequestWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		m.processMessageRequestPacket(task.Param(0).(*pb.Packet_MessageRequest), task.Param(1).(*Neighbor))
-
-		task.Return(nil)
-	}, workerpool.WorkerCount(messageRequestWorkerCount), workerpool.QueueSize(messageRequestWorkerQueueSize))
 
 	m.Libp2pHost.SetStreamHandler(protocolID, m.streamHandler)
 	for _, opt := range opts {
@@ -162,9 +141,6 @@ func (m *Manager) Stop() {
 	m.isStopped = true
 	m.Libp2pHost.RemoveStreamHandler(protocolID)
 	m.dropAllNeighbors()
-
-	m.messageWorkerPool.Stop()
-	m.messageRequestWorkerPool.Stop()
 }
 
 func (m *Manager) dropAllNeighbors() {
@@ -363,14 +339,15 @@ func (m *Manager) setNeighbor(nbr *Neighbor) error {
 func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 	switch packetBody := packet.GetBody().(type) {
 	case *pb.Packet_Message:
-		if _, added := m.messageWorkerPool.TrySubmit(packetBody, nbr); !added {
+		if added := event.Loop.TrySubmit(func() { m.processMessagePacket(packetBody, nbr); m.pendingCount.Dec() }); !added {
 			return fmt.Errorf("messageWorkerPool full: packet message discarded")
 		}
+		m.pendingCount.Inc()
 	case *pb.Packet_MessageRequest:
-		if _, added := m.messageRequestWorkerPool.TrySubmit(packetBody, nbr); !added {
+		if added := event.Loop.TrySubmit(func() { m.processMessageRequestPacket(packetBody, nbr); m.requesterPendingCount.Dec() }); !added {
 			return fmt.Errorf("messageRequestWorkerPool full: message request discarded")
 		}
-
+		m.requesterPendingCount.Inc()
 	default:
 		return errors.Newf("unsupported packet; packet=%+v, packetBody=%T-%+v", packet, packetBody, packetBody)
 	}
@@ -379,13 +356,13 @@ func (m *Manager) handlePacket(packet *pb.Packet, nbr *Neighbor) error {
 }
 
 // MessageWorkerPoolStatus returns the name and the load of the workerpool.
-func (m *Manager) MessageWorkerPoolStatus() (name string, load int) {
-	return "messageWorkerPool", m.messageWorkerPool.GetPendingQueueSize()
+func (m *Manager) MessageWorkerPoolStatus() (name string, load uint64) {
+	return "messageWorkerPool", m.pendingCount.Load()
 }
 
 // MessageRequestWorkerPoolStatus returns the name and the load of the workerpool.
-func (m *Manager) MessageRequestWorkerPoolStatus() (name string, load int) {
-	return "messageRequestWorkerPool", m.messageRequestWorkerPool.GetPendingQueueSize()
+func (m *Manager) MessageRequestWorkerPoolStatus() (name string, load uint64) {
+	return "messageRequestWorkerPool", m.requesterPendingCount.Load()
 }
 
 func (m *Manager) processMessagePacket(packetMsg *pb.Packet_Message, nbr *Neighbor) {
