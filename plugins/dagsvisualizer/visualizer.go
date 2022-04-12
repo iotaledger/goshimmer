@@ -134,7 +134,7 @@ func registerUTXOEvents() {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
-				deps.Tangle.LedgerstateOLD.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+				deps.tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 					branchIDs := make([]string, 0)
 					for branchID := range txMetadata.BranchIDs() {
 						branchIDs = append(branchIDs, branchID.Base58())
@@ -154,7 +154,7 @@ func registerUTXOEvents() {
 	})
 
 	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-		deps.Tangle.LedgerstateOLD.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+		deps.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOConfirmed,
 				Data: &utxoConfirmed{
@@ -368,7 +368,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	var gof string
 	var confirmedTime int64
 	var branchIDs []string
-	deps.Tangle.LedgerstateOLD.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+	deps.tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
 		branchIDs = txMetadata.BranchIDs().Base58()

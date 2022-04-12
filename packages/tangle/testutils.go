@@ -208,7 +208,7 @@ func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.Tr
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledgerstate.TransactionMetadata) {
-	m.tangle.LedgerstateOLD.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 		txMeta = transactionMetadata
 	})
 	return
@@ -217,7 +217,7 @@ func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta 
 // Transaction returns the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate.Transaction) {
-	m.tangle.LedgerstateOLD.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
+	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
 		tx = transaction
 	})
 	return
@@ -225,7 +225,7 @@ func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate
 
 // OutputMetadata returns the given output metadata.
 func (m *MessageTestFramework) OutputMetadata(outputID ledgerstate.OutputID) (outMeta *ledgerstate.OutputMetadata) {
-	m.tangle.LedgerstateOLD.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	m.tangle.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		outMeta = outputMetadata
 	})
 	return

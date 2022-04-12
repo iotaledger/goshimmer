@@ -294,7 +294,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 
 	for i := start; i <= end; i++ {
 		deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
-			deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+			deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 				if outputMetadata.ConsumerCount() < 1 {
 					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
 					if !colorExist {
@@ -327,7 +327,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 
 	// remainder output should sit on address 0
 	deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 			if deps.Tangle.LedgerstateOLD.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
 				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
@@ -575,7 +575,7 @@ func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, iss
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
-	deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		newFaucetRemainderBalance := s.replenishmentState.RemainderOutputBalance() - s.tokensUsedOnSupplyReplenishment
 
 		// derive information from outputs

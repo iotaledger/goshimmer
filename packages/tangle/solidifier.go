@@ -96,7 +96,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 	if !messageMetadata.SetSolid(true) {
 		return
 	}
-	// TODO: if we attach to this asynchronously it is okay to trigger the event here, otherwise we should do it in Solidify
+	
 	s.Events.MessageSolid.Trigger(message.ID())
 }
 

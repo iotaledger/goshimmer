@@ -137,7 +137,7 @@ func onBranchCreated(branchID ledgerstate.BranchID) {
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.LedgerstateOLD.Transaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.tangle.Ledger.Storage.CachedTransaction(ledgerstate.TransactionID(branchID)).Consume(func(transaction *ledgerstate.Transaction) {
 		b.IssuingTime = transaction.Essence().Timestamp()
 	})
 

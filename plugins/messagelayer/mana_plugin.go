@@ -116,7 +116,7 @@ func configureEvents() {
 // }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	deps.Tangle.LedgerstateOLD.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+	deps.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
@@ -146,7 +146,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.LedgerstateOLD.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		deps.Tangle.Ledger.Storage.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
@@ -159,7 +159,7 @@ func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.LedgerstateOLD.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+			deps.tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
 				if transaction == nil {
 					return
 				}
@@ -460,7 +460,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.LedgerstateOLD.CachedOutputMetadata(outputID)
+	cachedOutputMetadata := deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
@@ -470,14 +470,14 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	deps.Tangle.LedgerstateOLD.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
 		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := deps.Tangle.LedgerstateOLD.Transaction(outputID.TransactionID())
+	cachedTx := deps.tangle.Ledger.Storage.CachedTransaction(outputID.TransactionID())
 	defer cachedTx.Release()
 	tx, _ := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()

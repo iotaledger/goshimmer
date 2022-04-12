@@ -84,7 +84,7 @@ func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) 
 	// it has to be unspent
 	isUnspent := false
 	isConfirmed := false
-	deps.Tangle.LedgerstateOLD.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+	deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
 		isUnspent = outputMetadata.ConsumerCount() == 0
 		isConfirmed = deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})

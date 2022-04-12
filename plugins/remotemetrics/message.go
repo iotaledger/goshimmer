@@ -81,7 +81,7 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 
 	// override message solidification data if message contains a transaction
 	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.SolidificationTime()
 			record.TransactionID = transactionID.Base58()
 			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
@@ -144,7 +144,7 @@ func onMessageFinalized(messageID tangle.MessageID) {
 	})
 
 	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.Tangle.LedgerstateOLD.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
 			record.SolidTimestamp = transactionMetadata.SolidificationTime()
 			record.TransactionID = transactionID.Base58()
 			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()

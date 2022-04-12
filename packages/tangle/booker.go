@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -51,8 +52,12 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
-	b.tangle.LedgerstateOLD.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
-		b.processBookedTransaction(event.TransactionID)
+	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
+		messageID, ok := event.Context.Value("messageID").(MessageID)
+		if !ok {
+			messageID = EmptyMessageID
+		}
+		b.processBookedTransaction(event.TransactionID, messageID)
 	}))
 	b.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(b.propagateBooking))
 
@@ -103,7 +108,7 @@ func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs branchdag.Bran
 			return
 		}
 
-		b.tangle.LedgerstateOLD.TransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		b.tangle.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			resolvedBranchIDs := b.tangle.Ledger.BranchDAG.FilterPendingBranches(transactionMetadata.BranchIDs())
 			branchIDs.AddAll(resolvedBranchIDs)
 		})
@@ -125,8 +130,8 @@ func (b *Booker) bookPayload(messageID MessageID) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 			b.tangle.dagMutex.RLock(message.Parents()...)
 			b.tangle.dagMutex.Lock(messageID)
-			defer b.tangle.dagMutex.RUnlock(message.Parents()...)
 			defer b.tangle.dagMutex.Unlock(messageID)
+			defer b.tangle.dagMutex.RUnlock(message.Parents()...)
 
 			if !b.readyForBooking(message, messageMetadata) {
 				return
@@ -143,8 +148,7 @@ func (b *Booker) bookPayload(messageID MessageID) {
 			}
 
 			b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
-
-			err := b.tangle.Ledger.StoreAndProcessTransaction(tx)
+			err := b.tangle.Ledger.StoreAndProcessTransaction(context.WithValue(context.Background(), "messageID", messageID), tx)
 			if err != nil {
 				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
 				//  delete attachments of transaction
@@ -159,17 +163,19 @@ func (b *Booker) bookPayload(messageID MessageID) {
 	})
 }
 
-func (b *Booker) processBookedTransaction(id utxo.TransactionID) {
+func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgnore MessageID) {
 	b.tangle.Storage.Attachments(id).Consume(func(attachment *Attachment) {
-		// TODO: use context in event to check and ignore message that called StoreAndProcessTransaction to avoid unnecessary locking/duplicate execution
-
 		// TODO: this is now executed sequentially. Is this a problem or should we fire one event for each of the attachments to make it async?
 		b.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 			b.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+				if attachment.MessageID() == messageIDToIgnore {
+					return
+				}
+
 				b.tangle.dagMutex.RLock(message.Parents()...)
 				b.tangle.dagMutex.Lock(attachment.MessageID())
-				defer b.tangle.dagMutex.RUnlock(message.Parents()...)
 				defer b.tangle.dagMutex.Unlock(attachment.MessageID())
+				defer b.tangle.dagMutex.RUnlock(message.Parents()...)
 
 				if !b.readyForBooking(message, messageMetadata) {
 					return
@@ -429,7 +435,7 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 				return
 			}
 
-			likedBranchIDs, likedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
+			likedBranchIDs, likedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
 			if likedBranchesErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), likedBranchesErr)
 				return
@@ -437,7 +443,7 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 			collectedLikedBranchIDs.AddAll(likedBranchIDs)
 
 			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(conflictingTransactionID)
+				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -466,7 +472,7 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 				return
 			}
 
-			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
+			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
 			if referenceDislikedBranchIDsErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), referenceDislikedBranchIDsErr)
 				return
@@ -474,7 +480,7 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
 
 			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(conflictingTransactionID)
+				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -503,7 +509,7 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 				return
 			}
 
-			weakReferencePayloadBranch, weakReferenceErr := b.tangle.LedgerstateOLD.TransactionBranchIDs(transaction.ID())
+			weakReferencePayloadBranch, weakReferenceErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
 			if weakReferenceErr != nil {
 				err = errors.Errorf("failed to retrieve BranchIDs of Transaction with %s contained in %s weakly referenced by %s: %w", transaction.ID(), parentMessageID, message.ID(), weakReferenceErr)
 				return
