@@ -282,7 +282,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	var outputs []devnetvm.Output
+	var outputs []devnetvm.OutputEssence
 	var unspentOutputs []bool
 
 	for address, balance := range genesisOutputs {
@@ -316,7 +316,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerstateOLD.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
+		m.tangle.Ledger.Storage.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
 			m.tangle.LedgerstateOLD.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output

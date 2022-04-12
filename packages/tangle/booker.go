@@ -6,11 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/lo"
-
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -129,9 +127,7 @@ func (b *Booker) Shutdown() {
 func (b *Booker) bookPayload(messageID MessageID) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			b.tangle.dagMutex.RLock(lo.Map(message.Parents(), func(messageID MessageID) [32]byte {
-				return [32]byte{}
-			})...)
+			b.tangle.dagMutex.RLock(message.Parents()...)
 			b.tangle.dagMutex.Lock(messageID)
 			defer b.tangle.dagMutex.Unlock(messageID)
 			defer b.tangle.dagMutex.RUnlock(message.Parents()...)
