@@ -53,6 +53,7 @@ func (p *Printer) printBanner() {
 	fmt.Println("▓█████  ██▒   █▓ ██▓ ██▓                                                   \n▓█   ▀ ▓██░   █▒▓██▒▓██▒                                                   \n▒███    ▓██  █▒░▒██▒▒██░                                                   \n▒▓█  ▄   ▒██ █░░░██░▒██░                                                   \n░▒████▒   ▒▀█░  ░██░░██████▒                                               \n░░ ▒░ ░   ░ ▐░  ░▓  ░ ▒░▓  ░                                               \n ░ ░  ░   ░ ░░   ▒ ░░ ░ ▒  ░                                               \n   ░        ░░   ▒ ░  ░ ░                                                  \n   ░  ░      ░   ░      ░  ░                                               \n            ░                                                              \n           ██████  ██▓███   ▄▄▄       ███▄ ▄███▓ ███▄ ▄███▓▓█████  ██▀███  \n         ▒██    ▒ ▓██░  ██▒▒████▄    ▓██▒▀█▀ ██▒▓██▒▀█▀ ██▒▓█   ▀ ▓██ ▒ ██▒\n         ░ ▓██▄   ▓██░ ██▓▒▒██  ▀█▄  ▓██    ▓██░▓██    ▓██░▒███   ▓██ ░▄█ ▒\n           ▒   ██▒▒██▄█▓▒ ▒░██▄▄▄▄██ ▒██    ▒██ ▒██    ▒██ ▒▓█  ▄ ▒██▀▀█▄  \n         ▒██████▒▒▒██▒ ░  ░ ▓█   ▓██▒▒██▒   ░██▒▒██▒   ░██▒░▒████▒░██▓ ▒██▒\n         ▒ ▒▓▒ ▒ ░▒▓▒░ ░  ░ ▒▒   ▓▒█░░ ▒░   ░  ░░ ▒░   ░  ░░░ ▒░ ░░ ▒▓ ░▒▓░\n         ░ ░▒  ░ ░░▒ ░       ▒   ▒▒ ░░  ░      ░░  ░      ░ ░ ░  ░  ░▒ ░ ▒░\n         ░  ░  ░  ░░         ░   ▒   ░      ░   ░      ░      ░     ░░   ░ \n               ░                 ░  ░       ░          ░      ░  ░   ░     \n                                                                           ")
 	p.PrintThickLine()
 	p.Println("Interactive mode enabled", 1)
+	fmt.Println()
 }
 
 func (p *Printer) EvilWalletStatus() {
@@ -74,7 +75,7 @@ func (p *Printer) SpammerSettings() {
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
 	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.Duration.Seconds())), 2)
 	p.PrintLine()
-	p.Println("", 1)
+	fmt.Println()
 }
 
 func (p *Printer) FarewellMessage() {
@@ -89,14 +90,43 @@ func (p *Printer) SettingFundsMessage() {
 	} else {
 		p.Println("Auto funds creation disabled", 2)
 	}
-	p.Println("", 1)
+	fmt.Println()
 }
 
 func (p *Printer) FundsWarning() {
 	p.Println("Not enough fresh faucet outputs in the wallet to spam!", 2)
 	p.PrintlnPoint("Request more manually with 'Prepare faucet funds' option in main menu.", 2)
 	p.PrintlnPoint("You can also enable auto funds requesting in the settings.", 2)
-	p.Println("", 1)
+	fmt.Println()
+}
+
+func (p *Printer) UrlWarning() {
+	p.Println("Could not connect to provided API endpoint, client not added.", 2)
+	fmt.Println()
+
+}
+
+func (p *Printer) Clients() {
+	p.Println("Provided clients:", 1)
+	for url := range p.mode.Config.ClientUrls {
+		p.PrintlnPoint(url, 2)
+	}
+}
+
+func (p *Printer) Settings() {
+	p.PrintTopLine()
+	p.Println("Current settings:", 0)
+	p.Println(fmt.Sprintf("Auto request funds enabled: %v", p.mode.autoFundsPrepareEnabled), 1)
+	p.Clients()
+	p.PrintLine()
+	fmt.Println()
+
+}
+
+func (p *Printer) ClientsWarning() {
+	p.Println("No clients are configured, you can add API urls in the settings.", 2)
+	fmt.Println()
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

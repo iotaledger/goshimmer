@@ -2,13 +2,15 @@ package main
 
 import (
 	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"github.com/iotaledger/hive.go/types"
 	"time"
 )
 
 // Nodes used during the test, use at least two nodes to be able to doublespend
 var (
 	//urls = []string{"http://bootstrap-01.feature.shimmer.iota.cafe:8080", "http://vanilla-01.feature.shimmer.iota.cafe:8080", "http://drng-01.feature.shimmer.iota.cafe:8080"}
-	urls = []string{"http://localhost:8080", "http://localhost:8090"}
+	urls    = []string{"http://localhost:8080", "http://localhost:8090"}
+	urlsMap = map[string]types.Empty{"http://localhost:8080": types.Void, "http://localhost:8090": types.Void}
 )
 
 var (
@@ -34,7 +36,7 @@ var (
 	}
 
 	interactive = InteractiveConfig{
-		ClientUrls: urls,
+		ClientUrls: urlsMap,
 		Rate:       5,
 		Duration:   time.Second * 30,
 		TimeUnit:   time.Second,

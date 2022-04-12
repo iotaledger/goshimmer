@@ -94,6 +94,14 @@ func (e *EvilWallet) UnspentOutputsLeft(walletType WalletType) int {
 	return e.wallets.UnspentOutputsLeft(walletType)
 }
 
+func (e *EvilWallet) AddClient(clientUrl string) {
+	e.connector.AddClient(clientUrl)
+}
+
+func (e *EvilWallet) RemoveClient(clientUrl string) {
+	e.connector.RemoveClient(clientUrl)
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region EvilWallet Faucet Requests ///////////////////////////////////////////////////////////////////////////////////

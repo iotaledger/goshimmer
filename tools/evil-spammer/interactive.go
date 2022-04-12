@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -27,7 +28,7 @@ var (
 )
 
 type InteractiveConfig struct {
-	ClientUrls []string
+	ClientUrls map[string]types.Empty
 	Rate       int
 	Duration   time.Duration
 	TimeUnit   time.Duration
@@ -41,10 +42,10 @@ type InteractiveConfig struct {
 type action int
 
 const (
-	walletDetails action = iota
-	prepareFunds
-	spamMenu
-	settings
+	actionWalletDetails action = iota
+	actionPrepareFunds
+	actionSpamMenu
+	actionSettings
 	shutdown
 )
 
@@ -59,6 +60,14 @@ const (
 )
 
 var spamMenuOptions = []string{spamScenario, spamType, spamDetails, startSpam, back}
+
+const (
+	settingPreparation = "Auto funds requesting"
+	settingAddUrls     = "Add client API url"
+	settingRemoveUrls  = "Remove client API urls"
+)
+
+var settingsMenuOptions = []string{settingPreparation, settingAddUrls, settingRemoveUrls, back}
 
 var (
 	scenarios     = []string{"tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
@@ -113,7 +122,6 @@ type Mode struct {
 	action     chan action
 
 	nextAction string
-	setting    *settingSurvey
 
 	preparingFunds          bool
 	autoFundsPrepareEnabled bool
@@ -132,7 +140,6 @@ func NewInteractiveMode() *Mode {
 		action:     make(chan action),
 		shutdown:   make(chan types.Empty),
 		mainMenu:   make(chan types.Empty),
-		setting:    &settingSurvey{FundsCreation: "enable"},
 
 		Config:        interactive,
 		msgSent:       atomic.NewUint64(0),
@@ -150,17 +157,16 @@ func (m *Mode) runBackgroundTasks() {
 			m.prepareFundsIfNeeded()
 		case act := <-m.action:
 			switch act {
-			case spamMenu:
+			case actionSpamMenu:
 				go m.spamMenu()
-			case walletDetails:
+			case actionWalletDetails:
 				m.walletDetails()
 				m.mainMenu <- types.Void
-			case prepareFunds:
+			case actionPrepareFunds:
 				m.prepareFunds()
 				m.mainMenu <- types.Void
-			case settings:
-				m.settings()
-				m.mainMenu <- types.Void
+			case actionSettings:
+				go m.settingsMenu()
 			case shutdown:
 				m.shutdown <- types.Void
 			}
@@ -179,7 +185,6 @@ func (m *Mode) walletDetails() {
 func (m *Mode) menu() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
-	time.Sleep(time.Second / 2)
 	err := survey.AskOne(actionQuestion, &m.nextAction)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -190,14 +195,14 @@ func (m *Mode) menu() {
 
 func (m *Mode) onMenuAction() {
 	switch m.nextAction {
-	case actions[walletDetails]:
-		m.action <- walletDetails
-	case actions[prepareFunds]:
-		m.action <- prepareFunds
-	case actions[spamMenu]:
-		m.action <- spamMenu
-	case actions[settings]:
-		m.action <- settings
+	case actions[actionWalletDetails]:
+		m.action <- actionWalletDetails
+	case actions[actionPrepareFunds]:
+		m.action <- actionPrepareFunds
+	case actions[actionSpamMenu]:
+		m.action <- actionSpamMenu
+	case actions[actionSettings]:
+		m.action <- actionSettings
 	case actions[shutdown]:
 		m.action <- shutdown
 	}
@@ -216,26 +221,8 @@ func (m *Mode) prepareFundsIfNeeded() {
 	}
 }
 
-func (m *Mode) settings() {
-	m.stdOutMutex.Lock()
-	defer m.stdOutMutex.Unlock()
-
-	err := survey.Ask(settingsQuestion, m.setting)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-	m.onSettings()
-	printer.SettingFundsMessage()
-
-}
-
 func (m *Mode) onSettings() {
-	if m.setting.FundsCreation == "enable" {
-		m.autoFundsPrepareEnabled = true
-	} else {
-		m.autoFundsPrepareEnabled = false
-	}
+
 }
 
 func (m *Mode) prepareFunds() {
@@ -244,6 +231,10 @@ func (m *Mode) prepareFunds() {
 
 	if m.preparingFunds {
 		printer.Println("Funds are currently prepared. Try again later.", 2)
+		return
+	}
+	if len(m.Config.ClientUrls) == 0 {
+		printer.ClientsWarning()
 		return
 	}
 	numToPrepareStr := ""
@@ -288,7 +279,6 @@ func (m *Mode) prepareFunds() {
 func (m *Mode) spamMenu() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
-	time.Sleep(time.Second / 4)
 	printer.SpammerSettings()
 	var submenu string
 	err := survey.AskOne(spamMenuQuestion, &submenu)
@@ -341,6 +331,12 @@ func (m *Mode) spamSubMenu(menuType string) {
 	case startSpam:
 		if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.Duration.Seconds()) {
 			printer.FundsWarning()
+			m.mainMenu <- types.Void
+			return
+		}
+		if len(m.Config.ClientUrls) == 0 {
+			printer.ClientsWarning()
+			m.mainMenu <- types.Void
 			return
 		}
 		s, _ := evilwallet.GetScenario(m.Config.Scenario)
@@ -351,7 +347,95 @@ func (m *Mode) spamSubMenu(menuType string) {
 		m.mainMenu <- types.Void
 		return
 	}
-	m.action <- spamMenu
+	m.action <- actionSpamMenu
+}
+
+func (m *Mode) settingsMenu() {
+	m.stdOutMutex.Lock()
+	defer m.stdOutMutex.Unlock()
+	printer.Settings()
+	var submenu string
+	err := survey.AskOne(settingsQuestion, &submenu)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	m.settingsSubMenu(submenu)
+}
+
+func (m *Mode) settingsSubMenu(menuType string) {
+	switch menuType {
+	case settingPreparation:
+		answer := ""
+		err := survey.AskOne(autoCreationQuestion, &answer)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.onFundsCreation(answer)
+
+	case settingAddUrls:
+		var url string
+		err := survey.AskOne(addUrlQuestion, &url)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.validateAndAddUrl(url)
+
+	case settingRemoveUrls:
+		answer := make([]string, 0)
+		urlsList := m.urlMapToList()
+		err := survey.AskOne(removeUrlQuestion(urlsList), &answer)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.removeUrls(answer)
+
+	case back:
+		m.mainMenu <- types.Void
+		return
+	}
+	m.action <- actionSettings
+}
+
+func (m *Mode) validateAndAddUrl(url string) {
+	url = "http://" + url
+	ok := validateUrl(url)
+	if !ok {
+		printer.UrlWarning()
+	} else {
+		m.Config.ClientUrls[url] = types.Void
+		m.evilWallet.AddClient(url)
+	}
+}
+
+func (m *Mode) onFundsCreation(answer string) {
+	if answer == "enable" {
+		m.autoFundsPrepareEnabled = true
+	} else {
+		m.autoFundsPrepareEnabled = false
+	}
+}
+
+func (m *Mode) settings() {
+	m.stdOutMutex.Lock()
+	defer m.stdOutMutex.Unlock()
+
+	answer := ""
+	err := survey.AskOne(settingsQuestion, &answer)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	m.onSettings()
+	printer.SettingFundsMessage()
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -380,8 +464,33 @@ func (m *Mode) parseScenario(scenario string) {
 	m.Config.Scenario = scenario
 }
 
+func (m *Mode) removeUrls(urls []string) {
+	for _, url := range urls {
+		if _, ok := m.Config.ClientUrls[url]; ok {
+			delete(m.Config.ClientUrls, url)
+			m.evilWallet.RemoveClient(url)
+		}
+	}
+}
+
+func (m *Mode) urlMapToList() (list []string) {
+	for url := range m.Config.ClientUrls {
+		list = append(list, url)
+	}
+	return
+}
+
 func enableToBool(e string) bool {
 	return e == "enable"
+}
+
+func validateUrl(url string) (ok bool) {
+	clt := client.NewGoShimmerAPI(url)
+	_, err := clt.Info()
+	if err != nil {
+		return
+	}
+	return true
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

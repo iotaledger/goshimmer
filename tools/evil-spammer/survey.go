@@ -20,19 +20,29 @@ var fundsQuestion = &survey.Select{
 	Default: "100",
 }
 
-type settingSurvey struct {
-	FundsCreation string
+var settingsQuestion = &survey.Select{
+	Message: "Available settings:",
+	Options: settingsMenuOptions,
+	Default: settingPreparation,
 }
 
-var settingsQuestion = []*survey.Question{
-	{
-		Name: "fundsCreation",
-		Prompt: &survey.Select{
-			Message: "Enable automatic faucet output creation",
-			Options: confirms,
-			Default: "enable",
-		},
-	},
+var autoCreationQuestion = &survey.Select{
+	Message: "Enable automatic faucet output creation",
+	Options: confirms,
+	Default: "enable",
+}
+
+var addUrlQuestion = &survey.Input{
+	Message: "http://",
+	Default: "enable",
+	Help:    "Provide valid API url",
+}
+
+var removeUrlQuestion = func(urls []string) *survey.MultiSelect {
+	return &survey.MultiSelect{
+		Message: "Which ",
+		Options: urls,
+	}
 }
 
 type spamTypeSurvey struct {
