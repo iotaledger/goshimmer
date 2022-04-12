@@ -260,7 +260,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
 		// obtain information about the consumer of the output being considered
-		confirmedConsumerID := deps.Tangle.LedgerstateOLD.ConfirmedConsumer(output.ID())
+		confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
 		outputs = append(outputs, ExplorerOutput{
 			ID:              jsonmodels.NewOutputID(output.ID()),

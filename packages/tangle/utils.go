@@ -9,9 +9,8 @@ import (
 
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -98,23 +97,24 @@ func (u *Utils) WalkMessageAndMetadata(callback func(message *Message, messageMe
 
 // AllTransactionsApprovedByMessages checks if all Transactions were attached by at least one Message that was directly
 // or indirectly approved by the given Message.
-func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.TransactionIDs, messageIDs MessageIDs) (approved bool) {
+func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs utxo.TransactionIDs, messageIDs MessageIDs) (approved bool) {
 	transactionIDs = transactionIDs.Clone()
 
 	for messageID := range messageIDs {
-		for transactionID := range transactionIDs {
+		for it := transactionIDs.Iterator(); it.HasNext(); {
+			transactionID := it.Next()
 			if u.TransactionApprovedByMessage(transactionID, messageID) {
-				delete(transactionIDs, transactionID)
+				transactionIDs.Delete(transactionID)
 			}
 		}
 	}
 
-	return len(transactionIDs) == 0
+	return transactionIDs.IsEmpty()
 }
 
 // TransactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
 // indirectly approved by the given Message.
-func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
+func (u *Utils) TransactionApprovedByMessage(transactionID utxo.TransactionID, messageID MessageID) (approved bool) {
 	attachmentMessageIDs := u.tangle.Storage.AttachmentMessageIDs(transactionID)
 	for attachmentMessageID := range attachmentMessageIDs {
 		if attachmentMessageID == messageID {
@@ -236,10 +236,10 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 	return
 }
 
-// AllBranchesLiked returs true if all the passed branches are liked.
-func (u *Utils) AllBranchesLiked(branchIDs ledgerstate.BranchIDs) bool {
-	for branchID := range branchIDs {
-		if !u.tangle.OTVConsensusManager.BranchLiked(branchID) {
+// AllBranchesLiked returns true if all the passed branches are liked.
+func (u *Utils) AllBranchesLiked(branchIDs branchdag.BranchIDs) bool {
+	for it := branchIDs.Iterator(); it.HasNext(); {
+		if !u.tangle.OTVConsensusManager.BranchLiked(it.Next()) {
 			return false
 		}
 	}
@@ -299,10 +299,10 @@ func (u *Utils) messageStronglyApprovedBy(approvedMessageID MessageID, approving
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ComputeIfTransaction computes the given callback if the given messageID contains a transaction.
-func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(ledgerstate.TransactionID)) (computed bool) {
+func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(utxo.TransactionID)) (computed bool) {
 	u.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		if payload := message.Payload(); payload.Type() == ledgerstate.TransactionType {
-			transactionID := payload.(*ledgerstate.Transaction).ID()
+		if tx, ok := message.Payload().(utxo.Transaction); ok {
+			transactionID := tx.ID()
 			compute(transactionID)
 			computed = true
 		}
@@ -311,8 +311,7 @@ func (u *Utils) ComputeIfTransaction(messageID MessageID, compute func(ledgersta
 }
 
 // FirstAttachment returns the MessageID and timestamp of the first (oldest) attachment of a given transaction.
-func (u *Utils) FirstAttachment(transactionID ledgerstate.TransactionID) (oldestAttachmentTime time.Time, oldestAttachmentMessageID MessageID, err error) {
-	var transaction *ledgerstate.Transaction
+func (u *Utils) FirstAttachment(transactionID utxo.TransactionID) (oldestAttachmentTime time.Time, oldestAttachmentMessageID MessageID, err error) {
 	oldestAttachmentTime = time.Unix(0, 0)
 	oldestAttachmentMessageID = EmptyMessageID
 	if !u.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
@@ -320,9 +319,6 @@ func (u *Utils) FirstAttachment(transactionID ledgerstate.TransactionID) (oldest
 			if oldestAttachmentTime.Unix() == 0 || message.IssuingTime().Before(oldestAttachmentTime) {
 				oldestAttachmentTime = message.IssuingTime()
 				oldestAttachmentMessageID = message.ID()
-			}
-			if transaction == nil {
-				transaction = message.Payload().(*ledgerstate.Transaction)
 			}
 		})
 	}) {

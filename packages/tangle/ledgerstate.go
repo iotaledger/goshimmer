@@ -3,10 +3,8 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/types"
-
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 )
 
 // region LedgerstateOLD //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,24 +21,6 @@ func NewLedger(tangle *Tangle) (ledgerState *LedgerstateOLD) {
 	return &LedgerstateOLD{
 		tangle: tangle,
 	}
-}
-
-// ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
-func (l *LedgerstateOLD) ConflictSet(transactionID ledgerstate.TransactionID) (conflictSet ledgerstate.TransactionIDs) {
-	conflictIDs := make(ledgerstate.ConflictIDs)
-	conflictSet = make(ledgerstate.TransactionIDs)
-
-	l.BranchDAG.Branch(ledgerstate.NewBranchID(transactionID)).Consume(func(branch *ledgerstate.Branch) {
-		conflictIDs = branch.Conflicts()
-	})
-
-	for conflictID := range conflictIDs {
-		l.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-			conflictSet[ledgerstate.TransactionID(conflictMember.BranchID())] = types.Void
-		})
-	}
-
-	return
 }
 
 // LoadSnapshot creates a set of outputs in the UTXO-DAG, that are forming the genesis for future transactions.
