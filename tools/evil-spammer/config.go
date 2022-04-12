@@ -32,4 +32,14 @@ var (
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: time.Millisecond * 100,
 	}
+
+	interactive = InteractiveConfig{
+		ClientUrls: urls,
+		Rate:       5,
+		Duration:   time.Second * 30,
+		TimeUnit:   time.Second,
+		Deep:       false,
+		Reuse:      true,
+		Scenario:   "guava",
+	}
 )

@@ -26,21 +26,45 @@ var (
 	printer            *Printer
 )
 
-// region action ///////////////////////////////////////////////////////////////////////////////////////////////////////
+type InteractiveConfig struct {
+	ClientUrls []string
+	Rate       int
+	Duration   time.Duration
+	TimeUnit   time.Duration
+	Deep       bool
+	Reuse      bool
+	Scenario   string
+}
+
+// region survey selections  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type action int
 
 const (
 	walletDetails action = iota
 	prepareFunds
-	spam
+	spamMenu
 	settings
 	shutdown
 )
 
 var actions = []string{"Evil wallet details", "Prepare faucet funds", "Spam", "Settings", "Close"}
 
-var scenarios = []string{"conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
+const (
+	spamScenario = "Change scenario"
+	spamType     = "Update spam options"
+	spamDetails  = "Update spam rate and duration"
+	startSpam    = "Start the spammer"
+	back         = "Go back"
+)
+
+var spamMenuOptions = []string{spamScenario, spamType, spamDetails, startSpam, back}
+
+var (
+	scenarios     = []string{"tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
+	confirms      = []string{"enable", "disable"}
+	outputNumbers = []string{"100", "10000", "50000", "100000", "cancel"}
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -94,6 +118,7 @@ type Mode struct {
 	preparingFunds          bool
 	autoFundsPrepareEnabled bool
 
+	Config        InteractiveConfig
 	msgSent       *atomic.Uint64
 	txSent        *atomic.Uint64
 	conflictsSent *atomic.Uint64
@@ -109,6 +134,7 @@ func NewInteractiveMode() *Mode {
 		mainMenu:   make(chan types.Empty),
 		setting:    &settingSurvey{FundsCreation: "enable"},
 
+		Config:        interactive,
 		msgSent:       atomic.NewUint64(0),
 		txSent:        atomic.NewUint64(0),
 		conflictsSent: atomic.NewUint64(0),
@@ -124,18 +150,20 @@ func (m *Mode) runBackgroundTasks() {
 			m.prepareFundsIfNeeded()
 		case act := <-m.action:
 			switch act {
-			case spam:
-				m.spamMenu()
+			case spamMenu:
+				go m.spamMenu()
 			case walletDetails:
 				m.walletDetails()
+				m.mainMenu <- types.Void
 			case prepareFunds:
 				m.prepareFunds()
+				m.mainMenu <- types.Void
 			case settings:
 				m.settings()
+				m.mainMenu <- types.Void
 			case shutdown:
 				m.shutdown <- types.Void
 			}
-			m.mainMenu <- types.Void
 		}
 	}
 
@@ -151,7 +179,7 @@ func (m *Mode) walletDetails() {
 func (m *Mode) menu() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
-	time.Sleep(time.Second)
+	time.Sleep(time.Second / 2)
 	err := survey.AskOne(actionQuestion, &m.nextAction)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -166,8 +194,8 @@ func (m *Mode) onMenuAction() {
 		m.action <- walletDetails
 	case actions[prepareFunds]:
 		m.action <- prepareFunds
-	case actions[spam]:
-		m.action <- spam
+	case actions[spamMenu]:
+		m.action <- spamMenu
 	case actions[settings]:
 		m.action <- settings
 	case actions[shutdown]:
@@ -228,7 +256,6 @@ func (m *Mode) prepareFunds() {
 	case "100":
 
 		go func() {
-			time.Sleep(time.Second)
 			m.preparingFunds = true
 			_ = m.evilWallet.RequestFreshFaucetWallet()
 			m.preparingFunds = false
@@ -261,18 +288,100 @@ func (m *Mode) prepareFunds() {
 func (m *Mode) spamMenu() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
-	time.Sleep(time.Second)
-	details := spamDetailsSurvey{}
-	err := survey.Ask(spamDetailsQuestions, &details)
+	time.Sleep(time.Second / 4)
+	printer.SpammerSettings()
+	var submenu string
+	err := survey.AskOne(spamMenuQuestion, &submenu)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
+
+	m.spamSubMenu(submenu)
+
+	//d, _ := strconv.Atoi(details.SpamDuration)
+	//dur := time.Second * time.Duration(d)
+	//rate, _ := strconv.Atoi(details.SpamRate)
+	//s, _ := evilwallet.GetScenario("guava")
+	//SpamNestedConflicts(m.evilWallet, rate, time.Second, dur, s, true)
+}
+
+func (m *Mode) spamSubMenu(menuType string) {
+	switch menuType {
+	case spamDetails:
+		var spamSurvey spamDetailsSurvey
+		err := survey.Ask(spamDetailsQuestions, &spamSurvey)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.parseSpamDetails(spamSurvey)
+
+	case spamType:
+		var spamSurvey spamTypeSurvey
+		err := survey.Ask(spamTypeQuestions, &spamSurvey)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.parseSpamType(spamSurvey)
+
+	case spamScenario:
+		scenario := ""
+		err := survey.AskOne(spamScenarioQuestion, &scenario)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.parseScenario(scenario)
+
+	case startSpam:
+		if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.Duration.Seconds()) {
+			printer.FundsWarning()
+			return
+		}
+		s, _ := evilwallet.GetScenario(m.Config.Scenario)
+		go SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.Duration, s, true)
+		printer.Println("Spammer started", 3)
+
+	case back:
+		m.mainMenu <- types.Void
+		return
+	}
+	m.action <- spamMenu
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region parsers /////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (m *Mode) parseSpamDetails(details spamDetailsSurvey) {
 	d, _ := strconv.Atoi(details.SpamDuration)
 	dur := time.Second * time.Duration(d)
-	rate, _ := strconv.Atoi(details.SpamRate)
-	s, _ := evilwallet.GetScenario("guava")
-	SpamNestedConflicts(m.evilWallet, rate, time.Second, dur, s, true)
+	rate, err := strconv.Atoi(details.SpamRate)
+	if err != nil {
+		return
+	}
+	m.Config.Rate = rate
+	m.Config.Duration = dur
+}
+
+func (m *Mode) parseSpamType(spamType spamTypeSurvey) {
+	deep := enableToBool(spamType.DeepSpamEnabled)
+	reuse := enableToBool(spamType.ReuseLaterEnabled)
+	m.Config.Deep = deep
+	m.Config.Reuse = reuse
+}
+
+func (m *Mode) parseScenario(scenario string) {
+	m.Config.Scenario = scenario
+}
+
+func enableToBool(e string) bool {
+	return e == "enable"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

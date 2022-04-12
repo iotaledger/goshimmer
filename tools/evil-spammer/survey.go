@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-// region survey //////////////////////////////////////////////////////////////////////////////////////////////
+// region survey  //////////////////////////////////////////////////////////////////////////////////////////////
 
 var actionQuestion = &survey.Select{
 	Message: "Choose an action",
@@ -16,7 +16,7 @@ var actionQuestion = &survey.Select{
 
 var fundsQuestion = &survey.Select{
 	Message: "How many fresh outputs you want to create?",
-	Options: []string{"100", "10000", "50000", "100000", "cancel"},
+	Options: outputNumbers,
 	Default: "100",
 }
 
@@ -29,24 +29,23 @@ var settingsQuestion = []*survey.Question{
 		Name: "fundsCreation",
 		Prompt: &survey.Select{
 			Message: "Enable automatic faucet output creation",
-			Options: []string{"enable", "disable"},
+			Options: confirms,
 			Default: "enable",
 		},
 	},
 }
 
-type spamSettingSurvey struct {
-	SpamType          string
-	DeepSpamEnabled   bool
-	ReuseLaterEnabled bool
+type spamTypeSurvey struct {
+	DeepSpamEnabled   string
+	ReuseLaterEnabled string
 }
 
-var spamQuestions = []*survey.Question{
+var spamTypeQuestions = []*survey.Question{
 	{
 		Name: "deepSpamEnabled",
 		Prompt: &survey.Select{
 			Message: "Enable deep spam?",
-			Options: []string{"enable", "disable"},
+			Options: confirms,
 			Default: "disable",
 		},
 	},
@@ -54,7 +53,7 @@ var spamQuestions = []*survey.Question{
 		Name: "reuseLaterEnabled",
 		Prompt: &survey.Select{
 			Message: "Remember created outputs (add them to reuse outputs and use in future deep spams).",
-			Options: []string{"enable", "disable"},
+			Options: confirms,
 			Default: "enable",
 		},
 	},
@@ -105,10 +104,16 @@ var spamDetailsQuestions = []*survey.Question{
 	},
 }
 
-var scenarioQuestion = &survey.Select{
+var spamScenarioQuestion = &survey.Select{
 	Message: "Choose a spam scenario",
 	Options: scenarios,
 	Default: "guava",
 }
 
-// endregion //////////////////////////////////////////////////////////////////////////////////////////////
+var spamMenuQuestion = &survey.Select{
+	Message: "Spam settings",
+	Options: spamMenuOptions,
+	Default: spamDetails,
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

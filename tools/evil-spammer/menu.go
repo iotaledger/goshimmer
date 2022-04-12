@@ -41,13 +41,14 @@ func (p *Printer) PrintThickLine() {
 	fmt.Println()
 }
 
+func (p *Printer) PrintTopLine() {
+	fmt.Println("▀▄▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▄▀")
+}
+
 func (p *Printer) PrintLine() {
 	fmt.Println("▄▀▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▀▄")
 }
 
-func (p *Printer) menu() {
-
-}
 func (p *Printer) printBanner() {
 	fmt.Println("▓█████  ██▒   █▓ ██▓ ██▓                                                   \n▓█   ▀ ▓██░   █▒▓██▒▓██▒                                                   \n▒███    ▓██  █▒░▒██▒▒██░                                                   \n▒▓█  ▄   ▒██ █░░░██░▒██░                                                   \n░▒████▒   ▒▀█░  ░██░░██████▒                                               \n░░ ▒░ ░   ░ ▐░  ░▓  ░ ▒░▓  ░                                               \n ░ ░  ░   ░ ░░   ▒ ░░ ░ ▒  ░                                               \n   ░        ░░   ▒ ░  ░ ░                                                  \n   ░  ░      ░   ░      ░  ░                                               \n            ░                                                              \n           ██████  ██▓███   ▄▄▄       ███▄ ▄███▓ ███▄ ▄███▓▓█████  ██▀███  \n         ▒██    ▒ ▓██░  ██▒▒████▄    ▓██▒▀█▀ ██▒▓██▒▀█▀ ██▒▓█   ▀ ▓██ ▒ ██▒\n         ░ ▓██▄   ▓██░ ██▓▒▒██  ▀█▄  ▓██    ▓██░▓██    ▓██░▒███   ▓██ ░▄█ ▒\n           ▒   ██▒▒██▄█▓▒ ▒░██▄▄▄▄██ ▒██    ▒██ ▒██    ▒██ ▒▓█  ▄ ▒██▀▀█▄  \n         ▒██████▒▒▒██▒ ░  ░ ▓█   ▓██▒▒██▒   ░██▒▒██▒   ░██▒░▒████▒░██▓ ▒██▒\n         ▒ ▒▓▒ ▒ ░▒▓▒░ ░  ░ ▒▒   ▓▒█░░ ▒░   ░  ░░ ▒░   ░  ░░░ ▒░ ░░ ▒▓ ░▒▓░\n         ░ ░▒  ░ ░░▒ ░       ▒   ▒▒ ░░  ░      ░░  ░      ░ ░ ░  ░  ░▒ ░ ▒░\n         ░  ░  ░  ░░         ░   ▒   ░      ░   ░      ░      ░     ░░   ░ \n               ░                 ░  ░       ░          ░      ░  ░   ░     \n                                                                           ")
 	p.PrintThickLine()
@@ -55,7 +56,7 @@ func (p *Printer) printBanner() {
 }
 
 func (p *Printer) EvilWalletStatus() {
-	//p.mode.evilWallet.
+	p.PrintTopLine()
 	p.Println("Evil Wallet status:", 2)
 	p.PrintlnPoint(fmt.Sprintf("Available faucet outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Fresh)), 2)
 	p.PrintlnPoint(fmt.Sprintf("Available reuse outputs: %d", p.mode.evilWallet.UnspentOutputsLeft(evilwallet.Reuse)), 2)
@@ -66,10 +67,19 @@ func (p *Printer) EvilWalletStatus() {
 	p.PrintLine()
 }
 
-func (p *Printer) FarewellMessage() {
-	//p.mode.evilWallet.
+func (p *Printer) SpammerSettings() {
+	p.PrintTopLine()
+	p.Println("Current settings:", 1)
+	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
+	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.Duration.Seconds())), 2)
 	p.PrintLine()
-	fmt.Println("                              GOODBYE")
+	p.Println("", 1)
+}
+
+func (p *Printer) FarewellMessage() {
+	p.PrintTopLine()
+	fmt.Println("           GOODBYE... we're forgetting all your private keys ;)")
 	p.PrintLine()
 }
 
@@ -79,6 +89,14 @@ func (p *Printer) SettingFundsMessage() {
 	} else {
 		p.Println("Auto funds creation disabled", 2)
 	}
+	p.Println("", 1)
+}
+
+func (p *Printer) FundsWarning() {
+	p.Println("Not enough fresh faucet outputs in the wallet to spam!", 2)
+	p.PrintlnPoint("Request more manually with 'Prepare faucet funds' option in main menu.", 2)
+	p.PrintlnPoint("You can also enable auto funds requesting in the settings.", 2)
+	p.Println("", 1)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
