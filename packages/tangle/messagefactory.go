@@ -11,9 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -116,7 +116,8 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	}
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		if len(references) == 0 && (len(strongParents) == 0 || p.Type() != ledgerstate.TransactionType) {
+		_, txOk := p.(utxo.Transaction)
+		if len(references) == 0 && (len(strongParents) == 0 || !txOk) {
 			if strongParents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
@@ -192,9 +193,10 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
-	if p.Type() == ledgerstate.TransactionType {
-		conflictingTransactions := f.tangle.LedgerstateOLD.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
-		if len(conflictingTransactions) != 0 {
+	tx, ok := p.(utxo.Transaction)
+	if ok {
+		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx)
+		if !conflictingTransactions.IsEmpty() {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
 				return
@@ -207,10 +209,10 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	return
 }
 
-func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.TransactionIDs) (earliestAttachment *Message) {
+func (f *MessageFactory) earliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
 	earliestIssuingTime := time.Now()
-	for transactionID := range transactionIDs {
-		f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+	for it := transactionIDs.Iterator(); it.HasNext(); {
+		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
 			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
@@ -353,7 +355,8 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		referencesCopy := references.Clone()
 
 		opinionCanBeExpressed := true
-		for strongParentBranchID := range strongParentBranchIDs {
+		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
+			strongParentBranchID := it.Next()
 			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
 			// Explicitly ignore error since we can't create a like/dislike reference to the message.
 			// This means this message can't be added as a strong parent.
@@ -400,8 +403,8 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 	return references, referenceNotPossible, nil
 }
 
-func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	if strongParentBranchID == ledgerstate.MasterBranchID {
+func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
+	if strongParentBranchID == branchdag.MasterBranchID {
 		return
 	}
 
@@ -410,27 +413,31 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.
 		return
 	}
 
-	if likedBranchID != ledgerstate.UndefinedBranchID {
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likedBranchID.TransactionID())
+	if likedBranchID != branchdag.UndefinedBranchID {
+		txID := tangle.Ledger.Utils.TransactionIDFromBranchID(likedBranchID)
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", likedBranchID.TransactionID(), err)
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
 		}
 		if issuingTime.Sub(oldestAttachmentTime) >= maxParentsTimeDifference {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", likedBranchID.TransactionID())
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", txID)
 		}
 
 		return ShallowLikeParentType, oldestAttachmentMessageID, nil
 	}
 
-	for conflictMember := range conflictMembers {
+	for it := conflictMembers.Iterator(); it.HasNext(); {
+		conflictMember := it.Next()
+		txID := tangle.Ledger.Utils.TransactionIDFromBranchID(likedBranchID)
+
 		// Always point to another branch, to make sure the receiver forks the branch.
 		if conflictMember == strongParentBranchID {
 			continue
 		}
 
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember.TransactionID())
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember.TransactionID(), err)
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
 		}
 
 		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
@@ -438,7 +445,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.
 		}
 	}
 
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", tangle.Ledger.Utils.TransactionIDFromBranchID(strongParentBranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

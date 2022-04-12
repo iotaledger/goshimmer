@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -239,6 +240,39 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 	}
 
 	return cachedConsumers
+}
+
+// pruneTransaction removes a Transaction (and all of its dependencies) from the database.
+func (s *Storage) pruneTransaction(txID utxo.TransactionID) {
+	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext() {
+		currentTxID := futureConeWalker.Next()
+
+		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
+			s.CachedTransaction(currentTxID).Consume(func(tx *Transaction) {
+				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
+					s.consumerStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), currentTxID.Bytes()))
+				}
+
+				tx.Delete()
+			})
+
+			createdOutputIDs := txMetadata.OutputIDs()
+			for it := createdOutputIDs.Iterator(); it.HasNext(); {
+				outputIDBytes := it.Next().Bytes()
+
+				s.outputStorage.Delete(outputIDBytes)
+				s.outputMetadataStorage.Delete(outputIDBytes)
+
+
+			}
+
+			s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
+				futureConeWalker.Push(consumingTxID)
+			})
+
+			txMetadata.Delete()
+		})
+	}
 }
 
 // transactionFactory represents the object factory for the Transaction type.

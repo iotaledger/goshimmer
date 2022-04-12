@@ -1,10 +1,14 @@
 package ledger
 
 import (
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -79,4 +83,78 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 			callback(tx, txMetadata)
 		})
 	})
+}
+
+// TransactionBranchIDs returns the BranchIDs of the given TransactionID.
+func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchdag.BranchIDs, err error) {
+	branchIDs = branchdag.NewBranchIDs()
+	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
+		branchIDs = metadata.BranchIDs()
+	}) {
+		return nil, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
+	}
+
+	return branchIDs, nil
+}
+
+// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+func (u *Utils) ConflictingTransactions(transaction utxo.Transaction) (conflictingTransactions utxo.TransactionIDs) {
+	conflictingTransactions = utxo.NewTransactionIDs()
+
+	for _, input := range transaction.Inputs() {
+		u.ledger.Storage.CachedConsumers(u.ledger.options.vm.ResolveInput(input)).Consume(func(consumer *Consumer) {
+			if consumer.TransactionID() == transaction.ID() {
+				return
+			}
+
+			conflictingTransactions.Add(consumer.TransactionID())
+		})
+	}
+	return
+}
+
+// ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
+func (u *Utils) ConflictingTransactions2(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
+	conflictIDs := branchdag.NewConflictIDs()
+	conflictingTransactions = utxo.NewTransactionIDs()
+
+	u.ledger.BranchDAG.Storage.CachedBranch(branchdag.NewBranchID(transactionID)).Consume(func(branch *branchdag.Branch) {
+		conflictIDs = branch.ConflictIDs()
+	})
+
+	for it := conflictIDs.Iterator(); it.HasNext(); {
+		u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember) {
+			conflictingTransactions.Add(utxo.TransactionID{conflictMember.BranchID().Identifier})
+		})
+	}
+	return
+}
+
+// TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
+func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(transactionMetadata *TransactionMetadata) {
+		gradeOfFinality = transactionMetadata.GradeOfFinality()
+	}) {
+		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
+	}
+
+	return
+}
+
+// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+func (u *Utils) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == branchdag.MasterBranchID {
+		return gof.High, nil
+	}
+
+	branchGof, gofErr := u.TransactionGradeOfFinality(utxo.TransactionID{branchID.Identifier})
+	if gofErr != nil {
+		return gof.None, errors.Errorf("failed to retrieve GoF of branch %s: %w", branchID, err)
+	}
+
+	return branchGof, nil
+}
+
+func (u *Utils) TransactionIDFromBranchID(branchID branchdag.BranchID) (txID utxo.TransactionID) {
+	return utxo.TransactionID{branchID.Identifier}
 }
