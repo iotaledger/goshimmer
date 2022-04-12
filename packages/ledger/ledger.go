@@ -84,8 +84,10 @@ func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transac
 
 // PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid).
 func (l *Ledger) PruneTransaction(txID utxo.TransactionID) {
-	// TODO: IMPLEMENT PRUNING LOGIC
+	l.Storage.pruneTransaction(txID)
 }
+
+// Shutdown shuts down the stateful elements of the Ledger (the Storage and the BranchDAG).
 func (l *Ledger) Shutdown() {
 	l.Storage.Shutdown()
 	l.BranchDAG.Shutdown()
