@@ -11,6 +11,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -326,6 +328,21 @@ func (u *Utils) FirstAttachment(transactionID ledgerstate.TransactionID) (oldest
 	}) {
 		err = errors.Errorf("could not find any attachments of transaction: %s", transactionID.String())
 	}
+	return
+}
+
+// ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
+func (u *Utils) ConfirmedConsumer(outputID utxo.OutputID) (consumerID utxo.TransactionID) {
+	// default to no consumer, i.e. Genesis
+	consumerID = utxo.EmptyTransactionID
+	u.tangle.Ledger.Storage.CachedConsumers(outputID).Consume(func(consumer *ledger.Consumer) {
+		if consumerID != utxo.EmptyTransactionID {
+			return
+		}
+		if u.tangle.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
+			consumerID = consumer.TransactionID()
+		}
+	})
 	return
 }
 

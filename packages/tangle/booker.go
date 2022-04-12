@@ -331,7 +331,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	arithmeticBranchIDs.Subtract(dislikedBranchIDs)
 
 	// Make sure that we do not return confirmed branches (aka merge to master).
-	inheritedBranchIDs = b.tangle.LedgerstateOLD.BranchDAG.FilterPendingBranches(arithmeticBranchIDs.BranchIDs())
+	inheritedBranchIDs = b.tangle.Ledger.BranchDAG.FilterPendingBranches(arithmeticBranchIDs.BranchIDs())
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs, nil
 }
@@ -435,15 +435,16 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 				return
 			}
 
-			likedBranchIDs, likedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
+			likedBranchIDs, likedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
 			if likedBranchesErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), likedBranchesErr)
 				return
 			}
 			collectedLikedBranchIDs.AddAll(likedBranchIDs)
 
-			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(conflictingTransactionID)
+			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction).Iterator(); it.HasNext(); {
+				conflictingTransactionID := it.Next()
+				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -472,15 +473,16 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 				return
 			}
 
-			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
+			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
 			if referenceDislikedBranchIDsErr != nil {
 				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), referenceDislikedBranchIDsErr)
 				return
 			}
 			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
 
-			for conflictingTransactionID := range b.tangle.LedgerstateOLD.ConflictingTransactions(transaction) {
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(conflictingTransactionID)
+			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction).Iterator(); it.HasNext(); {
+				conflictingTransactionID := it.Next()
+				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
 					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
 					return
@@ -509,7 +511,7 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 				return
 			}
 
-			weakReferencePayloadBranch, weakReferenceErr := b.tangle.Ledger.Storage.CachedTransactionBranchIDs(transaction.ID())
+			weakReferencePayloadBranch, weakReferenceErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
 			if weakReferenceErr != nil {
 				err = errors.Errorf("failed to retrieve BranchIDs of Transaction with %s contained in %s weakly referenced by %s: %w", transaction.ID(), parentMessageID, message.ID(), weakReferenceErr)
 				return

@@ -1,10 +1,12 @@
 package ledger
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -79,4 +81,32 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 			callback(tx, txMetadata)
 		})
 	})
+}
+
+// TransactionBranchIDs returns the BranchIDs of the given TransactionID.
+func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchdag.BranchIDs, err error) {
+	branchIDs = branchdag.NewBranchIDs()
+	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
+		branchIDs = metadata.BranchIDs()
+	}) {
+		return nil, errors.New("no TransactionMetadata found")
+	}
+
+	return branchIDs, nil
+}
+
+// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
+func (u *Utils) ConflictingTransactions(transaction utxo.Transaction) (conflictingTransactions utxo.TransactionIDs) {
+	conflictingTransactions = utxo.NewTransactionIDs()
+
+	for _, input := range transaction.Inputs() {
+		u.ledger.Storage.CachedConsumers(u.ledger.options.vm.ResolveInput(input)).Consume(func(consumer *Consumer) {
+			if consumer.TransactionID() == transaction.ID() {
+				return
+			}
+
+			conflictingTransactions.Add(consumer.TransactionID())
+		})
+	}
+	return
 }

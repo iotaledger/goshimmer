@@ -3,14 +3,10 @@ package tangle
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 )
 
 // region LedgerstateOLD //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,36 +23,6 @@ func NewLedger(tangle *Tangle) (ledgerState *LedgerstateOLD) {
 	return &LedgerstateOLD{
 		tangle: tangle,
 	}
-}
-
-// Setup sets up the behavior of the component by making it attach to the relevant events of other components.
-func (l *LedgerstateOLD) Setup() {
-	l.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID branchdag.BranchID) {
-		if l.tangle.Options.LedgerState.MergeBranches {
-			l.BranchDAG.SetBranchConfirmed(branchID)
-		}
-	}))
-}
-
-// TransactionValid performs some fast checks of the Transaction and triggers a MessageInvalid event if the checks do
-// not pass.
-func (l *LedgerstateOLD) TransactionValid(transaction *ledgerstate.Transaction, messageID MessageID) (err error) {
-	if err = l.UTXODAG.CheckTransaction(transaction); err != nil {
-		l.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetObjectivelyInvalid(true)
-		})
-		l.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageID, Error: err})
-
-		return errors.Errorf("invalid transaction in message with %s: %w", messageID, err)
-	}
-
-	return nil
-}
-
-// TransactionConflicting returns whether the given transaction is part of a conflict.
-func (l *LedgerstateOLD) TransactionConflicting(transactionID ledgerstate.TransactionID) bool {
-	branchIDs := l.BranchIDs(transactionID)
-	return len(branchIDs) == 1 && branchIDs.Contains(ledgerstate.NewBranchID(transactionID))
 }
 
 // ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
@@ -175,26 +141,6 @@ func (l *LedgerstateOLD) Transactions() (transactions map[ledgerstate.Transactio
 func (l *LedgerstateOLD) CachedOutputsOnAddress(address ledgerstate.Address) (cachedOutputs objectstorage.CachedObjects[ledgerstate.Output]) {
 	l.UTXODAG.CachedAddressOutputMapping(address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
 		cachedOutputs = append(cachedOutputs, l.CachedOutput(addressOutputMapping.OutputID()))
-	})
-	return
-}
-
-// ConsumedOutputs returns the consumed (cached)Outputs of the given Transaction.
-func (l *LedgerstateOLD) ConsumedOutputs(transaction *ledgerstate.Transaction) (cachedInputs objectstorage.CachedObjects[ledgerstate.Output]) {
-	return l.UTXODAG.ConsumedOutputs(transaction)
-}
-
-// ConfirmedConsumer returns the confirmed transactionID consuming the given outputID.
-func (l *LedgerstateOLD) ConfirmedConsumer(outputID ledgerstate.OutputID) (consumerID ledgerstate.TransactionID) {
-	// default to no consumer, i.e. Genesis
-	consumerID = ledgerstate.GenesisTransactionID
-	l.Consumers(outputID).Consume(func(consumer *ledgerstate.Consumer) {
-		if consumerID != ledgerstate.GenesisTransactionID {
-			return
-		}
-		if l.tangle.ConfirmationOracle.IsTransactionConfirmed(consumer.TransactionID()) {
-			consumerID = consumer.TransactionID()
-		}
 	})
 	return
 }
