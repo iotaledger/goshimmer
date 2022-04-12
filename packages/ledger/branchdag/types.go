@@ -39,7 +39,7 @@ func (t BranchID) String() (humanReadable string) {
 // UndefinedBranchID contains the null-value of the BranchID type.
 var UndefinedBranchID BranchID
 
-// MasterBranchID contains the identifier of the master Branch.
+// MasterBranchID contains the identifier of the MasterBranch.
 var MasterBranchID = BranchID{types.Identifier{1}}
 
 // BranchIDLength contains the byte length of a serialized BranchID.
