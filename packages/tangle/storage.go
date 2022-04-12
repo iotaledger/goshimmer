@@ -742,9 +742,8 @@ func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (atta
 	if attachment = a; attachment == nil {
 		attachment = new(Attachment)
 	}
-	if err := attachment.transactionID.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
-		return
+	if err = attachment.transactionID.FromMarshalUtil(marshalUtil); err != nil {
+		return nil, errors.Errorf("failed to parse transaction ID in attachment: %w", err)
 	}
 	if attachment.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse message ID in attachment: %w", err)

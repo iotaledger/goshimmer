@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
@@ -69,8 +70,8 @@ func (b *Booker) Setup() {
 	}))
 
 	// TODO: hook to event TransactionForked
-	b.tangle.Ledger.Events.TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledger.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
+	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -128,7 +129,9 @@ func (b *Booker) Shutdown() {
 func (b *Booker) bookPayload(messageID MessageID) {
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			b.tangle.dagMutex.RLock(message.Parents()...)
+			b.tangle.dagMutex.RLock(lo.Map(message.Parents(), func(messageID MessageID) [32]byte {
+				return [32]byte{}
+			})...)
 			b.tangle.dagMutex.Lock(messageID)
 			defer b.tangle.dagMutex.Unlock(messageID)
 			defer b.tangle.dagMutex.RUnlock(message.Parents()...)

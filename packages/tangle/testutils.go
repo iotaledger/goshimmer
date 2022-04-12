@@ -15,8 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
@@ -339,7 +337,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
 // no Transaction related MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *ledgerstate.Transaction) {
+func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *devnetvm.Transaction) {
 	if len(options.inputs) == 0 || len(options.outputs) == 0 {
 		return
 	}

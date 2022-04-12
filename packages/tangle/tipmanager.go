@@ -12,9 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -108,7 +107,7 @@ type TipManager struct {
 	tangle               *Tangle
 	tips                 *randommap.RandomMap[MessageID, MessageID]
 	tipsCleaner          *TimedTaskExecutor
-	tipsBranchCount      map[ledgerstate.BranchID]uint
+	tipsBranchCount      map[branchdag.BranchID]uint
 	tipsBranchCountMutex sync.RWMutex
 	Events               *TipManagerEvents
 }
@@ -119,7 +118,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tangle:          tangle,
 		tips:            randommap.New[MessageID, MessageID](),
 		tipsCleaner:     NewTimedTaskExecutor(1),
-		tipsBranchCount: make(map[ledgerstate.BranchID]uint),
+		tipsBranchCount: make(map[branchdag.BranchID]uint),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -282,7 +281,7 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	}
 }
 
-func (t *TipManager) deleteConfirmedBranchCount(branchID ledgerstate.BranchID) {
+func (t *TipManager) deleteConfirmedBranchCount(branchID branchdag.BranchID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 

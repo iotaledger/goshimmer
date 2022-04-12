@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -172,11 +172,11 @@ func (p *testTxPayload) Bytes() []byte {
 }
 func (p *testTxPayload) String() string { return "tx" }
 
-func newTransaction(t time.Time) *ledgerstate.Transaction {
+func newTransaction(t time.Time) *devnetvm.Transaction {
 	ID, _ := identity.RandomID()
-	var inputs ledgerstate.Inputs
-	var outputs ledgerstate.Outputs
-	essence := ledgerstate.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
-	var unlockBlocks ledgerstate.UnlockBlocks
-	return ledgerstate.NewTransaction(essence, unlockBlocks)
+	var inputs devnetvm.Inputs
+	var outputs devnetvm.Outputs
+	essence := devnetvm.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
+	var unlockBlocks devnetvm.UnlockBlocks
+	return devnetvm.NewTransaction(essence, unlockBlocks)
 }
