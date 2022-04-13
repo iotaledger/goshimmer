@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
-
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -65,8 +64,8 @@ func (b *Booker) Setup() {
 	}))
 
 	// TODO: hook to event TransactionForked
-	b.tangle.Ledger.Events.TransactionBranchIDUpdatedByFork.Attach(events.NewClosure(func(event *ledger.TransactionBranchIDUpdatedByForkEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
+	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))

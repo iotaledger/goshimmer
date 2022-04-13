@@ -12,8 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -877,29 +876,25 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func getSingleBranch(branches map[string]ledgerstate.BranchIDs, alias string) ledgerstate.BranchID {
-	if len(branches[alias]) != 1 {
+func getSingleBranch(branches map[string]branchdag.BranchIDs, alias string) branchdag.BranchID {
+	if branches[alias].Size() != 1 {
 		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
 	}
 
-	for branchID := range branches[alias] {
-		return branchID
+	for it := branches[alias].Iterator(); it.HasNext(); {
+		return it.Next()
 	}
 
-	return ledgerstate.UndefinedBranchID
+	return branchdag.UndefinedBranchID
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]ledgerstate.BranchIDs, parentBranchIDs ledgerstate.BranchIDs, conflictID ledgerstate.ConflictID) {
+func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]branchdag.BranchIDs, parentBranchIDs branchdag.BranchIDs, conflictID branchdag.ConflictID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	cachedBranch, _, err := tangle.LedgerstateOLD.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
-	require.NoError(t, err)
-
-	cachedBranch.Release()
-
-	ledgerstate.RegisterBranchIDAlias(branchID, branchAlias)
+	tangle.Ledger.BranchDAG.CreateBranch(branchID, parentBranchIDs, ledgerstate.NewConflictIDs(conflictID))
+	branchID.RegisterAlias(branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]ledgerstate.BranchIDs, voter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]branchdag.BranchIDs, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for branchID := range branchIDs[branchIDString] {

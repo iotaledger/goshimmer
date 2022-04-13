@@ -243,8 +243,8 @@ func (s *Storage) initConsumers(outputIDs utxo.OutputIDs, txID utxo.TransactionI
 }
 
 // pruneTransaction removes a Transaction (and all of its dependencies) from the database.
-func (s *Storage) pruneTransaction(txID utxo.TransactionID) {
-	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext() {
+func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
+	for futureConeWalker := walker.New[utxo.TransactionID]().Push(txID); futureConeWalker.HasNext(); {
 		currentTxID := futureConeWalker.Next()
 
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
@@ -263,12 +263,13 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID) {
 				s.outputStorage.Delete(outputIDBytes)
 				s.outputMetadataStorage.Delete(outputIDBytes)
 
-
 			}
 
-			s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
-				futureConeWalker.Push(consumingTxID)
-			})
+			if pruneFutureCone {
+				s.ledger.Utils.WalkConsumingTransactionID(createdOutputIDs, func(consumingTxID utxo.TransactionID, walker *walker.Walker[utxo.OutputID]) {
+					futureConeWalker.Push(consumingTxID)
+				})
+			}
 
 			txMetadata.Delete()
 		})
