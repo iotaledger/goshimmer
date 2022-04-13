@@ -30,6 +30,7 @@ var ErrNotRunning = errors.New("scheduler stopped")
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
 	MaxBufferSize                     int
+	TotalSupply                       int
 	Rate                              time.Duration
 	AccessManaRetrieveFunc            func(identity.ID) float64
 	TotalAccessManaRetrieveFunc       func() float64
@@ -64,11 +65,14 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// maximum buffer size (in bytes)
 	maxBuffer := tangle.Options.SchedulerParams.MaxBufferSize
 
+	// total supply of mana
+	totalSupply := tangle.Options.SchedulerParams.TotalSupply
+
 	// threshold after which confirmed messages are not scheduled
 	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
 
 	// maximum access mana-scaled inbox length
-	maxQueue := float64(maxBuffer) / float64(tangle.LedgerstateOLD.TotalSupply())
+	maxQueue := float64(maxBuffer) / float64(totalSupply)
 
 	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
 

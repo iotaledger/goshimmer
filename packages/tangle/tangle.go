@@ -51,7 +51,6 @@ type Tangle struct {
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
-	LedgerstateOLD        *LedgerstateOLD
 	Ledger                *ledger.Ledger
 	Utils                 *Utils
 	WeightProvider        WeightProvider
@@ -91,7 +90,6 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.LedgerstateOLD = NewLedger(tangle)
 	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
@@ -134,7 +132,6 @@ func (t *Tangle) Setup() {
 	t.Scheduler.Setup()
 	t.Dispatcher.Setup()
 	t.Booker.Setup()
-	t.LedgerstateOLD.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -195,7 +192,6 @@ func (t *Tangle) Shutdown() {
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
-	t.LedgerstateOLD.Shutdown()
 	t.Ledger.Shutdown()
 	t.TimeManager.Shutdown()
 	t.Options.Store.Shutdown()

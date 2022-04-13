@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -311,16 +312,16 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		},
 	}
 
-	if err := m.tangle.LedgerstateOLD.LoadSnapshot(snapshot); err != nil {
+	if err := m.tangle.Ledger.LoadSnapshot(snapshot); err != nil {
 		panic(err)
 	}
 
 	for alias := range m.options.genesisOutputs {
-		m.tangle.Ledger.Storage.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerstateOLD.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
+		m.tangle.Ledger.Storage.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
+			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
 				m.outputsByAlias[alias] = output
 				m.outputsByID[addressOutputMapping.OutputID()] = output
-				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
+				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(addressOutputMapping.OutputID())
 			})
 		})
 	}
