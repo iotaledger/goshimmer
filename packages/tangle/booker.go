@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
-
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -48,11 +47,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
 	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
-		messageID, ok := event.Context.Value("messageID").(MessageID)
-		if !ok {
-			messageID = EmptyMessageID
-		}
-		b.processBookedTransaction(event.TransactionID, messageID)
+		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
 	}))
 	b.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
 		b.propagateBooking(event.MessageID)
@@ -66,8 +61,8 @@ func (b *Booker) Setup() {
 	}))
 
 	// TODO: hook to event TransactionForked
-	b.tangle.Ledger.Events.TransactionForked.Attach(event.NewClosure(func(event *ledger.TransactionForkedEvent) {
-		if err := b.PropagateForkedBranch(event.TransactionID, event.ForkedBranchID); err != nil {
+	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -145,7 +140,7 @@ func (b *Booker) bookPayload(messageID MessageID) {
 			}
 
 			b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
-			err := b.tangle.Ledger.StoreAndProcessTransaction(context.WithValue(context.Background(), "messageID", messageID), tx)
+			err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
 			if err != nil {
 				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
 				//  delete attachments of transaction

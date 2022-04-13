@@ -19,6 +19,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -832,17 +834,17 @@ func TestMessageFromMarshalUtil(t *testing.T) {
 	})
 }
 
-func randomTransaction() *ledgerstate.Transaction {
+func randomTransaction() *devnetvm.Transaction {
 	ID, _ := identity.RandomID()
-	input := ledgerstate.NewUTXOInput(ledgerstate.EmptyOutputID)
-	var outputs ledgerstate.Outputs
+	input := devnetvm.NewUTXOInput(utxo.EmptyOutputID)
+	var outputs devnetvm.Outputs
 	seed := ed25519.NewSeed()
 	w := wl{
 		keyPair: *seed.KeyPair(0),
-		address: ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+		address: devnetvm.NewED25519Address(seed.KeyPair(0).PublicKey),
 	}
-	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(100),
+	output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: uint64(100),
 	}), w.address)
 	outputs = append(outputs, output)
 	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
@@ -854,7 +856,7 @@ func randomTransaction() *ledgerstate.Transaction {
 
 type wl struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (w wl) privateKey() ed25519.PrivateKey {
@@ -865,6 +867,6 @@ func (w wl) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
 
-func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+func (w wl) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

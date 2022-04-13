@@ -37,7 +37,7 @@ const (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
-	dagMutex syncutils.DAGMutex[MessageID]
+	dagMutex *syncutils.DAGMutex[MessageID]
 
 	Options               *Options
 	Parser                *Parser
@@ -74,7 +74,7 @@ type ConfirmationOracle interface {
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
-		dagMutex: syncutils.NewDAGMutex(),
+		dagMutex: syncutils.NewDAGMutex[MessageID](),
 		Events:   newEvents(),
 	}
 

@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -167,6 +168,18 @@ func RegisterMessageIDAlias(messageID MessageID, alias string) {
 // UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
 func UnregisterMessageIDAliases() {
 	messageIDAliases = make(map[MessageID]string)
+}
+
+func MessageIDFromContext(ctx context.Context) MessageID {
+	messageID, ok := ctx.Value("messageID").(MessageID)
+	if !ok {
+		return EmptyMessageID
+	}
+	return messageID
+}
+
+func MessageIDToContext(ctx context.Context, messageID MessageID) context.Context {
+	return context.WithValue(ctx, "messageID", messageID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

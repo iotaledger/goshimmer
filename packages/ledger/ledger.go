@@ -63,7 +63,7 @@ func New(options ...Option) (ledger *Ledger) {
 	}))
 
 	ledger.Events.TransactionInvalid.Attach(event.NewClosure(func(event *TransactionInvalidEvent) {
-		ledger.PruneTransaction(event.TransactionID)
+		ledger.PruneTransaction(event.TransactionID, true)
 	}))
 
 	return ledger
@@ -82,9 +82,10 @@ func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transac
 	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
 }
 
-// PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid).
-func (l *Ledger) PruneTransaction(txID utxo.TransactionID) {
-	l.Storage.pruneTransaction(txID)
+// PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid). If the
+// pruneFutureCone flag is true, then we do not just remove the named Transaction but also its future cone.
+func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool) {
+	l.Storage.pruneTransaction(txID, pruneFutureCone)
 }
 
 // Shutdown shuts down the stateful elements of the Ledger (the Storage and the BranchDAG).

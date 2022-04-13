@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"

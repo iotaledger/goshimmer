@@ -6,87 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
-
-func TestTipManager_AddTip(t *testing.T) {
-	tangle := NewTestTangle()
-	defer func(tangle *Tangle) {
-		_ = tangle.Prune()
-		tangle.Shutdown()
-	}(tangle)
-	tangle.Storage.Setup()
-	tangle.Solidifier.Setup()
-	tipManager := tangle.TipManager
-
-	seed := ed25519.NewSeed()
-
-	output := ledgerstate.NewSigLockedColoredOutput(
-		ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: 10000,
-		}),
-		ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
-	)
-
-	genesisEssence := ledgerstate.NewTransactionEssence(
-		0,
-		time.Unix(DefaultGenesisTime, 0),
-		identity.ID{},
-		identity.ID{},
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-		ledgerstate.NewOutputs(output),
-	)
-
-	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
-
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: []bool{true},
-			},
-		},
-	}
-
-	tangle.LedgerstateOLD.LoadSnapshot(snapshot)
-	// set up scenario (images/tipmanager-add-tips.png)
-	messages := make(map[string]*Message)
-
-	// Message 1
-	{
-		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
-		tipManager.AddTip(messages["1"])
-
-		assert.Equal(t, 1, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
-	}
-
-	// Message 2
-	{
-		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
-		tipManager.AddTip(messages["2"])
-
-		assert.Equal(t, 2, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID(), messages["2"].ID())
-	}
-
-	// Message 3
-	{
-		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID, messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
-		tipManager.AddTip(messages["3"])
-
-		assert.Equal(t, 1, tipManager.TipCount())
-		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
-	}
-}
 
 func TestTipManager_DataMessageTips(t *testing.T) {
 	tangle := NewTestTangle()
@@ -847,20 +772,14 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 }
 
 func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
-	// TODO: CheckTransaction should be removed here once the booker passes on errors
-	if message.payload.Type() == ledgerstate.TransactionType {
-		err := tangle.LedgerstateOLD.UTXODAG.CheckTransaction(message.payload.(*ledgerstate.Transaction))
-		require.NoError(t, err)
-	}
-	err := tangle.Booker.BookMessage(message.ID())
-	require.NoError(t, err)
+	tangle.Booker.bookPayload(message.ID())
 
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
 		require.True(t, messageMetadata.booked)
 		messageBranchIDs, err := tangle.Booker.MessageBranchIDs(message.ID())
 		assert.NoError(t, err)
-		require.Equal(t, ledgerstate.NewBranchIDs(ledgerstate.MasterBranchID), messageBranchIDs)
+		require.Equal(t, branchdag.NewBranchIDs(branchdag.MasterBranchID), messageBranchIDs)
 		messageMetadata.StructureDetails()
 	})
 }
