@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -72,7 +74,28 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
+func (m *MarkerIndexBranchIDMapping) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	mapping := new(MarkerIndexBranchIDMapping)
+	if mapping != nil {
+		mapping = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &mapping.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
+		return mapping, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, mapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
+		return mapping, err
+	}
+	return mapping, err
+}
+
+// FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
 func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
@@ -83,6 +106,7 @@ func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objec
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
 func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if markerIndexBranchIDMapping, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
@@ -237,12 +261,34 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the MarkerIndexBranchIDMapping into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *MarkerIndexBranchIDMapping) ObjectStorageKeyOld() []byte {
 	return m.markerIndexBranchIDInner.SequenceID.Bytes()
 }
 
 // ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
-func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
+func (m *MarkerIndexBranchIDMapping) ObjectStorageValueOld() []byte {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -292,7 +338,28 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
+func (m *MarkerMessageMapping) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	mapping := new(MarkerMessageMapping)
+	if mapping != nil {
+		mapping = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, mapping.markerMessageMappingInner.Marker, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
+		return mapping, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, mapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
+		return mapping, err
+	}
+	return mapping, err
+}
+
+// FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
 func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	// TODO: remove eventually
 	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
@@ -302,6 +369,7 @@ func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstora
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
 func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if individuallyMappedMessage, err = m.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
@@ -355,12 +423,36 @@ func (m *MarkerMessageMapping) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.markerMessageMappingInner.Marker, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *MarkerMessageMapping) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return m.markerMessageMappingInner.Marker.Bytes()
 }
 
 // ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
 // the object storage.
-func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
+func (m *MarkerMessageMapping) ObjectStorageValueOld() []byte {
+	// TODO: remove eventually
 	return m.markerMessageMappingInner.MessageID.Bytes()
 }
 

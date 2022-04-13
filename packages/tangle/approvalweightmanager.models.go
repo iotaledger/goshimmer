@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -53,7 +54,28 @@ func NewBranchWeight(branchID ledgerstate.BranchID) (branchWeight *BranchWeight)
 }
 
 // FromObjectStorage creates an BranchWeight from sequences of key and bytes.
+func (b *BranchWeight) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	bw := new(BranchWeight)
+	if bw != nil {
+		bw = b
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &bw.branchWeightInner.BranchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight.BranchID: %w", err)
+		return bw, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, bw, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight: %w", err)
+		return bw, err
+	}
+	return bw, err
+}
+
+// FromObjectStorage creates an BranchWeight from sequences of key and bytes.
 func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventualyl
 	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
@@ -63,6 +85,7 @@ func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 
 // FromBytes unmarshals a BranchWeight object from a sequence of bytes.
 func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight *BranchWeight, err error) {
+	//TODO: remove or refactor eventually
 	marshalUtil := marshalutil.New(bytes)
 	if branchWeight, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
@@ -134,12 +157,34 @@ func (b *BranchWeight) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *BranchWeight) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.BranchID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the BranchWeight into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (b *BranchWeight) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *BranchWeight) ObjectStorageKeyOld() []byte {
 	return b.BranchID().Bytes()
 }
 
 // ObjectStorageValue marshals the BranchWeight into a sequence of bytes that are used as the value part in the
 // object storage.
-func (b *BranchWeight) ObjectStorageValue() []byte {
+func (b *BranchWeight) ObjectStorageValueOld() []byte {
 	return marshalutil.New(marshalutil.Float64Size).
 		WriteFloat64(b.Weight()).
 		Bytes()
@@ -209,23 +254,23 @@ func (v *Voters) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (v *Voters) Decode(b []byte) (bytesRead int, err error) {
-	//v.Set = set.New[Voter]()
-	//
-	//var votersCount uint32
-	//bytesReadSize, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &votersCount)
-	//if err != nil {
-	//	return 0, err
-	//}
-	//
-	//for i := uint32(0); i < votersCount; i++ {
-	//	var voter Voter
-	//	bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &bytesReadVoter)
-	//	if err != nil {
-	//		return 0, err
-	//	}
-	//	bytesRead += bytesReadVoter
-	//	v.Add(voter)
-	//}
+	v.Set = set.New[Voter]()
+
+	var votersCount uint32
+	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &votersCount)
+	if err != nil {
+		return 0, err
+	}
+
+	for i := uint32(0); i < votersCount; i++ {
+		var voter Voter
+		bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &voter)
+		if err != nil {
+			return 0, err
+		}
+		bytesRead += bytesReadVoter
+		v.SerializableSet.Add(voter)
+	}
 	return bytesRead, nil
 }
 
@@ -284,7 +329,28 @@ func NewBranchVoters(branchID ledgerstate.BranchID) (branchVoters *BranchVoters)
 }
 
 // FromObjectStorage creates an BranchVoters from sequences of key and bytes.
+func (b *BranchVoters) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	votes := new(BranchVoters)
+	if votes != nil {
+		votes = b
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &votes.branchVotersInner.BranchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters.BranchID: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromObjectStorage creates an BranchVoters from sequences of key and bytes.
 func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
@@ -294,6 +360,7 @@ func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
 func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters *BranchVoters, err error) {
+	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
@@ -409,12 +476,36 @@ func (b *BranchVoters) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *BranchVoters) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.branchVotersInner.BranchID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the BranchVoters into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (b *BranchVoters) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *BranchVoters) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return b.BranchID().Bytes()
 }
 
 // ObjectStorageValue marshals the BranchVoters into a sequence of bytes that are used as the value part in the
 // object storage.
-func (b *BranchVoters) ObjectStorageValue() []byte {
+func (b *BranchVoters) ObjectStorageValueOld() []byte {
+	//TODO: remove eventually
 	b.votersMutex.RLock()
 	defer b.votersMutex.RUnlock()
 
@@ -519,7 +610,33 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 }
 
 // FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
+func (l *LatestMarkerVotes) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	votes := new(LatestMarkerVotes)
+	if votes != nil {
+		votes = l
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), key, votes.latestMarkerVotesInner.SequenceID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes.SequenceID: %w", err)
+		return votes, err
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), key[bytesRead:], votes.latestMarkerVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes.Voter: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
 func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
@@ -529,6 +646,7 @@ func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 
 // FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
 func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
+	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -640,8 +758,37 @@ func (l *LatestMarkerVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
 }
 
-// ObjectStorageKey returns the storage key for this instance of LatestMarkerVotes.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
+	objSeqIDBytes, err := serix.DefaultAPI.Encode(context.Background(), l.SequenceID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+
+	objVoterBytes, err := serix.DefaultAPI.Encode(context.Background(), l.latestMarkerVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return byteutils.ConcatBytes(objSeqIDBytes, objVoterBytes)
+}
+
+// ObjectStorageValue marshals the LatestMarkerVotes into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the storage key for this instance of LatestMarkerVotes.
+func (l *LatestMarkerVotes) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return marshalutil.New().
 		Write(l.latestMarkerVotesInner.SequenceID).
 		Write(l.latestMarkerVotesInner.Voter).
@@ -649,7 +796,8 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 }
 
 // ObjectStorageValue returns the storage value for this instance of LatestMarkerVotes.
-func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
+func (l *LatestMarkerVotes) ObjectStorageValueOld() []byte {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(l.latestMarkerVotesInner.LatestMarkerVotes.Size()))
 	l.latestMarkerVotesInner.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
@@ -738,7 +886,28 @@ func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 }
 
 // FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
+func (l *LatestBranchVotes) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	votes := new(LatestBranchVotes)
+	if votes != nil {
+		votes = l
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &votes.latestBranchVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes.Voter: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
 func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
@@ -748,6 +917,7 @@ func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 
 // FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
 func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
+	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if latestBranchVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
@@ -805,12 +975,36 @@ func (l *LatestBranchVotes) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (l *LatestBranchVotes) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l.latestBranchVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (l *LatestBranchVotes) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (l *LatestBranchVotes) ObjectStorageKeyOld() []byte {
+	// TODO: remove eventually
 	return l.latestBranchVotesInner.Voter.Bytes()
 }
 
 // ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes that are used as the value part in the
 // object storage.
-func (l *LatestBranchVotes) ObjectStorageValue() []byte {
+func (l *LatestBranchVotes) ObjectStorageValueOld() []byte {
+	// TODO: remove eventually
 	l.RLock()
 	defer l.RUnlock()
 

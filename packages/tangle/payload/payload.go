@@ -60,8 +60,8 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 		return
 	}
 
-	marshalUtil.ReadSeek(-marshalutil.Uint32Size * 2)
-	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize) + 4)
+	marshalUtil.ReadSeek(-marshalutil.Uint32Size)
+	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize))
 	if err != nil {
 		err = errors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -70,6 +70,7 @@ func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err
 	readOffset := marshalUtil.ReadOffset()
 	if payload, err = Unmarshaler(payloadType)(payloadBytes); err != nil {
 		marshalUtil.ReadSeek(readOffset)
+		fmt.Printf("failed to parse Payload with custom unmarshaller: %s", err)
 
 		if payload, err = GenericDataPayloadUnmarshaler(payloadBytes); err != nil {
 			err = fmt.Errorf("failed to parse Payload with generic GenericDataPayloadUnmarshaler: %w", err)

@@ -421,6 +421,26 @@ func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageI
 	return false
 }
 
+// FromObjectStorage creates a Message from sequences of key and bytes.
+func (m *Message) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	msg := new(Message)
+	if msg != nil {
+		msg = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, msg, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return msg, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, msg.messageInner.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction.id: %w", err)
+		return msg, err
+	}
+	return msg, err
+}
+
 // FromObjectStorage parses the given key and bytes into a message.
 func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 
@@ -445,8 +465,23 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 	return
 }
 
+// FromBytes unmarshals a Transaction from a sequence of bytes.
+func (m *Message) FromBytesNew(bytes []byte) (*Message, error) {
+	tx := new(Message)
+	if tx != nil {
+		tx = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return tx, err
+	}
+	return tx, err
+}
+
 // FromBytes parses the given bytes into a message.
 func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	message, err = m.FromMarshalUtil(marshalUtil)
 	if err != nil {
@@ -660,8 +695,19 @@ func (m *Message) calculateID() MessageID {
 	return blake2b.Sum256(m.Bytes())
 }
 
-// Bytes returns the message in serialized byte form.
+// Bytes returns a marshaled version of the Transaction.
 func (m *Message) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns the message in serialized byte form.
+func (m *Message) BytesOld() []byte {
+	//TODO: remove eventually
 	m.bytesMutex.Lock()
 	defer m.bytesMutex.Unlock()
 	if m.bytes != nil {
@@ -692,7 +738,6 @@ func (m *Message) Bytes() []byte {
 	marshalUtil.WriteTime(m.messageInner.IssuingTime)
 	marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
 	marshalUtil.Write(m.messageInner.Payload)
-	fmt.Println("Bytes Payload", m.messageInner.Payload.Bytes())
 	marshalUtil.WriteUint64(m.messageInner.Nonce)
 	marshalUtil.Write(m.messageInner.Signature)
 
@@ -706,15 +751,39 @@ func (m *Message) Size() int {
 	return len(m.Bytes())
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *Message) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *Message) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // ObjectStorageKey returns the key of the stored message object.
 // This returns the bytes of the message ID.
-func (m *Message) ObjectStorageKey() []byte {
+func (m *Message) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return m.ID().Bytes()
 }
 
 // ObjectStorageValue returns the value stored in object storage.
 // This returns the bytes of message.
-func (m *Message) ObjectStorageValue() []byte {
+func (m *Message) ObjectStorageValueOld() []byte {
+	//TODO: remove eventually
 	return m.Bytes()
 }
 
@@ -893,7 +962,28 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
+func (m *MessageMetadata) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	msgMetadata := new(MessageMetadata)
+	if msgMetadata != nil {
+		msgMetadata = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &msgMetadata.messageMetadataInner.MessageID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
+		return msgMetadata, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, msgMetadata, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageMetadata: %w", err)
+		return msgMetadata, err
+	}
+	return msgMetadata, err
+}
+
+// FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
 func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
@@ -903,6 +993,7 @@ func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.St
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
 func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
+	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	result, err = m.FromMarshalUtil(marshalUtil)
 
@@ -1313,15 +1404,37 @@ func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *MessageMetadata) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.messageMetadataInner.MessageID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *MessageMetadata) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // ObjectStorageKey returns the key of the stored message metadata object.
 // This returns the bytes of the messageID.
-func (m *MessageMetadata) ObjectStorageKey() []byte {
+func (m *MessageMetadata) ObjectStorageKeyOld() []byte {
 	return m.messageMetadataInner.MessageID.Bytes()
 }
 
 // ObjectStorageValue returns the value of the stored message metadata object.
 // This includes the receivedTime, solidificationTime and solid status.
-func (m *MessageMetadata) ObjectStorageValue() []byte {
+func (m *MessageMetadata) ObjectStorageValueOld() []byte {
 	return marshalutil.New().
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
@@ -1339,7 +1452,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		Bytes()
 }
 
-// String returns a human readable Version of the MessageMetadata.
+// String returns a human-readable Version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
 		stringify.StructField("ID", m.messageMetadataInner.MessageID),

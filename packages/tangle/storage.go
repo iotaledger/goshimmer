@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -210,6 +212,7 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 
 // StoreAttachment stores a new attachment if not already stored.
 func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
+	fmt.Println("Store attachment", transactionID, messageID)
 	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 	if !stored {
 		return
@@ -626,8 +629,24 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 	return approver
 }
 
+// FromObjectStorage creates an Attachment from sequences of key and bytes.
+func (a *Approver) FromObjectStorageNew(key, _ []byte) (objectstorage.StorableObject, error) {
+	approver := new(Approver)
+	if approver != nil {
+		approver = a
+	}
+
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, approver, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Approver: %w", err)
+		return approver, err
+	}
+	return approver, err
+}
+
 // FromObjectStorage creates an Approver from sequences of key and bytes.
 func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := a.FromBytes(key)
 	if err != nil {
 		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
@@ -637,6 +656,7 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 
 // FromBytes parses the given bytes into an approver.
 func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
+	//TODO: remove eventually or refactor
 	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
@@ -689,9 +709,21 @@ func (a *Approver) String() string {
 	)
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (a *Approver) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // ObjectStorageKey marshals the keys of the stored approver into a byte array.
 // This includes the referencedMessageID and the approverMessageID.
-func (a *Approver) ObjectStorageKey() []byte {
+func (a *Approver) ObjectStorageKeyOld() []byte {
+	// TODO: remove eventually
 	return marshalutil.New().
 		Write(a.approverInner.ReferencedMessageID).
 		Write(a.approverInner.ApproverType).
@@ -734,7 +766,23 @@ func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID)
 }
 
 // FromObjectStorage creates an Attachment from sequences of key and bytes.
+func (a *Attachment) FromObjectStorageNew(key, _ []byte) (objectstorage.StorableObject, error) {
+	attachment := new(Attachment)
+	if attachment != nil {
+		attachment = a
+	}
+
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, attachment, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Attachment: %w", err)
+		return attachment, err
+	}
+	return attachment, err
+}
+
+// FromObjectStorage creates an Attachment from sequences of key and bytes.
 func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := a.FromBytes(key)
 	if err != nil {
 		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
@@ -745,6 +793,7 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
+	//TODO: remove eventually or refactor
 	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
 
@@ -789,8 +838,20 @@ func (a *Attachment) String() string {
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *Attachment) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database.
+func (a *Attachment) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return byteutils.ConcatBytes(a.attachmentInner.TransactionID.Bytes(), a.MessageID().Bytes())
 }
 
@@ -833,7 +894,28 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
+func (m *MissingMessage) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	missingMsg := new(MissingMessage)
+	if missingMsg != nil {
+		missingMsg = m
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), key, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
+		return missingMsg, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, missingMsg, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage: %w", err)
+		return missingMsg, err
+	}
+	return missingMsg, err
+}
+
+// FromObjectStorage creates an MissingMessage from sequences of key and bytes.
 func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	//TODO: remove eventually
 	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
@@ -843,6 +925,7 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 
 // FromBytes parses the given bytes into a MissingMessage.
 func (m *MissingMessage) FromBytes(bytes []byte) (result *MissingMessage, err error) {
+	//TODO: remove eventually or refactor
 	return m.FromMarshalUtil(marshalutil.New(bytes))
 }
 
@@ -880,15 +963,38 @@ func (m *MissingMessage) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (m *MissingMessage) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.missingMessageInner.MessageID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the MissingMessage into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *MissingMessage) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // ObjectStorageKey returns the key of the stored missing message.
 // This returns the bytes of the messageID of the missing message.
-func (m *MissingMessage) ObjectStorageKey() []byte {
+func (m *MissingMessage) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return m.missingMessageInner.MessageID[:]
 }
 
 // ObjectStorageValue returns the value of the stored missing message.
-func (m *MissingMessage) ObjectStorageValue() (result []byte) {
-
+func (m *MissingMessage) ObjectStorageValueOld() (result []byte) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New()
 	result = marshalUtil.WriteTime(m.missingMessageInner.MissingSince).Bytes()
 

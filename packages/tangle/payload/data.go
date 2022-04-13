@@ -68,11 +68,11 @@ func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataP
 
 // GenericDataPayloadFromMarshalUtil unmarshals a GenericDataPayload using a MarshalUtil (for easier unmarshaling).
 func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
-	_, err = marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
+	//_, err = marshalUtil.ReadUint32()
+	//if err != nil {
+	//	err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+	//	return
+	//}
 
 	genericDataPayload = &GenericDataPayload{}
 	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {

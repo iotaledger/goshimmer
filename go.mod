@@ -3,10 +3,6 @@ module github.com/iotaledger/goshimmer
 go 1.18
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
-replace (
-	github.com/iotaledger/hive.go => ../hive.go
-	github.com/iotaledger/hive.go/serializer/v2 => ../hive.go/serializer
-)
 
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
@@ -18,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go v0.0.0-20220311143048-c9430be4cf95
+	github.com/iotaledger/hive.go v0.0.0-20220411075859-47587cd4c806
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
@@ -86,7 +82,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.2 // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220309063734-061146d8ff30 // indirect
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220411075859-47587cd4c806 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
