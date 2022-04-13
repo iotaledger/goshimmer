@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 
@@ -78,8 +78,8 @@ type Manager struct {
 	knownPeersMutex   sync.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 
-	onGossipNeighborRemovedClosure *events.Closure
-	onGossipNeighborAddedClosure   *events.Closure
+	onGossipNeighborRemovedClosure *event.Closure[*gossip.NeighborRemovedEvent]
+	onGossipNeighborAddedClosure   *event.Closure[*gossip.NeighborAddedEvent]
 }
 
 // NewManager initializes a new Manager instance.
@@ -91,8 +91,8 @@ func NewManager(gm *gossip.Manager, local *peer.Local, log *logger.Logger) *Mana
 		reconnectInterval: defaultReconnectInterval,
 		knownPeers:        map[identity.ID]*knownPeer{},
 	}
-	m.onGossipNeighborRemovedClosure = events.NewClosure(m.onGossipNeighborRemoved)
-	m.onGossipNeighborAddedClosure = events.NewClosure(m.onGossipNeighborAdded)
+	m.onGossipNeighborRemovedClosure = event.NewClosure(func(event *gossip.NeighborRemovedEvent) { m.onGossipNeighborRemoved(event.Neighbor) })
+	m.onGossipNeighborAddedClosure = event.NewClosure(func(event *gossip.NeighborAddedEvent) { m.onGossipNeighborAdded(event.Neighbor) })
 	return m
 }
 

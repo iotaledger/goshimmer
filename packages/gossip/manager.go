@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
@@ -52,14 +51,15 @@ type Manager struct {
 	local      *peer.Local
 	Libp2pHost host.Host
 
+	Events *Events
+
 	acceptWG    sync.WaitGroup
 	acceptMutex sync.RWMutex
 	acceptMap   map[libp2ppeer.ID]*acceptMatcher
 
 	loadMessageFunc LoadMessageFunc
 	log             *logger.Logger
-	events          Events
-	neighborsEvents map[NeighborsGroup]NeighborsEvents
+	neighborsEvents map[NeighborsGroup]*NeighborsEvents
 
 	stopMutex sync.RWMutex
 	isStopped bool
@@ -82,14 +82,12 @@ func NewManager(libp2pHost host.Host, local *peer.Local, f LoadMessageFunc, log 
 ) *Manager {
 	m := &Manager{
 		Libp2pHost:      libp2pHost,
+		Events:          newEvents(),
 		acceptMap:       map[libp2ppeer.ID]*acceptMatcher{},
 		local:           local,
 		loadMessageFunc: f,
 		log:             log,
-		events: Events{
-			MessageReceived: events.NewEvent(messageReceived),
-		},
-		neighborsEvents: map[NeighborsGroup]NeighborsEvents{
+		neighborsEvents: map[NeighborsGroup]*NeighborsEvents{
 			NeighborsGroupAuto:   NewNeighborsEvents(),
 			NeighborsGroupManual: NewNeighborsEvents(),
 		},
@@ -150,13 +148,8 @@ func (m *Manager) dropAllNeighbors() {
 	}
 }
 
-// Events returns the events related to the gossip protocol.
-func (m *Manager) Events() Events {
-	return m.events
-}
-
 // NeighborsEvents returns the events related to the gossip protocol.
-func (m *Manager) NeighborsEvents(group NeighborsGroup) NeighborsEvents {
+func (m *Manager) NeighborsEvents(group NeighborsGroup) *NeighborsEvents {
 	return m.neighborsEvents[group]
 }
 
@@ -297,18 +290,18 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 		return errors.WithStack(err)
 	}
-	nbr.disconnected.Attach(events.NewClosure(func() {
+	nbr.Events.Disconnected.Attach(event.NewClosure(func(_ *NeighborDisconnectedEvent) {
 		m.deleteNeighbor(nbr)
-		go m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(nbr)
+		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))
-	nbr.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
-		if err := m.handlePacket(packet, nbr); err != nil {
+	nbr.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+		if err := m.handlePacket(event.Packet, nbr); err != nil {
 			nbr.log.Debugw("Can't handle packet", "err", err)
 		}
 	}))
 	nbr.readLoop()
 	nbr.log.Info("Connection established")
-	m.neighborsEvents[group].NeighborAdded.Trigger(nbr)
+	m.neighborsEvents[group].NeighborAdded.Trigger(&NeighborAddedEvent{nbr})
 
 	return nil
 }
@@ -369,7 +362,7 @@ func (m *Manager) processMessagePacket(packetMsg *pb.Packet_Message, nbr *Neighb
 	if m.messagesRateLimiter != nil {
 		m.messagesRateLimiter.Count(nbr.Peer)
 	}
-	m.events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packetMsg.Message.GetData(), Peer: nbr.Peer})
+	m.Events.MessageReceived.Trigger(&MessageReceivedEvent{Data: packetMsg.Message.GetData(), Peer: nbr.Peer})
 }
 
 func (m *Manager) processMessageRequestPacket(packetMsgReq *pb.Packet_MessageRequest, nbr *Neighbor) {

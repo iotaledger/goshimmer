@@ -2,6 +2,7 @@ package chat
 
 import (
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -38,12 +39,14 @@ type dependencies struct {
 }
 
 func configure(_ *node.Plugin) {
-	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	deps.Tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		onReceiveMessageFromMessageLayer(event.MessageID)
+	}))
 	configureWebAPI()
 }
 
 func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
-	var chatEvent *chat.Event
+	var chatEvent *chat.MessageReceivedEvent
 	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 		if message.Payload().Type() != chat.Type {
 			return
@@ -55,7 +58,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 			return
 		}
 
-		chatEvent = &chat.Event{
+		chatEvent = &chat.MessageReceivedEvent{
 			From:      chatPayload.From,
 			To:        chatPayload.To,
 			Message:   chatPayload.Message,
