@@ -45,15 +45,18 @@ type InteractiveConfig struct {
 	clientUrls map[string]types.Empty
 }
 
-var configJSON = `{
-	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
-	"rate": 2,
-	"duration": "20s",
-	"timeUnit": "1s",
-	"deepEnabled": false,
-	"reuseEnabled": true,
-	"scenario": "tx"
-}`
+var defaultConfig = InteractiveConfig{
+	clientUrls: map[string]types.Empty{
+		"http://127.0.0.1:8080": types.Void,
+		"http://127.0.0.1:8090": types.Void,
+	},
+	Rate:     2,
+	duration: 20 * time.Second,
+	timeUnit: time.Second,
+	Deep:     false,
+	Reuse:    true,
+	Scenario: "tx",
+}
 
 // region survey selections  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -171,7 +174,7 @@ func NewInteractiveMode() *Mode {
 		mainMenu:     make(chan types.Empty),
 		spamFinished: make(chan int),
 
-		Config:        InteractiveConfig{clientUrls: make(map[string]types.Empty)},
+		Config:        defaultConfig,
 		msgSent:       atomic.NewUint64(0),
 		txSent:        atomic.NewUint64(0),
 		scenariosSent: atomic.NewUint64(0),
@@ -625,13 +628,7 @@ func (m *Mode) loadConfig() {
 		if !os.IsNotExist(err) {
 			panic(err)
 		}
-
-		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
-			panic(err)
-		}
-		if file, err = os.Open("config.json"); err != nil {
-			panic(err)
-		}
+		return
 	}
 	defer file.Close()
 
@@ -640,6 +637,10 @@ func (m *Mode) loadConfig() {
 		panic(err)
 	}
 	// convert urls array to map
+	if len(m.Config.WebAPI) > 0 {
+		// rewrite default value
+		m.Config.clientUrls = make(map[string]types.Empty)
+	}
 	for _, url := range m.Config.WebAPI {
 		m.Config.clientUrls[url] = types.Void
 	}
