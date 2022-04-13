@@ -4,27 +4,29 @@ import (
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/client/evilspammer"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/workerpool"
 	"go.uber.org/atomic"
+	"io"
 	"os"
 	"strconv"
 	"sync"
+	"text/tabwriter"
 	"time"
 )
 
 const (
-	faucetFundsCheck    = time.Minute / 4
-	queueSize           = 5
-	spammingWorkerCount = 5
-	minSpamOutputs      = 2000
+	faucetFundsCheck   = time.Minute / 4
+	maxConcurrentSpams = 5
+	minSpamOutputs     = 2000
+	lastSpamsShowed    = 15
+	timeFormat         = "2006/01/02 15:04:05"
 )
 
 var (
-	spammingWorkerPool *workerpool.NonBlockingQueuedWorkerPool
-	faucetTicker       *time.Ticker
-	printer            *Printer
+	faucetTicker *time.Ticker
+	printer      *Printer
 )
 
 type InteractiveConfig struct {
@@ -45,11 +47,13 @@ const (
 	actionWalletDetails action = iota
 	actionPrepareFunds
 	actionSpamMenu
+	actionCurrent
+	actionHistory
 	actionSettings
 	shutdown
 )
 
-var actions = []string{"Evil wallet details", "Prepare faucet funds", "Spam", "Settings", "Close"}
+var actions = []string{"Evil wallet details", "Prepare faucet funds", "New spam", "Currently running", "Spam history", "Settings", "Close"}
 
 const (
 	spamScenario = "Change scenario"
@@ -59,7 +63,7 @@ const (
 	back         = "Go back"
 )
 
-var spamMenuOptions = []string{spamScenario, spamType, spamDetails, startSpam, back}
+var spamMenuOptions = []string{startSpam, spamScenario, spamDetails, spamType, back}
 
 const (
 	settingPreparation = "Auto funds requesting"
@@ -69,8 +73,14 @@ const (
 
 var settingsMenuOptions = []string{settingPreparation, settingAddUrls, settingRemoveUrls, back}
 
+const (
+	currentSpamRemove = "Cancel spam"
+)
+
+var currentSpamOptions = []string{currentSpamRemove, back}
+
 var (
-	scenarios     = []string{"tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
+	scenarios     = []string{"msg", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
 	confirms      = []string{"enable", "disable"}
 	outputNumbers = []string{"100", "10000", "50000", "100000", "cancel"}
 )
@@ -92,6 +102,8 @@ func Run() {
 
 	for {
 		select {
+		case id := <-mode.spamFinished:
+			mode.summarizeSpam(id)
 		case <-mode.mainMenu:
 			mode.menu()
 		case <-mode.shutdown:
@@ -103,12 +115,7 @@ func Run() {
 }
 
 func configure() {
-	spammingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		fmt.Println("Spamming!")
-	}, workerpool.WorkerCount(spammingWorkerCount), workerpool.QueueSize(queueSize))
 	faucetTicker = time.NewTicker(faucetFundsCheck)
-
-	//getScenariosNames()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -116,10 +123,11 @@ func configure() {
 // region Mode /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Mode struct {
-	evilWallet *evilwallet.EvilWallet
-	shutdown   chan types.Empty
-	mainMenu   chan types.Empty
-	action     chan action
+	evilWallet   *evilwallet.EvilWallet
+	shutdown     chan types.Empty
+	mainMenu     chan types.Empty
+	spamFinished chan int
+	action       chan action
 
 	nextAction string
 
@@ -129,23 +137,30 @@ type Mode struct {
 	Config        InteractiveConfig
 	msgSent       *atomic.Uint64
 	txSent        *atomic.Uint64
-	conflictsSent *atomic.Uint64
+	scenariosSent *atomic.Uint64
+
+	activeSpammers map[int]*evilspammer.Spammer
+	spammerLog     *SpammerLog
+	spamMutex      sync.Mutex
 
 	stdOutMutex sync.Mutex
 }
 
 func NewInteractiveMode() *Mode {
 	return &Mode{
-		evilWallet: evilwallet.NewEvilWallet(),
-		action:     make(chan action),
-		shutdown:   make(chan types.Empty),
-		mainMenu:   make(chan types.Empty),
+		evilWallet:   evilwallet.NewEvilWallet(),
+		action:       make(chan action),
+		shutdown:     make(chan types.Empty),
+		mainMenu:     make(chan types.Empty),
+		spamFinished: make(chan int),
 
 		Config:        interactive,
 		msgSent:       atomic.NewUint64(0),
 		txSent:        atomic.NewUint64(0),
-		conflictsSent: atomic.NewUint64(0),
+		scenariosSent: atomic.NewUint64(0),
 
+		spammerLog:              NewSpammerLog(),
+		activeSpammers:          make(map[int]*evilspammer.Spammer),
 		autoFundsPrepareEnabled: false,
 	}
 }
@@ -165,6 +180,11 @@ func (m *Mode) runBackgroundTasks() {
 			case actionPrepareFunds:
 				m.prepareFunds()
 				m.mainMenu <- types.Void
+			case actionHistory:
+				m.history()
+				m.mainMenu <- types.Void
+			case actionCurrent:
+				go m.currentSpams()
 			case actionSettings:
 				go m.settingsMenu()
 			case shutdown:
@@ -203,6 +223,10 @@ func (m *Mode) onMenuAction() {
 		m.action <- actionSpamMenu
 	case actions[actionSettings]:
 		m.action <- actionSettings
+	case actions[actionCurrent]:
+		m.action <- actionCurrent
+	case actions[actionHistory]:
+		m.action <- actionHistory
 	case actions[shutdown]:
 		m.action <- shutdown
 	}
@@ -230,7 +254,7 @@ func (m *Mode) prepareFunds() {
 	defer m.stdOutMutex.Unlock()
 
 	if m.preparingFunds {
-		printer.Println("Funds are currently prepared. Try again later.", 2)
+		printer.FundsCurrentlyPreparedWarning()
 		return
 	}
 	if len(m.Config.ClientUrls) == 0 {
@@ -273,7 +297,7 @@ func (m *Mode) prepareFunds() {
 		}()
 	}
 
-	printer.Println("Start preparing "+numToPrepareStr+" faucet outputs.", 2)
+	printer.StartedPreparingMessage(numToPrepareStr)
 }
 
 func (m *Mode) spamMenu() {
@@ -288,12 +312,6 @@ func (m *Mode) spamMenu() {
 	}
 
 	m.spamSubMenu(submenu)
-
-	//d, _ := strconv.Atoi(details.SpamDuration)
-	//dur := time.Second * time.Duration(d)
-	//rate, _ := strconv.Atoi(details.SpamRate)
-	//s, _ := evilwallet.GetScenario("guava")
-	//SpamNestedConflicts(m.evilWallet, rate, time.Second, dur, s, true)
 }
 
 func (m *Mode) spamSubMenu(menuType string) {
@@ -329,7 +347,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 		m.parseScenario(scenario)
 
 	case startSpam:
-		if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.Duration.Seconds()) {
+		if m.areEnoughFundsAvailable() {
 			printer.FundsWarning()
 			m.mainMenu <- types.Void
 			return
@@ -339,15 +357,39 @@ func (m *Mode) spamSubMenu(menuType string) {
 			m.mainMenu <- types.Void
 			return
 		}
-		s, _ := evilwallet.GetScenario(m.Config.Scenario)
-		go SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.Duration, s, true)
-		printer.Println("Spammer started", 3)
+		if len(m.activeSpammers) >= maxConcurrentSpams {
+			printer.MaxSpamWarning()
+			m.mainMenu <- types.Void
+			return
+		}
+		m.startSpam()
 
 	case back:
 		m.mainMenu <- types.Void
 		return
 	}
 	m.action <- actionSpamMenu
+}
+
+func (m *Mode) areEnoughFundsAvailable() bool {
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.Duration.Seconds()) && m.Config.Scenario != "msg"
+}
+
+func (m *Mode) startSpam() {
+	m.spamMutex.Lock()
+	defer m.spamMutex.Unlock()
+
+	s, _ := evilwallet.GetScenario(m.Config.Scenario)
+	fmt.Println(s)
+	var spammer *evilspammer.Spammer
+	spamId := m.spammerLog.AddSpam(m.Config)
+	spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.Duration, s, m.Config.Deep, m.Config.Reuse)
+	m.activeSpammers[spamId] = spammer
+	go func(id int) {
+		spammer.Spam()
+		m.spamFinished <- id
+	}(spamId)
+	printer.SpammerStartedMessage()
 }
 
 func (m *Mode) settingsMenu() {
@@ -438,6 +480,47 @@ func (m *Mode) settings() {
 
 }
 
+func (m *Mode) history() {
+	m.stdOutMutex.Lock()
+	defer m.stdOutMutex.Unlock()
+	printer.History()
+}
+
+func (m *Mode) currentSpams() {
+	m.stdOutMutex.Lock()
+	defer m.stdOutMutex.Unlock()
+
+	printer.CurrentSpams()
+	answer := ""
+	err := survey.AskOne(currentMenuQuestion, &answer)
+	if err != nil {
+		fmt.Println(err.Error())
+		m.mainMenu <- types.Void
+		return
+	}
+
+	m.currentSpamsSubMenu(answer)
+}
+
+func (m *Mode) currentSpamsSubMenu(menuType string) {
+	switch menuType {
+	case currentSpamRemove:
+		answer := ""
+		err := survey.AskOne(removeSpammer, &answer)
+		if err != nil {
+			fmt.Println(err.Error())
+			m.mainMenu <- types.Void
+			return
+		}
+		m.parseIdToRemove(answer)
+		m.action <- actionCurrent
+
+	case back:
+		m.mainMenu <- types.Void
+		return
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region parsers /////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -480,6 +563,39 @@ func (m *Mode) urlMapToList() (list []string) {
 	return
 }
 
+func (m *Mode) parseIdToRemove(answer string) {
+	m.spamMutex.Lock()
+	defer m.spamMutex.Unlock()
+
+	id, err := strconv.Atoi(answer)
+	if err != nil {
+		return
+	}
+	m.summarizeSpam(id)
+
+}
+
+func (m *Mode) summarizeSpam(id int) {
+	if s, ok := m.activeSpammers[id]; ok {
+		m.updateSentStatistic(s, id)
+		m.spammerLog.SetSpamEndTime(id)
+		delete(m.activeSpammers, id)
+	} else {
+		printer.ClientNotFoundWarning(id)
+	}
+}
+
+func (m *Mode) updateSentStatistic(spammer *evilspammer.Spammer, id int) {
+	msgSent := spammer.MessagesSent()
+	scenariosCreated := spammer.BatchesPrepared()
+	if m.spammerLog.SpamDetails(id).Scenario == "msg" {
+		m.msgSent.Add(msgSent)
+	} else {
+		m.txSent.Add(msgSent)
+	}
+	m.scenariosSent.Add(scenariosCreated)
+}
+
 func enableToBool(e string) bool {
 	return e == "enable"
 }
@@ -491,6 +607,91 @@ func validateUrl(url string) (ok bool) {
 		return
 	}
 	return true
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region SpammerLog ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var historyHeader = "scenario\tstart\tstop\tdeep\treuse\trate\tduration"
+var historyLineFmt = "%s\t%s\t%s\t%v\t%v\t%d\t%d\n"
+
+type SpammerLog struct {
+	spamDetails   []InteractiveConfig
+	spamStartTime []time.Time
+	spamStopTime  []time.Time
+	tabWriter     io.Writer
+	mu            sync.Mutex
+}
+
+func NewSpammerLog() *SpammerLog {
+	return &SpammerLog{
+		spamDetails:   make([]InteractiveConfig, 0),
+		spamStartTime: make([]time.Time, 0),
+		spamStopTime:  make([]time.Time, 0),
+	}
+}
+
+func (s *SpammerLog) SpamDetails(spamId int) *InteractiveConfig {
+	return &s.spamDetails[spamId]
+}
+
+func (s *SpammerLog) StartTime(spamId int) time.Time {
+	return s.spamStartTime[spamId]
+}
+
+func (s *SpammerLog) AddSpam(config InteractiveConfig) (spamId int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.spamDetails = append(s.spamDetails, config)
+	s.spamStartTime = append(s.spamStartTime, time.Now())
+	s.spamStopTime = append(s.spamStopTime, time.Time{})
+	return len(s.spamDetails) - 1
+}
+
+func (s *SpammerLog) SetSpamEndTime(spamId int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.spamStopTime[spamId] = time.Now()
+}
+
+func newTabWriter(writer io.Writer) *tabwriter.Writer {
+	return tabwriter.NewWriter(writer, 0, 0, 1, ' ', tabwriter.Debug|tabwriter.TabIndent)
+}
+
+func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	w := newTabWriter(writer)
+	fmt.Fprintln(w, historyHeader)
+	idx := len(s.spamDetails) - lastLines + 1
+	if idx < 0 {
+		idx = 0
+	}
+	for i, spam := range s.spamDetails[idx:] {
+		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
+			spam.Deep, spam.Deep, spam.Rate, int(spam.Duration.Seconds()))
+	}
+	w.Flush()
+	return
+}
+
+func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	w := newTabWriter(writer)
+	fmt.Fprintln(w, historyHeader)
+	for _, idx := range lines {
+		spam := s.spamDetails[idx]
+		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
+			spam.Deep, spam.Deep, spam.Rate, int(spam.Duration.Seconds()))
+	}
+	w.Flush()
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -78,8 +78,8 @@ var spamDetailsQuestions = []*survey.Question{
 	{
 		Name: "spamDuration",
 		Prompt: &survey.Input{
-			Message: "Duration of the spam in seconds. Max spam duration: 600.",
-			Default: "60",
+			Message: "Provide a duration [s]. Max spam duration: 600.",
+			Default: "20",
 		},
 		Validate: func(val interface{}) error {
 			if str, ok := val.(string); ok {
@@ -97,8 +97,8 @@ var spamDetailsQuestions = []*survey.Question{
 	{
 		Name: "spamRate",
 		Prompt: &survey.Input{
-			Message: "Provide the rate of the spam in message/tx/batch per second.",
-			Default: "5",
+			Message: "Provide the rate in [mps]",
+			Default: "2",
 		},
 		Validate: func(val interface{}) error {
 			if str, ok := val.(string); ok {
@@ -117,13 +117,22 @@ var spamDetailsQuestions = []*survey.Question{
 var spamScenarioQuestion = &survey.Select{
 	Message: "Choose a spam scenario",
 	Options: scenarios,
-	Default: "guava",
+	Default: "tx",
 }
 
 var spamMenuQuestion = &survey.Select{
 	Message: "Spam settings",
 	Options: spamMenuOptions,
-	Default: spamDetails,
+	Default: startSpam,
+}
+
+var currentMenuQuestion = &survey.Select{
+	Options: currentSpamOptions,
+	Default: back,
+}
+
+var removeSpammer = &survey.Input{
+	Message: "Type in id of the spammer you wish to stop.",
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

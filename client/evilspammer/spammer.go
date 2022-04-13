@@ -76,6 +76,14 @@ func NewSpammer(options ...Options) *Spammer {
 	return s
 }
 
+func (s *Spammer) MessagesSent() uint64 {
+	return uint64(s.State.txSent.Load())
+}
+
+func (s *Spammer) BatchesPrepared() uint64 {
+	return uint64(s.State.batchPrepared.Load())
+}
+
 func (s *Spammer) setup() {
 	s.Clients = s.EvilWallet.Connector()
 

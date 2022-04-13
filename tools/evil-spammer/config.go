@@ -37,11 +37,11 @@ var (
 
 	interactive = InteractiveConfig{
 		ClientUrls: urlsMap,
-		Rate:       5,
-		Duration:   time.Second * 30,
+		Rate:       2,
+		Duration:   time.Second * 10,
 		TimeUnit:   time.Second,
 		Deep:       false,
 		Reuse:      true,
-		Scenario:   "guava",
+		Scenario:   "tx",
 	}
 )
