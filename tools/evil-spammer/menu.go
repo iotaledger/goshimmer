@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"os"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
 )
 
 // region Printer /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -170,7 +171,8 @@ func (p *Printer) CurrentSpams() {
 	for id := range p.mode.activeSpammers {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
-		timeLeft := int(time.Now().Sub(startTime).Seconds())
+		endTime := startTime.Add(details.Duration)
+		timeLeft := int(endTime.Sub(time.Now()).Seconds())
 		p.PrintlnPoint(fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft), 2)
 	}
 	p.PrintLine()
@@ -188,6 +190,14 @@ func (p *Printer) History() {
 func (p *Printer) ClientNotFoundWarning(id int) {
 	p.Println("", 2)
 	p.Println(p.colorString(fmt.Sprintf("No spam with id %d found. Nothing removed.", id), "red"), 1)
+	p.Println("", 2)
+
+	fmt.Println()
+}
+
+func (p *Printer) NoActiveSpammer() {
+	p.Println("", 2)
+	p.Println(p.colorString(fmt.Sprintf("No active spammers."), "red"), 1)
 	p.Println("", 2)
 
 	fmt.Println()
