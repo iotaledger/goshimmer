@@ -619,18 +619,17 @@ func (m *Mode) updateSentStatistic(spammer *evilspammer.Spammer, id int) {
 
 // load the config file
 func (m *Mode) loadConfig() {
-	path := "tools/evil-spammer/"
 	// open config file
-	file, err := os.Open(path + "config.json")
+	file, err := os.Open("config.json")
 	if err != nil {
 		if !os.IsNotExist(err) {
 			panic(err)
 		}
 
-		if err = os.WriteFile(path+"config.json", []byte(configJSON), 0o644); err != nil {
+		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
 			panic(err)
 		}
-		if file, err = os.Open(path + "config.json"); err != nil {
+		if file, err = os.Open("config.json"); err != nil {
 			panic(err)
 		}
 	}
