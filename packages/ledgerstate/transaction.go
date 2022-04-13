@@ -36,7 +36,6 @@ var TransactionType payload.Type
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		fmt.Println("decode transaction")
 		marshalUtil := marshalutil.New(data)
 		tx, err := (&Transaction{}).FromMarshalUtil(marshalUtil)
 		if err != nil {
@@ -487,9 +486,7 @@ func (t *Transaction) ID() TransactionID {
 	}
 
 	idBytes := blake2b.Sum256(t.Bytes())
-	fmt.Println("Tx bytes:", t.Bytes())
 	id, _, err := TransactionIDFromBytes(idBytes[:])
-	fmt.Println("tx ID: ", id)
 	if err != nil {
 		panic(err)
 	}

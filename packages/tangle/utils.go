@@ -112,12 +112,9 @@ func (u *Utils) AllTransactionsApprovedByMessages(transactionIDs ledgerstate.Tra
 // TransactionApprovedByMessage checks if the Transaction was attached by at least one Message that was directly or
 // indirectly approved by the given Message.
 func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (approved bool) {
-	fmt.Println("DUPA1", transactionID, messageID)
 	attachmentMessageIDs := u.tangle.Storage.AttachmentMessageIDs(transactionID)
-	fmt.Println("DUPA2", attachmentMessageIDs)
 	for attachmentMessageID := range attachmentMessageIDs {
 		if attachmentMessageID == messageID {
-			fmt.Println("DUPA23")
 			return true
 		}
 
@@ -126,7 +123,6 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			attachmentBooked = attachmentMetadata.IsBooked()
 		})
 		if !attachmentBooked {
-			fmt.Println("DUPA3")
 			continue
 		}
 
@@ -159,8 +155,6 @@ func (u *Utils) TransactionApprovedByMessage(transactionID ledgerstate.Transacti
 			}
 		}
 		if approved {
-			fmt.Println("DUPA33")
-
 			return
 		}
 	}
@@ -178,19 +172,16 @@ func (u *Utils) checkBookedParents(message *Message, attachmentMessageID Message
 			parentBooked = parentMetadata.IsBooked()
 		})
 		if !parentBooked {
-			fmt.Println("ddduuupa321")
 			continue
 		}
 
 		// First check all of the parents to avoid unnecessary checks and possible walking.
 		if attachmentMessageID == parentID {
-			fmt.Println("ddduuupa33211123 true")
 			return true, bookedParents
 		}
 
 		bookedParents.Add(parentID)
 	}
-	fmt.Println("ddduuupa33211123 false")
 	return false, bookedParents
 }
 

@@ -1,7 +1,5 @@
 package payload
 
-import "fmt"
-
 // UnmarshalerFunc defines the function signature for functions that can unmarshal Payloads.
 type UnmarshalerFunc func(data []byte) (Payload, error)
 
@@ -11,7 +9,6 @@ func Unmarshaler(payloadType Type) UnmarshalerFunc {
 	defer typeRegisterMutex.RUnlock()
 
 	if definition, exists := typeRegister[payloadType]; exists {
-		fmt.Println("unmarshaller", definition.Name, payloadType)
 		return definition.UnmarshalerFunc
 	}
 
