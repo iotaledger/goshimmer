@@ -107,16 +107,14 @@ func Scenario2() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
 			{Inputs: []string{"A"}, Outputs: []string{"C"}},
+		},
+		[]ScenarioAlias{
 			{Inputs: []string{"B"}, Outputs: []string{"D"}},
+			{Inputs: []string{"B"}, Outputs: []string{"G"}},
 		},
 		[]ScenarioAlias{
 			{Inputs: []string{"C", "D"}, Outputs: []string{"E"}},
-		},
-		[]ScenarioAlias{
 			{Inputs: []string{"D"}, Outputs: []string{"F"}},
-		},
-		[]ScenarioAlias{
-			{Inputs: []string{"B"}, Outputs: []string{"G"}},
 		},
 	}
 }
@@ -126,14 +124,14 @@ func Scenario3() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
 			{Inputs: []string{"A"}, Outputs: []string{"C"}},
-			{Inputs: []string{"B"}, Outputs: []string{"D"}},
+			{Inputs: []string{"A"}, Outputs: []string{"D"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"C", "D"}, Outputs: []string{"E"}},
-		},
-		[]ScenarioAlias{
-			{Inputs: []string{"A"}, Outputs: []string{"G"}},
+			{Inputs: []string{"B"}, Outputs: []string{"E"}},
 			{Inputs: []string{"B"}, Outputs: []string{"F"}},
+		},
+		[]ScenarioAlias{
+			{Inputs: []string{"D", "E"}, Outputs: []string{"G"}},
 		},
 	}
 }
@@ -150,20 +148,21 @@ func Scenario4() EvilBatch {
 			{Inputs: []string{"2"}, Outputs: []string{"D"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"3"}, Outputs: []string{"H"}},
-			{Inputs: []string{"3"}, Outputs: []string{"I"}},
+			{Inputs: []string{"3"}, Outputs: []string{"E"}},
+			{Inputs: []string{"3"}, Outputs: []string{"F"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"A", "C"}, Outputs: []string{"E"}},
+			{Inputs: []string{"D", "E"}, Outputs: []string{"G"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"E"}, Outputs: []string{"F", "G"}},
+			{Inputs: []string{"G"}, Outputs: []string{"H"}},
+			{Inputs: []string{"G"}, Outputs: []string{"I"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"H", "G"}, Outputs: []string{"L"}},
+			{Inputs: []string{"A", "I"}, Outputs: []string{"J"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"L"}, Outputs: []string{"M"}},
+			{Inputs: []string{"J"}, Outputs: []string{"K"}},
 		},
 	}
 }
@@ -196,15 +195,15 @@ func Scenario6() EvilBatch {
 			{Inputs: []string{"C"}, Outputs: []string{"F", "G"}},
 			{Inputs: []string{"C", "D"}, Outputs: []string{"H"}},
 			{Inputs: []string{"D"}, Outputs: []string{"I"}},
+			{Inputs: []string{"F", "D"}, Outputs: []string{"J"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"F", "D"}, Outputs: []string{"J", "K"}},
-			{Inputs: []string{"G"}, Outputs: []string{"L", "M"}},
-			{Inputs: []string{"I"}, Outputs: []string{"N", "O"}},
+			{Inputs: []string{"G"}, Outputs: []string{"K"}},
+			{Inputs: []string{"I"}, Outputs: []string{"L"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"L", "I"}, Outputs: []string{"P"}},
-			{Inputs: []string{"N"}, Outputs: []string{"Q", "R"}},
+			{Inputs: []string{"K", "I"}, Outputs: []string{"M"}},
+			{Inputs: []string{"L"}, Outputs: []string{"N"}},
 		},
 	}
 }
@@ -214,18 +213,22 @@ func Scenario7() EvilBatch {
 	return EvilBatch{
 		[]ScenarioAlias{
 			{Inputs: []string{"A"}, Outputs: []string{"E"}},
+		},
+		[]ScenarioAlias{
 			{Inputs: []string{"A", "B"}, Outputs: []string{"F"}},
 			{Inputs: []string{"B"}, Outputs: []string{"G"}},
+		},
+		[]ScenarioAlias{
 			{Inputs: []string{"C"}, Outputs: []string{"H"}},
 			{Inputs: []string{"D"}, Outputs: []string{"I"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"E", "G"}, Outputs: []string{"J", "K"}},
-			{Inputs: []string{"H"}, Outputs: []string{"L"}},
+			{Inputs: []string{"E", "G"}, Outputs: []string{"J"}},
+			{Inputs: []string{"H"}, Outputs: []string{"K"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"K", "L"}, Outputs: []string{"M"}},
-			{Inputs: []string{"L", "I"}, Outputs: []string{"N"}},
+			{Inputs: []string{"J", "K"}, Outputs: []string{"L"}},
+			{Inputs: []string{"I", "K"}, Outputs: []string{"M"}},
 		},
 	}
 }
@@ -242,7 +245,7 @@ func NoConflictsScenario1() EvilBatch {
 			{Inputs: []string{"3", "5"}, Outputs: []string{"8"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"8", "7"}, Outputs: []string{"11"}},
+			{Inputs: []string{"8", "7"}, Outputs: []string{"9"}},
 		},
 	}
 }
