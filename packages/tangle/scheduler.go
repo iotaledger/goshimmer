@@ -525,24 +525,3 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SchedulerEvents represents events happening in the Scheduler.
-type SchedulerEvents struct {
-	// MessageScheduled is triggered when a message is ready to be scheduled.
-	MessageScheduled *events.Event
-	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
-	MessageDiscarded *events.Event
-	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
-	MessageSkipped  *events.Event
-	NodeBlacklisted *events.Event
-	Error           *events.Event
-}
-
-// NodeIDCaller is the caller function for events that hand over a NodeID.
-func NodeIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(identity.ID))(params[0].(identity.ID))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

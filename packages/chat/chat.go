@@ -3,10 +3,8 @@ package chat
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -16,34 +14,13 @@ import (
 // NewChat creates a new Chat.
 func NewChat() *Chat {
 	return &Chat{
-		Events: Events{
-			MessageReceived: events.NewEvent(chatEventCaller),
-		},
+		Events: newEvents(),
 	}
 }
 
 // Chat manages chats happening over the Tangle.
 type Chat struct {
-	Events
-}
-
-// Events define events occurring within a Chat.
-type Events struct {
-	// Fired when a chat message is received.
-	MessageReceived *events.Event
-}
-
-// Event defines the information passed when a chat event fires.
-type Event struct {
-	From      string
-	To        string
-	Message   string
-	Timestamp time.Time
-	MessageID string
-}
-
-func chatEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Event))(params[0].(*Event))
+	*Events
 }
 
 const (

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
@@ -127,12 +126,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 		tangle:               t,
 		opts:                 &Options{},
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
-		events: &tangle.ConfirmationEvents{
-			MessageConfirmed: events.NewEvent(tangle.MessageIDCaller),
-			// TODO: replace with generic events
-			// TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
-			// BranchConfirmed:      events.NewEvent(ledgerstate.BranchIDEventHandler),
-		},
+		events:               tangle.NewConfirmationEvents(),
 	}
 
 	for _, defOpt := range defaultOpts {
@@ -327,7 +321,9 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID branchdag.BranchID, aw floa
 	}
 
 	if newGradeOfFinality >= s.opts.BranchGoFReachedLevel {
-		s.events.BranchConfirmed.Trigger(branchID)
+		s.events.BranchConfirmed.Trigger(&tangle.BranchConfirmedEvent{
+			BranchID: branchID,
+		})
 	}
 
 	return err
@@ -375,7 +371,9 @@ func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledger.
 		}
 	})
 	if transactionMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
-		s.events.TransactionConfirmed.Trigger(transactionMetadata.ID())
+		s.events.TransactionConfirmed.Trigger(&tangle.TransactionConfirmedEvent{
+			TransactionID: transactionMetadata.ID(),
+		})
 	}
 }
 
@@ -401,7 +399,9 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 	s.setPayloadGoF(messageMetadata.ID(), gradeOfFinality)
 
 	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
-		s.Events().MessageConfirmed.Trigger(messageMetadata.ID())
+		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
+			messageMetadata.ID(),
+		})
 	}
 
 	return modified
@@ -442,7 +442,9 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 			}
 
 			if gradeOfFinality >= s.opts.BranchGoFReachedLevel {
-				s.Events().TransactionConfirmed.Trigger(transactionID)
+				s.Events().TransactionConfirmed.Trigger(&tangle.TransactionConfirmedEvent{
+					TransactionID: transactionID,
+				})
 			}
 		})
 	})

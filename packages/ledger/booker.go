@@ -144,6 +144,7 @@ func (b *booker) forkTransaction(txID utxo.TransactionID, outputsSpentByConflict
 		b.ledger.Events.TransactionForked.Trigger(&TransactionForkedEvent{
 			TransactionID:  txID,
 			ParentBranches: previousParentBranches,
+			ForkedBranchID: forkedBranchID,
 		})
 
 		b.updateBranchesAfterFork(txMetadata, forkedBranchID, previousParentBranches)
