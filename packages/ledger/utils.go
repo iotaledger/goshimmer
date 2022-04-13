@@ -97,6 +97,14 @@ func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchd
 	return branchIDs, nil
 }
 
+func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
+	transactionIDs = utxo.NewTransactionIDs()
+	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output *Output) {
+		transactionIDs.Add(output.TransactionID())
+	})
+	return transactionIDs
+}
+
 // ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
 func (u *Utils) ConflictingTransactions(transaction utxo.Transaction) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()

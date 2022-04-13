@@ -53,11 +53,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
 	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
-		messageID, ok := event.Context.Value("messageID").(MessageID)
-		if !ok {
-			messageID = EmptyMessageID
-		}
-		b.processBookedTransaction(event.TransactionID, messageID)
+		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
 	}))
 	b.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(b.propagateBooking))
 
@@ -148,7 +144,7 @@ func (b *Booker) bookPayload(messageID MessageID) {
 			}
 
 			b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
-			err := b.tangle.Ledger.StoreAndProcessTransaction(context.WithValue(context.Background(), "messageID", messageID), tx)
+			err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
 			if err != nil {
 				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
 				//  delete attachments of transaction

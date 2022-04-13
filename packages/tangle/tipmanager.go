@@ -12,9 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -108,7 +108,7 @@ type TipManager struct {
 	tangle               *Tangle
 	tips                 *randommap.RandomMap[MessageID, MessageID]
 	tipsCleaner          *TimedTaskExecutor
-	tipsBranchCount      map[ledgerstate.BranchID]uint
+	tipsBranchCount      map[branchdag.BranchID]uint
 	tipsBranchCountMutex sync.RWMutex
 	Events               *TipManagerEvents
 }
@@ -119,7 +119,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tangle:          tangle,
 		tips:            randommap.New[MessageID, MessageID](),
 		tipsCleaner:     NewTimedTaskExecutor(1),
-		tipsBranchCount: make(map[ledgerstate.BranchID]uint),
+		tipsBranchCount: make(map[branchdag.BranchID]uint),
 		Events: &TipManagerEvents{
 			TipAdded:   events.NewEvent(tipEventHandler),
 			TipRemoved: events.NewEvent(tipEventHandler),
@@ -254,8 +254,9 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
-		if t.tangle.LedgerstateOLD.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
+		if t.tangle.Ledger.BranchDAG.InclusionState(branchdag.NewBranchIDs(messageBranchID)) != branchdag.Pending {
 			continue
 		}
 
@@ -272,7 +273,8 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
 		if _, exists := t.tipsBranchCount[messageBranchID]; exists {
 			t.tipsBranchCount[messageBranchID]--
 			if t.tipsBranchCount[messageBranchID] == 0 {
@@ -282,11 +284,11 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	}
 }
 
-func (t *TipManager) deleteConfirmedBranchCount(branchID ledgerstate.BranchID) {
+func (t *TipManager) deleteConfirmedBranchCount(branchID branchdag.BranchID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	t.tangle.LedgerstateOLD.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+	t.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
 		delete(t.tipsBranchCount, conflictingBranchID)
 		return true
 	})
@@ -302,9 +304,10 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
 		// Lazily introduce a counter for Pending branches only.
-		if t.tangle.LedgerstateOLD.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+		if t.tangle.Ledger.BranchDAG.InclusionState(branchdag.NewBranchIDs(messageBranchID)) != branchdag.Pending {
 			continue
 		}
 		count, exists := t.tipsBranchCount[messageBranchID]
@@ -345,11 +348,11 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	// select parents
 	parents = t.selectTips(p, countParents)
 	// if transaction, make sure that all inputs are in the past cone of the selected tips
-	if p != nil && p.Type() == ledgerstate.TransactionType {
-		transaction := p.(*ledgerstate.Transaction)
+	tx, ok := p.(utxo.Transaction)
+	if p != nil && ok {
 
 		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents) || len(parents) == 0 {
+		for !t.tangle.Utils.AllTransactionsApprovedByMessages(t.tangle.Ledger.Utils.ReferencedTransactions(tx), parents) || len(parents) == 0 {
 			if tries == 0 {
 				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips and parents have correct time-since-confirmation")
 				return nil, err
@@ -575,16 +578,15 @@ func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageID
 	parents = NewMessageIDs()
 
 	// if transaction: reference young parents directly
-	if p != nil && p.Type() == ledgerstate.TransactionType {
-		transaction := p.(*ledgerstate.Transaction)
-
-		referencedTransactionIDs := transaction.ReferencedTransactionIDs()
-		if len(referencedTransactionIDs) <= 8 {
-			for transactionID := range referencedTransactionIDs {
+	if tx, ok := p.(utxo.Transaction); ok {
+		referencedTransactionIDs := t.tangle.Ledger.Utils.ReferencedTransactions(tx)
+		if referencedTransactionIDs.Size() <= 8 {
+			for it := referencedTransactionIDs.Iterator(); it.HasNext(); {
+				txID := it.Next()
 				// only one attachment needs to be added
 				added := false
 
-				for attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(transactionID) {
+				for attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(txID) {
 					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
 						// check if message is too old
 						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
