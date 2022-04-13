@@ -3,7 +3,7 @@ package tangle
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 )
 
@@ -26,15 +26,13 @@ type Dispatcher struct {
 // NewDispatcher is the constructor for the Dispatcher.
 func NewDispatcher(tangle *Tangle) (dispatcher *Dispatcher) {
 	dispatcher = &Dispatcher{
-		Events: &DispatcherEvents{
-			MessageDispatched: events.NewEvent(MessageIDCaller),
-		},
+		Events: newDispatcherEvents(),
 		tangle: tangle,
 	}
 
 	dispatcher.messageWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		messageID := task.Param(0).(MessageID)
-		dispatcher.Events.MessageDispatched.Trigger(messageID)
+		dispatcher.Events.MessageDispatched.Trigger(&MessageDispatchedEvent{messageID})
 
 		task.Return(nil)
 	}, workerpool.WorkerCount(messageWorkerCount), workerpool.QueueSize(messageWorkerQueueSize))
@@ -44,7 +42,9 @@ func NewDispatcher(tangle *Tangle) (dispatcher *Dispatcher) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (d *Dispatcher) Setup() {
-	d.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(d.onMessageScheduled))
+	d.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		d.messageWorkerPool.Submit(event.MessageID)
+	}))
 }
 
 // Shutdown shuts down the Dispatcher.
@@ -55,17 +55,3 @@ func (d *Dispatcher) Shutdown() {
 
 	d.shutdownWG.Wait()
 }
-
-func (d *Dispatcher) onMessageScheduled(messageID MessageID) {
-	d.messageWorkerPool.Submit(messageID)
-}
-
-// region DispatcherEvents ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// DispatcherEvents represents events happening in the Dispatcher.
-type DispatcherEvents struct {
-	// MessageDispatched is triggered when a message is already scheduled and thus ready to be dispatched.
-	MessageDispatched *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

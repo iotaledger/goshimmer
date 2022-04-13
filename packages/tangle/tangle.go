@@ -194,25 +194,6 @@ func (t *Tangle) Shutdown() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageIDCaller is the caller function for events that hand over a MessageID.
-func MessageIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-// MessageCaller is the caller function for events that hand over a Message.
-func MessageCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Message))(params[0].(*Message))
-}
-
-// MessageInvalidCaller is the caller function for events that had over an invalid message.
-func MessageInvalidCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *MessageInvalidEvent))(params[0].(*MessageInvalidEvent))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Option represents the return type of optional parameters that can be handed into the constructor of the Tangle to

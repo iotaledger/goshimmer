@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/timedexecutor"
 )
 
@@ -17,7 +17,7 @@ type Requester struct {
 	timedExecutor     *timedexecutor.TimedExecutor
 	scheduledRequests map[MessageID]*timedexecutor.ScheduledTask
 	options           RequesterOptions
-	Events            RequesterEvents
+	Events            *RequesterEvents
 
 	scheduledRequestsMutex sync.RWMutex
 }
@@ -29,12 +29,7 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 		timedExecutor:     timedexecutor.New(1),
 		scheduledRequests: make(map[MessageID]*timedexecutor.ScheduledTask),
 		options:           DefaultRequesterOptions.Apply(optionalOptions...),
-		Events: RequesterEvents{
-			RequestIssued:  events.NewEvent(sendRequestEventHandler),
-			RequestStarted: events.NewEvent(MessageIDCaller),
-			RequestStopped: events.NewEvent(MessageIDCaller),
-			RequestFailed:  events.NewEvent(MessageIDCaller),
-		},
+		Events:            newRequesterEvents(),
 	}
 
 	// add requests for all missing messages
@@ -50,8 +45,12 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(r.StartRequest))
-	r.tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(r.StopRequest))
+	r.tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
+		r.StartRequest(event.MessageID)
+	}))
+	r.tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *MissingMessageStoredEvent) {
+		r.StopRequest(event.MessageID)
+	}))
 }
 
 // Shutdown shuts down the Requester.
@@ -73,8 +72,8 @@ func (r *Requester) StartRequest(id MessageID) {
 	r.scheduledRequests[id] = r.timedExecutor.ExecuteAfter(r.createReRequest(id, 0), r.options.RetryInterval+time.Duration(crypto.Randomness.Float64()*float64(r.options.RetryJitter)))
 	r.scheduledRequestsMutex.Unlock()
 
-	r.Events.RequestStarted.Trigger(id)
-	r.Events.RequestIssued.Trigger(&SendRequestEvent{ID: id})
+	r.Events.RequestStarted.Trigger(&RequestStartedEvent{id})
+	r.Events.RequestIssued.Trigger(&RequestIssuedEvent{id})
 }
 
 // StopRequest stops requests for the given message to further happen.
@@ -91,11 +90,11 @@ func (r *Requester) StopRequest(id MessageID) {
 	delete(r.scheduledRequests, id)
 	r.scheduledRequestsMutex.Unlock()
 
-	r.Events.RequestStopped.Trigger(id)
+	r.Events.RequestStopped.Trigger(&RequestStoppedEvent{id})
 }
 
 func (r *Requester) reRequest(id MessageID, count int) {
-	r.Events.RequestIssued.Trigger(&SendRequestEvent{ID: id})
+	r.Events.RequestIssued.Trigger(&RequestIssuedEvent{id})
 
 	// as we schedule a request at most once per id we do not need to make the trigger and the re-schedule atomic
 	r.scheduledRequestsMutex.Lock()
@@ -110,7 +109,7 @@ func (r *Requester) reRequest(id MessageID, count int) {
 		if count > r.options.MaxRequestThreshold {
 			delete(r.scheduledRequests, id)
 
-			r.Events.RequestFailed.Trigger(id)
+			r.Events.RequestFailed.Trigger(&RequestFailedEvent{id})
 			r.tangle.Storage.DeleteMissingMessage(id)
 
 			return
@@ -191,39 +190,6 @@ func MaxRequestThreshold(maxRequestThreshold int) RequesterOption {
 	return func(args *RequesterOptions) {
 		args.MaxRequestThreshold = maxRequestThreshold
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region RequesterEvents //////////////////////////////////////////////////////////////////////////////////////////////
-
-// RequesterEvents represents events happening on a message requester.
-type RequesterEvents struct {
-	// RequestIssued is an event that is triggered when the requester wants to request the given Message from its
-	// neighbors.
-	RequestIssued *events.Event
-
-	// RequestStarted is an event that is triggered when a new request is started.
-	RequestStarted *events.Event
-
-	// RequestStopped is an event that is triggered when a request is stopped.
-	RequestStopped *events.Event
-
-	// RequestFailed is an event that is triggered when a request is stopped after too many attempts.
-	RequestFailed *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SendRequestEvent /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SendRequestEvent represents the parameters of sendRequestEventHandler
-type SendRequestEvent struct {
-	ID MessageID
-}
-
-func sendRequestEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*SendRequestEvent))(params[0].(*SendRequestEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

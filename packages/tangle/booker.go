@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
@@ -45,7 +44,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
+	b.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {b.bookPayload(event.)}))
 	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
 		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
 	}))

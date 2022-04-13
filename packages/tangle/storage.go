@@ -7,7 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
@@ -103,11 +103,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		branchWeightStorage:               objectstorage.New[*BranchWeight](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixBranchWeight}), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		markerMessageMappingStorage:       objectstorage.New[*MarkerMessageMapping](tangle.Options.Store.WithRealm([]byte{database.PrefixTangle, PrefixMarkerMessageMapping}), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
-		Events: &StorageEvents{
-			MessageStored:        events.NewEvent(MessageIDCaller),
-			MessageRemoved:       events.NewEvent(MessageIDCaller),
-			MissingMessageStored: events.NewEvent(MessageIDCaller),
-		},
+		Events: newStorageEvents(),
 	}
 
 	storage.storeGenesis()
@@ -117,8 +113,8 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
-	s.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		s.tangle.Storage.StoreMessage(msgParsedEvent.Message)
+	s.tangle.Parser.Events.MessageParsed.Attach(event.NewClosure(func(event *MessageParsedEvent) {
+		s.tangle.Storage.StoreMessage(event.Message)
 	}))
 }
 
@@ -147,11 +143,11 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// trigger events
 	if s.missingMessageStorage.DeleteIfPresent(messageID.Bytes()) {
-		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
+		s.tangle.Storage.Events.MissingMessageStored.Trigger(&MissingMessageStoredEvent{messageID})
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
-	s.Events.MessageStored.Trigger(message.ID())
+	s.Events.MessageStored.Trigger(&MessageStoredEvent{message.ID()})
 }
 
 // Message retrieves a message from the message store.
@@ -252,7 +248,7 @@ func (s *Storage) DeleteMessage(messageID MessageID) {
 		s.messageMetadataStorage.Delete(messageID[:])
 		s.messageStorage.Delete(messageID[:])
 
-		s.Events.MessageRemoved.Trigger(messageID)
+		s.Events.MessageRemoved.Trigger(&MessageRemovedEvent{messageID})
 	})
 }
 
@@ -492,22 +488,6 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 		return true
 	})
 	return tips
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region StorageEvents ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// StorageEvents represents events happening on the message store.
-type StorageEvents struct {
-	// Fired when a message has been stored.
-	MessageStored *events.Event
-
-	// Fired when a message was removed from storage.
-	MessageRemoved *events.Event
-
-	// Fired when a message which was previously marked as missing was received.
-	MissingMessageStored *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -90,7 +91,7 @@ func run(_ *node.Plugin) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
-		timeutil.NewTicker(func() { remotemetrics.Events().SchedulerQuery.Trigger(time.Now()) }, schedulerQueryUpdateTime, ctx)
+		timeutil.NewTicker(func() { remotemetrics.Events.SchedulerQuery.Trigger(&remotemetrics.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-ctx.Done()
@@ -103,24 +104,26 @@ func configureSyncMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotemetrics.SyncStatusChangedEvent) {
-		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+		isTangleTimeSynced.Store(event.CurrentStatus)
 	}))
-	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+		sendSyncStatusChangedEvent(event)
+	}))
 }
 
 func configureSchedulerQueryMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events().SchedulerQuery.Attach(events.NewClosure(obtainSchedulerStats))
+	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
 }
 
 func configureDRNGMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	deps.DrngInstance.Events.Randomness.Attach(event.NewClosure(func(event *drng.RandomnessEvent) { onRandomnessReceived(event.State) }))
 }
 
 func configureBranchConfirmationMetrics() {
