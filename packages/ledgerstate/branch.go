@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -167,6 +168,7 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 
 // BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
 func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
+	//TODO: remove this eventually, it's only used in other FromMarshalUtil methods
 	branchIDsCount, err := marshalUtil.ReadUint32()
 	if err != nil {
 		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -269,8 +271,18 @@ func (b BranchIDs) Equals(o BranchIDs) bool {
 	return true
 }
 
-// Bytes returns a marshaled version of the BranchIDs.
+// Bytes returns a marshaled version of the Transaction.
 func (b BranchIDs) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the BranchIDs.
+func (b BranchIDs) BytesOld() []byte {
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + len(b)*BranchIDLength)
 	marshalUtil.WriteUint32(uint32(len(b)))
 	for branchID := range b {
@@ -357,11 +369,31 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
 func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+	// TODO: eventually remove
 	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}
 	return result, err
+}
+
+// FromObjectStorage creates an Branch from sequences of key and bytes.
+func (b *Branch) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
+	if branch = b; branch == nil {
+		branch = new(Branch)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, branch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &b.branchInner.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
+		return
+	}
+	return
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
@@ -493,12 +525,36 @@ func (b *Branch) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *Branch) ObjectStorageKey() []byte {
-	return b.ID().Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (b *Branch) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (b *Branch) ObjectStorageKeyOld() []byte {
+	// TODO: remove eventually
+	return b.ID().Bytes()
+}
+
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (b *Branch) ObjectStorageValueOld() []byte {
+	// TODO: remove eventually
 	return marshalutil.New().
 		Write(b.Parents()).
 		Write(b.Conflicts()).
@@ -538,12 +594,26 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
 func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+	// TODO: remove eventually
 	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return result, err
 	}
 	return result, err
+}
+
+// FromObjectStorage creates an ChildBranch from sequences of key and bytes.
+func (c *ChildBranch) FromObjectStorageNew(_, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+	if childBranch = c; childBranch == nil {
+		childBranch = new(ChildBranch)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, childBranch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ChildBranch: %w", err)
+		return
+	}
+	return
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
@@ -600,17 +670,30 @@ func (c *ChildBranch) String() (humanReadableChildBranch string) {
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
+func (c *ChildBranch) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (c *ChildBranch) ObjectStorageValue() []byte {
+	return []byte{}
+
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ChildBranch) ObjectStorageKeyOld() (objectStorageKey []byte) {
+	//TODO: remove eventually
 	return marshalutil.New(BranchIDLength + BranchIDLength).
 		WriteBytes(c.conflictBranchInner.ParentBranchID.Bytes()).
 		WriteBytes(c.conflictBranchInner.ChildBranchID.Bytes()).
 		Bytes()
-}
-
-// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
-	return []byte{}
 }
 
 // code contract (make sure the struct implements all required methods)

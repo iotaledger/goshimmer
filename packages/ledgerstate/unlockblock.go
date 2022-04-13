@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -220,6 +221,15 @@ func NewSignatureUnlockBlock(signature Signature) *SignatureUnlockBlock {
 }
 
 // SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
+func SignatureUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
 func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = SignatureUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
@@ -263,6 +273,16 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 
 // Bytes returns a marshaled version of the UnlockBlock.
 func (s *SignatureUnlockBlock) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the UnlockBlock.
+func (s *SignatureUnlockBlock) BytesOld() []byte {
 	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signatureUnlockBlockInner.Signature.Bytes())
 }
 
@@ -304,7 +324,17 @@ func NewReferenceUnlockBlock(referencedIndex uint16) *ReferenceUnlockBlock {
 }
 
 // ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
+func ReferenceUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
 func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = ReferenceUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ReferenceUnlockBlock from MarshalUtil: %w", err)
@@ -345,8 +375,18 @@ func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
 }
 
-// Bytes returns a marshaled version of the UnlockBlock.
+// Bytes returns a marshaled version of the Address.
 func (r *ReferenceUnlockBlock) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the UnlockBlock.
+func (r *ReferenceUnlockBlock) BytesOld() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(ReferenceUnlockBlockType)).
 		WriteUint16(r.referenceUnlockBlockInner.ReferencedIndex).
@@ -396,6 +436,15 @@ func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, con
 	return
 }
 
+// AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
+func AliasUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
 // AliasUnlockBlockFromMarshalUtil unmarshals a AliasUnlockBlock using a MarshalUtil (for easier unmarshaling).
 func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *AliasUnlockBlock, err error) {
 	unlockBlockType, err := marshalUtil.ReadByte()
@@ -426,8 +475,18 @@ func (r *AliasUnlockBlock) Type() UnlockBlockType {
 	return AliasUnlockBlockType
 }
 
-// Bytes returns a marshaled version of the UnlockBlock.
+// Bytes returns a marshaled version of the Address.
 func (r *AliasUnlockBlock) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the UnlockBlock.
+func (r *AliasUnlockBlock) BytesOld() []byte {
 	return marshalutil.New(1 + marshalutil.Uint16Size).
 		WriteByte(byte(AliasUnlockBlockType)).
 		WriteUint16(r.ReferencedIndex).

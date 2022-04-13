@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -185,8 +186,8 @@ type Conflict struct {
 	conflictInner `serix:"0"`
 }
 type conflictInner struct {
-	ID               ConflictID `serix:"0"`
-	MemberCount      int64      `serix:"1"`
+	ID               ConflictID
+	MemberCount      int64 `serix:"1"`
 	memberCountMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -206,6 +207,25 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
+	}
+	return
+}
+
+// FromObjectStorage creates an Branch from sequences of key and bytes.
+func (c *Conflict) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
+	if branch = c; branch == nil {
+		branch = new(Branch)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, branch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &c.conflictInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
+		return
 	}
 	return
 }
@@ -303,12 +323,36 @@ func (c *Conflict) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Conflict) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (c *Conflict) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *Conflict) ObjectStorageKeyOld() []byte {
+	// TODO: remove eventually
 	return c.conflictInner.ID.Bytes()
 }
 
 // ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
-func (c *Conflict) ObjectStorageValue() []byte {
+func (c *Conflict) ObjectStorageValueOld() []byte {
+	// TODO: remove eventuallys
 	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(c.MemberCount())).
 		Bytes()
@@ -347,7 +391,21 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
+func (c *ConflictMember) FromObjectStorageNew(_, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+	if conflictMember = c; conflictMember == nil {
+		conflictMember = new(ConflictMember)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, conflictMember, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember: %w", err)
+		return
+	}
+	return
+}
+
+// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
 func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
+	// TODO: remmove this eventually
 	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
@@ -409,6 +467,17 @@ func (c *ConflictMember) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ConflictMember) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *ConflictMember) ObjectStorageKeyOld() []byte {
 	return byteutils.ConcatBytes(c.conflictMemberInner.ConflictID.Bytes(), c.conflictMemberInner.BranchID.Bytes())
 }
 

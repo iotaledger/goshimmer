@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -174,7 +175,7 @@ func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID Out
 		return
 	}
 	copy(outputID[:], outputIDBytes)
-
+	// TODO: add max output count check
 	if outputID.OutputIndex() >= MaxOutputCount {
 		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
@@ -317,6 +318,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
 func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+	//TODO: remove eventually
 	if output, _, err = OutputFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return
@@ -328,6 +330,45 @@ func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.Stor
 		return
 	}
 	output.(Output).SetID(outputID)
+
+	return
+}
+
+// OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
+func OutputFromObjectStorageNew(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+	var outputType OutputType
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputType)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	switch outputType {
+	case SigLockedSingleOutputType:
+		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, data); err != nil {
+			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+			return
+		}
+	case SigLockedColoredOutputType:
+		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, data); err != nil {
+			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+			return
+		}
+	case AliasOutputType:
+		if output, err = new(AliasOutput).FromObjectStorage(key, data); err != nil {
+			err = errors.Errorf("failed to parse AliasOutput: %w", err)
+			return
+		}
+	case ExtendedLockedOutputType:
+		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, data); err != nil {
+			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
+			return
+		}
+
+	default:
+		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
+		return
+	}
 
 	return
 }
@@ -582,8 +623,39 @@ func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleO
 }
 
 // FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
+func (s *SigLockedSingleOutput) FromObjectStorageNew(key, bytes []byte) (sigLockedSingleOutput objectstorage.StorableObject, err error) {
+	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
+		sigLockedSingleOutput = new(SigLockedSingleOutput)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, sigLockedSingleOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.sigLockedSingleOutputInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput.ID: %w", err)
+		return
+	}
+	return
+}
+
+// FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
 func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
+	//TODO: remove eventually
+	output, err := s.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
 }
 
 // FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
@@ -725,7 +797,7 @@ func (s *SigLockedSingleOutput) Clone() Output {
 
 // Bytes returns a marshaled version of the Output.
 func (s *SigLockedSingleOutput) Bytes() []byte {
-	return s.ObjectStorageValue()
+	return s.ObjectStorageValueOld()
 }
 
 // UpdateMintingColor does nothing for SigLockedSingleOutput.
@@ -736,12 +808,36 @@ func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *SigLockedSingleOutput) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return s.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (s *SigLockedSingleOutput) ObjectStorageValueOld() []byte {
+	// TODO: remove eventually
 	return marshalutil.New().
 		WriteByte(byte(SigLockedSingleOutputType)).
 		WriteUint64(s.sigLockedSingleOutputInner.Balance).
@@ -797,11 +893,43 @@ func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigL
 
 // FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
 func (s *SigLockedColoredOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return s.FromBytes(byteutils.ConcatBytes(key, bytes))
+	// TODO: remove eventually
+	output, err := s.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
+}
+
+// FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
+func (s *SigLockedColoredOutput) FromObjectStorageNew(key, bytes []byte) (sigLockedColoredOutput objectstorage.StorableObject, err error) {
+	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
+		sigLockedColoredOutput = new(SigLockedColoredOutput)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, sigLockedColoredOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
+		return
+	}
+	return
 }
 
 // FromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
 func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (output *SigLockedColoredOutput, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = s.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput from MarshalUtil: %w", err)
@@ -813,6 +941,7 @@ func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (output *SigLockedColor
 
 // FromMarshalUtil unmarshals a SigLockedColoredOutput using a MarshalUtil (for easier unmarshaling).
 func (s *SigLockedColoredOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedColoredOutput, err error) {
+	// TODO: remove eventually
 	if output = s; output == nil {
 		output = new(SigLockedColoredOutput)
 	}
@@ -947,12 +1076,36 @@ func (s *SigLockedColoredOutput) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.id, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *SigLockedColoredOutput) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return s.id.Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (s *SigLockedColoredOutput) ObjectStorageValueOld() []byte {
+	// TODO: remove eventually
 	return marshalutil.New().
 		WriteByte(byte(SigLockedColoredOutputType)).
 		WriteBytes(s.sigLockedColoredOutputInner.Balances.Bytes()).
@@ -1094,7 +1247,18 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
 func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
+	output, err := a.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
 }
 
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
@@ -1446,6 +1610,7 @@ func (a *AliasOutput) Bytes() []byte {
 	return a.ObjectStorageValue()
 }
 
+// Encode returns bytes serialized form.
 func (a *AliasOutput) Encode() ([]byte, error) {
 	return a.Bytes(), nil
 }
@@ -1467,13 +1632,26 @@ func (a *AliasOutput) Compare(other Output) int {
 	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
-// ObjectStorageKey a key.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *AliasOutput) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey a key.
+func (a *AliasOutput) ObjectStorageKeyOld() []byte {
+	//TODO: remove eventually
 	return a.ID().Bytes()
 }
 
 // ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
+	// This object has too complex structure for automatic serialization
 	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
@@ -1962,7 +2140,18 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
 func (o *ExtendedLockedOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return o.FromBytes(byteutils.ConcatBytes(key, bytes))
+	output, err := o.FromBytes(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
 }
 
 // FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
@@ -2195,12 +2384,25 @@ func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o.id, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (o *ExtendedLockedOutput) ObjectStorageKeyOld() []byte {
+	// TODO: remove eventually
 	return o.id.Bytes()
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
+	// too complex to use serix
 	flags := o.compressFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(ExtendedLockedOutputType)).
@@ -2306,6 +2508,25 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 			BranchIDs: NewBranchIDs(),
 		},
 	}
+}
+
+// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
+func (o *OutputMetadata) FromObjectStorageNew(key, bytes []byte) (outputMetadata objectstorage.StorableObject, err error) {
+	if outputMetadata = o; outputMetadata == nil {
+		outputMetadata = new(OutputMetadata)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, outputMetadata, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &o.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
+		return
+	}
+	return
 }
 
 // FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
@@ -2524,12 +2745,34 @@ func (o *OutputMetadata) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *OutputMetadata) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
+func (o *OutputMetadata) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (o *OutputMetadata) ObjectStorageKeyOld() []byte {
 	return o.id.Bytes()
 }
 
 // ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the ObjectStorage.
-func (o *OutputMetadata) ObjectStorageValue() []byte {
+func (o *OutputMetadata) ObjectStorageValueOld() []byte {
 	return marshalutil.New().
 		Write(o.BranchIDs()).
 		WriteBool(o.Solid()).

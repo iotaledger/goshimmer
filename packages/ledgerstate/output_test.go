@@ -2380,6 +2380,8 @@ func randAliasAddress() *AliasAddress {
 func randOutputID() OutputID {
 	randOutputIDBytes := make([]byte, 34)
 	_, _ = rand.Read(randOutputIDBytes)
+	randOutputIDBytes[32] = 2
+	randOutputIDBytes[33] = 0
 	outputID, _, _ := OutputIDFromBytes(randOutputIDBytes)
 	return outputID
 }

@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -272,6 +273,7 @@ func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
 
 // UTXOInputFromMarshalUtil unmarshals a UTXOInput using a MarshalUtil (for easier unmarshaling).
 func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXOInput, err error) {
+	//TODO: remove eventually as it's used only inside of other marshaultil method
 	inputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -301,8 +303,18 @@ func (u *UTXOInput) ReferencedOutputID() OutputID {
 	return u.utxoInputInner.ReferencedOutputID
 }
 
-// Bytes returns a marshaled version of the Input.
+// Bytes returns a marshaled version of the Address.
 func (u *UTXOInput) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), u, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Input.
+func (u *UTXOInput) BytesOld() []byte {
 	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.utxoInputInner.ReferencedOutputID.Bytes())
 }
 

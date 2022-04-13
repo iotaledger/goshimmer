@@ -1,11 +1,15 @@
 package ledgerstate
 
 import (
+	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -88,12 +92,35 @@ func TestTransaction_Complex(t *testing.T) {
 	for i := range completedEssence.Inputs() {
 		unlockBlocks[i] = NewSignatureUnlockBlock(NewED25519Signature(ed25519.PublicKey{}, ed25519.Signature{}))
 	}
+	// both parties sign the transaction
+	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party2KeyChain)
+	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party1KeyChain)
 	transaction := NewTransaction(completedEssence, unlockBlocks)
 
-	// both parties sign the transaction
-	signTransaction(transaction, unspentOutputsDB, party2KeyChain)
-	signTransaction(transaction, unspentOutputsDB, party1KeyChain)
+	assert.Equal(t, transaction.ObjectStorageKeyOld(), transaction.ObjectStorageKey())
+	assert.Equal(t, transaction.ObjectStorageValueOld(), transaction.ObjectStorageValue())
 
+	objRestored, err := new(Transaction).FromObjectStorage(transaction.ObjectStorageKey(), transaction.ObjectStorageValue())
+	assert.NoError(t, err)
+	assert.Equal(t, transaction.ID(), objRestored.(*Transaction).ID())
+
+	assert.Equal(t, transaction.BytesOld(), transaction.Bytes())
+
+	objRestored2, err := new(Transaction).FromBytes(transaction.Bytes())
+	assert.NoError(t, err)
+	assert.Equal(t, transaction.Bytes(), objRestored2.Bytes())
+	assert.Equal(t, transaction.ID(), objRestored2.ID())
+
+	encodedObj, err := serix.DefaultAPI.Encode(context.Background(), transaction.Essence().Outputs())
+	assert.NoError(t, err)
+
+	assert.Equal(t, transaction.Essence().Outputs().Bytes(), encodedObj)
+
+	restoredObj, err := OutputsFromMarshalUtil(marshalutil.New(encodedObj))
+	assert.NoError(t, err)
+	fmt.Println(transaction.Essence().Outputs())
+
+	fmt.Println(restoredObj)
 	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
 	// assert.True(t, utxoDAG.TransactionValid(transaction))
 }
@@ -162,12 +189,12 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 
 // signTransaction is a utility function that iterates through a transactions inputs and signs the addresses that are
 // part of the signers key chain.
-func signTransaction(transaction *Transaction, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
-	essenceBytesToSign := transaction.Essence().Bytes()
+func signTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
+	essenceBytesToSign := essence.Bytes()
 
-	for i, input := range transaction.Essence().Inputs() {
+	for i, input := range essence.Inputs() {
 		if keyPair, keyPairExists := keyChain[addressFromInput(input, unspentOutputsDB)]; keyPairExists {
-			transaction.UnlockBlocks()[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
+			unlockBlocks[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
 		}
 	}
 }

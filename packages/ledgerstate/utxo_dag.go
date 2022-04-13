@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -792,7 +794,21 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.S
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
+func (a *AddressOutputMapping) FromBytesNew(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
+	if addressOutputMapping = a; addressOutputMapping == nil {
+		addressOutputMapping = new(AddressOutputMapping)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, addressOutputMapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse AddressOutputMapping: %w", err)
+		return
+	}
+	return
+}
+
+// FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
 func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
+	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(bytes)
 	if addressOutputMapping, err = a.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
@@ -833,6 +849,12 @@ func (a *AddressOutputMapping) Bytes() []byte {
 	return a.ObjectStorageKey()
 }
 
+// Bytes marshals the Consumer into a sequence of bytes.
+func (a *AddressOutputMapping) BytesOld() []byte {
+	// TODO: remove that eventually
+	return a.ObjectStorageKeyOld()
+}
+
 // String returns a human-readable version of the Consumer.
 func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 	return stringify.Struct("AddressOutputMapping",
@@ -844,6 +866,18 @@ func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (a *AddressOutputMapping) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (a *AddressOutputMapping) ObjectStorageKeyOld() []byte {
+	// TODO: remove this function soon
 	return byteutils.ConcatBytes(a.addressOutputMappingInner.Address.Bytes(), a.addressOutputMappingInner.OutputID.Bytes())
 }
 
@@ -980,12 +1014,42 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.consumerInner.ConsumedInput.Bytes(), c.consumerInner.TransactionID.Bytes())
+
+	inputBytes, err := serix.DefaultAPI.Encode(context.Background(), c.consumerInner.ConsumedInput, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+
+	txBytes, err := serix.DefaultAPI.Encode(context.Background(), c.consumerInner.TransactionID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+
+	return byteutils.ConcatBytes(inputBytes, txBytes)
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (c *Consumer) ObjectStorageKeyOld() []byte {
+	return byteutils.ConcatBytes(c.consumerInner.ConsumedInput.Bytes(), c.consumerInner.TransactionID.Bytes())
+}
+
+// ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
+// storage.
+func (c *Consumer) ObjectStorageValueOld() []byte {
 	return marshalutil.New(marshalutil.BoolSize).
 		Write(c.Valid()).
 		Bytes()

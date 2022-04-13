@@ -15,31 +15,24 @@ import (
 )
 
 func TestSerixAliasAddress(t *testing.T) {
-	// uses encode
 	keyPair := ed25519.GenerateKeyPair()
 	obj := NewAliasAddress(keyPair.PublicKey.Bytes())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 }
 
 func TestSerixBLSAddress(t *testing.T) {
 	privateKey := bls.PrivateKeyFromRandomness()
 	obj := NewBLSAddress(privateKey.PublicKey().Bytes())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 }
 
 func TestSerixED25519Address(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	obj := NewED25519Address(keyPair.PublicKey)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 }
 
 func TestSerixAliasOutput(t *testing.T) {
@@ -48,67 +41,91 @@ func TestSerixAliasOutput(t *testing.T) {
 	obj, err := NewAliasOutputMint(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randAliasAddress(), data)
 	assert.NoError(t, err)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	// too complex for serix
+	assert.Equal(t, obj.ObjectStorageValue(), obj.ObjectStorageValue())
+
+	objRestored, err := new(AliasOutput).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*AliasOutput).Bytes())
 }
 
 func TestSerixExtendedLockedOutput(t *testing.T) {
 	// uses encode
 	obj := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	// too complex for serix
+	assert.Equal(t, obj.ObjectStorageValue(), obj.ObjectStorageValue())
+
+	objRestored, err := new(ExtendedLockedOutput).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*ExtendedLockedOutput).Bytes())
 }
 
 func TestSerixSigLockedColoredOutput(t *testing.T) {
 	// OrderedMap uses encode
 	obj := NewSigLockedColoredOutput(NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}), randEd25119Address())
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	objRestored, err := new(SigLockedColoredOutput).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*SigLockedColoredOutput).Bytes())
 }
 
 func TestSerixSigLockedSingleOutput(t *testing.T) {
-	sigLockedSingleOutput := NewSigLockedSingleOutput(10, randEd25119Address())
+	obj := NewSigLockedSingleOutput(10, randEd25119Address())
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), sigLockedSingleOutput)
+	objRestored, err := new(SigLockedSingleOutput).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, sigLockedSingleOutput.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*SigLockedSingleOutput).Bytes())
 }
 
 func TestSerixBranch(t *testing.T) {
-	branch := NewBranch(BranchID{1}, NewBranchIDs(BranchID{2}, BranchID{3}), NewConflictIDs(ConflictID{5}, ConflictID{4}))
+	obj := NewBranch(BranchID{1}, NewBranchIDs(BranchID{2}, BranchID{3}), NewConflictIDs(ConflictID{5}, ConflictID{4}))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), branch)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
+
+	objRestored, err := new(Branch).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, branch.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*Branch).Bytes())
 }
 
 func TestSerixChildBranch(t *testing.T) {
-	childBranch := NewChildBranch(BranchID{1}, BranchID{2})
+	obj := NewChildBranch(BranchID{1}, BranchID{2})
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), childBranch)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValue(), obj.ObjectStorageValue())
+
+	objRestored, err := new(ChildBranch).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, childBranch.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*ChildBranch).Bytes())
 }
 
 func TestSerixConflict(t *testing.T) {
-	conflict := NewConflict(ConflictID{1})
+	obj := NewConflict(ConflictID{1})
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), conflict)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
+
+	objRestored, err := new(Conflict).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, conflict.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*Conflict).Bytes())
 }
 
 func TestSerixConflictMember(t *testing.T) {
-	conflictMember := NewConflictMember(ConflictID{1}, BranchID{2})
+	obj := NewConflictMember(ConflictID{1}, BranchID{2})
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), conflictMember)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValue(), obj.ObjectStorageValue())
+
+	objRestored, err := new(ConflictMember).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, conflictMember.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*ConflictMember).Bytes())
 }
 
 func TestSerixBLSSignature(t *testing.T) {
@@ -119,9 +136,10 @@ func TestSerixBLSSignature(t *testing.T) {
 
 	obj := NewBLSSignature(bls.NewSignatureWithPublicKey(keyPair.PublicKey(), signature.Signature))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+	objRestored, _, err := BLSSignatureFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.Bytes())
 }
 
 func TestSerixED25519Signature(t *testing.T) {
@@ -129,17 +147,22 @@ func TestSerixED25519Signature(t *testing.T) {
 
 	obj := NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(keyPair.PublicKey.Bytes()))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	objRestored, _, err := ED25519SignatureFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.Bytes())
+
 }
 
 func TestSerixAliasUnlockBlock(t *testing.T) {
 	obj := NewAliasUnlockBlock(1)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	objRestored, _, err := AliasUnlockBlockFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.Bytes())
 }
 
 func TestSerixSignatureUnlockBlock(t *testing.T) {
@@ -148,25 +171,27 @@ func TestSerixSignatureUnlockBlock(t *testing.T) {
 	signature := NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(keyPair.PublicKey.Bytes()))
 	obj := NewSignatureUnlockBlock(signature)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	objRestored, _, err := SignatureUnlockBlockFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.Bytes())
 }
 
 func TestSerixReferenceUnlockBlock(t *testing.T) {
 	obj := NewReferenceUnlockBlock(1)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	objRestored, _, err := ReferenceUnlockBlockFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.Bytes())
 }
 
 func TestSerixUTXOInput(t *testing.T) {
 	obj := NewUTXOInput(randOutputID())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 }
 func TestSerixTransactionMetadata(t *testing.T) {
 	ledgerstate := setupDependencies(t)
@@ -174,20 +199,36 @@ func TestSerixTransactionMetadata(t *testing.T) {
 	wallets := createWallets(2)
 	input := generateOutput(ledgerstate, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
-
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), tx, serix.WithValidation())
+	assert.NoError(t, err)
+	fmt.Println(objBytes)
 	obj := NewTransactionMetadata(tx.ID())
 	obj.SetSolid(true)
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetBranchIDs(NewBranchIDs(BranchIDFromRandomness()))
 	obj.SetLazyBooked(false)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
 
-	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj.ID())
+	objRestored, err := new(TransactionMetadata).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.ObjectStorageKey(), serixBytesKey)
+	assert.Equal(t, obj.Bytes(), objRestored.(*TransactionMetadata).Bytes())
+}
+
+func TestSerixTransactionEssence(t *testing.T) {
+	ledgerstate := setupDependencies(t)
+	defer ledgerstate.Shutdown()
+	wallets := createWallets(2)
+	input := generateOutput(ledgerstate, wallets[0].address, 0)
+	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
+
+	assert.Equal(t, tx.Essence().BytesOld(), tx.Essence().Bytes())
+
+	objRestored, consumedBytes, err := TransactionEssenceFromBytes(tx.Essence().Bytes())
+	assert.NoError(t, err)
+	assert.Equal(t, len(tx.Essence().Bytes()), consumedBytes)
+	assert.Equal(t, tx.Essence().Bytes(), objRestored.Bytes())
 }
 
 func TestSerixTransactionPayload(t *testing.T) {
@@ -196,23 +237,20 @@ func TestSerixTransactionPayload(t *testing.T) {
 	wallets := createWallets(2)
 	input := generateOutput(ledgerstate, wallets[0].address, 0)
 	tx, _ := singleInputTransaction(ledgerstate, wallets[0], wallets[1], input)
-	serializedBytes, err := serix.DefaultAPI.Encode(context.Background(), tx)
-	assert.NoError(t, err)
 
 	// skip payload length which is not written when serializing transaction directly
-	assert.Equal(t, tx.Bytes()[4:], serializedBytes)
+	assert.Equal(t, tx.BytesOld(), tx.Bytes())
+	assert.Equal(t, tx.ObjectStorageValueOld(), tx.ObjectStorageValue())
+	assert.Equal(t, tx.ObjectStorageKeyOld(), tx.ObjectStorageKey())
+
+	objRestored, err := new(Transaction).FromObjectStorage(tx.ObjectStorageKey(), tx.ObjectStorageValue())
+	assert.NoError(t, err)
+	assert.Equal(t, tx.Bytes(), objRestored.(*Transaction).Bytes())
 }
 
 func TestSerixBranchIDs(t *testing.T) {
 	obj := NewBranchIDs(BranchIDFromRandomness())
-
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
-
-	fmt.Println("Bytes", len(obj.Bytes()), obj.Bytes())
-	fmt.Println("Serix", len(serixBytes), serixBytes)
-	assert.Equal(t, obj.Bytes(), serixBytes)
-
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 }
 
 func TestSerixOutputMetadata(t *testing.T) {
@@ -220,27 +258,29 @@ func TestSerixOutputMetadata(t *testing.T) {
 	obj.AddBranchID(BranchIDFromRandomness())
 	obj.SetGradeOfFinality(gof.High)
 	obj.SetSolid(true)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	objRestored, err := new(OutputMetadata).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	// Skip OutputID which is serialized by the Bytes method
-	assert.Equal(t, obj.Bytes()[34:], serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*OutputMetadata).Bytes())
 }
 
 func TestSerixConsumer(t *testing.T) {
 	obj := NewConsumer(randOutputID(), GenesisTransactionID, types.Maybe)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	objRestored, err := new(Consumer).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	// Skip OutputID and TransactionID which are serialized by the Bytes method, but are used only as a object storage key.
-	assert.Equal(t, obj.Bytes()[66:], serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*Consumer).Bytes())
 }
 
 func TestSerixAddressOutputMapping(t *testing.T) {
 	obj := NewAddressOutputMapping(randEd25119Address(), randOutputID())
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	objRestored, err := new(AddressOutputMapping).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
-	// Skip OutputID and TransactionID which are serialized by the Bytes method, but are used only as a object storage key.
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), objRestored.(*AddressOutputMapping).Bytes())
 }

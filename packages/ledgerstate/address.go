@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/cockroachdb/errors"
@@ -178,6 +179,8 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 
 // ED25519AddressFromBytes unmarshals an ED25519Address from a sequence of bytes.
 func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
+	// TODO: replace with FromBytesNew eventually
+
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = ED25519AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ED25519Address from MarshalUtil: %w", err)
@@ -185,6 +188,15 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 	}
 	consumedBytes = marshalUtil.ReadOffset()
 
+	return
+}
+
+// BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
+func ED25519AddressFromBytesNew(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, address, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
 	return
 }
 
@@ -250,8 +262,19 @@ func (e *ED25519Address) Equals(other Address) bool {
 }
 
 // Bytes returns a marshaled version of the Address.
-func (e *ED25519Address) Bytes() []byte {
+func (e *ED25519Address) BytesOld() []byte {
+	// TODO: remove eventually
 	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.Digest())
+}
+
+// Bytes returns a marshaled version of the Address.
+func (e *ED25519Address) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -301,7 +324,17 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 }
 
 // BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
+func BLSAddressFromBytesNew(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, address, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
 func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
+	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BLSAddress from MarshalUtil: %w", err)
@@ -376,8 +409,19 @@ func (b *BLSAddress) Equals(other Address) bool {
 }
 
 // Bytes returns a marshaled version of the Address.
-func (b *BLSAddress) Bytes() []byte {
+func (b *BLSAddress) BytesOld() []byte {
+	// TODO: remove eventually
 	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.blsAddressInner.Digest[:])
+}
+
+// Bytes returns a marshaled version of the Address.
+func (b *BLSAddress) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -430,7 +474,17 @@ func NewAliasAddress(data []byte) *AliasAddress {
 }
 
 // AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
+func AliasAddressFromBytesNew(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, address, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
 func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(data)
 	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
@@ -496,6 +550,17 @@ func (a *AliasAddress) Clone() Address {
 
 // Bytes returns a marshaled version of the Address.
 func (a *AliasAddress) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Address.
+func (a *AliasAddress) BytesOld() []byte {
+	// TODO: remove eventually
 	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.aliasAddressInner.Digest[:])
 }
 

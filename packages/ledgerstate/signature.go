@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/cockroachdb/errors"
@@ -152,6 +153,15 @@ func NewED25519Signature(publicKey ed25519.PublicKey, signature ed25519.Signatur
 }
 
 // ED25519SignatureFromBytes unmarshals a ED25519Signature from a sequence of bytes.
+func ED25519SignatureFromBytesNew(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// ED25519SignatureFromBytes unmarshals a ED25519Signature from a sequence of bytes.
 func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
@@ -229,6 +239,16 @@ func (e *ED25519Signature) AddressSignatureValid(address Address, data []byte) b
 
 // Bytes returns a marshaled version of the Signature.
 func (e *ED25519Signature) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Signature.
+func (e *ED25519Signature) BytesOld() []byte {
 	return byteutils.ConcatBytes([]byte{byte(ED25519SignatureType)}, e.PublicKey.Bytes(), e.Signature.Bytes())
 }
 
@@ -265,7 +285,17 @@ func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
 }
 
 // BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
+func BLSSignatureFromBytesNew(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
+	if err != nil {
+		return nil, consumedBytes, err
+	}
+	return
+}
+
+// BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
 func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+	//TODO: remove this eventually
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse BLSSignature from MarshalUtil: %w", err)
@@ -339,6 +369,16 @@ func (b *BLSSignature) AddressSignatureValid(address Address, data []byte) bool 
 
 // Bytes returns a marshaled version of the Signature.
 func (b *BLSSignature) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Signature.
+func (b *BLSSignature) BytesOld() []byte {
 	return byteutils.ConcatBytes([]byte{byte(BLSSignatureType)}, b.Signature.Bytes())
 }
 

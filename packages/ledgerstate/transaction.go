@@ -1,6 +1,7 @@
 package ledgerstate
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strconv"
@@ -66,7 +67,7 @@ func init() {
 		Max:            MaxInputCount,
 		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithArrayRules(InputsArrayRules))
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(InputsArrayRules))
 	if err != nil {
 		panic(fmt.Errorf("error registering Inputs type settings: %w", err))
 	}
@@ -76,7 +77,7 @@ func init() {
 		Max:            MaxOutputCount,
 		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithArrayRules(OutputsArrayRules))
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(OutputsArrayRules))
 	if err != nil {
 		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
 	}
@@ -119,23 +120,23 @@ func validateTransaction(tx *Transaction) (err error) {
 		}
 	}
 
-	for i, output := range tx.transactionInner.Essence.Outputs() {
-		output.SetID(NewOutputID(tx.ID(), uint16(i)))
-		// check if an alias output is deadlocked to itself
-		// for origin alias outputs, alias address is only known once the ID of the output is set
-		if output.Type() == AliasOutputType {
-			alias := output.(*AliasOutput)
-			aliasAddress := alias.GetAliasAddress()
-			if alias.GetStateAddress().Equals(aliasAddress) {
-				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-				return
-			}
-			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-				return
-			}
-		}
-	}
+	//for i, output := range tx.transactionInner.Essence.Outputs() {
+	//	output.SetID(NewOutputID(tx.ID(), uint16(i)))
+	//	// check if an alias output is deadlocked to itself
+	//	// for origin alias outputs, alias address is only known once the ID of the output is set
+	//	if output.Type() == AliasOutputType {
+	//		alias := output.(*AliasOutput)
+	//		aliasAddress := alias.GetAliasAddress()
+	//		if alias.GetStateAddress().Equals(aliasAddress) {
+	//			err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+	//			return
+	//		}
+	//		if alias.GetGoverningAddress().Equals(aliasAddress) {
+	//			err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
+	//			return
+	//		}
+	//	}
+	//}
 	return nil
 }
 
@@ -157,7 +158,17 @@ type TransactionID [TransactionIDLength]byte
 var GenesisTransactionID TransactionID
 
 // TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
+func TransactionIDFromBytesNew(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &transactionID, serix.WithValidation())
+	if err != nil {
+		return
+	}
+	return
+}
+
+// TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
 func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
+	// TODO: remove this eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
@@ -302,6 +313,26 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 	return
 }
 
+// FromObjectStorage creates an Transaction from sequences of key and bytes.
+func (t *Transaction) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	tx := new(Transaction)
+	if tx != nil {
+		tx = t
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return tx, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, tx.transactionInner.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction.id: %w", err)
+		return tx, err
+	}
+	return tx, err
+}
+
 // FromObjectStorage creates a Transaction from sequences of key and bytes.
 func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	transaction, err := t.FromBytes(bytes)
@@ -310,17 +341,32 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		return transaction, err
 	}
 
-	transactionID, _, err := TransactionIDFromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-		return transaction, err
-	}
-	transaction.id = &transactionID
+	//transactionID, _, err := TransactionIDFromBytes(key)
+	//if err != nil {
+	//	err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
+	//	return transaction, err
+	//}
+	//transaction.id = &transactionID
 	return transaction, err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
+func (t *Transaction) FromBytesNew(bytes []byte) (*Transaction, error) {
+	tx := new(Transaction)
+	if tx != nil {
+		tx = t
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return tx, err
+	}
+	return tx, err
+}
+
+// FromBytes unmarshals a Transaction from a sequence of bytes.
 func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err error) {
+	//TODO: remove that eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
@@ -331,21 +377,19 @@ func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err err
 
 // FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
 func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	if transaction = t; transaction == nil {
-		transaction = new(Transaction)
-	}
+	transaction = &Transaction{}
 
-	readStartOffset := marshalUtil.ReadOffset()
+	//readStartOffset := marshalUtil.ReadOffset()
 
-	payloadSize, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
-	if payloadSize == 0 {
-		return
-	}
+	//payloadSize, err := marshalUtil.ReadUint32()
+	//if err != nil {
+	//	err = errors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
+	//	return
+	//}
+	//// a payloadSize of 0 indicates the payload is omitted and the payload is nil
+	//if payloadSize == 0 {
+	//	return
+	//}
 	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
 	if err != nil {
 		err = errors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
@@ -365,11 +409,11 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 		return
 	}
 
-	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
-		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
-		return
-	}
+	//parsedBytes := marshalUtil.ReadOffset() - readStartOffset
+	//if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
+	//	err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
+	//	return
+	//}
 
 	if len(transaction.transactionInner.UnlockBlocks) != len(transaction.transactionInner.Essence.Inputs()) {
 		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.transactionInner.UnlockBlocks), len(transaction.transactionInner.Essence.transactionEssenceInner.Inputs), cerrors.ErrParseBytesFailed)
@@ -443,7 +487,9 @@ func (t *Transaction) ID() TransactionID {
 	}
 
 	idBytes := blake2b.Sum256(t.Bytes())
+	fmt.Println("Tx bytes:", t.Bytes())
 	id, _, err := TransactionIDFromBytes(idBytes[:])
+	fmt.Println("tx ID: ", id)
 	if err != nil {
 		panic(err)
 	}
@@ -479,6 +525,17 @@ func (t *Transaction) ReferencedTransactionIDs() (referencedTransactionIDs Trans
 
 // Bytes returns a marshaled version of the Transaction.
 func (t *Transaction) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Transaction.
+func (t *Transaction) BytesOld() []byte {
+	//TODO: remove eventually
 	if t == nil {
 		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
 		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
@@ -488,7 +545,7 @@ func (t *Transaction) Bytes() []byte {
 	payloadBytesLength := len(payloadBytes)
 
 	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
-		WriteUint32(uint32(payloadBytesLength)).
+		//WriteUint32(uint32(payloadBytesLength)).
 		WriteBytes(payloadBytes).
 		Bytes()
 }
@@ -505,12 +562,34 @@ func (t *Transaction) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *Transaction) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Transaction into a sequence of bytes that are used as the value part in the
+// object storage.
+func (t *Transaction) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (t *Transaction) ObjectStorageKeyOld() []byte {
 	return t.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
 // used as a key in the ObjectStorage.
-func (t *Transaction) ObjectStorageValue() []byte {
+func (t *Transaction) ObjectStorageValueOld() []byte {
 	return t.Bytes()
 }
 
@@ -563,7 +642,18 @@ func NewTransactionEssence(
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
+func TransactionEssenceFromBytesNew(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, transactionEssence, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
+		return
+	}
+	return
+}
+
+// TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
 func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
@@ -660,6 +750,16 @@ func (t *TransactionEssence) Payload() payload.Payload {
 
 // Bytes returns a marshaled version of the TransactionEssence.
 func (t *TransactionEssence) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the TransactionEssence.
+func (t *TransactionEssence) BytesOld() []byte {
 	marshalUtil := marshalutil.New().
 		Write(t.transactionEssenceInner.Version).
 		WriteTime(t.transactionEssenceInner.Timestamp).
@@ -776,7 +876,28 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 }
 
 // FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
+func (t *TransactionMetadata) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	tx := new(TransactionMetadata)
+	if tx != nil {
+		tx = t
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionMetadata: %w", err)
+		return tx, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, tx.transactionMetadataInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionMetadata.id: %w", err)
+		return tx, err
+	}
+	return tx, err
+}
+
+// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
 func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	// TODO: remove eventually
 	transactionMetadata, err := t.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
@@ -1000,12 +1121,34 @@ func (t *TransactionMetadata) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *TransactionMetadata) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes that are used as the value part in the
+// object storage.
+func (t *TransactionMetadata) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (t *TransactionMetadata) ObjectStorageKeyOld() []byte {
 	return t.transactionMetadataInner.ID.Bytes()
 }
 
 // ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes. The ID is not serialized here as it is
 // only used as a key in the ObjectStorage.
-func (t *TransactionMetadata) ObjectStorageValue() []byte {
+func (t *TransactionMetadata) ObjectStorageValueOld() []byte {
 	return marshalutil.New().
 		Write(t.BranchIDs()).
 		WriteBool(t.Solid()).
