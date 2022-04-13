@@ -3,10 +3,10 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
@@ -15,7 +15,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	defer tangle.Shutdown()
 
 	tangle.Setup()
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		panic(err)
 	}))
 

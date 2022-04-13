@@ -30,12 +30,15 @@ func newCollectionEvents() (new *CollectionEvents) {
 }
 
 type AnalysisOutboundBytesEvent struct {
+	AmountBytes uint64
 }
 
 type CPUUsageEvent struct {
+	CPUPercent float64
 }
 
 type MemUsageEvent struct {
+	MemAllocBytes uint64
 }
 
 type TangleTimeSyncedEvent struct {

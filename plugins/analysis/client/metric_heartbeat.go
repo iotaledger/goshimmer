@@ -24,7 +24,7 @@ func sendMetricHeartbeat(w io.Writer, hb *packet.MetricHeartbeat) {
 		log.Debugw("Error while writing to connection", "Description", err)
 	}
 	// trigger AnalysisOutboundBytes event
-	metrics.Events().AnalysisOutboundBytes.Trigger(uint64(len(data)))
+	metrics.Events.AnalysisOutboundBytes.Trigger(&metrics.AnalysisOutboundBytesEvent{uint64(len(data))})
 }
 
 func createMetricHeartbeat() *packet.MetricHeartbeat {

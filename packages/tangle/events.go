@@ -415,3 +415,51 @@ type RequestFailedEvent struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimeManagerEvents ////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimeManagerEvents represents events happening in the TimeManager.
+type TimeManagerEvents struct {
+	// Fired when the nodes sync status changes.
+	SyncChanged *event.Event[*SyncChangedEvent]
+}
+
+func newTimeManagerEvents() (new *TimeManagerEvents) {
+	return &TimeManagerEvents{
+		SyncChanged: event.New[*SyncChangedEvent](),
+	}
+}
+
+// SyncChangedEvent represents a sync changed event.
+type SyncChangedEvent struct {
+	Synced bool
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TipManagerEvents /////////////////////////////////////////////////////////////////////////////////////////////
+
+// TipManagerEvents represents events happening on the TipManager.
+type TipManagerEvents struct {
+	// Fired when a tip is added.
+	TipAdded *event.Event[*TipEvent]
+
+	// Fired when a tip is removed.
+	TipRemoved *event.Event[*TipEvent]
+}
+
+func newTipManagerEvents() (new *TipManagerEvents) {
+	return &TipManagerEvents{
+		TipAdded:   event.New[*TipEvent](),
+		TipRemoved: event.New[*TipEvent](),
+	}
+}
+
+// TipEvent holds the information provided by the TipEvent event that gets triggered when a message gets added or
+// removed as tip.
+type TipEvent struct {
+	// MessageID of the added/removed tip.
+	MessageID MessageID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -297,14 +297,14 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		analysisOutboundBytes.Add(amountBytes)
+	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
+		analysisOutboundBytes.Add(event.AmountBytes)
 	}))
-	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
-		cpuUsage.Store(cpuPercent)
+	metrics.Events.CPUUsage.Attach(event.NewClosure(func(evnet *metrics.CPUUsageEvent) {
+		cpuUsage.Store(evnet.CPUPercent)
 	}))
-	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
-		memUsageBytes.Store(memAllocBytes)
+	metrics.Events.MemUsage.Attach(event.NewClosure(func(event *metrics.MemUsageEvent) {
+		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
