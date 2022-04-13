@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/cockroachdb/errors"
@@ -91,7 +92,9 @@ func TestScheduler_Discarded(t *testing.T) {
 	noAManaNode := identity.GenerateIdentity()
 
 	messageDiscarded := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
+	tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *MessageDiscardedEvent) {
+		messageDiscarded <- event.MessageID
+	}))
 
 	tangle.Scheduler.Start()
 
@@ -116,7 +119,9 @@ func TestScheduler_DiscardedAtShutdown(t *testing.T) {
 	defer tangle.Shutdown()
 
 	messageDiscarded := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(id MessageID) { messageDiscarded <- id }))
+	tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *MessageDiscardedEvent) {
+		messageDiscarded <- event.MessageID
+	}))
 
 	tangle.Scheduler.Start()
 
@@ -151,7 +156,9 @@ func TestScheduler_Schedule(t *testing.T) {
 	defer tangle.Shutdown()
 
 	messageScheduled := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		messageScheduled <- event.MessageID
+	}))
 
 	tangle.Scheduler.Start()
 
@@ -191,18 +198,17 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	defer tangle.Shutdown()
 	tangle.ConfirmationOracle = &MockConfirmationOracleConfirmed{
 		ConfirmationOracle: tangle.ConfirmationOracle,
-		events: &ConfirmationEvents{
-			MessageConfirmed:     events.NewEvent(MessageIDCaller),
-			TransactionConfirmed: events.NewEvent(nil),
-			BranchConfirmed:      events.NewEvent(nil),
-		},
+		events:             NewConfirmationEvents(),
 	}
-
 	messageScheduled := make(chan MessageID, 1)
 	messageSkipped := make(chan MessageID, 1)
 
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
-	tangle.Scheduler.Events.MessageSkipped.Attach(events.NewClosure(func(id MessageID) { messageSkipped <- id }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		messageScheduled <- event.MessageID
+	}))
+	tangle.Scheduler.Events.MessageSkipped.Attach(event.NewClosure(func(event *MessageSkippedEvent) {
+		messageSkipped <- event.MessageID
+	}))
 
 	tangle.Scheduler.Setup()
 
@@ -224,7 +230,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	msgUnreadyConfirmedNew := newMessage(peerNode.PublicKey())
 	tangle.Storage.StoreMessage(msgUnreadyConfirmedNew)
 	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedNew.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(msgUnreadyConfirmedNew.ID())
+	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedNew.ID()})
 	// make sure that the message was not unsubmitted
 	assert.Equal(t, MessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
 	assert.NoError(t, tangle.Scheduler.Ready(msgUnreadyConfirmedNew.ID()))
@@ -255,7 +261,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	msgUnreadyConfirmedOld := newMessageWithTimestamp(peerNode.PublicKey(), time.Now().Add(-2*time.Minute))
 	tangle.Storage.StoreMessage(msgUnreadyConfirmedOld)
 	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedOld.ID()))
-	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(msgUnreadyConfirmedOld.ID())
+	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedOld.ID()})
 
 	assert.Eventually(t, func() bool {
 		select {
@@ -272,7 +278,9 @@ func TestScheduler_SetRate(t *testing.T) {
 	defer tangle.Shutdown()
 
 	var scheduled atomic.Bool
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) { scheduled.Store(true) }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
+		scheduled.Store(true)
+	}))
 
 	tangle.Scheduler.Start()
 
@@ -301,7 +309,9 @@ func TestScheduler_Time(t *testing.T) {
 	defer tangle.Shutdown()
 
 	messageScheduled := make(chan MessageID, 1)
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		messageScheduled <- event.MessageID
+	}))
 
 	tangle.Scheduler.Start()
 
@@ -343,7 +353,7 @@ func TestScheduler_Issue(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
@@ -356,7 +366,9 @@ func TestScheduler_Issue(t *testing.T) {
 
 	const numMessages = 5
 	messageScheduled := make(chan MessageID, numMessages)
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		messageScheduled <- event.MessageID
+	}))
 
 	ids := NewMessageIDs()
 	for i := 0; i < numMessages; i++ {
@@ -384,7 +396,7 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
@@ -427,7 +439,9 @@ func TestSchedulerFlow(t *testing.T) {
 	messages["E"] = msgE
 
 	messageScheduled := make(chan MessageID, len(messages))
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(id MessageID) { messageScheduled <- id }))
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		messageScheduled <- event.MessageID
+	}))
 
 	for _, message := range messages {
 		tangle.Storage.StoreMessage(message)
@@ -459,7 +473,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) { assert.Failf(t, "unexpected error", "error event triggered: %v", err) }))
 
 	// setup tangle up till the Scheduler
 	tangle.Storage.Setup()
@@ -486,7 +500,7 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 		t.Logf(messageID.Base58(), " solid")
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
 		n := totalScheduled.Add(1)
 		t.Logf("scheduled messages %d/%d", n, totalMsgCount)
 	}))

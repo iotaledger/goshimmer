@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 
@@ -25,8 +25,8 @@ var (
 	// Plugin is the plugin instance of the manaeventlogger plugin.
 	Plugin               *node.Plugin
 	log                  *logger.Logger
-	onPledgeEventClosure *events.Closure
-	onRevokeEventClosure *events.Closure
+	onPledgeEventClosure *event.Closure[*mana.PledgedEvent]
+	onRevokeEventClosure *event.Closure[*mana.RevokedEvent]
 	eventsBuffer         []mana.Event
 	eventsBufferSize     int
 	csvPath              string
@@ -44,14 +44,14 @@ func configure(*node.Plugin) {
 	eventsBufferSize = Parameters.BufferSize
 	csvPath = Parameters.CSV
 	checkBufferInterval = Parameters.CheckBufferInterval
-	onPledgeEventClosure = events.NewClosure(logPledge)
-	onRevokeEventClosure = events.NewClosure(logRevoke)
+	onPledgeEventClosure = event.NewClosure(logPledge)
+	onRevokeEventClosure = event.NewClosure(logRevoke)
 	configureEvents()
 }
 
 func configureEvents() {
-	mana.Events().Pledged.Attach(onPledgeEventClosure)
-	mana.Events().Revoked.Attach(onRevokeEventClosure)
+	mana.Events.Pledged.Attach(onPledgeEventClosure)
+	mana.Events.Revoked.Attach(onRevokeEventClosure)
 }
 
 func logPledge(ev *mana.PledgedEvent) {
@@ -128,8 +128,8 @@ func run(_ *node.Plugin) {
 			}
 		}
 		log.Infof("stopping %s", PluginName)
-		mana.Events().Pledged.Detach(onPledgeEventClosure)
-		mana.Events().Pledged.Detach(onRevokeEventClosure)
+		mana.Events.Pledged.Detach(onPledgeEventClosure)
+		mana.Events.Revoked.Detach(onRevokeEventClosure)
 		if err := writeEventsToCSV(eventsBuffer); err != nil {
 			log.Infof("error writing events to csv: %w", err)
 		}

@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -142,7 +141,7 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in booker: %w", err))
 	}))
 
-	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.Scheduler.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 }

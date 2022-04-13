@@ -593,7 +593,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID bra
 	b.Events.MarkerBranchAdded.Trigger(&MarkerBranchAddedEvent{
 		Marker:       currentMarker,
 		OldBranchIDs: oldBranchIDs,
-		NewBranchIDs: newBranchIDs,
+		NewBranchID:  newBranchID,
 	})
 
 	// propagate updates to later BranchID mappings of the same sequence.

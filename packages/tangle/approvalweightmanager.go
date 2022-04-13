@@ -3,7 +3,7 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -27,11 +27,7 @@ type ApprovalWeightManager struct {
 // NewApprovalWeightManager is the constructor for ApprovalWeightManager.
 func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWeightManager) {
 	approvalWeightManager = &ApprovalWeightManager{
-		Events: &ApprovalWeightManagerEvents{
-			MessageProcessed:    events.NewEvent(MessageIDCaller),
-			MarkerWeightChanged: events.NewEvent(markerWeightChangedEventHandler),
-			BranchWeightChanged: events.NewEvent(branchWeightChangedEventHandler),
-		},
+		Events: newApprovalWeightManagerEvents(),
 		tangle: tangle,
 	}
 
@@ -40,9 +36,15 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
-	a.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(a.processBookedMessage))
-	a.tangle.Booker.Events.MessageBranchUpdated.Attach(events.NewClosure(a.processForkedMessage))
-	a.tangle.Booker.Events.MarkerBranchAdded.Attach(events.NewClosure(a.processForkedMarker))
+	a.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
+		a.processBookedMessage(event.MessageID)
+	}))
+	a.tangle.Booker.Events.MessageBranchUpdated.Attach(event.NewClosure(func(event *MessageBranchUpdatedEvent) {
+		a.processForkedMessage(event.MessageID, event.BranchID)
+	}))
+	a.tangle.Booker.Events.MarkerBranchAdded.Attach(event.NewClosure(func(event *MarkerBranchAddedEvent) {
+		a.processForkedMarker(event.Marker, event.OldBranchIDs, event.NewBranchID)
+	}))
 }
 
 // processBookedMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
@@ -53,7 +55,7 @@ func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 		a.updateBranchVoters(message)
 		a.updateSequenceVoters(message)
 
-		a.Events.MessageProcessed.Trigger(messageID)
+		a.Events.MessageProcessed.Trigger(&MessageProcessedEvent{messageID})
 	})
 }
 
@@ -446,42 +448,6 @@ func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs 
 	}
 
 	return allBranchesSupported
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
-
-// ApprovalWeightManagerEvents represents events happening in the ApprovalWeightManager.
-type ApprovalWeightManagerEvents struct {
-	// MessageProcessed is triggered once a message is finished being processed by the ApprovalWeightManager.
-	MessageProcessed *events.Event
-	// BranchWeightChanged is triggered when a branch's weight changed.
-	BranchWeightChanged *events.Event
-	// MarkerWeightChanged is triggered when a marker's weight changed.
-	MarkerWeightChanged *events.Event
-}
-
-// MarkerWeightChangedEvent holds information about a marker and its updated weight.
-type MarkerWeightChangedEvent struct {
-	Marker *markers.Marker
-	Weight float64
-}
-
-// markerWeightChangedEventHandler is the caller function for events that hand over a MarkerWeightChangedEvent.
-func markerWeightChangedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*MarkerWeightChangedEvent))(params[0].(*MarkerWeightChangedEvent))
-}
-
-// BranchWeightChangedEvent holds information about a branch and its updated weight.
-type BranchWeightChangedEvent struct {
-	BranchID branchdag.BranchID
-	Weight   float64
-}
-
-// branchWeightChangedEventHandler is the caller function for events that hand over a BranchWeightChangedEvent.
-func branchWeightChangedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*BranchWeightChangedEvent))(params[0].(*BranchWeightChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

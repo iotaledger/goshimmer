@@ -132,7 +132,7 @@ type MessageBranchUpdatedEvent struct {
 type MarkerBranchAddedEvent struct {
 	Marker       *markers.Marker
 	OldBranchIDs branchdag.BranchIDs
-	NewBranchIDs branchdag.BranchIDs
+	NewBranchID  branchdag.BranchID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -151,7 +151,7 @@ type SchedulerEvents struct {
 	Error           *event.Event[error]
 }
 
-func NewSchedulerEvent() (new *SchedulerEvents) {
+func NewSchedulerEvents() (new *SchedulerEvents) {
 	return &SchedulerEvents{
 		MessageScheduled: event.New[*MessageScheduledEvent](),
 		MessageDiscarded: event.New[*MessageDiscardedEvent](),
@@ -175,6 +175,45 @@ type MessageSkippedEvent struct {
 
 type NodeBlacklistedEvent struct {
 	nodeID identity.ID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region ApprovalWeightManagerEvents //////////////////////////////////////////////////////////////////////////////////
+
+// ApprovalWeightManagerEvents represents events happening in the ApprovalWeightManager.
+type ApprovalWeightManagerEvents struct {
+	// MessageProcessed is triggered once a message is finished being processed by the ApprovalWeightManager.
+	MessageProcessed *event.Event[*MessageProcessedEvent]
+	// BranchWeightChanged is triggered when a branch's weight changed.
+	BranchWeightChanged *event.Event[*BranchWeightChangedEvent]
+	// MarkerWeightChanged is triggered when a marker's weight changed.
+	MarkerWeightChanged *event.Event[*MarkerWeightChangedEvent]
+}
+
+func newApprovalWeightManagerEvents() (new *ApprovalWeightManagerEvents) {
+	return &ApprovalWeightManagerEvents{
+		MessageProcessed:    event.New[*MessageProcessedEvent](),
+		BranchWeightChanged: event.New[*BranchWeightChangedEvent](),
+		MarkerWeightChanged: event.New[*MarkerWeightChangedEvent](),
+	}
+}
+
+// MessageProcessedEvent holds information about a processed message.
+type MessageProcessedEvent struct {
+	MessageID MessageID
+}
+
+// MarkerWeightChangedEvent holds information about a marker and its updated weight.
+type MarkerWeightChangedEvent struct {
+	Marker *markers.Marker
+	Weight float64
+}
+
+// BranchWeightChangedEvent holds information about a branch and its updated weight.
+type BranchWeightChangedEvent struct {
+	BranchID branchdag.BranchID
+	Weight   float64
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

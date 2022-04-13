@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -64,9 +65,9 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID ledgerstate.Transacti
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget) {
-	fg.Events().MessageConfirmed.Attach(events.NewClosure(handler.MessageConfirmed))
-	fg.Events().BranchConfirmed.Attach(events.NewClosure(handler.BranchConfirmed))
-	fg.Events().TransactionConfirmed.Attach(events.NewClosure(handler.TransactionConfirmed))
+	fg.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
+	fg.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	fg.Events().TransactionConfirmed.Attach(event.NewClosure(func(event *tangle.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
