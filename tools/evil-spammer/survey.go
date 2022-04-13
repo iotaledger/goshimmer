@@ -17,7 +17,7 @@ var actionQuestion = &survey.Select{
 var fundsQuestion = &survey.Select{
 	Message: "How many fresh outputs you want to create?",
 	Options: outputNumbers,
-	Default: "100",
+	Default: "10000",
 }
 
 var settingsQuestion = &survey.Select{
@@ -35,12 +35,11 @@ var autoCreationQuestion = &survey.Select{
 var addUrlQuestion = &survey.Input{
 	Message: "http://",
 	Default: "enable",
-	Help:    "Provide valid API url",
 }
 
 var removeUrlQuestion = func(urls []string) *survey.MultiSelect {
 	return &survey.MultiSelect{
-		Message: "Which ",
+		Message: "Select urls that should be removed.",
 		Options: urls,
 	}
 }
@@ -50,23 +49,27 @@ type spamTypeSurvey struct {
 	ReuseLaterEnabled string
 }
 
-var spamTypeQuestions = []*survey.Question{
-	{
-		Name: "deepSpamEnabled",
-		Prompt: &survey.Select{
-			Message: "Enable deep spam?",
-			Options: confirms,
-			Default: "disable",
+var spamTypeQuestions = func(defaultDeep, defaultReuse string) []*survey.Question {
+	return []*survey.Question{
+		{
+			Name: "deepSpamEnabled",
+			Prompt: &survey.Select{
+				Message: "Deep spam",
+				Options: confirms,
+				Default: defaultDeep,
+				Help:    "Uses outputs generated during the spam, to create deep UTXO and branch structures.",
+			},
 		},
-	},
-	{
-		Name: "reuseLaterEnabled",
-		Prompt: &survey.Select{
-			Message: "Remember created outputs (add them to reuse outputs and use in future deep spams).",
-			Options: confirms,
-			Default: "enable",
+		{
+			Name: "reuseLaterEnabled",
+			Prompt: &survey.Select{
+				Message: "Reuse outputs",
+				Options: confirms,
+				Default: defaultReuse,
+				Help:    "Remember created outputs (add them to reuse outputs and use in future deep spams).",
+			},
 		},
-	},
+	}
 }
 
 type spamDetailsSurvey struct {
@@ -74,50 +77,55 @@ type spamDetailsSurvey struct {
 	SpamRate     string
 }
 
-var spamDetailsQuestions = []*survey.Question{
-	{
-		Name: "spamDuration",
-		Prompt: &survey.Input{
-			Message: "Provide a duration [s]. Max spam duration: 600.",
-			Default: "20",
+var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Question {
+	return []*survey.Question{
+		{
+			Name: "spamDuration",
+			Prompt: &survey.Input{
+				Message: "Spam duration in [s].",
+				Default: defaultDuration,
+				Help:    "Max spam duration: 600.",
+			},
+			Validate: func(val interface{}) error {
+				if str, ok := val.(string); ok {
+					n, err := strconv.Atoi(str)
+					if err == nil {
+						if n <= 600 {
+							return nil
+						}
+					}
+					return errors.New("Incorrect spam duration. Provide duration in seconds.")
+				}
+				return nil
+			},
 		},
-		Validate: func(val interface{}) error {
-			if str, ok := val.(string); ok {
-				n, err := strconv.Atoi(str)
-				if err == nil {
-					if n <= 600 {
+		{
+			Name: "spamRate",
+			Prompt: &survey.Input{
+				Message: "Spam rate in [mps]",
+				Default: defaultRate,
+			},
+			Validate: func(val interface{}) error {
+				if str, ok := val.(string); ok {
+					_, err := strconv.Atoi(str)
+					if err == nil {
+
 						return nil
 					}
+					return errors.New("Incorrect spam rate")
 				}
-				return errors.New("Incorrect spam duration. Provide duration in seconds.")
-			}
-			return nil
+				return nil
+			},
 		},
-	},
-	{
-		Name: "spamRate",
-		Prompt: &survey.Input{
-			Message: "Provide the rate in [mps]",
-			Default: "2",
-		},
-		Validate: func(val interface{}) error {
-			if str, ok := val.(string); ok {
-				_, err := strconv.Atoi(str)
-				if err == nil {
-
-					return nil
-				}
-				return errors.New("Incorrect spam rate")
-			}
-			return nil
-		},
-	},
+	}
 }
 
-var spamScenarioQuestion = &survey.Select{
-	Message: "Choose a spam scenario",
-	Options: scenarios,
-	Default: "tx",
+var spamScenarioQuestion = func(defaultScenario string) *survey.Select {
+	return &survey.Select{
+		Message: "Choose a spam scenario",
+		Options: scenarios,
+		Default: defaultScenario,
+	}
 }
 
 var spamMenuQuestion = &survey.Select{

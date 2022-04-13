@@ -76,7 +76,7 @@ func (p *Printer) SpammerSettings() {
 	p.Println(p.colorString("Current settings:", "cyan"), 1)
 	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
-	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.Duration.Seconds())), 2)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.duration.Seconds())), 2)
 	p.PrintLine()
 	fmt.Println()
 }
@@ -114,7 +114,7 @@ func (p *Printer) UrlWarning() {
 
 func (p *Printer) clients() {
 	p.Println(p.colorString("Provided clients:", "cyan"), 1)
-	for url := range p.mode.Config.ClientUrls {
+	for url := range p.mode.Config.clientUrls {
 		p.PrintlnPoint(url, 2)
 	}
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/iotaledger/goshimmer/client"
@@ -30,14 +31,28 @@ var (
 )
 
 type InteractiveConfig struct {
-	ClientUrls map[string]types.Empty
-	Rate       int
-	Duration   time.Duration
-	TimeUnit   time.Duration
-	Deep       bool
-	Reuse      bool
-	Scenario   string
+	WebAPI      []string `json:"webAPI"`
+	Rate        int      `json:"rate"`
+	DurationStr string   `json:"duration"`
+	TimeUnitStr string   `json:"timeUnit"`
+	Deep        bool     `json:"deepEnabled"`
+	Reuse       bool     `json:"reuseEnabled"`
+	Scenario    string   `json:"scenario"`
+
+	duration   time.Duration
+	timeUnit   time.Duration
+	clientUrls map[string]types.Empty
 }
+
+var configJSON = `{
+	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
+	"rate": 2,
+	"duration": "20s",
+	"timeUnit": "1s",
+	"deepEnabled": false,
+	"reuseEnabled": true,
+	"scenario": "tx"
+}`
 
 // region survey selections  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -95,6 +110,7 @@ func Run() {
 	printer = NewPrinter(mode)
 
 	printer.printBanner()
+	mode.loadConfig()
 	time.Sleep(time.Second)
 	configure()
 	go mode.runBackgroundTasks()
@@ -154,7 +170,7 @@ func NewInteractiveMode() *Mode {
 		mainMenu:     make(chan types.Empty),
 		spamFinished: make(chan int),
 
-		Config:        interactive,
+		Config:        InteractiveConfig{clientUrls: make(map[string]types.Empty)},
 		msgSent:       atomic.NewUint64(0),
 		txSent:        atomic.NewUint64(0),
 		scenariosSent: atomic.NewUint64(0),
@@ -257,7 +273,7 @@ func (m *Mode) prepareFunds() {
 		printer.FundsCurrentlyPreparedWarning()
 		return
 	}
-	if len(m.Config.ClientUrls) == 0 {
+	if len(m.Config.clientUrls) == 0 {
 		printer.ClientsWarning()
 		return
 	}
@@ -318,7 +334,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 	switch menuType {
 	case spamDetails:
 		var spamSurvey spamDetailsSurvey
-		err := survey.Ask(spamDetailsQuestions, &spamSurvey)
+		err := survey.Ask(spamDetailsQuestions(strconv.Itoa(int(m.Config.duration.Seconds())), strconv.Itoa(m.Config.Rate)), &spamSurvey)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -328,7 +344,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 
 	case spamType:
 		var spamSurvey spamTypeSurvey
-		err := survey.Ask(spamTypeQuestions, &spamSurvey)
+		err := survey.Ask(spamTypeQuestions(boolToEnable(m.Config.Deep), boolToEnable(m.Config.Reuse)), &spamSurvey)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -338,7 +354,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 
 	case spamScenario:
 		scenario := ""
-		err := survey.AskOne(spamScenarioQuestion, &scenario)
+		err := survey.AskOne(spamScenarioQuestion(m.Config.Scenario), &scenario)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -352,7 +368,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 			m.mainMenu <- types.Void
 			return
 		}
-		if len(m.Config.ClientUrls) == 0 {
+		if len(m.Config.clientUrls) == 0 {
 			printer.ClientsWarning()
 			m.mainMenu <- types.Void
 			return
@@ -372,7 +388,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 }
 
 func (m *Mode) areEnoughFundsAvailable() bool {
-	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.Duration.Seconds()) && m.Config.Scenario != "msg"
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.duration.Seconds()) && m.Config.Scenario != "msg"
 }
 
 func (m *Mode) startSpam() {
@@ -382,7 +398,7 @@ func (m *Mode) startSpam() {
 	s, _ := evilwallet.GetScenario(m.Config.Scenario)
 	var spammer *evilspammer.Spammer
 	spamId := m.spammerLog.AddSpam(m.Config)
-	spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.Duration, s, m.Config.Deep, m.Config.Reuse)
+	spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
 	m.activeSpammers[spamId] = spammer
 	go func(id int) {
 		spammer.Spam()
@@ -451,7 +467,7 @@ func (m *Mode) validateAndAddUrl(url string) {
 	if !ok {
 		printer.UrlWarning()
 	} else {
-		m.Config.ClientUrls[url] = types.Void
+		m.Config.clientUrls[url] = types.Void
 		m.evilWallet.AddClient(url)
 	}
 }
@@ -532,7 +548,7 @@ func (m *Mode) parseSpamDetails(details spamDetailsSurvey) {
 		return
 	}
 	m.Config.Rate = rate
-	m.Config.Duration = dur
+	m.Config.duration = dur
 }
 
 func (m *Mode) parseSpamType(spamType spamTypeSurvey) {
@@ -548,15 +564,15 @@ func (m *Mode) parseScenario(scenario string) {
 
 func (m *Mode) removeUrls(urls []string) {
 	for _, url := range urls {
-		if _, ok := m.Config.ClientUrls[url]; ok {
-			delete(m.Config.ClientUrls, url)
+		if _, ok := m.Config.clientUrls[url]; ok {
+			delete(m.Config.clientUrls, url)
 			m.evilWallet.RemoveClient(url)
 		}
 	}
 }
 
 func (m *Mode) urlMapToList() (list []string) {
-	for url := range m.Config.ClientUrls {
+	for url := range m.Config.clientUrls {
 		list = append(list, url)
 	}
 	return
@@ -595,8 +611,55 @@ func (m *Mode) updateSentStatistic(spammer *evilspammer.Spammer, id int) {
 	m.scenariosSent.Add(scenariosCreated)
 }
 
+// load the config file
+func (m *Mode) loadConfig() {
+	path := "tools/evil-spammer/"
+	// open config file
+	file, err := os.Open(path + "config.json")
+	if err != nil {
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
+
+		if err = os.WriteFile(path+"config.json", []byte(configJSON), 0o644); err != nil {
+			panic(err)
+		}
+		if file, err = os.Open(path + "config.json"); err != nil {
+			panic(err)
+		}
+	}
+	defer file.Close()
+
+	// decode config file
+	if err = json.NewDecoder(file).Decode(&m.Config); err != nil {
+		panic(err)
+	}
+	// convert urls array to map
+	for _, url := range m.Config.WebAPI {
+		m.Config.clientUrls[url] = types.Void
+	}
+	// parse duration
+	d, err := time.ParseDuration(m.Config.DurationStr)
+	if err != nil {
+		d = time.Minute
+	}
+	u, err := time.ParseDuration(m.Config.TimeUnitStr)
+	if err != nil {
+		u = time.Second
+	}
+	m.Config.duration = d
+	m.Config.timeUnit = u
+}
+
 func enableToBool(e string) bool {
 	return e == "enable"
+}
+
+func boolToEnable(b bool) string {
+	if b {
+		return "enable"
+	}
+	return "disable"
 }
 
 func validateUrl(url string) (ok bool) {
@@ -672,7 +735,7 @@ func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
 	}
 	for i, spam := range s.spamDetails[idx:] {
 		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
-			spam.Deep, spam.Deep, spam.Rate, int(spam.Duration.Seconds()))
+			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
 	return
@@ -687,7 +750,7 @@ func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
 	for _, idx := range lines {
 		spam := s.spamDetails[idx]
 		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
-			spam.Deep, spam.Deep, spam.Rate, int(spam.Duration.Seconds()))
+			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
 	return
