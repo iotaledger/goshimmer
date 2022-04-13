@@ -173,6 +173,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
 			MaxBufferSize:                     SchedulerParameters.MaxBufferSize,
+			TotalSupply:                       2779530283277761,
 			ConfirmedMessageScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedMessageThreshold),
 			Rate:                              parseDuration(SchedulerParameters.Rate),
 			AccessManaMapRetrieverFunc:        accessManaMapRetriever,
