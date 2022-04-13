@@ -109,7 +109,7 @@ func (c *WebClients) GetClients(numOfClt int) []Client {
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
 func (c *WebClients) getClient() Client {
-	if c.lastUsed == len(c.clients)-1 {
+	if c.lastUsed >= len(c.clients)-1 {
 		c.lastUsed = 0
 	} else {
 		c.lastUsed++
