@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/client/evilspammer"
-	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/hive.go/types"
-	"go.uber.org/atomic"
 	"io"
 	"os"
 	"strconv"
 	"sync"
 	"text/tabwriter"
 	"time"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/iotaledger/goshimmer/client"
+	"github.com/iotaledger/goshimmer/client/evilspammer"
+	"github.com/iotaledger/goshimmer/client/evilwallet"
+	"github.com/iotaledger/hive.go/types"
+	"go.uber.org/atomic"
 )
 
 const (
@@ -504,14 +505,19 @@ func (m *Mode) currentSpams() {
 func (m *Mode) currentSpamsSubMenu(menuType string) {
 	switch menuType {
 	case currentSpamRemove:
-		answer := ""
-		err := survey.AskOne(removeSpammer, &answer)
-		if err != nil {
-			fmt.Println(err.Error())
-			m.mainMenu <- types.Void
-			return
+		if len(m.activeSpammers) == 0 {
+			printer.NoActiveSpammer()
+		} else {
+			answer := ""
+			err := survey.AskOne(removeSpammer, &answer)
+			if err != nil {
+				fmt.Println(err.Error())
+				m.mainMenu <- types.Void
+				return
+			}
+			m.parseIdToRemove(answer)
 		}
-		m.parseIdToRemove(answer)
+
 		m.action <- actionCurrent
 
 	case back:
