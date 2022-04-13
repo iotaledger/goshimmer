@@ -1,6 +1,7 @@
 package mana
 
 import (
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"math"
@@ -9,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -37,8 +39,18 @@ func (p *PersistableBaseMana) String() string {
 
 var _ objectstorage.StorableObject = new(PersistableBaseMana)
 
-// Bytes  marshals the persistable mana into a sequence of bytes.
+// Bytes returns a marshaled version of the Transaction.
 func (p *PersistableBaseMana) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes  marshals the persistable mana into a sequence of bytes.
+func (p *PersistableBaseMana) BytesOld() []byte {
 	if bytes := p.bytes; bytes != nil {
 		return bytes
 	}
@@ -60,13 +72,35 @@ func (p *PersistableBaseMana) Bytes() []byte {
 	return p.bytes
 }
 
-// ObjectStorageKey returns the key of the persistable mana.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (p *PersistableBaseMana) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p.NodeID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the PersistableBaseMana into a sequence of bytes that are used as the value part in the
+// object storage.
+func (p *PersistableBaseMana) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key of the persistable mana.
+func (p *PersistableBaseMana) ObjectStorageKeyOld() []byte {
 	return p.NodeID.Bytes()
 }
 
 // ObjectStorageValue returns the bytes of the persistable mana.
-func (p *PersistableBaseMana) ObjectStorageValue() []byte {
+func (p *PersistableBaseMana) ObjectStorageValueOld() []byte {
 	return p.Bytes()
 }
 
