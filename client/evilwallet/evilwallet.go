@@ -677,8 +677,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
 			outs := genOutputOptions(aliases.Outputs)
-			option := []Option{WithInputs(aliases.Inputs), WithOutputs(outs)}
-			option = append(option, WithOutputBatchAliases(batchOutputs))
+			option := []Option{WithInputs(aliases.Inputs), WithOutputs(outs), WithOutputBatchAliases(batchOutputs)}
 			if scenario.OutputWallet != nil {
 				option = append(option, WithOutputWallet(scenario.OutputWallet))
 			}
