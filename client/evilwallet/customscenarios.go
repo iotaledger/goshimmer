@@ -108,15 +108,11 @@ func Scenario2() EvilBatch {
 		[]ScenarioAlias{
 			{Inputs: []string{"A"}, Outputs: []string{"C"}},
 			{Inputs: []string{"B"}, Outputs: []string{"D"}},
+			{Inputs: []string{"B"}, Outputs: []string{"G"}},
 		},
 		[]ScenarioAlias{
 			{Inputs: []string{"C", "D"}, Outputs: []string{"E"}},
-		},
-		[]ScenarioAlias{
 			{Inputs: []string{"D"}, Outputs: []string{"F"}},
-		},
-		[]ScenarioAlias{
-			{Inputs: []string{"B"}, Outputs: []string{"G"}},
 		},
 	}
 }
@@ -198,13 +194,13 @@ func Scenario6() EvilBatch {
 			{Inputs: []string{"D"}, Outputs: []string{"I"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"F", "D"}, Outputs: []string{"J", "K"}},
-			{Inputs: []string{"G"}, Outputs: []string{"L", "M"}},
-			{Inputs: []string{"I"}, Outputs: []string{"N", "O"}},
+			{Inputs: []string{"F", "D"}, Outputs: []string{"J"}},
+			{Inputs: []string{"G"}, Outputs: []string{"L"}},
+			{Inputs: []string{"I"}, Outputs: []string{"M"}},
 		},
 		[]ScenarioAlias{
-			{Inputs: []string{"L", "I"}, Outputs: []string{"P"}},
-			{Inputs: []string{"N"}, Outputs: []string{"Q", "R"}},
+			{Inputs: []string{"L", "I"}, Outputs: []string{"N"}},
+			{Inputs: []string{"M"}, Outputs: []string{"O"}},
 		},
 	}
 }

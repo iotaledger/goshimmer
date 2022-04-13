@@ -171,7 +171,7 @@ func (p *Printer) CurrentSpams() {
 	for id := range p.mode.activeSpammers {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
-		endTime := startTime.Add(details.Duration)
+		endTime := startTime.Add(details.duration)
 		timeLeft := int(endTime.Sub(time.Now()).Seconds())
 		p.PrintlnPoint(fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft), 2)
 	}
