@@ -380,7 +380,6 @@ func (m *Mode) startSpam() {
 	defer m.spamMutex.Unlock()
 
 	s, _ := evilwallet.GetScenario(m.Config.Scenario)
-	fmt.Println(s)
 	var spammer *evilspammer.Spammer
 	spamId := m.spammerLog.AddSpam(m.Config)
 	spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.Duration, s, m.Config.Deep, m.Config.Reuse)
