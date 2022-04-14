@@ -7,28 +7,30 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	. "github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID BranchID, actualConflictMembers BranchIDs)
+	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID branchdag.BranchID, actualConflictMembers branchdag.BranchIDs)
 
 	mustMatch := func(s *Scenario, aliasLikedBranches []string, aliasConflictMembers []string) ExpectedLikedBranch {
-		return func(_ string, actualBranchID BranchID, actualConflictMembers BranchIDs) {
-			expectedBranches := NewBranchIDs()
-			expectedConflictMembers := NewBranchIDs()
+		return func(_ string, actualBranchID branchdag.BranchID, actualConflictMembers branchdag.BranchIDs) {
+			expectedBranches := branchdag.NewBranchIDs()
+			expectedConflictMembers := branchdag.NewBranchIDs()
 			if len(aliasLikedBranches) > 0 {
 				for _, aliasLikedBranch := range aliasLikedBranches {
 					expectedBranches.Add(s.BranchID(aliasLikedBranch))
 				}
 			} else {
-				expectedBranches.Add(UndefinedBranchID)
+				expectedBranches.Add(branchdag.UndefinedBranchID)
 			}
 			if len(aliasConflictMembers) > 0 {
 				for _, aliasConflictMember := range aliasConflictMembers {
@@ -821,7 +823,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ls := New(CacheTimeProvider(database.NewCacheTimeProvider(0)))
+			ls := ledger.New(ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ls.Shutdown()
 
 			tt.test.Scenario.CreateBranches(t, ls.BranchDAG)
@@ -841,9 +843,9 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
 type BranchMeta struct {
 	Order          int
-	BranchID       BranchID
-	ParentBranches BranchIDs
-	Conflicting    ConflictIDs
+	BranchID       branchdag.BranchID
+	ParentBranches branchdag.BranchIDs
+	Conflicting    branchdag.ConflictIDs
 	ApprovalWeight float64
 }
 
@@ -852,8 +854,8 @@ type BranchMeta struct {
 type Scenario map[string]*BranchMeta
 
 // IDsToNames returns a mapping of BranchIDs to their alias.
-func (s *Scenario) IDsToNames() map[BranchID]string {
-	mapping := map[BranchID]string{}
+func (s *Scenario) IDsToNames() map[branchdag.BranchID]string {
+	mapping := map[branchdag.BranchID]string{}
 	for name, m := range *s {
 		mapping[m.BranchID] = name
 	}
@@ -861,13 +863,13 @@ func (s *Scenario) IDsToNames() map[BranchID]string {
 }
 
 // BranchID returns the BranchID of the given branch alias.
-func (s *Scenario) BranchID(alias string) BranchID {
+func (s *Scenario) BranchID(alias string) branchdag.BranchID {
 	return (*s)[alias].BranchID
 }
 
 // BranchIDs returns either all BranchIDs in the scenario or only the ones with the given aliases.
-func (s *Scenario) BranchIDs(aliases ...string) BranchIDs {
-	branchIDs := NewBranchIDs()
+func (s *Scenario) BranchIDs(aliases ...string) branchdag.BranchIDs {
+	branchIDs := branchdag.NewBranchIDs()
 	for name, meta := range *s {
 		if len(aliases) > 0 {
 			var has bool
@@ -887,7 +889,7 @@ func (s *Scenario) BranchIDs(aliases ...string) BranchIDs {
 }
 
 // CreateBranches orders and creates the branches for the scenario.
-func (s *Scenario) CreateBranches(t *testing.T, branchDAG *BranchDAG) {
+func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG) {
 	type order struct {
 		order int
 		name  string
@@ -909,22 +911,20 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *BranchDAG) {
 }
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMeta *BranchMeta) bool {
-	var cachedBranch *objectstorage.CachedObject[*Branch]
+func createTestBranch(t *testing.T, branchDAG *branchdag.BranchDAG, alias string, branchMeta *BranchMeta) bool {
+	var cachedBranch *objectstorage.CachedObject[*branchdag.Branch]
 	var newBranchCreated bool
-	var err error
 
-	if branchMeta.BranchID == UndefinedBranchID {
+	if branchMeta.BranchID == branchdag.UndefinedBranchID {
 		panic("a branch must have its ID defined in its BranchMeta")
 	}
-	cachedBranch, newBranchCreated, err = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
-	require.NoError(t, err)
+	newBranchCreated = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
-	cachedBranch.Consume(func(branch *Branch) {
+	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch) {
 		branch, _ = cachedBranch.Unwrap()
 		branchMeta.BranchID = branch.ID()
 	})
-	RegisterBranchIDAlias(branchMeta.BranchID, alias)
+	branchMeta.BranchID.RegisterAlias(alias)
 	return newBranchCreated
 }
 
@@ -932,7 +932,7 @@ func createTestBranch(t *testing.T, branchDAG *BranchDAG, alias string, branchMe
 // according to the branch weight's specified in the scenario.
 func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFunc {
 	branchIDsToName := scenario.IDsToNames()
-	return func(branchID BranchID) (weight float64) {
+	return func(branchID branchdag.BranchID) (weight float64) {
 		name, nameOk := branchIDsToName[branchID]
 		require.True(t, nameOk)
 		meta, metaOk := scenario[name]
@@ -948,795 +948,795 @@ func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFun
 var (
 	s1 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.6,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s2 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.6,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.8,
 		},
 	}
 
 	s3 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{types.Identifier{2}}),
 			ApprovalWeight: 0.5,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.4,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 	}
 
 	s4 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s45 = Scenario{
 		"A": {
-			BranchID:       BranchID{200},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{200}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s5 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s6 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{7}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{7}}),
 			ApprovalWeight: 0.4,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{7}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{7}}),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s7 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s8 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}, branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}),
 			ApprovalWeight: 0.5,
 		},
 	}
 
 	s9 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}, branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s10 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}, branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{0}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{0}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s12 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.25,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.35,
 		},
 	}
 
 	s13 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.4,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.35,
 		},
 	}
 
 	s14 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}, branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}),
 			ApprovalWeight: 0.4,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{3}}),
 			ApprovalWeight: 0.35,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{4}}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{4}}),
 			ApprovalWeight: 0.17,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(BranchID{6}),
-			Conflicting:    NewConflictIDs(ConflictID{10}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{10}}),
 			ApprovalWeight: 0.1,
 		},
 		"I": {
 			Order:          1,
-			BranchID:       BranchID{10},
-			ParentBranches: NewBranchIDs(BranchID{6}),
-			Conflicting:    NewConflictIDs(ConflictID{10}),
+			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{10}}),
 			ApprovalWeight: 0.05,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       BranchID{11},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{15}),
+			BranchID:       branchdag.BranchID{11},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{15}),
 			ApprovalWeight: 0.04,
 		},
 		"K": {
 			Order:          2,
-			BranchID:       BranchID{12},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{15}),
+			BranchID:       branchdag.BranchID{12},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{15}),
 			ApprovalWeight: 0.06,
 		},
 	}
 
 	s15 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.2,
 		},
 		"D": {
-			BranchID:       BranchID{5},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{5},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{3}),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       BranchID{6},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{3}),
+			BranchID:       branchdag.BranchID{6},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{3}),
 			ApprovalWeight: 0.35,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.17,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(BranchID{6}),
-			Conflicting:    NewConflictIDs(ConflictID{10}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{6}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{10}),
 			ApprovalWeight: 0.1,
 		},
 		"I": {
 			Order:          1,
-			BranchID:       BranchID{10},
-			ParentBranches: NewBranchIDs(BranchID{6}),
-			Conflicting:    NewConflictIDs(ConflictID{10}),
+			BranchID:       branchdag.BranchID{10},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{6}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{10}),
 			ApprovalWeight: 0.05,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       BranchID{11},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{15}),
+			BranchID:       branchdag.BranchID{11},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{15}),
 			ApprovalWeight: 0.04,
 		},
 		"K": {
 			Order:          2,
-			BranchID:       BranchID{12},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{15}),
+			BranchID:       branchdag.BranchID{12},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{15}),
 			ApprovalWeight: 0.06,
 		},
 	}
 
 	s16 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}, branchdag.ConflictID{4}),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s17 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}, branchdag.ConflictID{4}),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s18 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.05,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}, branchdag.ConflictID{4}),
 			ApprovalWeight: 0.15,
 		},
 		"K": {
-			BranchID:       BranchID{10},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{17}),
+			BranchID:       branchdag.BranchID{10},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{17}),
 			ApprovalWeight: 0.1,
 		},
 		"L": {
-			BranchID:       BranchID{11},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{17}),
+			BranchID:       branchdag.BranchID{11},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{17}),
 			ApprovalWeight: 0.2,
 		},
 		"M": {
 			Order:          1,
-			BranchID:       BranchID{12},
-			ParentBranches: NewBranchIDs(BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{19}),
+			BranchID:       branchdag.BranchID{12},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{19}),
 			ApprovalWeight: 0.05,
 		},
 		"N": {
 			Order:          1,
-			BranchID:       BranchID{13},
-			ParentBranches: NewBranchIDs(BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{19}),
+			BranchID:       branchdag.BranchID{13},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{19}),
 			ApprovalWeight: 0.06,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       BranchID{14},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{14}),
+			BranchID:       branchdag.BranchID{14},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}),
 			ApprovalWeight: 0.07,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       BranchID{15},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{14}),
+			BranchID:       branchdag.BranchID{15},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}),
 			ApprovalWeight: 0.08,
 		},
 		"O": {
 			Order:          2,
-			BranchID:       BranchID{16},
-			ParentBranches: NewBranchIDs(BranchID{9}, BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
+			BranchID:       branchdag.BranchID{16},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}, branchdag.BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}, branchdag.ConflictID{19}),
 			ApprovalWeight: 0.05,
 		},
 	}
 
 	s19 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.05,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}, branchdag.ConflictID{4}),
 			ApprovalWeight: 0.15,
 		},
 		"K": {
-			BranchID:       BranchID{10},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{17}),
+			BranchID:       branchdag.BranchID{10},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{17}),
 			ApprovalWeight: 0.1,
 		},
 		"L": {
-			BranchID:       BranchID{11},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{17}),
+			BranchID:       branchdag.BranchID{11},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{17}),
 			ApprovalWeight: 0.2,
 		},
 		"M": {
 			Order:          1,
-			BranchID:       BranchID{12},
-			ParentBranches: NewBranchIDs(BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{19}),
+			BranchID:       branchdag.BranchID{12},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{19}),
 			ApprovalWeight: 0.05,
 		},
 		"N": {
 			Order:          1,
-			BranchID:       BranchID{13},
-			ParentBranches: NewBranchIDs(BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{19}),
+			BranchID:       branchdag.BranchID{13},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{19}),
 			ApprovalWeight: 0.06,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       BranchID{14},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{14}),
+			BranchID:       branchdag.BranchID{14},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}),
 			ApprovalWeight: 0.07,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       BranchID{15},
-			ParentBranches: NewBranchIDs(BranchID{9}),
-			Conflicting:    NewConflictIDs(ConflictID{14}),
+			BranchID:       branchdag.BranchID{15},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}),
 			ApprovalWeight: 0.08,
 		},
 		"O": {
 			Order:          2,
-			BranchID:       BranchID{16},
-			ParentBranches: NewBranchIDs(BranchID{9}, BranchID{11}),
-			Conflicting:    NewConflictIDs(ConflictID{14}, ConflictID{19}),
+			BranchID:       branchdag.BranchID{16},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{9}, branchdag.BranchID{11}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{14}, branchdag.ConflictID{19}),
 			ApprovalWeight: 0.09,
 		},
 	}
 
 	s20 = Scenario{
 		"A": {
-			BranchID:       BranchID{2},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}),
+			BranchID:       branchdag.BranchID{2},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       BranchID{3},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{1}, ConflictID{2}),
+			BranchID:       branchdag.BranchID{3},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{1}, branchdag.ConflictID{2}),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       BranchID{4},
-			ParentBranches: NewBranchIDs(MasterBranchID),
-			Conflicting:    NewConflictIDs(ConflictID{2}),
+			BranchID:       branchdag.BranchID{4},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{2}),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       BranchID{7},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{7},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       BranchID{8},
-			ParentBranches: NewBranchIDs(BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{4}),
+			BranchID:       branchdag.BranchID{8},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{4}),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       BranchID{9},
-			ParentBranches: NewBranchIDs(MasterBranchID, BranchID{2}),
-			Conflicting:    NewConflictIDs(ConflictID{2}, ConflictID{4}),
+			BranchID:       branchdag.BranchID{9},
+			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{2}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{2}}, branchdag.ConflictID{4}),
 			ApprovalWeight: 0.15,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       BranchID{10},
-			ParentBranches: NewBranchIDs(BranchID{7}),
-			Conflicting:    NewConflictIDs(ConflictID{12}),
+			BranchID:       branchdag.BranchID{10},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{7}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{12}),
 			ApprovalWeight: 0.005,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       BranchID{11},
-			ParentBranches: NewBranchIDs(BranchID{7}),
-			Conflicting:    NewConflictIDs(ConflictID{12}),
+			BranchID:       branchdag.BranchID{11},
+			ParentBranches: branchdag.NewBranchIDs(BranchID{7}),
+			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{12}),
 			ApprovalWeight: 0.015,
 		},
 	}

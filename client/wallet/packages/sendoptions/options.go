@@ -7,19 +7,19 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/constants"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // SendFundsOption is the type for the optional parameters for the SendFunds call.
 type SendFundsOption func(*SendFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
-func Destination(addr address.Address, amount uint64, optionalColor ...ledgerstate.Color) SendFundsOption {
+func Destination(addr address.Address, amount uint64, optionalColor ...devnetvm.Color) SendFundsOption {
 	// determine optional output color
-	var outputColor ledgerstate.Color
+	var outputColor devnetvm.Color
 	switch len(optionalColor) {
 	case 0:
-		outputColor = ledgerstate.ColorIOTA
+		outputColor = devnetvm.ColorIOTA
 	case 1:
 		outputColor = optionalColor[0]
 	default:
@@ -35,12 +35,12 @@ func Destination(addr address.Address, amount uint64, optionalColor ...ledgersta
 	return func(options *SendFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
-			options.Destinations = make(map[address.Address]map[ledgerstate.Color]uint64)
+			options.Destinations = make(map[address.Address]map[devnetvm.Color]uint64)
 		}
 
 		// initialize address specific destination
 		if _, addressExists := options.Destinations[addr]; !addressExists {
-			options.Destinations[addr] = make(map[ledgerstate.Color]uint64)
+			options.Destinations[addr] = make(map[devnetvm.Color]uint64)
 		}
 
 		// initialize color specific destination
@@ -114,7 +114,7 @@ func LockUntil(until time.Time) SendFundsOption {
 
 // Fallback defines the parameters for conditional sending: fallback address and fallback deadline.
 // If the output is not spent by the recipient within the fallback deadline, only fallback address is able to unlock it.
-func Fallback(addy ledgerstate.Address, deadline time.Time) SendFundsOption {
+func Fallback(addy devnetvm.Address, deadline time.Time) SendFundsOption {
 	return func(options *SendFundsOptions) error {
 		if addy == nil {
 			return errors.Errorf("empty fallback address provided")
@@ -134,10 +134,10 @@ func Fallback(addy ledgerstate.Address, deadline time.Time) SendFundsOption {
 
 // SendFundsOptions is a struct that is used to aggregate the optional parameters provided in the SendFunds call.
 type SendFundsOptions struct {
-	Destinations          map[address.Address]map[ledgerstate.Color]uint64
+	Destinations          map[address.Address]map[devnetvm.Color]uint64
 	RemainderAddress      address.Address
 	LockUntil             time.Time
-	FallbackAddress       ledgerstate.Address
+	FallbackAddress       devnetvm.Address
 	FallbackDeadline      time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
@@ -146,14 +146,14 @@ type SendFundsOptions struct {
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.
-func (s *SendFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
+func (s *SendFundsOptions) RequiredFunds() map[devnetvm.Color]uint64 {
 	// aggregate total amount of required funds, so we now what and how many funds we need
-	requiredFunds := make(map[ledgerstate.Color]uint64)
+	requiredFunds := make(map[devnetvm.Color]uint64)
 	for _, coloredBalances := range s.Destinations {
 		for color, amount := range coloredBalances {
 			// if we want to color sth then we need fresh IOTA
-			if color == ledgerstate.ColorMint {
-				color = ledgerstate.ColorIOTA
+			if color == devnetvm.ColorMint {
+				color = devnetvm.ColorIOTA
 			}
 
 			requiredFunds[color] += amount

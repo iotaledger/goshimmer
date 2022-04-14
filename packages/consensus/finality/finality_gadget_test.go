@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -481,7 +482,7 @@ func assertTxsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, exp
 			actualGradeOfFinality := txMeta.GradeOfFinality()
 			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected tx %s (via msg %s) GoF to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
 			// auto. also check outputs
-			for _, output := range testFramework.Transaction(msgAlias).Essence().Outputs() {
+			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
 				outputGoF := testFramework.OutputMetadata(output.ID()).GradeOfFinality()
 				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) GoF to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
 			}

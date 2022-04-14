@@ -6,7 +6,8 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
@@ -63,7 +64,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 	}
 
 	// build result
-	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
+	unspentOutputs = make(map[address.Address]map[utxo.OutputID]*Output)
 	for _, unspentOutput := range response.UnspentOutputs {
 		// lookup wallet address from raw address
 		addr, addressRequested := addressReverseLookupTable[unspentOutput.Address.Base58]
@@ -90,7 +91,7 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 
 			// store output in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
+				unspentOutputs[addr] = make(map[utxo.OutputID]*Output)
 			}
 			unspentOutputs[addr][walletOutput.Object.ID()] = walletOutput
 		}
@@ -100,14 +101,14 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 }
 
 // SendTransaction sends a new transaction to the network.
-func (webConnector WebConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
+func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	_, err = webConnector.client.PostTransaction(tx.Bytes())
 
 	return
 }
 
 // GetTransactionGoF fetches the GoF of the transaction.
-func (webConnector WebConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+func (webConnector WebConnector) GetTransactionGoF(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {
 		return
@@ -131,21 +132,21 @@ func (webConnector WebConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Typ
 }
 
 // GetUnspentAliasOutput returns the current unspent alias output that belongs to a given alias address.
-func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
 	res, err := webConnector.client.GetAddressUnspentOutputs(addr.Base58())
 	if err != nil {
 		return
 	}
 	for _, o := range res.Outputs {
-		if o.Type != ledgerstate.AliasOutputType.String() {
+		if o.Type != devnetvm.AliasOutputType.String() {
 			continue
 		}
-		var uncastedOutput ledgerstate.Output
+		var uncastedOutput devnetvm.OutputEssence
 		uncastedOutput, err = o.ToLedgerstateOutput()
 		if err != nil {
 			return
 		}
-		alias, ok := uncastedOutput.(*ledgerstate.AliasOutput)
+		alias, ok := uncastedOutput.(*devnetvm.AliasOutput)
 		if !ok {
 			err = errors.Errorf("alias output received from api cannot be casted to ledgerstate representation")
 			return
@@ -160,12 +161,13 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAd
 }
 
 // colorFromString is an internal utility method that parses the given string into a Color.
-func colorFromString(colorStr string) (color ledgerstate.Color) {
+func colorFromString(colorStr string) (color devnetvm.Color) {
 	if colorStr == "IOTA" {
-		color = ledgerstate.ColorIOTA
+		color = devnetvm.ColorIOTA
 	} else {
-		t, _ := ledgerstate.TransactionIDFromBase58(colorStr)
-		color, _, _ = ledgerstate.ColorFromBytes(t.Bytes())
+		var t utxo.TransactionID
+		_ = t.FromBase58(colorStr)
+		color, _, _ = devnetvm.ColorFromBytes(t.Bytes())
 	}
 	return
 }
