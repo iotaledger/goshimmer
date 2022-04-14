@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 func TestPersistableEvent_Bytes(t *testing.T) {
@@ -47,7 +47,7 @@ func TestPersistableEvent_FromBytes(t *testing.T) {
 		Amount:        100,
 		Time:          time.Now(),
 		ManaType:      ConsensusMana,
-		TransactionID: ledgerstate.TransactionID{},
+		TransactionID: utxo.TransactionID{},
 	}
 	ev1, err := new(PersistableEvent).FromBytes(ev.Bytes())
 	assert.NoError(t, err)

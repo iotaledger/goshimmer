@@ -6,9 +6,10 @@ import (
 
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 var (
@@ -48,7 +49,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
-				InputID: ledgerstate.OutputID{1},
+				InputID: utxo.OutputID{Identifier: types.Identifier{1}},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -58,7 +59,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
-				InputID: ledgerstate.OutputID{2},
+				InputID: utxo.OutputID{Identifier: types.Identifier{2}},
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -68,7 +69,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
-				InputID: ledgerstate.OutputID{3},
+				InputID: utxo.OutputID{Identifier: types.Identifier{3}},
 			},
 		},
 	}
