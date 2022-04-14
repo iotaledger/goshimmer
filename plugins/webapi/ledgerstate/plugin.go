@@ -9,7 +9,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -53,7 +53,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmed *events.Closure
+	onTransactionConfirmed *event.Closure[*tangle.TransactionConfirmedEvent]
 
 	log *logger.Logger
 )
@@ -72,8 +72,8 @@ func Filter() *DoubleSpendFilter {
 
 func configure(_ *node.Plugin) {
 	doubleSpendFilter = Filter()
-	onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		doubleSpendFilter.Remove(transactionID)
+	onTransactionConfirmed = event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+		doubleSpendFilter.Remove(event.TransactionID)
 	})
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)

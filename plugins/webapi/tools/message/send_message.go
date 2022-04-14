@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -60,15 +60,15 @@ func SendMessage(c echo.Context) error {
 	defer timer.Stop()
 	msgScheduled := make(chan bool)
 
-	messageScheduledClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		if messageID.CompareTo(msg.ID()) == 0 {
+	messageScheduledClosure := event.NewClosure(func(event *tangle.MessageScheduledEvent) {
+		if event.MessageID.CompareTo(msg.ID()) == 0 {
 			msgScheduled <- true
 		}
 	})
 	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(messageScheduledClosure)
 	defer deps.Tangle.Scheduler.Events.MessageScheduled.Detach(messageScheduledClosure)
 
-	go deps.Tangle.MessageFactory.Events.MessageConstructed.Trigger(msg)
+	deps.Tangle.MessageFactory.Events.MessageConstructed.Trigger(&tangle.MessageConstructedEvent{msg})
 L:
 	for {
 		select {

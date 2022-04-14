@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
@@ -65,7 +66,8 @@ type tangledeps struct {
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		container := event.Container
 		if err := container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)
 		}
@@ -83,7 +85,7 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	deps.Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	deps.Tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))
 

@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/autopeering/server"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
@@ -48,7 +47,8 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		container := event.Container
 		if err := container.Provide(discovery.CreatePeerDisc); err != nil {
 			Plugin.Panic(err)
 		}
@@ -128,10 +128,10 @@ func configureGossipIntegration() {
 
 func configureEvents() {
 	// log the peer discovery events
-	deps.Discovery.Events().PeerDiscovered.Attach(events.NewClosure(func(ev *discover.DiscoveredEvent) {
+	deps.Discovery.Events().PeerDiscovered.Attach(event.NewClosure(func(ev *discover.PeerDiscoveredEvent) {
 		Plugin.Logger().Infof("Discovered: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))
-	deps.Discovery.Events().PeerDeleted.Attach(events.NewClosure(func(ev *discover.DeletedEvent) {
+	deps.Discovery.Events().PeerDeleted.Attach(event.NewClosure(func(ev *discover.PeerDeletedEvent) {
 		Plugin.Logger().Infof("Removed offline: %s / %s", ev.Peer.Address(), ev.Peer.ID())
 	}))
 

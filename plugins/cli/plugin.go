@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
@@ -28,11 +28,11 @@ func init() {
 		onAddPlugin(name, plugin.Status)
 	}
 
-	node.Events.AddPlugin.Attach(events.NewClosure(onAddPlugin))
+	node.Events.AddPlugin.Attach(event.NewClosure(func(event *node.AddEvent) { onAddPlugin(event.Name, event.Status) }))
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Attach(events.NewClosure(onInit))
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) { onInit(event.Plugin, event.Container) }))
 }
 
 func onAddPlugin(name string, status int) {
