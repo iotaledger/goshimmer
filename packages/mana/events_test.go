@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 func TestRevokedEvent_ToPersistable(t *testing.T) {
@@ -105,7 +105,7 @@ func randomNodeID() (iID identity.ID) {
 	return
 }
 
-func randomTxID() (txID ledgerstate.TransactionID) {
-	txID, _ = ledgerstate.TransactionIDFromRandomness()
+func randomTxID() (txID utxo.TransactionID) {
+	_ = txID.FromRandomness()
 	return
 }
