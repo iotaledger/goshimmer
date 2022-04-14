@@ -3,7 +3,7 @@ package sweepnftownedoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // SweepNFTOwnedFundsOption is a function that provides option.
@@ -36,7 +36,7 @@ func ConsensusManaPledgeID(nodeID string) SweepNFTOwnedFundsOption {
 // Alias specifies which an aliasID that is checked for available funds.
 func Alias(aliasID string) SweepNFTOwnedFundsOption {
 	return func(options *SweepNFTOwnedFundsOptions) error {
-		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
+		parsed, err := devnetvm.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func Alias(aliasID string) SweepNFTOwnedFundsOption {
 // ToAddress specifies the optional receiving address.
 func ToAddress(address string) SweepNFTOwnedFundsOption {
 	return func(options *SweepNFTOwnedFundsOptions) error {
-		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
+		parsed, err := devnetvm.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
 		}
@@ -61,8 +61,8 @@ func ToAddress(address string) SweepNFTOwnedFundsOption {
 type SweepNFTOwnedFundsOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
-	Alias                 *ledgerstate.AliasAddress
-	ToAddress             ledgerstate.Address
+	Alias                 *devnetvm.AliasAddress
+	ToAddress             devnetvm.Address
 	WaitForConfirmation   bool
 }
 
