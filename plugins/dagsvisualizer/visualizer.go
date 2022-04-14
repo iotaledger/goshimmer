@@ -9,11 +9,10 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -53,16 +52,17 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeTangleVertex,
-			Data: newTangleVertex(messageID),
+			Data: newTangleVertex(event.MessageID),
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
 			if err != nil {
@@ -82,7 +82,8 @@ func registerTangleEvents() {
 		})
 	})
 
-	msgConfirmedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
@@ -97,12 +98,12 @@ func registerTangleEvents() {
 		})
 	})
 
-	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
+	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
 			Data: &tangleFutureMarkerUpdated{
-				ID:             fmUpdate.ID.Base58(),
-				FutureMarkerID: fmUpdate.FutureMarker.Base58(),
+				ID:             event.ID.Base58(),
+				FutureMarkerID: event.FutureMarker.Base58(),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -116,7 +117,8 @@ func registerTangleEvents() {
 }
 
 func registerUTXOEvents() {
-	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
 			if msg.Payload().Type() == ledgerstate.TransactionType {
 				tx := msg.Payload().(*ledgerstate.Transaction)
@@ -130,7 +132,8 @@ func registerUTXOEvents() {
 		})
 	})
 
-	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
@@ -153,7 +156,8 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+	txConfirmedClosure := event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+		txID := event.TransactionID
 		deps.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOConfirmed,

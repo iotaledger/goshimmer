@@ -8,7 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -505,9 +505,10 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan ledgerstate.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
 
-	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if s.splittingEnv.WasIssuedInThisPreparation(transactionID) {
-			txConfirmed <- transactionID
+	monitorTxConfirmation := event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+		txID := event.TransactionID
+		if s.splittingEnv.WasIssuedInThisPreparation(txID) {
+			txConfirmed <- txID
 		}
 	})
 

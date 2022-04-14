@@ -3,10 +3,9 @@ package firewall
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -44,8 +43,8 @@ type firewallDeps struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(createFirewall); err != nil {
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(createFirewall); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -73,28 +72,28 @@ func start(ctx context.Context) {
 	defer Plugin.LogInfo("Stopping " + PluginName + " ... done")
 
 	if mrl := deps.GossipMgr.MessagesRateLimiter(); mrl != nil {
-		mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
-			deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
+		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
 				Reason: "Messages rate limit hit",
 				Info: map[string]interface{}{
-					"rateLimit": rl,
+					"rateLimit": event.RateLimit,
 				},
 			})
 		})
-		mrl.HitEvent().Attach(mrlClosure)
-		defer mrl.HitEvent().Detach(mrlClosure)
+		mrl.Events.Hit.Attach(mrlClosure)
+		defer mrl.Events.Hit.Detach(mrlClosure)
 	}
 	if mrrl := deps.GossipMgr.MessageRequestsRateLimiter(); mrrl != nil {
-		mrlClosure := events.NewClosure(func(p *peer.Peer, rl *ratelimiter.RateLimit) {
-			deps.Firewall.HandleFaultyPeer(p.ID(), &firewall.FaultinessDetails{
+		mrlClosure := event.NewClosure(func(event *ratelimiter.HitEvent) {
+			deps.Firewall.HandleFaultyPeer(event.Peer.ID(), &firewall.FaultinessDetails{
 				Reason: "Message requests rate limit hit",
 				Info: map[string]interface{}{
-					"rateLimit": rl,
+					"rateLimit": event.RateLimit,
 				},
 			})
 		})
-		mrrl.HitEvent().Attach(mrlClosure)
-		defer mrrl.HitEvent().Detach(mrlClosure)
+		mrrl.Events.Hit.Attach(mrlClosure)
+		defer mrrl.Events.Hit.Detach(mrlClosure)
 	}
 	Plugin.LogInfof("%s started", PluginName)
 

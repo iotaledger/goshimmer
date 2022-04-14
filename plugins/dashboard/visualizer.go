@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
@@ -80,27 +80,35 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
+	processMessage := func(messageID tangle.MessageID) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
 			addToHistory(message, finalized)
 			visualizerWorkerPool.TrySubmit(message, finalized)
 		})
+	}
+
+	notifyNewMsgStored := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		processMessage(event.MessageID)
 	})
 
-	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyNewMsgConfirmed := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		processMessage(event.MessageID)
+	})
+
+	notifyNewTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, true)
 	})
 
-	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyDeletedTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, false)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
-		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsg)
-		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsg)
+		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsgStored)
+		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsgStored)
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsgConfirmed)
+		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsgConfirmed)
 		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)

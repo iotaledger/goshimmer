@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -163,7 +163,7 @@ func run(plugin *node.Plugin) {
 
 func waitUntilSynced(ctx context.Context) bool {
 	synced := make(chan struct{}, 1)
-	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
+	closure := event.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {
 			// use non-blocking send to prevent deadlocks in rare cases when the SyncedChanged events is spammed
 			select {
@@ -213,7 +213,7 @@ func waitForMana(ctx context.Context) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
 		// Do not start picking up request while waiting for initialization.
 		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
@@ -221,7 +221,7 @@ func configureEvents() {
 		if !initDone.Load() {
 			return
 		}
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			if !faucet.IsFaucetReq(message) {
 				return
 			}
