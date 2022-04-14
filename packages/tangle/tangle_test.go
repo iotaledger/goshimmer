@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -227,7 +228,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerstateOLD.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())

@@ -16,22 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-func randomBranchID() (randomBranchID branchdag.BranchID) {
-	if err := randomBranchID.FromRandomness(); err != nil {
-		panic(err)
-	}
-
-	return randomBranchID
-}
-
-func randomConflictID() (randomConflictID branchdag.ConflictID) {
-	if err := randomConflictID.FromRandomness(); err != nil {
-		panic(err)
-	}
-
-	return randomConflictID
-}
-
 func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 	voters := map[string]*identity.Identity{
 		"A": identity.New(ed25519.GenerateKeyPair().PublicKey),
