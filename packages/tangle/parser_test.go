@@ -163,7 +163,7 @@ func (m *messageCallbackMock) Reject(msg *Message, err error, p *peer.Peer) { m.
 
 type testTxPayload struct{}
 
-func (p *testTxPayload) Type() payload.Type { return ledgerstate.TransactionType }
+func (p *testTxPayload) Type() payload.Type { return devnetvm.TransactionType }
 func (p *testTxPayload) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(32) // random payload size

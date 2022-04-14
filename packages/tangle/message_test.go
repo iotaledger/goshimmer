@@ -847,11 +847,11 @@ func randomTransaction() *devnetvm.Transaction {
 		devnetvm.ColorIOTA: uint64(100),
 	}), w.address)
 	outputs = append(outputs, output)
-	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
+	essence := devnetvm.NewTransactionEssence(1, time.Now(), ID, ID, devnetvm.NewInputs(input), outputs)
 
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(w.sign(essence))
 
-	return ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
+	return devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{unlockBlock})
 }
 
 type wl struct {

@@ -16,6 +16,7 @@ import (
 	_ "golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -185,14 +186,14 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 	testFramework.RegisterBranchID("3", "3")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+		likedConflictMember: map[branchdag.BranchID]LikedConflictMembers{
 			testFramework.BranchID("3"): {
 				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("2")),
 			},
 			testFramework.BranchID("2"): {
 				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("3")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("1"), testFramework.BranchID("3")),
 			},
 		},
 	}
@@ -242,22 +243,22 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	testFramework.RegisterBranchID("4", "4")
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+		likedConflictMember: map[branchdag.BranchID]LikedConflictMembers{
 			testFramework.BranchID("1"): {
 				likedBranch:     testFramework.BranchID("1"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("4")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("4")),
 			},
 			testFramework.BranchID("2"): {
 				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("3")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("3")),
 			},
 			testFramework.BranchID("3"): {
 				likedBranch:     testFramework.BranchID("2"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("2")),
 			},
 			testFramework.BranchID("4"): {
 				likedBranch:     testFramework.BranchID("1"),
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("1")),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("1")),
 			},
 		},
 	}
@@ -344,13 +345,13 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 	testFramework.RegisterBranchID("2", "2")
 	testFramework.RegisterBranchID("3", "3")
 
-	nonExistingBranchID := ledgerstate.BranchIDFromRandomness()
+	nonExistingBranchID := randomBranchID()
 
 	mockOTV := &SimpleMockOnTangleVoting{
-		likedConflictMember: map[ledgerstate.BranchID]LikedConflictMembers{
+		likedConflictMember: map[branchdag.BranchID]LikedConflictMembers{
 			testFramework.BranchID("3"): {
 				likedBranch:     nonExistingBranchID,
-				conflictMembers: ledgerstate.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
 			},
 		},
 	}
