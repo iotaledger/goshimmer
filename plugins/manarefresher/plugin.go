@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -73,7 +73,7 @@ func run(plugin *node.Plugin) {
 }
 
 // DelegationAddress returns the current mana delegation address of the node.
-func DelegationAddress() (ledgerstate.Address, error) {
+func DelegationAddress() (devnetvm.Address, error) {
 	if refresher != nil {
 		return refresher.receiver.Address(), nil
 	}
@@ -91,7 +91,7 @@ func TotalDelegatedFunds() (amount uint64) {
 }
 
 // DelegatedOutputs returns all confirmed, unspent outputs that are delegated to the node.
-func DelegatedOutputs() (delegated ledgerstate.Outputs, err error) {
+func DelegatedOutputs() (delegated devnetvm.Outputs, err error) {
 	if refresher == nil {
 		err = errors.Errorf("manarefresher plugin is not running, node doesn't process delegated outputs")
 		return
@@ -102,7 +102,7 @@ func DelegatedOutputs() (delegated ledgerstate.Outputs, err error) {
 		err = errors.Errorf("no confirmed delegated outputs found")
 		return
 	}
-	delegated = make(ledgerstate.Outputs, len(found))
+	delegated = make(devnetvm.Outputs, len(found))
 	for i := range found {
 		delegated[i] = found[i]
 	}

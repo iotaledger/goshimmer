@@ -5,7 +5,7 @@ import (
 	"log"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/mr-tron/base58"
@@ -75,7 +75,7 @@ func main() {
 	printSnapshot(readSnapshot)
 }
 
-func printSnapshot(readSnapshot *ledgerstate.Snapshot) {
+func printSnapshot(readSnapshot *devnetvm.Snapshot) {
 	fmt.Println("\n================= read Snapshot ===============")
 	fmt.Printf("\n================= %d Snapshot Txs ===============\n", len(readSnapshot.Transactions))
 	for key, txRecord := range readSnapshot.Transactions {

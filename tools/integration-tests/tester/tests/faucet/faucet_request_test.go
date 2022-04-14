@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -60,7 +60,7 @@ func TestFaucetRequest(t *testing.T) {
 	for _, peer := range nonFaucetPeers {
 		for idx := 0; idx < numRequests; idx++ {
 			require.Eventuallyf(t, func() bool {
-				balance := tests.Balance(t, peer, peer.Address(idx), ledgerstate.ColorIOTA)
+				balance := tests.Balance(t, peer, peer.Address(idx), devnetvm.ColorIOTA)
 				return balance == uint64(faucet.Config().TokensPerRequest)
 			}, tests.Timeout, tests.Tick,
 				"peer %s did not register its requested funds on address %s", peer, peer.Address(idx).Base58())

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -57,9 +57,9 @@ func TestFaucetPrepare(t *testing.T) {
 
 	// check that each of the supplyOutputsCount addresses holds the correct balance
 	remainderBalance := genesisTokenBalance - uint64(supplyOutputsCount*splittingMultiplier*tokensPerRequest)
-	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
+	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), devnetvm.ColorIOTA))
 	for i := fundingOutputsAddrStart; i <= lastFundingOutputAddr; i++ {
-		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
+		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), devnetvm.ColorIOTA))
 	}
 
 	// consume all but one of the prepared outputs
@@ -69,13 +69,13 @@ func TestFaucetPrepare(t *testing.T) {
 
 	// wait for the peer to register a balance change
 	require.Eventually(t, func() bool {
-		return tests.Balance(t, peer, peer.Address(supplyOutputsCount*splittingMultiplier-1), ledgerstate.ColorIOTA) > 0
+		return tests.Balance(t, peer, peer.Address(supplyOutputsCount*splittingMultiplier-1), devnetvm.ColorIOTA) > 0
 	}, tests.Timeout, tests.Tick)
 
 	// one prepared output is left from the first prepared batch, index is not known because outputs are not sorted by the index.
 	var balanceLeft uint64 = 0
 	for i := fundingOutputsAddrStart; i <= lastFundingOutputAddr; i++ {
-		balanceLeft += tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA)
+		balanceLeft += tests.Balance(t, faucet, faucet.Address(i), devnetvm.ColorIOTA)
 	}
 	require.EqualValues(t, uint64(tokensPerRequest), balanceLeft)
 
@@ -89,11 +89,11 @@ func TestFaucetPrepare(t *testing.T) {
 
 	// check that each of the supplyOutputsCount addresses holds the correct balance
 	for i := lastFundingOutputAddr + 1; i <= lastFundingOutputAddr+splittingMultiplier*supplyOutputsCount; i++ {
-		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), ledgerstate.ColorIOTA))
+		require.EqualValues(t, uint64(tokensPerRequest), tests.Balance(t, faucet, faucet.Address(i), devnetvm.ColorIOTA))
 	}
 
 	// check that remainder has correct balance
 	remainderBalance -= uint64(supplyOutputsCount * tokensPerRequest * splittingMultiplier)
 
-	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), ledgerstate.ColorIOTA))
+	require.EqualValues(t, remainderBalance, tests.Balance(t, faucet, faucet.Address(0), devnetvm.ColorIOTA))
 }

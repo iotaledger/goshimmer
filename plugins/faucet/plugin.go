@@ -19,7 +19,7 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -259,7 +259,7 @@ func configureEvents() {
 
 // IsAddressBlackListed returns if an address is blacklisted.
 // adds the given address to the blacklist and removes the oldest blacklist entry if it would go over capacity.
-func IsAddressBlackListed(address ledgerstate.Address) bool {
+func IsAddressBlackListed(address devnetvm.Address) bool {
 	blackListMutex.Lock()
 	defer blackListMutex.Unlock()
 
@@ -285,7 +285,7 @@ func IsAddressBlackListed(address ledgerstate.Address) bool {
 }
 
 // RemoveAddressFromBlacklist removes an address from the blacklist.
-func RemoveAddressFromBlacklist(address ledgerstate.Address) {
+func RemoveAddressFromBlacklist(address devnetvm.Address) {
 	blackListMutex.Lock()
 	defer blackListMutex.Unlock()
 
