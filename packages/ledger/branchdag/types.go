@@ -25,15 +25,20 @@ func NewBranchID(txID utxo.TransactionID) (new BranchID) {
 	return BranchID{txID.Identifier}
 }
 
+// TransactionID returns the TransactionID from the BranchID.
+func (b BranchID) TransactionID() utxo.TransactionID {
+	return utxo.TransactionID{Identifier: b.Identifier}
+}
+
 // Unmarshal un-serializes a BranchID using a MarshalUtil.
-func (t BranchID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
+func (b BranchID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
 	err = branchID.Identifier.FromMarshalUtil(marshalUtil)
 	return
 }
 
 // String returns a human-readable version of the BranchID.
-func (t BranchID) String() (humanReadable string) {
-	return "BranchID(" + t.Alias() + ")"
+func (b BranchID) String() (humanReadable string) {
+	return "BranchID(" + b.Alias() + ")"
 }
 
 // UndefinedBranchID contains the null-value of the BranchID type.
@@ -171,15 +176,20 @@ func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
 	return ConflictID{outputID.Identifier}
 }
 
+// OutputID returns the OutputID from the ConflictID.
+func (c ConflictID) OutputID() utxo.OutputID {
+	return utxo.OutputID{Identifier: c.Identifier}
+}
+
 // Unmarshal un-serializes a ConflictID using a MarshalUtil.
-func (t ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
+func (c ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	err = conflictID.Identifier.FromMarshalUtil(marshalUtil)
 	return
 }
 
 // String returns a human-readable version of the ConflictID.
-func (t ConflictID) String() (humanReadable string) {
-	return "ConflictID(" + t.Alias() + ")"
+func (c ConflictID) String() (humanReadable string) {
+	return "ConflictID(" + c.Alias() + ")"
 }
 
 // ConflictIDLength contains the byte length of a serialized ConflictID.

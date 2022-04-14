@@ -18,10 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -597,7 +598,7 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 	require.NoErrorf(t, err, "node=%s, txID=%, 'GetTransactionMetadata' failed")
 
 	if (expInclState.GradeOfFinality != nil && *expInclState.GradeOfFinality != metadata.GradeOfFinality) ||
-		(expInclState.Solid != nil && *expInclState.Solid != metadata.Solid) {
+		(expInclState.Solid != nil && *expInclState.Solid != metadata.Booked) {
 		return false, metadata.GradeOfFinality
 	}
 	return true, metadata.GradeOfFinality

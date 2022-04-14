@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // PersistableEvent is a persistable event.
@@ -22,8 +22,8 @@ type PersistableEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
-	TransactionID ledgerstate.TransactionID
-	InputID       ledgerstate.OutputID // for revoke event
+	TransactionID utxo.TransactionID
+	InputID       utxo.OutputID // for revoke event
 	bytes         []byte
 }
 
@@ -94,24 +94,24 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 	if err != nil {
 		return
 	}
-	txIDBytes, err := marshalUtil.ReadBytes(ledgerstate.TransactionIDLength)
+	txID := utxo.TransactionID{}
+	err = txID.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
-	txID := ledgerstate.TransactionID{}
-	copy(txID[:], txIDBytes)
 
 	_amount, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return
 	}
 	amount := math.Float64frombits(_amount)
-	inputIDBytes, err := marshalUtil.ReadBytes(ledgerstate.OutputIDLength)
+
+	inputID := utxo.OutputID{}
+	err = inputID.FromMarshalUtil(marshalUtil)
 	if err != nil {
 		return
 	}
-	inputID := ledgerstate.OutputID{}
-	copy(inputID[:], inputIDBytes)
+
 	consumedBytes := marshalUtil.ReadOffset()
 
 	result = &PersistableEvent{
@@ -119,7 +119,7 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 		NodeID:        nodeID,
 		Amount:        amount,
 		Time:          eventTime,
-		ManaType:      Type(manaType),
+		ManaType:      manaType,
 		TransactionID: txID,
 		InputID:       inputID,
 	}

@@ -437,7 +437,7 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 			}
 			collectedLikedBranchIDs.AddAll(likedBranchIDs)
 
-			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction).Iterator(); it.HasNext(); {
+			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 				conflictingTransactionID := it.Next()
 				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
@@ -475,7 +475,7 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 			}
 			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
 
-			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction).Iterator(); it.HasNext(); {
+			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
 				conflictingTransactionID := it.Next()
 				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
 				if dislikedBranchesErr != nil {
