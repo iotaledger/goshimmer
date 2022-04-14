@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 const (
@@ -66,7 +66,7 @@ type PledgedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // access or consensus
-	TransactionID ledgerstate.TransactionID
+	TransactionID utxo.TransactionID
 }
 
 // PledgedEventJSON is a JSON serializable form of a PledgedEvent.
@@ -157,8 +157,8 @@ type RevokedEvent struct {
 	Amount        float64
 	Time          time.Time
 	ManaType      Type // shall only be consensus for now
-	TransactionID ledgerstate.TransactionID
-	InputID       ledgerstate.OutputID
+	TransactionID utxo.TransactionID
+	InputID       utxo.OutputID
 }
 
 // RevokedEventJSON is a JSON serializable form of a RevokedEvent.

@@ -188,7 +188,7 @@ func (s *Storage) Prune() (err error) {
 	return
 }
 
-// Shutdown shuts down the KVStores that are used to persist data.
+// Shutdown shuts down the KVStores used to persist data.
 func (s *Storage) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		s.transactionStorage.Shutdown()

@@ -189,7 +189,7 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 
 	tx, ok := p.(utxo.Transaction)
 	if ok {
-		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx)
+		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID())
 		if !conflictingTransactions.IsEmpty() {
 			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
@@ -388,7 +388,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 	}
 
 	if likedBranchID != branchdag.UndefinedBranchID {
-		txID := tangle.Ledger.Utils.TransactionIDFromBranchID(likedBranchID)
+		txID := likedBranchID.TransactionID()
 		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
 		if err != nil {
 			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
@@ -402,7 +402,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 
 	for it := conflictMembers.Iterator(); it.HasNext(); {
 		conflictMember := it.Next()
-		txID := tangle.Ledger.Utils.TransactionIDFromBranchID(likedBranchID)
+		txID := likedBranchID.TransactionID()
 
 		// Always point to another branch, to make sure the receiver forks the branch.
 		if conflictMember == strongParentBranchID {
@@ -419,7 +419,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 		}
 	}
 
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", tangle.Ledger.Utils.TransactionIDFromBranchID(strongParentBranchID))
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

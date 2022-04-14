@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -22,7 +22,7 @@ const (
 // Request represents a faucet request which contains an address for the faucet to send funds to.
 type Request struct {
 	payloadType           payload.Type
-	address               ledgerstate.Address
+	address               devnetvm.Address
 	accessManaPledgeID    identity.ID
 	consensusManaPledgeID identity.ID
 	nonce                 uint64
@@ -34,7 +34,7 @@ var (
 )
 
 // NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Request {
+func NewRequest(addr devnetvm.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Request {
 	p := &Request{
 		payloadType:           Type,
 		address:               addr,
@@ -61,12 +61,12 @@ func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
 		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
 		return
 	}
-	addr, err := marshalUtil.ReadBytes(ledgerstate.AddressLength)
+	addr, err := marshalUtil.ReadBytes(devnetvm.AddressLength)
 	if err != nil {
 		err = errors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	result.address, _, err = ledgerstate.AddressFromBytes(addr)
+	result.address, _, err = devnetvm.AddressFromBytes(addr)
 	if err != nil {
 		err = errors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -97,7 +97,7 @@ func (p *Request) Type() payload.Type {
 }
 
 // Address returns the address of the faucet Request.
-func (p *Request) Address() ledgerstate.Address {
+func (p *Request) Address() devnetvm.Address {
 	return p.address
 }
 
@@ -117,7 +117,7 @@ func (p *Request) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+identity.IDLength+identity.IDLength+pow.NonceBytes))
+	marshalUtil.WriteUint32(payload.TypeLength + uint32(devnetvm.AddressLength+identity.IDLength+identity.IDLength+pow.NonceBytes))
 	marshalUtil.WriteBytes(p.Type().Bytes())
 	marshalUtil.WriteBytes(p.address.Bytes())
 	marshalUtil.WriteBytes(p.accessManaPledgeID.Bytes())

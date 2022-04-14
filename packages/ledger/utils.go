@@ -106,35 +106,17 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 }
 
 // ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
-func (u *Utils) ConflictingTransactions(transaction utxo.Transaction) (conflictingTransactions utxo.TransactionIDs) {
-	conflictingTransactions = utxo.NewTransactionIDs()
-
-	for _, input := range transaction.Inputs() {
-		u.ledger.Storage.CachedConsumers(u.ledger.options.vm.ResolveInput(input)).Consume(func(consumer *Consumer) {
-			if consumer.TransactionID() == transaction.ID() {
-				return
-			}
-
-			conflictingTransactions.Add(consumer.TransactionID())
-		})
-	}
-	return
-}
-
-// ConflictSet returns the list of transactionIDs conflicting with the given transactionID.
-func (u *Utils) ConflictingTransactions2(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
-	conflictIDs := branchdag.NewConflictIDs()
+func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
 	u.ledger.BranchDAG.Storage.CachedBranch(branchdag.NewBranchID(transactionID)).Consume(func(branch *branchdag.Branch) {
-		conflictIDs = branch.ConflictIDs()
+		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+			u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember) {
+				conflictingTransactions.Add(utxo.TransactionID{conflictMember.BranchID().Identifier})
+			})
+		}
 	})
 
-	for it := conflictIDs.Iterator(); it.HasNext(); {
-		u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember) {
-			conflictingTransactions.Add(utxo.TransactionID{conflictMember.BranchID().Identifier})
-		})
-	}
 	return
 }
 
@@ -161,8 +143,4 @@ func (u *Utils) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinal
 	}
 
 	return branchGof, nil
-}
-
-func (u *Utils) TransactionIDFromBranchID(branchID branchdag.BranchID) (txID utxo.TransactionID) {
-	return utxo.TransactionID{branchID.Identifier}
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // TxInfo holds information related to the transaction which we are processing for mana calculation.
@@ -13,7 +13,7 @@ type TxInfo struct {
 	// Timestamp is the timestamp of the transaction.
 	TimeStamp time.Time
 	// TransactionID is the ID of the transaction.
-	TransactionID ledgerstate.TransactionID
+	TransactionID utxo.TransactionID
 	// TotalBalance is the amount of funds being transferred via the transaction.
 	TotalBalance float64
 	// PledgeID is a map of mana types and the node to which this transaction pledges its mana type to.
@@ -39,7 +39,7 @@ type InputInfo struct {
 	// PledgeID is a map of mana types and the node to which the transaction that created the output pledges its mana type to.
 	PledgeID map[Type]identity.ID
 	// InputID is the input consumed.
-	InputID ledgerstate.OutputID
+	InputID utxo.OutputID
 }
 
 // SnapshotNode defines the record for the mana snapshot of one node.
@@ -57,7 +57,7 @@ type AccessManaSnapshot struct {
 // TxSnapshot defines the record of one transaction.
 type TxSnapshot struct {
 	Value     float64
-	TxID      ledgerstate.TransactionID
+	TxID      utxo.TransactionID
 	Timestamp time.Time
 }
 
