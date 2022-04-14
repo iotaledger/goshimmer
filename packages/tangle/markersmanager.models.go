@@ -272,6 +272,8 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the MarkerIndexBranchIDMapping into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
+	m.mappingMutex.RLock()
+	defer m.mappingMutex.RUnlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?

@@ -865,10 +865,14 @@ func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
 }
 
 func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParents, weakParents MessageIDs) (message *Message) {
-	message = newTestParentsDataMessage("testmessage", ParentMessageIDs{
+	parents := ParentMessageIDs{
 		StrongParentType: strongParents,
-		WeakParentType:   weakParents,
-	})
+	}
+	if len(weakParents) > 0 {
+		parents[WeakParentType] = weakParents
+	}
+
+	message = newTestParentsDataMessage("testmessage", parents)
 	tangle.Storage.StoreMessage(message)
 
 	return

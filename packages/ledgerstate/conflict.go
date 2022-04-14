@@ -331,7 +331,7 @@ func (c *Conflict) ObjectStorageKey() []byte {
 	return objBytes
 }
 
-// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Conflict into a sequence of bytes that are used as the value part in the
 // object storage.
 func (c *Conflict) ObjectStorageValue() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())

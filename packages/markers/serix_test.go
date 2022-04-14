@@ -1,19 +1,21 @@
 package markers
 
 import (
-	"context"
 	"testing"
 
-	"github.com/iotaledger/hive.go/serix"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestSerixReferencedMarkers(t *testing.T) {
 	obj := NewReferencedMarkers(NewMarkers(NewMarker(1, 5)))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	restoredObj, _, err := ReferencedMarkersFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
+
 }
 
 func TestSerixReferencingMarkers(t *testing.T) {
@@ -21,36 +23,47 @@ func TestSerixReferencingMarkers(t *testing.T) {
 	obj.Add(3, NewMarker(1, 5))
 	obj.Add(5, NewMarker(2, 5))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
+
+	restoredObj, _, err := ReferencingMarkersFromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
 }
 
 func TestSerixSequence(t *testing.T) {
 	obj := NewSequence(1, NewMarkers(NewMarker(1, 5)))
 	obj.AddReferencingMarker(3, NewMarker(1, 5))
 	obj.AddReferencingMarker(5, NewMarker(2, 5))
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
+	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
+	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())
+
+	restoredObj, err := new(Sequence).FromBytes(obj.Bytes())
 	assert.NoError(t, err)
-	assert.Equal(t, obj.ObjectStorageValue(), serixBytes)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
+
+	restoredObj2, err := new(Sequence).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
+	assert.NoError(t, err)
+	assert.Equal(t, obj.Bytes(), restoredObj2.(*Sequence).Bytes())
 }
 
 func TestSerixMarker(t *testing.T) {
 	obj := NewMarker(1, 2)
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	restoredObj, _, err := MarkerFromBytes(obj.Bytes())
+	assert.NoError(t, err)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
 }
 
 func TestSerixMarkers(t *testing.T) {
 	obj := NewMarkers(NewMarker(1, 2))
 
-	serixBytes, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
+	assert.Equal(t, obj.BytesOld(), obj.Bytes())
 
-	assert.Equal(t, obj.Bytes(), serixBytes)
+	restoredObj, _, err := FromBytes(obj.Bytes())
+	assert.NoError(t, err)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
 }
 
 func TestSerixStructureDetails(t *testing.T) {
@@ -61,9 +74,11 @@ func TestSerixStructureDetails(t *testing.T) {
 		PastMarkers:   NewMarkers(NewMarker(1, 2)),
 		FutureMarkers: NewMarkers(NewMarker(1, 5)),
 	}
-	serixBytesKey, err := serix.DefaultAPI.Encode(context.Background(), obj)
-	assert.NoError(t, err)
 
-	// skip first four bytes as it indicates length of the serialized object, which is not included in the serix version
-	assert.Equal(t, obj.Bytes()[4:], serixBytesKey)
+	assert.Equal(t, obj.BytesOld()[4:], obj.Bytes())
+	mu := marshalutil.New().WriteUint32(uint32(len(obj.Bytes()))).WriteBytes(obj.Bytes())
+	//TODO: replace with FromBytes
+	restoredObj, err := StructureDetailsFromMarshalUtil(mu)
+	assert.NoError(t, err)
+	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
 }

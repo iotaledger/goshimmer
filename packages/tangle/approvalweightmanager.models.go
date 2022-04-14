@@ -487,6 +487,8 @@ func (b *BranchVoters) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the BranchVoters into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (b *BranchVoters) ObjectStorageValue() []byte {
+	b.votersMutex.RLock()
+	defer b.votersMutex.RUnlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -986,6 +988,8 @@ func (l *LatestBranchVotes) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (l *LatestBranchVotes) ObjectStorageValue() []byte {
+	l.RLock()
+	defer l.RUnlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?

@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/pkg/errors"
 )
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
@@ -39,7 +40,7 @@ func (p *PersistableBaseMana) String() string {
 
 var _ objectstorage.StorableObject = new(PersistableBaseMana)
 
-// Bytes returns a marshaled version of the Transaction.
+// Bytes returns a marshaled version of the PersistableBaseMana.
 func (p *PersistableBaseMana) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p)
 	if err != nil {
@@ -105,11 +106,46 @@ func (p *PersistableBaseMana) ObjectStorageValueOld() []byte {
 }
 
 // FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
+func (p *PersistableBaseMana) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+	manaVector := new(PersistableBaseMana)
+	if manaVector != nil {
+		manaVector = p
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, manaVector, serix.WithValidation())
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse PersistableBaseMana")
+		return manaVector, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &manaVector.NodeID, serix.WithValidation())
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse PersistableBaseMana.NodeID")
+		return manaVector, err
+	}
+	return manaVector, err
+}
+
+// FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
 func (p *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	// TODO: remove that eventually
 	res, err := p.FromBytes(bytes)
 	copy(res.NodeID[:], key)
 	return res, err
 
+}
+
+// FromBytes unmarshals a PersistableBaseMana from a sequence of bytes.
+func (p *PersistableBaseMana) FromBytesNew(bytes []byte) (*PersistableBaseMana, error) {
+	manaVector := new(PersistableBaseMana)
+	if manaVector != nil {
+		manaVector = p
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, manaVector, serix.WithValidation())
+	if err != nil {
+		err = errors.Wrap(err, "failed to parse PersistableBaseMana")
+		return manaVector, err
+	}
+	return manaVector, err
 }
 
 // FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.

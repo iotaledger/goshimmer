@@ -284,5 +284,6 @@ func TestSerixMessageMetadata_EmptyStructureDetails(t *testing.T) {
 
 	objRestored, err := new(MessageMetadata).FromObjectStorage(obj.ObjectStorageKey(), obj.ObjectStorageValue())
 	assert.NoError(t, err)
+	// TODO: err here - restored object contains non-nil structure details when should be nil
 	assert.Equal(t, obj.Bytes(), objRestored.(*MessageMetadata).Bytes())
 }

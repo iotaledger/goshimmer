@@ -1,6 +1,7 @@
 package markers
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -106,8 +108,20 @@ func NewMarker(sequenceID SequenceID, index Index) *Marker {
 	return &Marker{markerInner{sequenceID, index}}
 }
 
+// MarkerFromBytes unmarshals Marker from a sequence of bytes.
+func MarkerFromBytesNew(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+	marker = new(Marker)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markerBytes, marker, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Marker: %w", err)
+		return
+	}
+	return
+}
+
 // MarkerFromBytes unmarshals a Marker from a sequence of bytes.
 func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New(markerBytes)
 	if marker, err = MarkerFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
@@ -119,6 +133,7 @@ func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err
 
 // MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshalling).
 func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
+	//TODO: remove eventually
 	marker = new(Marker)
 	if marker.markerInner.SequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
@@ -143,7 +158,17 @@ func (m *Marker) Index() (index Index) {
 }
 
 // Bytes returns a marshaled version of the Marker.
-func (m Marker) Bytes() (marshaledMarker []byte) {
+func (m Marker) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the Marker.
+func (m Marker) BytesOld() (marshaledMarker []byte) {
 	return marshalutil.New(MarkerLength).
 		Write(m.markerInner.SequenceID).
 		Write(m.markerInner.Index).
@@ -175,7 +200,19 @@ type markersInner struct {
 }
 
 // FromBytes unmarshals a collection of Markers from a sequence of bytes.
+func FromBytesNew(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+	markers = new(Markers)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markersBytes, markers, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Markers: %w", err)
+		return
+	}
+	return
+}
+
+// FromBytes unmarshals a collection of Markers from a sequence of bytes.
 func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(markersBytes)
 	if markers, err = FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
@@ -470,8 +507,20 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 	return true
 }
 
+// Bytes returns a marshaled version of the Markers.
+func (m *Markers) Bytes() []byte {
+	m.markersMutex.RLock()
+	defer m.markersMutex.RUnlock()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // Bytes returns the Markers in serialized byte form.
-func (m *Markers) Bytes() (marshalMarkers []byte) {
+func (m *Markers) BytesOld() (marshalMarkers []byte) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
@@ -537,6 +586,17 @@ func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 }
 
 // ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
+func ReferencingMarkersFromBytesNew(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
+	referencingMarkers = new(ReferencingMarkers)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), referencingMarkersBytes, referencingMarkers, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ReferencingMarkers: %w", err)
+		return
+	}
+	return
+}
+
+// ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
 func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(referencingMarkersBytes)
 	if referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
@@ -589,8 +649,21 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	return
 }
 
+// Bytes returns a marshaled version of the PersistableBaseMana.
+func (r *ReferencingMarkers) Bytes() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // Bytes returns a marshaled version of the ReferencingMarkers.
-func (r *ReferencingMarkers) Bytes() (marshaledReferencingMarkers []byte) {
+func (r *ReferencingMarkers) BytesOld() (marshaledReferencingMarkers []byte) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -703,7 +776,19 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 }
 
 // ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
+func ReferencedMarkersFromBytesNew(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
+	referencedMarkers = new(ReferencedMarkers)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), parentReferencesBytes, referencedMarkers, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ReferencedMarkers: %w", err)
+		return
+	}
+	return
+}
+
+// ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
 func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New(parentReferencesBytes)
 	if referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
@@ -716,6 +801,7 @@ func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers
 
 // ReferencedMarkersFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshalling).
 func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
+	//TODO: remove eventually
 	referencedMarkers = &ReferencedMarkers{
 		referencedMarkersInner{
 			ReferencedIndexesBySequence: make(map[SequenceID]*referencedMarkersMap),
@@ -759,8 +845,20 @@ func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 	return
 }
 
+// Bytes returns a marshaled version of the PersistableBaseMana.
+func (r *ReferencedMarkers) Bytes() []byte {
+	r.mutex.RLock()
+	defer r.mutex.RUnlock()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
 // Bytes returns a marshaled version of the ReferencedMarkers.
-func (r *ReferencedMarkers) Bytes() (marshaledReferencedMarkers []byte) {
+func (r *ReferencedMarkers) BytesOld() (marshaledReferencedMarkers []byte) {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
@@ -1222,13 +1320,54 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 	}
 }
 
+// FromObjectStorage creates an Sequence from sequences of key and bytes.
+func (s *Sequence) FromObjectStorageNew(key, bytes []byte) (sequence objectstorage.StorableObject, err error) {
+	if sequence = s; sequence == nil {
+		sequence = new(Sequence)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, sequence, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Sequence: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Sequence.id: %w", err)
+		return
+	}
+	return
+}
+
 // FromObjectStorage creates a Sequence from sequences of key and bytes.
 func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	// TODO: remove eventually
 	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
 	}
 	return sequence, err
+}
+
+// FromBytes unmarshals a Sequence from a sequence of bytes.
+func (s *Sequence) FromBytesNew(sequenceBytes []byte) (sequence *Sequence, err error) {
+	if sequence = s; sequence == nil {
+		sequence = new(Sequence)
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), sequenceBytes, &s.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Sequence.id: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), sequenceBytes[bytesRead:], sequence, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Sequence: %w", err)
+		return
+	}
+	return
+
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
@@ -1380,12 +1519,36 @@ func (s *Sequence) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *Sequence) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.id, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageValue marshals the Sequence into a sequence of bytes that are used as the value part in the
+// object storage.
+func (s *Sequence) ObjectStorageValue() []byte {
+	s.verticesWithoutFutureMarkerMutex.RLock()
+	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
+func (s *Sequence) ObjectStorageKeyOld() []byte {
 	return s.id.Bytes()
 }
 
 // ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the object storage.
-func (s *Sequence) ObjectStorageValue() []byte {
+func (s *Sequence) ObjectStorageValueOld() []byte {
 	s.verticesWithoutFutureMarkerMutex.RLock()
 	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
 
@@ -1505,6 +1668,17 @@ type StructureDetails struct {
 	futureMarkersUpdateMutex sync.Mutex
 }
 
+// StructureDetailsFromBytesNew unmarshals a StructureDetails from a sequence of bytes.
+func StructureDetailsFromBytesNew(structureDetailBytes []byte) (marker *StructureDetails, consumedBytes int, err error) {
+	marker = new(StructureDetails)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), structureDetailBytes, marker, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse StructureDetails: %w", err)
+		return
+	}
+	return
+}
+
 // StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshalling).
 func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
 	detailsLength, err := marshalUtil.ReadUint32()
@@ -1515,7 +1689,6 @@ func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (stru
 	if detailsLength == 0 {
 		return
 	}
-
 	structureDetails = new(StructureDetails)
 	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
 		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1553,7 +1726,17 @@ func (m *StructureDetails) Clone() (clone *StructureDetails) {
 }
 
 // Bytes returns a marshaled version of the StructureDetails.
-func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
+func (m *StructureDetails) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the StructureDetails.
+func (m *StructureDetails) BytesOld() (marshaledStructureDetails []byte) {
 	if m == nil {
 		return marshalutil.New(marshalutil.Int32Size).WriteUint32(0).Bytes()
 	}
@@ -1565,6 +1748,7 @@ func (m *StructureDetails) Bytes() (marshaledStructureDetails []byte) {
 		Write(m.FutureMarkers).
 		Bytes()
 	return byteutils.ConcatBytes(marshalutil.New(marshalutil.Int32Size).WriteUint32(uint32(len(structureDetailsBytes))).Bytes(), structureDetailsBytes)
+	//return structureDetailsBytes
 }
 
 // String returns a human-readable version of the StructureDetails.

@@ -697,6 +697,8 @@ func (m *Message) calculateID() MessageID {
 
 // Bytes returns a marshaled version of the Transaction.
 func (m *Message) Bytes() []byte {
+	m.bytesMutex.Lock()
+	defer m.bytesMutex.Unlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m)
 	if err != nil {
 		// TODO: what do?
@@ -765,6 +767,8 @@ func (m *Message) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (m *Message) ObjectStorageValue() []byte {
+	m.bytesMutex.Lock()
+	defer m.bytesMutex.Unlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -1439,7 +1443,7 @@ func (m *MessageMetadata) ObjectStorageValueOld() []byte {
 		WriteTime(m.ReceivedTime()).
 		WriteTime(m.SolidificationTime()).
 		WriteBool(m.IsSolid()).
-		Write(m.StructureDetails()).
+		WriteBytes(m.StructureDetails().BytesOld()).
 		Write(m.AddedBranchIDs()).
 		Write(m.SubtractedBranchIDs()).
 		WriteBool(m.Scheduled()).
