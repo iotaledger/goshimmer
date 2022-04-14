@@ -5,19 +5,12 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
-
-func onMessageScheduled(messageID tangle.MessageID) {
-	sendMessageSchedulerRecord(messageID, "messageScheduled")
-}
-
-func onMessageDiscarded(messageID tangle.MessageID) {
-	sendMessageSchedulerRecord(messageID, "messageDiscarded")
-}
 
 func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	if !deps.Tangle.Synced() {
@@ -80,18 +73,18 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	})
 
 	// override message solidification data if message contains a transaction
-	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			record.SolidTimestamp = transactionMetadata.SolidificationTime()
+	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID utxo.TransactionID) {
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transactionID.Base58()
-			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		})
 	})
 
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
+func onTransactionConfirmed(transactionID utxo.TransactionID) {
 	if !deps.Tangle.Synced() {
 		return
 	}
@@ -143,23 +136,15 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		record.DeltaBooked = messageMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	})
 
-	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		deps.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			record.SolidTimestamp = transactionMetadata.SolidificationTime()
+	deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID utxo.TransactionID) {
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+			record.SolidTimestamp = transactionMetadata.BookingTime()
 			record.TransactionID = transactionID.Base58()
-			record.DeltaSolid = transactionMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
+			record.DeltaSolid = transactionMetadata.BookingTime().Sub(record.IssuedTimestamp).Nanoseconds()
 		})
 	})
 
 	_ = deps.RemoteLogger.Send(record)
-}
-
-func onMissingMessageRequest(messageID tangle.MessageID) {
-	sendMissingMessageRecord(messageID, "missingMessage")
-}
-
-func onMissingMessageStored(messageID tangle.MessageID) {
-	sendMissingMessageRecord(messageID, "missingMessageStored")
 }
 
 func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {

@@ -7,10 +7,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 )
 
-func CollectiveBeaconReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*CollectiveBeaconEvent))(params[0].(*CollectiveBeaconEvent))
-}
-
 // Events holds the different events triggered by a DRNG instance.
 type Events struct {
 	// Collective Beacon is triggered each time we receive a new CollectiveBeacon message.

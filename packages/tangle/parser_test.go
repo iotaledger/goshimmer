@@ -8,7 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/gommon/log"
@@ -56,7 +56,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	msgParser.Setup()
 	msgParser.Parse(msg.Bytes(), nil)
 
-	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	msgParser.Events.MessageParsed.Attach(event.NewClosure(func(_ *MessageParsedEvent) {
 		log.Infof("parsed message")
 	}))
 }

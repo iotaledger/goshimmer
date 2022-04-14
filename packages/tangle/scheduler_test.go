@@ -9,7 +9,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/atomic"
@@ -359,8 +358,8 @@ func TestScheduler_Issue(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.MessageID))
 	}))
 	tangle.Scheduler.Start()
 
@@ -402,8 +401,8 @@ func TestSchedulerFlow(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.MessageID))
 	}))
 	tangle.Scheduler.Start()
 
@@ -479,8 +478,8 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 	tangle.Storage.Setup()
 	tangle.Solidifier.Setup()
 	tangle.Scheduler.Setup()
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(id MessageID) {
-		assert.NoError(t, tangle.Scheduler.SubmitAndReady(id))
+	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		assert.NoError(t, tangle.Scheduler.SubmitAndReady(event.MessageID))
 	}))
 	tangle.Scheduler.Start()
 
@@ -496,8 +495,8 @@ func TestSchedulerParallelSubmit(t *testing.T) {
 		messages[msg.ID()] = msg
 	}
 
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		t.Logf(messageID.Base58(), " solid")
+	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		t.Logf(event.MessageID.Base58(), " solid")
 	}))
 
 	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {

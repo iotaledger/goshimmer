@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
@@ -22,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -64,13 +62,13 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 	messageTestFramework.createGenesisOutputs()
 
-	tangle.Booker.Events.MessageBooked.AttachAfter(event.NewClosure(func(_ *MessageBookedEvent) {
+	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(_ *MessageBookedEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(event.NewClosure(func(_ *MessageProcessedEvent) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.AttachAfter(event.NewClosure(func(_ *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(_ *MessageInvalidEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
@@ -848,7 +846,7 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
-	t.Events.Error.Attach(events.NewClosure(func(e error) {
+	t.Events.Error.Attach(event.NewClosure(func(e error) {
 		fmt.Println(e)
 	}))
 
@@ -892,11 +890,7 @@ func (m *MockConfirmationOracle) IsOutputConfirmed(outputID utxo.OutputID) bool 
 
 // Events mocks its interface function.
 func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
-	return &ConfirmationEvents{
-		MessageConfirmed:     events.NewEvent(nil),
-		TransactionConfirmed: events.NewEvent(nil),
-		BranchConfirmed:      events.NewEvent(nil),
-	}
+	return NewConfirmationEvents()
 }
 
 // MockWeightProvider is a mock of a WeightProvider.
@@ -966,8 +960,8 @@ type EventMock struct {
 	test           *testing.T
 
 	attached []struct {
-		*events.Event
-		*events.Closure
+		*event.Event[*MessageProcessedEvent]
+		*event.Closure[*MessageProcessedEvent]
 	}
 }
 
@@ -978,8 +972,8 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	}
 	e.Test(t)
 
-	approvalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(e.BranchWeightChanged))
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(e.MarkerWeightChanged))
+	approvalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(e.MarkerWeightChanged))
 
 	// attach all events
 	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
@@ -1004,13 +998,13 @@ func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
 
-func (e *EventMock) attach(event *events.Event, f interface{}) {
-	closure := events.NewClosure(f)
-	event.Attach(closure)
+func (e *EventMock) attach(ev *event.Event[*MessageProcessedEvent], f func(*MessageProcessedEvent)) {
+	closure := event.NewClosure(f)
+	ev.Attach(closure)
 	e.attached = append(e.attached, struct {
-		*events.Event
-		*events.Closure
-	}{event, closure})
+		*event.Event[*MessageProcessedEvent]
+		*event.Closure[*MessageProcessedEvent]
+	}{ev, closure})
 }
 
 // AssertExpectations asserts expectations.
@@ -1047,8 +1041,8 @@ func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 }
 
 // MessageProcessed is the mocked MessageProcessed function.
-func (e *EventMock) MessageProcessed(messageID MessageID) {
-	e.Called(messageID)
+func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
+	e.Called(event.MessageID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

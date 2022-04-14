@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
@@ -23,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -44,15 +45,15 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
-	onTransactionConfirmedClosure *events.Closure
+	onTransactionConfirmedClosure *event.Closure[*tangle.TransactionConfirmedEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
 )
 
 func init() {
-	ManaPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func() mana.ManaRetrievalFunc {
+	ManaPlugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {
 			Plugin.Panic(err)
@@ -63,7 +64,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
+	onTransactionConfirmedClosure = event.NewClosure(func(event *tangle.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -122,16 +123,18 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
+		devnetTransaction := transaction.Transaction.(*devnetvm.Transaction)
+
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := gatherInputInfos(transaction)
+		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
 
 		txInfo = &mana.TxInfo{
-			TimeStamp:     transaction.Essence().Timestamp(),
+			TimeStamp:     devnetTransaction.Essence().Timestamp(),
 			TransactionID: transactionID,
 			TotalBalance:  totalAmount,
 			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    transaction.Essence().AccessPledgeID(),
-				mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+				mana.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
+				mana.ConsensusMana: devnetTransaction.Essence().ConsensusPledgeID(),
 			},
 			InputInfos: inputInfos,
 		}
@@ -143,25 +146,25 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 	})
 }
 
-func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
 	inputInfos = make([]mana.InputInfo, 0)
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.Ledger.Storage.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o *ledger.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			o.Output.(devnetvm.OutputEssence).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				inputInfo.Amount += float64(balance)
 				totalAmount += float64(balance)
 				return true
 			})
 
 			// derive the transaction that created this input
-			inputTxID := o.ID().TransactionID()
+			inputTxID := o.TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
+			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *devnetvm.Transaction) {
 				if transaction == nil {
 					return
 				}
@@ -195,7 +198,8 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				snapshot := &ledgerstate.Snapshot{}
+				// TODO:
+				//snapshot := &ledgerstate.Snapshot{}
 				f, err := os.Open(Parameters.Snapshot.File)
 				if err != nil {
 					Plugin.Panic("can not open snapshot file:", err)
@@ -461,7 +465,7 @@ func verifyPledgeNodes() error {
 }
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
-func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
+func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 	cachedOutputMetadata := deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
@@ -472,17 +476,22 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
+		outputEssence := output.Output.(*devnetvm.Output)
+		outputEssence.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := deps.tangle.Ledger.Storage.CachedTransaction(outputID.TransactionID())
-	defer cachedTx.Release()
-	tx, _ := cachedTx.Unwrap()
-	txTimestamp := tx.Essence().Timestamp()
+	var txTimestamp time.Time
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
+		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.TransactionID())
+		defer cachedTx.Release()
+		tx, _ := cachedTx.Unwrap()
+		txTimestamp = tx.Essence().Timestamp()
+	})
+
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
 }
 

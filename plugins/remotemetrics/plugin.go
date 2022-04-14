@@ -14,13 +14,12 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -129,11 +128,15 @@ func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) {
+		onBranchConfirmed(event.BranchID)
+	}))
 
-	deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *branchdag.BranchCreatedEvent) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
+
+		branchID := event.BranchID
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
 			activeBranches[branchID] = types.Void
@@ -146,9 +149,13 @@ func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+		deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+			onTransactionConfirmed(event.TransactionID)
+		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+			onMessageFinalized(event.MessageID)
+		}))
 	}
 }
 
@@ -156,10 +163,16 @@ func configureMessageScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		}))
 	} else {
-		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageScheduled")
+		}))
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		}))
 	}
 }
 
@@ -168,6 +181,12 @@ func configureMissingMessageMetrics() {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(onMissingMessageRequest))
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(onMissingMessageStored))
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *tangle.MessageMissingEvent) {
+		sendMissingMessageRecord(event.MessageID, "missingMessage")
+
+	}))
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *tangle.MissingMessageStoredEvent) {
+		sendMissingMessageRecord(event.MessageID, "missingMessageStored")
+
+	}))
 }

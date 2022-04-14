@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -90,37 +89,37 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
-		deps.Tangle.ProcessGossipMessage(message.Bytes(), deps.Local.Peer)
+	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *tangle.MessageConstructedEvent) {
+		deps.Tangle.ProcessGossipMessage(event.Message.Bytes(), deps.Local.Peer)
 	}))
 
-	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			deps.Tangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
 		})
 	}))
 
-	deps.Tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent, err error) {
-		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
+	deps.Tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *tangle.MessageRejectedEvent) {
+		plugin.LogInfof("message with %s rejected in Parser: %v", event.Message.ID().Base58(), event.Error)
 	}))
 
-	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
-		if errors.Is(err, tangle.ErrReceivedDuplicateBytes) {
+	deps.Tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *tangle.BytesRejectedEvent) {
+		if errors.Is(event.Error, tangle.ErrReceivedDuplicateBytes) {
 			return
 		}
 
-		plugin.LogWarnf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
+		plugin.LogWarnf("bytes rejected from peer %s: %v", event.Peer.ID(), event.Error)
 	}))
 
-	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
+	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+		plugin.LogInfof("message rejected in Scheduler: %s", event.MessageID.Base58())
 	}))
 
-	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in Scheduler", nodeID.String())
+	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(event.NewClosure(func(event *tangle.NodeBlacklistedEvent) {
+		plugin.LogInfof("node %s is blacklisted in Scheduler", event.NodeID.String())
 	}))
 
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(ev *tangle.SyncChangedEvent) {
 		plugin.LogInfo("Sync changed: ", ev.Synced)
 	}))
 
@@ -250,9 +249,9 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := events.NewClosure(func(msgID tangle.MessageID) {
+	closure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
 		match := false
-		deps.Tangle.Storage.Message(msgID).Consume(func(message *tangle.Message) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == ledgerstate.TransactionType {
 				tx := message.Payload().(*ledgerstate.Transaction)
 				if tx.ID() == txID {
@@ -293,8 +292,8 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	closure := event.NewClosure(func(event *tangle.MessageScheduledEvent) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			if message.IssuerPublicKey() != issuer {
 				return
 			}

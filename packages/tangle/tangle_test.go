@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/panjf2000/ants/v2"
@@ -342,7 +341,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(MessageID) {
+	messageTangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(_ *MessageDispatchedEvent) {
 		wg.Done()
 	}))
 
@@ -488,71 +487,71 @@ func TestTangle_Flow(t *testing.T) {
 		rejectedMessages   int32
 	)
 
-	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent, err error) {
-		t.Logf("rejected bytes %v - %s", e.Bytes, err)
+	tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *BytesRejectedEvent) {
+		t.Logf("rejected bytes %v - %s", event.Bytes, event.Error)
 	}))
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, err error) {
+	tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *MessageRejectedEvent) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, msgRejectedEvent.Message.ID(), err)
+		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, event.Message.ID(), event.Error)
 	}))
 
-	tangle.Parser.Events.MessageParsed.AttachAfter(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.Attach(event.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageInvalidEvent.MessageID)
 	}))
 
-	tangle.Storage.Events.MessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
-		inboxWP.TrySubmit(messages[messageId].Bytes(), localPeer)
+		inboxWP.TrySubmit(messages[event.MessageID].Bytes(), localPeer)
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *MissingMessageStoredEvent) {
 		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d - %s", n, messageID)
+		t.Logf("missing messages %d - %s", n, event.MessageID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
 		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
 		n := atomic.AddInt32(&bookedMessages, 1)
-		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Dispatcher.Events.MessageDispatched.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(_ *MessageDispatchedEvent) {
 		n := atomic.AddInt32(&dispatchedMessages, 1)
 		t.Logf("dispatched messages %d/%d", n, totalMsgCount)
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
 		n := atomic.AddInt32(&awMessages, 1)
 		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Logf("Error %s", err)
 	}))
 

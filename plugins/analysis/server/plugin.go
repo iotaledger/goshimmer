@@ -11,7 +11,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
