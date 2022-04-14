@@ -19,7 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -62,26 +63,26 @@ func TestValueTransactionPersistence(t *testing.T) {
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
-	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
+	addrBalance := make(map[string]map[devnetvm.Color]uint64)
 
 	// request funds from faucet
 	for _, peer := range nonFaucetPeers {
 		addr := peer.Address(0)
 		tests.SendFaucetRequest(t, peer, addr)
-		addrBalance[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: tokensPerRequest}
+		addrBalance[addr.Base58()] = map[devnetvm.Color]uint64{devnetvm.ColorIOTA: tokensPerRequest}
 	}
 
 	// wait for messages to be gossiped
 	for _, peer := range nonFaucetPeers {
 		require.Eventually(t, func() bool {
-			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
+			return tests.Balance(t, peer, peer.Address(0), devnetvm.ColorIOTA) == tokensPerRequest
 		}, tests.Timeout, tests.Tick)
 	}
 
 	// send IOTA tokens from every peer
 	expectedStates := make(map[string]tests.ExpectedState)
 	for _, peer := range nonFaucetPeers {
-		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
@@ -92,7 +93,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 
 	// send colored tokens from every peer
 	for _, peer := range nonFaucetPeers {
-		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
@@ -301,8 +302,8 @@ func TestValueAliasDelegation(t *testing.T) {
 	require.True(t, cManaReceiverCurrMana.Consensus > 0)
 }
 
-func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *ledgerstate.AliasAddress) ledgerstate.OutputID {
-	aliasOutputID := ledgerstate.OutputID{}
+func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *devnetvm.AliasAddress) utxo.OutputID {
+	aliasOutputID := utxo.OutputID{}
 
 	for i, peer := range peers {
 		resp, err := peer.GetAddressUnspentOutputs(aliasAddr.Base58())
@@ -311,8 +312,8 @@ func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr
 		require.True(t, len(resp.Outputs) == 1)
 		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
 		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
+		require.Equal(t, devnetvm.AliasOutputType, shouldBeAliasOutput.Type())
+		alias, ok := shouldBeAliasOutput.(*devnetvm.AliasOutput)
 		require.True(t, ok)
 		require.Equal(t, aliasAddr.Base58(), alias.GetAliasAddress().Base58())
 		switch i {
@@ -327,7 +328,7 @@ func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr
 
 type simpleWallet struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (s simpleWallet) privateKey() ed25519.PrivateKey {
@@ -344,19 +345,19 @@ func createWallets(n int) []simpleWallet {
 		kp := ed25519.GenerateKeyPair()
 		wallets[i] = simpleWallet{
 			kp,
-			ledgerstate.NewED25519Address(kp.PublicKey),
+			devnetvm.NewED25519Address(kp.PublicKey),
 		}
 	}
 	return wallets
 }
 
-func (s simpleWallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(s.publicKey(), s.privateKey().Sign(txEssence.Bytes()))
+func (s simpleWallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(s.publicKey(), s.privateKey().Sign(txEssence.Bytes()))
 }
 
-func (s simpleWallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []ledgerstate.UnlockBlock {
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(s.sign(txEssence))
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+func (s simpleWallet) unlockBlocks(txEssence *devnetvm.TransactionEssence) []devnetvm.UnlockBlock {
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(s.sign(txEssence))
+	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i := range txEssence.Inputs() {
 		unlockBlocks[i] = unlockBlock
 	}

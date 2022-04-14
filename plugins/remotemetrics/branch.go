@@ -8,10 +8,10 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -35,11 +35,11 @@ var (
 	initialConfirmedBranchCountDB uint64
 
 	// all active branches stored in this map, to avoid duplicated event triggers for branch confirmation.
-	activeBranches      map[ledgerstate.BranchID]types.Empty
+	activeBranches      map[branchdag.BranchID]types.Empty
 	activeBranchesMutex sync.Mutex
 )
 
-func onBranchConfirmed(branchID ledgerstate.BranchID) {
+func onBranchConfirmed(branchID branchdag.BranchID) {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
 	if _, exists := activeBranches[branchID]; !exists {
@@ -103,12 +103,12 @@ func sendBranchMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate.TransactionID) (time.Time, tangle.MessageID, error) {
+func updateMetricCounts(branchID branchdag.BranchID, transactionID utxo.TransactionID) (time.Time, tangle.MessageID, error) {
 	oldestAttachmentTime, oldestAttachmentMessageID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	deps.Tangle.LedgerstateOLD.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 			delete(activeBranches, conflictingBranchID)
@@ -124,21 +124,21 @@ func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate
 func measureInitialBranchCounts() {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
-	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
-	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	deps.Tangle.LedgerstateOLD.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	activeBranches = make(map[branchdag.BranchID]types.Empty)
+	conflictsToRemove := make([]branchdag.BranchID, 0)
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch) {
 		switch branch.ID() {
-		case ledgerstate.MasterBranchID:
+		case branchdag.MasterBranchID:
 			return
 		default:
 			initialBranchTotalCountDB++
 			activeBranches[branch.ID()] = types.Void
-			branchGoF, err := deps.Tangle.LedgerstateOLD.UTXODAG.BranchGradeOfFinality(branch.ID())
+			branchGoF, err := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 			if err != nil {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.LedgerstateOLD.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
+				deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID branchdag.BranchID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
@@ -153,7 +153,7 @@ func measureInitialBranchCounts() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.LedgerstateOLD.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}

@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -16,8 +16,8 @@ func GetPendingMana(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PendingResponse{Error: err.Error()})
 	}
-	outputID, err := ledgerstate.OutputIDFromBase58(req.OutputID)
-	if err != nil {
+	var outputID utxo.OutputID
+	if err := outputID.FromBase58(req.OutputID); err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PendingResponse{Error: err.Error()})
 	}
 	pending, t := manaPlugin.PendingManaOnOutput(outputID)

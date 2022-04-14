@@ -14,7 +14,8 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -67,8 +68,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[0], tests.Mana(t, node1).Consensus)
 	require.EqualValues(t, snapshotInfo.PeersAmountsPledged[1], tests.Mana(t, node2).Consensus)
 
-	txs1 := []*ledgerstate.Transaction{}
-	txs2 := []*ledgerstate.Transaction{}
+	txs1 := []*devnetvm.Transaction{}
+	txs2 := []*devnetvm.Transaction{}
 	// send transactions on the seperate partitions
 	for i := 0; i < numberOfConflictingTxs; i++ {
 		t.Logf("issuing conflict %d", i+1)
@@ -93,8 +94,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return res1.BranchIDs[0] != ledgerstate.MasterBranchID.Base58() &&
-			res2.BranchIDs[0] != ledgerstate.MasterBranchID.Base58()
+		return res1.BranchIDs[0] != branchdag.MasterBranchID.Base58() &&
+			res2.BranchIDs[0] != branchdag.MasterBranchID.Base58()
 	}, tests.Timeout, tests.Tick)
 
 	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
@@ -190,7 +191,7 @@ func TestConfirmBranch(t *testing.T) {
 	require.Equal(t, gof.Low, res1.GradeOfFinality)
 }
 
-func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *ledgerstate.Transaction {
+func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *devnetvm.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
 		sendoptions.ConsensusManaPledgeID(base58.Encode(node.ID().Bytes())),
@@ -199,7 +200,7 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		balance := tests.Balance(t, node, targetAddr.Address(), ledgerstate.ColorIOTA)
+		balance := tests.Balance(t, node, targetAddr.Address(), devnetvm.ColorIOTA)
 		return balance == actualGenesisTokenAmount
 	}, tests.Timeout, tests.Tick)
 

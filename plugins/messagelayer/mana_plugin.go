@@ -17,8 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -164,14 +162,13 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 			// derive the transaction that created this input
 			inputTxID := o.TransactionID()
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *devnetvm.Transaction) {
-				if transaction == nil {
-					return
-				}
-				inputInfo.TimeStamp = transaction.Essence().Timestamp()
+			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *ledger.Transaction) {
+				transactionEssence := transaction.Transaction.(*devnetvm.Transaction).Essence()
+
+				inputInfo.TimeStamp = transactionEssence.Timestamp()
 				inputInfo.PledgeID = map[mana.Type]identity.ID{
-					mana.AccessMana:    transaction.Essence().AccessPledgeID(),
-					mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+					mana.AccessMana:    transactionEssence.AccessPledgeID(),
+					mana.ConsensusMana: transactionEssence.ConsensusPledgeID(),
 				}
 			})
 		})
@@ -199,7 +196,7 @@ func runManaPlugin(_ *node.Plugin) {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
 				// TODO:
-				//snapshot := &ledgerstate.Snapshot{}
+				// snapshot := &ledgerstate.Snapshot{}
 				f, err := os.Open(Parameters.Snapshot.File)
 				if err != nil {
 					Plugin.Panic("can not open snapshot file:", err)
@@ -466,7 +463,7 @@ func verifyPledgeNodes() error {
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
 func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(outputID)
+	cachedOutputMetadata := deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
@@ -489,7 +486,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.TransactionID())
 		defer cachedTx.Release()
 		tx, _ := cachedTx.Unwrap()
-		txTimestamp = tx.Essence().Timestamp()
+		txTimestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
 	})
 
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
@@ -805,7 +802,7 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledgerstate.Snapshot) {
+func loadSnapshot(snapshot *devnetvm.Snapshot) {
 	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
 
 	// load txSnapshot into SnapshotInfoVec
@@ -815,7 +812,7 @@ func loadSnapshot(snapshot *ledgerstate.Snapshot) {
 			if !record.UnspentOutputs[i] {
 				continue
 			}
-			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				totalUnspentBalanceInTx += balance
 				return true
 			})

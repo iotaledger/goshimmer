@@ -16,10 +16,10 @@ import (
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -125,7 +125,7 @@ func configure(plugin *node.Plugin) {
 
 	// read snapshot file
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
-		snapshot := &ledgerstate.Snapshot{}
+		snapshot := &devnetvm.Snapshot{}
 		f, err := os.Open(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("can not open snapshot file:", err)
@@ -134,7 +134,7 @@ func configure(plugin *node.Plugin) {
 		if _, err := snapshot.ReadFrom(f); err != nil {
 			plugin.Panic("could not read snapshot file in message layer plugin:", err)
 		}
-		if err = deps.Tangle.LedgerstateOLD.LoadSnapshot(snapshot); err != nil {
+		if err = deps.Tangle.Ledger.LoadSnapshot(snapshot); err != nil {
 			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
 		}
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
@@ -191,7 +191,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
 	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
-	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerstateOLD.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget
@@ -241,7 +241,7 @@ func totalAccessManaRetriever() float64 {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
-func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {
+func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID utxo.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {
 	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
@@ -252,8 +252,8 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	closure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
 		match := false
 		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			if message.Payload().Type() == ledgerstate.TransactionType {
-				tx := message.Payload().(*ledgerstate.Transaction)
+			if message.Payload().Type() == devnetvm.TransactionType {
+				tx := message.Payload().(*devnetvm.Transaction)
 				if tx.ID() == txID {
 					match = true
 					return

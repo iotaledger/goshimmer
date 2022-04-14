@@ -5,8 +5,7 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -50,7 +49,7 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := deps.Tangle.LedgerstateOLD.SnapshotUTXO()
+	snapshot := deps.Tangle.Ledger.SnapshotUTXO()
 
 	aMana, err := snapshotAccessMana()
 	if err != nil {
@@ -79,15 +78,15 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 }
 
 // snapshotAccessMana returns snapshot of the current access mana.
-func snapshotAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
-	aManaSnapshot = make(map[identity.ID]ledgerstate.AccessMana)
+func snapshotAccessMana() (aManaSnapshot map[identity.ID]devnetvm.AccessMana, err error) {
+	aManaSnapshot = make(map[identity.ID]devnetvm.AccessMana)
 
 	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
 	if err != nil {
 		return nil, err
 	}
 	for nodeID, aMana := range m {
-		aManaSnapshot[nodeID] = ledgerstate.AccessMana{
+		aManaSnapshot[nodeID] = devnetvm.AccessMana{
 			Value:     aMana,
 			Timestamp: t,
 		}

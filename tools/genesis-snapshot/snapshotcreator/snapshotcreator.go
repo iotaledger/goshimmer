@@ -13,7 +13,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -21,7 +22,7 @@ import (
 // Pledge defines a pledge to a node.
 type Pledge struct {
 	// Target address, if nil, a random address will be used instead.
-	Address ledgerstate.Address
+	Address devnetvm.Address
 	// Whether to pledge the genesis amount to the genesis address.
 	Genesis bool
 	// Amount to use for the pledge, if zero, cfgPledgeTokenAmount is used.
@@ -36,8 +37,8 @@ type Genesis struct {
 	Amount uint64
 }
 
-//// consensus integration test snapshot, use with cfgGenesisTokenAmount=800000 for mana distribution: 50%, 25%, 25%
-//var nodesToPledge = map[string]Pledge{
+// // consensus integration test snapshot, use with cfgGenesisTokenAmount=800000 for mana distribution: 50%, 25%, 25%
+// var nodesToPledge = map[string]Pledge{
 //	// peer master
 //	"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP": {Genesis: true},
 //	// "CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3": {}, // faucet
@@ -61,7 +62,7 @@ type Genesis struct {
 //			Amount:  800000,
 //		}
 //	}(),
-//}
+// }
 
 func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 	for _, pledge := range nodesToPledge {
@@ -73,13 +74,13 @@ func anyGenesisNodePledge(nodesToPledge map[string]Pledge) bool {
 }
 
 type (
-	transactionMap map[ledgerstate.TransactionID]ledgerstate.Record
-	accessManaMap  map[identity.ID]ledgerstate.AccessMana
+	transactionMap map[utxo.TransactionID]devnetvm.Record
+	accessManaMap  map[identity.ID]devnetvm.AccessMana
 )
 
 // CreateSnapshot writes a new snapshot file to the path declared by snapshot name. Genesis is defined by genesisTokenAmount
 // and seedBytes. The amount pledge to each node is defined by nodesToPledge map. Whenever the amount is 0 in the map pledgeTokenAmount is used.
-func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) (*ledgerstate.Snapshot, error) {
+func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmount uint64, nodesToPledge map[string]Pledge, snapshotFileName string) (*devnetvm.Snapshot, error) {
 	genesis := createGenesis(genesisTokenAmount, seedBytes)
 	if anyGenesisNodePledge(nodesToPledge) {
 		printGenesisInfo(genesis)
@@ -90,7 +91,7 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, pledgeTokenAmou
 	accessMana := make(accessManaMap)
 
 	pledgeToDefinedNodes(genesis, pledgeTokenAmount, nodesToPledge, transactions, accessMana)
-	newSnapshot := &ledgerstate.Snapshot{AccessManaByNode: accessMana, Transactions: transactions}
+	newSnapshot := &devnetvm.Snapshot{AccessManaByNode: accessMana, Transactions: transactions}
 	err := writeSnapshot(snapshotFileName, newSnapshot)
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func createGenesis(genesisTokenAmount uint64, seedBytes []byte) *Genesis {
 	}
 }
 
-func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) error {
+func writeSnapshot(snapshotFileName string, newSnapshot *devnetvm.Snapshot) error {
 	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		log.Println("unable to create snapshot file", err)
@@ -129,14 +130,14 @@ func writeSnapshot(snapshotFileName string, newSnapshot *ledgerstate.Snapshot) e
 	return nil
 }
 
-func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
+func verifySnapshot(snapshotFileName string) (*devnetvm.Snapshot, error) {
 	snapshotFile, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
 	if err != nil {
 		log.Println("unable to create snapshot file ", err)
 		return nil, err
 	}
 
-	readSnapshot := &ledgerstate.Snapshot{}
+	readSnapshot := &devnetvm.Snapshot{}
 	if _, err = readSnapshot.ReadFrom(snapshotFile); err != nil {
 		log.Println("unable to read snapshot file ", err)
 		return nil, err
@@ -160,11 +161,11 @@ func verifySnapshot(snapshotFileName string) (*ledgerstate.Snapshot, error) {
 // only one node is allowed to have the genesis token amount be pledged to.
 func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge map[string]Pledge, txMap transactionMap, aManaMap accessManaMap) {
 	randomSeed := seed.NewSeed()
-	balances := ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: tokensToPledge,
+	balances := devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: tokensToPledge,
 	})
 
-	randAddrOutput := ledgerstate.NewSigLockedColoredOutput(balances, randomSeed.Address(0).Address())
+	randAddrOutput := devnetvm.NewSigLockedColoredOutput(balances, randomSeed.Address(0).Address())
 
 	var inputIndex uint16
 	var genesisPledged bool
@@ -181,19 +182,19 @@ func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge
 				log.Fatal("genesis token amount can only be pledged once, check your config")
 			}
 			pledgeAmount = genesis.Amount
-			output = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: genesis.Amount,
+			output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: genesis.Amount,
 			}), genesis.Seed.Address(0).Address())
 			genesisPledged = true
 
 		case pledgeCfg.Address != nil && pledgeCfg.Amount != 0:
 			pledgeAmount = pledgeCfg.Amount
-			output = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: pledgeCfg.Amount,
+			output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: pledgeCfg.Amount,
 			}), pledgeCfg.Address)
 
 		case pledgeCfg.Address != nil:
-			output = ledgerstate.NewSigLockedColoredOutput(balances, pledgeCfg.Address)
+			output = devnetvm.NewSigLockedColoredOutput(balances, pledgeCfg.Address)
 		}
 
 		pledge(pubKeyStr, pledgeAmount, inputIndex, output, txMap, aManaMap)
@@ -204,30 +205,30 @@ func pledgeToDefinedNodes(genesis *Genesis, tokensToPledge uint64, nodesToPledge
 // pledges the amount defined by output to the node ID derived from the given public key.
 // the transaction doing the pledging uses the given inputIndex to define the index of the output used in the genesis transaction.
 // the corresponding txs and mana maps are mutated with the generated records.
-func pledge(pubKeyStr string, tokensPledged uint64, inputIndex uint16, output *ledgerstate.SigLockedColoredOutput, txMap transactionMap, aManaMap accessManaMap) (identity.ID, ledgerstate.Record, *ledgerstate.Transaction) {
+func pledge(pubKeyStr string, tokensPledged uint64, inputIndex uint16, output *devnetvm.SigLockedColoredOutput, txMap transactionMap, aManaMap accessManaMap) (identity.ID, devnetvm.Record, *devnetvm.Transaction) {
 	pubKey, err := ed25519.PublicKeyFromString(pubKeyStr)
 	if err != nil {
 		panic(err)
 	}
 	nodeID := identity.NewID(pubKey)
 
-	tx := ledgerstate.NewTransaction(ledgerstate.NewTransactionEssence(
+	tx := devnetvm.NewTransaction(devnetvm.NewTransactionEssence(
 		0,
 		time.Unix(tangle.DefaultGenesisTime, 0),
 		nodeID,
 		nodeID,
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, inputIndex))),
-		ledgerstate.NewOutputs(output),
-	), ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
+		devnetvm.NewInputs(devnetvm.NewUTXOInput(utxo.NewOutputID(utxo.EmptyTransactionID, inputIndex, []byte{}))),
+		devnetvm.NewOutputs(output),
+	), devnetvm.UnlockBlocks{devnetvm.NewReferenceUnlockBlock(0)})
 
-	record := ledgerstate.Record{
+	record := devnetvm.Record{
 		Essence:        tx.Essence(),
 		UnlockBlocks:   tx.UnlockBlocks(),
 		UnspentOutputs: []bool{true},
 	}
 
 	txMap[tx.ID()] = record
-	accessManaRecord := ledgerstate.AccessMana{
+	accessManaRecord := devnetvm.AccessMana{
 		Value:     float64(tokensPledged),
 		Timestamp: time.Unix(tangle.DefaultGenesisTime, 0),
 	}
@@ -237,12 +238,15 @@ func pledge(pubKeyStr string, tokensPledged uint64, inputIndex uint16, output *l
 }
 
 func printGenesisInfo(genesis *Genesis) {
+	output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: genesis.Amount,
+	}), &devnetvm.ED25519Address{})
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, 0, []byte{}))
+
 	mockedConnector := newMockConnector(
 		&wallet.Output{
 			Address: genesis.Seed.Address(0),
-			Object: ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: genesis.Amount,
-			}), &ledgerstate.ED25519Address{}).SetID(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0)),
+			Object:  output,
 		},
 	)
 
@@ -252,13 +256,13 @@ func printGenesisInfo(genesis *Genesis) {
 	log.Println("\n================= Genesis ===============")
 	log.Printf("Seed (base58): %s", genesisWallet.Seed().String())
 	log.Printf("Output address (base58): %s", genesisAddress.Base58())
-	log.Printf("Output id (base58): %s", ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))
+	log.Printf("Output id (base58): %s", utxo.NewOutputID(utxo.EmptyTransactionID, 0, []byte{}))
 	log.Printf("Token amount: %d", genesis.Amount)
 	log.Println("\n=========================================")
 }
 
 type mockConnector struct {
-	outputs map[address.Address]map[ledgerstate.OutputID]*wallet.Output
+	outputs map[address.Address]map[utxo.OutputID]*wallet.Output
 }
 
 func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (outputs wallet.OutputsByAddressAndOutputID, err error) {
@@ -268,7 +272,7 @@ func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (ou
 			// If the GoF is not reached we consider the output unspent
 			if !output.GradeOfFinalityReached {
 				if _, outputsExist := outputs[addr]; !outputsExist {
-					outputs[addr] = make(map[ledgerstate.OutputID]*wallet.Output)
+					outputs[addr] = make(map[utxo.OutputID]*wallet.Output)
 				}
 
 				outputs[addr][outputID] = output
@@ -281,12 +285,12 @@ func (connector *mockConnector) UnspentOutputs(addresses ...address.Address) (ou
 
 func newMockConnector(outputs ...*wallet.Output) (connector *mockConnector) {
 	connector = &mockConnector{
-		outputs: make(map[address.Address]map[ledgerstate.OutputID]*wallet.Output),
+		outputs: make(map[address.Address]map[utxo.OutputID]*wallet.Output),
 	}
 
 	for _, output := range outputs {
 		if _, addressExists := connector.outputs[output.Address]; !addressExists {
-			connector.outputs[output.Address] = make(map[ledgerstate.OutputID]*wallet.Output)
+			connector.outputs[output.Address] = make(map[utxo.OutputID]*wallet.Output)
 		}
 
 		connector.outputs[output.Address][output.Object.ID()] = output
@@ -300,7 +304,7 @@ func (connector *mockConnector) RequestFaucetFunds(addr address.Address, powTarg
 	return
 }
 
-func (connector *mockConnector) SendTransaction(tx *ledgerstate.Transaction) (err error) {
+func (connector *mockConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
 	// mark outputs as spent
 	return
 }
@@ -309,10 +313,10 @@ func (connector *mockConnector) GetAllowedPledgeIDs() (pledgeIDMap map[mana.Type
 	return
 }
 
-func (connector *mockConnector) GetUnspentAliasOutput(addr *ledgerstate.AliasAddress) (output *ledgerstate.AliasOutput, err error) {
+func (connector *mockConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddress) (output *devnetvm.AliasOutput, err error) {
 	return
 }
 
-func (connector *mockConnector) GetTransactionGoF(txID ledgerstate.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+func (connector *mockConnector) GetTransactionGoF(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	return
 }
