@@ -3,14 +3,14 @@ package finality
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
 			return gof.Low
@@ -56,11 +56,11 @@ func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
 	handler.Called(msgID)
 }
 
-func (handler *EventHandlerMock) BranchConfirmed(branchID ledgerstate.BranchID) {
+func (handler *EventHandlerMock) BranchConfirmed(branchID branchdag.BranchID) {
 	handler.Called(branchID)
 }
 
-func (handler *EventHandlerMock) TransactionConfirmed(txID ledgerstate.TransactionID) {
+func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
@@ -500,12 +500,12 @@ func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework,
 }
 
 func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
-	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		if err := fg.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}

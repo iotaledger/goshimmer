@@ -91,8 +91,10 @@ func (b *BranchDAG) AddBranchToConflicts(branchID BranchID, newConflictIDs Confl
 // UpdateBranchParents changes the parents of a Branch after a fork (also updating the corresponding references).
 func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, removedBranchIDs BranchIDs) (updated bool) {
 	b.inclusionStateMutex.RLock()
+
+	var parentBranchIDs BranchIDs
 	b.Storage.CachedBranch(branchID).Consume(func(branch *Branch) {
-		parentBranchIDs := branch.Parents()
+		parentBranchIDs = branch.Parents()
 		if !parentBranchIDs.Add(addedBranchID) {
 			return
 		}
@@ -106,9 +108,10 @@ func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, remove
 
 	if updated {
 		b.Events.BranchParentsUpdated.Trigger(&BranchParentsUpdatedEvent{
-			BranchID:        branchID,
-			AddedBranch:     addedBranchID,
-			RemovedBranches: removedBranchIDs,
+			BranchID:         branchID,
+			AddedBranch:      addedBranchID,
+			RemovedBranches:  removedBranchIDs,
+			ParentsBranchIDs: parentBranchIDs,
 		})
 	}
 

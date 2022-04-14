@@ -72,6 +72,9 @@ type BranchParentsUpdatedEvent struct {
 
 	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Branch.
 	RemovedBranches BranchIDs
+
+	// ParentsBranchIDs contains the updated list of parent BranchIDs.
+	ParentsBranchIDs BranchIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
