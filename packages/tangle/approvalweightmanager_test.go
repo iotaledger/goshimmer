@@ -63,7 +63,10 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 }
 
 func TestBranchWeightMarshalling(t *testing.T) {
-	branchWeight := NewBranchWeight(ledgerstate.BranchIDFromRandomness())
+	var randomBranchID branchdag.BranchID
+	assert.NoError(t, randomBranchID.FromRandomness())
+
+	branchWeight := NewBranchWeight(randomBranchID)
 	branchWeight.SetWeight(5.1234)
 
 	branchWeightFromBytes, err := new(BranchWeight).FromBytes(branchWeight.Bytes())
@@ -75,7 +78,10 @@ func TestBranchWeightMarshalling(t *testing.T) {
 }
 
 func TestBranchVotersMarshalling(t *testing.T) {
-	branchVoters := NewBranchVoters(ledgerstate.BranchIDFromRandomness())
+	var randomBranchID branchdag.BranchID
+	assert.NoError(t, randomBranchID.FromRandomness())
+
+	branchVoters := NewBranchVoters(randomBranchID)
 
 	for i := 0; i < 100; i++ {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
@@ -111,7 +117,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	approvalWeightManager := tangle.ApprovalWeightManager
 	tangle.Configure(MergeBranches(false))
 
-	conflictIDs := map[string]ledgerstate.ConflictID{
+	conflictIDs := map[string]branchdag.ConflictID{
 		"Conflict 1": ledgerstate.ConflictIDFromRandomness(),
 		"Conflict 2": ledgerstate.ConflictIDFromRandomness(),
 		"Conflict 3": ledgerstate.ConflictIDFromRandomness(),

@@ -49,6 +49,7 @@ type MessageTestFramework struct {
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
+		indexer:          indexer.New(indexer.WithStore(tangle.Options.Store), indexer.WithCacheTimeProvider(tangle.Options.CacheTimeProvider)),
 		branchIDs:        make(map[string]branchdag.BranchID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
