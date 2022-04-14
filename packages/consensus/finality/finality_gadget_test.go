@@ -9,7 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -24,7 +26,7 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
 			return gof.Low
@@ -55,11 +57,11 @@ func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
 	handler.Called(msgID)
 }
 
-func (handler *EventHandlerMock) BranchConfirmed(branchID ledgerstate.BranchID) {
+func (handler *EventHandlerMock) BranchConfirmed(branchID branchdag.BranchID) {
 	handler.Called(branchID)
 }
 
-func (handler *EventHandlerMock) TransactionConfirmed(txID ledgerstate.TransactionID) {
+func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
@@ -480,7 +482,7 @@ func assertTxsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, exp
 			actualGradeOfFinality := txMeta.GradeOfFinality()
 			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected tx %s (via msg %s) GoF to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
 			// auto. also check outputs
-			for _, output := range testFramework.Transaction(msgAlias).Essence().Outputs() {
+			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
 				outputGoF := testFramework.OutputMetadata(output.ID()).GradeOfFinality()
 				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) GoF to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
 			}
