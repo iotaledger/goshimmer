@@ -45,6 +45,16 @@ type InteractiveConfig struct {
 	clientUrls map[string]types.Empty
 }
 
+var configJSON = `{
+	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
+	"rate": 2,
+	"duration": "20s",
+	"timeUnit": "1s",
+	"deepEnabled": false,
+	"reuseEnabled": true,
+	"scenario": "tx"
+}`
+
 var defaultConfig = InteractiveConfig{
 	clientUrls: map[string]types.Empty{
 		"http://127.0.0.1:8080": types.Void,
@@ -628,7 +638,13 @@ func (m *Mode) loadConfig() {
 		if !os.IsNotExist(err) {
 			panic(err)
 		}
-		return
+
+		if err = os.WriteFile("config.json", []byte(configJSON), 0o644); err != nil {
+			panic(err)
+		}
+		if file, err = os.Open("config.json"); err != nil {
+			panic(err)
+		}
 	}
 	defer file.Close()
 
@@ -639,6 +655,9 @@ func (m *Mode) loadConfig() {
 	// convert urls array to map
 	if len(m.Config.WebAPI) > 0 {
 		// rewrite default value
+		for url := range m.Config.clientUrls {
+			m.evilWallet.RemoveClient(url)
+		}
 		m.Config.clientUrls = make(map[string]types.Empty)
 	}
 	for _, url := range m.Config.WebAPI {
