@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -31,8 +30,7 @@ import (
 func BenchmarkVerifyDataMessages(b *testing.B) {
 	tangle := NewTestTangle()
 
-	var pool async.WorkerPool
-	pool.Tune(runtime.GOMAXPROCS(0))
+	pool := workerpool.NewBlockingQueuedWorkerPool(workerpool.WorkerCount(runtime.GOMAXPROCS(0)))
 
 	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
 		return NewMessageIDs(EmptyMessageID), nil
@@ -58,7 +56,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 		})
 	}
 
-	pool.Shutdown()
+	pool.Stop()
 }
 
 func BenchmarkVerifySignature(b *testing.B) {
