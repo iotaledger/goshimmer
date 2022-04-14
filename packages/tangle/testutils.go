@@ -627,6 +627,30 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
+func randomTransactionID() (randomTransactionID utxo.TransactionID) {
+	if err := randomTransactionID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomTransactionID
+}
+
+func randomBranchID() (randomBranchID branchdag.BranchID) {
+	if err := randomBranchID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomBranchID
+}
+
+func randomConflictID() (randomConflictID branchdag.ConflictID) {
+	if err := randomConflictID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomConflictID
+}
+
 func newTestNonceMessage(nonce uint64) *Message {
 	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
 		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
