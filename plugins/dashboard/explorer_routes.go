@@ -8,10 +8,10 @@ import (
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -196,7 +196,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-		case ledgerstate.AddressLength:
+		case devnetvm.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
 				result.Address = addr
@@ -232,7 +232,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
+	address, err := devnetvm.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
@@ -241,18 +241,18 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 
 	// get outputids by address
 	deps.Tangle.LedgerstateOLD.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
-		var metaData *ledgerstate.OutputMetadata
+		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + grade of finality status from branch of the output
-		deps.Tangle.tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		// get the inclusion state info from the transaction that created this output
 		transactionID := output.ID().TransactionID()
 
-		deps.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
 			timestamp = transaction.Essence().Timestamp().Unix()
 		})
 

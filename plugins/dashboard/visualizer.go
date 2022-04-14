@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -68,7 +68,7 @@ func sendVertex(msg *tangle.Message, finalized bool) {
 		ID:              msg.ID().Base58(),
 		ParentIDsByType: prepareParentReferences(msg),
 		IsFinalized:     finalized,
-		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+		IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
 	}}, true)
 }
 
@@ -128,7 +128,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 				ID:              msg.ID().Base58(),
 				ParentIDsByType: prepareParentReferences(msg),
 				IsFinalized:     msgFinalized[msg.ID().Base58()],
-				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+				IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
 			})
 		}
 

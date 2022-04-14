@@ -319,7 +319,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID branchdag.BranchID, aw floa
 
 	// update GoF of txs within the same branch
 	txGoFPropWalker := walker.New[utxo.TransactionID]()
-	s.tangle.Ledger.Storage.CachedTransactionMetadata(s.tangle.Ledger.Utils.TransactionIDFromBranchID(branchID)).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+	s.tangle.Ledger.Storage.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
 	})
 	for txGoFPropWalker.HasNext() {
