@@ -137,7 +137,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
+	drngPayload, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
 	case drng.TypeCollectiveBeacon:

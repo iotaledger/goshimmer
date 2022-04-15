@@ -9,7 +9,7 @@ import (
 )
 
 // Dispatch parses a DRNG message and processes it based on its subtype
-func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *Payload) error {
+func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *CollectiveBeaconPayload) error {
 	switch payload.PayloadType {
 	case TypeCollectiveBeacon:
 		// parse as CollectiveBeaconType

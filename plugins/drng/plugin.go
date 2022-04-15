@@ -65,7 +65,7 @@ func run(plugin *node.Plugin) {
 						return
 					}
 					marshalUtil := marshalutil.New(msg.Payload().Bytes())
-					parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
+					parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 					if err != nil {
 						// TODO: handle error
 						plugin.LogDebug(err)
