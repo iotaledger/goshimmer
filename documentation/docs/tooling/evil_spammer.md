@@ -87,29 +87,48 @@ Below you can find a list of predefined scenarios. In the client library they ca
 ##### No conflicts
 - `single-tx`
 
+![Single transaction](/img/tooling/evil_spammer/evil-scenario-tx.png "Single transaction")
+
 - `peace`
+ 
+![Peace](/img/tooling/evil_spammer/evil-scenario-peace.png "Peace")
 
 ##### Conflicts
 - `ds`
 
+![Double spend](/img/tooling/evil_spammer/evil-scenario-ds.png "Double spend")
+
 - `conflict-circle`
+
+![Conflict circle](/img/tooling/evil_spammer/evil-scenario-conflict-circle.png "Conflict circle")
 
 - `guava`
 
+![Guava](/img/tooling/evil_spammer/evil-scenario-guava.png "Guava")
+
 - `orange`
+
+![Orange](/img/tooling/evil_spammer/evil-scenario-orange.png "Orange")
 
 - `mango`
 
+![Mango](/img/tooling/evil_spammer/evil-scenario-mango.png "Mango")
+
 - `pear`
+
+![Pear](/img/tooling/evil_spammer/evil-scenario-pear.png "Pear")
 
 - `lemon`
 
+![Lemon](/img/tooling/evil_spammer/evil-scenario-lemon.png "Lemon")
 
 - `banana`
 
+![Banana](/img/tooling/evil_spammer/evil-scenario-banana.png "Banana")
 
 - `kiwi`
 
+![Kiwi](/img/tooling/evil_spammer/evil-scenario-kiwi.png "Kiwi")
 
 
 ## Evil Wallet and Evil spammer lib
