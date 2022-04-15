@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
-
-	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilspammer"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
@@ -73,8 +70,8 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				s, err := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.Scenario, params.DeepSpam, false)
-				if err != nil {
+				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.Scenario, params.DeepSpam, false)
+				if s == nil {
 					return
 				}
 				s.Spam()
@@ -91,7 +88,7 @@ func CustomSpam(params *CustomSpamParams) {
 
 func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, deepSpam bool) {
 	if wallet.NumOfClient() < 1 {
-		printer.NotEnoughClientsWarning("Need 2 clients to execute the spam")
+		printer.NotEnoughClientsWarning(1)
 		return
 	}
 
@@ -120,7 +117,7 @@ func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration
 
 func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
 	if wallet.NumOfClient() < 2 {
-		printer.NotEnoughClientsWarning("Need 2 clients to execute the spam")
+		printer.NotEnoughClientsWarning(2)
 		return
 	}
 
@@ -149,7 +146,7 @@ func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, time
 
 func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
 	if nSpend > wallet.NumOfClient() {
-		printer.NotEnoughClientsWarning(fmt.Sprintf("Need %d clients to execute the spam", nSpend))
+		printer.NotEnoughClientsWarning(nSpend)
 		return
 	}
 
@@ -176,7 +173,7 @@ func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit
 	spammer.Spam()
 }
 
-func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch, deepSpam, reuseOutputs bool) (spammer *evilspammer.Spammer, err error) {
+func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, conflictBatch evilwallet.EvilBatch, deepSpam, reuseOutputs bool) (spammer *evilspammer.Spammer) {
 	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(conflictBatch),
 	}
@@ -195,8 +192,9 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	}
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
 	if scenario.NumOfClientsNeeded > wallet.NumOfClient() {
-		err = errors.Newf("Need %d clients to execute the spam", scenario.NumOfClientsNeeded)
-		return nil, err
+		spammer = nil
+		printer.NotEnoughClientsWarning(scenario.NumOfClientsNeeded)
+		return
 	}
 
 	options := []evilspammer.Options{
@@ -207,12 +205,12 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	}
 	spammer = evilspammer.NewSpammer(options...)
 
-	return spammer, nil
+	return
 }
 
 func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numMsgToSend int) {
 	if wallet.NumOfClient() < 1 {
-		printer.NotEnoughClientsWarning("Need 1 client to execute the spam")
+		printer.NotEnoughClientsWarning(1)
 		return
 	}
 

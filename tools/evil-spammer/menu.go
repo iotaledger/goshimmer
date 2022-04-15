@@ -113,8 +113,8 @@ func (p *Printer) UrlWarning() {
 
 }
 
-func (p *Printer) NotEnoughClientsWarning(s string) {
-	p.Println(p.colorString(s, "red"), 2)
+func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
+	p.Println(p.colorString(fmt.Sprintf("Need at least %d clients to progress", numOfClient), "red"), 2)
 	fmt.Println()
 }
 
@@ -148,13 +148,6 @@ func (p *Printer) Settings() {
 	p.PrintLine()
 	fmt.Println()
 
-}
-
-func (p *Printer) ClientsWarning() {
-	p.Println("", 2)
-	p.Println(p.colorString("No clients are configured, you can add API urls in the settings.", "red"), 1)
-	p.Println("", 2)
-	fmt.Println()
 }
 
 func (p *Printer) MaxSpamWarning() {
