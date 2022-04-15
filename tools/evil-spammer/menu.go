@@ -113,6 +113,11 @@ func (p *Printer) UrlWarning() {
 
 }
 
+func (p *Printer) NotEnoughClientsWarning(s string) {
+	p.Println(p.colorString(s, "red"), 2)
+	fmt.Println()
+}
+
 func (p *Printer) clients() {
 	p.Println(p.colorString("Provided clients:", "cyan"), 1)
 	for url := range p.mode.Config.clientUrls {
