@@ -38,6 +38,7 @@ type Index uint64
 
 // IndexFromMarshalUtil unmarshals an Index using a MarshalUtil (for easier unmarshalling).
 func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
+	//TODO: remove eventually
 	untypedIndex, err := marshalUtil.ReadUint64()
 	if err != nil {
 		err = errors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -50,6 +51,7 @@ func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, er
 
 // Bytes returns a marshaled version of the Index.
 func (i Index) Bytes() (marshaledIndex []byte) {
+	// TODO: remove eventually
 	return marshalutil.New(marshalutil.Uint64Size).
 		WriteUint64(uint64(i)).
 		Bytes()

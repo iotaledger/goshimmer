@@ -175,6 +175,7 @@ func InputsFromBytes(inputBytes []byte) (inputs Inputs, consumedBytes int, err e
 
 // InputsFromMarshalUtil unmarshals a collection of Inputs using a MarshalUtil (for easier unmarshaling).
 func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs, err error) {
+	// TODO: remove as it's only used in other FromMarshalUtil methods
 	inputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
 		err = errors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ErrParseBytesFailed)

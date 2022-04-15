@@ -397,6 +397,27 @@ func (b *Branch) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.S
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
+func (b *Branch) FromBytesNew(bytes []byte) (branch *Branch, err error) {
+	if branch = b; branch == nil {
+		branch = new(Branch)
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &b.branchInner.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], branch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
+		return
+	}
+
+	return
+}
+
+// FromBytes unmarshals an Branch from a sequence of bytes.
 func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {

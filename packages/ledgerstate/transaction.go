@@ -340,12 +340,12 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		return transaction, err
 	}
 
-	//transactionID, _, err := TransactionIDFromBytes(key)
-	//if err != nil {
-	//	err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-	//	return transaction, err
-	//}
-	//transaction.id = &transactionID
+	transactionID, _, err := TransactionIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
+		return transaction, err
+	}
+	transaction.id = &transactionID
 	return transaction, err
 }
 
@@ -904,8 +904,31 @@ func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorag
 	return transactionMetadata, err
 }
 
+// FromBytes creates an TransactionMetadata from sequences of key and bytes.
+func (t *TransactionMetadata) FromBytesNew(bytes []byte) (*TransactionMetadata, error) {
+	tx := new(TransactionMetadata)
+	if tx != nil {
+		tx = t
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx.transactionMetadataInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionMetadata.id: %w", err)
+		return tx, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], tx, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionMetadata: %w", err)
+		return tx, err
+	}
+
+	return tx, err
+}
+
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
 func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)

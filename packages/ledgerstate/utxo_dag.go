@@ -924,7 +924,27 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 }
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
+func (c *Consumer) FromObjectStorageNew(key, bytes []byte) (consumer objectstorage.StorableObject, err error) {
+	if consumer = c; consumer == nil {
+		consumer = new(Consumer)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, consumer, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &consumer.(*Consumer).consumerInner.ConsumedInput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
+		return
+	}
+	return
+}
+
+// FromObjectStorage creates an Consumer from sequences of key and bytes.
 func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+	// TODO: remove eventually
 	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
@@ -932,8 +952,30 @@ func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 	return result, err
 }
 
+// FromBytes creates an Consumer from sequences of bytes.
+func (c *Consumer) FromBytesNew(bytes []byte) (consumer *Consumer, err error) {
+	if consumer = c; consumer == nil {
+		consumer = new(Consumer)
+	}
+
+	readBytes, err := serix.DefaultAPI.Decode(context.Background(), bytes, &consumer.consumerInner.ConsumedInput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[readBytes:], consumer, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer: %w", err)
+		return
+	}
+
+	return
+}
+
 // FromBytes unmarshals a Consumer from a sequence of bytes.
 func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
+	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)

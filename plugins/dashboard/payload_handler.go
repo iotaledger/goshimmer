@@ -108,11 +108,11 @@ func ProcessPayload(p payload.Payload) interface{} {
 		}
 	case ledgerstate.TransactionType:
 		return processTransactionPayload(p)
-	case faucet.Type:
+	case faucet.RequestType:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().Base58(),
+			Content:      p.(*faucet.Payload).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload

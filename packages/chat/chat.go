@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -8,10 +9,22 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(new(Payload), serix.TypeSettings{}.WithObjectCode(new(Payload).Type()))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+}
 
 // NewChat creates a new Chat.
 func NewChat() *Chat {
@@ -54,11 +67,11 @@ const (
 
 // Payload represents the chat payload type.
 type Payload struct {
-	From       string
+	From       string `serix:"0,lengthPrefixType=uint32"`
 	FromLen    uint32
-	To         string
+	To         string `serix:"1,lengthPrefixType=uint32"`
 	ToLen      uint32
-	Message    string
+	Message    string `serix:"2,lengthPrefixType=uint32"`
 	MessageLen uint32
 
 	bytes      []byte
@@ -79,21 +92,37 @@ func NewPayload(from, to, message string) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
+func FromBytesNew(bytes []byte) (payload *Payload, consumedBytes int, err error) {
+	payload = new(Payload)
+
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payload, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Chat Payload: %w", err)
+		return
+	}
+	payload.bytes = bytes
+
+	return
+}
+
+// FromBytes parses the marshaled version of a Payload into a Go object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil)
 	consumedBytes = marshalUtil.ReadOffset()
-
+	result.bytes = bytes
 	return
 }
 
 // Parse unmarshals an Payload using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	// read information that are required to identify the payloa from the outside
-	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to parse payload size of chat payload: %w", err)
-		return
-	}
+	//if _, err = marshalUtil.ReadUint32(); err != nil {
+	//	err = fmt.Errorf("failed to parse payload size of chat payload: %w", err)
+	//	return
+	//}
 	if _, err = marshalUtil.ReadUint32(); err != nil {
 		err = fmt.Errorf("failed to parse payload type of chat payload: %w", err)
 		return
@@ -153,7 +182,26 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 }
 
 // Bytes returns a marshaled version of this Payload.
-func (p *Payload) Bytes() (bytes []byte) {
+func (p *Payload) Bytes() []byte {
+	p.bytesMutex.Lock()
+	defer p.bytesMutex.Unlock()
+	if objBytes := p.bytes; objBytes != nil {
+		return objBytes
+	}
+
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	p.bytes = objBytes
+	return objBytes
+}
+
+// Bytes returns a marshaled version of this Payload.
+func (p *Payload) BytesOld() (bytes []byte) {
+	//TODO: remove eventually
+
 	// acquire lock for reading bytes
 	p.bytesMutex.RLock()
 
@@ -178,7 +226,7 @@ func (p *Payload) Bytes() (bytes []byte) {
 	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
 
 	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
+	//marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(Type.Bytes())
 	marshalUtil.WriteUint32(p.FromLen)
 	marshalUtil.WriteBytes([]byte(p.From))

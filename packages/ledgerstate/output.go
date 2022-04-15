@@ -277,6 +277,46 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 	return
 }
 
+// OutputFromBytes restores an Output that was stored in the ObjectStorage.
+func OutputFromBytesNew(bytes []byte) (output objectstorage.StorableObject, err error) {
+	// could be refactored to not duplicate code with FromObjectStorage
+	var outputType OutputType
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &outputType)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	switch outputType {
+	case SigLockedSingleOutputType:
+		if output, err = new(SigLockedSingleOutput).FromBytes(bytes); err != nil {
+			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+			return
+		}
+	case SigLockedColoredOutputType:
+		if output, err = new(SigLockedColoredOutput).FromBytes(bytes); err != nil {
+			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+			return
+		}
+	case AliasOutputType:
+		if output, err = new(AliasOutput).FromBytes(bytes); err != nil {
+			err = errors.Errorf("failed to parse AliasOutput: %w", err)
+			return
+		}
+	case ExtendedLockedOutputType:
+		if output, err = new(ExtendedLockedOutput).FromBytes(bytes); err != nil {
+			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
+			return
+		}
+
+	default:
+		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
+		return
+	}
+
+	return
+}
+
 // OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
 func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
@@ -429,6 +469,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 
 // OutputsFromMarshalUtil unmarshals a collection of Outputs using a MarshalUtil (for easier unmarshaling).
 func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
+	//TODO: remove eventually as it's only used in other FromMarshalUtil methods
 	outputsCount, err := marshalUtil.ReadUint16()
 	if err != nil {
 		err = errors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -658,8 +699,29 @@ func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (objectstor
 	return output, nil
 }
 
+// FromBytes creates an SigLockedSingleOutput from sequence of bytes.
+func (s *SigLockedSingleOutput) FromBytesNew(bytes []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
+	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
+		sigLockedSingleOutput = new(SigLockedSingleOutput)
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &s.sigLockedSingleOutputInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput.ID: %w", err)
+		return
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], sigLockedSingleOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+		return
+	}
+
+	return
+}
+
 // FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
 func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (output *SigLockedSingleOutput, err error) {
+	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = s.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SigLockedSingleOutput from MarshalUtil: %w", err)
@@ -922,6 +984,26 @@ func (s *SigLockedColoredOutput) FromObjectStorageNew(key, bytes []byte) (sigLoc
 	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
+		return
+	}
+	return
+}
+
+// FromBytes creates an SigLockedColoredOutput from sequence of bytes.
+func (s *SigLockedColoredOutput) FromBytesNew(bytes []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
+	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
+		sigLockedColoredOutput = new(SigLockedColoredOutput)
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &s.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], sigLockedColoredOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
 	}
 	return
@@ -2536,6 +2618,26 @@ func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 	}
 	return outputMetadata, err
+}
+
+// FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
+func (o *OutputMetadata) FromBytesNew(bytes []byte) (outputMetadata *OutputMetadata, err error) {
+	if outputMetadata = o; outputMetadata == nil {
+		outputMetadata = new(OutputMetadata)
+	}
+
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &outputMetadata.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], outputMetadata, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
+		return
+	}
+	return
 }
 
 // FromBytes unmarshals an OutputMetadata object from a sequence of bytes.

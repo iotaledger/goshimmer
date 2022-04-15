@@ -1,15 +1,11 @@
 package ledgerstate
 
 import (
-	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serix"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -95,34 +91,10 @@ func TestTransaction_Complex(t *testing.T) {
 	// both parties sign the transaction
 	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party2KeyChain)
 	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party1KeyChain)
-	transaction := NewTransaction(completedEssence, unlockBlocks)
+	//transaction := NewTransaction(completedEssence, unlockBlocks)
 
-	assert.Equal(t, transaction.ObjectStorageKeyOld(), transaction.ObjectStorageKey())
-	assert.Equal(t, transaction.ObjectStorageValueOld(), transaction.ObjectStorageValue())
-
-	objRestored, err := new(Transaction).FromObjectStorage(transaction.ObjectStorageKey(), transaction.ObjectStorageValue())
-	assert.NoError(t, err)
-	assert.Equal(t, transaction.ID(), objRestored.(*Transaction).ID())
-
-	assert.Equal(t, transaction.BytesOld(), transaction.Bytes())
-
-	objRestored2, err := new(Transaction).FromBytes(transaction.Bytes())
-	assert.NoError(t, err)
-	assert.Equal(t, transaction.Bytes(), objRestored2.Bytes())
-	assert.Equal(t, transaction.ID(), objRestored2.ID())
-
-	encodedObj, err := serix.DefaultAPI.Encode(context.Background(), transaction.Essence().Outputs())
-	assert.NoError(t, err)
-
-	assert.Equal(t, transaction.Essence().Outputs().Bytes(), encodedObj)
-
-	restoredObj, err := OutputsFromMarshalUtil(marshalutil.New(encodedObj))
-	assert.NoError(t, err)
-	fmt.Println(transaction.Essence().Outputs())
-
-	fmt.Println(restoredObj)
 	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
-	// assert.True(t, utxoDAG.TransactionValid(transaction))
+	//assert.True(t, utxoDAG.TransactionValid(transaction))
 }
 
 // setupKeyChainAndAddresses generates keys and addresses that are used by the test case.
