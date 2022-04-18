@@ -5,10 +5,10 @@ export enum WSMsgType {
     FutureMarkerUpdated,
     Transaction,
     TransactionBooked,
-    TransactionConfirmed,
+    TransactionGoFChanged,
     Branch,
     BranchParentsUpdate,
-    BranchConfirmed,
+    BranchGoFChanged,
     BranchWeightChanged
 }
 

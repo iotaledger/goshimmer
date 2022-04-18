@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -152,14 +153,15 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
 		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
 			wsMsg := &wsMessage{
-				Type: MsgTypeUTXOConfirmed,
-				Data: &utxoConfirmed{
-					ID:            txID.Base58(),
-					GoF:           txMetadata.GradeOfFinality().String(),
-					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
+				Type: MsgTypeUTXOGoFChanged,
+				Data: &utxoGoFChanged{
+					ID:          txID.Base58(),
+					GoF:         txMetadata.GradeOfFinality().String(),
+					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
+					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -169,7 +171,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
@@ -194,11 +196,13 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	branchConfirmedClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
+	branchGoFChangedClosure := events.NewClosure(func(branchID ledgerstate.BranchID, newGoF gof.GradeOfFinality) {
 		wsMsg := &wsMessage{
-			Type: MsgTypeBranchConfirmed,
-			Data: &branchConfirmed{
-				ID: branchID.Base58(),
+			Type: MsgTypeBranchGoFChanged,
+			Data: &branchGoFChanged{
+				ID:          branchID.Base58(),
+				GoF:         newGoF.String(),
+				IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -220,7 +224,7 @@ func registerBranchEvents() {
 	})
 
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
-	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.FinalityGadget.Events().BranchGoFChanged.Attach(branchGoFChangedClosure)
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
@@ -374,14 +378,14 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	})
 
 	ret = &utxoVertex{
-		MsgID:         msgID.Base58(),
-		ID:            tx.ID().Base58(),
-		Inputs:        inputs,
-		Outputs:       outputs,
-		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
-		BranchIDs:     branchIDs,
-		GoF:           gof,
-		ConfirmedTime: confirmedTime,
+		MsgID:       msgID.Base58(),
+		ID:          tx.ID().Base58(),
+		Inputs:      inputs,
+		Outputs:     outputs,
+		IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
+		BranchIDs:   branchIDs,
+		GoF:         gof,
+		GoFTime:     confirmedTime,
 	}
 
 	return ret

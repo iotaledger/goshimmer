@@ -127,9 +127,11 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 		opts:                 &Options{},
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
 		events: &tangle.ConfirmationEvents{
-			MessageConfirmed:     events.NewEvent(tangle.MessageIDCaller),
-			TransactionConfirmed: events.NewEvent(ledgerstate.TransactionIDEventHandler),
-			BranchConfirmed:      events.NewEvent(ledgerstate.BranchIDEventHandler),
+			MessageConfirmed:      events.NewEvent(tangle.MessageIDCaller),
+			TransactionConfirmed:  events.NewEvent(ledgerstate.TransactionIDEventHandler),
+			BranchConfirmed:       events.NewEvent(ledgerstate.BranchIDEventHandler),
+			TransactionGoFChanged: events.NewEvent(ledgerstate.TransactionIDEventHandler),
+			BranchGoFChanged:      events.NewEvent(BranchIDGoFEventHandler),
 		},
 	}
 
@@ -143,7 +145,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 	return sfg
 }
 
-// Events returns the events this gadget exposes.
+// Events returns the confirmed events this gadget exposes.
 func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 	return s.events
 }
@@ -327,6 +329,7 @@ func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw fl
 	if newGradeOfFinality >= s.opts.BranchGoFReachedLevel {
 		s.events.BranchConfirmed.Trigger(branchID)
 	}
+	s.Events().BranchGoFChanged.Trigger(branchID, newGradeOfFinality)
 
 	return err
 }
@@ -375,6 +378,7 @@ func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgers
 	if transactionMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
 		s.events.TransactionConfirmed.Trigger(transactionMetadata.ID())
 	}
+	s.Events().TransactionGoFChanged.Trigger(transactionMetadata.ID())
 }
 
 func (s *SimpleFinalityGadget) adjustOutputGoF(output ledgerstate.Output, newGradeOfFinality gof.GradeOfFinality, consumerTxs ledgerstate.TransactionIDs, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) bool {
@@ -444,6 +448,7 @@ func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOf
 			if gradeOfFinality >= s.opts.BranchGoFReachedLevel {
 				s.Events().TransactionConfirmed.Trigger(transactionID)
 			}
+			s.Events().TransactionGoFChanged.Trigger(transactionMetadata.ID())
 		})
 	})
 }
@@ -461,4 +466,9 @@ func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *le
 		}
 	}
 	return
+}
+
+// BranchIDGoFEventHandler is an event handler for an event with a BranchID and its new GoF.
+func BranchIDGoFEventHandler(handler interface{}, params ...interface{}) {
+	handler.(func(ledgerstate.BranchID, gof.GradeOfFinality))(params[0].(ledgerstate.BranchID), params[1].(gof.GradeOfFinality))
 }

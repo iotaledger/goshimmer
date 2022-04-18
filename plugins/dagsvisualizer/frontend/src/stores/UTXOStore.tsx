@@ -11,7 +11,7 @@ import {
     removeConfirmationStyle,
     updateConfirmedTransaction
 } from 'graph/cytoscape';
-import { utxoBooked, utxoConfirmed, utxoVertex } from 'models/utxo';
+import { utxoBooked, utxoGoFChanged, utxoVertex } from 'models/utxo';
 
 export class UTXOStore {
     @observable maxUTXOVertices = MAX_VERTICES;
@@ -39,15 +39,15 @@ export class UTXOStore {
         registerHandler(WSMsgType.Transaction, this.addTransaction);
         registerHandler(WSMsgType.TransactionBooked, this.setTxBranch);
         registerHandler(
-            WSMsgType.TransactionConfirmed,
-            this.transactionConfirmed
+            WSMsgType.TransactionGoFChanged,
+            this.transactionGoFChanged
         );
     }
 
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Transaction);
         unregisterHandler(WSMsgType.TransactionBooked);
-        unregisterHandler(WSMsgType.TransactionConfirmed);
+        unregisterHandler(WSMsgType.TransactionGoFChanged);
     }
 
     @action
@@ -112,26 +112,27 @@ export class UTXOStore {
         this.transactions.set(bookedTx.ID, tx);
     };
 
-    @action transactionConfirmed = (txConfirmed: utxoConfirmed) => {
-        this.setTXConfirmedTime(txConfirmed);
-        this.updateUTXO(txConfirmed);
+    @action transactionGoFChanged = (txGoF: utxoGoFChanged) => {
+        this.setTXGoFTime(txGoF);
+        this.updateUTXO(txGoF);
     };
 
     @action
-    setTXConfirmedTime = (txConfirmed: utxoConfirmed) => {
-        const tx = this.transactions.get(txConfirmed.ID);
+    setTXGoFTime = (txGoF: utxoGoFChanged) => {
+        const tx = this.transactions.get(txGoF.ID);
         if (!tx) {
             return;
         }
 
-        tx.isConfirmed = true;
-        tx.confirmedTime = txConfirmed.confirmedTime;
-        tx.gof = txConfirmed.gof;
-        this.transactions.set(txConfirmed.ID, tx);
-
-        if (this.draw) {
-            updateConfirmedTransaction(tx, this.graph);
+        if (txGoF.isConfirmed) {
+            tx.isConfirmed = true;
+        } else {
+            tx.isConfirmed = false;
         }
+
+        tx.gofTime = txGoF.gofTime;
+        tx.gof = txGoF.gof;
+        this.transactions.set(txGoF.ID, tx);
     };
 
     @action
@@ -314,8 +315,8 @@ export class UTXOStore {
         });
     }
 
-    updateUTXO(txConfirmed: utxoConfirmed) {
-        const tx = this.transactions.get(txConfirmed.ID);
+    updateUTXO(utxoGoF: utxoGoFChanged) {
+        const tx = this.transactions.get(utxoGoF.ID);
         if (tx) {
             updateConfirmedTransaction(tx, this.graph);
         }

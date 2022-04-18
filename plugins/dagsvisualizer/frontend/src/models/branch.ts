@@ -21,8 +21,10 @@ export class branchParentUpdate {
     parents: Array<string>;
 }
 
-export class branchConfirmed {
+export class branchGoFChanged {
     ID: string;
+    gof: string;
+    isConfirmed: boolean;
 }
 
 export class branchWeightChanged {
