@@ -145,7 +145,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 	return sfg
 }
 
-// Events returns the confirmed events this gadget exposes.
+// Events returns the events this gadget exposes.
 func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 	return s.events
 }
