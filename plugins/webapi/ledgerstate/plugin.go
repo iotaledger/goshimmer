@@ -92,6 +92,7 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
 	deps.Server.GET("ledgerstate/branches/:branchID/voters", GetBranchVoters)
 	deps.Server.GET("ledgerstate/branches/:branchID/sequenceids", GetBranchSequenceIDs)
+	deps.Server.GET("ledgerstate/outputs/:outputID", GetOutput)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
