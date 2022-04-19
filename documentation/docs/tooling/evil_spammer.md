@@ -166,3 +166,102 @@ evilwallet.RequestFreshBigFaucetWallet()
 evilwallet.RequestFreshBigFaucetWallets(x)
 ```
 
+### Create and send a transaction
+The evil wallet allows you to easily build a transaction by providing a list of options, such as inputs/outputs and issuer, see `evilwallet/options` for more options.
+
+There are 2 ways to assign **inputs** of a transaction:
+* alias(es)
+* unspent outputs ID(s)
+By assigning alias to an output will come in handy when you want to spend the specific output without knowing its actual output ID, and the evil wallet will handle the mapping for you.
+
+There are 2 ways to assign **outputs** of a transaction in `OutputOption`:
+```go
+type OutputOption struct {
+	aliasName string
+	color     ledgerstate.Color
+	amount    uint64
+}
+```
+* with alias
+    * if amount is not specified, all balances will be sent to provided output alias(es)
+* without alias
+    * if amount is less than the balances of input, remainder will be taken care of.
+
+The default color is `IOTA` if not specified.
+
+> :warning: You need to register an alias for the output if inputs are provided with alias and the other way around. Currently, evil wallet does not accept the mixing usage, for example, `in:alias -> out:without alias`.
+
+Examples:
+```go
+// invalid, mixing usage: in:alias -> out:without alias
+txA, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{amount: 1000000}), WithIssuer(initWallet))
+
+// valid, Create Transaction will send all balances from input to output.
+txB, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "2"}), WithIssuer(initWallet))
+
+// valid, CreateTransaction will send 1000000 to `2`, and prepare a remainder if needed.
+txC, err := evilwallet.CreateTransaction(WithInputs("1"), WithOutput(&OutputOption{aliasName: "2", amount: 1000000}), WithIssuer(initWallet))
+```
+
+To send a transaction, you need to get client(s) from the evil wallet and send it:
+```go
+clients := evilwallet.GetClients(1)
+
+clients[0].PostTransaction(txC)
+```
+
+### Compose your own scenario!
+The most exciting part of evil wallet is to create whatever scenario easily!
+
+The custom spend is constructed in `[]ConflictSlice`, here's an example of `guava`:
+```go
+err = evilwallet.SendCustomConflicts([]ConflictSlice{
+    {
+        // A
+        []Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}}), WithIssuer(wallet)},
+    },
+    {
+        // B
+        []Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4"})},
+        []Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "5"})},
+    },
+    {
+        // C
+        []Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "6"})},
+        []Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "7"})},
+    },
+    {
+        // D
+        []Option{WithInputs([]string{"5", "6"}), WithOutput(&OutputOption{aliasName: "8"})},
+    },
+})
+```
+Each element in the `ConflictSlice` (`A`, `B`, `C` and `D`) contains 1 or more `[]Option`, which is options of a transaction to create, that is `A` contains 1 transaction, and `B` contains 2 transactions, etc. Transactions are issued by order (`A` -> `B` -> `C` -> `D`), but they are issued simultaneously in the same `ConflictSlice` element in order to create double spends.
+
+Below is an runnable example to send `guava` scenario:
+```go
+evilwallet := NewEvilWallet()
+
+err, wallet := evilwallet.RequestFundsFromFaucet(WithOutputAlias("1"))
+
+err = evilwallet.SendCustomConflicts([]ConflictSlice{
+    {
+        // A
+        []Option{WithInputs("1"), WithOutputs([]*OutputOption{{aliasName: "2"}, {aliasName: "3"}}), WithIssuer(wallet)},
+    },
+    {
+        // B
+        []Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "4"})},
+        []Option{WithInputs("2"), WithOutput(&OutputOption{aliasName: "5"})},
+    },
+    {
+        // C
+        []Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "6"})},
+        []Option{WithInputs("3"), WithOutput(&OutputOption{aliasName: "7"})},
+    },
+    {
+        // D
+        []Option{WithInputs([]string{"5", "6"}), WithOutput(&OutputOption{aliasName: "8"})},
+    },
+})
+```
