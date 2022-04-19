@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -383,8 +383,8 @@ func TestDropNeighbor(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signalA := events.NewClosure(func(_ *Neighbor) { wg.Done() })
-		signalB := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalA := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
+		signalB := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
@@ -402,7 +402,7 @@ func TestDropNeighbor(t *testing.T) {
 	// close connection
 	disconnect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signal := event.NewClosure(func(_ *NeighborRemovedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
@@ -446,7 +446,7 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signal := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
@@ -567,9 +567,9 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(e.neighborAdded))
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(e.neighborRemoved))
-	e.Events().MessageReceived.Attach(events.NewClosure(e.messageReceived))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(e.neighborAdded))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(e.neighborRemoved))
+	e.Events.MessageReceived.Attach(event.NewClosure(e.messageReceived))
 
 	return e
 }
@@ -579,6 +579,6 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) neighborAdded(n *Neighbor)                { e.Called(n) }
-func (e *mockedManager) neighborRemoved(n *Neighbor)              { e.Called(n) }
-func (e *mockedManager) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }
+func (e *mockedManager) neighborAdded(event *NeighborAddedEvent)     { e.Called(event.Neighbor) }
+func (e *mockedManager) neighborRemoved(event *NeighborRemovedEvent) { e.Called(event.Neighbor) }
+func (e *mockedManager) messageReceived(event *MessageReceivedEvent) { e.Called(event) }

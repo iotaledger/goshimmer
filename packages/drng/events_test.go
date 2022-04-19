@@ -3,7 +3,7 @@ package drng
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -12,9 +12,9 @@ import (
 func TestCollectiveBeaconEvent(t *testing.T) {
 	var cbReceived *CollectiveBeaconEvent
 
-	eventTest := events.NewEvent(CollectiveBeaconReceived)
+	eventTest := event.New[*CollectiveBeaconEvent]()
 
-	eventTest.Attach(events.NewClosure(func(cb *CollectiveBeaconEvent) {
+	eventTest.Attach(event.NewClosure(func(cb *CollectiveBeaconEvent) {
 		cbReceived = cb
 	}))
 

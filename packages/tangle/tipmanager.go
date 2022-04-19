@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/timedexecutor"
@@ -120,10 +120,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tips:            randommap.New[MessageID, MessageID](),
 		tipsCleaner:     NewTimedTaskExecutor(1),
 		tipsBranchCount: make(map[branchdag.BranchID]uint),
-		Events: &TipManagerEvents{
-			TipAdded:   events.NewEvent(tipEventHandler),
-			TipRemoved: events.NewEvent(tipEventHandler),
-		},
+		Events:          newTipManagerEvents(),
 	}
 
 	if tips != nil {
@@ -135,22 +132,24 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
+	t.tangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(event *MessageDispatchedEvent) {
+		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
-	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
+	t.Events.TipRemoved.Attach(event.NewClosure(func(tipEvent *TipEvent) {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(t.deleteConfirmedBranchCount))
-
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
+	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *BranchConfirmedEvent) {
+		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 
-	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.reAddParents)
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		t.tangle.Storage.Message(event.MessageID).Consume(t.removeStrongParents)
+	}))
+
+	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(event.NewClosure(func(event *MessageReferenceImpossibleEvent) {
+		t.tangle.Storage.Message(event.MessageID).Consume(t.reAddParents)
 	}))
 }
 
@@ -659,34 +658,6 @@ func (t *TipManager) TipCount() int {
 // Shutdown stops the TipManager.
 func (t *TipManager) Shutdown() {
 	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TipManagerEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// TipManagerEvents represents events happening on the TipManager.
-type TipManagerEvents struct {
-	// Fired when a tip is added.
-	TipAdded *events.Event
-
-	// Fired when a tip is removed.
-	TipRemoved *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TipEvent /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TipEvent holds the information provided by the TipEvent event that gets triggered when a message gets added or
-// removed as tip.
-type TipEvent struct {
-	// MessageID of the added/removed tip.
-	MessageID MessageID
-}
-
-func tipEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(event *TipEvent))(params[0].(*TipEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

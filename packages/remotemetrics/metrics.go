@@ -1,27 +1,7 @@
 package remotemetrics
 
-import (
-	"sync"
+var Events *CollectionLogEvents
 
-	"github.com/iotaledger/hive.go/events"
-)
-
-var (
-	once                sync.Once
-	collectionLogEvents *CollectionLogEvents
-)
-
-func newEvents() *CollectionLogEvents {
-	return &CollectionLogEvents{
-		TangleTimeSyncChanged: events.NewEvent(SyncStatusChangedEventCaller),
-		SchedulerQuery:        events.NewEvent(TimeEventCaller),
-	}
-}
-
-// Events returns the events defined in the package.
-func Events() *CollectionLogEvents {
-	once.Do(func() {
-		collectionLogEvents = newEvents()
-	})
-	return collectionLogEvents
+func init() {
+	Events = newCollectionLogEvents()
 }

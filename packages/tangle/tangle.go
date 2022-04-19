@@ -3,6 +3,7 @@ package tangle
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -16,7 +17,6 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -69,21 +69,11 @@ type ConfirmationOracle interface {
 	Events() *ConfirmationEvents
 }
 
-// ConfirmationEvents are events entailing confirmation.
-type ConfirmationEvents struct {
-	MessageConfirmed     *events.Event
-	BranchConfirmed      *events.Event
-	TransactionConfirmed *events.Event
-}
-
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
 		dagMutex: syncutils.NewDAGMutex[MessageID](),
-		Events: &Events{
-			MessageInvalid: events.NewEvent(MessageInvalidCaller),
-			Error:          events.NewEvent(events.ErrorCaller),
-		},
+		Events:   newEvents(),
 	}
 
 	tangle.Configure(options...)
@@ -137,21 +127,21 @@ func (t *Tangle) Setup() {
 	t.TipManager.Setup()
 
 	// Enable merge to master.
-	t.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID branchdag.BranchID) {
+	t.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *BranchConfirmedEvent) {
 		if t.Options.LedgerState.MergeBranches {
-			t.Ledger.BranchDAG.SetBranchConfirmed(branchID)
+			t.Ledger.BranchDAG.SetBranchConfirmed(event.BranchID)
 		}
 	}))
 
-	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.MessageFactory.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
 
-	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.Booker.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in booker: %w", err))
 	}))
 
-	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.Scheduler.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 }
@@ -200,40 +190,6 @@ func (t *Tangle) Shutdown() {
 	if t.WeightProvider != nil {
 		t.WeightProvider.Shutdown()
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Events represents events happening in the Tangle.
-type Events struct {
-	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
-	MessageInvalid *events.Event
-
-	// Error is triggered when the Tangle faces an error from which it can not recover.
-	Error *events.Event
-}
-
-// MessageIDCaller is the caller function for events that hand over a MessageID.
-func MessageIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-// MessageCaller is the caller function for events that hand over a Message.
-func MessageCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Message))(params[0].(*Message))
-}
-
-// MessageInvalidCaller is the caller function for events that had over an invalid message.
-func MessageInvalidCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *MessageInvalidEvent))(params[0].(*MessageInvalidEvent))
-}
-
-// MessageInvalidEvent is struct that is passed along with triggering a messageInvalidEvent.
-type MessageInvalidEvent struct {
-	MessageID MessageID
-	Error     error
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

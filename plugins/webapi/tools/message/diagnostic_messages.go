@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -221,8 +223,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.ShallowDislikeParents = message.ParentsByType(tangle.ShallowDislikeParentType).Base58()
 		msgInfo.ShallowLikeParents = message.ParentsByType(tangle.ShallowLikeParentType).Base58()
 		msgInfo.PayloadType = message.Payload().Type().String()
-		if message.Payload().Type() == ledgerstate.TransactionType {
-			msgInfo.TransactionID = message.Payload().(*ledgerstate.Transaction).ID().Base58()
+		if message.Payload().Type() == devnetvm.TransactionType {
+			msgInfo.TransactionID = message.Payload().(*devnetvm.Transaction).ID().Base58()
 		}
 	})
 
@@ -231,7 +233,7 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(metadata *tangle.MessageMetadata) {
 		msgInfo.ArrivalTime = metadata.ReceivedTime()
 		msgInfo.SolidTime = metadata.SolidificationTime()
-		msgInfo.BranchIDs = branchIDs.Base58()
+		msgInfo.BranchIDs = lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58)
 		msgInfo.Scheduled = metadata.Scheduled()
 		msgInfo.ScheduledTime = metadata.ScheduledTime()
 		msgInfo.BookedTime = metadata.BookedTime()

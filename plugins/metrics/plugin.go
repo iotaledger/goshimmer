@@ -7,17 +7,17 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -132,9 +132,10 @@ func registerLocalMetrics() {
 	// // Events declared in other packages which we want to listen to here ////
 
 	// increase received MPS counter whenever we attached a message
-	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
+		messageID := event.MessageID
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			increaseReceivedMPSCounter()
 			increasePerPayloadCounter(message.Payload().Type())
@@ -147,13 +148,13 @@ func registerLocalMetrics() {
 	}))
 
 	// messages can only become solid once, then they stay like that, hence no .Dec() part
-	deps.Tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *tangle.MessageSolidEvent) {
 		increasePerComponentCounter(Solidifier)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
 		// Consume should release cachedMessageMetadata
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+		deps.Tangle.Storage.MessageMetadata(event.MessageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
 				sumTimesSinceReceived[Solidifier] += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
 			}
@@ -161,22 +162,24 @@ func registerLocalMetrics() {
 	}))
 
 	// fired when a message gets added to missing message storage
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId tangle.MessageID) {
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(_ *tangle.MessageMissingEvent) {
 		missingMessageCountDB.Inc()
 		solidificationRequests.Inc()
 	}))
 
 	// fired when a missing message was received and removed from missing message storage
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(tangle.MessageID) {
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(_ *tangle.MissingMessageStoredEvent) {
 		missingMessageCountDB.Dec()
 	}))
 
-	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
 		increasePerComponentCounter(Scheduler)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 		schedulerTimeMutex.Lock()
 		defer schedulerTimeMutex.Unlock()
+
+		messageID := event.MessageID
 		// Consume should release cachedMessageMetadata
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.Scheduled() {
@@ -190,11 +193,12 @@ func registerLocalMetrics() {
 		})
 	}))
 
-	deps.Tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *tangle.MessageBookedEvent) {
 		increasePerComponentCounter(Booker)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsBooked() {
 				sumTimesSinceReceived[Booker] += msgMetaData.BookedTime().Sub(msgMetaData.ReceivedTime())
@@ -205,11 +209,12 @@ func registerLocalMetrics() {
 		})
 	}))
 
-	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
 		increasePerComponentCounter(SchedulerDropped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			sumTimesSinceReceived[SchedulerDropped] += clock.Since(msgMetaData.ReceivedTime())
 			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -218,11 +223,12 @@ func registerLocalMetrics() {
 		})
 	}))
 
-	deps.Tangle.Scheduler.Events.MessageSkipped.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.Scheduler.Events.MessageSkipped.Attach(event.NewClosure(func(event *tangle.MessageSkippedEvent) {
 		increasePerComponentCounter(SchedulerSkipped)
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
 
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			sumTimesSinceReceived[SchedulerSkipped] += clock.Since(msgMetaData.ReceivedTime())
 			deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
@@ -231,9 +237,10 @@ func registerLocalMetrics() {
 		})
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		messageType := DataMessage
-		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ ledgerstate.TransactionID) {
+		messageID := event.MessageID
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ utxo.TransactionID) {
 			messageType = Transaction
 		})
 		messageFinalizationTotalTimeMutex.Lock()
@@ -254,17 +261,19 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
+
+		branchID := event.BranchID
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}
-		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID.TransactionID())
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(utxo.TransactionID(branchID))
 		if err != nil {
 			return
 		}
-		deps.Tangle.LedgerstateOLD.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
 			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 				delete(activeBranches, conflictingBranchID)
@@ -278,23 +287,25 @@ func registerLocalMetrics() {
 		delete(activeBranches, branchID)
 	}))
 
-	deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *branchdag.BranchCreatedEvent) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
+
+		branchID := event.BranchID
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
 			activeBranches[branchID] = types.Void
 		}
 	}))
 
-	metrics.Events().AnalysisOutboundBytes.Attach(events.NewClosure(func(amountBytes uint64) {
-		analysisOutboundBytes.Add(amountBytes)
+	metrics.Events.AnalysisOutboundBytes.Attach(event.NewClosure(func(event *metrics.AnalysisOutboundBytesEvent) {
+		analysisOutboundBytes.Add(event.AmountBytes)
 	}))
-	metrics.Events().CPUUsage.Attach(events.NewClosure(func(cpuPercent float64) {
-		cpuUsage.Store(cpuPercent)
+	metrics.Events.CPUUsage.Attach(event.NewClosure(func(evnet *metrics.CPUUsageEvent) {
+		cpuUsage.Store(evnet.CPUPercent)
 	}))
-	metrics.Events().MemUsage.Attach(events.NewClosure(func(memAllocBytes uint64) {
-		memUsageBytes.Store(memAllocBytes)
+	metrics.Events.MemUsage.Attach(event.NewClosure(func(event *metrics.MemUsageEvent) {
+		memUsageBytes.Store(event.MemAllocBytes)
 	}))
 
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborRemoved.Attach(onNeighborRemoved)
@@ -306,7 +317,7 @@ func registerLocalMetrics() {
 	}
 
 	// mana pledge events
-	mana.Events().Pledged.Attach(events.NewClosure(func(ev *mana.PledgedEvent) {
+	mana.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
 	}))
 }

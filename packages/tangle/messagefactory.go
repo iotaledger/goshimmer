@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
@@ -45,12 +44,7 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc Refe
 	}
 
 	return &MessageFactory{
-		Events: &MessageFactoryEvents{
-			MessageConstructed:         events.NewEvent(messageEventHandler),
-			MessageReferenceImpossible: events.NewEvent(MessageIDCaller),
-			Error:                      events.NewEvent(events.ErrorCaller),
-		},
-
+		Events:         NewMessageFactoryEvents(),
 		tangle:         tangle,
 		sequence:       sequence,
 		localIdentity:  tangle.Options.Identity,
@@ -130,7 +124,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 			references, referenceNotPossible, err = f.referencesFunc(strongParents, issuingTime, f.tangle)
 			for m := range referenceNotPossible {
 				f.Events.Error.Trigger(errors.Errorf("References for %s could not be determined", m))
-				f.Events.MessageReferenceImpossible.Trigger(m)
+				f.Events.MessageReferenceImpossible.Trigger(&MessageReferenceImpossibleEvent{m})
 			}
 			if err != nil {
 				err = errors.Errorf("references could not be prepared: %w", err)
@@ -170,7 +164,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	f.Events.MessageConstructed.Trigger(msg)
+	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
 	return msg, nil
 }
 
@@ -258,26 +252,6 @@ func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
 	return f.localIdentity.Sign(dummyBytes[:contentLength]), nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageFactoryEvents represents events happening on a message factory.
-type MessageFactoryEvents struct {
-	// Fired when a message is built including tips, sequence number and other metadata.
-	MessageConstructed *events.Event
-
-	// MessageReferenceImpossible is fired when references for a message can't be constructed and the message can never become a parent.
-	MessageReferenceImpossible *events.Event
-
-	// Fired when an error occurred.
-	Error *events.Event
-}
-
-func messageEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*Message))(params[0].(*Message))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

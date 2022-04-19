@@ -3,7 +3,7 @@ package finality
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -66,9 +66,9 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget) {
-	fg.Events().MessageConfirmed.Attach(events.NewClosure(handler.MessageConfirmed))
-	fg.Events().BranchConfirmed.Attach(events.NewClosure(handler.BranchConfirmed))
-	fg.Events().TransactionConfirmed.Attach(events.NewClosure(handler.TransactionConfirmed))
+	fg.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
+	fg.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	fg.Events().TransactionConfirmed.Attach(event.NewClosure(func(event *tangle.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
@@ -501,12 +501,12 @@ func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework,
 }
 
 func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
-	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		if err := fg.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}

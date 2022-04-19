@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -28,8 +28,8 @@ func configureLiveFeed() {
 }
 
 func runLiveFeed() {
-	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			liveFeedWorkerPool.TrySubmit(message)
 		})
 	})

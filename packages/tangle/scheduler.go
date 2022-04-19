@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/typeutils"
 	"go.uber.org/atomic"
@@ -77,13 +77,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
 
 	return &Scheduler{
-		Events: &SchedulerEvents{
-			MessageScheduled: events.NewEvent(MessageIDCaller),
-			MessageDiscarded: events.NewEvent(MessageIDCaller),
-			MessageSkipped:   events.NewEvent(MessageIDCaller),
-			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
-			Error:            events.NewEvent(events.ErrorCaller),
-		},
+		Events:                NewSchedulerEvents(),
 		tangle:                tangle,
 		accessManaCache:       accessManaCache,
 		rate:                  atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
@@ -122,16 +116,18 @@ func (s *Scheduler) Shutdown() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
 	// pass booked messages to the scheduler
-	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		if err := s.Submit(messageID); err != nil {
+	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *MessageProcessedEvent) {
+		if err := s.Submit(event.MessageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
-		s.tryReady(messageID)
+		s.tryReady(event.MessageID)
 	}))
 
-	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(s.updateApprovers))
+	s.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		s.updateApprovers(event.MessageID)
+	}))
 
 	onMessageConfirmed := func(messageID MessageID) {
 		var scheduled bool
@@ -147,12 +143,14 @@ func (s *Scheduler) Setup() {
 				if err != nil {
 					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
 				}
-				s.Events.MessageSkipped.Trigger(messageID)
+				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{messageID})
 			}
 		})
 		s.updateApprovers(messageID)
 	}
-	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
+	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		onMessageConfirmed(event.MessageID)
+	}))
 
 	s.Start()
 }
@@ -305,7 +303,7 @@ func (s *Scheduler) Clear() {
 			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				messageMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
-			s.Events.MessageDiscarded.Trigger(messageID)
+			s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{messageID})
 		}
 	}
 }
@@ -366,7 +364,7 @@ func (s *Scheduler) submit(message *Message) error {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
-		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
+		s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{MessageID(droppedMsgID)})
 	}
 	return nil
 }
@@ -406,7 +404,7 @@ func (s *Scheduler) schedule() *Message {
 			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
 				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
-				s.Events.MessageSkipped.Trigger(msgID)
+				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{msgID})
 				s.buffer.PopFront()
 				msg = q.Front()
 			} else {
@@ -500,7 +498,7 @@ loop:
 			if msg := s.schedule(); msg != nil {
 				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.SetScheduled(true) {
-						s.Events.MessageScheduled.Trigger(msg.ID())
+						s.Events.MessageScheduled.Trigger(&MessageScheduledEvent{msg.ID()})
 					}
 				})
 			}
@@ -526,27 +524,6 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SchedulerEvents represents events happening in the Scheduler.
-type SchedulerEvents struct {
-	// MessageScheduled is triggered when a message is ready to be scheduled.
-	MessageScheduled *events.Event
-	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
-	MessageDiscarded *events.Event
-	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
-	MessageSkipped  *events.Event
-	NodeBlacklisted *events.Event
-	Error           *events.Event
-}
-
-// NodeIDCaller is the caller function for events that hand over a NodeID.
-func NodeIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(identity.ID))(params[0].(identity.ID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -18,11 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -170,7 +170,7 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
-func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
+func AddressUnspentOutputs(t *testing.T, node *framework.Node, address devnetvm.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
 	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", node, address.Base58())
 	require.Lenf(t, resp.UnspentOutputs, numOfExpectedOuts, "invalid response")
@@ -180,7 +180,7 @@ func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgersta
 }
 
 // Balance returns the total balance of color at address.
-func Balance(t *testing.T, node *framework.Node, address ledgerstate.Address, color ledgerstate.Color) uint64 {
+func Balance(t *testing.T, node *framework.Node, address devnetvm.Address, color devnetvm.Color) uint64 {
 	unspentOutputs := AddressUnspentOutputs(t, node, address, 1)
 
 	var sum uint64
@@ -195,7 +195,7 @@ func Balance(t *testing.T, node *framework.Node, address ledgerstate.Address, co
 
 // SendFaucetRequest sends a data message on a given peer and returns the id and a DataMessageSent struct. By default,
 // it pledges mana to the peer making the request.
-func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
+func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address, manaPledgeIDs ...string) (string, DataMessageSent) {
 	nodeID := base58.Encode(node.ID().Bytes())
 	aManaPledgeID, cManaPledgeID := nodeID, nodeID
 	if len(manaPledgeIDs) > 1 {
@@ -222,12 +222,12 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 // CreateTransactionFromOutputs takes the given utxos inputs and create a transaction that spreads the total input balance
 // across the targetAddresses. In order to correctly sign we have a keyPair map that maps a given address to its public key.
 // Access and Consensus Mana is pledged to the node we specify.
-func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
+func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []devnetvm.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...devnetvm.OutputEssence) *devnetvm.Transaction {
 	// Create Inputs from utxos
-	inputs := ledgerstate.Inputs{}
-	balances := map[ledgerstate.Color]uint64{}
+	inputs := devnetvm.Inputs{}
+	balances := map[devnetvm.Color]uint64{}
 	for _, output := range utxos {
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			balances[color] += balance
 			return true
 		})
@@ -236,9 +236,9 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 
 	// create outputs for each target address
 	numberOfOutputs := len(targetAddresses)
-	outputs := make(ledgerstate.Outputs, numberOfOutputs)
+	outputs := make(devnetvm.Outputs, numberOfOutputs)
 	for i := 0; i < numberOfOutputs; i++ {
-		outBalances := map[ledgerstate.Color]uint64{}
+		outBalances := map[devnetvm.Color]uint64{}
 		for color, balance := range balances {
 			// divide by number of outputs to spread funds evenly
 			outBalances[color] = balance / uint64(numberOfOutputs)
@@ -247,25 +247,25 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 				outBalances[color] += balance % uint64(numberOfOutputs)
 			}
 		}
-		outputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), targetAddresses[i])
+		outputs[i] = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(outBalances), targetAddresses[i])
 	}
 
 	// create tx essence
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), manaPledgeID,
-		manaPledgeID, inputs, ledgerstate.NewOutputs(outputs...))
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), manaPledgeID,
+		manaPledgeID, inputs, devnetvm.NewOutputs(outputs...))
 
 	// create signatures
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
+	unlockBlocks := make([]devnetvm.UnlockBlock, len(inputs))
 
 	for i := 0; i < len(inputs); i++ {
 		addressKey := utxos[i].Address().String()
 		keyPair := keyPairs[addressKey]
 		require.NotNilf(t, keyPair, "missing key pair for address %s", addressKey)
-		sig := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
+		sig := devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
+		unlockBlocks[i] = devnetvm.NewSignatureUnlockBlock(sig)
 	}
 
-	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
+	return devnetvm.NewTransaction(txEssence, unlockBlocks)
 }
 
 // endregion
@@ -324,7 +324,7 @@ func SendDataMessagesWithDelay(t *testing.T, peers []*framework.Node, numMessage
 
 // SendTransaction sends a transaction of value and color. It returns the transactionID and the error return by PostTransaction.
 // If addrBalance is given the balance mutation are added to that map.
-func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, color ledgerstate.Color, value uint64, txConfig TransactionConfig, addrBalance ...map[string]map[ledgerstate.Color]uint64) (string, error) {
+func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, color devnetvm.Color, value uint64, txConfig TransactionConfig, addrBalance ...map[string]map[devnetvm.Color]uint64) (string, error) {
 	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
@@ -332,8 +332,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	require.NotEmptyf(t, unspentOutputs, "address=%s, no unspent outputs", inputAddr.Base58())
 
 	inputColor := color
-	if color == ledgerstate.ColorMint {
-		inputColor = ledgerstate.ColorIOTA
+	if color == devnetvm.ColorMint {
+		inputColor = devnetvm.ColorIOTA
 	}
 	balance := Balance(t, from, inputAddr, inputColor)
 	require.GreaterOrEqualf(t, balance, value, "address=%s, insufficient balance", inputAddr.Base58())
@@ -341,29 +341,29 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	out, err := unspentOutputs[0].Output.ToLedgerstateOutput()
 	require.NoError(t, err)
 
-	input := ledgerstate.NewUTXOInput(out.ID())
+	input := devnetvm.NewUTXOInput(out.ID())
 
-	var outputs ledgerstate.Outputs
-	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+	var outputs devnetvm.Outputs
+	output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 		color: value,
 	}), outputAddr)
 	outputs = append(outputs, output)
 
 	// handle remainder address
 	if balance > value {
-		output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+		output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 			inputColor: balance - value,
 		}), inputAddr)
 		outputs = append(outputs, output)
 	}
 
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID, ledgerstate.NewInputs(input), ledgerstate.NewOutputs(outputs...))
-	sig := ledgerstate.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
-	txn := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID, devnetvm.NewInputs(input), devnetvm.NewOutputs(outputs...))
+	sig := devnetvm.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
+	txn := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 
 	outputColor := color
-	if color == ledgerstate.ColorMint {
+	if color == devnetvm.ColorMint {
 		mintOutput := txn.Essence().Outputs()[OutputIndex(txn, outputAddr)]
 		outputColor = blake2b.Sum256(mintOutput.ID().Bytes())
 	}
@@ -376,11 +376,11 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 
 	if len(addrBalance) > 0 {
 		if addrBalance[0][inputAddr.Base58()] == nil {
-			addrBalance[0][inputAddr.Base58()] = make(map[ledgerstate.Color]uint64)
+			addrBalance[0][inputAddr.Base58()] = make(map[devnetvm.Color]uint64)
 		}
 		addrBalance[0][inputAddr.Base58()][inputColor] -= value
 		if addrBalance[0][outputAddr.Base58()] == nil {
-			addrBalance[0][outputAddr.Base58()] = make(map[ledgerstate.Color]uint64)
+			addrBalance[0][outputAddr.Base58()] = make(map[devnetvm.Color]uint64)
 		}
 		addrBalance[0][outputAddr.Base58()][outputColor] += value
 	}
@@ -458,14 +458,14 @@ func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID ma
 }
 
 // ExpectedAddrsBalances is a map of base58 encoded addresses to the balances they should hold.
-type ExpectedAddrsBalances map[string]map[ledgerstate.Color]uint64
+type ExpectedAddrsBalances map[string]map[devnetvm.Color]uint64
 
 // RequireBalancesEqual asserts that all nodes report the balances as specified in balancesByAddress.
-func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddress map[string]map[ledgerstate.Color]uint64) {
+func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddress map[string]map[devnetvm.Color]uint64) {
 	for _, node := range nodes {
 		for addrString, balances := range balancesByAddress {
 			for color, balance := range balances {
-				addr, err := ledgerstate.AddressFromBase58EncodedString(addrString)
+				addr, err := devnetvm.AddressFromBase58EncodedString(addrString)
 				require.NoErrorf(t, err, "invalid address string: %s", addrString)
 				require.Equalf(t, balance, Balance(t, node, addr, color),
 					"balance for color '%s' on address '%s' (node='%s') does not match", color, addr.Base58(), node)
@@ -475,7 +475,7 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 }
 
 // RequireNoUnspentOutputs asserts that on all node the given addresses do not have any unspent outputs.
-func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...ledgerstate.Address) {
+func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...devnetvm.Address) {
 	for _, node := range nodes {
 		for _, addr := range addresses {
 			unspent := AddressUnspentOutputs(t, node, addr, 1)
@@ -584,7 +584,7 @@ func ShutdownNetwork(ctx context.Context, t *testing.T, n interface{ Shutdown(co
 }
 
 // OutputIndex returns the index of the first output to address.
-func OutputIndex(transaction *ledgerstate.Transaction, address ledgerstate.Address) int {
+func OutputIndex(transaction *devnetvm.Transaction, address devnetvm.Address) int {
 	for i, output := range transaction.Essence().Outputs() {
 		if output.Address().Equals(address) {
 			return i
@@ -722,7 +722,7 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 
 // TryConfirmBranch tries to confirm the given branch in the duration specified.
 func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
-	if branchID == ledgerstate.MasterBranchID.Base58() {
+	if branchID == branchdag.MasterBranchID.Base58() {
 		return
 	}
 
@@ -759,7 +759,7 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 		default:
 			var parentMessageIDs []jsonmodels.ParentMessageIDs
 			if ID, err := tangle.NewMessageID(tip.ID); err == nil {
-				if tip.PayloadType == ledgerstate.TransactionType.String() {
+				if tip.PayloadType == devnetvm.TransactionType.String() {
 					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
 						Type:       uint8(tangle.ShallowLikeParentType),
 						MessageIDs: []string{ID.Base58()},

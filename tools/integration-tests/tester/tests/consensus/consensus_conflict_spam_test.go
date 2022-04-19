@@ -10,7 +10,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -63,10 +64,10 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)
 
 	require.Eventually(t, func() bool {
-		return tests.Balance(t, peer1, fundingAddress, ledgerstate.ColorIOTA) >= uint64(tokensPerRequest)
+		return tests.Balance(t, peer1, fundingAddress, devnetvm.ColorIOTA) >= uint64(tokensPerRequest)
 	}, tests.Timeout, tests.Tick)
 
-	addresses := make([]ledgerstate.Address, splits)
+	addresses := make([]devnetvm.Address, splits)
 	keyPairs := make(map[string]*ed25519.KeyPair, splits)
 	for i := 0; i < splits; i++ {
 		address := peer1.Address(i)
@@ -81,7 +82,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	// slice should have enough conflicting outputs for the number of loop repetition
 	pairwiseOutputs := outputs[:conflictRepetitions*numberOfConflictingOutputs]
 	tripletOutputs := outputs[len(pairwiseOutputs):]
-	txs := make([]*ledgerstate.Transaction, 0)
+	txs := make([]*devnetvm.Transaction, 0)
 	for i := 0; i < conflictRepetitions; i++ {
 		txs = append(txs, sendPairWiseConflicts(t, n.Peers(), determineOutputSlice(pairwiseOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
@@ -98,16 +99,16 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterBranch", msgID)
 	messageMetadata, err := peer1.GetMessageMetadata(msgID)
 	require.NoError(t, err)
-	require.Equal(t, []string{ledgerstate.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
+	require.Equal(t, []string{branchdag.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
 // For each increment of i it will take the next sub-slice so there would be no overlaps with previous sub-slices.
-func determineOutputSlice(outputs ledgerstate.Outputs, i int, size int) ledgerstate.Outputs {
+func determineOutputSlice(outputs devnetvm.Outputs, i int, size int) devnetvm.Outputs {
 	return outputs[i*size : i*size+size]
 }
 
-func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*ledgerstate.Transaction) {
+func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*devnetvm.Transaction) {
 	const unknownGoF = 10
 	for _, tx := range txs {
 		// current value signifies that we don't know what is the previous gof
@@ -135,8 +136,8 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*le
 // sendPairWiseConflicts receives a list of outputs controlled by a peer with certain peer index.
 // It send them all to addresses controlled by the next peer, but it does so several time to create pairwise conflicts.
 // The conflicts are TX_B<->TX_A<->TX_C
-func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*ledgerstate.Transaction {
+func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
+	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
 
 	t.Logf("send pairwise conflicts on iteration %d", iteration)
 	peerIndex := (iteration + 1) % len(peers)
@@ -149,13 +150,13 @@ func sendPairWiseConflicts(t *testing.T, peers []*framework.Node, outputs ledger
 	tx3 := tests.CreateTransactionFromOutputs(t, peers[2].ID(), targetAddresses, keyPairs, outputs[2])
 	postTransactions(t, peers, peerIndex, "pairwise conflicts", tx1, tx2, tx3)
 
-	return []*ledgerstate.Transaction{tx1, tx2, tx3}
+	return []*devnetvm.Transaction{tx1, tx2, tx3}
 }
 
 // Creates conflicts as so
 // TX_A<->TX_B TX_B<->TX_C TX_C<->TX_A
-func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerstate.Outputs,
-	keyPairs map[string]*ed25519.KeyPair, iteration int) []*ledgerstate.Transaction {
+func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm.Outputs,
+	keyPairs map[string]*ed25519.KeyPair, iteration int) []*devnetvm.Transaction {
 	t.Logf("send triple conflicts on iteration %d", iteration)
 
 	peerIndex := (iteration + 1) % len(peers)
@@ -168,10 +169,10 @@ func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs ledgerst
 	tx3 := tests.CreateTransactionFromOutputs(t, peers[2].ID(), targetAddresses, keyPairs, outputs[1], outputs[2])
 	postTransactions(t, peers, peerIndex, "triplet conflicts", tx1, tx2, tx3)
 
-	return []*ledgerstate.Transaction{tx1, tx2, tx3}
+	return []*devnetvm.Transaction{tx1, tx2, tx3}
 }
 
-func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*ledgerstate.Transaction) {
+func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*devnetvm.Transaction) {
 	for i, tx := range txs {
 		newPeerIndex := (peerIndex + i) % len(peers)
 		resp, err := peers[newPeerIndex].PostTransaction(tx.Bytes())
@@ -184,10 +185,10 @@ func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 	}
 }
 
-func determineTargets(peers []*framework.Node, index int) []ledgerstate.Address {
+func determineTargets(peers []*framework.Node, index int) []devnetvm.Address {
 	targetIndex := (index + 1) % len(peers)
 	targetPeer := peers[targetIndex]
-	targetAddresses := make([]ledgerstate.Address, 0)
+	targetAddresses := make([]devnetvm.Address, 0)
 
 	for i := index * numberOfConflictingOutputs; i < index*numberOfConflictingOutputs+numberOfConflictingOutputs; i++ {
 		targetAddress := targetPeer.Address(i)
@@ -196,8 +197,8 @@ func determineTargets(peers []*framework.Node, index int) []ledgerstate.Address 
 	return targetAddresses
 }
 
-func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...ledgerstate.Address) ledgerstate.Outputs {
-	outputs := ledgerstate.Outputs{}
+func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...devnetvm.Address) devnetvm.Outputs {
+	outputs := devnetvm.Outputs{}
 	for _, address := range addresses {
 		walletOutputs := tests.AddressUnspentOutputs(t, node, address, 1)
 		for _, walletOutput := range walletOutputs {
@@ -210,7 +211,7 @@ func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...led
 	return outputs
 }
 
-func splitToAddresses(t *testing.T, node *framework.Node, output ledgerstate.Output, keyPairs map[string]*ed25519.KeyPair, addresses ...ledgerstate.Address) ledgerstate.Outputs {
+func splitToAddresses(t *testing.T, node *framework.Node, output devnetvm.OutputEssence, keyPairs map[string]*ed25519.KeyPair, addresses ...devnetvm.Address) devnetvm.Outputs {
 	transaction := tests.CreateTransactionFromOutputs(t, node.ID(), addresses, keyPairs, output)
 	_, err := node.PostTransaction(transaction.Bytes())
 	require.NoError(t, err, "Error occured while trying to split addresses")

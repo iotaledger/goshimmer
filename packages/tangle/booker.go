@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
@@ -35,12 +34,7 @@ type Booker struct {
 // NewBooker is the constructor of a Booker.
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
-		Events: &BookerEvents{
-			MessageBooked:        events.NewEvent(MessageIDCaller),
-			MarkerBranchAdded:    events.NewEvent(markerBranchUpdatedCaller),
-			MessageBranchUpdated: events.NewEvent(messageBranchUpdatedCaller),
-			Error:                events.NewEvent(events.ErrorCaller),
-		},
+		Events:         NewBookerEvents(),
 		tangle:         tangle,
 		MarkersManager: NewBranchMarkersMapper(tangle),
 	}
@@ -50,14 +44,16 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(b.bookPayload))
+	b.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) { b.bookPayload(event.MessageID) }))
 	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
 		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
 	}))
-	b.tangle.Booker.Events.MessageBooked.Attach(events.NewClosure(b.propagateBooking))
+	b.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
+		b.propagateBooking(event.MessageID)
+	}))
 
-	b.tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID MessageID) {
-		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+	b.tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *MessageDiscardedEvent) {
+		b.tangle.Storage.Message(event.MessageID).Consume(func(message *Message) {
 			nodeID := identity.NewID(message.IssuerPublicKey())
 			b.MarkersManager.discardedNodes[nodeID] = time.Now()
 		})
@@ -237,7 +233,7 @@ func (b *Booker) BookMessage(message *Message, messageMetadata *MessageMetadata)
 
 	messageMetadata.SetBooked(true)
 
-	b.Events.MessageBooked.Trigger(message.ID())
+	b.Events.MessageBooked.Trigger(&MessageBookedEvent{message.ID()})
 
 	return
 }
@@ -546,7 +542,10 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedB
 			return
 		}
 
-		b.Events.MessageBranchUpdated.Trigger(messageMetadata.ID(), forkedBranchID)
+		b.Events.MessageBranchUpdated.Trigger(&MessageBranchUpdatedEvent{
+			MessageID: messageMetadata.ID(),
+			BranchID:  forkedBranchID,
+		})
 
 		for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
 			messageWalker.Push(approvingMessageID)
@@ -590,7 +589,11 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID bra
 	}
 
 	// trigger event
-	b.Events.MarkerBranchAdded.Trigger(currentMarker, oldBranchIDs, newBranchID)
+	b.Events.MarkerBranchAdded.Trigger(&MarkerBranchAddedEvent{
+		Marker:       currentMarker,
+		OldBranchIDs: oldBranchIDs,
+		NewBranchID:  newBranchID,
+	})
 
 	// propagate updates to later BranchID mappings of the same sequence.
 	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ branchdag.BranchIDs) {
@@ -603,35 +606,6 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID bra
 	})
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BookerEvents /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// BookerEvents represents events happening in the Booker.
-type BookerEvents struct {
-	// MessageBooked is triggered when a Message was booked (it's Branch, and it's Payload's Branch were determined).
-	MessageBooked *events.Event
-
-	// MessageBranchUpdated is triggered when the BranchID of a Message is changed in its MessageMetadata.
-	MessageBranchUpdated *events.Event
-
-	// MarkerBranchAdded is triggered when a Marker is mapped to a new BranchID.
-	MarkerBranchAdded *events.Event
-
-	// Error gets triggered when the Booker faces an unexpected error.
-	Error *events.Event
-}
-
-func markerBranchUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(marker *markers.Marker, oldBranchID branchdag.BranchIDs, newBranchID branchdag.BranchID))(params[0].(*markers.Marker), params[1].(branchdag.BranchIDs), params[2].(branchdag.BranchID))
-}
-
-func messageBranchUpdatedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(messageID MessageID, newBranchID branchdag.BranchID))(params[0].(MessageID), params[1].(branchdag.BranchID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

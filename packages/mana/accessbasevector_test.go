@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -134,13 +134,13 @@ func TestAccessBaseManaVector_Book(t *testing.T) {
 	)
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Attach(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
-	Events().Revoked.Attach(events.NewClosure(func(ev *RevokedEvent) {
+	Events.Revoked.Attach(event.NewClosure(func(ev *RevokedEvent) {
 		revokeEvents = append(revokeEvents, ev)
 	}))
-	Events().Pledged.Attach(events.NewClosure(func(ev *PledgedEvent) {
+	Events.Pledged.Attach(event.NewClosure(func(ev *PledgedEvent) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
@@ -301,7 +301,7 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Attach(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -337,7 +337,7 @@ func TestAccessBaseManaVector_UpdateError(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Attach(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -370,7 +370,7 @@ func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Attach(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 

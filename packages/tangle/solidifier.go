@@ -3,7 +3,7 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
@@ -27,11 +27,7 @@ type Solidifier struct {
 // NewSolidifier is the constructor of the Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
-		Events: &SolidifierEvents{
-			MessageSolid:   events.NewEvent(MessageIDCaller),
-			MessageMissing: events.NewEvent(MessageIDCaller),
-		},
-
+		Events: newSolidifierEvents(),
 		tangle: tangle,
 	}
 
@@ -40,8 +36,12 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
-	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
-	s.Events.MessageSolid.Attach(events.NewClosure(s.processApprovers))
+	s.tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
+		s.Solidify(event.MessageID)
+	}))
+	s.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		s.processApprovers(event.MessageID)
+	}))
 }
 
 // Solidify solidifies the given Message.
@@ -67,7 +67,7 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 			cachedMissingMessage.Release()
 
 			messageWasMissing = true
-			s.Events.MessageMissing.Trigger(messageID)
+			s.Events.MessageMissing.Trigger(&MessageMissingEvent{messageID})
 		}
 
 		return nil
@@ -96,8 +96,8 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 	if !messageMetadata.SetSolid(true) {
 		return
 	}
-	
-	s.Events.MessageSolid.Trigger(message.ID())
+
+	s.Events.MessageSolid.Trigger(&MessageSolidEvent{message.ID()})
 }
 
 // isMessageSolid checks if the given Message is solid.
@@ -172,19 +172,6 @@ func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessag
 	})
 
 	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SolidifierEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SolidifierEvents represents events happening in the Solidifier.
-type SolidifierEvents struct {
-	// MessageSolid is triggered when a message becomes solid, i.e. its past cone is known and solid.
-	MessageSolid *events.Event
-
-	// MessageMissing is triggered when a message references an unknown parent Message.
-	MessageMissing *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -8,9 +8,11 @@ import (
 
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
@@ -31,9 +33,9 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.LedgerstateOLD.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch) {
 		switch branch.ID() {
-		case ledgerstate.MasterBranchID:
+		case branchdag.MasterBranchID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
@@ -68,23 +70,23 @@ type DiagnosticBranchInfo struct {
 	GradeOfFinality   gof.GradeOfFinality
 }
 
-func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
+func getDiagnosticConflictsInfo(branchID branchdag.BranchID) DiagnosticBranchInfo {
 	conflictInfo := DiagnosticBranchInfo{
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.LedgerstateOLD.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerstateOLD.UTXODAG.BranchGradeOfFinality(branch.ID())
+	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
-		transactionID := ledgerstate.TransactionID(branchID)
+		transactionID := utxo.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = deps.Tangle.LedgerstateOLD.ConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictSet(transactionID).Base58s()
 
-		deps.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
+		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
+			conflictInfo.IssuanceTimestamp = transaction.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
 		})
 
-		deps.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
 			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
 		})

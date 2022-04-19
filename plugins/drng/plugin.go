@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
@@ -37,8 +37,8 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	inbox = make(chan tangle.MessageID, inboxSize)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(configureDRNG); err != nil {
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -93,9 +93,9 @@ func configureEvents() {
 		return
 	}
 
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
 		select {
-		case inbox <- messageID:
+		case inbox <- event.MessageID:
 		default:
 		}
 	}))

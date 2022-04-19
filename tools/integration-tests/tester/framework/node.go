@@ -9,11 +9,11 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 // Nodes is a slice of Node(s).
@@ -63,7 +63,7 @@ func (n *Node) Config() config.GoShimmer {
 }
 
 // Address returns the idx-th address of the wallet corresponding to the node.
-func (n *Node) Address(idx int) ledgerstate.Address {
+func (n *Node) Address(idx int) devnetvm.Address {
 	if idx < 0 {
 		panic("invalid index")
 	}

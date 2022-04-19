@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -127,7 +127,7 @@ func worker(ctx context.Context) {
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
-	notifyStatus := events.NewClosure(func(mps uint64) { wsSendWorkerPool.TrySubmit(mps) })
+	notifyStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.MPS) })
 	metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 

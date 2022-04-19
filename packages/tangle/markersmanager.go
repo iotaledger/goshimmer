@@ -3,7 +3,6 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
@@ -30,9 +29,7 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 		tangle:         tangle,
 		discardedNodes: make(map[identity.ID]time.Time),
 		Manager:        markers.NewManager(markers.WithStore(tangle.Options.Store)),
-		Events: &BranchMarkersMapperEvents{
-			FutureMarkerUpdated: events.NewEvent(futureMarkerUpdateEventCaller),
-		},
+		Events:         newBranchMarkersMapperEvents(),
 	}
 
 	// Always set Genesis to MasterBranch.
@@ -180,7 +177,7 @@ func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInh
 		if updated {
 			messageMetadata.SetModified(true)
 
-			b.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdate{
+			b.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdateEvent{
 				ID:           messageMetadata.ID(),
 				FutureMarker: b.MessageID(pastMarkerToInherit),
 			})
@@ -198,22 +195,6 @@ func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInh
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.
 func increaseMarkersIndexCallbackStrategy(markers.SequenceID, markers.Index) bool {
 	return true
-}
-
-// BranchMarkersMapperEvents represents events happening in the BranchMarkersMapper.
-type BranchMarkersMapperEvents struct {
-	// FutureMarkerUpdated is triggered when a message's future marker is updated.
-	FutureMarkerUpdated *events.Event
-}
-
-// FutureMarkerUpdate contains the messageID of the future marker of a message.
-type FutureMarkerUpdate struct {
-	ID           MessageID
-	FutureMarker MessageID
-}
-
-func futureMarkerUpdateEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(fmUpdate *FutureMarkerUpdate))(params[0].(*FutureMarkerUpdate))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

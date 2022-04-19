@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -49,7 +49,7 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	// attach to event and count
 	countEvents := uint64(0)
-	tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
+	tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(_ *MessageConstructedEvent) {
 		atomic.AddUint64(&countEvents, 1)
 	}))
 
@@ -167,7 +167,7 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	tangle.Setup()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Logf("Error fired: %v", err)
 	}))
 
@@ -220,7 +220,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	tangle.Setup()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Logf("Error fired: %v", err)
 	}))
 
@@ -327,7 +327,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	tangle.Setup()
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Logf("Error fired: %v", err)
 	}))
 

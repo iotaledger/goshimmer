@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	faucetplugin "github.com/iotaledger/goshimmer/plugins/faucet"
 	webapiledgerstate "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -113,7 +113,7 @@ func TestManaPledgeFilter(t *testing.T) {
 
 	var faucetStartAddress uint64 = faucetplugin.MaxFaucetOutputsCount + 1
 	// pledge mana to allowed peers
-	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      faucetStartAddress,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
@@ -122,7 +122,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.NoError(t, err)
 
 	// pledge consensus mana to forbidden peer
-	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      faucetStartAddress,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    accessPeer.Identity.ID(),
@@ -131,7 +131,7 @@ func TestManaPledgeFilter(t *testing.T) {
 	require.Contains(t, err.Error(), webapiledgerstate.ErrNotAllowedToPledgeManaToNode.Error())
 
 	// pledge access mana to forbidden peer
-	_, err = tests.SendTransaction(t, faucet, accessPeer, ledgerstate.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
+	_, err = tests.SendTransaction(t, faucet, accessPeer, devnetvm.ColorIOTA, tokensPerRequest, tests.TransactionConfig{
 		FromAddressIndex:      faucetStartAddress,
 		ToAddressIndex:        0,
 		AccessManaPledgeID:    consensusPeer.Identity.ID(),

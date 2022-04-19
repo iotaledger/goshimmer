@@ -1,13 +1,12 @@
 package logger
 
 import (
-	"go.uber.org/dig"
-
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
 )
 
 // PluginName is the name of the logger plugin.
@@ -17,13 +16,16 @@ const PluginName = "Logger"
 var Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 // Init triggers the Init event.
-func Init() {
-	Plugin.Events.Init.Trigger(Plugin)
+func Init(container *dig.Container) {
+	Plugin.Events.Init.Trigger(&node.InitEvent{
+		Plugin:    Plugin,
+		Container: container,
+	})
 }
 
 func init() {
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Invoke(func(config *configuration.Configuration) {
+	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Invoke(func(config *configuration.Configuration) {
 			if err := logger.InitGlobalLogger(config); err != nil {
 				panic(err)
 			}

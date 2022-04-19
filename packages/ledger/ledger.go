@@ -58,11 +58,11 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.Events.TransactionBooked.Attach(event.NewClosure[*TransactionBookedEvent](func(event *TransactionBookedEvent) {
+	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
 	}))
 
-	ledger.Events.TransactionInvalid.Attach(event.NewClosure[*TransactionInvalidEvent](func(event *TransactionInvalidEvent) {
+	ledger.Events.TransactionInvalid.Attach(event.NewClosure(func(event *TransactionInvalidEvent) {
 		ledger.PruneTransaction(event.TransactionID, true)
 	}))
 

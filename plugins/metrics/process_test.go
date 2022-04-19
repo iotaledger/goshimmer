@@ -4,16 +4,16 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 func TestMemUsage(t *testing.T) {
 	var wg sync.WaitGroup
-	metrics.Events().MemUsage.Attach(events.NewClosure(func(memUsageBytes uint64) {
-		assert.NotEqual(t, 0, memUsageBytes)
+	metrics.Events.MemUsage.Attach(event.NewClosure(func(event *metrics.MemUsageEvent) {
+		assert.NotEqual(t, 0, event.MemAllocBytes)
 		wg.Done()
 	}))
 

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 
@@ -118,10 +118,10 @@ func runConflictLiveFeed() {
 			conflictHeap: &timeHeap{},
 		}
 
-		onBranchCreatedClosure := events.NewClosure(onBranchCreated)
-		onBranchWeightChangedClosure := events.NewClosure(onBranchWeightChanged)
+		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
+		onBranchWeightChangedClosure := event.NewClosure(onBranchWeightChanged)
 		deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
-		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.AttachAfter(onBranchWeightChangedClosure)
+		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(onBranchWeightChangedClosure)
 
 		<-ctx.Done()
 

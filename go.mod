@@ -14,7 +14,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go v0.0.0-20220414105854-582ddb8f8daf
+	github.com/iotaledger/hive.go v0.0.0-20220414145805-3d528b3b3808
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
@@ -36,7 +36,6 @@ require (
 	go.uber.org/atomic v1.9.0
 	go.uber.org/dig v1.13.0
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 )
@@ -193,6 +192,7 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210909193231-528a39cd75f3 // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20201203001206-6486ece9c497 // indirect
 	google.golang.org/grpc v1.40.0 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect

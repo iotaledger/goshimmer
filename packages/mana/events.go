@@ -2,47 +2,15 @@ package mana
 
 import (
 	"sort"
-	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
-
-var (
-	once       sync.Once
-	manaEvents *EventDefinitions
-)
-
-func newEvents() *EventDefinitions {
-	return &EventDefinitions{
-		Pledged: events.NewEvent(pledgeEventCaller),
-		Revoked: events.NewEvent(revokedEventCaller),
-		Updated: events.NewEvent(updatedEventCaller),
-	}
-}
-
-// Events returns the events defined in the package.
-func Events() *EventDefinitions {
-	once.Do(func() {
-		manaEvents = newEvents()
-	})
-	return manaEvents
-}
-
-// EventDefinitions represents events happening in the mana package.
-type EventDefinitions struct {
-	// Fired when mana was pledged to a node.
-	Pledged *events.Event
-	// Fired when mana was revoked from a node.
-	Revoked *events.Event
-	// Fired when mana of a node was updated.
-	Updated *events.Event
-}
 
 const (
 	// EventTypePledge defines the type of a pledge event.
@@ -52,6 +20,31 @@ const (
 	// EventTypeUpdate defines the event type of an updated event.
 	EventTypeUpdate
 )
+
+var Events *ManaEvents
+
+// ManaEvents represents events happening in the mana package.
+type ManaEvents struct {
+	// Fired when mana was pledged to a node.
+	Pledged *event.Event[*PledgedEvent]
+	// Fired when mana was revoked from a node.
+	Revoked *event.Event[*RevokedEvent]
+	// Fired when mana of a node was updated.
+	Updated *event.Event[*UpdatedEvent]
+}
+
+// newEvents returns a the Events used in the mana package.
+func newEvents() *ManaEvents {
+	return &ManaEvents{
+		Pledged: event.New[*PledgedEvent](),
+		Revoked: event.New[*RevokedEvent](),
+		Updated: event.New[*UpdatedEvent](),
+	}
+}
+
+func init() {
+	Events = newEvents()
+}
 
 // Event is the interface definition of an event.
 type Event interface {
@@ -329,16 +322,4 @@ func (e EventSlice) Sort() {
 
 		return typeI == EventTypeRevoke
 	})
-}
-
-func pledgeEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *PledgedEvent))(params[0].(*PledgedEvent))
-}
-
-func revokedEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *RevokedEvent))(params[0].(*RevokedEvent))
-}
-
-func updatedEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *UpdatedEvent))(params[0].(*UpdatedEvent))
 }
