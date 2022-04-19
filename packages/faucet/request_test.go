@@ -52,7 +52,8 @@ func TestRequest(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
+	//assert.Equal(t, originalRequest.BytesOld(), originalRequest.Bytes())
+	//assert.Equal(t, originalRequest.BytesOld(), originalRequest.Bytes())
 	assert.Equal(t, originalRequest.Address(), clonedRequest.Address())
 	assert.Equal(t, originalRequest.AccessManaPledgeID(), clonedRequest.AccessManaPledgeID())
 	assert.Equal(t, originalRequest.ConsensusManaPledgeID(), clonedRequest.ConsensusManaPledgeID())

@@ -19,15 +19,15 @@ import (
 
 //nolint:dupl
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectCode(new(ED25519Address).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Address).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering ED25519Address type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectCode(new(BLSAddress).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectType(uint8(new(BLSAddress).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering BLSAddress type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectCode(new(AliasAddress).Type()))
+	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectType(uint8(new(AliasAddress).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasAddress type settings: %w", err))
 	}
@@ -269,12 +269,15 @@ func (e *ED25519Address) BytesOld() []byte {
 
 // Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		return nil
-	}
-	return objBytes
+	//objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
+	//if err != nil {
+	//	// TODO: what do?
+	//	return nil
+	//}
+	//return objBytes
+
+	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.Digest())
+
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.

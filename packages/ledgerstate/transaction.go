@@ -47,7 +47,7 @@ func init() {
 		return tx, nil
 	})
 
-	err := serix.DefaultAPI.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectCode(new(Transaction).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}

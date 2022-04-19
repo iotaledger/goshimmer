@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(CollectiveBeaconPayload), serix.TypeSettings{}.WithObjectCode(new(CollectiveBeaconPayload).Type()))
+	err := serix.DefaultAPI.RegisterTypeSettings(new(CollectiveBeaconPayload), serix.TypeSettings{}.WithObjectType(uint32(new(CollectiveBeaconPayload).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
