@@ -9,6 +9,8 @@ const (
 	MsgTypeTangleBooked
 	// MsgTypeTangleConfirmed is the type of the Tangle DAG confirmed message.
 	MsgTypeTangleConfirmed
+	// MsgTypeTangleTxGoF is the type of the Tangle DAG transaction GoF.
+	MsgTypeTangleTxGoF
 	// MsgTypeFutureMarkerUpdated is the type of the future marker updated message.
 	MsgTypeFutureMarkerUpdated
 	// MsgTypeUTXOVertex is the type of the UTXO DAG vertex.
@@ -57,6 +59,11 @@ type tangleConfirmed struct {
 	ID            string `json:"ID"`
 	GoF           string `json:"gof"`
 	ConfirmedTime int64  `json:"confirmedTime"`
+}
+
+type tangleTxGoFChanged struct {
+	ID          string `json:"ID"`
+	IsConfirmed bool   `json:"isConfirmed"`
 }
 
 type tangleFutureMarkerUpdated struct {

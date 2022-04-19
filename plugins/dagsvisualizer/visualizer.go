@@ -97,6 +97,25 @@ func registerTangleEvents() {
 		})
 	})
 
+	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+		var msgID tangle.MessageID
+		deps.Tangle.Storage.Attachments(txID).Consume(func(a *tangle.Attachment) {
+			msgID = a.MessageID()
+		})
+
+		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+			wsMsg := &wsMessage{
+				Type: MsgTypeTangleTxGoF,
+				Data: &tangleTxGoFChanged{
+					ID:          msgID.Base58(),
+					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
+				},
+			}
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
+		})
+	})
+
 	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
@@ -113,6 +132,7 @@ func registerTangleEvents() {
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
+	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
