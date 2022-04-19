@@ -2,11 +2,12 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/mr-tron/base58"
-	"go.uber.org/atomic"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/mr-tron/base58"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
@@ -92,6 +93,11 @@ func (e *EvilWallet) Connector() Connector {
 
 func (e *EvilWallet) UnspentOutputsLeft(walletType WalletType) int {
 	return e.wallets.UnspentOutputsLeft(walletType)
+}
+
+func (e *EvilWallet) NumOfClient() int {
+	clts := e.connector.Clients()
+	return len(clts)
 }
 
 func (e *EvilWallet) AddClient(clientUrl string) {
@@ -858,7 +864,8 @@ type EvilScenario struct {
 	// if not provided evil wallet will use Reuse wallet if any is available. Accepts only RestrictedReuse wallet type.
 	RestrictedInputWallet *Wallet
 	// used together with scenario ID to create a prefix for distinct batch alias creation
-	BatchesCreated *atomic.Uint64
+	BatchesCreated     *atomic.Uint64
+	NumOfClientsNeeded int
 }
 
 func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
@@ -873,7 +880,18 @@ func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 		option(scenario)
 	}
 	scenario.ID = base58.Encode([]byte(fmt.Sprintf("%v%v%v", scenario.ConflictBatch, scenario.Reuse, scenario.OutputWallet.ID)))[:11]
+	scenario.NumOfClientsNeeded = calculateNumofClientsNeeded(scenario)
+
 	return scenario
+}
+
+func calculateNumofClientsNeeded(scenario *EvilScenario) (counter int) {
+	for _, conflictMap := range scenario.ConflictBatch {
+		if len(conflictMap) > counter {
+			counter = len(conflictMap)
+		}
+	}
+	return
 }
 
 // readCustomConflictsPattern determines outputs of the batch, needed for saving batch outputs to the outputWallet.

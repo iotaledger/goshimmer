@@ -88,8 +88,8 @@ func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err 
 // Clients returns list of all clients.
 func (c *WebClients) Clients(...bool) []Client {
 	clients := make([]Client, len(c.clients))
-	for _, c := range c.clients {
-		clients = append(clients, c)
+	for i, c := range c.clients {
+		clients[i] = c
 	}
 	return clients
 }
