@@ -12,13 +12,13 @@ var (
 )
 
 var (
-	Script = "quick"
+	Script = "basic"
 
 	customSpamParams = CustomSpamParams{
 		ClientUrls:            urls,
 		SpamTypes:             []string{"msg"},
-		Rates:                 []int{100},
-		DurationsInSec:        []int{60},
+		Rates:                 []int{10},
+		Durations:             []time.Duration{time.Minute},
 		MsgToBeSent:           []int{},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
@@ -30,6 +30,6 @@ var (
 		Rate:                  100,
 		Duration:              time.Second * 30,
 		TimeUnit:              time.Second,
-		DelayBetweenConflicts: time.Millisecond * 100,
+		DelayBetweenConflicts: 0,
 	}
 )
