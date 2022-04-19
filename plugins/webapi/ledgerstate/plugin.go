@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"net/http"
 	"sync"
 	"time"
@@ -45,6 +46,9 @@ var (
 
 	deps = new(dependencies)
 
+	// filterEnabled whether doubleSpendFilter is enabled.
+	filterEnabled bool
+
 	// doubleSpendFilter helps to filter out double spends locally.
 	doubleSpendFilter *DoubleSpendFilter
 
@@ -63,24 +67,53 @@ func init() {
 
 // Filter returns the double spend filter singleton.
 func Filter() *DoubleSpendFilter {
+	fmt.Println("Enable Filter")
 	doubleSpendFilterOnce.Do(func() {
 		doubleSpendFilter = NewDoubleSpendFilter()
 	})
 	return doubleSpendFilter
 }
 
+// FilterHasConflict checks if the outputs are conflicting if doubleSpendFilter is enabled.
+func FilterHasConflict(outputs ledgerstate.Inputs) (bool, ledgerstate.TransactionID) {
+	if filterEnabled {
+		has, conflictingID := doubleSpendFilter.HasConflict(outputs)
+		return has, conflictingID
+	}
+	return false, ledgerstate.TransactionID{}
+}
+
+// FilterAdd Adds transaction to the doubleSpendFilter if it is enabled.
+func FilterAdd(tx *ledgerstate.Transaction) {
+	if filterEnabled {
+		doubleSpendFilter.Add(tx)
+	}
+}
+
+// FilterRemove Removes transaction id from the doubleSpendFilter if it is enabled.
+func FilterRemove(txID ledgerstate.TransactionID) {
+	if filterEnabled {
+		doubleSpendFilter.Remove(txID)
+	}
+}
+
 func configure(_ *node.Plugin) {
-	doubleSpendFilter = Filter()
-	onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		doubleSpendFilter.Remove(transactionID)
-	})
+	filterEnabled = webapi.Parameters.EnableDSFilter
+	if filterEnabled {
+		doubleSpendFilter = Filter()
+		onTransactionConfirmed = events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+			doubleSpendFilter.Remove(transactionID)
+		})
+	}
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("WebAPIDoubleSpendFilter", worker, shutdown.PriorityWebAPI); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+	if filterEnabled {
+		if err := daemon.BackgroundWorker("WebAPIDoubleSpendFilter", worker, shutdown.PriorityWebAPI); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
 	}
 
 	// register endpoints
@@ -486,8 +519,8 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
-	// check if it would introduce a double spend known to the node locally
-	has, conflictingID := doubleSpendFilter.HasConflict(tx.Essence().Inputs())
+	// if filter is enabled check if it would introduce a double spend known to the node locally
+	has, conflictingID := FilterHasConflict(tx.Essence().Inputs())
 	if has {
 		err = errors.Errorf("transaction is conflicting with previously submitted transaction %s", conflictingID.Base58())
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
@@ -534,10 +567,10 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// add tx to double spend doubleSpendFilter
-	doubleSpendFilter.Add(tx)
+	FilterAdd(tx)
 	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		// if we failed to issue the transaction, we remove it
-		doubleSpendFilter.Remove(tx.ID())
+		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})
