@@ -1,21 +1,21 @@
 
 # Evil spammer
 
-Evil spammer is the cli tool placed in `tools/evil-spammer` that allows to easily spam and stress test the network. It utilises client libraries `evilwallet` and `evilspammer`. Many predefined conflict scenarios are available to use both directly with the `evilwallet` package, by command lines arguments of Evil Spammer tool, and by its interactive mode.
+Evil spammer is the cli tool placed in `tools/evil-spammer` that allows to easily spam and stress test the network. It utilises client libraries `evilwallet` and `evilspammer`. Many predefined conflict and non-conflict scenarios are available to use directly with the `evilwallet` package, by command lines arguments of Evil Spammer tool, and by its interactive mode.
 
 The main goal is to test how the network will handle more complicated spam scenarios and find as many bugs as possible!
 
 **Main features:**
 - easily spam and stress test the GoShimmer network with the predefined scenarios
-- ability to enable deep spam mode, that uses outputs created during the spam
+- ability to enable deep spam mode that reuses outputs created during the spam
 - spamming with the command lines
-- interactive mode
+- spamming with the interactive mode
 
-*If you have idea on some nice scenario, do not hesitate to open the PR, and we can extend our list with your ideas!
+*If you have any idea on some nice scenarios, do not hesitate to open the PR, and we can extend our list with your ideas!
 Also, do not forget to choose the right name for your spam.*
 
 ## How to be evil?
-There are many options, but we encorage you to use our Evil Spammer. It is available in a form of command line tool and in the interactive mode.
+There are many options, but we encorage you to use our Evil Spammer Tool. It is available in a form of command line tool and in the interactive mode.
 
 ### Evil spammer command line
 The tool starts with the `main.go` file in `tools/evil-spammer`.
@@ -29,20 +29,20 @@ Run `go run . <SCRIPT_NAME> --help` to get the list of parameters available for 
 
 **Basic spammer.**
 Basic spammer can be run with:
-```shell 
+```shell
 cd tools/evil-spammer
 go run . basic
 ```
 and providing spam parameters with flags.
 Below is an example with custom spam:
 ```shell
-# tools/evil-spammer
+# under tools/evil-spammer
 go run . basic --spammers custom --scenario <scenario-name> --rates 10 --durations 1m
 ```
 
 It is possible to start multiple spam types at once by providing parameters separated by commas.
 ```shell
-go run . basic --urls http://localhost:8080 --spammers ds,msg,custom --rates 5,10,2 --durations 20s,20s,20s --tu 1s --scenario peace 
+go run . basic --urls http://localhost:8080 --spammers ds,msg,custom --rates 5,10,2 --durations 20s,20s,20s --tu 1s --scenario peace
 ```
 
 #### Quick Test
@@ -50,39 +50,38 @@ Can be used for fast and intense spamming test. First is transaction spam, next 
 
 Example usage:
 ```shell
-# tools/evil-spammer
+# under tools/evil-spammer
 go run . quick --urls http://localhost:8080,http://localhost:8090 --rate 50 --durations 1m --tu 1s --dbc 100ms
 ```
 ### Go interactive!
 
 Simply run
 ```shell
-# tools/evil-spammer
+# under tools/evil-spammer
 go run . interactive
 ```
 
-Wallet will start with API endpoints configured for the local docker network,
+Evil wallet will start with API endpoints configured for the local docker network,
 **if you want to play with different nodes on different network you need to update urls** in the config.json file and restart the tool,
-or update it directly in the tool's settings.
+or update it directly in the settings menu.
 
-To correctly use scenarios that requires a certain number of inputs,
-you need to provide at least one distinct url for each scenario batch input.
+To correctly execute N-spend (a conflict set with size N) in scenarios, you need to provide at least N distinct urls to issue them simultaneously. The evil tool will pop an warning if more urls are needed.
 E.g. to correctly spam with _`pear`_ you should have 4 clients configured.
 
 **Notes:**
-- It is not possible to save your evil wallet state and open them after you turn it off. But don't worry you still can request more fresh Faucet outputs with just one click!
-- Wallet will generate config.json file if it did not exist before. You can use it to set up your favorite settings or webAPI urls.
-- We encourage you to see the results of you spams and structures created in the DAGs Visualizer that by default can be accessed on port `8061`.
+- Saving the evil wallet states is not supported. But don't worry you still can request more fresh Faucet outputs with just one click!
+- Wallet will generate a `config.json` file if it did not exist. You can use it to set up your favorite settings or webAPI urls.
+- We encourage you to see the results of your spams and structures in the DAGs Visualizer that by default can be accessed on port `8061`.
 - Spammer allows for max 5 concurrently running spams, you can check currently running spams and cancel them at any time.
 - Spammer tool keeps track of your last spams history, so you can check the times of the spam and render a specific period with the visualizer.
 - In spam options you can enable `deep` spam, in which the spammer will reuse outputs generated by the current spam, previous spams with `reuse` option enabled, and previous deep spams' outputs.
 - By default, the spam rate is set to mps but you can change the time unit in the config file, e.g. `"timeUnit": "1m"` for message per minute.
 
 ## Predefined scenarios
-Below you can find a list of predefined scenarios. In the client library they can be accessed by
-- the function `GetScenario(scenarioName string) (batch EvilBatch, ok bool)`
-- in the cli tool you can use `basic` option and `scenario` flag to choose the scenario by name.
-- in the interactive mode simply go to `New Spam -> Change scenario` and select from the list.
+Below you can find a list of predefined scenarios.
+- in the client library they can be accessed by the function `GetScenario(scenarioName string) (batch EvilBatch, ok bool)`
+- in the evil spammer tool with command line you can use `basic` option and `scenario` flag to choose the scenario by name.
+- in the evil spammer tool with interactive mode simply go to `New Spam -> Change scenario` and select from the list.
 
 ##### No conflicts
 - `single-tx`
@@ -90,7 +89,7 @@ Below you can find a list of predefined scenarios. In the client library they ca
 ![Single transaction](/img/tooling/evil_spammer/evil-scenario-tx.png "Single transaction")
 
 - `peace`
- 
+
 ![Peace](/img/tooling/evil_spammer/evil-scenario-peace.png "Peace")
 
 ##### Conflicts
@@ -134,19 +133,24 @@ Below you can find a list of predefined scenarios. In the client library they ca
 ## Evil Wallet and Evil spammer lib
     This section is a guide for the users that wants to create their own tools or scenarios
     with the `evilwallet` and `evilwallet` library.
-    If you simply want to spam, you can use the ready spamming tool and its interactive mode described above.
+    If you simply want to spam, you can use the evil spammer tool and its interactive mode described above.
 
 The wallet library was designed with the focus on the spamming use cases.
 The evil wallet is a collection of many wallets (many seeds) that can be provided by the user, build from the faucet requests or are created during the spam.
 
 While creating the wallet we can provide the nodes webAPI urls, that will be ordered to spam. Otherwise, it will use default endpoints for the local docker network.
 ```go
+// provide webAPI urls
+evilWallet := evilwallet.NewEvilWallet("http://localhost:1234", "http://localhost:2234")
+
+// automatically adds docker network as endpoints.
 evilWallet := evilwallet.NewEvilWallet()
 ```
 
-Then in order to send any transactions, conflicting or not, we need to request funds from the Faucet.
-The evil wallet sends the request and splits the received funds on requested number of outputs,
-that are further used as an inputs for the spamming batches.
+### Request funds from the faucet
+Then in order to send transactions, we need to request funds from the Faucet.
+The evil wallet sends the request and splits the received funds on requested number of outputs that are further used as inputs for the spamming batches.
+
 Evil spammer does not care about the value of sent transactions,
 it simply splits the input value equally among the outputs during the spam.
 Below are presented all possibilities for requesting funds.
