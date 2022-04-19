@@ -11,12 +11,13 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 const bookerQueueSize = 1024
 
-// region Booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region booker ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Booker is a Tangle component that takes care of booking Messages and Transactions by assigning them to the
 // corresponding Branch of the ledger state.

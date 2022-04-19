@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -18,7 +18,7 @@ import (
 // Gadget is an interface that describes the finality gadget.
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
-	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
+	HandleBranch(branchID branchdag.BranchID, aw float64) (err error)
 	tangle.ConfirmationOracle
 }
 
@@ -26,7 +26,7 @@ type Gadget interface {
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 
 // BranchThresholdTranslation is a function which translates approval weight to a gof.GradeOfFinality.
-type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
+type BranchThresholdTranslation func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality
 
 const (
 	lowLowerBound    = 0.25
@@ -36,7 +36,7 @@ const (
 
 var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
-	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low

@@ -1,0 +1,67 @@
+package utxo
+
+// region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Transaction is the type that is used to describe instructions how to modify the ledger state.
+type Transaction interface {
+	// ID returns the identifier of the Transaction.
+	ID() (id TransactionID)
+
+	// SetID sets the identifier of the Transaction.
+	//
+	// Note: Since determining the identifier of a Transaction is an operation that requires at least a few hashing
+	// operations, we allow the ID to be set from the outside.
+	//
+	// This allows us to potentially skip the ID calculation in cases where the ID is known upfront (e.g. when loading
+	// Transactions from the object storage).
+	SetID(id TransactionID)
+
+	// Inputs returns the inputs of the Transaction.
+	Inputs() (inputs []Input)
+
+	// Bytes returns a serialized version of the Transaction.
+	Bytes() (serialized []byte)
+
+	// String returns a human-readable version of the Transaction.
+	String() (humanReadable string)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Input ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Input is an entity that allows to "address" which Outputs are supposed to be used by a Transaction.
+type Input interface {
+	// Bytes returns a serialized version of the Input.
+	Bytes() (serialized []byte)
+
+	// String returns a human-readable version of the Input.
+	String() (humanReadable string)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Output is the container for the data produced by executing a Transaction.
+type Output interface {
+	// ID returns the identifier of the Output.
+	ID() (id OutputID)
+
+	// SetID sets the identifier of the Output.
+	SetID(id OutputID)
+
+	// TransactionID returns the identifier of the Transaction that created this Output.
+	TransactionID() (txID TransactionID)
+
+	// Index returns the unique Index of the Output in respect to its TransactionID.
+	Index() (index uint16)
+
+	// Bytes returns a serialized version of the Output.
+	Bytes() (serialized []byte)
+
+	// String returns a human-readable version of the Output.
+	String() (humanReadable string)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

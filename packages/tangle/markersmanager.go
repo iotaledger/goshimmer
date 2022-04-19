@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -90,7 +91,7 @@ func (b *BranchMarkersMapper) PendingBranchIDs(marker *markers.Marker) (branchID
 	return
 }
 
-// SetBranchIDs associates ledgerstate.BranchIDs with the given Marker.
+// SetBranchIDs associates ledger.BranchIDs with the given Marker.
 func (b *BranchMarkersMapper) SetBranchIDs(marker *markers.Marker, branchIDs ledgerstate.BranchIDs) (updated bool) {
 	if floorMarker, floorBranchIDs, exists := b.Floor(marker); exists {
 		if floorBranchIDs.Equals(branchIDs) {

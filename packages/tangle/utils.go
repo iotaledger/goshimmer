@@ -10,10 +10,11 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
-// region Utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
+// region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Utils is a Tangle component that bundles methods that can be used to interact with the Tangle, that do not belong
 // into public API.
