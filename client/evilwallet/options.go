@@ -18,10 +18,6 @@ type Options struct {
 	inputs                   []ledgerstate.OutputID
 	aliasOutputs             map[string]*ledgerstate.ColoredBalances
 	outputs                  []*ledgerstate.ColoredBalances
-	strongParents            map[string]types.Empty
-	weakParents              map[string]types.Empty
-	shallowLikeParents       map[string]types.Empty
-	shallowDislikeParents    map[string]types.Empty
 	inputWallet              *Wallet
 	outputWallet             *Wallet
 	outputBatchAliases       map[string]types.Empty
@@ -41,14 +37,10 @@ type OutputOption struct {
 // NewOptions is the constructor for the tx creation.
 func NewOptions(options ...Option) (option *Options, err error) {
 	option = &Options{
-		aliasInputs:           make(map[string]types.Empty),
-		inputs:                make([]ledgerstate.OutputID, 0),
-		aliasOutputs:          make(map[string]*ledgerstate.ColoredBalances),
-		outputs:               make([]*ledgerstate.ColoredBalances, 0),
-		strongParents:         make(map[string]types.Empty),
-		weakParents:           make(map[string]types.Empty),
-		shallowLikeParents:    make(map[string]types.Empty),
-		shallowDislikeParents: make(map[string]types.Empty),
+		aliasInputs:  make(map[string]types.Empty),
+		inputs:       make([]ledgerstate.OutputID, 0),
+		aliasOutputs: make(map[string]*ledgerstate.ColoredBalances),
+		outputs:      make([]*ledgerstate.ColoredBalances, 0),
 	}
 
 	for _, opt := range options {
@@ -177,42 +169,6 @@ func WithOutputs(outputs []*OutputOption) Option {
 					output.color: output.amount,
 				}))
 			}
-		}
-	}
-}
-
-// WithStrongParents returns an Option that is used to define the strong parents of the Message.
-func WithStrongParents(messageAliases ...string) Option {
-	return func(options *Options) {
-		for _, messageAlias := range messageAliases {
-			options.strongParents[messageAlias] = types.Void
-		}
-	}
-}
-
-// WithWeakParents returns an Option that is used to define the weak parents of the Message.
-func WithWeakParents(messageAliases ...string) Option {
-	return func(options *Options) {
-		for _, messageAlias := range messageAliases {
-			options.weakParents[messageAlias] = types.Void
-		}
-	}
-}
-
-// WithShallowLikeParents returns a MessageOption that is used to define the shallow like parents of the Message.
-func WithShallowLikeParents(messageAliases ...string) Option {
-	return func(options *Options) {
-		for _, messageAlias := range messageAliases {
-			options.shallowLikeParents[messageAlias] = types.Void
-		}
-	}
-}
-
-// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
-func WithShallowDislikeParents(messageAliases ...string) Option {
-	return func(options *Options) {
-		for _, messageAlias := range messageAliases {
-			options.shallowDislikeParents[messageAlias] = types.Void
 		}
 	}
 }
