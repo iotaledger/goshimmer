@@ -1,8 +1,9 @@
 package evilspammer
 
 import (
-	"github.com/cockroachdb/errors"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -71,8 +72,11 @@ func NewSpammer(options ...Options) *Spammer {
 		opt(s)
 	}
 
+	if s.EvilWallet == nil {
+		s.EvilWallet = evilwallet.NewEvilWallet()
+	}
+
 	s.setup()
-	s.Clients = s.EvilWallet.Connector()
 	return s
 }
 
