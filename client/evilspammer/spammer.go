@@ -80,6 +80,14 @@ func NewSpammer(options ...Options) *Spammer {
 	return s
 }
 
+func (s *Spammer) MessagesSent() uint64 {
+	return uint64(s.State.txSent.Load())
+}
+
+func (s *Spammer) BatchesPrepared() uint64 {
+	return uint64(s.State.batchPrepared.Load())
+}
+
 func (s *Spammer) setup() {
 	s.Clients = s.EvilWallet.Connector()
 
@@ -178,12 +186,12 @@ func (s *Spammer) StopSpamming() {
 // counts transactions and provides debug logs.
 func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) {
 	if tx == nil {
-		s.log.Debugf("transaction provided to PostTransaction is nil")
+		s.log.Debug(ErrTransactionIsNil)
 		s.ErrCounter.CountError(ErrTransactionIsNil)
 	}
 	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
 	if !allSolid {
-		s.ErrCounter.CountError(errors.Errorf("not all inputs are solid, txID: %s", tx.ID().Base58()))
+		s.ErrCounter.CountError(errors.Errorf("%v, txID: %s", ErrInputsNotSolid, tx.ID().Base58()))
 		return
 	}
 
@@ -191,7 +199,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	var txID ledgerstate.TransactionID
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
-		s.log.Debugf("error: %v", err)
+		s.log.Debug(err)
 		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
@@ -206,9 +214,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *ledgerstate.Transaction) (ok bool) {
 	ok = true
-	if s.EvilScenario.Reuse {
-		ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
-	}
+	ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())
 	}

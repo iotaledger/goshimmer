@@ -109,6 +109,24 @@ func (w *Wallets) GetNextWallet(walletType WalletType, minOutputsLeft int) (*Wal
 	return nil, errors.New("wallet type not supported for ordered usage, use GetWallet by ID instead")
 }
 
+func (w *Wallets) UnspentOutputsLeft(walletType WalletType) int {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	outputsLeft := 0
+
+	switch walletType {
+	case Fresh:
+		for _, wID := range w.faucetWallets {
+			outputsLeft += w.wallets[wID].UnspentOutputsLeft()
+		}
+	case Reuse:
+		for wID := range w.reuseWallets {
+			outputsLeft += w.wallets[wID].UnspentOutputsLeft()
+		}
+	}
+	return outputsLeft
+}
+
 // addWallet stores newly created wallet.
 func (w *Wallets) addWallet(wallet *Wallet) {
 	w.mu.Lock()

@@ -23,6 +23,10 @@ type Connector interface {
 	Clients(...bool) []Client
 	// GetClients returns the numOfClt client instances that were used the longest time ago.
 	GetClients(numOfClt int) []Client
+	// AddClient adds client to WebClients based on provided GoShimmerAPI url.
+	AddClient(url string, setters ...client.Option)
+	// RemoveClient removes client with the provided url from the WebClients.
+	RemoveClient(url string)
 	// GetClient returns the client instance that was used the longest time ago.
 	GetClient() Client
 	// PledgeID returns the node ID that the mana will be pledging to.
@@ -105,7 +109,7 @@ func (c *WebClients) GetClients(numOfClt int) []Client {
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
 func (c *WebClients) getClient() Client {
-	if c.lastUsed == len(c.clients)-1 {
+	if c.lastUsed >= len(c.clients)-1 {
 		c.lastUsed = 0
 	} else {
 		c.lastUsed++
@@ -130,12 +134,23 @@ func (c *WebClients) AddClient(url string, setters ...client.Option) {
 	c.clients = append(c.clients, clt)
 }
 
-// RemoveClient removes client with the provided index from the WebClients.
-func (c *WebClients) RemoveClient(index int) {
+// RemoveClient removes client with the provided url from the WebClients.
+func (c *WebClients) RemoveClient(url string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.clients = append(c.clients[:index], c.clients[index+1:]...)
+	indexToRemove := -1
+	for i, u := range c.urls {
+		if u == url {
+			indexToRemove = i
+			break
+		}
+	}
+	if indexToRemove == -1 {
+		return
+	}
+	c.clients = append(c.clients[:indexToRemove], c.clients[indexToRemove+1:]...)
+	c.urls = append(c.urls[:indexToRemove], c.urls[indexToRemove+1:]...)
 }
 
 // PledgeID returns the node ID that the mana will be pledging to.

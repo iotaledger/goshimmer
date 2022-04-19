@@ -26,13 +26,15 @@ func DataSpammingFunction(s *Spammer) {
 func CustomConflictSpammingFunc(s *Spammer) {
 	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario)
 	if err != nil {
-		s.ErrCounter.CountError(errors.Newf("custom conflict batch could not be prepared: %w", err))
+		s.log.Debugf(errors.Newf("%v: %w", ErrFailToPrepareBatch, err).Error())
+		s.ErrCounter.CountError(errors.Newf("%v: %w", ErrFailToPrepareBatch, err))
 	}
 
 	for _, txs := range conflictBatch {
 		clients := s.Clients.GetClients(len(txs))
 		if len(txs) > len(clients) {
-			s.ErrCounter.CountError(errors.New("insufficient clients to send conflicts"))
+			s.log.Debug(ErrFailToPrepareBatch)
+			s.ErrCounter.CountError(ErrInsufficientClients)
 		}
 
 		// send transactions in parallel
