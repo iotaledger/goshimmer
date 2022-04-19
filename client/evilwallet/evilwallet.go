@@ -42,11 +42,10 @@ var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
-	wallets         *Wallets
-	connector       Connector
-	outputManager   *OutputManager
-	conflictManager *ConflictManager
-	aliasManager    *AliasManager
+	wallets       *Wallets
+	connector     Connector
+	outputManager *OutputManager
+	aliasManager  *AliasManager
 }
 
 // NewEvilWallet creates an EvilWallet instance.
@@ -59,11 +58,10 @@ func NewEvilWallet(clientsUrls ...string) *EvilWallet {
 	connector := NewWebClients(urls)
 	wallets := NewWallets()
 	return &EvilWallet{
-		wallets:         wallets,
-		connector:       connector,
-		outputManager:   NewOutputManager(connector, wallets),
-		conflictManager: NewConflictManager(),
-		aliasManager:    NewAliasManager(),
+		wallets:       wallets,
+		connector:     connector,
+		outputManager: NewOutputManager(connector, wallets),
+		aliasManager:  NewAliasManager(),
 	}
 }
 
