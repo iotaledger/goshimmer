@@ -13,15 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
-// OutputStatus represents the confirmation status of an output.
-type OutputStatus int8
-
-const (
-	pending OutputStatus = iota
-	confirmed
-	rejected
-)
-
 var (
 	awaitOutputsByAddress    = 3 * time.Second
 	awaitOutputToBeConfirmed = 3 * time.Second
@@ -34,7 +25,6 @@ type Output struct {
 	Address  ledgerstate.Address
 	Index    uint64
 	Balance  *ledgerstate.ColoredBalances
-	Status   OutputStatus
 }
 
 // Outputs is a list of Output.
@@ -134,7 +124,6 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 				allConfirmed = false
 				return
 			}
-			_ = o.UpdateOutputStatus(id, confirmed)
 		}(ID, allConfirmed)
 	}
 	return
@@ -162,41 +151,6 @@ func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output 
 	o.setOutputIDWalletMap(outputID.Base58(), w)
 	o.setOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
 	return out
-}
-
-// UpdateOutputID updates the output wallet  and address.
-func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outputID ledgerstate.OutputID) error {
-	err := w.UpdateUnspentOutputID(addr, outputID)
-	o.setOutputIDWalletMap(outputID.Base58(), w)
-	o.setOutputIDAddrMap(outputID.Base58(), addr)
-	return err
-}
-
-// UpdateOutputStatus updates the status of the outputID specified.
-func (o *OutputManager) UpdateOutputStatus(outputID ledgerstate.OutputID, status OutputStatus) error {
-	addr := o.OutputIDAddrMap(outputID.Base58())
-	w := o.OutputIDWalletMap(outputID.Base58())
-	err := w.UpdateUnspentOutputStatus(addr, status)
-
-	return err
-}
-
-// UpdateOutputsFromTxs update the output maps from the status of the transactions specified.
-func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
-	for _, txID := range txIDs {
-		clt := o.connector.GetClient()
-		outputs, err := clt.GetTransactionOutputs(txID)
-		if err != nil {
-			return err
-		}
-		for _, out := range outputs {
-			err = o.UpdateOutputStatus(out.ID(), confirmed)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 // GetOutput returns the Output of the given outputID.

@@ -312,7 +312,6 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 		Address:  addr,
 		Index:    addrIdx,
 		Balance:  balance,
-		Status:   pending,
 	}
 	w.unspentOutputs[addr.Base58()] = out
 	return out
@@ -413,20 +412,6 @@ func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputI
 	}
 	w.Lock()
 	walletOutput.OutputID = outputID
-	w.Unlock()
-	return nil
-}
-
-// UpdateUnspentOutputStatus updates the status of the unspent output on the address specified.
-func (w *Wallet) UpdateUnspentOutputStatus(addr string, status OutputStatus) error {
-	w.RLock()
-	walletOutput, ok := w.unspentOutputs[addr]
-	w.RUnlock()
-	if !ok {
-		return errors.Newf("could not find unspent output under provided address in the wallet, outIdx:%d, addr: %s", addr)
-	}
-	w.Lock()
-	walletOutput.Status = status
 	w.Unlock()
 	return nil
 }

@@ -251,11 +251,6 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet, splitNumber
 
 		// wait txs to be confirmed in each round
 		e.outputManager.AwaitTransactionsConfirmation(txIDs, maxGoroutines)
-		err := e.outputManager.UpdateOutputsFromTxs(txIDs)
-		if err != nil {
-			return err
-		}
-
 	}
 
 	return nil
