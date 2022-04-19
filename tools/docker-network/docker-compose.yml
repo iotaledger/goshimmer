@@ -27,7 +27,7 @@ services:
       --metrics.local=true
       --metrics.manaResearch=false
       --node.disablePlugins=portcheck,clock,Firewall
-      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
+      --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot,networkdelay
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --webAPI.exportPath=/tmp/
