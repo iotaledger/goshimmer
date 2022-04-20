@@ -86,48 +86,48 @@ Below you can find a list of predefined scenarios.
 ##### No conflicts
 - `single-tx`
 
-![Single transaction](/img/tooling/evil_spammer/evil-scenario-tx.png "Single transaction")
+![Single transaction](/documentation/static/img/tooling/evil_spammer/evil-scenario-tx.png "Single transaction")
 
 - `peace`
 
-![Peace](/img/tooling/evil_spammer/evil-scenario-peace.png "Peace")
+![Peace](/documentation/static/img/tooling/evil_spammer/evil-scenario-peace.png "Peace")
 
 ##### Conflicts
 - `ds`
 
-![Double spend](/img/tooling/evil_spammer/evil-scenario-ds.png "Double spend")
+![Double spend](/documentation/static/img/tooling/evil_spammer/evil-scenario-ds.png "Double spend")
 
 - `conflict-circle`
 
-![Conflict circle](/img/tooling/evil_spammer/evil-scenario-conflict-circle.png "Conflict circle")
+![Conflict circle](/documentation/static/img/tooling/evil_spammer/evil-scenario-conflict-circle.png "Conflict circle")
 
 - `guava`
 
-![Guava](/img/tooling/evil_spammer/evil-scenario-guava.png "Guava")
+![Guava](/documentation/static/img/tooling/evil_spammer/evil-scenario-guava.png "Guava")
 
 - `orange`
 
-![Orange](/img/tooling/evil_spammer/evil-scenario-orange.png "Orange")
+![Orange](/documentation/static/img/tooling/evil_spammer/evil-scenario-orange.png "Orange")
 
 - `mango`
 
-![Mango](/img/tooling/evil_spammer/evil-scenario-mango.png "Mango")
+![Mango](/documentation/static/img/tooling/evil_spammer/evil-scenario-mango.png "Mango")
 
 - `pear`
 
-![Pear](/img/tooling/evil_spammer/evil-scenario-pear.png "Pear")
+![Pear](/documentation/static/img/tooling/evil_spammer/evil-scenario-pear.png "Pear")
 
 - `lemon`
 
-![Lemon](/img/tooling/evil_spammer/evil-scenario-lemon.png "Lemon")
+![Lemon](/documentation/static/img/tooling/evil_spammer/evil-scenario-lemon.png "Lemon")
 
 - `banana`
 
-![Banana](/img/tooling/evil_spammer/evil-scenario-banana.png "Banana")
+![Banana](/documentation/static/img/tooling/evil_spammer/evil-scenario-banana.png "Banana")
 
 - `kiwi`
 
-![Kiwi](/img/tooling/evil_spammer/evil-scenario-kiwi.png "Kiwi")
+![Kiwi](/documentation/static/img/tooling/evil_spammer/evil-scenario-kiwi.png "Kiwi")
 
 
 ## Evil Wallet and Evil spammer lib
