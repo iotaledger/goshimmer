@@ -281,10 +281,24 @@ func (m MessageIDs) AddAll(messageIDs MessageIDs) MessageIDs {
 	return m
 }
 
+// Empty checks if MessageIDs is empty.
+func (m MessageIDs) Empty() (empty bool) {
+	return len(m) == 0
+}
+
 // Contains checks if the given target MessageID is part of the MessageIDs.
 func (m MessageIDs) Contains(target MessageID) (contains bool) {
 	_, contains = m[target]
 	return
+}
+
+// Subtract removes all other from the collection and returns the collection to enable chaining.
+func (m MessageIDs) Subtract(other MessageIDs) MessageIDs {
+	for messageID := range other {
+		delete(m, messageID)
+	}
+
+	return m
 }
 
 // First returns the first element in MessageIDs (not ordered). This method only makes sense if there is exactly one
