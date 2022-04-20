@@ -7,8 +7,8 @@ export class TangleLegend extends React.Component<any, any> {
         const nodeLabels = [
             'MSG Confirmed',
             'MSG Pending',
-            'MSG with TX payload Confirmed',
-            'MSG with TX payload Pending',
+            'MSG with TX Confirmed',
+            'MSG with TX Pending',
             'Tip',
             'Unknown'
         ];
