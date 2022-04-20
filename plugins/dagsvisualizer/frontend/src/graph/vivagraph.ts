@@ -1,7 +1,7 @@
 import { IGraph } from './graph';
 import { default as Viva } from 'vivagraphjs';
 import { parentRefType, tangleVertex } from 'models/tangle';
-import { COLOR, LINE_TYPE, LINE_WIDTH, VERTEX } from 'styles/tangleStyles';
+import {COLOR, CONFLICT, LINE_TYPE, LINE_WIDTH, VERTEX} from 'styles/tangleStyles';
 import { ObservableMap } from 'mobx';
 
 export class vivagraphLib implements IGraph {
@@ -360,13 +360,15 @@ export function updateNodeDataAndColor(
         if (msgData.isMarker) {
             drawMarker(msgData.ID, vivaLib);
         }
+
     }
+
 }
 
 function drawMarker(id: string, vivaLib: vivagraphLib) {
     const group = vivaLib.graphics.getNodeUI(id);
     // check if the node already has a marker.
-    if (group.childNodes.length >= 2) {
+    if (group.markerAdded) {
         return;
     }
 
@@ -377,7 +379,41 @@ function drawMarker(id: string, vivaLib: vivagraphLib) {
         .attr('cx', VERTEX.SIZE_DEFAULT / 2)
         .attr('cy', VERTEX.SIZE_DEFAULT / 2);
 
+    group.markerAdded = true
     group.append(circle);
+}
+
+function drawRejectMark(id: string, vivaLib: vivagraphLib) {
+    const group = vivaLib.graphics.getNodeUI(id);
+
+    const x = VERTEX.SIZE_DEFAULT/5
+    const y = VERTEX.SIZE_DEFAULT/4
+    const dx = VERTEX.SIZE_DEFAULT/8
+    const dy = VERTEX.SIZE_DEFAULT/8
+    const mark = Viva.Graph.svg('polyline');
+    mark
+        .attr('stroke', CONFLICT.LOOSER_COLOR)
+        .attr('stroke-width',  CONFLICT.WIDTH)
+        .attr('points', `${-x+dx}, ${y+dy} ${dx}, ${dy} ${x+dx}, ${y+dy} ${-x+dx}, ${-y+dy}  ${dx},
+          ${dy} ${x+dx}, ${-y+dy}`)
+
+    group.append(mark);
+}
+
+function drawWinnerMark(id: string, vivaLib: vivagraphLib) {
+    const group = vivaLib.graphics.getNodeUI(id);
+
+    const x = VERTEX.SIZE_DEFAULT/5
+    const y = VERTEX.SIZE_DEFAULT/4
+    const dx = VERTEX.SIZE_DEFAULT/8
+    const dy = VERTEX.SIZE_DEFAULT/8
+    const mark = Viva.Graph.svg('polyline');
+    mark
+        .attr('stroke', CONFLICT.WINNER_COLOR)
+        .attr('stroke-width',  CONFLICT.WIDTH)
+        .attr('points', `${-x+dx}, ${-y+dy} ${dx}, ${dy} ${2*x+dx}, ${-2*y+dy} ${dx}, ${dy}`)
+
+    group.append(mark);
 }
 
 function svgUpdateNodePos(nodeUI, pos) {
@@ -411,7 +447,9 @@ function updateNodeColorOnConfirmation(
             ? COLOR.TRANSACTION_CONFIRMED
             : COLOR.MESSAGE_CONFIRMED;
     }
-
+    if (msg.isTx && msg.isConfirmed) {
+        msg.isTxConfirmed ? drawWinnerMark(msg.ID, vivaLib) : drawRejectMark(msg.ID, vivaLib)
+    }
     setUINodeColor(nodeUI.childNodes[0], color);
 }
 

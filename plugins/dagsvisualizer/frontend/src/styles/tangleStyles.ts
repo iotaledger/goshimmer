@@ -37,3 +37,9 @@ export const VERTEX = {
     SELECTED_BORDER_WIDTH: 4,
     MARKER_SIZE: 4
 };
+
+export const CONFLICT = {
+    WINNER_COLOR: '#739A25',
+    LOOSER_COLOR: '#A31621',
+        WIDTH: 6,
+}
