@@ -5,13 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-
 	"github.com/cockroachdb/errors"
-
-	"github.com/iotaledger/goshimmer/plugins/faucet"
-
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
+	"github.com/iotaledger/goshimmer/plugins/faucet"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -86,6 +84,11 @@ func (e *EvilWallet) Connector() Connector {
 
 func (e *EvilWallet) UnspentOutputsLeft(walletType WalletType) int {
 	return e.wallets.UnspentOutputsLeft(walletType)
+}
+
+func (e *EvilWallet) NumOfClient() int {
+	clts := e.connector.Clients()
+	return len(clts)
 }
 
 func (e *EvilWallet) AddClient(clientUrl string) {

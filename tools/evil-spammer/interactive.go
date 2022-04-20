@@ -288,7 +288,7 @@ func (m *Mode) prepareFunds() {
 		return
 	}
 	if len(m.Config.clientUrls) == 0 {
-		printer.ClientsWarning()
+		printer.NotEnoughClientsWarning(1)
 		return
 	}
 	numToPrepareStr := ""
@@ -382,11 +382,6 @@ func (m *Mode) spamSubMenu(menuType string) {
 			m.mainMenu <- types.Void
 			return
 		}
-		if len(m.Config.clientUrls) == 0 {
-			printer.ClientsWarning()
-			m.mainMenu <- types.Void
-			return
-		}
 		if len(m.activeSpammers) >= maxConcurrentSpams {
 			printer.MaxSpamWarning()
 			m.mainMenu <- types.Void
@@ -410,9 +405,12 @@ func (m *Mode) startSpam() {
 	defer m.spamMutex.Unlock()
 
 	s, _ := evilwallet.GetScenario(m.Config.Scenario)
-	var spammer *evilspammer.Spammer
+	spammer := SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
+	if spammer == nil {
+		return
+	}
+
 	spamId := m.spammerLog.AddSpam(m.Config)
-	spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
 	m.activeSpammers[spamId] = spammer
 	go func(id int) {
 		spammer.Spam()
