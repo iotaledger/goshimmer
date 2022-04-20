@@ -120,13 +120,13 @@ func runConflictLiveFeed() {
 
 		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := event.NewClosure(onBranchWeightChanged)
-		deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(onBranchWeightChangedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.LedgerstateOLD.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {

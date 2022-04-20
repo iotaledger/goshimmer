@@ -14,4 +14,5 @@ func NewSnapshot(outputs Outputs) *Snapshot {
 
 func (s *Snapshot) String() string {
 	// TODO
+	return ""
 }

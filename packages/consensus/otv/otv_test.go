@@ -37,7 +37,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					expectedConflictMembers.Add(s.BranchID(aliasConflictMember))
 				}
 			}
-			require.True(t, expectedBranches.Contains(actualBranchID), "expected one of: %s, actual: %s", expectedBranches, actualBranchID)
+			require.True(t, expectedBranches.Has(actualBranchID), "expected one of: %s, actual: %s", expectedBranches, actualBranchID)
 			require.Equal(t, expectedConflictMembers, actualConflictMembers, "expected: %s, actual: %s", expectedConflictMembers, actualConflictMembers)
 		}
 	}
