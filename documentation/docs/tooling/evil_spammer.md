@@ -265,3 +265,55 @@ err = evilwallet.SendCustomConflicts([]ConflictSlice{
     },
 })
 ```
+
+
+## Evil spammer library
+To use the evil spammer, you need to:
+1. prepare an evil wallet and request funds,
+2. prepare evil scenario if any,
+3. prepare evil spammer options, such as duration, spam rate, etc.,
+4. create a spammer and start spamming.
+
+Example:
+```go
+evilWallet := evilwallet.NewEvilWallet()
+err := evilWallet.RequestFreshFaucetWallet()
+
+scenarioDs := evilwallet.NewEvilScenario(
+    evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(5)),
+)
+
+options := []Options{
+    WithSpamRate(5, time.Second),
+    WithSpamDuration(time.Second * 10),
+    WithEvilWallet(evilWallet),
+    WithEvilScenario(scenarioDs),
+}
+
+dsSpammer := NewSpammer(dsOptions...)
+dsSpammer.Spam()
+```
+
+### Evil Scenario
+There are several scenarios in `evilwallet/customscenarios` already, which are shown in previous section.
+Besides, you are able to define your own spamming scenario with alias in `EvilBatch`, which is similar to the `ConflictBatch` in evil wallet but rather simple. Only aliases for inputs and outputs are needed, then the evil spammer will find valid unspent outputs automatically, match outputs to provided aliases and start issuing transactions. Finally, make your defined scenario (`[]EvilBatch`) an option with `WithScenarioCustomConflicts` and pass it to `NewEvilScenario`.
+
+Below is `guava` scenario:
+```go
+EvilBatch{
+    []ScenarioAlias{
+        {Inputs: []string{"1"}, Outputs: []string{"2", "3"}},
+    },
+    []ScenarioAlias{
+        {Inputs: []string{"2"}, Outputs: []string{"4"}},
+        {Inputs: []string{"2"}, Outputs: []string{"5"}},
+    },
+    []ScenarioAlias{
+        {Inputs: []string{"3"}, Outputs: []string{"6"}},
+        {Inputs: []string{"3"}, Outputs: []string{"7"}},
+    },
+    []ScenarioAlias{
+        {Inputs: []string{"6", "5"}, Outputs: []string{"8"}},
+    },
+}
+```
