@@ -41,5 +41,5 @@ export const VERTEX = {
 export const CONFLICT = {
     WINNER_COLOR: '#739A25',
     LOOSER_COLOR: '#A31621',
-        WIDTH: 6,
-}
+    WIDTH: 6,
+};
