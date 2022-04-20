@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/plugins/faucet"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
@@ -19,6 +18,7 @@ const (
 	GoFConfirmed = 3
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber = 100
+	faucetTokensPerRequest   = 1000000
 
 	waitForConfirmation   = 60 * time.Second
 	waitForSolidification = 10 * time.Second
@@ -33,7 +33,7 @@ const (
 
 var defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
 var faucetBalance = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-	ledgerstate.ColorIOTA: uint64(faucet.Parameters.TokensPerRequest),
+	ledgerstate.ColorIOTA: uint64(faucetTokensPerRequest),
 })
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
