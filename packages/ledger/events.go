@@ -103,7 +103,7 @@ type TransactionInclusionUpdatedEvent struct {
 // TransactionConfirmedEvent is a container that acts as a dictionary for the TransactionConfirmed event related
 // parameters.
 type TransactionConfirmedEvent struct {
-	// TransactionID contains the identifier of the stored Transaction.
+	// TransactionID contains the identifier of the confirmed Transaction.
 	TransactionID utxo.TransactionID
 }
 
