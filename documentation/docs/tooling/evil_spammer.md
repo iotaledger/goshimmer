@@ -1,4 +1,3 @@
-
 # Evil spammer
 
 Evil spammer is the cli tool placed in `tools/evil-spammer` that allows to easily spam and stress test the network. It utilises client libraries `evilwallet` and `evilspammer`. Many predefined conflict and non-conflict scenarios are available to use directly with the `evilwallet` package, by command lines arguments of Evil Spammer tool, and by its interactive mode.
@@ -60,6 +59,8 @@ Simply run
 # under tools/evil-spammer
 go run . interactive
 ```
+
+![Interactive mode](/img/tooling/evil_spammer/evil-spammer-interactive.png "Interactive mode")
 
 Evil wallet will start with API endpoints configured for the local docker network,
 **if you want to play with different nodes on different network you need to update urls** in the config.json file and restart the tool,
