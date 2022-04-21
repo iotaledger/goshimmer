@@ -315,7 +315,7 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
 func (s *SimpleFinalityGadget) HandleBranch(branchID branchdag.BranchID, aw float64) (err error) {
-	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
+	if s.tangle.Options.LedgerState.MergeBranches && s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
 		s.tangle.Ledger.BranchDAG.SetBranchConfirmed(branchID)
 	}
 

@@ -140,7 +140,7 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *BranchConfirmedEvent) {
+	t.tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
 		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 

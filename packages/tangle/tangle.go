@@ -126,13 +126,6 @@ func (t *Tangle) Setup() {
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
 
-	// Enable merge to master.
-	t.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *BranchConfirmedEvent) {
-		if t.Options.LedgerState.MergeBranches {
-			t.Ledger.BranchDAG.SetBranchConfirmed(event.BranchID)
-		}
-	}))
-
 	t.MessageFactory.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
