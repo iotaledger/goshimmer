@@ -67,7 +67,7 @@ The enqueuing mechanism includes the following components:
 * __Classification__: The mechanism identifies the queue where the message belongs according to the node ID of
   the message issuer.
 * __Message enqueuing__: The message is actually enqueued, the queue is sorted by message timestamps in increasing order
-  and counters are updated (e.g., counters for the total number of bytes in the queue).
+  and counters are updated (e.g., counters for the total number of messages in the queue).
 
 The dequeuing mechanism includes the following components:
 
@@ -78,7 +78,7 @@ mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
     * The message has a ready flag assigned. A ready flag is assigned to a message when all of its parents are eligible (the parents have been scheduled or confirmed).
     * The message timestamp is not in the future.
 * __Message skipping__. Once a message in the outbox is confirmed by another message approving it, it will get removed from the outbox buffer. Since the message already has approvers and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
-* __Message drop__: Due to the node's bootstrapping, network congestion, or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and isolate the attacker's spam, a node shall drop some messages if the total number of bytes in all queues exceeds the maximum buffer size. Particularly, the node will drop messages from the queue with the largest mana-scaled length, computed by dividing the number of bytes in the queue by the amount of access Mana of the corresponding node.
+* __Message drop__: Due to the node's bootstrapping, network congestion, or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and isolate the attacker's spam, a node shall drop some messages if the total number of messages in all queues exceeds the maximum buffer size. Particularly, the node will drop messages from the queue with the largest mana-scaled length, computed by dividing the number of messages in the queue by the amount of access Mana of the corresponding node.
   - `Mana-scaled queue size = queue size / node aMana`;
 * __Scheduler management__: The scheduler counters and pointers are updated.
 

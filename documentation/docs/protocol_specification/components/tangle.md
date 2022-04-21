@@ -404,9 +404,9 @@ except in the following situations:
 Additionally, strong parents of a message are removed from the tip pool, when the message is added and unused tips are removed from the tip pool after a certain amount of time.
 
 When selecting tips from the tip pool an additional check is performed to make sure that the timestamp and the
-past cone of a selected message is valid. For the selected tip, the algorithm needs to find a timestamp of the oldest
-unconfirmed message in the past cone of the tip (`TS_oum`) . If the difference between current clock time `now` and the
-timestamp of the oldest unconfirmed message is greater than a certain threshold (`now - TS_oum > TSC_threshold`), then
+past cone of a selected message is valid. For the selected tip, the algorithm needs to find a timestamp of the oldest parent of the oldest
+unconfirmed message in the past cone of the tip (`TS_oum`). If the difference between current Confirmed Tangle Time `now` and the
+timestamp of the oldest confirmed message is greater than a certain threshold (`now - TS_oum > TSC_threshold`), then
 the tip cannot be selected and another one needs to be found. The tip stays in the tip pool until it is
 automatically removed because of its age.
 
