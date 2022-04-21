@@ -398,8 +398,8 @@ We call *strong approver of x* (or *strong child of x*) any strong message *y* a
 When a message is scheduled, it is gossiped to the node's neighbors and, normally, added to the local tip pool 
 except in the following situations:
 
-* a confirmed message shall not be added to the tip pool (it shall be skipped by the scheduler)
-* a message that has confirmed or scheduled approvers shall not be added to the tip pool
+* A confirmed message shall not be added to the tip pool (it shall be skipped by the scheduler).
+* A message that has confirmed or scheduled approvers shall not be added to the tip pool.
 
 Additionally, strong parents of a message are removed from the tip pool, when the message is added and unused tips are removed from the tip pool after a certain amount of time.
 

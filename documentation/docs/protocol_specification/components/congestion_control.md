@@ -58,7 +58,7 @@ The algorithm has three core components:
 ### Outbox Buffer Management
 
 Once a message has successfully passed the message parser checks, is solid and booked, it is enqueued into the outbox
-buffer for scheduling. The outbox is split into several queues, each one corresponding to a different node issuing
+buffer for scheduling. The outbox is split into several queues, each corresponding to a different node issuing
 messages. The total outbox buffer size is limited, but individual queues do not have a size limit. This section
 describes the operations of message enqueuing and dequeuing into and from the outbox buffer.
 
@@ -75,10 +75,10 @@ The dequeuing mechanism includes the following components:
 mechanism uses a modified version of the deficit round-robin (DRR) algorithm.
 * __Message dequeuing__. The first (oldest) message of the queue, that satisfies certain conditions is dequeued. A 
   message must satisfy the following conditions:
-    * The message has a ready flag assigned. Ready flag is assigned to a message when all of its parents are eligible (parents have been scheduled or confirmed).
+    * The message has a ready flag assigned. A ready flag is assigned to a message when all of its parents are eligible (the parents have been scheduled or confirmed).
     * The message timestamp is not in the future.
-* __Message skipping__. Once a message in the outbox becomes confirmed, that is we receive another message approving it, it gets removed from the outbox buffer. Since the message already has approvers and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
-* __Message drop__: Message drop: Due to node's bootstrapping, network congestion or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and/or isolate attacker's spam a node shall drop some messages if the total number of bytes in all queues exceeds the maximum buffer size; in particular, messages are dropped from queue with the largest mana-scaled length, computed by dividing the number of bytes in the queue by the amount of access Mana of the corresponding node.
+* __Message skipping__. Once a message in the outbox is confirmed by another message approving it, it will get removed from the outbox buffer. Since the message already has approvers and is supposed to be replicated on enough nodes in the network, it is not gossiped or added to the tip pool, hence "skipped".
+* __Message drop__: Due to the node's bootstrapping, network congestion, or ongoing attacks, the buffer occupancy of the outbox buffer may become large. To keep bounded delays and isolate the attacker's spam, a node shall drop some messages if the total number of bytes in all queues exceeds the maximum buffer size. Particularly, the node will drop messages from the queue with the largest mana-scaled length, computed by dividing the number of bytes in the queue by the amount of access Mana of the corresponding node.
   - `Mana-scaled queue size = queue size / node aMana`;
 * __Scheduler management__: The scheduler counters and pointers are updated.
 
