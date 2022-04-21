@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
@@ -353,6 +354,8 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 	if err != nil {
 		return nil, err
 	}
+	// wallet used only for outputs in the middle of the batch, that will never be reused outside custom conflict batch creation.
+	tempWallet := e.NewWallet()
 
 	err = e.updateInputWallet(buildOptions)
 	if err != nil {
@@ -363,7 +366,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 	if err != nil {
 		return nil, err
 	}
-	outputs, addrAliasMap, err := e.prepareOutputs(buildOptions)
+	outputs, addrAliasMap, tempAddresses, err := e.prepareOutputs(buildOptions, tempWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -381,16 +384,20 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 		return nil, err
 	}
 
-	e.addOutputsToOutputManager(tx, buildOptions.outputWallet)
+	e.addOutputsToOutputManager(tx, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(tx.Essence().Outputs(), addrAliasMap)
 
 	return
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if
-func (e *EvilWallet) addOutputsToOutputManager(tx *ledgerstate.Transaction, outWallet *Wallet) {
+func (e *EvilWallet) addOutputsToOutputManager(tx *ledgerstate.Transaction, outWallet, tmpWallet *Wallet, tempAddresses map[ledgerstate.Address]types.Empty) {
 	for _, o := range tx.Essence().Outputs() {
-		e.outputManager.AddOutput(outWallet, o)
+		if _, ok := tempAddresses[o.Address()]; ok {
+			e.outputManager.AddOutput(outWallet, o)
+		} else {
+			e.outputManager.AddOutput(tmpWallet, o)
+		}
 	}
 }
 
@@ -448,19 +455,16 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []ledgerstate.
 }
 
 // prepareOutputs creates outputs for different scenarios, if no aliases were provided, new empty outputs are created from buildOptions.outputs balances.
-func (e *EvilWallet) prepareOutputs(buildOptions *Options) (outputs []ledgerstate.Output,
-	addrAliasMap map[ledgerstate.Address]string, err error) {
-	// if outputs were provided with aliases
+func (e *EvilWallet) prepareOutputs(buildOptions *Options, tempWallet *Wallet) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, tempAddresses map[ledgerstate.Address]types.Empty, err error) {
 	if buildOptions.areOutputsProvidedWithoutAliases() {
 		for _, balance := range buildOptions.outputs {
 			output := ledgerstate.NewSigLockedColoredOutput(balance, buildOptions.outputWallet.Address().Address())
-			if err != nil {
-				return nil, nil, err
-			}
 			outputs = append(outputs, output)
 		}
 	} else {
-		outputs, addrAliasMap, err = e.matchOutputsWithAliases(buildOptions)
+		// if outputs were provided with aliases
+		outputs, addrAliasMap, tempAddresses, err = e.matchOutputsWithAliases(buildOptions, tempWallet)
 	}
 	return
 }
@@ -514,15 +518,24 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // Thus, they are tracker in address to alias map. If the scenario is used, the outputBatchAliases map is provided
 // that indicates which outputs should be saved to the outputWallet.All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
-func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options) (outputs []ledgerstate.Output,
-	addrAliasMap map[ledgerstate.Address]string, err error) {
+func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []ledgerstate.Output,
+	addrAliasMap map[ledgerstate.Address]string, tempAddresses map[ledgerstate.Address]types.Empty, err error) {
 	err = e.updateOutputBalances(buildOptions)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+
+	tempAddresses = make(map[ledgerstate.Address]types.Empty)
 	addrAliasMap = make(map[ledgerstate.Address]string)
 	for alias, balance := range buildOptions.aliasOutputs {
-		var addr = buildOptions.outputWallet.Address().Address()
+		var addr ledgerstate.Address
+		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
+			addr = buildOptions.outputWallet.Address().Address()
+		} else {
+			addr = tempWallet.Address().Address()
+			tempAddresses[addr] = types.Void
+		}
+
 		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, addr))
 		addrAliasMap[addr] = alias
 	}
