@@ -272,8 +272,8 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
-					ID:              jsonmodels.NewOutputID(output),
-					Output:          jsonmodels.NewOutput(output.OutputEssence()),
+					ID:              jsonmodels.NewOutputID(output.ID()),
+					Output:          jsonmodels.NewOutput(output.OutputEssence),
 					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 					TxTimestamp:     int(timestamp),
 					PendingMana:     pendingMana,

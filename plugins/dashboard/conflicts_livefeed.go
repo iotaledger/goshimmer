@@ -134,7 +134,8 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onBranchCreated(branchID branchdag.BranchID) {
+func onBranchCreated(event *branchdag.BranchCreatedEvent) {
+	branchID := event.BranchID
 	b := &branch{
 		BranchID:    branchID,
 		UpdatedTime: clock.SyncedTime(),

@@ -20,6 +20,7 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -58,8 +59,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local  *peer.Local
-	Tangle *tangle.Tangle
+	Local   *peer.Local
+	Tangle  *tangle.Tangle
+	Indexer *indexer.Indexer
 }
 
 func init() {

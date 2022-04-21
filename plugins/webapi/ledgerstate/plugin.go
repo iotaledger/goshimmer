@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -38,8 +39,9 @@ const (
 type dependencies struct {
 	dig.In
 
-	Server *echo.Echo
-	Tangle *tangle.Tangle
+	Server  *echo.Echo
+	Tangle  *tangle.Tangle
+	Indexer *indexer.Indexer
 }
 
 var (
@@ -121,6 +123,17 @@ func worker(ctx context.Context) {
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmed)
 }
 
+func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
+	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+			if typedOutput, ok := output.Output.(*devnetvm.Output); ok {
+				outputs = append(outputs, typedOutput)
+			}
+		})
+	})
+	return
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region GetAddress ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -132,10 +145,9 @@ func GetAddress(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := deps.Tangle.Ledger.CachedOutputsOnAddress(address)
-	defer cachedOutputs.Release()
+	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, cachedOutputs.Unwrap()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,12 +161,11 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	cachedOutputs := deps.Tangle.Ledger.CachedOutputsOnAddress(address)
-	defer cachedOutputs.Release()
+	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, devnetvm.Outputs(cachedOutputs.Unwrap()).Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			isUnspent = outputMetadata.ConsumerCount() == 0
+			isUnspent = !outputMetadata.IsSpent()
 		})
 
 		return
@@ -185,36 +196,35 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 	}
 	for i, addy := range addresses {
 		res.UnspentOutputs[i] = new(jsonmodels.WalletOutputsOnAddress)
-		cachedOutputs := deps.Tangle.Ledger.CachedOutputsOnAddress(addy)
+		outputs := outputsOnAddress(addy)
 		res.UnspentOutputs[i].Address = jsonmodels.Address{
 			Type:   addy.Type().String(),
 			Base58: addy.Base58(),
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range devnetvm.Outputs(cachedOutputs.Unwrap()).Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
+		for _, output := range outputs.Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				isUnspent = outputMetadata.ConsumerCount() == 0
+				isUnspent = !outputMetadata.IsSpent()
 			})
 			return
 		}) {
-			cachedOutputMetadata := deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID())
-			cachedOutputMetadata.Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if outputMetadata.ConsumerCount() == 0 {
-					cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID())
-					var timestamp time.Time
-					cachedTx.Consume(func(tx *ledger.Transaction) {
-						timestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
-					})
-					res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
-						Output:          *jsonmodels.NewOutput(output),
-						GradeOfFinality: outputMetadata.GradeOfFinality(),
-						Metadata:        jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+				if !outputMetadata.IsSpent() {
+					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput *ledger.Output) {
+						var timestamp time.Time
+						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.TransactionID()).Consume(func(tx *ledger.Transaction) {
+							timestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
+						})
+						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
+							Output:          *jsonmodels.NewOutput(output),
+							GradeOfFinality: outputMetadata.GradeOfFinality(),
+							Metadata:        jsonmodels.WalletOutputMetadata{Timestamp: timestamp},
+						})
 					})
 				}
 			})
 		}
-		cachedOutputs.Release()
 	}
 
 	return c.JSON(http.StatusOK, res)
@@ -272,7 +282,8 @@ func GetBranchConflicts(c echo.Context) (err error) {
 
 	if deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
 		branchIDsPerConflictID := make(map[branchdag.ConflictID][]branchdag.BranchID)
-		for conflictID := range branch.ConflictIDs() {
+		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+			conflictID := it.Next()
 			branchIDsPerConflictID[conflictID] = make([]branchdag.BranchID, 0)
 			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember) {
 				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
@@ -515,7 +526,7 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// check transaction validity
-	if transactionErr := deps.Tangle.Ledger.CheckTransaction(tx); transactionErr != nil {
+	if transactionErr := deps.Tangle.Ledger.CheckTransaction(context.Background(), tx); transactionErr != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: transactionErr.Error()})
 	}
 

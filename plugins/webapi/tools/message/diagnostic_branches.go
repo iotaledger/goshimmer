@@ -55,7 +55,7 @@ var DiagnosticBranchesTableDescription = []string{
 	"ID",
 	"ConflictSet",
 	"IssuanceTime",
-	"SolidTime",
+	"BookingTime",
 	"LazyBooked",
 	"GradeOfFinality",
 }
@@ -65,7 +65,7 @@ type DiagnosticBranchInfo struct {
 	ID                string
 	ConflictSet       []string
 	IssuanceTimestamp time.Time
-	SolidTime         time.Time
+	BookingTime       time.Time
 	LazyBooked        bool
 	GradeOfFinality   gof.GradeOfFinality
 }
@@ -80,15 +80,14 @@ func getDiagnosticConflictsInfo(branchID branchdag.BranchID) DiagnosticBranchInf
 
 		transactionID := utxo.TransactionID(branchID)
 
-		conflictInfo.ConflictSet = deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = branch.ConflictIDs().Base58()
 
 		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
 		})
 
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
+			conflictInfo.BookingTime = transactionMetadata.BookingTime()
 		})
 	})
 
@@ -100,7 +99,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		d.ID,
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
-		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.BookingTime.UnixNano()),
 		fmt.Sprint(d.LazyBooked),
 		fmt.Sprint(d.GradeOfFinality),
 	}

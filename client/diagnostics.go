@@ -46,7 +46,7 @@ func (api *GoShimmerAPI) GetDiagnosticsMessagesByRank(rank uint64) (*csv.Reader,
 // GetDiagnosticsUtxoDag runs diagnostics over utxo dag.
 // Returns csv with the following fields:
 //
-//	ID,IssuanceTime,SolidTime,AccessManaPledgeID,ConsensusManaPledgeID,Inputs,Outputs,Attachments,
+//	ID,IssuanceTime,BookingTime,AccessManaPledgeID,ConsensusManaPledgeID,Inputs,Outputs,Attachments,
 //	BranchID,Conflicting,LazyBooked,GradeOfFinality,GradeOfFinalityTime
 func (api *GoShimmerAPI) GetDiagnosticsUtxoDag() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsUtxoDag)
@@ -55,7 +55,7 @@ func (api *GoShimmerAPI) GetDiagnosticsUtxoDag() (*csv.Reader, error) {
 // GetDiagnosticsBranches runs diagnostics over branches.
 // Returns csv with the following fields:
 //
-//	ID,ConflictSet,IssuanceTime,SolidTime,LazyBooked,GradeOfFinality
+//	ID,ConflictSet,IssuanceTime,BookingTime,LazyBooked,GradeOfFinality
 func (api *GoShimmerAPI) GetDiagnosticsBranches() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsBranches)
 }
@@ -63,7 +63,7 @@ func (api *GoShimmerAPI) GetDiagnosticsBranches() (*csv.Reader, error) {
 // GetDiagnosticsLazyBookedBranches runs diagnostics over lazy booked branches.
 // Returns csv with the following fields:
 //
-//	ID,ConflictSet,IssuanceTime,SolidTime,LazyBooked,GradeOfFinality
+//	ID,ConflictSet,IssuanceTime,BookingTime,LazyBooked,GradeOfFinality
 func (api *GoShimmerAPI) GetDiagnosticsLazyBookedBranches() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsLazyBookedBranches)
 }
@@ -71,7 +71,7 @@ func (api *GoShimmerAPI) GetDiagnosticsLazyBookedBranches() (*csv.Reader, error)
 // GetDiagnosticsInvalidBranches runs diagnostics over invalid branches.
 // Returns csv with the following fields:
 //
-//	ID,ConflictSet,IssuanceTime,SolidTime,LazyBooked,GradeOfFinality
+//	ID,ConflictSet,IssuanceTime,BookingTime,LazyBooked,GradeOfFinality
 func (api *GoShimmerAPI) GetDiagnosticsInvalidBranches() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsInvalidBranches)
 }
@@ -84,7 +84,7 @@ func (api *GoShimmerAPI) GetDiagnosticsTips() (*csv.Reader, error) {
 // GetDiagnosticsDRNG runs diagnostics for DRNG
 // Returns csv with the following fields:
 //
-// 	ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,BookedTime,
+// 	ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,BookingTime,ScheduledTime,BookedTime,
 //	dRNGPayloadType,InstanceID,Round,PreviousSignature,Signature,DistributedPK
 func (api *GoShimmerAPI) GetDiagnosticsDRNG() (*csv.Reader, error) {
 	return api.diagnose(RouteDiagnosticsDRNG)
