@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 )
 
 // DelegationReceiver checks for delegation outputs on the wallet address and keeps the most recent delegated balance.
@@ -24,11 +25,18 @@ type DelegationReceiver struct {
 func (d *DelegationReceiver) Scan() []*devnetvm.AliasOutput {
 	d.Lock()
 	defer d.Unlock()
-	cachedOutputs := deps.Tangle.Ledger.CachedOutputsOnAddress(d.address)
-	defer cachedOutputs.Release()
+
+	var outputs devnetvm.Outputs
+	deps.Indexer.CachedAddressOutputMappings(d.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+			if typedOutput, ok := output.Output.(*devnetvm.Output); ok {
+				outputs = append(outputs, typedOutput)
+			}
+		})
+	})
 	// filterDelegationOutputs will use this time for condition checking
 	d.localTimeNow = clock.SyncedTime()
-	filtered := devnetvm.Outputs(cachedOutputs.Unwrap()).Filter(d.filterDelegationOutputs)
+	filtered := outputs.Filter(d.filterDelegationOutputs)
 
 	scanResult := make([]*devnetvm.AliasOutput, len(filtered))
 	for i, output := range filtered {
@@ -85,7 +93,7 @@ func (d *DelegationReceiver) filterDelegationOutputs(output devnetvm.OutputEssen
 	isUnspent := false
 	isConfirmed := false
 	deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-		isUnspent = outputMetadata.ConsumerCount() == 0
+		isUnspent = !outputMetadata.IsSpent()
 		isConfirmed = deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})
 	if !isUnspent || !isConfirmed {

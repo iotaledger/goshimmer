@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -56,6 +57,7 @@ type dependencies struct {
 	GossipMgr    *gossip.Manager     `optional:"true"`
 	DRNGInstance *drng.DRNG          `optional:"true"`
 	Chat         *chat.Chat          `optional:"true"`
+	Indexer      *indexer.Indexer
 }
 
 func init() {

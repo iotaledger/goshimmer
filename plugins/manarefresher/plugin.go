@@ -12,6 +12,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -25,8 +26,9 @@ var (
 
 type dependencies struct {
 	dig.In
-	Local  *peer.Local
-	Tangle *tangle.Tangle
+	Local   *peer.Local
+	Tangle  *tangle.Tangle
+	Indexer *indexer.Indexer
 }
 
 // minRefreshInterval is the minimum refresh interval allowed for delegated outputs.

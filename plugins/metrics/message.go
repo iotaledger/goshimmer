@@ -380,7 +380,7 @@ func measurePerComponentCounter() {
 	messageCountPerComponentMutex.Unlock()
 
 	// trigger events for outside listeners
-	Events.ComponentCounterUpdated.Trigger(componentCounters)
+	Events.ComponentCounterUpdated.Trigger(&ComponentCounterUpdatedEvent{ComponentStatus: componentCounters})
 }
 
 func measureMessageTips() {
@@ -401,7 +401,7 @@ func measureReceivedMPS() {
 	mpsReceivedSinceLastMeasurement.Store(0)
 
 	// trigger events for outside listeners
-	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
+	Events.ReceivedMPSUpdated.Trigger(&ReceivedMPSUpdatedEvent{MPS: sampledMPS})
 }
 
 func measureRequestQueueSize() {

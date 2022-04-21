@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -72,6 +73,10 @@ func init() {
 		}
 
 		if err := container.Provide(FinalityGadget); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(Indexer); err != nil {
 			Plugin.Panic(err)
 		}
 
@@ -195,6 +200,8 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget
+
+	index = indexer.New(indexer.WithStore(deps.Storage), indexer.WithCacheTimeProvider(database.CacheTimeProvider()))
 
 	tangleInstance.Setup()
 	return tangleInstance

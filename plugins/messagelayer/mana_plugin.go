@@ -468,7 +468,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if !exists || outputMetadata.ConsumerCount() > 0 {
+	if !exists || outputMetadata.IsSpent() {
 		return 0, time.Time{}
 	}
 

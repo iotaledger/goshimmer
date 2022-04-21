@@ -57,7 +57,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 var DiagnosticUTXODAGTableDescription = []string{
 	"ID",
 	"IssuanceTime",
-	"SolidTime",
+	"BookingTime",
 	"AccessManaPledgeID",
 	"ConsensusManaPledgeID",
 	"Inputs",
@@ -75,7 +75,7 @@ type DiagnosticUTXODAGInfo struct {
 	// transaction essence
 	ID                    string
 	IssuanceTimestamp     time.Time
-	SolidTime             time.Time
+	BookingTime           time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	Inputs                devnetvm.Inputs
@@ -110,11 +110,10 @@ func getDiagnosticUTXODAGInfo(transactionID utxo.TransactionID, messageID tangle
 	}
 
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-		txInfo.SolidTime = transactionMetadata.SolidificationTime()
+		txInfo.BookingTime = transactionMetadata.BookingTime()
 		txInfo.BranchIDs = transactionMetadata.BranchIDs().Base58()
 
-		txInfo.Conflicting = deps.Tangle.Ledger.Storage.CachedTransactionConflicting(transactionID)
-		txInfo.LazyBooked = transactionMetadata.LazyBooked()
+		txInfo.Conflicting = transactionMetadata.IsConflicting()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()
 	})
@@ -126,7 +125,7 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 	row := []string{
 		d.ID,
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
-		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.BookingTime.UnixNano()),
 		d.AccessManaPledgeID,
 		d.ConsensusManaPledgeID,
 		strings.Join(d.Inputs.Strings(), ";"),

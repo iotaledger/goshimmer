@@ -72,7 +72,7 @@ var DiagnosticDRNGMessagesTableDescription = []string{
 	"IssuerPublicKey",
 	"IssuanceTime",
 	"ArrivalTime",
-	"SolidTime",
+	"BookingTime",
 	"ScheduledTime",
 	"BookedTime",
 	"dRNGPayloadType",

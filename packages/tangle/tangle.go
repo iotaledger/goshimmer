@@ -304,7 +304,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// MergeBranches is an Option for the Tangle that prevents the LedgerstateOLD from merging Branches.
+// MergeBranches is an Option for the Tangle that prevents the Ledger from merging Branches.
 func MergeBranches(mergeBranches bool) Option {
 	return func(o *Options) {
 		o.LedgerState.MergeBranches = mergeBranches

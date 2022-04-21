@@ -176,7 +176,9 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
 		deps.Tangle.Ledger.Storage.CachedOutput(refOutputID).Consume(func(output *ledger.Output) {
-			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
+			if typedOutput, ok := output.Output.(*devnetvm.Output); ok {
+				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
+			}
 		})
 	}
 
