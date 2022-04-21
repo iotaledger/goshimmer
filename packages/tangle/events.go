@@ -1,12 +1,13 @@
 package tangle
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,17 +37,15 @@ type MessageInvalidEvent struct {
 
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
-	MessageConfirmed     *event.Event[*MessageConfirmedEvent]
-	BranchConfirmed      *event.Event[*BranchConfirmedEvent]
-	TransactionConfirmed *event.Event[*TransactionConfirmedEvent]
+	MessageConfirmed *event.Event[*MessageConfirmedEvent]
+	BranchConfirmed  *event.Event[*BranchConfirmedEvent]
 }
 
 // NewConfirmationEvents returns a new ConfirmationEvents object.
 func NewConfirmationEvents() (new *ConfirmationEvents) {
 	return &ConfirmationEvents{
-		MessageConfirmed:     event.New[*MessageConfirmedEvent](),
-		BranchConfirmed:      event.New[*BranchConfirmedEvent](),
-		TransactionConfirmed: event.New[*TransactionConfirmedEvent](),
+		MessageConfirmed: event.New[*MessageConfirmedEvent](),
+		BranchConfirmed:  event.New[*BranchConfirmedEvent](),
 	}
 }
 

@@ -1,7 +1,6 @@
 package finality
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/generics/set"
@@ -277,11 +276,15 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 		}
 
 		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.GradeOfFinality() >= gradeOfFinality || !s.setMessageGoF(messageMetadata, gradeOfFinality) {
+			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
 				return
 			}
 
 			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
+				if !s.setMessageGoF(message, messageMetadata, gradeOfFinality) {
+					return
+				}
+
 				message.ForEachParent(func(parent tangle.Parent) {
 					if parent.Type == tangle.StrongParentType {
 						strongParentWalker.Push(parent.ID)
@@ -389,14 +392,16 @@ func (s *SimpleFinalityGadget) adjustOutputGoF(outputID utxo.OutputID, newGradeO
 	})
 }
 
-func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
+func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	// abort if message has GoF already set
 	if modified = messageMetadata.SetGradeOfFinality(gradeOfFinality); !modified {
 		return
 	}
 
 	// set GoF of payload (applicable only to transactions)
-	s.setPayloadGoF(messageMetadata.ID(), gradeOfFinality)
+	if tx, ok := message.Payload().(utxo.Transaction); ok {
+		s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
+	}
 
 	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
 		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
@@ -405,49 +410,6 @@ func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMeta
 	}
 
 	return modified
-}
-
-func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
-	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID utxo.TransactionID) {
-		s.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,max(messageGoF,transactionGoF)).
-			// This also works for transactions in MasterBranch since it has gof.High and we then use max(messageGoF,transactionGoF).
-			// max(messageGoF,transactionGoF) gets the max GoF of any possible reattachment (which has set the transaction's GoF before).
-			transactionGoF := transactionMetadata.GradeOfFinality()
-			if transactionGoF > gradeOfFinality {
-				gradeOfFinality = transactionMetadata.GradeOfFinality()
-			}
-
-			lowestBranchGoF := s.getTransactionBranchesGoF(transactionMetadata)
-
-			// This is an invalid invariant and should never happen.
-			if transactionGoF > lowestBranchGoF {
-				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branches %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.BranchIDs(), lowestBranchGoF))
-			}
-
-			if lowestBranchGoF < gradeOfFinality {
-				gradeOfFinality = lowestBranchGoF
-			}
-
-			// abort if transaction has GoF already set
-			if !transactionMetadata.SetGradeOfFinality(gradeOfFinality) {
-				return
-			}
-
-			// set GoF in outputs
-			for it := transactionMetadata.OutputIDs().Iterator(); it.HasNext(); {
-				s.tangle.Ledger.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-					outputMetadata.SetGradeOfFinality(gradeOfFinality)
-				})
-			}
-
-			if gradeOfFinality >= s.opts.BranchGoFReachedLevel {
-				s.Events().TransactionConfirmed.Trigger(&tangle.TransactionConfirmedEvent{
-					TransactionID: transactionID,
-				})
-			}
-		})
-	})
 }
 
 func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledger.TransactionMetadata) (lowestBranchGoF gof.GradeOfFinality) {

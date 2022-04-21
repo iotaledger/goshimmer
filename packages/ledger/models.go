@@ -81,6 +81,12 @@ type TransactionMetadata struct {
 	// bookingTimeMutex contains a mutex that is used to synchronize parallel access to the bookingTime.
 	bookingTimeMutex sync.RWMutex
 
+	// inclusionTime contains the timestamp of the earliest included attachment of this transaction in the tangle.
+	inclusionTime time.Time
+
+	// inclusionTimeMutex contains a mutex that is used to synchronize parallel access to the inclusionTime.
+	inclusionTimeMutex sync.RWMutex
+
 	// outputIDs contains the identifiers of the Outputs that the Transaction created.
 	outputIDs utxo.OutputIDs
 
@@ -148,6 +154,9 @@ func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUt
 	}
 	if t.bookingTime, err = marshalUtil.ReadTime(); err != nil {
 		return errors.Errorf("failed to parse solidify time (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+	if t.inclusionTime, err = marshalUtil.ReadTime(); err != nil {
+		return errors.Errorf("failed to parse inclusion time (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 	if err = t.outputIDs.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse OutputIDs: %w", err)
@@ -229,6 +238,30 @@ func (t *TransactionMetadata) BookingTime() (bookingTime time.Time) {
 	return t.bookingTime
 }
 
+// SetInclusionTime sets the inclusion time of the Transaction.
+func (t *TransactionMetadata) SetInclusionTime(inclusionTime time.Time) (updated bool, previousInclusionTime time.Time) {
+	t.inclusionTimeMutex.Lock()
+	defer t.inclusionTimeMutex.Unlock()
+
+	if inclusionTime.After(t.inclusionTime) {
+		return false, t.inclusionTime
+	}
+
+	previousInclusionTime = t.inclusionTime
+	t.inclusionTime = inclusionTime
+	t.SetModified()
+
+	return true, previousInclusionTime
+}
+
+// InclusionTime returns the inclusion time of the Transaction.
+func (t *TransactionMetadata) InclusionTime() (inclusionTime time.Time) {
+	t.inclusionTimeMutex.RLock()
+	defer t.inclusionTimeMutex.RUnlock()
+
+	return t.inclusionTime
+}
+
 // OutputIDs returns the identifiers of the Outputs that the Transaction created.
 func (t *TransactionMetadata) OutputIDs() (outputIDs utxo.OutputIDs) {
 	t.outputIDsMutex.RLock()
@@ -301,6 +334,7 @@ func (t *TransactionMetadata) String() (humanReadable string) {
 		stringify.StructField("branchID", t.BranchIDs()),
 		stringify.StructField("booked", t.IsBooked()),
 		stringify.StructField("bookingTime", t.BookingTime()),
+		stringify.StructField("inclusionTime", t.InclusionTime()),
 		stringify.StructField("outputIDs", t.OutputIDs()),
 		stringify.StructField("gradeOfFinality", t.GradeOfFinality()),
 		stringify.StructField("gradeOfFinalityTime", t.GradeOfFinalityTime()),
@@ -318,6 +352,7 @@ func (t *TransactionMetadata) ObjectStorageValue() (value []byte) {
 		Write(t.BranchIDs()).
 		WriteBool(t.IsBooked()).
 		WriteTime(t.BookingTime()).
+		WriteTime(t.InclusionTime()).
 		Write(t.OutputIDs()).
 		WriteUint8(uint8(t.GradeOfFinality())).
 		WriteTime(t.GradeOfFinalityTime()).
@@ -342,9 +377,13 @@ type Output struct {
 
 // NewOutput returns a new Output from the given utxo.Output.
 func NewOutput(output utxo.Output) (new *Output) {
-	return &Output{
+	new = &Output{
 		Output: output,
 	}
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage un-serializes an Output from an object storage (it is disabled because we use the VMs parser).
@@ -414,6 +453,18 @@ func (o Outputs) ForEach(callback func(output *Output) error) (err error) {
 	return err
 }
 
+// Bytes returns the serialized representation of the Outputs.
+func (o Outputs) Bytes() (serialized []byte) {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(o.Size()))
+	_ = o.ForEach(func(output *Output) error {
+		marshalUtil.Write(output)
+		return nil
+	})
+
+	return marshalUtil.Bytes()
+}
+
 // utxoOutputs returns a slice of unwrapped Outputs.
 func (o Outputs) utxoOutputs() (slice []utxo.Output) {
 	slice = make([]utxo.Output, 0)
@@ -464,10 +515,14 @@ type OutputMetadata struct {
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
-	return &OutputMetadata{
+	new = &OutputMetadata{
 		id:        outputID,
 		branchIDs: branchdag.NewBranchIDs(),
 	}
+	new.Persist()
+	new.SetModified()
+
+	return new
 }
 
 // FromObjectStorage un-serializes OutputMetadata from an object storage.

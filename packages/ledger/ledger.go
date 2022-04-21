@@ -2,10 +2,12 @@ package ledger
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
@@ -69,6 +71,43 @@ func New(options ...Option) (ledger *Ledger) {
 	return ledger
 }
 
+// LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
+func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
+	for _, output := range snapshot.Outputs {
+		l.Storage.CachedOutput(output.ID(), func(outputID utxo.OutputID) *Output {
+			return NewOutput(output)
+		})
+
+		l.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *OutputMetadata {
+			outputMetadata := NewOutputMetadata(output.ID())
+			outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+			outputMetadata.SetGradeOfFinality(gof.High)
+
+			return outputMetadata
+		})
+	}
+}
+
+// SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
+func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		updated, previousInclusionTime := txMetadata.SetInclusionTime(inclusionTime)
+		if !updated {
+			return
+		}
+
+		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
+			TransactionID:         txID,
+			InclusionTime:         inclusionTime,
+			PreviousInclusionTime: previousInclusionTime,
+		})
+
+		if previousInclusionTime.IsZero() && l.BranchDAG.InclusionState(txMetadata.BranchIDs()) == branchdag.Confirmed {
+			l.triggerConfirmedEvent(txMetadata, false)
+		}
+	})
+}
+
 // CheckTransaction checks the validity of a Transaction.
 func (l *Ledger) CheckTransaction(ctx context.Context, tx utxo.Transaction) (err error) {
 	return l.dataFlow.checkTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
@@ -110,6 +149,21 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 			_ = l.processTransaction(tx)
 		})
 	}
+}
+
+// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
+func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) {
+	if checkInclusion && txMetadata.InclusionTime().IsZero() {
+		return
+	}
+
+	if !txMetadata.SetGradeOfFinality(gof.High) {
+		return
+	}
+
+	l.Events.TransactionConfirmed.Trigger(&TransactionConfirmedEvent{
+		TransactionID: txMetadata.ID(),
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

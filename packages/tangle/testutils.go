@@ -285,38 +285,14 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	var outputs []devnetvm.OutputEssence
-	var unspentOutputs []bool
-
+	var outputs []utxo.Output
 	for address, balance := range genesisOutputs {
-		outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(balance, address))
-		unspentOutputs = append(unspentOutputs, true)
+		outputs = append(outputs, devnetvm.NewOutput(utxo.EmptyTransactionID, uint16(len(outputs)), devnetvm.NewSigLockedColoredOutput(balance, address)))
 	}
 
-	genesisEssence := devnetvm.NewTransactionEssence(
-		0,
-		time.Now(),
-		identity.ID{},
-		identity.ID{},
-		devnetvm.NewInputs(devnetvm.NewUTXOInput(utxo.EmptyOutputID)),
-		devnetvm.NewOutputs(outputs...),
-	)
-
-	genesisTransaction := devnetvm.NewTransaction(genesisEssence, devnetvm.UnlockBlocks{devnetvm.NewReferenceUnlockBlock(0)})
-
-	snapshot := &devnetvm.Snapshot{
-		Transactions: map[utxo.TransactionID]devnetvm.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   devnetvm.UnlockBlocks{devnetvm.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: unspentOutputs,
-			},
-		},
-	}
-
-	if err := m.tangle.Ledger.LoadSnapshot(snapshot); err != nil {
-		panic(err)
-	}
+	m.tangle.Ledger.LoadSnapshot(&ledger.Snapshot{
+		Outputs: outputs,
+	})
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
