@@ -239,6 +239,8 @@ export function updateConfirmedTransaction(
     if (!node) return;
     if (tx.isConfirmed) {
         node.addClass('confirmed');
+    } else if (node.hasClass('confirmed')) {
+        node.removeClass('confirmed');
     }
 }
 
@@ -252,6 +254,8 @@ export function updateConfirmedBranch(
     if (!node) return;
     if (branch.isConfirmed) {
         node.addClass('confirmed');
+    } else if (node.hasClass('confirmed')) {
+        node.removeClass('confirmed');
     }
 }
 
