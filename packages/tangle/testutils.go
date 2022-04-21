@@ -62,13 +62,13 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 	messageTestFramework.createGenesisOutputs()
 
-	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(_ *MessageBookedEvent) {
+	tangle.Booker.Events.MessageBooked.Hook(event.NewClosure(func(_ *MessageBookedEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(_ *MessageProcessedEvent) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(_ *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Hook(event.NewClosure(func(_ *MessageInvalidEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
@@ -822,7 +822,7 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
-	t.Events.Error.Attach(event.NewClosure(func(e error) {
+	t.Events.Error.Hook(event.NewClosure(func(e error) {
 		fmt.Println(e)
 	}))
 
@@ -948,15 +948,14 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	}
 	e.Test(t)
 
-	approvalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(e.BranchWeightChanged))
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(e.MarkerWeightChanged))
-
 	// attach all events
-	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+	approvalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(e.MarkerWeightChanged))
+	approvalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(e.MessageProcessed))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+3, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
 
 	return e
 }
@@ -970,17 +969,10 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
+	e.test.Logf("EXPECT:\t%s", eventName)
+
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
-}
-
-func (e *EventMock) attach(ev *event.Event[*MessageProcessedEvent], f func(*MessageProcessedEvent)) {
-	closure := event.NewClosure(f)
-	ev.Attach(closure)
-	e.attached = append(e.attached, struct {
-		*event.Event[*MessageProcessedEvent]
-		*event.Closure[*MessageProcessedEvent]
-	}{ev, closure})
 }
 
 // AssertExpectations asserts expectations.
@@ -1006,7 +998,7 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
 	e.Called(event.BranchID, event.Weight)
 
-	fmt.Println("BranchWeightChanged", event.BranchID, event.Weight)
+	e.test.Logf("TRIGGER:\tBranchWeightChanged(%s,  %0.2f)", event.BranchID, event.Weight)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
@@ -1017,8 +1009,6 @@ func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 
 	e.test.Logf("TRIGGER:\tMarkerWeightChanged(Marker(%d, %d),  %0.2f)", uint64(event.Marker.Index()), uint64(event.Marker.SequenceID()), event.Weight)
 
-	fmt.Println("MarkerWeightChanged", event.Marker, event.Weight)
-
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
@@ -1026,7 +1016,7 @@ func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
 	e.Called(event.MessageID)
 
-	fmt.Println("MessageProcessed", event.MessageID)
+	e.test.Logf("TRIGGER:\tMessageProcessed(%s)", event.MessageID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }
