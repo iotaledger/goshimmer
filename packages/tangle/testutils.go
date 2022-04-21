@@ -1006,6 +1006,8 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
 	e.Called(event.BranchID, event.Weight)
 
+	fmt.Println("BranchWeightChanged", event.BranchID, event.Weight)
+
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
@@ -1013,12 +1015,18 @@ func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
 func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 	e.Called(event.Marker, event.Weight)
 
+	e.test.Logf("TRIGGER:\tMarkerWeightChanged(Marker(%d, %d),  %0.2f)", uint64(event.Marker.Index()), uint64(event.Marker.SequenceID()), event.Weight)
+
+	fmt.Println("MarkerWeightChanged", event.Marker, event.Weight)
+
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
 // MessageProcessed is the mocked MessageProcessed function.
 func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
 	e.Called(event.MessageID)
+
+	fmt.Println("MessageProcessed", event.MessageID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

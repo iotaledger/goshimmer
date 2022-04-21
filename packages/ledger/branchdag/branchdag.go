@@ -1,6 +1,7 @@
 package branchdag
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
@@ -138,12 +139,17 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	defer b.inclusionStateMutex.Unlock()
 
 	rejectionWalker := walker.New[BranchID]()
-
 	for confirmationWalker := NewBranchIDs(branchID).Iterator(); confirmationWalker.HasNext(); {
 		b.Storage.CachedBranch(confirmationWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
+
+			b.Events.BranchConfirmed.Trigger(&BranchConfirmedEvent{
+				BranchID: branchID,
+			})
+
+			fmt.Println("BRANCH CONFIRMED", branchID)
 
 			confirmationWalker.PushAll(branch.Parents().Slice()...)
 
