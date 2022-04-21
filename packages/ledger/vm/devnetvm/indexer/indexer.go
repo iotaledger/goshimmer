@@ -31,6 +31,7 @@ func New(options ...Option) (new *Indexer) {
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
+		addressOutputMappingPartitionKeys,
 	)
 
 	return new

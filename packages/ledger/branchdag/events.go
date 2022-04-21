@@ -16,6 +16,9 @@ type Events struct {
 
 	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Branch are updated.
 	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent]
+
+	// BranchConfirmed is an event that gets triggered whenever a Branch is confirmed.
+	BranchConfirmed *event.Event[*BranchConfirmedEvent]
 }
 
 // newEvents returns a new Events object.
@@ -24,6 +27,7 @@ func newEvents() *Events {
 		BranchCreated:          event.New[*BranchCreatedEvent](),
 		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent](),
 		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent](),
+		BranchConfirmed:        event.New[*BranchConfirmedEvent](),
 	}
 }
 
@@ -75,6 +79,17 @@ type BranchParentsUpdatedEvent struct {
 
 	// ParentsBranchIDs contains the updated list of parent BranchIDs.
 	ParentsBranchIDs BranchIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchParentsUpdatedEvent ////////////////////////////////////////////////////////////////////////////////////
+
+// BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related
+// parameters.
+type BranchConfirmedEvent struct {
+	// BranchID contains the identifier of the confirmed Branch.
+	BranchID BranchID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

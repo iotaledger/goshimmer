@@ -73,4 +73,7 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 // code contract (make sure the struct implements all required methods)
 var _ objectstorage.StorableObject = new(AddressOutputMapping)
 
+// addressOutputMappingPartitionKeys defines the partition of the storage key of the AddressOutputMapping model.
+var addressOutputMappingPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength, utxo.TransactionIDLength}...)
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

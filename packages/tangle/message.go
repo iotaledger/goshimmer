@@ -1129,8 +1129,6 @@ func (m *MessageMetadata) AddedBranchIDs() branchdag.BranchIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
-	fmt.Println(m.ID())
-
 	return m.addedBranchIDs.Clone()
 }
 
