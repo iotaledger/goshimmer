@@ -68,7 +68,6 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget) {
 	fg.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
 	fg.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
-	fg.Events().TransactionConfirmed.Attach(event.NewClosure(func(event *tangle.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {

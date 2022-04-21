@@ -356,9 +356,11 @@ func (s *Storage) BranchWeight(branchID branchdag.BranchID, computeIfAbsentCallb
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-			messageID:          EmptyMessageID,
-			solid:              true,
+			addedBranchIDs:      branchdag.NewBranchIDs(),
+			subtractedBranchIDs: branchdag.NewBranchIDs(),
+			solidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			messageID:           EmptyMessageID,
+			solid:               true,
 			structureDetails: &markers.StructureDetails{
 				Rank:          0,
 				IsPastMarker:  false,

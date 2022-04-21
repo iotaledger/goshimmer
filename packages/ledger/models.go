@@ -453,18 +453,6 @@ func (o Outputs) ForEach(callback func(output *Output) error) (err error) {
 	return err
 }
 
-// Bytes returns the serialized representation of the Outputs.
-func (o Outputs) Bytes() (serialized []byte) {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint64(uint64(o.Size()))
-	_ = o.ForEach(func(output *Output) error {
-		marshalUtil.Write(output)
-		return nil
-	})
-
-	return marshalUtil.Bytes()
-}
-
 // utxoOutputs returns a slice of unwrapped Outputs.
 func (o Outputs) utxoOutputs() (slice []utxo.Output) {
 	slice = make([]utxo.Output, 0)
