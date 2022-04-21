@@ -67,7 +67,6 @@ func init() {
 
 // Filter returns the double spend filter singleton.
 func Filter() *DoubleSpendFilter {
-	fmt.Println("Enable Filter")
 	doubleSpendFilterOnce.Do(func() {
 		doubleSpendFilter = NewDoubleSpendFilter()
 	})
