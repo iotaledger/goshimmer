@@ -18,6 +18,9 @@ type ParametersDefinition struct {
 		// Password defines the password used by the basic HTTP authentication.
 		Password string `default:"goshimmer" usage:"HTTP basic auth password"`
 	}
+
+	// EnableDSFilter determines if the DoubleSpendFilter should be enabled.
+	EnableDSFilter bool `default:"false" usage:"whether to enable double spend filter"`
 }
 
 // Parameters contains the configuration used by the webAPI plugin.
