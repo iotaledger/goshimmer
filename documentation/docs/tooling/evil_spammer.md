@@ -132,7 +132,7 @@ Below you can find a list of predefined scenarios.
 
 
 ## Evil Wallet and Evil spammer lib
-    This section is a guide for the users that wants to create their own tools or scenarios
+> :warning: This section is a guide for the users that wants to create their own tools or scenarios
     with the `evilwallet` and `evilwallet` library.
     If you simply want to spam, you can use the evil spammer tool and its interactive mode described above.
 
@@ -275,7 +275,11 @@ To use the evil spammer, you need to:
 3. prepare evil spammer options, such as duration, spam rate, etc.,
 4. create a spammer and start spamming.
 
-Example:
+The behaviour of the spammer is controlled by:
+ * Spam options
+ * Evil Scenario
+
+Example of the simple spam with double spends:
 ```go
 evilWallet := evilwallet.NewEvilWallet()
 err := evilWallet.RequestFreshFaucetWallet()
@@ -295,8 +299,37 @@ dsSpammer := NewSpammer(dsOptions...)
 dsSpammer.Spam()
 ```
 
+The spammer will treat the provided spamming custom conflicts as a single batch, which will be sent with the provided rate.
+So if you use `guava` scenario and rate 5 mps per batch you will be spamming  30 mps on average 
+(as the `guava` creates 6 distinct transactions).
+
+### Spam options
+
+* To change the spamming rate use
+```go
+WithSpamRate(rate int, timeUnit time.Duration) Options
+```
+* Duration of the spam can be controlled by either providing duration time or specifying how many batches should be sent.
+```go
+WithSpamDuration(maxDuration time.Duration) Options
+WithBatchesSent(maxBatchesSent int) Options
+```
+
+* If you want to create multiple spams and use the same Evil Wallet instance you can provide it with
+```go
+WithEvilWallet(evilWallet),
+```
+* To customize the spamming batch and spam behavior, provide EvilScenario
+```go
+WithEvilScenario(scenario *evilwallet.EvilScenario) Options
+```
+* By default spammer uses batch spamming function, but you can also spam with data messages by using:
+```go
+WithSpammingFunc(evilspammer.DataSpammingFunction)
+```
+
 ### Evil Scenario
-There are several scenarios in `evilwallet/customscenarios` already, which are shown in previous section.
+There are several scenario batches in `evilwallet/customscenarios` already, which are shown in previous section.
 Besides, you are able to define your own spamming scenario with alias in `EvilBatch`, which is similar to the `ConflictBatch` in evil wallet but rather simple. Only aliases for inputs and outputs are needed, then the evil spammer will find valid unspent outputs automatically, match outputs to provided aliases and start issuing transactions. Finally, make your defined scenario (`[]EvilBatch`) an option with `WithScenarioCustomConflicts` and pass it to `NewEvilScenario`.
 
 Below is `guava` scenario:
@@ -317,4 +350,77 @@ EvilBatch{
         {Inputs: []string{"6", "5"}, Outputs: []string{"8"}},
     },
 }
+```
+#### Deep spamming
+Except basic functionality to customize spam batches, set the rate and duration, the Evil Spammer allows also for deep spamming.
+
+To create deep branch and UTXO structure  you need to enable the deep spam with an option 
+```go
+evilwallet.WithScenarioDeepSpamEnabled()
+```
+The spammer will reuse outputs created during that it remembers from previous spams or if you provide a specific input `RestrictedReuse` wallet containing outputs generated during some previous spam.
+If you want to save outputs from the spam for a specific usage in the future, and you don't want the Evil Wallet to remember it and use it automatically you need to provide `RestrictedReuse` wallet.
+After spam ends, you can use this wallet in the next deep spam. 
+In the example below, we firstly save outputs from a simple `tx` spam and use the outputs later in the controlled manner to create deep spam with level 2.
+
+```go
+evilWallet := evilwallet.NewEvilWallet()
+
+evilWallet.RequestFreshFaucetWallet()
+
+// outputs from tx spam will be saved here, this wallet can be later reused as an input wallet for deep spam
+restrictedOutWallet := evilWallet.NewWallet(evilwallet.RestrictedReuse)
+
+// transaction spam is the default one, no need to provide custom scenario batch
+scenarioTx := evilwallet.NewEvilScenario(
+    evilwallet.WithScenarioReuseOutputWallet(restrictedOutWallet),
+)
+guava, _ := GetScenario("guava")
+customScenario := evilwallet.NewEvilScenario(
+    evilwallet.WithScenarioDeepSpamEnabled(),
+    evilwallet.WithScenarioInputWalletForDeepSpam(restrictedOutWallet),
+    evilwallet.WithScenarioCustomConflicts(guava),
+)
+
+options := []Options{
+    WithSpamRate(5, time.Second),
+    WithBatchesSent(50),
+    WithEvilWallet(evilWallet),
+}
+txOptions := append(options, WithEvilScenario(scenarioTx))
+customOptions := append(options, WithEvilScenario(customScenario))
+
+txSpammer := NewSpammer(txOptions...)
+customDeepSpammer := NewSpammer(customOptions...)
+
+txSpammer.Spam()
+customDeepSpammer.Spam()
+```
+
+
+If you want to use the outputs generated within the same spam you can instruct the spammer to save the outputs to the `Reuse` wallet and make it the input wallet for the spam at the same time, like in the example below:
+```go
+evilWallet := evilwallet.NewEvilWallet()
+
+evilWallet.RequestFreshFaucetWallet()
+
+outWallet := evilWallet.NewWallet(evilwallet.Reuse)
+
+customScenario := evilwallet.NewEvilScenario(
+    evilwallet.WithScenarioDeepSpamEnabled(),
+    evilwallet.WithScenarioInputWalletForDeepSpam(outWallet),
+    evilwallet.WithScenarioReuseOutputWallet(outWallet),
+    evilwallet.WithScenarioCustomConflicts(evilwallet.Scenario1()),
+)
+
+options := []Options{
+    WithSpamRate(1, time.Second),
+    WithBatchesSent(50),
+    WithEvilWallet(evilWallet),
+}
+customOptions := append(options, WithEvilScenario(customScenario))
+
+customDeepSpammer := NewSpammer(customOptions...)
+
+customDeepSpammer.Spam()
 ```
