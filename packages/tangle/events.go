@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -49,10 +48,6 @@ func NewConfirmationEvents() (new *ConfirmationEvents) {
 
 type MessageConfirmedEvent struct {
 	MessageID MessageID
-}
-
-type TransactionConfirmedEvent struct {
-	TransactionID utxo.TransactionID
 }
 
 // region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////

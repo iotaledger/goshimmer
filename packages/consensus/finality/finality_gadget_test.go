@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -65,9 +66,10 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
-func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget) {
+func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
 	fg.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
-	fg.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	tangleInstance.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
@@ -89,7 +91,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	wireUpEvents(t, processMsgScenario.Tangle, sfg)
 
 	eventHandlerMock := &EventHandlerMock{}
-	eventHandlerMock.WireUpFinalityGadget(sfg)
+	eventHandlerMock.WireUpFinalityGadget(sfg, processMsgScenario.Tangle)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
 		// Message1
