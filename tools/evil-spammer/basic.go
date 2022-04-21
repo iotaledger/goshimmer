@@ -12,7 +12,7 @@ type CustomSpamParams struct {
 	ClientUrls            []string
 	SpamTypes             []string
 	Rates                 []int
-	DurationsInSec        []int
+	Durations             []time.Duration
 	MsgToBeSent           []int
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
@@ -46,31 +46,31 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamMessages(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.MsgToBeSent[i])
+				SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
 			}()
 		case "tx":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DeepSpam)
+				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam)
 			}()
 		case "ds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamDoubleSpends(wallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts, params.DeepSpam)
+				SpamDoubleSpends(wallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
 			}()
 		case "nds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.DelayBetweenConflicts, params.DeepSpam)
+				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
 			}()
 		case "custom":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, time.Duration(params.DurationsInSec[i])*time.Second, params.Scenario, params.DeepSpam, false)
+				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false)
 				if s == nil {
 					return
 				}

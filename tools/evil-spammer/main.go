@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -58,7 +59,7 @@ func parseBasicSpamFlags() {
 	spamTypes := optionFlagSet.String("spammers", "", "Spammers used during test. Format: strings separated with comma, available options: 'msg' - message,"+
 		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario")
 	rates := optionFlagSet.String("rates", "", "Spamming rates for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	durations := optionFlagSet.String("durations", "", "Spam duration in seconds. Cannot be combined with flag 'msgNums'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
+	durations := optionFlagSet.String("durations", "", "Spam durations. Cannot be combined with flag 'msgNums'. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	msgNums := optionFlagSet.String("msgNums", "", "Spam duration in seconds. Cannot be combined with flag 'durations'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
 	timeunit := optionFlagSet.Duration("tu", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
@@ -66,11 +67,6 @@ func parseBasicSpamFlags() {
 	deepSpam := optionFlagSet.Bool("deep", false, "Enable the deep spam, by reusing outputs created during the spam.")
 
 	parseOptionFlagSet(optionFlagSet)
-
-	// only one of parameters: msgNums or durations can be accepted
-	if *durations != "" {
-		*msgNums = ""
-	}
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
@@ -85,8 +81,8 @@ func parseBasicSpamFlags() {
 		customSpamParams.Rates = parsedRates
 	}
 	if *durations != "" {
-		parsedDurations := parseCommaSepInt(*durations)
-		customSpamParams.DurationsInSec = parsedDurations
+		parsedDurations := parseDurations(*durations)
+		customSpamParams.Durations = parsedDurations
 	}
 	if *msgNums != "" {
 		parsedMsgNums := parseCommaSepInt(*msgNums)
@@ -104,10 +100,10 @@ func parseBasicSpamFlags() {
 
 	// fill in unused parameter: msgNums or durations with zeros
 	if *durations == "" {
-		customSpamParams.DurationsInSec = make([]int, len(customSpamParams.MsgToBeSent))
+		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.MsgToBeSent))
 	}
 	if *msgNums == "" {
-		customSpamParams.MsgToBeSent = make([]int, len(customSpamParams.DurationsInSec))
+		customSpamParams.MsgToBeSent = make([]int, len(customSpamParams.Durations))
 	}
 }
 
@@ -142,6 +138,15 @@ func parseCommaSepInt(nums string) []int {
 	parsed := make([]int, len(split))
 	for i, num := range split {
 		parsed[i], _ = strconv.Atoi(num)
+	}
+	return parsed
+}
+
+func parseDurations(durations string) []time.Duration {
+	split := strings.Split(durations, ",")
+	parsed := make([]time.Duration, len(split))
+	for i, dur := range split {
+		parsed[i], _ = time.ParseDuration(dur)
 	}
 	return parsed
 }
