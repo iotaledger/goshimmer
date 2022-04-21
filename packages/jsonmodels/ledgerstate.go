@@ -290,7 +290,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEsse
 
 	// no suitable constructor, doing it the manual way
 	res := &devnetvm.AliasOutput{}
-	res = res.SetID(id).(*devnetvm.AliasOutput)
+	res.SetID(id)
 	res.SetAliasAddress(aliasAddy)
 	err = res.SetBalances(balances.Map())
 	if err != nil {
@@ -462,17 +462,13 @@ func UnmarshalExtendedLockedOutputFromBytes(data []byte) (*ExtendedLockedOutput,
 
 // OutputID represents the JSON model of a ledgerstate.OutputID.
 type OutputID struct {
-	Base58        string `json:"base58"`
-	TransactionID string `json:"transactionID"`
-	OutputIndex   uint16 `json:"outputIndex"`
+	Base58 string `json:"base58"`
 }
 
 // NewOutputID returns an OutputID from the given ledgerstate.OutputID.
-func NewOutputID(output utxo.Output) *OutputID {
+func NewOutputID(outputID utxo.OutputID) *OutputID {
 	return &OutputID{
-		Base58:        output.ID().Base58(),
-		TransactionID: output.TransactionID().Base58(),
-		OutputIndex:   output.Index(),
+		Base58: outputID.Base58(),
 	}
 }
 
@@ -484,9 +480,7 @@ func NewOutputID(output utxo.Output) *OutputID {
 type OutputMetadata struct {
 	OutputID            *OutputID           `json:"outputID"`
 	BranchIDs           []string            `json:"branchIDs"`
-	Solid               bool                `json:"solid"`
-	SolidificationTime  int64               `json:"solidificationTime"`
-	ConsumerCount       int                 `json:"consumerCount"`
+	FirstConsumer       string              `json:"firstCount"`
 	ConfirmedConsumer   string              `json:"confirmedConsumer,omitempty"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
@@ -497,9 +491,7 @@ func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerI
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
 		BranchIDs:           outputMetadata.BranchIDs().Base58(),
-		Solid:               outputMetadata.Solid(),
-		SolidificationTime:  outputMetadata.SolidificationTime().Unix(),
-		ConsumerCount:       outputMetadata.ConsumerCount(),
+		FirstConsumer:       outputMetadata.FirstConsumer().Base58(),
 		ConfirmedConsumer:   confirmedConsumerID.Base58(),
 		GradeOfFinality:     outputMetadata.GradeOfFinality(),
 		GradeOfFinalityTime: outputMetadata.GradeOfFinalityTime().Unix(),
@@ -513,14 +505,14 @@ func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerI
 // Consumer represents the JSON model of a ledger.Consumer.
 type Consumer struct {
 	TransactionID string `json:"transactionID"`
-	Valid         string `json:"valid"`
+	Booked        bool   `json:"booked"`
 }
 
 // NewConsumer returns a Consumer from the given ledger.Consumer.
 func NewConsumer(consumer *ledger.Consumer) *Consumer {
 	return &Consumer{
 		TransactionID: consumer.TransactionID().Base58(),
-		Valid:         consumer.Valid().String(),
+		Booked:        consumer.IsBooked(),
 	}
 }
 

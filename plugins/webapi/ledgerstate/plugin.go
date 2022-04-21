@@ -375,7 +375,7 @@ func GetOutputMetadata(c echo.Context) (err error) {
 	}
 
 	if !deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
-		confirmedConsumerID := deps.Tangle.Ledger.Utils.ConfirmedConsumer(outputID)
+		confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(outputID)
 
 		jsonOutputMetadata := jsonmodels.NewOutputMetadata(outputMetadata, confirmedConsumerID)
 

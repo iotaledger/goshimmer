@@ -190,7 +190,7 @@ func TestValueAliasPersistence(t *testing.T) {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
 		require.NoError(t, err)
 		// it has been spent
-		require.True(t, outputMetadata.ConsumerCount > 0)
+		require.True(t, outputMetadata.FirstConsumer > 0)
 
 		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
 		require.NoError(t, err)

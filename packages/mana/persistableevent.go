@@ -119,7 +119,7 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 		NodeID:        nodeID,
 		Amount:        amount,
 		Time:          eventTime,
-		ManaType:      manaType,
+		ManaType:      Type(manaType),
 		TransactionID: txID,
 		InputID:       inputID,
 	}
