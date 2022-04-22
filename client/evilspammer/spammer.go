@@ -199,7 +199,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	var txID ledgerstate.TransactionID
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
-		s.log.Debug(err)
+		s.log.Debug(ErrFailPostTransaction)
 		s.ErrCounter.CountError(errors.Newf("%s: %w", ErrFailPostTransaction, err))
 		return
 	}
