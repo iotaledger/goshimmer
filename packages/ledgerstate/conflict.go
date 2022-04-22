@@ -232,6 +232,26 @@ func (c *Conflict) FromObjectStorageNew(key, bytes []byte) (branch objectstorage
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
 func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
+	if conflict = c; conflict == nil {
+		conflict = new(Conflict)
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &c.conflictInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
+		return
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], conflict, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
+		return
+	}
+
+	return
+}
+
+// FromBytes unmarshals a Conflict from a sequence of bytes.
+func (c *Conflict) FromBytesOld(bytes []byte) (conflict *Conflict, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
@@ -415,6 +435,19 @@ func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember ob
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
 func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
+	if conflictMember = c; conflictMember == nil {
+		conflictMember = new(ConflictMember)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, conflictMember, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember: %w", err)
+		return
+	}
+	return
+}
+
+// FromBytes unmarshals a ConflictMember from a sequence of bytes.
+func (c *ConflictMember) FromBytesOld(bytes []byte) (conflictMember *ConflictMember, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)

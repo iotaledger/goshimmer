@@ -106,6 +106,26 @@ func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objec
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
 func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+	mapping := new(MarkerIndexBranchIDMapping)
+	if mapping != nil {
+		mapping = m
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &mapping.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
+		return mapping, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], mapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
+		return mapping, err
+	}
+	return mapping, err
+}
+
+// FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
+func (m *MarkerIndexBranchIDMapping) FromBytesOld(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if markerIndexBranchIDMapping, err = m.FromMarshalUtil(marshalUtil); err != nil {
@@ -371,6 +391,26 @@ func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstora
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
 func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
+	mapping := new(MarkerMessageMapping)
+	if mapping != nil {
+		mapping = m
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, mapping.markerMessageMappingInner.Marker, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
+		return mapping, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], mapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
+		return mapping, err
+	}
+	return mapping, err
+}
+
+// FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
+func (m *MarkerMessageMapping) FromBytesOld(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if individuallyMappedMessage, err = m.FromMarshalUtil(marshalUtil); err != nil {

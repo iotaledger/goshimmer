@@ -135,7 +135,7 @@ func (p *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorag
 }
 
 // FromBytes unmarshals a PersistableBaseMana from a sequence of bytes.
-func (p *PersistableBaseMana) FromBytesNew(bytes []byte) (*PersistableBaseMana, error) {
+func (p *PersistableBaseMana) FromBytes(bytes []byte) (*PersistableBaseMana, error) {
 	manaVector := new(PersistableBaseMana)
 	if manaVector != nil {
 		manaVector = p
@@ -149,7 +149,7 @@ func (p *PersistableBaseMana) FromBytesNew(bytes []byte) (*PersistableBaseMana, 
 }
 
 // FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.
-func (p *PersistableBaseMana) FromBytes(bytes []byte) (result *PersistableBaseMana, err error) {
+func (p *PersistableBaseMana) FromBytesOld(bytes []byte) (result *PersistableBaseMana, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	result, err = p.FromMarshalUtil(marshalUtil)
 	return

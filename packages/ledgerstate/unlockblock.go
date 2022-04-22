@@ -221,7 +221,7 @@ func NewSignatureUnlockBlock(signature Signature) *SignatureUnlockBlock {
 }
 
 // SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
-func SignatureUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
+func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -230,7 +230,7 @@ func SignatureUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *SignatureUnloc
 }
 
 // SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
-func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
+func SignatureUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = SignatureUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse SignatureUnlockBlock from MarshalUtil: %w", err)
@@ -324,7 +324,7 @@ func NewReferenceUnlockBlock(referencedIndex uint16) *ReferenceUnlockBlock {
 }
 
 // ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
-func ReferenceUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
+func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -333,7 +333,7 @@ func ReferenceUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *ReferenceUnloc
 }
 
 // ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
-func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
+func ReferenceUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = ReferenceUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
@@ -425,7 +425,7 @@ func NewAliasUnlockBlock(chainInputIndex uint16) *AliasUnlockBlock {
 }
 
 // AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
-func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
+func AliasUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if unlockBlock, err = AliasUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse AliasUnlockBlock from MarshalUtil: %w", err)
@@ -437,7 +437,7 @@ func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, con
 }
 
 // AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
-func AliasUnlockBlockFromBytesNew(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
+func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err

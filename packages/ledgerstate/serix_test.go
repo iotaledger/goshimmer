@@ -85,7 +85,7 @@ func TestSerixSigLockedSingleOutput(t *testing.T) {
 }
 
 func TestSerixBranch(t *testing.T) {
-	obj := NewBranch(BranchID{1}, NewBranchIDs(BranchID{2}, BranchID{3}), NewConflictIDs(ConflictID{5}, ConflictID{4}))
+	obj := NewBranch(BranchID{1}, NewBranchIDs(BranchID{2}), NewConflictIDs(ConflictID{5}))
 
 	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())
 	assert.Equal(t, obj.ObjectStorageValueOld(), obj.ObjectStorageValue())

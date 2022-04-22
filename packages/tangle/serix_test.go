@@ -193,7 +193,7 @@ func TestSerixBranchVoters(t *testing.T) {
 	obj := NewBranchVoters(ledgerstate.BranchIDFromRandomness())
 	voters := NewVoters()
 	voters.SerializableSet.Add(identity.GenerateLocalIdentity().ID())
-	voters.SerializableSet.Add(identity.GenerateLocalIdentity().ID())
+	//voters.SerializableSet.Add(identity.GenerateLocalIdentity().ID())
 	obj.AddVoters(voters)
 
 	assert.Equal(t, obj.ObjectStorageKeyOld(), obj.ObjectStorageKey())

@@ -111,7 +111,7 @@ func NewMarker(sequenceID SequenceID, index Index) *Marker {
 }
 
 // MarkerFromBytes unmarshals Marker from a sequence of bytes.
-func MarkerFromBytesNew(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	marker = new(Marker)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markerBytes, marker, serix.WithValidation())
 	if err != nil {
@@ -122,7 +122,7 @@ func MarkerFromBytesNew(markerBytes []byte) (marker *Marker, consumedBytes int, 
 }
 
 // MarkerFromBytes unmarshals a Marker from a sequence of bytes.
-func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+func MarkerFromBytesOld(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
 	//TODO: remove eventually
 	marshalUtil := marshalutil.New(markerBytes)
 	if marker, err = MarkerFromMarshalUtil(marshalUtil); err != nil {
@@ -202,7 +202,7 @@ type markersInner struct {
 }
 
 // FromBytes unmarshals a collection of Markers from a sequence of bytes.
-func FromBytesNew(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
 	markers = new(Markers)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markersBytes, markers, serix.WithValidation())
 	if err != nil {
@@ -213,7 +213,7 @@ func FromBytesNew(markersBytes []byte) (markers *Markers, consumedBytes int, err
 }
 
 // FromBytes unmarshals a collection of Markers from a sequence of bytes.
-func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+func FromBytesOld(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(markersBytes)
 	if markers, err = FromMarshalUtil(marshalUtil); err != nil {
@@ -588,7 +588,7 @@ func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 }
 
 // ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
-func ReferencingMarkersFromBytesNew(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
+func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
 	referencingMarkers = new(ReferencingMarkers)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), referencingMarkersBytes, referencingMarkers, serix.WithValidation())
 	if err != nil {
@@ -599,7 +599,7 @@ func ReferencingMarkersFromBytesNew(referencingMarkersBytes []byte) (referencing
 }
 
 // ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
-func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
+func ReferencingMarkersFromBytesOld(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(referencingMarkersBytes)
 	if referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
@@ -778,7 +778,7 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 }
 
 // ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
-func ReferencedMarkersFromBytesNew(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
+func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	referencedMarkers = new(ReferencedMarkers)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), parentReferencesBytes, referencedMarkers, serix.WithValidation())
 	if err != nil {
@@ -789,7 +789,7 @@ func ReferencedMarkersFromBytesNew(parentReferencesBytes []byte) (referencedMark
 }
 
 // ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
-func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
+func ReferencedMarkersFromBytesOld(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
 	//TODO: remove eventually
 	marshalUtil := marshalutil.New(parentReferencesBytes)
 	if referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
@@ -1352,7 +1352,7 @@ func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytesNew(sequenceBytes []byte) (sequence *Sequence, err error) {
+func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence *Sequence, err error) {
 	if sequence = s; sequence == nil {
 		sequence = new(Sequence)
 	}
@@ -1373,7 +1373,7 @@ func (s *Sequence) FromBytesNew(sequenceBytes []byte) (sequence *Sequence, err e
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence *Sequence, err error) {
+func (s *Sequence) FromBytesOld(sequenceBytes []byte) (sequence *Sequence, err error) {
 	marshalUtil := marshalutil.New(sequenceBytes)
 	if sequence, err = s.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
@@ -1671,7 +1671,7 @@ type StructureDetails struct {
 }
 
 // StructureDetailsFromBytesNew unmarshals a StructureDetails from a sequence of bytes.
-func StructureDetailsFromBytesNew(structureDetailBytes []byte) (marker *StructureDetails, consumedBytes int, err error) {
+func StructureDetailsFromBytes(structureDetailBytes []byte) (marker *StructureDetails, consumedBytes int, err error) {
 	marker = new(StructureDetails)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), structureDetailBytes, marker, serix.WithValidation())
 	if err != nil {

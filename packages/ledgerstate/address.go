@@ -98,6 +98,28 @@ type Address interface {
 
 // AddressFromBytes unmarshals an Address from a sequence of bytes.
 func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err error) {
+	// could be refactored to not duplicate code with FromObjectStorage
+	var addressType AddressType
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &addressType)
+	if err != nil {
+		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	switch addressType {
+	case ED25519AddressType:
+		return ED25519AddressFromBytes(bytes)
+	case BLSAddressType:
+		return BLSAddressFromBytes(bytes)
+	case AliasAddressType:
+		return AliasAddressFromBytes(bytes)
+	default:
+		err = errors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
+		return
+	}
+}
+
+// AddressFromBytes unmarshals an Address from a sequence of bytes.
+func AddressFromBytesOld(bytes []byte) (address Address, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Address from MarshalUtil: %w", err)
@@ -178,7 +200,7 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 }
 
 // ED25519AddressFromBytes unmarshals an ED25519Address from a sequence of bytes.
-func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
+func ED25519AddressFromBytesOld(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
 	// TODO: replace with FromBytesNew eventually
 
 	marshalUtil := marshalutil.New(bytes)
@@ -192,7 +214,8 @@ func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedByt
 }
 
 // BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
-func ED25519AddressFromBytesNew(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
+func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
+	address = new(ED25519Address)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, address, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -327,7 +350,8 @@ func NewBLSAddress(publicKey []byte) *BLSAddress {
 }
 
 // BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
-func BLSAddressFromBytesNew(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
+func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
+	address = new(BLSAddress)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, address, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -336,7 +360,7 @@ func BLSAddressFromBytesNew(bytes []byte) (address *BLSAddress, consumedBytes in
 }
 
 // BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
-func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
+func BLSAddressFromBytesOld(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
 	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(bytes)
 	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
@@ -477,7 +501,7 @@ func NewAliasAddress(data []byte) *AliasAddress {
 }
 
 // AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
-func AliasAddressFromBytesNew(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, address, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -486,7 +510,7 @@ func AliasAddressFromBytesNew(data []byte) (address *AliasAddress, consumedBytes
 }
 
 // AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
-func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+func AliasAddressFromBytesOld(data []byte) (address *AliasAddress, consumedBytes int, err error) {
 	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(data)
 	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {

@@ -397,7 +397,7 @@ func (b *Branch) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.S
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
-func (b *Branch) FromBytesNew(bytes []byte) (branch *Branch, err error) {
+func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	if branch = b; branch == nil {
 		branch = new(Branch)
 	}
@@ -418,7 +418,7 @@ func (b *Branch) FromBytesNew(bytes []byte) (branch *Branch, err error) {
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
-func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
+func (b *Branch) FromBytesOld(bytes []byte) (branch *Branch, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
@@ -638,7 +638,20 @@ func (c *ChildBranch) FromObjectStorageNew(_, bytes []byte) (childBranch objects
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+func (c *ChildBranch) FromBytes(bytes []byte) (childBranch *ChildBranch, err error) {
+	if childBranch = c; childBranch == nil {
+		childBranch = new(ChildBranch)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, childBranch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ChildBranch: %w", err)
+		return
+	}
+	return
+}
+
+// FromBytes unmarshals a ChildBranch from a sequence of bytes.
+func (c *ChildBranch) FromBytesOld(bytes []byte) (childBranch *ChildBranch, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)

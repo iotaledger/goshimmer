@@ -794,7 +794,7 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.S
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (a *AddressOutputMapping) FromBytesNew(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
+func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, err error) {
 	if addressOutputMapping = a; addressOutputMapping == nil {
 		addressOutputMapping = new(AddressOutputMapping)
 	}
@@ -807,7 +807,7 @@ func (a *AddressOutputMapping) FromBytesNew(bytes []byte) (addressOutputMapping 
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
+func (a *AddressOutputMapping) FromBytesOld(bytes []byte) (addressOutputMapping *AddressOutputMapping, err error) {
 	// TODO: replace with FromBytesNew eventually
 	marshalUtil := marshalutil.New(bytes)
 	if addressOutputMapping, err = a.FromMarshalUtil(marshalUtil); err != nil {
@@ -953,7 +953,7 @@ func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes creates an Consumer from sequences of bytes.
-func (c *Consumer) FromBytesNew(bytes []byte) (consumer *Consumer, err error) {
+func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
 	if consumer = c; consumer == nil {
 		consumer = new(Consumer)
 	}
@@ -974,7 +974,7 @@ func (c *Consumer) FromBytesNew(bytes []byte) (consumer *Consumer, err error) {
 }
 
 // FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
+func (c *Consumer) FromBytesOld(bytes []byte) (consumer *Consumer, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {

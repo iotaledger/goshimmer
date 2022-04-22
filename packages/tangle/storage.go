@@ -655,6 +655,21 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 
 // FromBytes parses the given bytes into an approver.
 func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
+	approver := new(Approver)
+	if approver != nil {
+		approver = a
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, approver, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Approver: %w", err)
+		return approver, err
+	}
+	return approver, err
+}
+
+// FromBytes parses the given bytes into an approver.
+func (a *Approver) FromBytesOld(bytes []byte) (result *Approver, err error) {
 	//TODO: remove eventually or refactor
 	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
@@ -792,6 +807,22 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
+	attachment := new(Attachment)
+	if attachment != nil {
+		attachment = a
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, attachment, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Attachment: %w", err)
+		return attachment, err
+	}
+	return attachment, err
+}
+
+// FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
+// optionally provided one with the parsed information.
+func (a *Attachment) FromBytesOld(bytes []byte) (result *Attachment, err error) {
 	//TODO: remove eventually or refactor
 	return a.FromMarshalUtil(marshalutil.New(bytes))
 }
@@ -924,6 +955,26 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 
 // FromBytes parses the given bytes into a MissingMessage.
 func (m *MissingMessage) FromBytes(bytes []byte) (result *MissingMessage, err error) {
+	missingMsg := new(MissingMessage)
+	if missingMsg != nil {
+		missingMsg = m
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
+		return missingMsg, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], missingMsg, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage: %w", err)
+		return missingMsg, err
+	}
+	return missingMsg, err
+}
+
+// FromBytes parses the given bytes into a MissingMessage.
+func (m *MissingMessage) FromBytesOld(bytes []byte) (result *MissingMessage, err error) {
 	//TODO: remove eventually or refactor
 	return m.FromMarshalUtil(marshalutil.New(bytes))
 }

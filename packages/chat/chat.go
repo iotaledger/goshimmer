@@ -92,7 +92,7 @@ func NewPayload(from, to, message string) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytesNew(bytes []byte) (payload *Payload, consumedBytes int, err error) {
+func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
 	payload = new(Payload)
 
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payload, serix.WithValidation())
@@ -107,7 +107,7 @@ func FromBytesNew(bytes []byte) (payload *Payload, consumedBytes int, err error)
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (result *Payload, consumedBytes int, err error) {
+func FromBytesOld(bytes []byte) (result *Payload, consumedBytes int, err error) {
 	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	result, err = Parse(marshalUtil)

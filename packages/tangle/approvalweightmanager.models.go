@@ -85,6 +85,26 @@ func (b *BranchWeight) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 
 // FromBytes unmarshals a BranchWeight object from a sequence of bytes.
 func (b *BranchWeight) FromBytes(bytes []byte) (branchWeight *BranchWeight, err error) {
+	bw := new(BranchWeight)
+	if bw != nil {
+		bw = b
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &bw.branchWeightInner.BranchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight.BranchID: %w", err)
+		return bw, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], bw, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchWeight: %w", err)
+		return bw, err
+	}
+	return bw, err
+}
+
+// FromBytes unmarshals a BranchWeight object from a sequence of bytes.
+func (b *BranchWeight) FromBytesOld(bytes []byte) (branchWeight *BranchWeight, err error) {
 	//TODO: remove or refactor eventually
 	marshalUtil := marshalutil.New(bytes)
 	if branchWeight, err = b.FromMarshalUtil(marshalUtil); err != nil {
@@ -360,6 +380,26 @@ func (b *BranchVoters) FromObjectStorage(key, bytes []byte) (objectstorage.Stora
 
 // FromBytes unmarshals a BranchVoters object from a sequence of bytes.
 func (b *BranchVoters) FromBytes(bytes []byte) (branchVoters *BranchVoters, err error) {
+	votes := new(BranchVoters)
+	if votes != nil {
+		votes = b
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &votes.branchVotersInner.BranchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters.BranchID: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchVoters: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromBytes unmarshals a BranchVoters object from a sequence of bytes.
+func (b *BranchVoters) FromBytesOld(bytes []byte) (branchVoters *BranchVoters, err error) {
 	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
@@ -648,6 +688,31 @@ func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 
 // FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
 func (l *LatestMarkerVotes) FromBytes(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
+	votes := new(LatestMarkerVotes)
+	if votes != nil {
+		votes = l
+	}
+	bytesReadSequenceID, err := serix.DefaultAPI.Decode(context.Background(), bytes, votes.latestMarkerVotesInner.SequenceID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes.SequenceID: %w", err)
+		return votes, err
+	}
+	bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), bytes[bytesReadSequenceID:], votes.latestMarkerVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes.Voter: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesReadSequenceID+bytesReadVoter:], votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestMarkerVotes: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
+func (l *LatestMarkerVotes) FromBytesOld(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
 	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if latestMarkerVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
@@ -919,6 +984,26 @@ func (l *LatestBranchVotes) FromObjectStorage(key, bytes []byte) (objectstorage.
 
 // FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
 func (l *LatestBranchVotes) FromBytes(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
+	votes := new(LatestBranchVotes)
+	if votes != nil {
+		votes = l
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &votes.latestBranchVotesInner.Voter, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes.Voter: %w", err)
+		return votes, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], votes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse LatestBranchVotes: %w", err)
+		return votes, err
+	}
+	return votes, err
+}
+
+// FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
+func (l *LatestBranchVotes) FromBytesOld(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
 	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	if latestBranchVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {

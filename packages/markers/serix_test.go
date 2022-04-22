@@ -3,7 +3,6 @@ package markers
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -76,9 +75,8 @@ func TestSerixStructureDetails(t *testing.T) {
 	}
 
 	assert.Equal(t, obj.BytesOld()[4:], obj.Bytes())
-	mu := marshalutil.New().WriteUint32(uint32(len(obj.Bytes()))).WriteBytes(obj.Bytes())
 	//TODO: replace with FromBytes
-	restoredObj, err := StructureDetailsFromMarshalUtil(mu)
+	restoredObj, _, err := StructureDetailsFromBytes(obj.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, obj.Bytes(), restoredObj.Bytes())
 }

@@ -153,7 +153,7 @@ func NewED25519Signature(publicKey ed25519.PublicKey, signature ed25519.Signatur
 }
 
 // ED25519SignatureFromBytes unmarshals a ED25519Signature from a sequence of bytes.
-func ED25519SignatureFromBytesNew(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
+func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -162,7 +162,7 @@ func ED25519SignatureFromBytesNew(bytes []byte) (signature *ED25519Signature, co
 }
 
 // ED25519SignatureFromBytes unmarshals a ED25519Signature from a sequence of bytes.
-func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
+func ED25519SignatureFromBytesOld(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = ED25519SignatureFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ED25519Signature from MarshalUtil: %w", err)
@@ -285,7 +285,7 @@ func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
 }
 
 // BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
-func BLSSignatureFromBytesNew(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -294,7 +294,7 @@ func BLSSignatureFromBytesNew(bytes []byte) (signature *BLSSignature, consumedBy
 }
 
 // BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
-func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+func BLSSignatureFromBytesOld(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
 	//TODO: remove this eventually
 	marshalUtil := marshalutil.New(bytes)
 	if signature, err = BLSSignatureFromMarshalUtil(marshalUtil); err != nil {

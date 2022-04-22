@@ -157,7 +157,7 @@ type TransactionID [TransactionIDLength]byte
 var GenesisTransactionID TransactionID
 
 // TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
-func TransactionIDFromBytesNew(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
+func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &transactionID, serix.WithValidation())
 	if err != nil {
 		return
@@ -166,7 +166,7 @@ func TransactionIDFromBytesNew(bytes []byte) (transactionID TransactionID, consu
 }
 
 // TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
-func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
+func TransactionIDFromBytesOld(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
 	// TODO: remove this eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
@@ -350,12 +350,12 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytesNew(bytes []byte) (*Transaction, error) {
+func (t *Transaction) FromBytes(bytes []byte) (*Transaction, error) {
 	tx := new(Transaction)
 	if tx != nil {
 		tx = t
 	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx)
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction: %w", err)
 		return tx, err
@@ -364,7 +364,7 @@ func (t *Transaction) FromBytesNew(bytes []byte) (*Transaction, error) {
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err error) {
+func (t *Transaction) FromBytesOld(bytes []byte) (transaction *Transaction, err error) {
 	//TODO: remove that eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
@@ -639,7 +639,7 @@ func NewTransactionEssence(
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
-func TransactionEssenceFromBytesNew(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, transactionEssence, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
@@ -649,7 +649,7 @@ func TransactionEssenceFromBytesNew(bytes []byte) (transactionEssence *Transacti
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
-func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+func TransactionEssenceFromBytesOld(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
@@ -905,7 +905,7 @@ func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorag
 }
 
 // FromBytes creates an TransactionMetadata from sequences of key and bytes.
-func (t *TransactionMetadata) FromBytesNew(bytes []byte) (*TransactionMetadata, error) {
+func (t *TransactionMetadata) FromBytes(bytes []byte) (*TransactionMetadata, error) {
 	tx := new(TransactionMetadata)
 	if tx != nil {
 		tx = t
@@ -927,7 +927,7 @@ func (t *TransactionMetadata) FromBytesNew(bytes []byte) (*TransactionMetadata, 
 }
 
 // FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (t *TransactionMetadata) FromBytes(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
+func (t *TransactionMetadata) FromBytesOld(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {

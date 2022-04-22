@@ -480,7 +480,7 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytesNew(bytes []byte) (*Message, error) {
+func (m *Message) FromBytes(bytes []byte) (*Message, error) {
 	tx := new(Message)
 	if tx != nil {
 		tx = m
@@ -494,7 +494,7 @@ func (m *Message) FromBytesNew(bytes []byte) (*Message, error) {
 }
 
 // FromBytes parses the given bytes into a message.
-func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
+func (m *Message) FromBytesOld(bytes []byte) (message *Message, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	message, err = m.FromMarshalUtil(marshalUtil)
@@ -1010,12 +1010,32 @@ func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.St
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
+func (m *MessageMetadata) FromBytesOld(bytes []byte) (result *MessageMetadata, err error) {
 	//TODO: remove eventually or refactor
 	marshalUtil := marshalutil.New(bytes)
 	result, err = m.FromMarshalUtil(marshalUtil)
 
 	return
+}
+
+// FromBytes unmarshals the given bytes into a MessageMetadata.
+func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
+	msgMetadata := new(MessageMetadata)
+	if msgMetadata != nil {
+		msgMetadata = m
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &msgMetadata.messageMetadataInner.MessageID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
+		return msgMetadata, err
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], msgMetadata, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageMetadata: %w", err)
+		return msgMetadata, err
+	}
+	return msgMetadata, err
 }
 
 // FromMarshalUtil parses a Message from the given MarshalUtil.

@@ -1,14 +1,17 @@
 package mana
 
 import (
+	"context"
 	"crypto/sha256"
 	"math"
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -17,13 +20,13 @@ import (
 // PersistableEvent is a persistable event.
 type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
-	Type          byte // pledge or revoke
-	NodeID        identity.ID
-	Amount        float64
-	Time          time.Time
-	ManaType      Type // access or consensus
-	TransactionID ledgerstate.TransactionID
-	InputID       ledgerstate.OutputID // for revoke event
+	Type          byte                      `serix:"0"` // pledge or revoke
+	NodeID        identity.ID               `serix:"1"`
+	Amount        float64                   `serix:"2"`
+	Time          time.Time                 `serix:"3"`
+	ManaType      Type                      `serix:"4"` // access or consensus
+	TransactionID ledgerstate.TransactionID `serix:"5"`
+	InputID       ledgerstate.OutputID      `serix:"6"` // for revoke event
 	bytes         []byte
 }
 
@@ -46,7 +49,7 @@ func (p *PersistableEvent) ToStringValues() []string {
 }
 
 // Bytes marshals the persistable event into a sequence of bytes.
-func (p *PersistableEvent) Bytes() []byte {
+func (p *PersistableEvent) BytesOld() []byte {
 	if bytes := p.bytes; bytes != nil {
 		return bytes
 	}
@@ -61,6 +64,16 @@ func (p *PersistableEvent) Bytes() []byte {
 	marshalUtil.WriteBytes(p.InputID.Bytes())
 	p.bytes = marshalUtil.Bytes()
 	return p.bytes
+}
+
+// Bytes marshals the persistable event into a sequence of bytes.
+func (p *PersistableEvent) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageKey returns the key of the persistable mana.
@@ -134,8 +147,22 @@ func (p *PersistableEvent) FromObjectStorage(_, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
-func (p *PersistableEvent) FromBytes(data []byte) (result *PersistableEvent, err error) {
+func (p *PersistableEvent) FromBytesOld(data []byte) (result *PersistableEvent, err error) {
 	return parseEvent(marshalutil.New(data))
+}
+
+// FromBytes unmarshalls bytes into a persistable event.
+func (p *PersistableEvent) FromBytes(bytes []byte) (result *PersistableEvent, err error) {
+	if result = p; result == nil {
+		result = new(PersistableEvent)
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, result, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		return
+	}
+	return
 }
 
 var _ objectstorage.StorableObject = new(PersistableEvent)

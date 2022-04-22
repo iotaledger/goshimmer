@@ -267,7 +267,7 @@ type Output interface {
 }
 
 // OutputFromBytes unmarshals an Output from a sequence of bytes.
-func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
+func OutputFromBytesOld(bytes []byte) (output Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
@@ -278,7 +278,7 @@ func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error)
 }
 
 // OutputFromBytes restores an Output that was stored in the ObjectStorage.
-func OutputFromBytesNew(bytes []byte) (output objectstorage.StorableObject, err error) {
+func OutputFromBytes(bytes []byte) (output Output, err error) {
 	// could be refactored to not duplicate code with FromObjectStorage
 	var outputType OutputType
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &outputType)
@@ -314,7 +314,7 @@ func OutputFromBytesNew(bytes []byte) (output objectstorage.StorableObject, err 
 		return
 	}
 
-	return
+	return output, err
 }
 
 // OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
@@ -359,7 +359,7 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
 func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	//TODO: remove eventually
-	if output, _, err = OutputFromBytes(data); err != nil {
+	if output, err = OutputFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return
 	}
@@ -700,7 +700,7 @@ func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (objectstor
 }
 
 // FromBytes creates an SigLockedSingleOutput from sequence of bytes.
-func (s *SigLockedSingleOutput) FromBytesNew(bytes []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
+func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
 	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
 		sigLockedSingleOutput = new(SigLockedSingleOutput)
 	}
@@ -720,7 +720,7 @@ func (s *SigLockedSingleOutput) FromBytesNew(bytes []byte) (sigLockedSingleOutpu
 }
 
 // FromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
-func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (output *SigLockedSingleOutput, err error) {
+func (s *SigLockedSingleOutput) FromBytesOld(bytes []byte) (output *SigLockedSingleOutput, err error) {
 	//TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = s.FromMarshalUtil(marshalUtil); err != nil {
@@ -990,7 +990,7 @@ func (s *SigLockedColoredOutput) FromObjectStorageNew(key, bytes []byte) (sigLoc
 }
 
 // FromBytes creates an SigLockedColoredOutput from sequence of bytes.
-func (s *SigLockedColoredOutput) FromBytesNew(bytes []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
+func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
 	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
 		sigLockedColoredOutput = new(SigLockedColoredOutput)
 	}
@@ -1010,7 +1010,7 @@ func (s *SigLockedColoredOutput) FromBytesNew(bytes []byte) (sigLockedColoredOut
 }
 
 // FromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
-func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (output *SigLockedColoredOutput, err error) {
+func (s *SigLockedColoredOutput) FromBytesOld(bytes []byte) (output *SigLockedColoredOutput, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	if output, err = s.FromMarshalUtil(marshalUtil); err != nil {
@@ -2621,7 +2621,7 @@ func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (o *OutputMetadata) FromBytesNew(bytes []byte) (outputMetadata *OutputMetadata, err error) {
+func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
 	if outputMetadata = o; outputMetadata == nil {
 		outputMetadata = new(OutputMetadata)
 	}
@@ -2641,7 +2641,7 @@ func (o *OutputMetadata) FromBytesNew(bytes []byte) (outputMetadata *OutputMetad
 }
 
 // FromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
+func (o *OutputMetadata) FromBytesOld(bytes []byte) (outputMetadata *OutputMetadata, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if outputMetadata, err = o.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
