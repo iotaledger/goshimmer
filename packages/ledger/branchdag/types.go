@@ -176,6 +176,11 @@ func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
 	return ConflictID{outputID}
 }
 
+// FromRandomness generates a random ConflictID.
+func (c *ConflictID) FromRandomness() (err error) {
+	return c.TransactionID.FromRandomness()
+}
+
 // Unmarshal un-serializes a ConflictID using a MarshalUtil.
 func (c ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
 	err = conflictID.OutputID.FromMarshalUtil(marshalUtil)

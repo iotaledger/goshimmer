@@ -24,10 +24,10 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	require.NoError(t, branchID2.FromRandomness())
 	require.NoError(t, branchID3.FromRandomness())
 	require.NoError(t, branchID4.FromRandomness())
-	require.NoError(t, conflictID0.TransactionID.FromRandomness())
-	require.NoError(t, conflictID1.TransactionID.FromRandomness())
-	require.NoError(t, conflictID2.TransactionID.FromRandomness())
-	require.NoError(t, conflictID3.TransactionID.FromRandomness())
+	require.NoError(t, conflictID0.FromRandomness())
+	require.NoError(t, conflictID1.FromRandomness())
+	require.NoError(t, conflictID2.FromRandomness())
+	require.NoError(t, conflictID3.FromRandomness())
 
 	assert.True(t, branchDAG.CreateBranch(branchID2, NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0, conflictID1)))
 	cachedBranch2 := branchDAG.Storage.CachedBranch(branchID2)
@@ -76,7 +76,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	require.NoError(t, branchID2.FromRandomness())
 	require.NoError(t, branchID3.FromRandomness())
 	require.NoError(t, branchID4.FromRandomness())
-	require.NoError(t, conflictID0.TransactionID.FromRandomness())
+	require.NoError(t, conflictID0.FromRandomness())
 
 	return
 
@@ -133,10 +133,10 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 		conflictID2 ConflictID
 		conflictID3 ConflictID
 	)
-	require.NoError(t, conflictID0.TransactionID.FromRandomness())
-	require.NoError(t, conflictID1.TransactionID.FromRandomness())
-	require.NoError(t, conflictID2.TransactionID.FromRandomness())
-	require.NoError(t, conflictID3.TransactionID.FromRandomness())
+	require.NoError(t, conflictID0.FromRandomness())
+	require.NoError(t, conflictID1.FromRandomness())
+	require.NoError(t, conflictID2.FromRandomness())
+	require.NoError(t, conflictID3.FromRandomness())
 
 	branchIDs := make(map[string]BranchID)
 	branchIDs["Branch2"] = createBranch(t, branchDAG, "Branch2", NewBranchIDs(MasterBranchID), NewConflictIDs(conflictID0))
