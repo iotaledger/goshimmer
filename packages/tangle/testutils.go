@@ -37,8 +37,8 @@ type MessageTestFramework struct {
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[devnetvm.Address]wallet
 	inputsByAlias            map[string]devnetvm.Input
-	outputsByAlias           map[string]devnetvm.OutputEssence
-	outputsByID              map[utxo.OutputID]devnetvm.OutputEssence
+	outputsByAlias           map[string]*devnetvm.Output
+	outputsByID              map[utxo.OutputID]*devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
 	messagesBookedWG         sync.WaitGroup
@@ -55,8 +55,8 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[devnetvm.Address]wallet),
 		inputsByAlias:    make(map[string]devnetvm.Input),
-		outputsByAlias:   make(map[string]devnetvm.OutputEssence),
-		outputsByID:      make(map[utxo.OutputID]devnetvm.OutputEssence),
+		outputsByAlias:   make(map[string]*devnetvm.Output),
+		outputsByID:      make(map[utxo.OutputID]*devnetvm.Output),
 		options:          NewMessageTestFrameworkOptions(options...),
 	}
 
@@ -266,15 +266,24 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	genesisOutputs := make(map[devnetvm.Address]*devnetvm.ColoredBalances)
 
+	var outputs []utxo.Output
 	for alias, balance := range m.options.genesisOutputs {
 		addressWallet := createWallets(1)[0]
-
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 			devnetvm.ColorIOTA: balance,
 		})
+
+		output := devnetvm.NewOutput(utxo.EmptyTransactionID, uint16(len(outputs)), devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+			devnetvm.ColorIOTA: balance,
+		}), addressWallet.address))
+		outputs = append(outputs, output)
+
+		m.outputsByAlias[alias] = output
+		m.outputsByID[output.ID()] = output
+		m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
 	}
 
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
@@ -285,11 +294,6 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	var outputs []utxo.Output
-	for address, balance := range genesisOutputs {
-		outputs = append(outputs, devnetvm.NewOutput(utxo.EmptyTransactionID, uint16(len(outputs)), devnetvm.NewSigLockedColoredOutput(balance, address)))
-	}
-
 	m.tangle.Ledger.LoadSnapshot(&ledger.Snapshot{
 		Outputs: outputs,
 	})
@@ -297,8 +301,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
 			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.OutputEssence)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.OutputEssence)
+				m.outputsByAlias[alias] = output.Output.(*devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(*devnetvm.Output)
 				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(addressOutputMapping.OutputID())
 			})
 		})
@@ -307,8 +311,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	for alias := range m.options.coloredGenesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
 			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.OutputEssence)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.OutputEssence)
+				m.outputsByAlias[alias] = output.Output.(*devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(*devnetvm.Output)
 			})
 		})
 	}
@@ -321,18 +325,21 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 		return
 	}
 
+	fmt.Println(options.inputs)
+
 	inputs := make([]devnetvm.Input, 0)
 	for inputAlias := range options.inputs {
+		fmt.Println("alias", m.inputsByAlias)
 		inputs = append(inputs, m.inputsByAlias[inputAlias])
 	}
 
-	outputs := make([]devnetvm.OutputEssence, 0)
+	outputs := make([]*devnetvm.Output, 0)
 	for alias, balance := range options.outputs {
 		addressWallet := createWallets(1)[0]
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
-		m.outputsByAlias[alias] = devnetvm.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address)
+		m.outputsByAlias[alias] = devnetvm.NewOutput(utxo.EmptyTransactionID, 0, devnetvm.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address))
 
 		outputs = append(outputs, m.outputsByAlias[alias])
 	}
@@ -341,16 +348,17 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
-		m.outputsByAlias[alias] = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(balances), m.walletsByAlias[alias].address)
+		m.outputsByAlias[alias] = devnetvm.NewOutput(utxo.EmptyTransactionID, 0, devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(balances), m.walletsByAlias[alias].address))
 
 		outputs = append(outputs, m.outputsByAlias[alias])
 	}
 
+	fmt.Println("MAKE TX")
 	transaction = makeTransaction(devnetvm.NewInputs(inputs...), devnetvm.NewOutputs(outputs...), m.outputsByID, m.walletsByAddress)
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		for alias, aliasedOutput := range m.outputsByAlias {
 			if aliasedOutput == output {
-				output.SetID(utxo.NewOutputID(transaction.ID(), uint16(outputIndex), output.Bytes()))
+				output.SetID(utxo.NewOutputID(transaction.ID(), uint16(outputIndex)))
 
 				m.outputsByID[output.ID()] = output
 				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
@@ -618,7 +626,7 @@ func randomBranchID() (randomBranchID branchdag.BranchID) {
 }
 
 func randomConflictID() (randomConflictID branchdag.ConflictID) {
-	if err := randomConflictID.FromRandomness(); err != nil {
+	if err := randomConflictID.TransactionID.FromRandomness(); err != nil {
 		panic(err)
 	}
 
@@ -727,14 +735,14 @@ func addressFromInput(input devnetvm.Input, outputsByID devnetvm.OutputsByID) de
 
 	switch referencedOutput := outputsByID[typeCastedInput.ReferencedOutputID()]; referencedOutput.Type() {
 	case devnetvm.SigLockedSingleOutputType:
-		typeCastedOutput, ok := referencedOutput.(*devnetvm.SigLockedSingleOutput)
+		typeCastedOutput, ok := referencedOutput.OutputEssence.(*devnetvm.SigLockedSingleOutput)
 		if !ok {
 			panic("failed to type cast SigLockedSingleOutput")
 		}
 
 		return typeCastedOutput.Address()
 	case devnetvm.SigLockedColoredOutputType:
-		typeCastedOutput, ok := referencedOutput.(*devnetvm.SigLockedColoredOutput)
+		typeCastedOutput, ok := referencedOutput.OutputEssence.(*devnetvm.SigLockedColoredOutput)
 		if !ok {
 			panic("failed to type cast SigLockedColoredOutput")
 		}
@@ -744,7 +752,7 @@ func addressFromInput(input devnetvm.Input, outputsByID devnetvm.OutputsByID) de
 	}
 }
 
-func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsByID map[utxo.OutputID]devnetvm.OutputEssence, walletsByAddress map[devnetvm.Address]wallet, genesisWallet ...wallet) *devnetvm.Transaction {
+func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsByID map[utxo.OutputID]*devnetvm.Output, walletsByAddress map[devnetvm.Address]wallet, genesisWallet ...wallet) *devnetvm.Transaction {
 	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
@@ -761,7 +769,7 @@ func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsBy
 
 func selectIndex(transaction *devnetvm.Transaction, w wallet) (index uint16) {
 	for i, output := range transaction.Essence().Outputs() {
-		if w.address == output.(*devnetvm.SigLockedSingleOutput).Address() {
+		if w.address == output.OutputEssence.(*devnetvm.SigLockedSingleOutput).Address() {
 			return uint16(i)
 		}
 	}

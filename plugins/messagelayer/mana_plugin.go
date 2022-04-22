@@ -153,7 +153,7 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.Output.(devnetvm.OutputEssence).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+			o.Output.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				inputInfo.Amount += float64(balance)
 				totalAmount += float64(balance)
 				return true

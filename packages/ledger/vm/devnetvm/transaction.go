@@ -110,7 +110,7 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
 
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
@@ -224,7 +224,7 @@ func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (tra
 	}
 
 	for i, output := range transaction.essence.Outputs() {
-		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i), output.Bytes()))
+		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set
 		if output.Type() == AliasOutputType {

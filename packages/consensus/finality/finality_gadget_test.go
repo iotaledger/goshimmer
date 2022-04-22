@@ -1,6 +1,8 @@
 package finality
 
 import (
+	"fmt"
+	"runtime/debug"
 	"testing"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -75,6 +77,12 @@ func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance 
 func TestSimpleFinalityGadget(t *testing.T) {
 	processMsgScenario := tangle.ProcessMessageScenario(t)
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
+		if err := recover(); err != nil {
+			t.Error(err)
+			fmt.Println(string(debug.Stack()))
+			return
+		}
+
 		if err := processMsgScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}

@@ -100,7 +100,7 @@ func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchd
 func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
 	transactionIDs = utxo.NewTransactionIDs()
 	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output *Output) {
-		transactionIDs.Add(output.TransactionID())
+		transactionIDs.Add(output.ID().TransactionID)
 	})
 	return transactionIDs
 }

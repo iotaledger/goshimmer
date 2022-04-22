@@ -84,7 +84,7 @@ func (d *DelegationReceiver) Address() devnetvm.Address {
 // 		- its state address is the same as DelegationReceiver's address
 //		- output is delegated
 // 		- if delegation time lock is present, it doesn't expire within 1 minute
-func (d *DelegationReceiver) filterDelegationOutputs(output devnetvm.OutputEssence) bool {
+func (d *DelegationReceiver) filterDelegationOutputs(output devnetvm.Output) bool {
 	// it has to be an alias
 	if output.Type() != devnetvm.AliasOutputType {
 		return false

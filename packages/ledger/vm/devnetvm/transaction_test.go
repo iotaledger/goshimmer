@@ -24,7 +24,7 @@ func TestTransaction_Bytes(t *testing.T) {
 		issuerIdentity.ID(),
 		issuerIdentity.ID(),
 		NewInputs(
-			NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0, []byte(""))),
+			NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0)),
 		),
 		NewOutputs(
 			NewSigLockedSingleOutput(12, NewED25519Address(issuerKeyPair.PublicKey)),
@@ -43,9 +43,9 @@ func TestTransaction_Bytes(t *testing.T) {
 func TestTransaction_Complex(t *testing.T) {
 	// setup variables representing keys and outputs for the two parties that wants to trade tokens
 	party1KeyChain, party1SrcAddress, party1DestAddress, party1RemainderAddress := setupKeyChainAndAddresses(t)
-	party1ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 1, []byte(""))
+	party1ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 1)
 	party2KeyChain, party2SrcAddress, party2DestAddress, party2RemainderAddress := setupKeyChainAndAddresses(t)
-	party2ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 2, []byte(""))
+	party2ControlledOutputID := utxo.NewOutputID(utxo.TransactionID{}, 2)
 
 	// initialize fake ledger state with unspent Outputs
 	unspentOutputsDB := setupUnspentOutputsDB(map[Address]map[utxo.OutputID]map[Color]uint64{
@@ -174,7 +174,7 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 
 		return typeCastedOutput.Address()
 	default:
-		panic("unexpected OutputEssence type")
+		panic("unexpected Output type")
 	}
 }
 

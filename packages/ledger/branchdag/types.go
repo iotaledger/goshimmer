@@ -168,23 +168,18 @@ func (a ArithmeticBranchIDs) String() string {
 
 // ConflictID is a unique identifier for a Conflict.
 type ConflictID struct {
-	types.Identifier
+	utxo.OutputID
 }
 
 // NewConflictID returns a new ConflictID from the given OutputID.
 func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
-	return ConflictID{outputID.Identifier}
-}
-
-// OutputID returns the OutputID from the ConflictID.
-func (c ConflictID) OutputID() utxo.OutputID {
-	return utxo.OutputID{Identifier: c.Identifier}
+	return ConflictID{outputID}
 }
 
 // Unmarshal un-serializes a ConflictID using a MarshalUtil.
 func (c ConflictID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictID ConflictID, err error) {
-	err = conflictID.Identifier.FromMarshalUtil(marshalUtil)
-	return
+	err = conflictID.OutputID.FromMarshalUtil(marshalUtil)
+	return conflictID, err
 }
 
 // String returns a human-readable version of the ConflictID.
@@ -193,7 +188,7 @@ func (c ConflictID) String() (humanReadable string) {
 }
 
 // ConflictIDLength contains the byte length of a serialized ConflictID.
-const ConflictIDLength = types.IdentifierLength
+const ConflictIDLength = utxo.OutputIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

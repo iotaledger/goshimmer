@@ -1673,7 +1673,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		err := o.SetPayload([]byte("some metadata"))
 		assert.NoError(t, err)
 		oBytes := o.Bytes()
-		var restored OutputEssence
+		var restored Output
 		restored, _, err = OutputEssenceFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
@@ -1744,7 +1744,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		err := o.SetPayload([]byte("some metadata"))
 		assert.NoError(t, err)
 		oBytes := o.Bytes()
-		var restored OutputEssence
+		var restored Output
 		restored, _, err = OutputEssenceFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
@@ -1958,7 +1958,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		assert.Equal(t, updated.Balances().Bytes(), output.Balances().Bytes())
 	})
 
-	t.Run("CASE: OutputEssence had too big payload", func(t *testing.T) {
+	t.Run("CASE: Output had too big payload", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, {8}: 100})
 		output.payload = make([]byte, MaxOutputPayloadSize+1)
@@ -2214,7 +2214,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.False(t, valid)
 	})
 
-	t.Run("CASE: OutputEssence is time-locked, can't spend", func(t *testing.T) {
+	t.Run("CASE: Output is time-locked, can't spend", func(t *testing.T) {
 		w := genRandomWallet()
 		nowIs := time.Now()
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowIs.Add(time.Hour))
@@ -2230,7 +2230,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		assert.False(t, valid)
 	})
 
-	t.Run("CASE: OutputEssence is time-locked, spend after", func(t *testing.T) {
+	t.Run("CASE: Output is time-locked, spend after", func(t *testing.T) {
 		w := genRandomWallet()
 		nowIs := time.Now()
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, w.address).WithTimeLock(nowIs.Add(time.Hour))
@@ -2374,7 +2374,7 @@ func randAliasAddress() *AliasAddress {
 }
 
 func randOutputID() (randomOutputID utxo.OutputID) {
-	if err := randomOutputID.FromRandomness(); err != nil {
+	if err := randomOutputID.TransactionID.FromRandomness(); err != nil {
 		panic(err)
 	}
 

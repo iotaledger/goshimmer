@@ -38,7 +38,7 @@ func New(options ...Option) (new *Indexer) {
 }
 
 // IndexOutput stores the AddressOutputMapping dependent on which type of output it is.
-func (i *Indexer) IndexOutput(output devnetvm.OutputEssence) {
+func (i *Indexer) IndexOutput(output devnetvm.Output) {
 	switch output.Type() {
 	case devnetvm.AliasOutputType:
 		castedOutput := output.(*devnetvm.AliasOutput)
