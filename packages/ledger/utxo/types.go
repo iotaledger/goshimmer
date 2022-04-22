@@ -72,6 +72,15 @@ func NewOutputID(txID TransactionID, index uint16) OutputID {
 	}
 }
 
+// FromRandomness generates a random OutputID.
+func (o *OutputID) FromRandomness() (err error) {
+	if err = o.TransactionID.FromRandomness(); err != nil {
+		return errors.Errorf("could not create TransactionID from randomness: %w", err)
+	}
+
+	return nil
+}
+
 // FromMarshalUtil un-serializes an OutputID from a MarshalUtil.
 func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	if err = o.TransactionID.FromMarshalUtil(marshalUtil); err != nil {

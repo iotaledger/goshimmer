@@ -2374,7 +2374,7 @@ func randAliasAddress() *AliasAddress {
 }
 
 func randOutputID() (randomOutputID utxo.OutputID) {
-	if err := randomOutputID.TransactionID.FromRandomness(); err != nil {
+	if err := randomOutputID.FromRandomness(); err != nil {
 		panic(err)
 	}
 

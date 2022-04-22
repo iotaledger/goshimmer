@@ -178,7 +178,7 @@ func NewConflictID(outputID utxo.OutputID) (new ConflictID) {
 
 // FromRandomness generates a random ConflictID.
 func (c *ConflictID) FromRandomness() (err error) {
-	return c.TransactionID.FromRandomness()
+	return c.OutputID.FromRandomness()
 }
 
 // Unmarshal un-serializes a ConflictID using a MarshalUtil.

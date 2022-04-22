@@ -622,7 +622,7 @@ func randomBranchID() (randomBranchID branchdag.BranchID) {
 }
 
 func randomConflictID() (randomConflictID branchdag.ConflictID) {
-	if err := randomConflictID.TransactionID.FromRandomness(); err != nil {
+	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
 
