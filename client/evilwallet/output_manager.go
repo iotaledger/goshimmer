@@ -2,23 +2,15 @@ package evilwallet
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/types"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-)
-
-// OutputStatus represents the confirmation status of an output.
-type OutputStatus int8
-
-const (
-	pending OutputStatus = iota
-	confirmed
-	rejected
 )
 
 var (
@@ -33,7 +25,6 @@ type Output struct {
 	Address  ledgerstate.Address
 	Index    uint64
 	Balance  *ledgerstate.ColoredBalances
-	Status   OutputStatus
 }
 
 // Outputs is a list of Output.
@@ -63,16 +54,16 @@ func NewOutputManager(connector Connector, wallets *Wallets) *OutputManager {
 	}
 }
 
-// SetOutputIDWalletMap sets wallet for the provided outputID.
-func (o *OutputManager) SetOutputIDWalletMap(outputID string, wallet *Wallet) {
+// setOutputIDWalletMap sets wallet for the provided outputID.
+func (o *OutputManager) setOutputIDWalletMap(outputID string, wallet *Wallet) {
 	o.Lock()
 	defer o.Unlock()
 
 	o.outputIDWalletMap[outputID] = wallet
 }
 
-// SetOutputIDAddrMap sets address for the provided outputID.
-func (o *OutputManager) SetOutputIDAddrMap(outputID string, addr string) {
+// setOutputIDAddrMap sets address for the provided outputID.
+func (o *OutputManager) setOutputIDAddrMap(outputID string, addr string) {
 	o.Lock()
 	defer o.Unlock()
 
@@ -133,18 +124,9 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 				allConfirmed = false
 				return
 			}
-			_ = o.UpdateOutputStatus(id, confirmed)
 		}(ID, allConfirmed)
 	}
 	return
-}
-
-// CreateEmptyOutput creates output without outputID, stores it in the wallet w and returns an output instance.
-// OutputManager maps are not updated, as outputID is not known yet.
-func (o *OutputManager) CreateEmptyOutput(w *Wallet, balance *ledgerstate.ColoredBalances) *Output {
-	addr := w.Address()
-	out := w.AddUnspentOutput(addr.Address(), addr.Index, ledgerstate.OutputID{}, balance)
-	return out
 }
 
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
@@ -156,8 +138,8 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 	}
 	outputID := outputIDs[0]
 	out := w.AddUnspentOutput(addr.Address(), addr.Index, outputID, balance)
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), addr.Base58())
+	o.setOutputIDWalletMap(outputID.Base58(), w)
+	o.setOutputIDAddrMap(outputID.Base58(), addr.Base58())
 	return out
 }
 
@@ -166,44 +148,9 @@ func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output 
 	outputID := output.ID()
 	idx := w.AddrIndexMap(output.Address().Base58())
 	out := w.AddUnspentOutput(output.Address(), idx, outputID, output.Balances())
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
+	o.setOutputIDWalletMap(outputID.Base58(), w)
+	o.setOutputIDAddrMap(outputID.Base58(), output.Address().Base58())
 	return out
-}
-
-// UpdateOutputID updates the output wallet  and address.
-func (o *OutputManager) UpdateOutputID(w *Wallet, addr string, outputID ledgerstate.OutputID) error {
-	err := w.UpdateUnspentOutputID(addr, outputID)
-	o.SetOutputIDWalletMap(outputID.Base58(), w)
-	o.SetOutputIDAddrMap(outputID.Base58(), addr)
-	return err
-}
-
-// UpdateOutputStatus updates the status of the outputID specified.
-func (o *OutputManager) UpdateOutputStatus(outputID ledgerstate.OutputID, status OutputStatus) error {
-	addr := o.OutputIDAddrMap(outputID.Base58())
-	w := o.OutputIDWalletMap(outputID.Base58())
-	err := w.UpdateUnspentOutputStatus(addr, status)
-
-	return err
-}
-
-// UpdateOutputsFromTxs update the output maps from the status of the transactions specified.
-func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
-	for _, txID := range txIDs {
-		clt := o.connector.GetClient()
-		outputs, err := clt.GetTransactionOutputs(txID)
-		if err != nil {
-			return err
-		}
-		for _, out := range outputs {
-			err = o.UpdateOutputStatus(out.ID(), confirmed)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 // GetOutput returns the Output of the given outputID.
@@ -211,7 +158,7 @@ func (o *OutputManager) UpdateOutputsFromTxs(txIDs []string) error {
 func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
 	output = o.getOutputFromWallet(outputID)
 
-	// get output info from via web api
+	// get output info via web api
 	if output == nil {
 		clt := o.connector.GetClient()
 		out := clt.GetOutput(outputID)
