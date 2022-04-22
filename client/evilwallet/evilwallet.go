@@ -394,9 +394,9 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (tx *ledgerstate.Trans
 func (e *EvilWallet) addOutputsToOutputManager(tx *ledgerstate.Transaction, outWallet, tmpWallet *Wallet, tempAddresses map[ledgerstate.Address]types.Empty) {
 	for _, o := range tx.Essence().Outputs() {
 		if _, ok := tempAddresses[o.Address()]; ok {
-			e.outputManager.AddOutput(outWallet, o)
-		} else {
 			e.outputManager.AddOutput(tmpWallet, o)
+		} else {
+			e.outputManager.AddOutput(outWallet, o)
 		}
 	}
 }
