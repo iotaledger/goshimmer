@@ -55,7 +55,6 @@ func (s *Snapshot) WriteTo(writer io.Writer) (int64, error) {
 		}
 		bytesWritten += int64(len(record.Essence.Bytes()))
 
-		// fmt.Printf("Writing unlockBlock : %s", s.Transactions)
 		unlockBlocksLength := uint32(len(record.UnlockBlocks.Bytes()))
 		if err := binary.Write(writer, binary.LittleEndian, unlockBlocksLength); err != nil {
 			return 0, fmt.Errorf("unable to write unspent output index length with %s: %w", transactionID, err)

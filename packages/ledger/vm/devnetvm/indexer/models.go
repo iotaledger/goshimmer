@@ -74,6 +74,6 @@ func (a *AddressOutputMapping) ObjectStorageValue() (value []byte) {
 var _ objectstorage.StorableObject = new(AddressOutputMapping)
 
 // addressOutputMappingPartitionKeys defines the partition of the storage key of the AddressOutputMapping model.
-var addressOutputMappingPartitionKeys = objectstorage.PartitionKey([]int{utxo.OutputIDLength, utxo.TransactionIDLength}...)
+var addressOutputMappingPartitionKeys = objectstorage.PartitionKey([]int{devnetvm.AddressLength, utxo.TransactionIDLength}...)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -123,7 +123,6 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, input := range optionalInputs {
-		fmt.Println(input)
 		marshaledInput := input.Bytes()
 		marshaledInputAsString := typeutils.BytesToString(marshaledInput)
 
