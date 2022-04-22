@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/goshimmer/tools/evil-spammer/evillogger"
 	"os"
@@ -16,8 +17,14 @@ var (
 )
 
 func main() {
-	parseFlags()
-
+	help := parseFlags()
+	if help {
+		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
+			"'interactive' - enters the interactive mode.\n" +
+			"'basic' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n" +
+			"'quick' - runs simple stress test: tx spam -> msg spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
+		return
+	}
 	// run selected test scenario
 	switch Script {
 	case "interactive":
@@ -31,7 +38,10 @@ func main() {
 	}
 }
 
-func parseFlags() {
+func parseFlags() (help bool) {
+	if len(os.Args) <= 1 {
+		return true
+	}
 	script := os.Args[1]
 
 	Script = script
@@ -43,7 +53,10 @@ func parseFlags() {
 	case "quick":
 		parseQuickTestFlags()
 	}
-
+	if Script == "help" || Script == "-h" || Script == "--help" {
+		return true
+	}
+	return
 }
 
 func parseOptionFlagSet(flagSet *flag.FlagSet) {
