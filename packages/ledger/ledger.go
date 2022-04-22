@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -59,6 +60,13 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
+
+	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(events *branchdag.BranchConfirmedEvent) {
+		fmt.Println("CONFIRM", events.BranchID.TransactionID())
+		ledger.Storage.CachedTransactionMetadata(events.BranchID.TransactionID()).Consume(func(txMetadata *TransactionMetadata) {
+			ledger.triggerConfirmedEvent(txMetadata, false)
+		})
+	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -159,6 +167,14 @@ func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInc
 
 	if !txMetadata.SetGradeOfFinality(gof.High) {
 		return
+	}
+
+	fmt.Println("UPDATE")
+
+	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
+		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+			outputMetadata.SetGradeOfFinality(gof.High)
+		})
 	}
 
 	l.Events.TransactionConfirmed.Trigger(&TransactionConfirmedEvent{

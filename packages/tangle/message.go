@@ -952,6 +952,8 @@ func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err 
 func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
 	if messageMetadata = m; messageMetadata == nil {
 		messageMetadata = new(MessageMetadata)
+		messageMetadata.addedBranchIDs = branchdag.NewBranchIDs()
+		messageMetadata.subtractedBranchIDs = branchdag.NewBranchIDs()
 	}
 
 	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {

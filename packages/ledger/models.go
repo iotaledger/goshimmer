@@ -243,7 +243,7 @@ func (t *TransactionMetadata) SetInclusionTime(inclusionTime time.Time) (updated
 	t.inclusionTimeMutex.Lock()
 	defer t.inclusionTimeMutex.Unlock()
 
-	if inclusionTime.After(t.inclusionTime) {
+	if inclusionTime.After(t.inclusionTime) && !t.inclusionTime.IsZero() {
 		return false, t.inclusionTime
 	}
 

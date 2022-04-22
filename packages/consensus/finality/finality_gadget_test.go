@@ -69,9 +69,9 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
-	fg.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
-	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
-	tangleInstance.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
+	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
+	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
@@ -172,12 +172,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message6"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message5"},
-					gof.None:   {"Message6"},
+					gof.None: {"Message5", "Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message5"},
-					gof.None:   {"Message6"},
+					gof.None: {"Message5", "Message6"},
 				})
 			},
 		},
@@ -200,8 +198,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High: {"Message5"},
-					gof.Low:  {"Message7"},
-					gof.None: {"Message6"},
+					gof.None: {"Message6", "Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -239,12 +236,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message6", "Message8"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5"},
-					gof.Medium: {"Message6"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message7"},
-					gof.Medium: {"Message6"},
+					gof.High: {"Message5", "Message7"},
+					gof.None: {"Message6"},
 				})
 			},
 		},
@@ -262,14 +259,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5", "Message7"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5", "Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -510,12 +505,12 @@ func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework,
 }
 
 func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
-	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		if err := fg.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}

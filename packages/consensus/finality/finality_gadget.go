@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -315,7 +316,7 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
 func (s *SimpleFinalityGadget) HandleBranch(branchID branchdag.BranchID, aw float64) (err error) {
-	if s.tangle.Options.LedgerState.MergeBranches && s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
+	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
 		s.tangle.Ledger.BranchDAG.SetBranchConfirmed(branchID)
 	}
 
@@ -328,15 +329,15 @@ func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMet
 		return
 	}
 
-	// set GoF of payload (applicable only to transactions)
-	if tx, ok := message.Payload().(utxo.Transaction); ok {
-		s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
-	}
-
 	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
 		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
 			MessageID: messageMetadata.ID(),
 		})
+
+		// set GoF of payload (applicable only to transactions)
+		if tx, ok := message.Payload().(*devnetvm.Transaction); ok {
+			s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
+		}
 	}
 
 	return modified
