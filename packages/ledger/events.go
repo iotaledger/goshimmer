@@ -26,6 +26,9 @@ type Events struct {
 	// TransactionConfirmed is an event that gets triggered whenever a Transaction is confirmed.
 	TransactionConfirmed *event.Event[*TransactionConfirmedEvent]
 
+	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
+	TransactionRejected *event.Event[*TransactionRejectedEvent]
+
 	// TransactionForked is an event that gets triggered whenever a Transaction is forked.
 	TransactionForked *event.Event[*TransactionForkedEvent]
 
@@ -46,6 +49,7 @@ func newEvents() (new *Events) {
 		TransactionBooked:           event.New[*TransactionBookedEvent](),
 		TransactionInclusionUpdated: event.New[*TransactionInclusionUpdatedEvent](),
 		TransactionConfirmed:        event.New[*TransactionConfirmedEvent](),
+		TransactionRejected:         event.New[*TransactionRejectedEvent](),
 		TransactionForked:           event.New[*TransactionForkedEvent](),
 		TransactionBranchIDUpdated:  event.New[*TransactionBranchIDUpdatedEvent](),
 		TransactionInvalid:          event.New[*TransactionInvalidEvent](),
@@ -104,6 +108,17 @@ type TransactionInclusionUpdatedEvent struct {
 // parameters.
 type TransactionConfirmedEvent struct {
 	// TransactionID contains the identifier of the confirmed Transaction.
+	TransactionID utxo.TransactionID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionRejectedEvent /////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionRejectedEvent is a container that acts as a dictionary for the TransactionRejected event related
+// parameters.
+type TransactionRejectedEvent struct {
+	// TransactionID contains the identifier of the rejected Transaction.
 	TransactionID utxo.TransactionID
 }
 

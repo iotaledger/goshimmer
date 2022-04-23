@@ -166,6 +166,12 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 				return
 			}
 
+			b.Events.BranchRejected.Trigger(&BranchRejectedEvent{
+				BranchID: branchID,
+			})
+
+			fmt.Println("BRANCH REJECTED", branch.ID())
+
 			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				rejectionWalker.Push(childBranch.ChildBranchID())
 			})

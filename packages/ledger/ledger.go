@@ -2,10 +2,10 @@ package ledger
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -61,11 +61,12 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(events *branchdag.BranchConfirmedEvent) {
-		fmt.Println("CONFIRM", events.BranchID.TransactionID())
-		ledger.Storage.CachedTransactionMetadata(events.BranchID.TransactionID()).Consume(func(txMetadata *TransactionMetadata) {
-			ledger.triggerConfirmedEvent(txMetadata, false)
-		})
+	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
+		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID.TransactionID())
+	}))
+
+	ledger.BranchDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent) {
+		ledger.propagatedRejectionToTransactions(event.BranchID.TransactionID())
 	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
@@ -160,16 +161,14 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 }
 
 // triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
-func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) {
+func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) (triggered bool) {
 	if checkInclusion && txMetadata.InclusionTime().IsZero() {
-		return
+		return false
 	}
 
 	if !txMetadata.SetGradeOfFinality(gof.High) {
-		return
+		return false
 	}
-
-	fmt.Println("UPDATE")
 
 	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
 		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
@@ -179,6 +178,67 @@ func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInc
 
 	l.Events.TransactionConfirmed.Trigger(&TransactionConfirmedEvent{
 		TransactionID: txMetadata.ID(),
+	})
+
+	return true
+}
+
+// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
+func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+	if !txMetadata.SetGradeOfFinality(gof.None) {
+		return false
+	}
+
+	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
+		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+			outputMetadata.SetGradeOfFinality(gof.None)
+		})
+	}
+
+	l.Events.TransactionRejected.Trigger(&TransactionRejectedEvent{
+		TransactionID: txMetadata.ID(),
+	})
+
+	return true
+}
+
+// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// Transaction.
+func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.TransactionID) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		if !l.triggerConfirmedEvent(txMetadata, false) {
+			return
+		}
+
+		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+			if l.BranchDAG.InclusionState(consumingTxMetadata.BranchIDs()) != branchdag.Confirmed {
+				return
+			}
+
+			if !l.triggerConfirmedEvent(consumingTxMetadata, true) {
+				return
+			}
+
+			walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
+		})
+	})
+}
+
+// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// Transaction.
+func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		if !l.triggerRejectedEvent(txMetadata) {
+			return
+		}
+
+		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+			if !l.triggerRejectedEvent(consumingTxMetadata) {
+				return
+			}
+
+			walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
+		})
 	})
 }
 
