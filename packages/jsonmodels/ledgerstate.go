@@ -583,7 +583,7 @@ type Conflict struct {
 // NewConflict returns a Conflict from the given ledger.ConflictID.
 func NewConflict(conflictID branchdag.ConflictID, branchIDs []branchdag.BranchID) *Conflict {
 	return &Conflict{
-		OutputID: NewOutputID(conflictID.OutputID()),
+		OutputID: NewOutputID(conflictID.OutputID),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)
 			for _, branchID := range branchIDs {

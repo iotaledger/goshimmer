@@ -106,10 +106,9 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
-	tangle.Configure(MergeBranches(false))
 
 	conflictIDs := map[string]branchdag.ConflictID{
 		"Conflict 1": randomConflictID(),
@@ -512,8 +511,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider))
-	tangle.Configure(MergeBranches(false))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
 
 	tangle.Setup()
