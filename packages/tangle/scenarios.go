@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -37,9 +36,7 @@ func (s *TestScenario) Setup(t *testing.T) error {
 
 // Cleanup cleans up the scenario.
 func (s *TestScenario) Cleanup(t *testing.T) error {
-	fmt.Println("CLEANUP START")
 	s.Tangle.Shutdown()
-	fmt.Println("CLEANUP END")
 	return nil
 }
 

@@ -207,11 +207,7 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 
 // StoreAttachment stores a new attachment if not already stored.
 func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
-	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
-	if !stored {
-		return
-	}
-	return
+	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.

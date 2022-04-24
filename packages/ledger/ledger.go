@@ -89,7 +89,7 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 	for _, output := range snapshot.Outputs {
 		l.Storage.CachedOutput(output.ID(), func(outputID utxo.OutputID) *Output {
 			return NewOutput(output)
-		})
+		}).Release()
 
 		l.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *OutputMetadata {
 			outputMetadata := NewOutputMetadata(output.ID())
@@ -97,7 +97,7 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 			outputMetadata.SetGradeOfFinality(gof.High)
 
 			return outputMetadata
-		})
+		}).Release()
 	}
 }
 

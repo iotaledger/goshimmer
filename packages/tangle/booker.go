@@ -138,7 +138,10 @@ func (b *Booker) bookPayload(messageID MessageID) {
 				return
 			}
 
-			b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
+			cachedAttachment, stored := b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
+			if stored {
+				cachedAttachment.Release()
+			}
 			err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
 			if err != nil {
 				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
