@@ -62,13 +62,13 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 
 	messageTestFramework.createGenesisOutputs()
 
-	tangle.Booker.Events.MessageBooked.Hook(event.NewClosure(func(_ *MessageBookedEvent) {
+	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(_ *MessageBookedEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(_ *MessageProcessedEvent) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
-	tangle.Events.MessageInvalid.Hook(event.NewClosure(func(_ *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(_ *MessageInvalidEvent) {
 		messageTestFramework.messagesBookedWG.Done()
 		messageTestFramework.approvalWeightProcessed.Done()
 	}))
@@ -826,7 +826,7 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
-	t.Events.Error.Hook(event.NewClosure(func(e error) {
+	t.Events.Error.Attach(event.NewClosure(func(e error) {
 		fmt.Println(e)
 	}))
 
@@ -973,8 +973,6 @@ func (e *EventMock) DetachAll() {
 
 // Expect is a proxy for Mock.On() but keeping track of num of calls.
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
-	e.test.Logf("EXPECT:\t%s", eventName)
-
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
 }
@@ -1002,8 +1000,6 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
 	e.Called(event.BranchID, event.Weight)
 
-	e.test.Logf("TRIGGER:\tBranchWeightChanged(%s,  %0.2f)", event.BranchID, event.Weight)
-
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
@@ -1011,16 +1007,12 @@ func (e *EventMock) BranchWeightChanged(event *BranchWeightChangedEvent) {
 func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 	e.Called(event.Marker, event.Weight)
 
-	e.test.Logf("TRIGGER:\tMarkerWeightChanged(Marker(%d, %d),  %0.2f)", uint64(event.Marker.Index()), uint64(event.Marker.SequenceID()), event.Weight)
-
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
 // MessageProcessed is the mocked MessageProcessed function.
 func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
 	e.Called(event.MessageID)
-
-	e.test.Logf("TRIGGER:\tMessageProcessed(%s)", event.MessageID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

@@ -72,7 +72,7 @@ func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 // region WithMergeToMaster ////////////////////////////////////////////////////////////////////////////////////////////
 
 // WithMergeToMaster is an Option for the BranchDAG that allows to configure whether the BranchDAG should merge
-// Confirmed Branches to the MasterBranch.
+// confirmed Branches to the MasterBranch.
 func WithMergeToMaster(mergeToMaster bool) Option {
 	return func(options *options) {
 		options.mergeToMaster = mergeToMaster
