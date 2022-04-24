@@ -1,7 +1,6 @@
 package branchdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
@@ -122,6 +121,10 @@ func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, remove
 // FilterPendingBranches takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
 // rejected ones behind).
 func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
+	if !b.options.mergeToMaster {
+		return branchIDs
+	}
+
 	pendingBranchIDs = NewBranchIDs()
 	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
 		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
@@ -149,8 +152,6 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 				BranchID: branchID,
 			})
 
-			fmt.Println("BRANCH CONFIRMED", branchID)
-
 			confirmationWalker.PushAll(branch.Parents().Slice()...)
 
 			b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID BranchID) bool {
@@ -167,10 +168,8 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 			}
 
 			b.Events.BranchRejected.Trigger(&BranchRejectedEvent{
-				BranchID: branchID,
+				BranchID: branch.ID(),
 			})
-
-			fmt.Println("BRANCH REJECTED", branch.ID())
 
 			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				rejectionWalker.Push(childBranch.ChildBranchID())

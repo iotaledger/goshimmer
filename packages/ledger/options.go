@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
@@ -105,6 +106,17 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region WithConsumerCacheTime ////////////////////////////////////////////////////////////////////////////////////////
+
+// WithBranchDAGOptions is an Option for the Ledger that allows to configure the options for the BranchDAG
+func WithBranchDAGOptions(branchDAGOptions ...branchdag.Option) (option Option) {
+	return func(options *options) {
+		options.branchDAGOptions = branchDAGOptions
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // options is a container for all configurable parameters of the Ledger.
@@ -134,6 +146,9 @@ type options struct {
 
 	// consumerCacheTime contains the duration that Consumer objects stay cached after they have been released.
 	consumerCacheTime time.Duration
+
+	// branchDAGOptions contains the options for the BranchDAG.
+	branchDAGOptions []branchdag.Option
 }
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the

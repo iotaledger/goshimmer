@@ -54,7 +54,11 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.BranchDAG = branchdag.New(branchdag.WithStore(ledger.options.store), branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider))
+	ledger.BranchDAG = branchdag.New(append([]branchdag.Option{
+		branchdag.WithStore(ledger.options.store),
+		branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
+	}, ledger.options.branchDAGOptions...)...)
+
 	ledger.Storage = newStorage(ledger)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)

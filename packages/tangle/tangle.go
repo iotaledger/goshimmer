@@ -80,7 +80,7 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider))
+	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithBranchDAGOptions(tangle.Options.BranchDAGOptions...))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
@@ -104,7 +104,6 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
-			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -196,6 +195,7 @@ type Option func(*Options)
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
 	Store                          kvstore.KVStore
+	BranchDAGOptions               []branchdag.Option
 	Identity                       *identity.LocalIdentity
 	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
 	TangleWidth                    int
@@ -207,7 +207,6 @@ type Options struct {
 	TimeSinceConfirmationThreshold time.Duration
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
-	LedgerState                    struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -304,10 +303,10 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// MergeBranches is an Option for the Tangle that prevents the Ledger from merging Branches.
-func MergeBranches(mergeBranches bool) Option {
+// WithBranchDAGOptions is an Option for the Tangle that allows to set the BranchDAG options.
+func WithBranchDAGOptions(branchDAGOptions ...branchdag.Option) Option {
 	return func(o *Options) {
-		o.LedgerState.MergeBranches = mergeBranches
+		o.BranchDAGOptions = branchDAGOptions
 	}
 }
 
