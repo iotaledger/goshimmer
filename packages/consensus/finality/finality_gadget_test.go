@@ -376,7 +376,6 @@ func TestSimpleFinalityGadget(t *testing.T) {
 		}
 		processMsgScenario.Next(prePostSteps[i])
 	}
-	fmt.Println("DONE")
 }
 
 func TestWeakVsStrongParentWalk(t *testing.T) {
