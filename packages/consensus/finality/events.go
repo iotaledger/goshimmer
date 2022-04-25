@@ -2,6 +2,8 @@ package finality
 
 import (
 	"github.com/iotaledger/hive.go/generics/event"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -34,13 +36,13 @@ func newEvents() *Events {
 // BranchCreatedEvent is a container that acts as a dictionary for the BranchCreated event related parameters.
 type BranchCreatedEvent struct {
 	// BranchID contains the identifier of the newly created Branch.
-	BranchID BranchID
+	BranchID branchdag.BranchID
 
 	// ParentBranchIDs contains the parent Branches of the newly created Branch.
-	ParentBranchIDs BranchIDs
+	ParentBranchIDs branchdag.BranchIDs
 
 	// ConflictIDs contains the set of conflicts that this Branch is involved with.
-	ConflictIDs ConflictIDs
+	ConflictIDs branchdag.ConflictIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,10 +53,10 @@ type BranchCreatedEvent struct {
 // parameters.
 type BranchConflictsUpdatedEvent struct {
 	// BranchID contains the identifier of the updated Branch.
-	BranchID BranchID
+	BranchID branchdag.BranchID
 
 	// NewConflictIDs contains the set of conflicts that this Branch was added to.
-	NewConflictIDs ConflictIDs
+	NewConflictIDs branchdag.ConflictIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,13 +67,13 @@ type BranchConflictsUpdatedEvent struct {
 // parameters.
 type BranchParentsUpdatedEvent struct {
 	// BranchID contains the identifier of the updated Branch.
-	BranchID BranchID
+	BranchID branchdag.BranchID
 
 	// AddedBranch contains the forked parent Branch that replaces the removed parents.
-	AddedBranch BranchID
+	AddedBranch branchdag.BranchID
 
 	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Branch.
-	RemovedBranches BranchIDs
+	RemovedBranches branchdag.BranchIDs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

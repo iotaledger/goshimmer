@@ -211,7 +211,7 @@ func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...dev
 	return outputs
 }
 
-func splitToAddresses(t *testing.T, node *framework.Node, output devnetvm.OutputEssence, keyPairs map[string]*ed25519.KeyPair, addresses ...devnetvm.Address) devnetvm.Outputs {
+func splitToAddresses(t *testing.T, node *framework.Node, output devnetvm.Output, keyPairs map[string]*ed25519.KeyPair, addresses ...devnetvm.Address) devnetvm.Outputs {
 	transaction := tests.CreateTransactionFromOutputs(t, node.ID(), addresses, keyPairs, output)
 	_, err := node.PostTransaction(transaction.Bytes())
 	require.NoError(t, err, "Error occured while trying to split addresses")

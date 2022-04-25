@@ -222,7 +222,7 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 // CreateTransactionFromOutputs takes the given utxos inputs and create a transaction that spreads the total input balance
 // across the targetAddresses. In order to correctly sign we have a keyPair map that maps a given address to its public key.
 // Access and Consensus Mana is pledged to the node we specify.
-func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []devnetvm.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...devnetvm.OutputEssence) *devnetvm.Transaction {
+func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []devnetvm.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...devnetvm.Output) *devnetvm.Transaction {
 	// Create Inputs from utxos
 	inputs := devnetvm.Inputs{}
 	balances := map[devnetvm.Color]uint64{}

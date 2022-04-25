@@ -93,16 +93,6 @@ func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 	return nil
 }
 
-// FromBase58 decodes the OutputID from a Base58 encoded string.
-func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
-	decodedBytes, err := base58.Decode(base58EncodedString)
-	if err != nil {
-		return errors.Errorf("failed to decode Base58 string: %w", err)
-	}
-
-	return o.FromMarshalUtil(marshalutil.New(decodedBytes))
-}
-
 // Unmarshal un-serializes a OutputID using a MarshalUtil (additional unmarshal signature required for AdvancedSet).
 func (o OutputID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
 	err = outputID.FromMarshalUtil(marshalUtil)

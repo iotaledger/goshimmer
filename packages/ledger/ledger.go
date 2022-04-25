@@ -2,10 +2,13 @@ package ledger
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
@@ -51,12 +54,24 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.BranchDAG = branchdag.New(branchdag.WithStore(ledger.options.store), branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider))
+	ledger.BranchDAG = branchdag.New(append([]branchdag.Option{
+		branchdag.WithStore(ledger.options.store),
+		branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
+	}, ledger.options.branchDAGOptions...)...)
+
 	ledger.Storage = newStorage(ledger)
 	ledger.validator = newValidator(ledger)
 	ledger.booker = newBooker(ledger)
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
+
+	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
+		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID.TransactionID())
+	}))
+
+	ledger.BranchDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent) {
+		ledger.propagatedRejectionToTransactions(event.BranchID.TransactionID())
+	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {
 		ledger.processConsumingTransactions(event.Outputs.IDs())
@@ -67,6 +82,43 @@ func New(options ...Option) (ledger *Ledger) {
 	}))
 
 	return ledger
+}
+
+// LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
+func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
+	for _, output := range snapshot.Outputs {
+		l.Storage.CachedOutput(output.ID(), func(outputID utxo.OutputID) *Output {
+			return NewOutput(output)
+		}).Release()
+
+		l.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *OutputMetadata {
+			outputMetadata := NewOutputMetadata(output.ID())
+			outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+			outputMetadata.SetGradeOfFinality(gof.High)
+
+			return outputMetadata
+		}).Release()
+	}
+}
+
+// SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.
+func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionTime time.Time) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		updated, previousInclusionTime := txMetadata.SetInclusionTime(inclusionTime)
+		if !updated {
+			return
+		}
+
+		l.Events.TransactionInclusionUpdated.Trigger(&TransactionInclusionUpdatedEvent{
+			TransactionID:         txID,
+			InclusionTime:         inclusionTime,
+			PreviousInclusionTime: previousInclusionTime,
+		})
+
+		if previousInclusionTime.IsZero() && l.BranchDAG.InclusionState(txMetadata.BranchIDs()) == branchdag.Confirmed {
+			l.triggerConfirmedEvent(txMetadata, false)
+		}
+	})
 }
 
 // CheckTransaction checks the validity of a Transaction.
@@ -110,6 +162,88 @@ func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 			_ = l.processTransaction(tx)
 		})
 	}
+}
+
+// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
+func (l *Ledger) triggerConfirmedEvent(txMetadata *TransactionMetadata, checkInclusion bool) (triggered bool) {
+	if checkInclusion && txMetadata.InclusionTime().IsZero() {
+		return false
+	}
+
+	if !txMetadata.SetGradeOfFinality(gof.High) {
+		return false
+	}
+
+	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
+		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+			outputMetadata.SetGradeOfFinality(gof.High)
+		})
+	}
+
+	l.Events.TransactionConfirmed.Trigger(&TransactionConfirmedEvent{
+		TransactionID: txMetadata.ID(),
+	})
+
+	return true
+}
+
+// triggerConfirmedEvent triggers the TransactionConfirmed event if the Transaction was confirmed.
+func (l *Ledger) triggerRejectedEvent(txMetadata *TransactionMetadata) (triggered bool) {
+	if !txMetadata.SetGradeOfFinality(gof.None) {
+		return false
+	}
+
+	for it := txMetadata.OutputIDs().Iterator(); it.HasNext(); {
+		l.Storage.CachedOutputMetadata(it.Next()).Consume(func(outputMetadata *OutputMetadata) {
+			outputMetadata.SetGradeOfFinality(gof.None)
+		})
+	}
+
+	l.Events.TransactionRejected.Trigger(&TransactionRejectedEvent{
+		TransactionID: txMetadata.ID(),
+	})
+
+	return true
+}
+
+// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// Transaction.
+func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.TransactionID) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		if !l.triggerConfirmedEvent(txMetadata, false) {
+			return
+		}
+
+		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+			if l.BranchDAG.InclusionState(consumingTxMetadata.BranchIDs()) != branchdag.Confirmed {
+				return
+			}
+
+			if !l.triggerConfirmedEvent(consumingTxMetadata, true) {
+				return
+			}
+
+			walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
+		})
+	})
+}
+
+// propagateConfirmedBranchToIncludedTransactions propagates confirmations to the included future cone of the given
+// Transaction.
+func (l *Ledger) propagatedRejectionToTransactions(txID utxo.TransactionID) {
+	l.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		if !l.triggerRejectedEvent(txMetadata) {
+			return
+		}
+
+		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+			if !l.triggerRejectedEvent(consumingTxMetadata) {
+				return
+			}
+
+			walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
+		})
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

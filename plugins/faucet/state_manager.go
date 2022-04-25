@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -294,25 +295,27 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	Plugin.LogInfof("Looking for existing funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
-		deps.Tangle.Ledger.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output *ledger.Output) {
-			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if outputMetadata.IsSpent() {
-					outputEssence := output.Output.(devnetvm.OutputEssence)
+		deps.Indexer.CachedAddressOutputMappings(s.replenishmentState.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+					if outputMetadata.IsSpent() {
+						outputEssence := output.Output.(devnetvm.Output)
 
-					iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
-					if !colorExist {
-						return
+						iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+						if !colorExist {
+							return
+						}
+						if iotaBalance == s.tokensPerRequest {
+							// we found a prepared output
+							foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
+								ID:           output.ID(),
+								Balance:      iotaBalance,
+								Address:      outputEssence.Address(),
+								AddressIndex: i,
+							})
+						}
 					}
-					if iotaBalance == s.tokensPerRequest {
-						// we found a prepared output
-						foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
-							ID:           output.ID(),
-							Balance:      iotaBalance,
-							Address:      outputEssence.Address(),
-							AddressIndex: i,
-						})
-					}
-				}
+				})
 			})
 		})
 	}
@@ -329,27 +332,29 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	remainderAddress := s.replenishmentState.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	deps.Tangle.Ledger.CachedOutputsOnAddress(remainderAddress).Consume(func(output *ledger.Output) {
-		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
-				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
-				outputEssence := output.Output.(devnetvm.OutputEssence)
+	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
+					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+					outputEssence := output.Output.(devnetvm.Output)
 
-				iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
-				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
-					return
+					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+					if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
+						return
+					}
+					if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
+						// when multiple "big" unspent outputs sit on this address, take the biggest one
+						return
+					}
+					foundRemainderOutput = &FaucetOutput{
+						ID:           outputEssence.ID(),
+						Balance:      iotaBalance,
+						Address:      outputEssence.Address(),
+						AddressIndex: RemainderAddressIndex,
+					}
 				}
-				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
-					// when multiple "big" unspent outputs sit on this address, take the biggest one
-					return
-				}
-				foundRemainderOutput = &FaucetOutput{
-					ID:           outputEssence.ID(),
-					Balance:      iotaBalance,
-					Address:      outputEssence.Address(),
-					AddressIndex: RemainderAddressIndex,
-				}
-			}
+			})
 		})
 	})
 	if foundRemainderOutput == nil {
@@ -371,28 +376,30 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		// make sure only one output per address will be added
 		foundOnCurrentAddress = false
 
-		deps.Tangle.Ledger.CachedOutputsOnAddress(supplyAddress).Consume(func(output *ledger.Output) {
-			if foundOnCurrentAddress {
-				return
-			}
-			if deps.Tangle.Ledger.ConfirmedConsumer(output.ID()).Base58() == utxo.EmptyTransactionID.Base58() &&
-				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
-				outputEssence := output.Output.(devnetvm.OutputEssence)
-
-				iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
-				if !ok || iotaBalance != s.tokensPerSupplyOutput {
+		deps.Indexer.CachedAddressOutputMappings(supplyAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+				if foundOnCurrentAddress {
 					return
 				}
-				supplyOutput := &FaucetOutput{
-					ID:           outputEssence.ID(),
-					Balance:      iotaBalance,
-					Address:      outputEssence.Address(),
-					AddressIndex: supplyAddr,
+				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
+					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+					outputEssence := output.Output.(devnetvm.Output)
+
+					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+					if !ok || iotaBalance != s.tokensPerSupplyOutput {
+						return
+					}
+					supplyOutput := &FaucetOutput{
+						ID:           outputEssence.ID(),
+						Balance:      iotaBalance,
+						Address:      outputEssence.Address(),
+						AddressIndex: supplyAddr,
+					}
+					s.replenishmentState.AddSupplyOutput(supplyOutput)
+					foundSupplyCount++
+					foundOnCurrentAddress = true
 				}
-				s.replenishmentState.AddSupplyOutput(supplyOutput)
-				foundSupplyCount++
-				foundOnCurrentAddress = true
-			}
+			})
 		})
 	}
 
@@ -583,11 +590,16 @@ func (s *StateManager) onConfirmation(confirmedTx utxo.TransactionID, issuedCoun
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID utxo.TransactionID) (err error) {
-	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *devnetvm.Transaction) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
+		tx, ok := transaction.Transaction.(*devnetvm.Transaction)
+		if !ok {
+			return
+		}
+
 		newFaucetRemainderBalance := s.replenishmentState.RemainderOutputBalance() - s.tokensUsedOnSupplyReplenishment
 
 		// derive information from outputs
-		for _, output := range transaction.Essence().Outputs() {
+		for _, output := range tx.Essence().Outputs() {
 			iotaBalance, hasIota := output.Balances().Get(devnetvm.ColorIOTA)
 			if !hasIota {
 				err = errors.Errorf("tx outputs don't have IOTA balance ")
@@ -697,7 +709,7 @@ func (s *StateManager) splittingTransactionElements() (inputs devnetvm.Inputs, o
 }
 
 // createOutput creates an output based on provided address and balance.
-func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devnetvm.OutputEssence {
+func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devnetvm.Output {
 	return devnetvm.NewSigLockedColoredOutput(
 		devnetvm.NewColoredBalances(
 			map[devnetvm.Color]uint64{

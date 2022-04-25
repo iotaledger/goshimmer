@@ -207,11 +207,7 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 
 // StoreAttachment stores a new attachment if not already stored.
 func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
-	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
-	if !stored {
-		return
-	}
-	return
+	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
@@ -356,9 +352,11 @@ func (s *Storage) BranchWeight(branchID branchdag.BranchID, computeIfAbsentCallb
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			solidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-			messageID:          EmptyMessageID,
-			solid:              true,
+			addedBranchIDs:      branchdag.NewBranchIDs(),
+			subtractedBranchIDs: branchdag.NewBranchIDs(),
+			solidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			messageID:           EmptyMessageID,
+			solid:               true,
 			structureDetails: &markers.StructureDetails{
 				Rank:          0,
 				IsPastMarker:  false,

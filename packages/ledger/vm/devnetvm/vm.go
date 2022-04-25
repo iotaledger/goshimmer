@@ -15,12 +15,11 @@ func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transac
 }
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
-	parsedOutput := new(Output)
-	if err = parsedOutput.FromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
-		return nil, errors.Errorf("failed to parse Output: %w", err)
+	if output, err = OutputEssenceFromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
+		err = errors.Errorf("failed to parse Output: %w", err)
 	}
 
-	return parsedOutput, nil
+	return output, err
 }
 
 func (d *VM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {

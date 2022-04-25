@@ -11,7 +11,7 @@ import (
 // Output is a wallet specific representation of an output in the IOTA network.
 type Output struct {
 	Address                address.Address
-	Object                 devnetvm.OutputEssence
+	Object                 devnetvm.Output
 	Metadata               OutputMetadata
 	GradeOfFinalityReached bool
 	// Spent is a local wallet-only property that gets set once an output is spent from within the same wallet.

@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
 
@@ -19,6 +20,15 @@ type Events struct {
 	// TransactionBooked is an event that gets triggered whenever a Transaction is booked.
 	TransactionBooked *event.Event[*TransactionBookedEvent]
 
+	// TransactionInclusionUpdated is an event that gets triggered whenever the inclusion time of a Transaction changes.
+	TransactionInclusionUpdated *event.Event[*TransactionInclusionUpdatedEvent]
+
+	// TransactionConfirmed is an event that gets triggered whenever a Transaction is confirmed.
+	TransactionConfirmed *event.Event[*TransactionConfirmedEvent]
+
+	// TransactionRejected is an event that gets triggered whenever a Transaction is rejected.
+	TransactionRejected *event.Event[*TransactionRejectedEvent]
+
 	// TransactionForked is an event that gets triggered whenever a Transaction is forked.
 	TransactionForked *event.Event[*TransactionForkedEvent]
 
@@ -35,12 +45,15 @@ type Events struct {
 // newEvents returns a new Events object.
 func newEvents() (new *Events) {
 	return &Events{
-		TransactionStored:          event.New[*TransactionStoredEvent](),
-		TransactionBooked:          event.New[*TransactionBookedEvent](),
-		TransactionForked:          event.New[*TransactionForkedEvent](),
-		TransactionBranchIDUpdated: event.New[*TransactionBranchIDUpdatedEvent](),
-		TransactionInvalid:         event.New[*TransactionInvalidEvent](),
-		Error:                      event.New[error](),
+		TransactionStored:           event.New[*TransactionStoredEvent](),
+		TransactionBooked:           event.New[*TransactionBookedEvent](),
+		TransactionInclusionUpdated: event.New[*TransactionInclusionUpdatedEvent](),
+		TransactionConfirmed:        event.New[*TransactionConfirmedEvent](),
+		TransactionRejected:         event.New[*TransactionRejectedEvent](),
+		TransactionForked:           event.New[*TransactionForkedEvent](),
+		TransactionBranchIDUpdated:  event.New[*TransactionBranchIDUpdatedEvent](),
+		TransactionInvalid:          event.New[*TransactionInvalidEvent](),
+		Error:                       event.New[error](),
 	}
 }
 
@@ -68,6 +81,45 @@ type TransactionBookedEvent struct {
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionInclusionUpdatedEvent /////////////////////////////////////////////////////////////////////////////
+
+// TransactionInclusionUpdatedEvent is a container that acts as a dictionary for the TransactionInclusionUpdated event
+// related parameters.
+type TransactionInclusionUpdatedEvent struct {
+	// TransactionID contains the identifier of the booked Transaction.
+	TransactionID utxo.TransactionID
+
+	// InclusionTime contains the InclusionTime after it was updated.
+	InclusionTime time.Time
+
+	// PreviousInclusionTime contains the InclusionTime before it was updated.
+	PreviousInclusionTime time.Time
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionConfirmedEvent ////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionConfirmedEvent is a container that acts as a dictionary for the TransactionConfirmed event related
+// parameters.
+type TransactionConfirmedEvent struct {
+	// TransactionID contains the identifier of the confirmed Transaction.
+	TransactionID utxo.TransactionID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TransactionRejectedEvent /////////////////////////////////////////////////////////////////////////////////////
+
+// TransactionRejectedEvent is a container that acts as a dictionary for the TransactionRejected event related
+// parameters.
+type TransactionRejectedEvent struct {
+	// TransactionID contains the identifier of the rejected Transaction.
+	TransactionID utxo.TransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

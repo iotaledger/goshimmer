@@ -1,6 +1,7 @@
 package manarefresher
 
 import (
+	"context"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -84,7 +85,7 @@ func (r *Refresher) prepareRefreshingTransaction(toBeRefreshed []*devnetvm.Alias
 	tx = devnetvm.NewTransaction(essence, r.wallet.unlockBlocks(essence))
 
 	// check transaction validity
-	if transactionErr := deps.Tangle.Ledger.CheckTransaction(tx); transactionErr != nil {
+	if transactionErr := deps.Tangle.Ledger.CheckTransaction(context.Background(), tx); transactionErr != nil {
 		return nil, transactionErr
 	}
 

@@ -142,7 +142,7 @@ var DiagnosticMessagesTableDescription = []string{
 	"IssuerPublicKey",
 	"IssuanceTime",
 	"ArrivalTime",
-	"SolidTime",
+	"BookingTime",
 	"ScheduledTime",
 	"BookedTime",
 	"GradeOfFinality",

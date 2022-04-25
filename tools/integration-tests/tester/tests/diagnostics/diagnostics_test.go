@@ -17,7 +17,7 @@ import (
 
 var (
 	messageHeader = []string{
-		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
+		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "BookingTime",
 		"ScheduledTime", "BookedTime", "GradeOfFinality", "GradeOfFinalityTime", "StrongParents", "WeakParents",
 		"DislikeParents", "LikeParents", "StrongApprovers", "WeakApprovers", "ShallowLikeApprovers",
 		"ShallowDislikeApprovers", "BranchID", "Scheduled", "IsBooked", "Invalid", "Rank", "IsPastMarker",
@@ -27,17 +27,17 @@ var (
 	tipsHeader = messageHeader
 
 	branchesHeader = []string{
-		"ID", "ConflictSet", "IssuanceTime", "SolidTime", "LazyBooked", "GradeOfFinality",
+		"ID", "ConflictSet", "IssuanceTime", "BookingTime", "LazyBooked", "GradeOfFinality",
 	}
 
 	utxoDagHeader = []string{
-		"ID", "IssuanceTime", "SolidTime", "AccessManaPledgeID",
+		"ID", "IssuanceTime", "BookingTime", "AccessManaPledgeID",
 		"ConsensusManaPledgeID", "Inputs", "Outputs", "Attachments", "BranchID", "Conflicting", "LazyBooked",
 		"GradeOfFinality", "GradeOfFinalityTime",
 	}
 
 	drngHeader = []string{
-		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "SolidTime",
+		"ID", "IssuerID", "IssuerPublicKey", "IssuanceTime", "ArrivalTime", "BookingTime",
 		"ScheduledTime", "BookedTime", "dRNGPayloadType", "InstanceID", "Round",
 		"PreviousSignature", "Signature", "DistributedPK",
 	}

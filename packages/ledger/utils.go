@@ -100,7 +100,7 @@ func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchd
 func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
 	transactionIDs = utxo.NewTransactionIDs()
 	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output *Output) {
-		transactionIDs.Add(output.TransactionID())
+		transactionIDs.Add(output.ID().TransactionID)
 	})
 	return transactionIDs
 }
@@ -122,8 +122,8 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 
 // TransactionGradeOfFinality returns the GradeOfFinality of the Transaction with the given TransactionID.
 func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(transactionMetadata *TransactionMetadata) {
-		gradeOfFinality = transactionMetadata.GradeOfFinality()
+	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
+		gradeOfFinality = txMetadata.GradeOfFinality()
 	}) {
 		return gof.None, errors.Errorf("failed to load TransactionMetadata with %s: %w", txID, cerrors.ErrFatal)
 	}
