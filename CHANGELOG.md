@@ -1,4 +1,4 @@
-# v0.8.12 - 2022-04-22
+# v0.8.12 - 2022-04-25
 
 > This release introduces the evil wallet and a fix where nodes could not express their opinion on conflicts properly. 
 
