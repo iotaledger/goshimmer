@@ -156,7 +156,7 @@ func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.
 func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint16) (mockedOutputID utxo.OutputID) {
-	return utxo.NewOutputID(tx.ID(), outputIndex, []byte(""))
+	return utxo.NewOutputID(tx.ID(), outputIndex)
 }
 
 // AssertBranchDAG asserts the structure of the branch DAG as specified in expectedParents.
@@ -412,7 +412,7 @@ func (m *MockedOutput) ID() (id utxo.OutputID) {
 	defer m.idMutex.Unlock()
 
 	if m.id == nil {
-		derivedID := utxo.NewOutputID(m.txID, m.index, []byte(""))
+		derivedID := utxo.NewOutputID(m.txID, m.index)
 		m.id = &derivedID
 	}
 
@@ -571,7 +571,7 @@ func (m *MockedTransaction) String() (humanReadable string) {
 
 	outputIDs := utxo.NewOutputIDs()
 	for i := uint16(0); i < m.outputCount; i++ {
-		outputIDs.Add(utxo.NewOutputID(m.ID(), i, []byte("")))
+		outputIDs.Add(utxo.NewOutputID(m.ID(), i))
 	}
 
 	return stringify.Struct("MockedTransaction",

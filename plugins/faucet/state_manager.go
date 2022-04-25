@@ -299,7 +299,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
 				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 					if outputMetadata.IsSpent() {
-						outputEssence := output.Output.(devnetvm.OutputEssence)
+						outputEssence := output.Output.(devnetvm.Output)
 
 						iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 						if !colorExist {
@@ -337,7 +337,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
 					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
-					outputEssence := output.Output.(devnetvm.OutputEssence)
+					outputEssence := output.Output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 					if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
@@ -383,7 +383,7 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 				}
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
 					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
-					outputEssence := output.Output.(devnetvm.OutputEssence)
+					outputEssence := output.Output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 					if !ok || iotaBalance != s.tokensPerSupplyOutput {
@@ -709,7 +709,7 @@ func (s *StateManager) splittingTransactionElements() (inputs devnetvm.Inputs, o
 }
 
 // createOutput creates an output based on provided address and balance.
-func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devnetvm.OutputEssence {
+func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devnetvm.Output {
 	return devnetvm.NewSigLockedColoredOutput(
 		devnetvm.NewColoredBalances(
 			map[devnetvm.Color]uint64{

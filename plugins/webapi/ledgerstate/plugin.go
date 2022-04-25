@@ -163,7 +163,7 @@ func GetAddressUnspentOutputs(c echo.Context) error {
 
 	outputs := outputsOnAddress(address)
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
+	return c.JSON(http.StatusOK, jsonmodels.NewGetAddressResponse(address, outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
 		deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			isUnspent = !outputMetadata.IsSpent()
 		})
@@ -203,7 +203,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}
 		res.UnspentOutputs[i].Outputs = make([]jsonmodels.WalletOutput, 0)
 
-		for _, output := range outputs.Filter(func(output devnetvm.OutputEssence) (isUnspent bool) {
+		for _, output := range outputs.Filter(func(output devnetvm.Output) (isUnspent bool) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				isUnspent = !outputMetadata.IsSpent()
 			})
@@ -349,7 +349,7 @@ func GetOutput(c echo.Context) (err error) {
 	}
 
 	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.Output.(devnetvm.OutputEssence)))
+		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.Output.(devnetvm.Output)))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
 	}

@@ -141,7 +141,7 @@ func (webConnector WebConnector) GetUnspentAliasOutput(addr *devnetvm.AliasAddre
 		if o.Type != devnetvm.AliasOutputType.String() {
 			continue
 		}
-		var uncastedOutput devnetvm.OutputEssence
+		var uncastedOutput devnetvm.Output
 		uncastedOutput, err = o.ToLedgerstateOutput()
 		if err != nil {
 			return

@@ -121,6 +121,10 @@ func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, remove
 // FilterPendingBranches takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
 // rejected ones behind).
 func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
+	if !b.options.mergeToMaster {
+		return branchIDs
+	}
+
 	pendingBranchIDs = NewBranchIDs()
 	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
 		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
@@ -138,12 +142,15 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 	defer b.inclusionStateMutex.Unlock()
 
 	rejectionWalker := walker.New[BranchID]()
-
 	for confirmationWalker := NewBranchIDs(branchID).Iterator(); confirmationWalker.HasNext(); {
 		b.Storage.CachedBranch(confirmationWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
+
+			b.Events.BranchConfirmed.Trigger(&BranchConfirmedEvent{
+				BranchID: branchID,
+			})
 
 			confirmationWalker.PushAll(branch.Parents().Slice()...)
 
@@ -159,6 +166,10 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
+
+			b.Events.BranchRejected.Trigger(&BranchRejectedEvent{
+				BranchID: branch.ID(),
+			})
 
 			b.Storage.CachedChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				rejectionWalker.Push(childBranch.ChildBranchID())

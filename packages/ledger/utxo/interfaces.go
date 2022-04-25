@@ -51,12 +51,6 @@ type Output interface {
 	// SetID sets the identifier of the Output.
 	SetID(id OutputID)
 
-	// TransactionID returns the identifier of the Transaction that created this Output.
-	TransactionID() (txID TransactionID)
-
-	// Index returns the unique Index of the Output in respect to its TransactionID.
-	Index() (index uint16)
-
 	// Bytes returns a serialized version of the Output.
 	Bytes() (serialized []byte)
 

@@ -69,6 +69,18 @@ func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region WithMergeToMaster ////////////////////////////////////////////////////////////////////////////////////////////
+
+// WithMergeToMaster is an Option for the BranchDAG that allows to configure whether the BranchDAG should merge
+// confirmed Branches to the MasterBranch.
+func WithMergeToMaster(mergeToMaster bool) Option {
+	return func(options *options) {
+		options.mergeToMaster = mergeToMaster
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // options is a container for all configurable parameters of a BranchDAG.
@@ -88,6 +100,10 @@ type options struct {
 	// conflictMemberCacheTime contains the duration that ConflictMember objects stay cached after they have been
 	// released.
 	conflictMemberCacheTime time.Duration
+
+	// mergeToMaster contains a boolean flag that indicates whether the BranchDAG should merge Confirmed Branches to the
+	// MasterBranch.
+	mergeToMaster bool
 }
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the
@@ -99,6 +115,7 @@ func newOptions(option ...Option) (new *options) {
 		branchCacheTime:         60 * time.Second,
 		childBranchCacheTime:    60 * time.Second,
 		conflictMemberCacheTime: 10 * time.Second,
+		mergeToMaster:           true,
 	}).apply(option...)
 }
 

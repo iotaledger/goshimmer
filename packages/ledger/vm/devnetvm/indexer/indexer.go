@@ -31,13 +31,14 @@ func New(options ...Option) (new *Indexer) {
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
+		addressOutputMappingPartitionKeys,
 	)
 
 	return new
 }
 
 // IndexOutput stores the AddressOutputMapping dependent on which type of output it is.
-func (i *Indexer) IndexOutput(output devnetvm.OutputEssence) {
+func (i *Indexer) IndexOutput(output devnetvm.Output) {
 	switch output.Type() {
 	case devnetvm.AliasOutputType:
 		castedOutput := output.(*devnetvm.AliasOutput)

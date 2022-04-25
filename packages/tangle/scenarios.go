@@ -69,7 +69,7 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 
 // ProcessMessageScenario the approval weight and voter adjustments.
 //nolint:gomnd
-func ProcessMessageScenario(t *testing.T) *TestScenario {
+func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -91,7 +91,9 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Setup()
 
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
@@ -424,7 +426,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 
 // ProcessMessageScenario2 creates a scenario useful to validate strong / weak propagation paths.
 //nolint:gomnd
-func ProcessMessageScenario2(t *testing.T) *TestScenario {
+func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -446,7 +448,9 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
 	s.Tangle.Setup()
 

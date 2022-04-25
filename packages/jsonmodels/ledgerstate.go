@@ -43,7 +43,7 @@ type Output struct {
 }
 
 // NewOutput returns an Output from the given ledgerstate.Output.
-func NewOutput(output devnetvm.OutputEssence) (result *Output) {
+func NewOutput(output devnetvm.Output) (result *Output) {
 	return &Output{
 		OutputID: NewOutputID(output.ID()),
 		Type:     output.Type().String(),
@@ -52,7 +52,7 @@ func NewOutput(output devnetvm.OutputEssence) (result *Output) {
 }
 
 // ToLedgerstateOutput converts the json output object into a goshimmer representation.
-func (o *Output) ToLedgerstateOutput() (devnetvm.OutputEssence, error) {
+func (o *Output) ToLedgerstateOutput() (devnetvm.Output, error) {
 	outputType, err := devnetvm.OutputTypeFromString(o.Type)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse output type: %w", err)
@@ -110,7 +110,7 @@ func (o *Output) ToLedgerstateOutput() (devnetvm.OutputEssence, error) {
 }
 
 // MarshalOutput uses the json marshaller to marshal a ledgerstate.Output into bytes.
-func MarshalOutput(output devnetvm.OutputEssence) []byte {
+func MarshalOutput(output devnetvm.Output) []byte {
 	var res interface{}
 	switch output.Type() {
 	case devnetvm.SigLockedSingleOutputType:
@@ -159,7 +159,7 @@ type SigLockedSingleOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEssence, error) {
+func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
@@ -170,7 +170,7 @@ func (s *SigLockedSingleOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.
 }
 
 // SigLockedSingleOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func SigLockedSingleOutputFromLedgerstate(output devnetvm.OutputEssence) (*SigLockedSingleOutput, error) {
+func SigLockedSingleOutputFromLedgerstate(output devnetvm.Output) (*SigLockedSingleOutput, error) {
 	if output.Type() != devnetvm.SigLockedSingleOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
@@ -203,7 +203,7 @@ type SigLockedColoredOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEssence, error) {
+func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(s.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in SigLockedSingleOutput: %w", err)
@@ -219,7 +219,7 @@ func (s *SigLockedColoredOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm
 }
 
 // SigLockedColoredOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func SigLockedColoredOutputFromLedgerstate(output devnetvm.OutputEssence) (*SigLockedColoredOutput, error) {
+func SigLockedColoredOutputFromLedgerstate(output devnetvm.Output) (*SigLockedColoredOutput, error) {
 	if output.Type() != devnetvm.SigLockedColoredOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
@@ -264,7 +264,7 @@ type AliasOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from SigLockedSingleOutput with the given outputID.
-func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEssence, error) {
+func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	balances, err := getColoredBalances(a.Balances)
 	if err != nil {
 		return nil, errors.Errorf("failed to parse colored balances: %w", err)
@@ -341,7 +341,7 @@ func (a *AliasOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEsse
 }
 
 // AliasOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func AliasOutputFromLedgerstate(output devnetvm.OutputEssence) (*AliasOutput, error) {
+func AliasOutputFromLedgerstate(output devnetvm.Output) (*AliasOutput, error) {
 	if output.Type() != devnetvm.AliasOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
@@ -393,7 +393,7 @@ type ExtendedLockedOutput struct {
 }
 
 // ToLedgerStateOutput builds a ledgerstate.Output from ExtendedLockedOutput with the given outputID.
-func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.OutputEssence, error) {
+func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.Output, error) {
 	addy, err := devnetvm.AddressFromBase58EncodedString(e.Address)
 	if err != nil {
 		return nil, errors.Errorf("wrong address in ExtendedLockedOutput: %w", err)
@@ -426,7 +426,7 @@ func (e *ExtendedLockedOutput) ToLedgerStateOutput(id utxo.OutputID) (devnetvm.O
 }
 
 // ExtendedLockedOutputFromLedgerstate creates a JSON compatible representation of a ledgerstate output.
-func ExtendedLockedOutputFromLedgerstate(output devnetvm.OutputEssence) (*ExtendedLockedOutput, error) {
+func ExtendedLockedOutputFromLedgerstate(output devnetvm.Output) (*ExtendedLockedOutput, error) {
 	if output.Type() != devnetvm.ExtendedLockedOutputType {
 		return nil, errors.Errorf("wrong output type: %s", output.Type().String())
 	}
@@ -583,7 +583,7 @@ type Conflict struct {
 // NewConflict returns a Conflict from the given ledger.ConflictID.
 func NewConflict(conflictID branchdag.ConflictID, branchIDs []branchdag.BranchID) *Conflict {
 	return &Conflict{
-		OutputID: NewOutputID(conflictID.OutputID()),
+		OutputID: NewOutputID(conflictID.OutputID),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)
 			for _, branchID := range branchIDs {
@@ -751,7 +751,7 @@ func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *Tr
 // region utils ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // getStringBalances translates colored balances to map[string]uint64.
-func getStringBalances(output devnetvm.OutputEssence) map[string]uint64 {
+func getStringBalances(output devnetvm.Output) map[string]uint64 {
 	balances := output.Balances().Map()
 	stringBalances := make(map[string]uint64, len(balances))
 	for color, balance := range balances {

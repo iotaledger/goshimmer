@@ -16,6 +16,12 @@ type Events struct {
 
 	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Branch are updated.
 	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent]
+
+	// BranchConfirmed is an event that gets triggered whenever a Branch is confirmed.
+	BranchConfirmed *event.Event[*BranchConfirmedEvent]
+
+	// BranchRejected is an event that gets triggered whenever a Branch is rejected.
+	BranchRejected *event.Event[*BranchRejectedEvent]
 }
 
 // newEvents returns a new Events object.
@@ -24,6 +30,8 @@ func newEvents() *Events {
 		BranchCreated:          event.New[*BranchCreatedEvent](),
 		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent](),
 		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent](),
+		BranchConfirmed:        event.New[*BranchConfirmedEvent](),
+		BranchRejected:         event.New[*BranchRejectedEvent](),
 	}
 }
 
@@ -75,6 +83,26 @@ type BranchParentsUpdatedEvent struct {
 
 	// ParentsBranchIDs contains the updated list of parent BranchIDs.
 	ParentsBranchIDs BranchIDs
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchConfirmedEvent /////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related parameters.
+type BranchConfirmedEvent struct {
+	// BranchID contains the identifier of the confirmed Branch.
+	BranchID BranchID
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region BranchRejectedEvent //////////////////////////////////////////////////////////////////////////////////////////
+
+// BranchRejectedEvent is a container that acts as a dictionary for the BranchRejected event related parameters.
+type BranchRejectedEvent struct {
+	// BranchID contains the identifier of the rejected Branch.
+	BranchID BranchID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

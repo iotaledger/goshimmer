@@ -43,7 +43,7 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
-	onTransactionConfirmedClosure *event.Closure[*tangle.TransactionConfirmedEvent]
+	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
@@ -62,7 +62,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = event.NewClosure(func(event *tangle.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
+	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -98,7 +98,7 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
@@ -153,14 +153,14 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.Output.(devnetvm.OutputEssence).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+			o.Output.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				inputInfo.Amount += float64(balance)
 				totalAmount += float64(balance)
 				return true
 			})
 
 			// derive the transaction that created this input
-			inputTxID := o.TransactionID()
+			inputTxID := o.ID().TransactionID
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
 			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *ledger.Transaction) {
 				transactionEssence := transaction.Transaction.(*devnetvm.Transaction).Essence()
@@ -226,7 +226,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -474,7 +474,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 
 	var value float64
 	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
-		outputEssence := output.Output.(*devnetvm.Output)
+		outputEssence := output.Output.(devnetvm.Output)
 		outputEssence.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
@@ -483,7 +483,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 
 	var txTimestamp time.Time
 	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
-		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.TransactionID())
+		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID)
 		defer cachedTx.Release()
 		tx, _ := cachedTx.Unwrap()
 		txTimestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()

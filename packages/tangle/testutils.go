@@ -37,8 +37,8 @@ type MessageTestFramework struct {
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[devnetvm.Address]wallet
 	inputsByAlias            map[string]devnetvm.Input
-	outputsByAlias           map[string]devnetvm.OutputEssence
-	outputsByID              map[utxo.OutputID]devnetvm.OutputEssence
+	outputsByAlias           map[string]devnetvm.Output
+	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
 	messagesBookedWG         sync.WaitGroup
@@ -55,8 +55,8 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[devnetvm.Address]wallet),
 		inputsByAlias:    make(map[string]devnetvm.Input),
-		outputsByAlias:   make(map[string]devnetvm.OutputEssence),
-		outputsByID:      make(map[utxo.OutputID]devnetvm.OutputEssence),
+		outputsByAlias:   make(map[string]devnetvm.Output),
+		outputsByID:      make(map[utxo.OutputID]devnetvm.Output),
 		options:          NewMessageTestFrameworkOptions(options...),
 	}
 
@@ -203,8 +203,8 @@ func (m *MessageTestFramework) MessageMetadata(alias string) (messageMetadata *M
 // TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
 func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.TransactionID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
-	tx, ok := messagePayload.(utxo.Transaction)
-	if ok {
+	tx, ok := messagePayload.(*devnetvm.Transaction)
+	if !ok {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
 	}
 
@@ -224,7 +224,7 @@ func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta 
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Transaction(messageAlias string) (tx utxo.Transaction) {
 	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledger.Transaction) {
-		tx = transaction
+		tx = transaction.Transaction
 	})
 	return
 }
@@ -266,15 +266,24 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	genesisOutputs := make(map[devnetvm.Address]*devnetvm.ColoredBalances)
 
+	var outputs []utxo.Output
 	for alias, balance := range m.options.genesisOutputs {
 		addressWallet := createWallets(1)[0]
-
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 			devnetvm.ColorIOTA: balance,
 		})
+
+		output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+			devnetvm.ColorIOTA: balance,
+		}), addressWallet.address)
+		outputs = append(outputs, output)
+
+		m.outputsByAlias[alias] = output
+		m.outputsByID[output.ID()] = output
+		m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
 	}
 
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
@@ -285,44 +294,15 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	var outputs []devnetvm.OutputEssence
-	var unspentOutputs []bool
-
-	for address, balance := range genesisOutputs {
-		outputs = append(outputs, devnetvm.NewSigLockedColoredOutput(balance, address))
-		unspentOutputs = append(unspentOutputs, true)
-	}
-
-	genesisEssence := devnetvm.NewTransactionEssence(
-		0,
-		time.Now(),
-		identity.ID{},
-		identity.ID{},
-		devnetvm.NewInputs(devnetvm.NewUTXOInput(utxo.EmptyOutputID)),
-		devnetvm.NewOutputs(outputs...),
-	)
-
-	genesisTransaction := devnetvm.NewTransaction(genesisEssence, devnetvm.UnlockBlocks{devnetvm.NewReferenceUnlockBlock(0)})
-
-	snapshot := &devnetvm.Snapshot{
-		Transactions: map[utxo.TransactionID]devnetvm.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   devnetvm.UnlockBlocks{devnetvm.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: unspentOutputs,
-			},
-		},
-	}
-
-	if err := m.tangle.Ledger.LoadSnapshot(snapshot); err != nil {
-		panic(err)
-	}
+	m.tangle.Ledger.LoadSnapshot(&ledger.Snapshot{
+		Outputs: outputs,
+	})
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
 			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.OutputEssence)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.OutputEssence)
+				m.outputsByAlias[alias] = output.Output.(devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.Output)
 				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(addressOutputMapping.OutputID())
 			})
 		})
@@ -331,8 +311,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	for alias := range m.options.coloredGenesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
 			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.OutputEssence)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.OutputEssence)
+				m.outputsByAlias[alias] = output.Output.(devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.Output)
 			})
 		})
 	}
@@ -350,7 +330,7 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 		inputs = append(inputs, m.inputsByAlias[inputAlias])
 	}
 
-	outputs := make([]devnetvm.OutputEssence, 0)
+	outputs := make([]devnetvm.Output, 0)
 	for alias, balance := range options.outputs {
 		addressWallet := createWallets(1)[0]
 		m.walletsByAlias[alias] = addressWallet
@@ -374,7 +354,7 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		for alias, aliasedOutput := range m.outputsByAlias {
 			if aliasedOutput == output {
-				output.SetID(utxo.NewOutputID(transaction.ID(), uint16(outputIndex), output.Bytes()))
+				output.SetID(utxo.NewOutputID(transaction.ID(), uint16(outputIndex)))
 
 				m.outputsByID[output.ID()] = output
 				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
@@ -768,7 +748,7 @@ func addressFromInput(input devnetvm.Input, outputsByID devnetvm.OutputsByID) de
 	}
 }
 
-func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsByID map[utxo.OutputID]devnetvm.OutputEssence, walletsByAddress map[devnetvm.Address]wallet, genesisWallet ...wallet) *devnetvm.Transaction {
+func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsByID map[utxo.OutputID]devnetvm.Output, walletsByAddress map[devnetvm.Address]wallet, genesisWallet ...wallet) *devnetvm.Transaction {
 	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
 	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
@@ -972,15 +952,14 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	}
 	e.Test(t)
 
-	approvalWeightManager.Events.BranchWeightChanged.Attach(event.NewClosure(e.BranchWeightChanged))
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(event.NewClosure(e.MarkerWeightChanged))
-
 	// attach all events
-	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+	approvalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(e.MarkerWeightChanged))
+	approvalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(e.MessageProcessed))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+3, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
 
 	return e
 }
@@ -996,15 +975,6 @@ func (e *EventMock) DetachAll() {
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
-}
-
-func (e *EventMock) attach(ev *event.Event[*MessageProcessedEvent], f func(*MessageProcessedEvent)) {
-	closure := event.NewClosure(f)
-	ev.Attach(closure)
-	e.attached = append(e.attached, struct {
-		*event.Event[*MessageProcessedEvent]
-		*event.Closure[*MessageProcessedEvent]
-	}{ev, closure})
 }
 
 // AssertExpectations asserts expectations.

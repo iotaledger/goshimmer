@@ -12,7 +12,7 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	tangle := NewTestTangle()
+	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -21,7 +21,6 @@ func TestScenario_1(t *testing.T) {
 	)
 
 	tangle.Setup()
-	tangle.Options.LedgerState.MergeBranches = false
 
 	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithInputs("G"), WithOutput("A", 1), WithOutput("B", 1), WithOutput("C", 1))
 	testFramework.CreateMessage("Message2", WithStrongParents("Genesis", "Message1"), WithInputs("B", "C"), WithOutput("E", 2))
@@ -68,7 +67,7 @@ func TestScenario_1(t *testing.T) {
 }
 
 func TestScenario_2(t *testing.T) {
-	tangle := NewTestTangle(MergeBranches(false))
+	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(

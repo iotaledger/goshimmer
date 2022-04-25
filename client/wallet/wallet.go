@@ -2177,7 +2177,7 @@ func (wallet *Wallet) buildOutputs(
 		}
 	}
 	// construct result
-	var outputsSlice []devnetvm.OutputEssence
+	var outputsSlice []devnetvm.Output
 
 	// add output for remainder
 	if len(consumedFunds) != 0 {
@@ -2186,7 +2186,7 @@ func (wallet *Wallet) buildOutputs(
 
 	for addr, outputBalanceMap := range outputsByColor {
 		coloredBalances := devnetvm.NewColoredBalances(outputBalanceMap)
-		var output devnetvm.OutputEssence
+		var output devnetvm.Output
 		if !sendOptions.LockUntil.IsZero() || !sendOptions.FallbackDeadline.IsZero() || sendOptions.FallbackAddress != nil {
 			extended := devnetvm.NewExtendedLockedOutput(outputBalanceMap, addr.Address())
 			if !sendOptions.LockUntil.IsZero() {
