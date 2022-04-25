@@ -1,17 +1,52 @@
 package devnetvm
 
 import (
-	"encoding/binary"
-	"fmt"
-	"io"
-	"time"
-
-	"github.com/iotaledger/hive.go/identity"
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
+
+type Snapshot struct {
+	outputs []utxo.Output
+}
+
+func NewSnapshot(outputs []utxo.Output) *Snapshot {
+	return &Snapshot{outputs: outputs}
+}
+
+func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	outputCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return errors.Errorf("failed to read output count: %w", err)
+	}
+
+	s.outputs = make([]utxo.Output, outputCount)
+	for i := uint64(0); i < outputCount; i++ {
+		if s.outputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
+			return errors.Errorf("failed to read Output %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Snapshot) Outputs() []utxo.Output {
+	return s.outputs
+}
+
+// Bytes returns a serialized version of the Snapshot.
+func (s *Snapshot) Bytes() (serialized []byte) {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(len(s.outputs)))
+	for _, output := range s.outputs {
+		marshalUtil.Write(output)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+/*
 
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
@@ -238,3 +273,5 @@ func (s *Snapshot) readAccessMana(reader io.Reader) (int64, error) {
 
 	return bytesRead, nil
 }
+
+*/

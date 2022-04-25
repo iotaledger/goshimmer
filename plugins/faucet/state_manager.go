@@ -519,7 +519,7 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	// buffered channel will store all confirmed transactions
 	txConfirmed := make(chan utxo.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
 
-	monitorTxConfirmation := event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+	monitorTxConfirmation := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		txID := event.TransactionID
 		if s.splittingEnv.WasIssuedInThisPreparation(txID) {
 			txConfirmed <- txID
@@ -527,8 +527,8 @@ func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparat
 	})
 
 	// listen on confirmation
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()

@@ -85,8 +85,8 @@ func New(options ...Option) (ledger *Ledger) {
 }
 
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
-func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
-	for _, output := range snapshot.Outputs {
+func (l *Ledger) LoadSnapshot(snapshot utxo.Snapshot) {
+	for _, output := range snapshot.Outputs() {
 		l.Storage.CachedOutput(output.ID(), func(outputID utxo.OutputID) *Output {
 			return NewOutput(output)
 		}).Release()

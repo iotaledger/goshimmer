@@ -72,6 +72,16 @@ func NewOutputID(txID TransactionID, index uint16) OutputID {
 	}
 }
 
+// FromBase58 un-serializes an OutputID from a base58 encoded string.
+func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
+	decodedBytes, err := base58.Decode(base58EncodedString)
+	if err != nil {
+		return errors.Errorf("could not decode base58 encoded string: %w", err)
+	}
+
+	return o.FromMarshalUtil(marshalutil.New(decodedBytes))
+}
+
 // FromRandomness generates a random OutputID.
 func (o *OutputID) FromRandomness() (err error) {
 	if err = o.TransactionID.FromRandomness(); err != nil {

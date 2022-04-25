@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -195,16 +195,12 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				// TODO:
-				// snapshot := &ledgerstate.Snapshot{}
-				f, err := os.Open(Parameters.Snapshot.File)
-				if err != nil {
-					Plugin.Panic("can not open snapshot file:", err)
+				nodeSnapshot := new(snapshot.Snapshot)
+				if err := nodeSnapshot.FromFile(Parameters.Snapshot.File); err != nil {
+					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
-				if _, err := snapshot.ReadFrom(f); err != nil {
-					Plugin.Panic("could not read snapshot file in Mana Plugin:", err)
-				}
-				loadSnapshot(snapshot)
+
+				loadSnapshot(nodeSnapshot.ManaSnapshot)
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -802,66 +798,11 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *devnetvm.Snapshot) {
-	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
-
-	// load txSnapshot into SnapshotInfoVec
-	for txID, record := range snapshot.Transactions {
-		totalUnspentBalanceInTx := uint64(0)
-		for i, output := range record.Essence.Outputs() {
-			if !record.UnspentOutputs[i] {
-				continue
-			}
-			output.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-				totalUnspentBalanceInTx += balance
-				return true
-			})
-		}
-		txInfo := &mana.TxSnapshot{
-			Value:     float64(totalUnspentBalanceInTx),
-			TxID:      txID,
-			Timestamp: record.Essence.Timestamp(),
-		}
-		txSnapshotByNode[record.Essence.ConsensusPledgeID()] = append(txSnapshotByNode[record.Essence.ConsensusPledgeID()], txInfo)
-	}
-
-	// sort txSnapshot per nodeID, so that for each nodeID it is in temporal order
-	snapshotByNode := make(map[identity.ID]mana.SnapshotNode)
-	for nodeID := range txSnapshotByNode {
-		sort.Sort(txSnapshotByNode[nodeID])
-		snapshotNode := mana.SnapshotNode{
-			SortedTxSnapshot: txSnapshotByNode[nodeID],
-		}
-		snapshotByNode[nodeID] = snapshotNode
-	}
-
-	// determine addTime if snapshot should be updated for the difference to now
-	var addTime time.Duration
-	// for certain applications (e.g. docker-network) update all timestamps, to have large enough aMana
-	maxTimestamp := time.Unix(tangle.DefaultGenesisTime, 0)
+func loadSnapshot(snapshot *mana.Snapshot) {
 	if ManaParameters.SnapshotResetTime {
-		for _, accessMana := range snapshot.AccessManaByNode {
-			if accessMana.Timestamp.After(maxTimestamp) {
-				maxTimestamp = accessMana.Timestamp
-			}
-		}
-		addTime = time.Since(maxTimestamp)
+		snapshot.ResetTime()
 	}
 
-	// load access mana
-	for nodeID, accessMana := range snapshot.AccessManaByNode {
-		snapshotNode, ok := snapshotByNode[nodeID]
-		if !ok { // fill with empty element if it does not exist yet
-			snapshotNode = mana.SnapshotNode{}
-			snapshotByNode[nodeID] = snapshotNode
-		}
-		snapshotNode.AccessMana = mana.AccessManaSnapshot{
-			Value:     accessMana.Value,
-			Timestamp: accessMana.Timestamp.Add(addTime),
-		}
-		snapshotByNode[nodeID] = snapshotNode
-	}
-
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshotByNode)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshotByNode)
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshot.ByNodeID)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshot.ByNodeID)
 }

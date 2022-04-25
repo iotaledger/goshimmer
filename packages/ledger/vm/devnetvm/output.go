@@ -90,10 +90,10 @@ type Output interface {
 	objectstorage.StorableObject
 }
 
-// OutputEssenceFromBytes unmarshals an Output from a sequence of bytes.
-func OutputEssenceFromBytes(bytes []byte) (outputEssence Output, consumedBytes int, err error) {
+// OutputFromBytes unmarshals an Output from a sequence of bytes.
+func OutputFromBytes(bytes []byte) (outputEssence Output, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
-	if outputEssence, err = OutputEssenceFromMarshalUtil(marshalUtil); err != nil {
+	if outputEssence, err = OutputFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 	}
 	consumedBytes = marshalUtil.ReadOffset()
@@ -101,8 +101,8 @@ func OutputEssenceFromBytes(bytes []byte) (outputEssence Output, consumedBytes i
 	return
 }
 
-// OutputEssenceFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
-func OutputEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputEssence Output, err error) {
+// OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
+func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputEssence Output, err error) {
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -140,9 +140,9 @@ func OutputEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputE
 	return
 }
 
-// OutputEssenceFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputEssenceFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
-	if output, _, err = OutputEssenceFromBytes(data); err != nil {
+// OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
+func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+	if output, _, err = OutputFromBytes(data); err != nil {
 		return nil, errors.Errorf("failed to parse Output from bytes: %w", err)
 	}
 
@@ -237,7 +237,7 @@ func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outpu
 	var previousOutput Output
 	parsedOutputs := make([]Output, outputsCount)
 	for i := uint16(0); i < outputsCount; i++ {
-		if parsedOutputs[i], err = OutputEssenceFromMarshalUtil(marshalUtil); err != nil {
+		if parsedOutputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
 			return nil, errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
 		}
 

@@ -57,7 +57,7 @@ var (
 	doubleSpendFilterOnce sync.Once
 
 	// closure to be executed on transaction confirmation.
-	onTransactionConfirmed *event.Closure[*tangle.TransactionConfirmedEvent]
+	onTransactionConfirmed *event.Closure[*ledger.TransactionConfirmedEvent]
 
 	log *logger.Logger
 )
@@ -76,10 +76,10 @@ func Filter() *DoubleSpendFilter {
 
 func configure(_ *node.Plugin) {
 	doubleSpendFilter = Filter()
-	onTransactionConfirmed = event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+	onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		doubleSpendFilter.Remove(event.TransactionID)
 	})
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
@@ -120,13 +120,13 @@ func worker(ctx context.Context) {
 		}
 	}()
 	log.Infof("Stopping %s ...", PluginName)
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmed)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmed)
 }
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer.AddressOutputMapping) {
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
-			if typedOutput, ok := output.Output.(*devnetvm.Output); ok {
+			if typedOutput, ok := output.Output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
 		})
@@ -213,7 +213,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 				if !outputMetadata.IsSpent() {
 					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput *ledger.Output) {
 						var timestamp time.Time
-						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.TransactionID()).Consume(func(tx *ledger.Transaction) {
+						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx *ledger.Transaction) {
 							timestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
 						})
 						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{

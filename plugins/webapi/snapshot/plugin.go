@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
@@ -49,44 +49,33 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := deps.Tangle.Ledger.SnapshotUTXO()
+	nodeSnapshot := new(snapshot.Snapshot)
+	nodeSnapshot.FromNode(deps.Tangle.Ledger)
 
-	aMana, err := snapshotAccessMana()
-	if err != nil {
-		return err
-	}
-	snapshot.AccessManaByNode = aMana
-
-	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
-	if err != nil {
+	snapshotBytes := nodeSnapshot.Bytes()
+	if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
 		Plugin.LogErrorf("unable to create snapshot file %s", err)
 	}
 
-	n, err := snapshot.WriteTo(f)
-	if err != nil {
-		Plugin.LogErrorf("unable to write snapshot content to file %s", err)
-	}
-
 	Plugin.LogInfo("Snapshot information: ")
-	Plugin.LogInfo("     Number of snapshotted transactions: ", len(snapshot.Transactions))
-	Plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(snapshot.AccessManaByNode))
+	Plugin.LogInfo("     Number of snapshotted outputs: ", len(nodeSnapshot.LedgerSnapshot.Outputs()))
+	Plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(nodeSnapshot.ManaSnapshot.ByNodeID))
 
-	Plugin.LogInfof("Bytes written %d", n)
-	f.Close()
+	Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
 }
 
 // snapshotAccessMana returns snapshot of the current access mana.
-func snapshotAccessMana() (aManaSnapshot map[identity.ID]devnetvm.AccessMana, err error) {
-	aManaSnapshot = make(map[identity.ID]devnetvm.AccessMana)
+func snapshotAccessMana() (aManaSnapshot map[identity.ID]mana.AccessManaRecord, err error) {
+	aManaSnapshot = make(map[identity.ID]mana.AccessManaRecord)
 
 	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
 	if err != nil {
 		return nil, err
 	}
 	for nodeID, aMana := range m {
-		aManaSnapshot[nodeID] = devnetvm.AccessMana{
+		aManaSnapshot[nodeID] = mana.AccessManaRecord{
 			Value:     aMana,
 			Timestamp: t,
 		}

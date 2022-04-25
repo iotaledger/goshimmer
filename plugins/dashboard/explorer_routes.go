@@ -255,9 +255,9 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 		var txID utxo.TransactionID
 		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
 
-			if output, ok := output.Output.(*devnetvm.Output); ok {
+			if output, ok := output.Output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
-				txID = output.TransactionID()
+				txID = output.ID().TransactionID
 
 				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction *ledger.Transaction) {
 					if tx, ok := transaction.Transaction.(*devnetvm.Transaction); ok {
@@ -273,7 +273,7 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 
 				outputs = append(outputs, ExplorerOutput{
 					ID:              jsonmodels.NewOutputID(output.ID()),
-					Output:          jsonmodels.NewOutput(output.OutputEssence),
+					Output:          jsonmodels.NewOutput(output),
 					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 					TxTimestamp:     int(timestamp),
 					PendingMana:     pendingMana,

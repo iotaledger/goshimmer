@@ -15,7 +15,7 @@ func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transac
 }
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
-	if output, err = OutputEssenceFromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
+	if output, err = OutputFromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
 		err = errors.Errorf("failed to parse Output: %w", err)
 	}
 

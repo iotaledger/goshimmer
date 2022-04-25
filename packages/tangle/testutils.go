@@ -294,9 +294,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(&ledger.Snapshot{
-		Outputs: outputs,
-	})
+	m.tangle.Ledger.LoadSnapshot(devnetvm.NewSnapshot(outputs))
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {

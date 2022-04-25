@@ -29,7 +29,7 @@ func (d *DelegationReceiver) Scan() []*devnetvm.AliasOutput {
 	var outputs devnetvm.Outputs
 	deps.Indexer.CachedAddressOutputMappings(d.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
-			if typedOutput, ok := output.Output.(*devnetvm.Output); ok {
+			if typedOutput, ok := output.Output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
 		})

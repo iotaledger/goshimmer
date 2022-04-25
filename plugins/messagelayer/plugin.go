@@ -2,7 +2,6 @@ package messagelayer
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -23,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -130,18 +130,16 @@ func configure(plugin *node.Plugin) {
 
 	// read snapshot file
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
-		snapshot := &devnetvm.Snapshot{}
-		f, err := os.Open(Parameters.Snapshot.File)
-		if err != nil {
-			plugin.Panic("can not open snapshot file:", err)
-		}
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
-		if _, err := snapshot.ReadFrom(f); err != nil {
-			plugin.Panic("could not read snapshot file in message layer plugin:", err)
+
+		nodeSnapshot := new(snapshot.Snapshot)
+		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
 		}
-		if err = deps.Tangle.Ledger.LoadSnapshot(snapshot); err != nil {
-			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
-		}
+
+		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 
 		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.

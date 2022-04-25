@@ -261,7 +261,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(event.NewClosure(func(event *tangle.BranchConfirmedEvent) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 
