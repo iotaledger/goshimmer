@@ -46,7 +46,7 @@ type InteractiveConfig struct {
 }
 
 var configJSON = `{
-	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
+	"webAPI": ["http://localhost:8080","http://localhost:8090"],
 	"rate": 2,
 	"duration": "20s",
 	"timeUnit": "1s",
@@ -57,8 +57,8 @@ var configJSON = `{
 
 var defaultConfig = InteractiveConfig{
 	clientUrls: map[string]types.Empty{
-		"http://127.0.0.1:8080": types.Void,
-		"http://127.0.0.1:8090": types.Void,
+		"http://localhost:8080": types.Void,
+		"http://localhost:8090": types.Void,
 	},
 	Rate:     2,
 	duration: 20 * time.Second,
@@ -660,6 +660,7 @@ func (m *Mode) loadConfig() {
 	}
 	for _, url := range m.Config.WebAPI {
 		m.Config.clientUrls[url] = types.Void
+		m.evilWallet.AddClient(url)
 	}
 	// parse duration
 	d, err := time.ParseDuration(m.Config.DurationStr)
