@@ -66,9 +66,11 @@ type ConfirmationOracle interface {
 
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
-	MessageConfirmed     *events.Event
-	BranchConfirmed      *events.Event
-	TransactionConfirmed *events.Event
+	MessageConfirmed      *events.Event
+	BranchConfirmed       *events.Event
+	TransactionConfirmed  *events.Event
+	TransactionGoFChanged *events.Event
+	BranchGoFChanged      *events.Event
 }
 
 // New is the constructor for the Tangle.

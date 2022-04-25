@@ -29,7 +29,11 @@ func NewOnTangleVoting(branchDAG *ledgerstate.BranchDAG, weightFunc consensus.We
 
 // LikedConflictMember returns the liked BranchID across the members of its conflict sets.
 func (o *OnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
-	conflictMembers = ledgerstate.NewBranchIDs()
+	conflictMembers = ledgerstate.NewBranchIDs(branchID)
+	if o.BranchLiked(branchID) {
+		likedBranchID = branchID
+	}
+
 	o.branchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		if likedBranchID == ledgerstate.UndefinedBranchID && o.BranchLiked(conflictingBranchID) {
 			likedBranchID = conflictingBranchID
