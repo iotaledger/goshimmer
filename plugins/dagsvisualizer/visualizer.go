@@ -155,7 +155,7 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := event.NewClosure(func(event *tangle.TransactionConfirmedEvent) {
+	txConfirmedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		txID := event.TransactionID
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			wsMsg := &wsMessage{
@@ -173,7 +173,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txConfirmedClosure)
 }
 
 func registerBranchEvents() {
@@ -199,7 +199,7 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	branchConfirmedClosure := event.NewClosure(func(event *tangle.BranchConfirmedEvent) {
+	branchConfirmedClosure := event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchConfirmed,
 			Data: &branchConfirmed{
@@ -225,7 +225,7 @@ func registerBranchEvents() {
 	})
 
 	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(createdClosure)
-	deps.FinalityGadget.Events().BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.Tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.Ledger.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
