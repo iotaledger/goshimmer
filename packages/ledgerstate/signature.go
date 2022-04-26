@@ -154,6 +154,7 @@ func NewED25519Signature(publicKey ed25519.PublicKey, signature ed25519.Signatur
 
 // ED25519SignatureFromBytes unmarshals a ED25519Signature from a sequence of bytes.
 func ED25519SignatureFromBytes(bytes []byte) (signature *ED25519Signature, consumedBytes int, err error) {
+	signature = new(ED25519Signature)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -286,6 +287,7 @@ func NewBLSSignature(signature bls.SignatureWithPublicKey) *BLSSignature {
 
 // BLSSignatureFromBytes unmarshals a BLSSignature from a sequence of bytes.
 func BLSSignatureFromBytes(bytes []byte) (signature *BLSSignature, consumedBytes int, err error) {
+	signature = new(BLSSignature)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, signature, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err

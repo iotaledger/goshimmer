@@ -222,6 +222,7 @@ func NewSignatureUnlockBlock(signature Signature) *SignatureUnlockBlock {
 
 // SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
 func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
+	unlockBlock = new(SignatureUnlockBlock)
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -325,6 +326,7 @@ func NewReferenceUnlockBlock(referencedIndex uint16) *ReferenceUnlockBlock {
 
 // ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
 func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
+	unlockBlock = new(ReferenceUnlockBlock)
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
@@ -438,6 +440,7 @@ func AliasUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *AliasUnlockBlock, 
 
 // AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
 func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
+	unlockBlock = new(AliasUnlockBlock)
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err

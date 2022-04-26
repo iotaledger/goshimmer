@@ -959,13 +959,18 @@ func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
 		consumer = new(Consumer)
 	}
 
-	readBytes, err := serix.DefaultAPI.Decode(context.Background(), bytes, &consumer.consumerInner.ConsumedInput, serix.WithValidation())
+	readBytesConsumedInput, err := serix.DefaultAPI.Decode(context.Background(), bytes, &consumer.consumerInner.ConsumedInput, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
 		return
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[readBytes:], consumer, serix.WithValidation())
+	readBytesTransactionID, err := serix.DefaultAPI.Decode(context.Background(), bytes[readBytesConsumedInput:], &consumer.consumerInner.TransactionID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
+		return
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[readBytesConsumedInput+readBytesTransactionID:], consumer, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer: %w", err)
 		return

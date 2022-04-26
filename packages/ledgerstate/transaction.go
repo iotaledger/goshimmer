@@ -289,12 +289,13 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 		err = errors.Errorf("failed to parse Transaction: %w", err)
 		return tx, err
 	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, tx.transactionInner.id, serix.WithValidation())
+	transactionID := new(TransactionID)
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, transactionID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction.id: %w", err)
 		return tx, err
 	}
+	tx.transactionInner.id = transactionID
 
 	setOutputID(tx.Essence(), tx.ID())
 
@@ -632,6 +633,7 @@ func NewTransactionEssence(
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
 func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+	transactionEssence = new(TransactionEssence)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, transactionEssence, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
@@ -903,7 +905,7 @@ func (t *TransactionMetadata) FromBytes(bytes []byte) (*TransactionMetadata, err
 		tx = t
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx.transactionMetadataInner.ID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &tx.transactionMetadataInner.ID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata.id: %w", err)
 		return tx, err

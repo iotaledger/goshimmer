@@ -700,17 +700,12 @@ func (s *SigLockedSingleOutput) FromObjectStorage(key, bytes []byte) (objectstor
 }
 
 // FromBytes creates an SigLockedSingleOutput from sequence of bytes.
-func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
+func (s *SigLockedSingleOutput) FromBytes(data []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
 	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
 		sigLockedSingleOutput = new(SigLockedSingleOutput)
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &s.sigLockedSingleOutputInner.ID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedSingleOutput.ID: %w", err)
-		return
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], sigLockedSingleOutput, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedSingleOutput, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 		return
@@ -990,18 +985,12 @@ func (s *SigLockedColoredOutput) FromObjectStorageNew(key, bytes []byte) (sigLoc
 }
 
 // FromBytes creates an SigLockedColoredOutput from sequence of bytes.
-func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
+func (s *SigLockedColoredOutput) FromBytes(data []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
 	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
 		sigLockedColoredOutput = new(SigLockedColoredOutput)
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &s.id, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], sigLockedColoredOutput, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedColoredOutput, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
