@@ -117,11 +117,11 @@ func configureEvents() {
 // }
 
 func onTransactionConfirmed(transactionID utxo.TransactionID) {
-	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
-		devnetTransaction := transaction.Transaction.(*devnetvm.Transaction)
+		devnetTransaction := transaction.(*devnetvm.Transaction)
 
 		// process transaction object to build txInfo
 		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
@@ -162,8 +162,8 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 			// derive the transaction that created this input
 			inputTxID := o.ID().TransactionID
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction *ledger.Transaction) {
-				transactionEssence := transaction.Transaction.(*devnetvm.Transaction).Essence()
+			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction utxo.Transaction) {
+				transactionEssence := transaction.(*devnetvm.Transaction).Essence()
 
 				inputInfo.TimeStamp = transactionEssence.Timestamp()
 				inputInfo.PledgeID = map[mana.Type]identity.ID{
@@ -482,7 +482,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID)
 		defer cachedTx.Release()
 		tx, _ := cachedTx.Unwrap()
-		txTimestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
+		txTimestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 	})
 
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp

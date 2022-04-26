@@ -259,8 +259,8 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction *ledger.Transaction) {
-					if tx, ok := transaction.Transaction.(*devnetvm.Transaction); ok {
+				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+					if tx, ok := transaction.(*devnetvm.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})

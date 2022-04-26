@@ -213,8 +213,8 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 				if !outputMetadata.IsSpent() {
 					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
 						var timestamp time.Time
-						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx *ledger.Transaction) {
-							timestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
+						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx utxo.Transaction) {
+							timestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
 						})
 						res.UnspentOutputs[i].Outputs = append(res.UnspentOutputs[i].Outputs, jsonmodels.WalletOutput{
 							Output:          *jsonmodels.NewOutput(output),
@@ -410,8 +410,8 @@ func GetTransaction(c echo.Context) (err error) {
 
 	var tx *devnetvm.Transaction
 	// retrieve transaction
-	if !deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
-		tx = transaction.Transaction.(*devnetvm.Transaction)
+	if !deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		tx = transaction.(*devnetvm.Transaction)
 	}) {
 		err = c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Transaction with %s", transactionID)))
 		return

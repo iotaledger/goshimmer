@@ -21,7 +21,7 @@ import (
 // Storage is a Ledger component that bundles the storage related API.
 type Storage struct {
 	// transactionStorage is an object storage used to persist Transactions objects.
-	transactionStorage *objectstorage.ObjectStorage[*Transaction]
+	transactionStorage *objectstorage.ObjectStorage[utxo.Transaction]
 
 	// transactionMetadataStorage is an object storage used to persist TransactionMetadata objects.
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
@@ -45,7 +45,7 @@ type Storage struct {
 // newStorage returns a new storage instance for the given Ledger.
 func newStorage(ledger *Ledger) (new *Storage) {
 	return &Storage{
-		transactionStorage: objectstorage.New[*Transaction](
+		transactionStorage: objectstorage.New[utxo.Transaction](
 			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
@@ -81,9 +81,9 @@ func newStorage(ledger *Ledger) (new *Storage) {
 
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback
 // can be used to dynamically initialize a non-existing Transaction.
-func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *Transaction) (cachedTransaction *objectstorage.CachedObject[*Transaction]) {
+func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) utxo.Transaction) (cachedTransaction *objectstorage.CachedObject[utxo.Transaction]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *Transaction {
+		return s.transactionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) utxo.Transaction {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
@@ -248,7 +248,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 		currentTxID := futureConeWalker.Next()
 
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
-			s.CachedTransaction(currentTxID).Consume(func(tx *Transaction) {
+			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
 				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
 					s.consumerStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), currentTxID.Bytes()))
 				}
@@ -293,7 +293,7 @@ func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectst
 
 		parsedTransaction.SetID(txID)
 
-		return NewTransaction(parsedTransaction), nil
+		return parsedTransaction, nil
 	}
 }
 

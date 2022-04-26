@@ -98,8 +98,8 @@ func (u *Utils) WalkConsumingTransactionMetadata(entryPoints utxo.OutputIDs, cal
 
 // WithTransactionAndMetadata walks over the transactions that consume the named OutputIDs and calls the callback
 // with their corresponding Transaction and TransactionMetadata.
-func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx *Transaction, txMetadata *TransactionMetadata)) {
-	u.ledger.Storage.CachedTransaction(txID).Consume(func(tx *Transaction) {
+func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback func(tx utxo.Transaction, txMetadata *TransactionMetadata)) {
+	u.ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *TransactionMetadata) {
 			callback(tx, txMetadata)
 		})

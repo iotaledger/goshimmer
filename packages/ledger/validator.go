@@ -29,7 +29,7 @@ func (v *validator) checkSolidityCommand(params *dataFlowParams, next dataflow.N
 
 	cachedInputs := v.ledger.Storage.CachedOutputs(params.InputIDs)
 	defer cachedInputs.Release()
-	if params.Inputs = NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
+	if params.Inputs = utxo.NewOutputs(cachedInputs.Unwrap(true)...); params.Inputs.Size() != len(cachedInputs) {
 		return errors.Errorf("not all outputs of %s available: %w", params.Transaction.ID(), ErrTransactionUnsolid)
 	}
 
@@ -57,12 +57,12 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 // checkTransactionExecutionCommand is a ChainedCommand that aborts the DataFlow if the Transaction could not be
 // executed (is invalid).
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
-	utxoOutputs, err := v.ledger.options.vm.ExecuteTransaction(params.Transaction.Transaction, params.Inputs.utxoOutputs())
+	utxoOutputs, err := v.ledger.options.vm.ExecuteTransaction(params.Transaction, params.Inputs)
 	if err != nil {
 		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
 	}
 
-	params.Outputs = NewOutputs(utxoOutputs...)
+	params.Outputs = utxo.NewOutputs(utxoOutputs...)
 
 	return next(params)
 }

@@ -54,7 +54,7 @@ func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Ne
 }
 
 // bookTransaction books a Transaction in the Ledger and creates its Outputs.
-func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs Outputs) {
+func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs utxo.Outputs) {
 	branchIDs := b.inheritBranchIDs(txMetadata.ID(), inputsMetadata)
 
 	b.storeOutputs(outputs, branchIDs)
@@ -92,7 +92,7 @@ func (b *booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata Output
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
+func (b *booker) storeOutputs(outputs utxo.Outputs, branchIDs branchdag.BranchIDs) {
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
@@ -127,7 +127,7 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 
 // forkTransaction forks an existing Transaction.
 func (b *booker) forkTransaction(txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) {
-	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx *Transaction, txMetadata *TransactionMetadata) {
+	b.ledger.Utils.WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *TransactionMetadata) {
 		b.ledger.mutex.Lock(txID)
 
 		conflictingInputs := b.ledger.Utils.ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)

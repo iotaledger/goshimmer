@@ -95,8 +95,8 @@ func getDiagnosticUTXODAGInfo(transactionID utxo.TransactionID, messageID tangle
 		ID: transactionID.Base58(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
-		transactionEssence := transaction.Transaction.(*devnetvm.Transaction).Essence()
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		transactionEssence := transaction.(*devnetvm.Transaction).Essence()
 
 		txInfo.IssuanceTimestamp = transactionEssence.Timestamp()
 		txInfo.AccessManaPledgeID = base58.Encode(transactionEssence.AccessPledgeID().Bytes())

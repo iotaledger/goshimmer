@@ -209,11 +209,12 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	return
 }
 
-func OutputsFromUTXOOutputs(utxoOutputs []utxo.Output) (outputs Outputs) {
-	outputs = make(Outputs, len(utxoOutputs))
-	for i, utxoOutput := range utxoOutputs {
-		outputs[i] = utxoOutput.(Output)
-	}
+func OutputsFromUTXOOutputs(utxoOutputs utxo.Outputs) (outputs Outputs) {
+	outputs = make(Outputs, 0)
+	_ = utxoOutputs.ForEach(func(output utxo.Output) error {
+		outputs = append(outputs, output.(Output))
+		return nil
+	})
 
 	return outputs
 }

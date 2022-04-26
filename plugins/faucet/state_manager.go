@@ -590,8 +590,8 @@ func (s *StateManager) onConfirmation(confirmedTx utxo.TransactionID, issuedCoun
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
 func (s *StateManager) updateState(transactionID utxo.TransactionID) (err error) {
-	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
-		tx, ok := transaction.Transaction.(*devnetvm.Transaction)
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		tx, ok := transaction.(*devnetvm.Transaction)
 		if !ok {
 			return
 		}

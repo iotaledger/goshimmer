@@ -121,7 +121,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 
 // CheckTransaction checks the validity of a Transaction.
 func (l *Ledger) CheckTransaction(ctx context.Context, tx utxo.Transaction) (err error) {
-	return l.dataFlow.checkTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
+	return l.dataFlow.checkTransaction().Run(newDataFlowParams(ctx, tx))
 }
 
 // StoreAndProcessTransaction stores and processes the given Transaction.
@@ -129,7 +129,7 @@ func (l *Ledger) StoreAndProcessTransaction(ctx context.Context, tx utxo.Transac
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
-	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(ctx, NewTransaction(tx)))
+	return l.dataFlow.storeAndProcessTransaction().Run(newDataFlowParams(ctx, tx))
 }
 
 // PruneTransaction removes a Transaction from the Ledger (e.g. after it was orphaned or found to be invalid). If the
@@ -145,7 +145,7 @@ func (l *Ledger) Shutdown() {
 }
 
 // processTransaction tries to book a single Transaction.
-func (l *Ledger) processTransaction(tx *Transaction) (err error) {
+func (l *Ledger) processTransaction(tx utxo.Transaction) (err error) {
 	l.mutex.Lock(tx.ID())
 	defer l.mutex.Unlock(tx.ID())
 
@@ -156,7 +156,7 @@ func (l *Ledger) processTransaction(tx *Transaction) (err error) {
 // the booked status).
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.Utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
-		go l.Storage.CachedTransaction(it.Next()).Consume(func(tx *Transaction) {
+		go l.Storage.CachedTransaction(it.Next()).Consume(func(tx utxo.Transaction) {
 			_ = l.processTransaction(tx)
 		})
 	}
