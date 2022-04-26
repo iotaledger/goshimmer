@@ -1,5 +1,9 @@
 package utxo
 
+import (
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+)
+
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Transaction is the type that is used to describe instructions how to modify the ledger state.
@@ -56,6 +60,8 @@ type Output interface {
 
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)
+
+	objectstorage.StorableObject
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

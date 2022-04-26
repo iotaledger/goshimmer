@@ -296,10 +296,10 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 
 	for i := start; i <= end; i++ {
 		deps.Indexer.CachedAddressOutputMappings(s.replenishmentState.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 					if outputMetadata.IsSpent() {
-						outputEssence := output.Output.(devnetvm.Output)
+						outputEssence := output.(devnetvm.Output)
 
 						iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 						if !colorExist {
@@ -333,11 +333,11 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 
 	// remainder output should sit on address 0
 	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
-		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
 					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
-					outputEssence := output.Output.(devnetvm.Output)
+					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 					if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
@@ -377,13 +377,13 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		foundOnCurrentAddress = false
 
 		deps.Indexer.CachedAddressOutputMappings(supplyAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
-			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				if foundOnCurrentAddress {
 					return
 				}
 				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
 					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
-					outputEssence := output.Output.(devnetvm.Output)
+					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 					if !ok || iotaBalance != s.tokensPerSupplyOutput {

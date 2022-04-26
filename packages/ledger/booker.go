@@ -93,7 +93,7 @@ func (b *booker) inheritBranchIDs(txID utxo.TransactionID, inputsMetadata Output
 
 // storeOutputs stores the Outputs in the Ledger.
 func (b *booker) storeOutputs(outputs Outputs, branchIDs branchdag.BranchIDs) {
-	_ = outputs.ForEach(func(output *Output) (err error) {
+	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
 

@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/chat"
@@ -175,8 +175,8 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		deps.Tangle.Ledger.Storage.CachedOutput(refOutputID).Consume(func(output *ledger.Output) {
-			if typedOutput, ok := output.Output.(devnetvm.Output); ok {
+		deps.Tangle.Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
 				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
 			}
 		})

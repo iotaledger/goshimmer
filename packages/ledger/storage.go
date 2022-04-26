@@ -27,7 +27,7 @@ type Storage struct {
 	transactionMetadataStorage *objectstorage.ObjectStorage[*TransactionMetadata]
 
 	// outputStorage is an object storage used to persist Output objects.
-	outputStorage *objectstorage.ObjectStorage[*Output]
+	outputStorage *objectstorage.ObjectStorage[utxo.Output]
 
 	// outputMetadataStorage is an object storage used to persist OutputMetadata objects.
 	outputMetadataStorage *objectstorage.ObjectStorage[*OutputMetadata]
@@ -57,7 +57,7 @@ func newStorage(ledger *Ledger) (new *Storage) {
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		outputStorage: objectstorage.New[*Output](
+		outputStorage: objectstorage.New[utxo.Output](
 			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
@@ -105,9 +105,9 @@ func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, co
 
 // CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Output.
-func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *Output) (cachedOutput *objectstorage.CachedObject[*Output]) {
+func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) *Output {
+		return s.outputStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) utxo.Output {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
@@ -116,8 +116,8 @@ func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback .
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
-func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objectstorage.CachedObjects[*Output]) {
-	cachedOutputs = make(objectstorage.CachedObjects[*Output], 0)
+func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objectstorage.CachedObjects[utxo.Output]) {
+	cachedOutputs = make(objectstorage.CachedObjects[utxo.Output], 0)
 	for it := outputIDs.Iterator(); it.HasNext(); {
 		cachedOutputs = append(cachedOutputs, s.CachedOutput(it.Next()))
 	}
@@ -311,7 +311,7 @@ func outputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage
 		}
 		parsedOutput.SetID(outputID)
 
-		return NewOutput(parsedOutput), nil
+		return parsedOutput, nil
 	}
 }
 

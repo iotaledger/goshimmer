@@ -364,64 +364,17 @@ var _ objectstorage.StorableObject = new(TransactionMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Output ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Output is a wrapped utxo.Output that can be stored in the object storage.
-type Output struct {
-	// Output contains the wrapped utxo.Output.
-	utxo.Output
-
-	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
-	objectstorage.StorableObjectFlags
-}
-
-// NewOutput returns a new Output from the given utxo.Output.
-func NewOutput(output utxo.Output) (new *Output) {
-	new = &Output{
-		Output: output,
-	}
-	new.Persist()
-	new.SetModified()
-
-	return new
-}
-
-// FromObjectStorage un-serializes an Output from an object storage (it is disabled because we use the VMs parser).
-func (o *Output) FromObjectStorage([]byte, []byte) (objectstorage.StorableObject, error) {
-	panic("this should never be called - we use a custom factory method from the VM")
-}
-
-// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
-func (o *Output) ObjectStorageKey() (key []byte) {
-	return o.ID().Bytes()
-}
-
-// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
-func (o *Output) ObjectStorageValue() (value []byte) {
-	return o.Bytes()
-}
-
-// utxoOutput returns the wrapped utxo.Output.
-func (o *Output) utxoOutput() (unwrapped utxo.Output) {
-	return o.Output
-}
-
-// code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = new(Output)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Outputs represents a collection of Output objects indexed by their OutputID.
 type Outputs struct {
 	// OrderedMap is the underlying data structure that holds the Outputs.
-	*orderedmap.OrderedMap[utxo.OutputID, *Output]
+	*orderedmap.OrderedMap[utxo.OutputID, utxo.Output]
 }
 
 // NewOutputs returns a new Output collection with the given elements.
-func NewOutputs(outputs ...*Output) (new Outputs) {
-	new = Outputs{orderedmap.New[utxo.OutputID, *Output]()}
+func NewOutputs(outputs ...utxo.Output) (new Outputs) {
+	new = Outputs{orderedmap.New[utxo.OutputID, utxo.Output]()}
 	for _, output := range outputs {
 		new.Set(output.ID(), output)
 	}
@@ -432,7 +385,7 @@ func NewOutputs(outputs ...*Output) (new Outputs) {
 // IDs returns the identifiers of the stored Outputs.
 func (o Outputs) IDs() (ids utxo.OutputIDs) {
 	outputIDs := make([]utxo.OutputID, 0)
-	o.OrderedMap.ForEach(func(id utxo.OutputID, _ *Output) bool {
+	o.OrderedMap.ForEach(func(id utxo.OutputID, _ utxo.Output) bool {
 		outputIDs = append(outputIDs, id)
 		return true
 	})
@@ -441,8 +394,8 @@ func (o Outputs) IDs() (ids utxo.OutputIDs) {
 }
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
-func (o Outputs) ForEach(callback func(output *Output) error) (err error) {
-	o.OrderedMap.ForEach(func(_ utxo.OutputID, output *Output) bool {
+func (o Outputs) ForEach(callback func(output utxo.Output) error) (err error) {
+	o.OrderedMap.ForEach(func(_ utxo.OutputID, output utxo.Output) bool {
 		if err = callback(output); err != nil {
 			return false
 		}
@@ -456,8 +409,8 @@ func (o Outputs) ForEach(callback func(output *Output) error) (err error) {
 // utxoOutputs returns a slice of unwrapped Outputs.
 func (o Outputs) utxoOutputs() (slice []utxo.Output) {
 	slice = make([]utxo.Output, 0)
-	_ = o.ForEach(func(output *Output) error {
-		slice = append(slice, output.Output)
+	_ = o.ForEach(func(output utxo.Output) error {
+		slice = append(slice, output)
 		return nil
 	})
 

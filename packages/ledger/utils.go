@@ -35,8 +35,8 @@ func (u *Utils) UnspentOutputs() (unspentOutputs []utxo.Output) {
 				return
 			}
 
-			u.ledger.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output *Output) {
-				unspentOutputs = append(unspentOutputs, output.Output)
+			u.ledger.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
+				unspentOutputs = append(unspentOutputs, output)
 			})
 		})
 
@@ -120,7 +120,7 @@ func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchd
 
 func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs) {
 	transactionIDs = utxo.NewTransactionIDs()
-	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output *Output) {
+	u.ledger.Storage.CachedOutputs(u.ResolveInputs(tx.Inputs())).Consume(func(output utxo.Output) {
 		transactionIDs.Add(output.ID().TransactionID)
 	})
 	return transactionIDs

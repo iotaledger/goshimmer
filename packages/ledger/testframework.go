@@ -55,7 +55,7 @@ func NewTestFramework(t *testing.T, options ...Option) (new *TestFramework) {
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
 
-	genesisOutput := NewOutput(NewMockedOutput(utxo.EmptyTransactionID, 0))
+	genesisOutput := NewMockedOutput(utxo.EmptyTransactionID, 0)
 	genesisOutputMetadata := NewOutputMetadata(genesisOutput.ID())
 	genesisOutputMetadata.SetGradeOfFinality(gof.High)
 
@@ -296,7 +296,7 @@ func (t *TestFramework) ConsumeOutputMetadata(outputID utxo.OutputID, consumer f
 }
 
 // ConsumeOutput loads and consumes Output. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output *Output)) {
+func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(output utxo.Output)) {
 	assert.True(t.t, t.ledger.Storage.CachedOutput(outputID).Consume(consumer))
 }
 
@@ -380,6 +380,21 @@ type MockedOutput struct {
 
 	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
+}
+
+func (m *MockedOutput) FromObjectStorage(key, data []byte) (objectstorage.StorableObject, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m *MockedOutput) ObjectStorageKey() []byte {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (m *MockedOutput) ObjectStorageValue() []byte {
+	// TODO implement me
+	panic("implement me")
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.

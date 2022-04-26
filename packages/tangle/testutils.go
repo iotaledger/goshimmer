@@ -294,13 +294,13 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(devnetvm.NewSnapshot(outputs))
+	m.tangle.Ledger.LoadSnapshot(outputs...)
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.Output)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.Output)
+			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+				m.outputsByAlias[alias] = output.(devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.(devnetvm.Output)
 				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(addressOutputMapping.OutputID())
 			})
 		})
@@ -308,9 +308,9 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	for alias := range m.options.coloredGenesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output *ledger.Output) {
-				m.outputsByAlias[alias] = output.Output.(devnetvm.Output)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.Output.(devnetvm.Output)
+			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+				m.outputsByAlias[alias] = output.(devnetvm.Output)
+				m.outputsByID[addressOutputMapping.OutputID()] = output.(devnetvm.Output)
 			})
 		})
 	}

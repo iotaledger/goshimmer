@@ -149,11 +149,11 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o *ledger.Output) {
+		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.Output.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+			o.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				inputInfo.Amount += float64(balance)
 				totalAmount += float64(balance)
 				return true
@@ -469,8 +469,8 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 	}
 
 	var value float64
-	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
-		outputEssence := output.Output.(devnetvm.Output)
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		outputEssence := output.(devnetvm.Output)
 		outputEssence.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
@@ -478,7 +478,7 @@ func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
 	})
 
 	var txTimestamp time.Time
-	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
 		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID)
 		defer cachedTx.Release()
 		tx, _ := cachedTx.Unwrap()

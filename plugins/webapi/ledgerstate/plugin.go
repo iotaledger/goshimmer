@@ -125,8 +125,8 @@ func worker(ctx context.Context) {
 
 func outputsOnAddress(address devnetvm.Address) (outputs devnetvm.Outputs) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(mapping *indexer.AddressOutputMapping) {
-		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
-			if typedOutput, ok := output.Output.(devnetvm.Output); ok {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
 		})
@@ -211,7 +211,7 @@ func PostAddressUnspentOutputs(c echo.Context) error {
 		}) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 				if !outputMetadata.IsSpent() {
-					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput *ledger.Output) {
+					deps.Tangle.Ledger.Storage.CachedOutput(output.ID()).Consume(func(ledgerOutput utxo.Output) {
 						var timestamp time.Time
 						deps.Tangle.Ledger.Storage.CachedTransaction(ledgerOutput.ID().TransactionID).Consume(func(tx *ledger.Transaction) {
 							timestamp = tx.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
@@ -348,8 +348,8 @@ func GetOutput(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output *ledger.Output) {
-		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.Output.(devnetvm.Output)))
+	if !deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		err = c.JSON(http.StatusOK, jsonmodels.NewOutput(output.(devnetvm.Output)))
 	}) {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Output with %s", outputID)))
 	}

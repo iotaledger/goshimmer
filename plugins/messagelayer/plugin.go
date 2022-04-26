@@ -138,7 +138,7 @@ func configure(plugin *node.Plugin) {
 			plugin.Panic("could not load snapshot file:", err)
 		}
 
-		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot...)
 
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 

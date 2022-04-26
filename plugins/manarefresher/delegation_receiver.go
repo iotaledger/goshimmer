@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 )
@@ -28,8 +29,8 @@ func (d *DelegationReceiver) Scan() []*devnetvm.AliasOutput {
 
 	var outputs devnetvm.Outputs
 	deps.Indexer.CachedAddressOutputMappings(d.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
-		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output *ledger.Output) {
-			if typedOutput, ok := output.Output.(devnetvm.Output); ok {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
 				outputs = append(outputs, typedOutput)
 			}
 		})
