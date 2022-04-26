@@ -1,0 +1,76 @@
+package notarization
+
+import (
+	"context"
+	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/notarization"
+	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/node"
+	"go.uber.org/dig"
+)
+
+const (
+	// PluginName is the name of the notarization plugin.
+	PluginName = "Notarization"
+)
+
+type dependencies struct {
+	dig.In
+
+	NotarizationManager *notarization.Manager
+	Tangle              *tangle.Tangle
+}
+
+var (
+	Plugin *node.Plugin
+	deps   = new(dependencies)
+)
+
+func init() {
+	Plugin = node.NewPlugin("Notarization", deps, node.Enabled, configure, run)
+
+	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(newNotarizationManager); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(func() *node.Plugin {
+			return Plugin
+		}, dig.Name("Notarization")); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
+}
+
+func configure(plugin *node.Plugin) {
+
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+		deps.NotarizationManager.OnMessageConfirmed(messageID)
+	}))
+	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
+		deps.NotarizationManager.OnTransactionConfirmed(transactionID)
+	}))
+	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		deps.NotarizationManager.OnBranchConfirmed(branchID)
+	}))
+	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		deps.NotarizationManager.OnBranchCreated(branchID)
+	}))
+	// TODO Branch Rejected
+}
+
+func run(*node.Plugin) {
+	if err := daemon.BackgroundWorker("Notarization", func(ctx context.Context) {
+		<-ctx.Done()
+		deps.Tangle.Shutdown()
+	}, shutdown.PriorityTangle); err != nil {
+		Plugin.Panicf("Failed to start as daemon: %s", err)
+	}
+}
+
+func newNotarizationManager() *notarization.Manager {
+	return notarization.NewManager()
+}
