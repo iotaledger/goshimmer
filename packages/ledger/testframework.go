@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -382,21 +383,6 @@ type MockedOutput struct {
 	objectstorage.StorableObjectFlags
 }
 
-func (m *MockedOutput) FromObjectStorage(key, data []byte) (objectstorage.StorableObject, error) {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (m *MockedOutput) ObjectStorageKey() []byte {
-	// TODO implement me
-	panic("implement me")
-}
-
-func (m *MockedOutput) ObjectStorageValue() []byte {
-	// TODO implement me
-	panic("implement me")
-}
-
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
 func NewMockedOutput(txID utxo.TransactionID, index uint16) (new *MockedOutput) {
 	return &MockedOutput{
@@ -442,16 +428,6 @@ func (m *MockedOutput) SetID(id utxo.OutputID) {
 	m.id = &id
 }
 
-// TransactionID returns the identifier of the Transaction that created this Output.
-func (m *MockedOutput) TransactionID() (txID utxo.TransactionID) {
-	return m.txID
-}
-
-// Index returns the unique Index of the Output in respect to its TransactionID.
-func (m *MockedOutput) Index() (index uint16) {
-	return m.index
-}
-
 // Bytes returns a serialized version of the MockedOutput.
 func (m *MockedOutput) Bytes() (serialized []byte) {
 	return marshalutil.New().
@@ -460,12 +436,32 @@ func (m *MockedOutput) Bytes() (serialized []byte) {
 		Bytes()
 }
 
+func (m *MockedOutput) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	var outputID utxo.OutputID
+	if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		return nil, errors.Errorf("failed to unmarshal OutputID: %v", err)
+	}
+
+	newObject := new(MockedOutput)
+	if err = newObject.FromMarshalUtil(marshalutil.New(data)); err != nil {
+		return nil, errors.Errorf("failed to unmarshal MockedOutput: %v", err)
+	}
+
+	return newObject, nil
+}
+
+func (m *MockedOutput) ObjectStorageKey() []byte {
+	return m.ID().Bytes()
+}
+
+func (m *MockedOutput) ObjectStorageValue() []byte {
+	return m.Bytes()
+}
+
 // String returns a human-readable version of the MockedOutput.
 func (m *MockedOutput) String() (humanReadable string) {
 	return stringify.Struct("MockedOutput",
 		stringify.StructField("id", m.ID()),
-		stringify.StructField("transactionID", m.TransactionID()),
-		stringify.StructField("index", m.Index()),
 	)
 }
 
