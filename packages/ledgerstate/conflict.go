@@ -20,7 +20,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(NewConflictIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(ConflictIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}

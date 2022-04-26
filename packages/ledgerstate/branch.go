@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(NewBranchIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(BranchIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}

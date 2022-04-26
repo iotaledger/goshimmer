@@ -203,11 +203,15 @@ type markersInner struct {
 
 // FromBytes unmarshals a collection of Markers from a sequence of bytes.
 func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
-	markers = new(Markers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markersBytes, markers, serix.WithValidation())
+	markersDecoded := new(Markers)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markersBytes, markersDecoded, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Markers: %w", err)
 		return
+	}
+	markers = NewMarkers()
+	for sequenceID, index := range markersDecoded.Markers {
+		markers.Set(sequenceID, index)
 	}
 	return
 }

@@ -14,7 +14,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(CollectiveBeaconPayload), serix.TypeSettings{}.WithObjectType(uint32(new(CollectiveBeaconPayload).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(CollectiveBeaconPayload{}, serix.TypeSettings{}.WithObjectType(uint32(new(CollectiveBeaconPayload).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
@@ -193,7 +193,12 @@ func (p *CollectiveBeaconPayload) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (p *CollectiveBeaconPayload) Decode(b []byte) (bytesRead int, err error) {
-	_, bytesRead, err = CollectiveBeaconPayloadFromBytes(b)
+	beacon, bytesRead, err := CollectiveBeaconPayloadFromBytes(b)
+	p.Header = beacon.Header
+	p.Signature = beacon.Signature
+	p.Dpk = beacon.Dpk
+	p.PrevSignature = beacon.PrevSignature
+	p.Round = beacon.Round
 	return
 }
 

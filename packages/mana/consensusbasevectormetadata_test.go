@@ -4,16 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestConsensusBasePastManaVectorMetadata_Bytes(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{}
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteTime(c.Timestamp)
-	bytes := marshalUtil.Bytes()
-	assert.Equal(t, bytes, c.Bytes(), "should be equal")
+	assert.Equal(t, c.BytesOld(), c.Bytes(), "should be equal")
 }
 
 func TestConsensusBasePastManaVectorMetadata_ObjectStorageKey(t *testing.T) {

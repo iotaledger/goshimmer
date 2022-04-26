@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -44,8 +45,8 @@ type firewallDeps struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(createFirewall); err != nil {
+	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(createFirewall); err != nil {
 			Plugin.Panic(err)
 		}
 	}))

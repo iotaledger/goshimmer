@@ -11,7 +11,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(GenericDataPayload), serix.TypeSettings{}.WithObjectType(uint32(new(GenericDataPayload).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(GenericDataPayload{}, serix.TypeSettings{}.WithObjectType(uint32(new(GenericDataPayload).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}

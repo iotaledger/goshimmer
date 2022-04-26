@@ -77,7 +77,7 @@ func New(clientID string, log *logger.Logger, dial DialFunc) *Client {
 	}
 
 	go n.subscriptionsLoop()
-	go n.connectLoop(dial)
+	//go n.connectLoop(dial)
 
 	return n
 }

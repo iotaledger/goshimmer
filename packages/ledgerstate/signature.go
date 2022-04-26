@@ -18,11 +18,11 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(BLSSignature), serix.TypeSettings{}.WithObjectType(uint8(new(BLSSignature).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(BLSSignature{}, serix.TypeSettings{}.WithObjectType(uint8(new(BLSSignature).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering BLSSignature type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(ED25519Signature), serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Signature).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(ED25519Signature{}, serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Signature).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering ED25519Signature type settings: %w", err))
 	}

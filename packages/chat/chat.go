@@ -16,7 +16,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(Payload), serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
@@ -67,12 +67,9 @@ const (
 
 // Payload represents the chat payload type.
 type Payload struct {
-	From       string `serix:"0,lengthPrefixType=uint32"`
-	FromLen    uint32
-	To         string `serix:"1,lengthPrefixType=uint32"`
-	ToLen      uint32
-	Message    string `serix:"2,lengthPrefixType=uint32"`
-	MessageLen uint32
+	From    string `serix:"0,lengthPrefixType=uint32"`
+	To      string `serix:"1,lengthPrefixType=uint32"`
+	Message string `serix:"2,lengthPrefixType=uint32"`
 
 	bytes      []byte
 	bytesMutex sync.RWMutex
@@ -81,12 +78,9 @@ type Payload struct {
 // NewPayload creates a new chat payload.
 func NewPayload(from, to, message string) *Payload {
 	return &Payload{
-		From:       from,
-		FromLen:    uint32(len([]byte(from))),
-		To:         to,
-		ToLen:      uint32(len([]byte(to))),
-		Message:    message,
-		MessageLen: uint32(len([]byte(message))),
+		From:    from,
+		To:      to,
+		Message: message,
 	}
 }
 
@@ -135,7 +129,6 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 		err = fmt.Errorf("failed to parse fromLen field of chat payload: %w", err)
 		return
 	}
-	result.FromLen = fromLen
 
 	from, err := marshalUtil.ReadBytes(int(fromLen))
 	if err != nil {
@@ -150,7 +143,6 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 		err = fmt.Errorf("failed to parse toLen field of chat payload: %w", err)
 		return
 	}
-	result.ToLen = toLen
 
 	to, err := marshalUtil.ReadBytes(int(toLen))
 	if err != nil {
@@ -165,7 +157,6 @@ func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 		err = fmt.Errorf("failed to parse messageLen field of chat payload: %w", err)
 		return
 	}
-	result.MessageLen = messageLen
 
 	message, err := marshalUtil.ReadBytes(int(messageLen))
 	if err != nil {
@@ -221,18 +212,16 @@ func (p *Payload) BytesOld() (bytes []byte) {
 		return
 	}
 
-	payloadLength := int(p.FromLen + p.ToLen + p.MessageLen + marshalutil.Uint32Size*3)
 	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
+	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size)
 
 	// marshal the payload specific information
-	//marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
 	marshalUtil.WriteBytes(Type.Bytes())
-	marshalUtil.WriteUint32(p.FromLen)
+	marshalUtil.WriteUint32(uint32(len(p.From)))
 	marshalUtil.WriteBytes([]byte(p.From))
-	marshalUtil.WriteUint32(p.ToLen)
+	marshalUtil.WriteUint32(uint32(len(p.To)))
 	marshalUtil.WriteBytes([]byte(p.To))
-	marshalUtil.WriteUint32(p.MessageLen)
+	marshalUtil.WriteUint32(uint32(len(p.Message)))
 	marshalUtil.WriteBytes([]byte(p.Message))
 
 	bytes = marshalUtil.Bytes()

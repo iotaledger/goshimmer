@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/atomic"
@@ -101,13 +101,13 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 	bufferedConnClosed := make(chan bool)
 
 	go func() {
-		connectionClosedClosure := events.NewClosure(func() { close(bufferedConnClosed) })
+		connectionClosedClosure := event.NewClosure[*buffconn.CloseEvent](func(_ *buffconn.CloseEvent) { close(bufferedConnClosed) })
 		connection.bufferedConn.Events.Close.Attach(connectionClosedClosure)
 		defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
 
-		connectionDataReceivedClosure := events.NewClosure(func(data []byte) {
-			d := make([]byte, len(data))
-			copy(d, data)
+		connectionDataReceivedClosure := event.NewClosure[*buffconn.ReceiveMessageEvent](func(event *buffconn.ReceiveMessageEvent) {
+			d := make([]byte, len(event.Data))
+			copy(d, event.Data)
 			bufferedConnDataReceived <- d
 		})
 

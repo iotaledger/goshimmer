@@ -2,13 +2,9 @@ package client
 
 import (
 	"fmt"
-	"io"
-	"net"
-	"strings"
 	"time"
 
 	"github.com/iotaledger/hive.go/backoff"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/netutil/buffconn"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -25,102 +21,102 @@ const (
 // retry net.Dial once, on fail after 0.5s.
 var dialRetryPolicy = backoff.ConstantBackOff(backoffDelay).With(backoff.MaxRetries(dialRetries))
 
-func (n *Client) connectLoop(dial DialFunc) {
-	msgChopper := chopper.NewChopper()
-	for {
-		retry := n.connect(dial, msgChopper)
-		if !retry {
-			return
-		}
-		n.log.Infof("disconnected from server - will retry reconnecting after %v", retryAfter)
-		select {
-		case <-n.shutdown:
-			return
-		case <-time.After(retryAfter):
-		}
-	}
-}
+//func (n *Client) connectLoop(dial DialFunc) {
+//	msgChopper := chopper.NewChopper()
+//	for {
+//		retry := n.connect(dial, msgChopper)
+//		if !retry {
+//			return
+//		}
+//		n.log.Infof("disconnected from server - will retry reconnecting after %v", retryAfter)
+//		select {
+//		case <-n.shutdown:
+//			return
+//		case <-time.After(retryAfter):
+//		}
+//	}
+//}
 
-// dials outbound address and established connection.
-func (n *Client) connect(dial DialFunc, msgChopper *chopper.Chopper) bool {
-	var addr string
-	var conn net.Conn
-	if err := backoff.Retry(dialRetryPolicy, func() error {
-		var err error
-		addr, conn, err = dial()
-		if err != nil {
-			return fmt.Errorf("can't connect with the server: %v", err)
-		}
-		return nil
-	}); err != nil {
-		n.log.Warn(err)
-		// retry
-		return true
-	}
-
-	bconn := buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize)
-	defer func() {
-		n.log.Debugf("closing bconn")
-		bconn.Close()
-	}()
-	n.Events.Connected.Trigger()
-
-	n.log.Debugf("established connection with server at %s", addr)
-
-	dataReceived := make(chan []byte)
-	{
-		cl := events.NewClosure(func(data []byte) {
-			// data slice is from internal buffconn buffer
-			d := make([]byte, len(data))
-			copy(d, data)
-			dataReceived <- d
-		})
-		bconn.Events.ReceiveMessage.Attach(cl)
-		defer bconn.Events.ReceiveMessage.Detach(cl)
-	}
-
-	connectionClosed := make(chan bool)
-	{
-		cl := events.NewClosure(func() {
-			n.log.Errorf("lost connection with %s", addr)
-			close(connectionClosed)
-		})
-		bconn.Events.Close.Attach(cl)
-		defer bconn.Events.Close.Detach(cl)
-	}
-
-	// read loop
-	go func() {
-		if err := bconn.Read(); err != nil {
-			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
-				n.log.Warnw("bconn read error", "err", err)
-			}
-		}
-	}()
-
-	// send client ID
-	if err := n.send(&txstream.MsgSetID{ClientID: n.clientID}, bconn, msgChopper); err != nil {
-		n.log.Errorf("sending client ID to server: %v", err)
-	}
-
-	// r/w loop
-	for {
-		select {
-		case msg := <-n.chSend:
-			if err := n.send(msg, bconn, msgChopper); err != nil {
-				n.log.Errorf("sending message to server (%T): %v", msg, err)
-			}
-		case d := <-dataReceived:
-			if err := n.decodeReceivedMessage(d, msgChopper); err != nil {
-				n.log.Errorf("decoding message from server: %v", err)
-			}
-		case <-n.shutdown:
-			return false
-		case <-connectionClosed:
-			return true // retry
-		}
-	}
-}
+//// dials outbound address and established connection.
+//func (n *Client) connect(dial DialFunc, msgChopper *chopper.Chopper) bool {
+//	var addr string
+//	var conn net.Conn
+//	if err := backoff.Retry(dialRetryPolicy, func() error {
+//		var err error
+//		addr, conn, err = dial()
+//		if err != nil {
+//			return fmt.Errorf("can't connect with the server: %v", err)
+//		}
+//		return nil
+//	}); err != nil {
+//		n.log.Warn(err)
+//		// retry
+//		return true
+//	}
+//
+//	bconn := buffconn.NewBufferedConnection(conn, tangle.MaxMessageSize)
+//	defer func() {
+//		n.log.Debugf("closing bconn")
+//		bconn.Close()
+//	}()
+//	n.Events.Connected.Trigger()
+//
+//	n.log.Debugf("established connection with server at %s", addr)
+//
+//	dataReceived := make(chan []byte)
+//	{
+//		cl := events.NewClosure(func(data []byte) {
+//			// data slice is from internal buffconn buffer
+//			d := make([]byte, len(data))
+//			copy(d, data)
+//			dataReceived <- d
+//		})
+//		bconn.Events.ReceiveMessage.Attach(cl)
+//		defer bconn.Events.ReceiveMessage.Detach(cl)
+//	}
+//
+//	connectionClosed := make(chan bool)
+//	{
+//		cl := events.NewClosure(func() {
+//			n.log.Errorf("lost connection with %s", addr)
+//			close(connectionClosed)
+//		})
+//		bconn.Events.Close.Attach(cl)
+//		defer bconn.Events.Close.Detach(cl)
+//	}
+//
+//	// read loop
+//	go func() {
+//		if err := bconn.Read(); err != nil {
+//			if err != io.EOF && !strings.Contains(err.Error(), "use of closed network connection") {
+//				n.log.Warnw("bconn read error", "err", err)
+//			}
+//		}
+//	}()
+//
+//	// send client ID
+//	if err := n.send(&txstream.MsgSetID{ClientID: n.clientID}, bconn, msgChopper); err != nil {
+//		n.log.Errorf("sending client ID to server: %v", err)
+//	}
+//
+//	// r/w loop
+//	for {
+//		select {
+//		case msg := <-n.chSend:
+//			if err := n.send(msg, bconn, msgChopper); err != nil {
+//				n.log.Errorf("sending message to server (%T): %v", msg, err)
+//			}
+//		case d := <-dataReceived:
+//			if err := n.decodeReceivedMessage(d, msgChopper); err != nil {
+//				n.log.Errorf("decoding message from server: %v", err)
+//			}
+//		case <-n.shutdown:
+//			return false
+//		case <-connectionClosed:
+//			return true // retry
+//		}
+//	}
+//}
 
 func (n *Client) decodeReceivedMessage(data []byte, msgChopper *chopper.Chopper) error {
 	msg, err := txstream.DecodeMsg(data, txstream.FlagServerToClient)

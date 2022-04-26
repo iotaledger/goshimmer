@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/async"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -28,38 +27,38 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-func BenchmarkVerifyDataMessages(b *testing.B) {
-	tangle := NewTestTangle()
-
-	var pool async.WorkerPool
-	pool.Tune(runtime.GOMAXPROCS(0))
-
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
-		return NewMessageIDs(EmptyMessageID), nil
-	}), emptyLikeReferences)
-
-	messages := make([][]byte, b.N)
-	for i := 0; i < b.N; i++ {
-		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
-		require.NoError(b, err)
-		messages[i] = msg.Bytes()
-	}
-
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		currentIndex := i
-		pool.Submit(func() {
-			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
-				b.Error(err)
-			} else {
-				msg.VerifySignature()
-			}
-		})
-	}
-
-	pool.Shutdown()
-}
+//func BenchmarkVerifyDataMessages(b *testing.B) {
+//	tangle := NewTestTangle()
+//
+//	var pool async.WorkerPool
+//	pool.Tune(runtime.GOMAXPROCS(0))
+//
+//	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+//		return NewMessageIDs(EmptyMessageID), nil
+//	}), emptyLikeReferences)
+//
+//	messages := make([][]byte, b.N)
+//	for i := 0; i < b.N; i++ {
+//		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+//		require.NoError(b, err)
+//		messages[i] = msg.Bytes()
+//	}
+//
+//	b.ResetTimer()
+//
+//	for i := 0; i < b.N; i++ {
+//		currentIndex := i
+//		pool.Submit(func() {
+//			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
+//				b.Error(err)
+//			} else {
+//				msg.VerifySignature()
+//			}
+//		})
+//	}
+//
+//	pool.Shutdown()
+//}
 
 func BenchmarkVerifySignature(b *testing.B) {
 	tangle := NewTestTangle()

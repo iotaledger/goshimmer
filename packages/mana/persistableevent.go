@@ -21,11 +21,11 @@ import (
 type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
 	Type          byte                      `serix:"0"` // pledge or revoke
-	NodeID        identity.ID               `serix:"1"`
-	Amount        float64                   `serix:"2"`
+	ManaType      Type                      `serix:"1"` // access or consensus
+	NodeID        identity.ID               `serix:"2"`
 	Time          time.Time                 `serix:"3"`
-	ManaType      Type                      `serix:"4"` // access or consensus
-	TransactionID ledgerstate.TransactionID `serix:"5"`
+	TransactionID ledgerstate.TransactionID `serix:"4"`
+	Amount        float64                   `serix:"5"`
 	InputID       ledgerstate.OutputID      `serix:"6"` // for revoke event
 	bytes         []byte
 }

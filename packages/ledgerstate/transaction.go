@@ -47,7 +47,7 @@ func init() {
 		return tx, nil
 	})
 
-	err := serix.DefaultAPI.RegisterTypeSettings(new(Transaction), serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
 	}
@@ -81,7 +81,7 @@ func init() {
 		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
 	}
 
-	err = serix.DefaultAPI.RegisterValidators(new(Transaction), validateTransactionBytes, validateTransaction)
+	err = serix.DefaultAPI.RegisterValidators(Transaction{}, validateTransactionBytes, validateTransaction)
 	if err != nil {
 		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
 	}
@@ -100,7 +100,7 @@ func validateTransactionEssenceVersionBytes(_ []byte) (err error) {
 	return
 }
 
-func validateTransaction(tx *Transaction) (err error) {
+func validateTransaction(tx Transaction) (err error) {
 	maxReferencedUnlockIndex := len(tx.transactionInner.Essence.Inputs()) - 1
 	for i, unlockBlock := range tx.transactionInner.UnlockBlocks {
 		switch unlockBlock.Type() {
@@ -119,23 +119,6 @@ func validateTransaction(tx *Transaction) (err error) {
 		}
 	}
 
-	//for i, output := range tx.transactionInner.Essence.Outputs() {
-	//	output.SetID(NewOutputID(tx.ID(), uint16(i)))
-	//	// check if an alias output is deadlocked to itself
-	//	// for origin alias outputs, alias address is only known once the ID of the output is set
-	//	if output.Type() == AliasOutputType {
-	//		alias := output.(*AliasOutput)
-	//		aliasAddress := alias.GetAliasAddress()
-	//		if alias.GetStateAddress().Equals(aliasAddress) {
-	//			err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-	//			return
-	//		}
-	//		if alias.GetGoverningAddress().Equals(aliasAddress) {
-	//			err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-	//			return
-	//		}
-	//	}
-	//}
 	return nil
 }
 
@@ -290,30 +273,13 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 		},
 	}
 
-	for i, output := range essence.Outputs() {
-		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
-		// check if an alias output is deadlocked to itself
-		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
-		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
-		// address set as the later determined alias address. Hence this check here.
-		if output.Type() == AliasOutputType {
-			alias := output.(*AliasOutput)
-			aliasAddress := alias.GetAliasAddress()
-			if alias.GetStateAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
-			}
-			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
-			}
-		}
-	}
+	setOutputID(essence, transaction.ID())
 
 	return
 }
 
 // FromObjectStorage creates an Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
+func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	tx := new(Transaction)
 	if tx != nil {
 		tx = t
@@ -329,11 +295,14 @@ func (t *Transaction) FromObjectStorageNew(key, bytes []byte) (objectstorage.Sto
 		err = errors.Errorf("failed to parse Transaction.id: %w", err)
 		return tx, err
 	}
+
+	setOutputID(tx.Essence(), tx.ID())
+
 	return tx, err
 }
 
 // FromObjectStorage creates a Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+func (t *Transaction) FromObjectStorageOld(key, bytes []byte) (objectstorage.StorableObject, error) {
 	transaction, err := t.FromBytes(bytes)
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
@@ -360,6 +329,8 @@ func (t *Transaction) FromBytes(bytes []byte) (*Transaction, error) {
 		err = errors.Errorf("failed to parse Transaction: %w", err)
 		return tx, err
 	}
+	setOutputID(tx.Essence(), tx.ID())
+
 	return tx, err
 }
 
@@ -588,6 +559,27 @@ func (t *Transaction) ObjectStorageKeyOld() []byte {
 // used as a key in the ObjectStorage.
 func (t *Transaction) ObjectStorageValueOld() []byte {
 	return t.Bytes()
+}
+
+func setOutputID(essence *TransactionEssence, transactionID TransactionID) {
+	for i, output := range essence.Outputs() {
+		// the first call of transaction.ID() will also create a transaction id
+		output.SetID(NewOutputID(transactionID, uint16(i)))
+		// check if an alias output is deadlocked to itself
+		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
+		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
+		// address set as the later determined alias address. Hence this check here.
+		if output.Type() == AliasOutputType {
+			alias := output.(*AliasOutput)
+			aliasAddress := alias.GetAliasAddress()
+			if alias.GetStateAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+			if alias.GetGoverningAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+		}
+	}
 }
 
 // code contract (make sure the struct implements all required methods)

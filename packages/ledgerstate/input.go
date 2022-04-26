@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(UTXOInput), serix.TypeSettings{}.WithObjectType(uint8(new(UTXOInput).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(UTXOInput{}, serix.TypeSettings{}.WithObjectType(uint8(new(UTXOInput).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering UTXOInput type settings: %w", err))
 	}

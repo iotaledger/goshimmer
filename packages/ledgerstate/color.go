@@ -2,12 +2,14 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"sort"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 )
@@ -133,6 +135,17 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 
 // ColoredBalancesFromBytes unmarshals ColoredBalances from a sequence of bytes.
 func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
+	coloredBalances = new(ColoredBalances)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, coloredBalances)
+	if err != nil {
+		err = errors.Errorf("failed to parse ColoredBalances: %w", err)
+		return
+	}
+	return
+}
+
+// ColoredBalancesFromBytes unmarshals ColoredBalances from a sequence of bytes.
+func ColoredBalancesFromBytesOld(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
 	marshalUtil := marshalutil.New(bytes)
 	if coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ColoredBalances from MarshalUtil: %w", err)
@@ -215,8 +228,18 @@ func (c *ColoredBalances) Clone() *ColoredBalances {
 	}
 }
 
-// Bytes returns a marshaled version of the ColoredBalances.
+// Bytes returns a marshaled version of the Marker.
 func (c *ColoredBalances) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
+}
+
+// Bytes returns a marshaled version of the ColoredBalances.
+func (c *ColoredBalances) BytesOld() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(uint32(c.coloredBalancesInner.Balances.Size()))
 	c.ForEach(func(color Color, balance uint64) bool {

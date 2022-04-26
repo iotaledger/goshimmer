@@ -19,15 +19,15 @@ import (
 
 //nolint:dupl
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(ED25519Address), serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Address).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(ED25519Address{}, serix.TypeSettings{}.WithObjectType(uint8(new(ED25519Address).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering ED25519Address type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(BLSAddress), serix.TypeSettings{}.WithObjectType(uint8(new(BLSAddress).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(BLSAddress{}, serix.TypeSettings{}.WithObjectType(uint8(new(BLSAddress).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering BLSAddress type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasAddress), serix.TypeSettings{}.WithObjectType(uint8(new(AliasAddress).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(AliasAddress{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasAddress).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasAddress type settings: %w", err))
 	}

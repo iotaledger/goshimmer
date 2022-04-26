@@ -16,15 +16,15 @@ import (
 
 //nolint:dupl
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(AliasUnlockBlock), serix.TypeSettings{}.WithObjectType(uint8(new(AliasUnlockBlock).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(AliasUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasUnlockBlock).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasUnlockBlock type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(ReferenceUnlockBlock), serix.TypeSettings{}.WithObjectType(uint8(new(ReferenceUnlockBlock).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(ReferenceUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(ReferenceUnlockBlock).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(SignatureUnlockBlock), serix.TypeSettings{}.WithObjectType(uint8(new(SignatureUnlockBlock).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(SignatureUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(SignatureUnlockBlock).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
 	}

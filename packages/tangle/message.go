@@ -47,7 +47,7 @@ func init() {
 		Max:            MaxParentsCount,
 		ValidationMode: serializer.ArrayValidationModeNoDuplicates,
 	}
-	err := serix.DefaultAPI.RegisterTypeSettings(NewMessageIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsByte).WithArrayRules(messageIDsArrayRules))
+	err := serix.DefaultAPI.RegisterTypeSettings(MessageIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsByte).WithArrayRules(messageIDsArrayRules))
 
 	if err != nil {
 		panic(fmt.Errorf("error registering MessageIDs type settings: %w", err))
@@ -61,11 +61,11 @@ func init() {
 			return next[:1]
 		},
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(NewParentMessageIDs(), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsByte).WithArrayRules(parentsMessageIDsArrayRules))
+	err = serix.DefaultAPI.RegisterTypeSettings(ParentMessageIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsByte).WithArrayRules(parentsMessageIDsArrayRules))
 	if err != nil {
 		panic(fmt.Errorf("error registering ParentMessageIDs type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterValidators(NewParentMessageIDs(), validateMessageBytes, validateMessage)
+	err = serix.DefaultAPI.RegisterValidators(ParentMessageIDs{}, validateMessageBytes, validateMessage)
 
 	if err != nil {
 		panic(fmt.Errorf("error registering ParentMessageIDs validators: %w", err))
@@ -480,21 +480,21 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytes(bytes []byte) (*Message, error) {
+func (m *Message) FromBytesNew(bytes []byte) (*Message, error) {
 	tx := new(Message)
 	if tx != nil {
 		tx = m
 	}
 	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Transaction: %w", err)
+		err = errors.Errorf("failed to parse Message: %w", err)
 		return tx, err
 	}
 	return tx, err
 }
 
 // FromBytes parses the given bytes into a message.
-func (m *Message) FromBytesOld(bytes []byte) (message *Message, err error) {
+func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
 	// TODO: remove eventually
 	marshalUtil := marshalutil.New(bytes)
 	message, err = m.FromMarshalUtil(marshalUtil)

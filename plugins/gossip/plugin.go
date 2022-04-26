@@ -5,6 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
@@ -35,8 +36,8 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(createManager); err != nil {
+	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(createManager); err != nil {
 			Plugin.Panic(err)
 		}
 	}))

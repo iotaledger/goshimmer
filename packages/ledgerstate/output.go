@@ -29,19 +29,19 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(new(SigLockedSingleOutput), serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedSingleOutput).Type())))
+	err := serix.DefaultAPI.RegisterTypeSettings(SigLockedSingleOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedSingleOutput).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering SigLockedSingleOutput type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(SigLockedColoredOutput), serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedColoredOutput).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(SigLockedColoredOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedColoredOutput).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering SigLockedColoredOutput type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(AliasOutput), serix.TypeSettings{}.WithObjectType(uint8(new(AliasOutput).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(AliasOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasOutput).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering AliasOutput type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(new(ExtendedLockedOutput), serix.TypeSettings{}.WithObjectType(uint8(new(ExtendedLockedOutput).Type())))
+	err = serix.DefaultAPI.RegisterTypeSettings(ExtendedLockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(ExtendedLockedOutput).Type())))
 	if err != nil {
 		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
 	}
@@ -286,7 +286,7 @@ func OutputFromBytes(bytes []byte) (output Output, err error) {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-
+	fmt.Println(outputType)
 	switch outputType {
 	case SigLockedSingleOutputType:
 		if output, err = new(SigLockedSingleOutput).FromBytes(bytes); err != nil {
@@ -1692,9 +1692,20 @@ func (a *AliasOutput) Bytes() []byte {
 	return a.ObjectStorageValue()
 }
 
-// Encode returns bytes serialized form.
+// Decode returns deserializes object from bytes.
 func (a *AliasOutput) Encode() ([]byte, error) {
 	return a.Bytes(), nil
+}
+
+// Decode returns bytes serialized form.
+func (a *AliasOutput) Decode(data []byte) (bytesRead int, err error) {
+	marshalUtil := marshalutil.New(data)
+	if _, err = a.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
+		return
+	}
+	bytesRead = marshalUtil.ReadOffset()
+	return
 }
 
 // String human readable form.
@@ -2461,6 +2472,17 @@ func (o *ExtendedLockedOutput) Bytes() []byte {
 // Encode returns a binary-encoded version of the Output.
 func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 	return o.Bytes(), nil
+}
+
+// Decode returns deserializes object from bytes.
+func (o *ExtendedLockedOutput) Decode(data []byte) (bytesRead int, err error) {
+	marshalUtil := marshalutil.New(data)
+	if _, err = o.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
+		return
+	}
+	bytesRead = marshalUtil.ReadOffset()
+	return
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
