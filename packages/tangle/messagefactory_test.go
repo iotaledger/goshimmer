@@ -373,10 +373,10 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDs, expectedR
 
 	// Check for parents whose references can't be set and have to be removed from the tips.
 	if !parents.Subtract(expectedReferences[StrongParentType]).Empty() {
-		assert.Equal(t, parents, referenceNotPossible)
+		assert.Equalf(t, parents, referenceNotPossible, "references to %s not possible, should be removed from parents %s", referenceNotPossible, parents)
 	}
 
 	for _, referenceType := range []ParentsType{StrongParentType, ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
-		assert.Equal(t, expectedReferences[referenceType], actualReferences[referenceType])
+		assert.Equalf(t, expectedReferences[referenceType], actualReferences[referenceType], "references type %s do not match: expected %s - actual %s", referenceType, expectedReferences[referenceType], actualReferences[referenceType])
 	}
 }

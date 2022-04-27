@@ -10,6 +10,7 @@ export class tangleVertex {
     txID: string;
     isTip: boolean;
     isConfirmed: boolean;
+    isTxConfirmed: boolean;
     gof: string;
     confirmedTime: number;
     futureMarkers: Array<string>;
@@ -25,6 +26,11 @@ export class tangleConfirmed {
     ID: string;
     gof: string;
     confirmedTime: number;
+}
+
+export class tangleTxGoFChanged {
+    ID: string;
+    isConfirmed: boolean;
 }
 
 export class tangleFutureMarkerUpdated {

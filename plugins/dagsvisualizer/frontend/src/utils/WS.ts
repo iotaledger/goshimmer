@@ -2,13 +2,14 @@ export enum WSMsgType {
     Message,
     MessageBooked,
     MessageConfirmed,
+    MessageTxGoFChanged,
     FutureMarkerUpdated,
     Transaction,
     TransactionBooked,
-    TransactionConfirmed,
+    TransactionGoFChanged,
     Branch,
     BranchParentsUpdate,
-    BranchConfirmed,
+    BranchGoFChanged,
     BranchWeightChanged
 }
 

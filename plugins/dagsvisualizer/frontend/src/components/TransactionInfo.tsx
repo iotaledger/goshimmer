@@ -72,10 +72,10 @@ export class TransactionInfo extends React.Component<Props, any> {
                                     {selectedTx.isConfirmed.toString()}
                                 </ListGroup.Item>
                                 <ListGroup.Item>
-                                    Confirmed Time:{' '}
+                                    GoF updated Time: {' '}
                                     {dateformat(
                                         new Date(
-                                            selectedTx.confirmedTime / 1000000
+                                            selectedTx.gofTime / 1000000
                                         ),
                                         'dd.mm.yyyy HH:MM:ss'
                                     )}
