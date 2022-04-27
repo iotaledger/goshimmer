@@ -1,10 +1,11 @@
 package chat
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -23,7 +24,7 @@ var (
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
-	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(chat.NewChat); err != nil {
 			Plugin.Panic(err)
 		}

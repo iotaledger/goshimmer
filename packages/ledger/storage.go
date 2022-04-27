@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
@@ -46,31 +47,31 @@ type Storage struct {
 func newStorage(ledger *Ledger) (new *Storage) {
 	return &Storage{
 		transactionStorage: objectstorage.New[utxo.Transaction](
-			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionStorage}),
+			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 			objectstorage.WithObjectFactory(transactionFactory(ledger.options.vm)),
 		),
 		transactionMetadataStorage: objectstorage.New[*TransactionMetadata](
-			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixTransactionMetadataStorage}),
+			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		outputStorage: objectstorage.New[utxo.Output](
-			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixOutputStorage}),
+			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 			objectstorage.WithObjectFactory(outputFactory(ledger.options.vm)),
 		),
 		outputMetadataStorage: objectstorage.New[*OutputMetadata](
-			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixOutputMetadataStorage}),
+			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		consumerStorage: objectstorage.New[*Consumer](
-			ledger.options.store.WithRealm([]byte{database.PrefixLedger, PrefixConsumerStorage}),
+			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixConsumerStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			consumerPartitionKeys,

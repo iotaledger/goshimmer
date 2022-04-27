@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
@@ -32,19 +33,19 @@ type Storage struct {
 func newStorage(options *options) (new *Storage) {
 	new = &Storage{
 		branchStorage: objectstorage.New[*Branch](
-			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixBranchStorage}),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixBranchStorage),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch](
-			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixChildBranchStorage}),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixChildBranchStorage),
 			childBranchKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember](
-			options.store.WithRealm([]byte{database.PrefixBranchDAG, PrefixConflictMemberStorage}),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixConflictMemberStorage),
 			conflictMemberKeyPartition,
 			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

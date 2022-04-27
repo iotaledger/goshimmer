@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
@@ -14,7 +16,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"go.uber.org/dig"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
@@ -50,7 +51,7 @@ var (
 )
 
 func init() {
-	ManaPlugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+	ManaPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {
@@ -74,11 +75,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccess}))
-	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensus}))
+	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccessResearch}))
-		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensusResearch}))
+		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())

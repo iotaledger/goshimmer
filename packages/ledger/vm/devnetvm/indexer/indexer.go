@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 
@@ -27,7 +28,7 @@ func New(options ...Option) (new *Indexer) {
 		options: newOptions(options...),
 	}
 	new.addressOutputMappingStorage = objectstorage.New[*AddressOutputMapping](
-		new.options.store.WithRealm([]byte{database.PrefixIndexer, PrefixAddressOutputMappingStorage}),
+		objectstorage.NewStoreWithRealm(new.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),

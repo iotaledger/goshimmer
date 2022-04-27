@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -32,7 +33,7 @@ func init() {
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) { onInit(event.Plugin, event.Container) }))
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) { onInit(event.Plugin, event.Container) }))
 }
 
 func onAddPlugin(name string, status int) {

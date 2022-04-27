@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -221,7 +222,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 
 // initObjectStorage sets up the object storage for the Sequences.
 func (m *Manager) initObjectStorage() (self *Manager) {
-	m.sequenceStore = objectstorage.New[*Sequence](m.Options.Store.WithRealm([]byte{database.PrefixMarkers}), objectstorage.CacheTime(m.Options.CacheTime))
+	m.sequenceStore = objectstorage.New[*Sequence](objectstorage.NewStoreWithRealm(m.Options.Store, database.PrefixMarkers, 0), objectstorage.CacheTime(m.Options.CacheTime))
 
 	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()
