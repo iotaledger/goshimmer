@@ -119,6 +119,10 @@ COPY config.default.json /config.json
 # Copy the Pre-built binary file from the previous stage
 COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /run/goshimmer
 
+# Fix permission issue when mounting volumes.
+COPY --chown=nonroot:nonroot --from=build /tmp/ /tmp/mainnetdb/
+COPY --chown=nonroot:nonroot --from=build /tmp/ /tmp/peerdb/
+
 WORKDIR /tmp
 USER nonroot
 
