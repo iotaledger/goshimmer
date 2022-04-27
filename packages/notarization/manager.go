@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+// Manager is the notarization manager.
 type Manager struct {
 	// TODO: epochManager
 
@@ -39,18 +40,22 @@ func (m *Manager) GetLatestEC() *EpochCommitment {
 	return nil
 }
 
+// OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(messageID tangle.MessageID) {
 
 }
 
+// OnTransactionConfirmed isi the handler for transaction confirmed event.
 func (m *Manager) OnTransactionConfirmed(txID ledgerstate.TransactionID) {
 
 }
 
+// OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
 
 }
 
+// OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
 
 }
