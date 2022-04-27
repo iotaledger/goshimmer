@@ -11,7 +11,7 @@ const (
 	// defaultInterval is the default interval of epochs, i.e., their duration, and is 5 minutes (specified in seconds).
 	defaultInterval int64 = 5 * 60
 
-	// defaultOracleEpochShift is the default shift of the oracle epoch. E.g., current epoch=4 -> oracle epoch=2
+	// defaultOracleEpochShift is the default shift of the oracle epoch. E.g., current epoch=4 -> oracle epoch=2.
 	defaultOracleEpochShift = 2
 )
 
