@@ -1,6 +1,8 @@
 package notarization
 
 import (
+	"sync"
+
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -10,6 +12,7 @@ type Manager struct {
 
 	// pending branch counter
 	pendingBranchesCount map[ECI]uint64
+	pbcMutex             sync.RWMutex
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -21,6 +24,8 @@ func NewManager() *Manager {
 
 // PendingBranchesCount returns the current value of pendingBranchesCount.
 func (m *Manager) PendingBranchesCount(eci ECI) uint64 {
+	m.pbcMutex.RLock()
+	defer m.pbcMutex.RUnlock()
 	return m.pendingBranchesCount[eci]
 }
 
