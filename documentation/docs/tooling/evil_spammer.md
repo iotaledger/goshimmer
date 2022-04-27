@@ -84,6 +84,8 @@ Below you can find a list of predefined scenarios.
 - in the evil spammer tool with command line you can use `basic` option and `scenario` flag to choose the scenario by name.
 - in the evil spammer tool with interactive mode simply go to `New Spam -> Change scenario` and select from the list.
 
+In the below diagrams, the white box represents a transaction, the yellow box is an output, the green box is an input, and the numbers in yellow and green boxes are aliases for inputs and outputs.
+
 ##### No conflicts
 - `single-tx`
 
@@ -300,7 +302,7 @@ dsSpammer.Spam()
 ```
 
 The spammer will treat the provided spamming custom conflicts as a single batch, which will be sent with the provided rate.
-So if you use `guava` scenario and rate 5 mps per batch you will be spamming  30 mps on average 
+So if you use `guava` scenario and rate 5 mps per batch you will be spamming  30 mps on average
 (as the `guava` creates 6 distinct transactions).
 
 ### Spam options
@@ -354,13 +356,13 @@ EvilBatch{
 #### Deep spamming
 Except basic functionality to customize spam batches, set the rate and duration, the Evil Spammer allows also for deep spamming.
 
-To create deep branch and UTXO structure  you need to enable the deep spam with an option 
+To create deep branch and UTXO structure  you need to enable the deep spam with an option
 ```go
 evilwallet.WithScenarioDeepSpamEnabled()
 ```
 The spammer will reuse outputs created during that it remembers from previous spams or if you provide a specific input `RestrictedReuse` wallet containing outputs generated during some previous spam.
 If you want to save outputs from the spam for a specific usage in the future, and you don't want the Evil Wallet to remember it and use it automatically you need to provide `RestrictedReuse` wallet.
-After spam ends, you can use this wallet in the next deep spam. 
+After spam ends, you can use this wallet in the next deep spam.
 In the example below, we firstly save outputs from a simple `tx` spam and use the outputs later in the controlled manner to create deep spam with level 2.
 
 ```go
