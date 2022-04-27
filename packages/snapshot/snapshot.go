@@ -7,18 +7,17 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
 
 type Snapshot struct {
-	LedgerSnapshot []utxo.Output
+	LedgerSnapshot *ledger.Snapshot
 	ManaSnapshot   *mana.Snapshot
 }
 
 func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
-	s.LedgerSnapshot = ledger.Utils.UnspentOutputs()
+	s.LedgerSnapshot = ledger.TakeSnapshot()
 }
 
 func (s *Snapshot) FromFile(fileName string) (err error) {
@@ -35,33 +34,20 @@ func (s *Snapshot) FromFile(fileName string) (err error) {
 }
 
 func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	outputCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return errors.Errorf("failed to read output count: %w", err)
+	if err = s.LedgerSnapshot.FromMarshalUtil(marshalUtil, devnetvm.OutputFactory); err != nil {
+		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
-	s.LedgerSnapshot = make([]utxo.Output, outputCount)
-	for i := uint64(0); i < outputCount; i++ {
-		if s.LedgerSnapshot[i], err = devnetvm.OutputFromMarshalUtil(marshalUtil); err != nil {
-			return errors.Errorf("failed to read Output %d: %w", i, err)
-		}
-	}
-
 	if err = s.ManaSnapshot.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to unmarshal ManaSnapshot: %w", err)
+		return errors.Errorf("failed to read ManaSnapshot: %w", err)
 	}
 
 	return nil
 }
 
+// Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte) {
-	marshalUtil := marshalutil.New()
-
-	marshalUtil.WriteUint64(uint64(len(s.LedgerSnapshot)))
-	for _, output := range s.LedgerSnapshot {
-		marshalUtil.Write(output)
-	}
-
-	marshalUtil.Write(s.ManaSnapshot)
-
-	return marshalUtil.Bytes()
+	return marshalutil.New().
+		Write(s.LedgerSnapshot).
+		Write(s.ManaSnapshot).
+		Bytes()
 }

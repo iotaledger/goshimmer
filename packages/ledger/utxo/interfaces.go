@@ -2,6 +2,7 @@ package utxo
 
 import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,6 +66,8 @@ type Output interface {
 
 	objectstorage.StorableObject
 }
+
+type OutputFactory func(*marshalutil.MarshalUtil) (output Output, err error)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

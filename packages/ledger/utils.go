@@ -4,7 +4,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
@@ -24,26 +23,6 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	return &Utils{
 		ledger: ledger,
 	}
-}
-
-// UnspentOutputs returns all unspent outputs of the given address.
-func (u *Utils) UnspentOutputs() (unspentOutputs []utxo.Output) {
-	unspentOutputs = make([]utxo.Output, 0)
-	u.ledger.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
-		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
-			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
-				return
-			}
-
-			u.ledger.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				unspentOutputs = append(unspentOutputs, output)
-			})
-		})
-
-		return true
-	})
-
-	return unspentOutputs
 }
 
 // ResolveInputs returns the OutputIDs that were referenced by the given Inputs.

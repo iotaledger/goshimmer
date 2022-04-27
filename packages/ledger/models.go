@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -333,6 +334,12 @@ type OutputMetadata struct {
 	// id contains the identifier of the Output.
 	id utxo.OutputID
 
+	// pledgeID contains the identifier of the node that received the mana pledge.
+	pledgeID identity.ID
+
+	// creationTime contains the time when the Output was created.
+	creationTime time.Time
+
 	// branchIDs contains the conflicting BranchIDs that this Output depends on.
 	branchIDs branchdag.BranchIDs
 
@@ -399,6 +406,12 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	if err = o.id.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse OutputID: %w", err)
 	}
+	if o.pledgeID, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse pledge id: %w", err)
+	}
+	if o.creationTime, err = marshalUtil.ReadTime(); err != nil {
+		return errors.Errorf("failed to parse creation time: %w", err)
+	}
 	if err = o.branchIDs.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse BranchIDs: %w", err)
 	}
@@ -420,6 +433,16 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 // ID returns the identifier of the Output that this OutputMetadata belongs to.
 func (o *OutputMetadata) ID() (id utxo.OutputID) {
 	return o.id
+}
+
+// PledgeID returns the identifier of the node that received the mana pledge.
+func (o *OutputMetadata) PledgeID() (id identity.ID) {
+	return o.pledgeID
+}
+
+// CreationTime returns the creation time of the Output.
+func (o *OutputMetadata) CreationTime() (creationTime time.Time) {
+	return o.creationTime
 }
 
 // BranchIDs returns the conflicting BranchIDs that the Output depends on.
@@ -522,6 +545,8 @@ func (o *OutputMetadata) Bytes() (serialized []byte) {
 func (o *OutputMetadata) String() (humanReadable string) {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
+		stringify.StructField("pledgeID", o.PledgeID()),
+		stringify.StructField("creationTime", o.CreationTime()),
 		stringify.StructField("branchIDs", o.BranchIDs()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
 		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
@@ -537,6 +562,8 @@ func (o *OutputMetadata) ObjectStorageKey() (key []byte) {
 // ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
 func (o *OutputMetadata) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
+		Write(o.PledgeID()).
+		WriteTime(o.CreationTime()).
 		Write(o.BranchIDs()).
 		Write(o.FirstConsumer()).
 		WriteUint8(uint8(o.GradeOfFinality())).
@@ -565,6 +592,28 @@ func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata
 	}
 
 	return new
+}
+
+// FromMarshalUtil returns a new OutputsMetadata collection from the given MarshalUtil.
+func (o OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	outputsMetadataCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return errors.Errorf("failed to read outputs metadata count: %w", err)
+	}
+
+	for i := uint64(0); i < outputsMetadataCount; i++ {
+		outputMetadata := new(OutputMetadata)
+		if outputMetadataErr := outputMetadata.FromMarshalUtil(marshalUtil); outputMetadataErr != nil {
+			return errors.Errorf("failed to read output metadata: %w", outputMetadataErr)
+		}
+	}
+
+	return nil
+}
+
+// Get returns the OutputMetadata object for the given OutputID.
+func (o OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata, exists bool) {
+	return o.OrderedMap.Get(id)
 }
 
 func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered OutputsMetadata) {

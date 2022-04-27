@@ -58,8 +58,8 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	}
 
 	Plugin.LogInfo("Snapshot information: ")
-	Plugin.LogInfo("     Number of snapshotted outputs: ", len(nodeSnapshot.LedgerSnapshot))
-	Plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(nodeSnapshot.ManaSnapshot.ByNodeID))
+	Plugin.LogInfo("     Number of outputs: ", nodeSnapshot.LedgerSnapshot.Outputs.Size())
+	Plugin.LogInfo("     Number of accessManaEntries: ", len(nodeSnapshot.ManaSnapshot.ByNodeID))
 
 	Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
 

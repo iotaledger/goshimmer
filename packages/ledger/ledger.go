@@ -2,9 +2,11 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
@@ -85,17 +87,43 @@ func New(options ...Option) (ledger *Ledger) {
 }
 
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
-func (l *Ledger) LoadSnapshot(outputs ...utxo.Output) {
-	for _, output := range outputs {
+func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
+	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
+		outputMetadata, exists := snapshot.OutputsMetadata.Get(output.ID())
+		if !exists {
+			panic(fmt.Sprintf("missing OutputMetadata for Output with %s", output.ID()))
+		}
+
 		l.Storage.outputStorage.Store(output).Release()
+		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 
-		l.Storage.CachedOutputMetadata(output.ID(), func(outputID utxo.OutputID) *OutputMetadata {
-			outputMetadata := NewOutputMetadata(output.ID())
-			outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
-			outputMetadata.SetGradeOfFinality(gof.High)
+		return nil
+	})
+}
 
-			return outputMetadata
-		}).Release()
+// TakeSnapshot returns a snapshot of the Ledger state.
+func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
+	outputs := utxo.NewOutputs()
+	outputsMetadata := NewOutputsMetadata()
+
+	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
+		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
+			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
+				return
+			}
+
+			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
+				outputs.Set(outputMetadata.ID(), output)
+			})
+			outputsMetadata.Set(outputMetadata.ID(), outputMetadata)
+		})
+
+		return true
+	})
+
+	return &Snapshot{
+		Outputs:         outputs,
+		OutputsMetadata: outputsMetadata,
 	}
 }
 

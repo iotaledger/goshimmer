@@ -266,7 +266,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	genesisOutputs := make(map[devnetvm.Address]*devnetvm.ColoredBalances)
 
-	var outputs []utxo.Output
+	outputs := utxo.NewOutputs()
 	for alias, balance := range m.options.genesisOutputs {
 		addressWallet := createWallets(1)[0]
 		m.walletsByAlias[alias] = addressWallet
@@ -279,7 +279,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 			devnetvm.ColorIOTA: balance,
 		}), addressWallet.address)
-		outputs = append(outputs, output)
+		output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
+		outputs.Add(output)
 
 		m.outputsByAlias[alias] = output
 		m.outputsByID[output.ID()] = output
@@ -294,7 +295,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(outputs...)
+	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, ledger.NewOutputsMetadata()))
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {

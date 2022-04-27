@@ -203,6 +203,39 @@ func NewOutputs(outputs ...Output) (new Outputs) {
 	return new
 }
 
+func (o *Outputs) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, outputFactory OutputFactory) (err error) {
+	if o.OrderedMap == nil {
+		o.OrderedMap = orderedmap.New[OutputID, Output]()
+	}
+
+	outputCount, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return errors.Errorf("unable to read output count: %w", err)
+	}
+
+	for i := uint64(0); i < outputCount; i++ {
+		var outputID OutputID
+		if err = outputID.FromMarshalUtil(marshalUtil); err != nil {
+			return errors.Errorf("unable to read output ID: %w", err)
+		}
+
+		output, outputErr := outputFactory(marshalUtil)
+		if outputErr != nil {
+			return errors.Errorf("unable to read output: %w", outputErr)
+		}
+		output.SetID(outputID)
+
+		o.Add(output)
+	}
+
+	return nil
+}
+
+// Add adds the given Output to the collection.
+func (o Outputs) Add(output Output) {
+	o.Set(output.ID(), output)
+}
+
 // IDs returns the identifiers of the stored Outputs.
 func (o Outputs) IDs() (ids OutputIDs) {
 	outputIDs := make([]OutputID, 0)
@@ -227,15 +260,18 @@ func (o Outputs) ForEach(callback func(output Output) error) (err error) {
 	return err
 }
 
-// utxoOutputs returns a slice of unwrapped Outputs.
-func (o Outputs) utxoOutputs() (slice []Output) {
-	slice = make([]Output, 0)
+// Bytes returns a serialized version of the Outputs.
+func (o Outputs) Bytes() (serialized []byte) {
+	marshalUtil := marshalutil.New()
+
+	marshalUtil.WriteUint64(uint64(o.Size()))
 	_ = o.ForEach(func(output Output) error {
-		slice = append(slice, output)
+		marshalUtil.Write(output.ID())
+		marshalUtil.Write(output)
 		return nil
 	})
 
-	return slice
+	return marshalUtil.Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
