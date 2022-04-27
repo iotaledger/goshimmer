@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -13,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
@@ -66,7 +67,7 @@ type tangledeps struct {
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		container := event.Container
 		if err := container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)

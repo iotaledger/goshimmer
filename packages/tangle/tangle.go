@@ -176,7 +176,6 @@ func (t *Tangle) Shutdown() {
 	t.Storage.Shutdown()
 	t.Ledger.Shutdown()
 	t.TimeManager.Shutdown()
-	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 
 	if t.WeightProvider != nil {

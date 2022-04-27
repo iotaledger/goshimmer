@@ -35,9 +35,6 @@ services:
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
-    volumes:
-      - shimmerdb:/tmp/mainnetdb
-      - peerdb:/tmp/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -203,8 +200,6 @@ networks:
 # Named Docker volumes for data persistence
 # ./run.sh removes these on exit
 volumes:
-  shimmerdb:
-  peerdb:
   grafana-data-volume:
 # read only files to load in the containers that may be shared across containers
 secrets:

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
+
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -15,7 +17,7 @@ var (
 )
 
 func configureHealthStore(store kvstore.KVStore) {
-	healthStore = store.WithRealm([]byte{database.PrefixHealth})
+	healthStore = objectstorage.NewStoreWithRealm(store, database.PrefixHealth, 0)
 }
 
 // MarkDatabaseUnhealthy marks the database as not healthy, meaning

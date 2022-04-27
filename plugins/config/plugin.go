@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"os"
 
+	flag "github.com/spf13/pflag"
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
-	flag "github.com/spf13/pflag"
-	"go.uber.org/dig"
 )
 
 // PluginName is the name of the config plugin.
@@ -36,7 +37,7 @@ func Init(container *dig.Container) {
 }
 
 func init() {
-	Plugin.Events.Init.Attach(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
