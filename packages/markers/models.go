@@ -1327,8 +1327,8 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 }
 
 // FromObjectStorage creates a Sequence from sequences of key and bytes.
-func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (s *Sequence) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
 	}
@@ -1336,22 +1336,24 @@ func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytes(sequenceBytes []byte) (sequence *Sequence, err error) {
+func (s *Sequence) FromBytes(data []byte) (sequence *Sequence, err error) {
 	if sequence = s; sequence == nil {
 		sequence = new(Sequence)
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), sequenceBytes, &s.id, serix.WithValidation())
+	sequenceID := new(SequenceID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence.id: %w", err)
 		return
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), sequenceBytes[bytesRead:], sequence, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], sequence, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence: %w", err)
 		return
 	}
+	sequence.id = *sequenceID
 	return
 
 }

@@ -74,8 +74,8 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
-func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 	}
@@ -84,22 +84,24 @@ func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objec
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
+func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	mapping := new(MarkerIndexBranchIDMapping)
 	if m != nil {
 		mapping = m
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &mapping.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
+	sequenceID := new(markers.SequenceID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
 		return mapping, err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
 		return mapping, err
 	}
+	mapping.markerIndexBranchIDInner.SequenceID = *sequenceID
 	return mapping, err
 }
 
@@ -349,19 +351,19 @@ func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstora
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
+func (m *MarkerMessageMapping) FromBytes(data []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	mapping := new(MarkerMessageMapping)
 	if m != nil {
 		mapping = m
 	}
 	decodedMarker := new(markers.Marker)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, decodedMarker, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, decodedMarker, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
 		return mapping, err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
 		return mapping, err

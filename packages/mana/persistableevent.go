@@ -142,8 +142,8 @@ func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent,
 }
 
 // FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
-func (p *PersistableEvent) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
-	return p.FromBytes(bytes)
+func (p *PersistableEvent) FromObjectStorage(_, value []byte) (objectstorage.StorableObject, error) {
+	return p.FromBytes(value)
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
@@ -152,12 +152,12 @@ func (p *PersistableEvent) FromBytesOld(data []byte) (result *PersistableEvent, 
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
-func (p *PersistableEvent) FromBytes(bytes []byte) (result *PersistableEvent, err error) {
+func (p *PersistableEvent) FromBytes(data []byte) (result *PersistableEvent, err error) {
 	if result = p; result == nil {
 		result = new(PersistableEvent)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, result, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return

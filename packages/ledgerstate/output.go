@@ -683,9 +683,9 @@ func (s *SigLockedSingleOutput) FromObjectStorage(key, value []byte) (sigLockedS
 }
 
 // FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
-func (s *SigLockedSingleOutput) FromObjectStorageOld(key, bytes []byte) (objectstorage.StorableObject, error) {
+func (s *SigLockedSingleOutput) FromObjectStorageOld(key, value []byte) (objectstorage.StorableObject, error) {
 	//TODO: remove eventually
-	output, err := s.FromBytes(bytes)
+	output, err := s.FromBytes(value)
 	if err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return nil, err
@@ -966,11 +966,11 @@ func (s *SigLockedColoredOutput) FromObjectStorageOld(key, bytes []byte) (object
 }
 
 // FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
-func (s *SigLockedColoredOutput) FromObjectStorage(key, bytes []byte) (sigLockedColoredOutput objectstorage.StorableObject, err error) {
+func (s *SigLockedColoredOutput) FromObjectStorage(key, value []byte) (sigLockedColoredOutput objectstorage.StorableObject, err error) {
 	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
 		sigLockedColoredOutput = new(SigLockedColoredOutput)
 	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, sigLockedColoredOutput, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), value, sigLockedColoredOutput, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
@@ -1317,8 +1317,8 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 }
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
-func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	output, err := a.FromBytes(bytes)
+func (a *AliasOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	output, err := a.FromBytes(value)
 	if err != nil {
 		err = errors.Errorf("failed to parse Output from bytes: %w", err)
 		return nil, err
@@ -2604,8 +2604,8 @@ func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 }
 
 // FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
-func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (o *OutputMetadata) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
 	}
@@ -2613,22 +2613,25 @@ func (o *OutputMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (o *OutputMetadata) FromBytes(bytes []byte) (outputMetadata *OutputMetadata, err error) {
+func (o *OutputMetadata) FromBytes(data []byte) (outputMetadata *OutputMetadata, err error) {
 	if outputMetadata = o; outputMetadata == nil {
 		outputMetadata = new(OutputMetadata)
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &outputMetadata.id, serix.WithValidation())
+	outputID := new(OutputID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, outputID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
 		return
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], outputMetadata, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], outputMetadata, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
+		err = errors.Errorf("failed to parse OutputMetadata: %w", err)
 		return
 	}
+
+	outputMetadata.id = *outputID
 	return
 }
 

@@ -202,8 +202,8 @@ func NewConflict(conflictID ConflictID) *Conflict {
 }
 
 // FromObjectStorage creates a Conflict from sequences of key and bytes.
-func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
-	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *Conflict) FromObjectStorage(key, value []byte) (conflict objectstorage.StorableObject, err error) {
+	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
 	}
@@ -211,22 +211,23 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
-func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
+func (c *Conflict) FromBytes(data []byte) (conflict *Conflict, err error) {
 	if conflict = c; conflict == nil {
 		conflict = new(Conflict)
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &c.conflictInner.ID, serix.WithValidation())
+	conflictID := new(ConflictID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, conflictID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch.id: %w", err)
 		return
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], conflict, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], conflict, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch: %w", err)
 		return
 	}
-
+	conflict.conflictInner.ID = *conflictID
 	return
 }
 
@@ -391,8 +392,8 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
-func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *ConflictMember) FromObjectStorage(key, value []byte) (conflictMember objectstorage.StorableObject, err error) {
+	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 	}
@@ -400,11 +401,11 @@ func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember ob
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
+func (c *ConflictMember) FromBytes(data []byte) (conflictMember *ConflictMember, err error) {
 	if conflictMember = c; conflictMember == nil {
 		conflictMember = new(ConflictMember)
 	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, conflictMember, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, conflictMember, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse ConflictMember: %w", err)
 		return

@@ -70,17 +70,17 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 }
 
 // FromObjectStorage creates an ConsensusBasePastManaVectorMetadata from sequences of key and bytes.
-func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
-	return c.FromBytes(bytes)
+func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(_, value []byte) (objectstorage.StorableObject, error) {
+	return c.FromBytes(value)
 }
 
 // FromBytes unmarshalls bytes into a metadata.
-func (c *ConsensusBasePastManaVectorMetadata) FromBytes(bytes []byte) (result *ConsensusBasePastManaVectorMetadata, err error) {
+func (c *ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result *ConsensusBasePastManaVectorMetadata, err error) {
 	if result = c; result == nil {
 		result = new(ConsensusBasePastManaVectorMetadata)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, result, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return

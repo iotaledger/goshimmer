@@ -638,13 +638,13 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 }
 
 // FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
+func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
 	approver := new(Approver)
 	if a != nil {
 		approver = a
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, approver, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, approver, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Approver: %w", err)
 		return approver, err
@@ -774,13 +774,13 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
+func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
 	attachment := new(Attachment)
 	if a != nil {
 		attachment = a
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, attachment, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, attachment, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Attachment: %w", err)
 		return attachment, err
@@ -892,8 +892,8 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MissingMessage) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
 	}
@@ -901,18 +901,18 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytes(bytes []byte) (result *MissingMessage, err error) {
+func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
 	missingMsg := new(MissingMessage)
 	if m != nil {
 		missingMsg = m
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
 		return missingMsg, err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], missingMsg, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], missingMsg, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MissingMessage: %w", err)
 		return missingMsg, err

@@ -456,10 +456,10 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 }
 
 // FromObjectStorage parses the given key and bytes into a message.
-func (m *Message) FromObjectStorageOld(key, data []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromObjectStorageOld(key, value []byte) (result objectstorage.StorableObject, err error) {
 
 	// parse the message
-	message, err := m.FromBytes(data)
+	message, err := m.FromBytes(value)
 	if err != nil {
 		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return
@@ -480,19 +480,26 @@ func (m *Message) FromObjectStorageOld(key, data []byte) (result objectstorage.S
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytes(bytes []byte) (*Message, error) {
+func (m *Message) FromBytes(data []byte) (*Message, error) {
 	msg := new(Message)
 	if m != nil {
 		msg = m
 	}
-	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), bytes, msg, serix.WithValidation())
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, msg, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Message: %w", err)
 		return msg, err
 	}
 
-	if len(bytes) != consumedBytes {
-		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+	if len(data) != consumedBytes {
+		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
+	}
+
+	msgPayload := msg.Payload()
+	if msgPayload != nil && msgPayload.Type() == ledgerstate.TransactionType {
+		transaction := msgPayload.(*ledgerstate.Transaction)
+
+		ledgerstate.SetOutputID(transaction.Essence(), transaction.ID())
 	}
 
 	return msg, err
@@ -985,8 +992,8 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MessageMetadata) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 	}
@@ -1003,19 +1010,19 @@ func (m *MessageMetadata) FromBytesOld(bytes []byte) (result *MessageMetadata, e
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
+func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
 	msgMetadata := new(MessageMetadata)
 	if m != nil {
 		msgMetadata = m
 	}
 	messageID := new(MessageID)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, messageID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, messageID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
 		return msgMetadata, err
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], msgMetadata, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], msgMetadata, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MessageMetadata: %w", err)
 		return msgMetadata, err

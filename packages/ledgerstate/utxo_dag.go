@@ -507,7 +507,6 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs BranchID
 	for _, output := range transaction.Essence().Outputs() {
 		// replace ColorMint color with unique color based on OutputID
 		updatedOutput := output.UpdateMintingColor()
-
 		// store Output
 		u.outputStorage.Store(updatedOutput).Release()
 
@@ -795,11 +794,11 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.S
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping *AddressOutputMapping, err error) {
+func (a *AddressOutputMapping) FromBytes(data []byte) (addressOutputMapping *AddressOutputMapping, err error) {
 	if addressOutputMapping = a; addressOutputMapping == nil {
 		addressOutputMapping = new(AddressOutputMapping)
 	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, addressOutputMapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, addressOutputMapping, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse AddressOutputMapping: %w", err)
 		return
@@ -925,8 +924,8 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 }
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
-func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *Consumer) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
 	}
@@ -934,28 +933,30 @@ func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableO
 }
 
 // FromBytes creates an Consumer from sequences of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
+func (c *Consumer) FromBytes(data []byte) (consumer *Consumer, err error) {
 	if consumer = c; consumer == nil {
 		consumer = new(Consumer)
 	}
-
-	readBytesConsumedInput, err := serix.DefaultAPI.Decode(context.Background(), bytes, &consumer.consumerInner.ConsumedInput, serix.WithValidation())
+	consumedInputID := new(OutputID)
+	readBytesConsumedInput, err := serix.DefaultAPI.Decode(context.Background(), data, consumedInputID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
 		return
 	}
 
-	readBytesTransactionID, err := serix.DefaultAPI.Decode(context.Background(), bytes[readBytesConsumedInput:], &consumer.consumerInner.TransactionID, serix.WithValidation())
+	transactionID := new(TransactionID)
+	readBytesTransactionID, err := serix.DefaultAPI.Decode(context.Background(), data[readBytesConsumedInput:], transactionID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
 		return
 	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[readBytesConsumedInput+readBytesTransactionID:], consumer, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[readBytesConsumedInput+readBytesTransactionID:], consumer, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer: %w", err)
 		return
 	}
-
+	consumer.consumerInner.ConsumedInput = *consumedInputID
+	consumer.consumerInner.TransactionID = *transactionID
 	return
 }
 

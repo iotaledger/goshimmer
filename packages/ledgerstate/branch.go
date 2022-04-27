@@ -368,9 +368,9 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 }
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
-func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
+func (b *Branch) FromObjectStorage(key, value []byte) (conflictBranch objectstorage.StorableObject, err error) {
 	// TODO: eventually remove
-	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}
@@ -378,19 +378,19 @@ func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstor
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
-func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
+func (b *Branch) FromBytes(data []byte) (branch *Branch, err error) {
 	if branch = b; branch == nil {
 		branch = new(Branch)
 	}
 
 	branchID := new(BranchID)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, branchID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, branchID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch.id: %w", err)
 		return
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes[bytesRead:], branch, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], branch, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch: %w", err)
 		return
@@ -596,9 +596,9 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 }
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
-func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
+func (c *ChildBranch) FromObjectStorage(key, value []byte) (childBranch objectstorage.StorableObject, err error) {
 	// TODO: remove eventually
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return result, err
@@ -607,11 +607,11 @@ func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectst
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (c *ChildBranch) FromBytes(bytes []byte) (childBranch *ChildBranch, err error) {
+func (c *ChildBranch) FromBytes(data []byte) (childBranch *ChildBranch, err error) {
 	if childBranch = c; childBranch == nil {
 		childBranch = new(ChildBranch)
 	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, childBranch, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, childBranch, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse ChildBranch: %w", err)
 		return
