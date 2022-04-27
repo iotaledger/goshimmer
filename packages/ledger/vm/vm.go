@@ -8,7 +8,7 @@ import (
 type VM interface {
 	// ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 	// if the execution fails.
-	ExecuteTransaction(transaction utxo.Transaction, inputs []utxo.Output, gasLimit ...uint64) (outputs []utxo.Output, err error)
+	ExecuteTransaction(transaction utxo.Transaction, inputs utxo.Outputs, gasLimit ...uint64) (outputs []utxo.Output, err error)
 
 	// ParseTransaction un-serializes a Transaction from the given sequence of bytes.
 	ParseTransaction([]byte) (transaction utxo.Transaction, err error)

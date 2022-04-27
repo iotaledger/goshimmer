@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -141,8 +140,8 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent) {
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(branchID.TransactionID()).Consume(func(transaction *ledger.Transaction) {
-		if tx, ok := transaction.Transaction.(*devnetvm.Transaction); ok {
+	deps.Tangle.Ledger.Storage.CachedTransaction(branchID.TransactionID()).Consume(func(transaction utxo.Transaction) {
+		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
 	})

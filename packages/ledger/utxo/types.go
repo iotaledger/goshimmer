@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/types"
@@ -180,6 +181,61 @@ type OutputIDs = *set.AdvancedSet[OutputID]
 // NewOutputIDs returns a new OutputID collection with the given elements.
 func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
 	return set.NewAdvancedSet[OutputID](ids...)
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Outputs represents a collection of Output objects indexed by their OutputID.
+type Outputs struct {
+	// OrderedMap is the underlying data structure that holds the Outputs.
+	*orderedmap.OrderedMap[OutputID, Output]
+}
+
+// NewOutputs returns a new Output collection with the given elements.
+func NewOutputs(outputs ...Output) (new Outputs) {
+	new = Outputs{orderedmap.New[OutputID, Output]()}
+	for _, output := range outputs {
+		new.Set(output.ID(), output)
+	}
+
+	return new
+}
+
+// IDs returns the identifiers of the stored Outputs.
+func (o Outputs) IDs() (ids OutputIDs) {
+	outputIDs := make([]OutputID, 0)
+	o.OrderedMap.ForEach(func(id OutputID, _ Output) bool {
+		outputIDs = append(outputIDs, id)
+		return true
+	})
+
+	return NewOutputIDs(outputIDs...)
+}
+
+// ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
+func (o Outputs) ForEach(callback func(output Output) error) (err error) {
+	o.OrderedMap.ForEach(func(_ OutputID, output Output) bool {
+		if err = callback(output); err != nil {
+			return false
+		}
+
+		return true
+	})
+
+	return err
+}
+
+// utxoOutputs returns a slice of unwrapped Outputs.
+func (o Outputs) utxoOutputs() (slice []Output) {
+	slice = make([]Output, 0)
+	_ = o.ForEach(func(output Output) error {
+		slice = append(slice, output)
+		return nil
+	})
+
+	return slice
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

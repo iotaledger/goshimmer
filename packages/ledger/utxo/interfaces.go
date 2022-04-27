@@ -28,6 +28,8 @@ type Transaction interface {
 
 	// String returns a human-readable version of the Transaction.
 	String() (humanReadable string)
+
+	objectstorage.StorableObject
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

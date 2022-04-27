@@ -223,8 +223,8 @@ func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta 
 // Transaction returns the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Transaction(messageAlias string) (tx utxo.Transaction) {
-	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledger.Transaction) {
-		tx = transaction.Transaction
+	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction utxo.Transaction) {
+		tx = transaction
 	})
 	return
 }

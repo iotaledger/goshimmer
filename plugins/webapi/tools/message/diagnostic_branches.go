@@ -82,8 +82,8 @@ func getDiagnosticConflictsInfo(branchID branchdag.BranchID) DiagnosticBranchInf
 
 		conflictInfo.ConflictSet = branch.ConflictIDs().Base58()
 
-		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction *ledger.Transaction) {
-			conflictInfo.IssuanceTimestamp = transaction.Transaction.(*devnetvm.Transaction).Essence().Timestamp()
+		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+			conflictInfo.IssuanceTimestamp = transaction.(*devnetvm.Transaction).Essence().Timestamp()
 		})
 
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {

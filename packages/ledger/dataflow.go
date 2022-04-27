@@ -79,7 +79,7 @@ type dataFlowParams struct {
 	Context context.Context
 
 	// Transaction contains the Transaction that is being processed.
-	Transaction *Transaction
+	Transaction utxo.Transaction
 
 	// TransactionMetadata contains the metadata of the Transaction that is being processed.
 	TransactionMetadata *TransactionMetadata
@@ -88,7 +88,7 @@ type dataFlowParams struct {
 	InputIDs utxo.OutputIDs
 
 	// Inputs contains the Outputs that were referenced as Inputs in the Transaction.
-	Inputs Outputs
+	Inputs utxo.Outputs
 
 	// InputsMetadata contains the metadata of the Outputs that were referenced as Inputs in the Transaction.
 	InputsMetadata OutputsMetadata
@@ -97,11 +97,11 @@ type dataFlowParams struct {
 	Consumers []*Consumer
 
 	// Outputs contains the Outputs that were created by the Transaction.
-	Outputs Outputs
+	Outputs utxo.Outputs
 }
 
 // newDataFlowParams returns a new dataFlowParams instance for the given Transaction.
-func newDataFlowParams(ctx context.Context, tx *Transaction) (new *dataFlowParams) {
+func newDataFlowParams(ctx context.Context, tx utxo.Transaction) (new *dataFlowParams) {
 	return &dataFlowParams{
 		Context:     ctx,
 		Transaction: tx,

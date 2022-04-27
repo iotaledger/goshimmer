@@ -18,44 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-// region Transaction ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Transaction represents a wrapped utxo.Transaction that can be stored in the object storage.
-type Transaction struct {
-	// Transaction contains the wrapped utxo.Transaction.
-	utxo.Transaction
-
-	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
-	objectstorage.StorableObjectFlags
-}
-
-// NewTransaction returns a new Transaction from the given utxo.Transaction.
-func NewTransaction(transaction utxo.Transaction) (new *Transaction) {
-	return &Transaction{
-		Transaction: transaction,
-	}
-}
-
-// FromObjectStorage un-serializes a Transaction from an object storage (it is disabled because we use the VMs parser).
-func (o *Transaction) FromObjectStorage([]byte, []byte) (transaction objectstorage.StorableObject, err error) {
-	panic("this should never be called - we use a custom factory method from the VM")
-}
-
-// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
-func (o *Transaction) ObjectStorageKey() (key []byte) {
-	return o.ID().Bytes()
-}
-
-// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
-func (o *Transaction) ObjectStorageValue() []byte {
-	return o.Bytes()
-}
-
-// code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = new(Transaction)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region TransactionMetadata //////////////////////////////////////////////////////////////////////////////////////////
 
 // TransactionMetadata represents a container for additional information about a Transaction.
@@ -361,61 +323,6 @@ func (t *TransactionMetadata) ObjectStorageValue() (value []byte) {
 
 // code contract (make sure the type implements all required methods)
 var _ objectstorage.StorableObject = new(TransactionMetadata)
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Outputs //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Outputs represents a collection of Output objects indexed by their OutputID.
-type Outputs struct {
-	// OrderedMap is the underlying data structure that holds the Outputs.
-	*orderedmap.OrderedMap[utxo.OutputID, utxo.Output]
-}
-
-// NewOutputs returns a new Output collection with the given elements.
-func NewOutputs(outputs ...utxo.Output) (new Outputs) {
-	new = Outputs{orderedmap.New[utxo.OutputID, utxo.Output]()}
-	for _, output := range outputs {
-		new.Set(output.ID(), output)
-	}
-
-	return new
-}
-
-// IDs returns the identifiers of the stored Outputs.
-func (o Outputs) IDs() (ids utxo.OutputIDs) {
-	outputIDs := make([]utxo.OutputID, 0)
-	o.OrderedMap.ForEach(func(id utxo.OutputID, _ utxo.Output) bool {
-		outputIDs = append(outputIDs, id)
-		return true
-	})
-
-	return utxo.NewOutputIDs(outputIDs...)
-}
-
-// ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
-func (o Outputs) ForEach(callback func(output utxo.Output) error) (err error) {
-	o.OrderedMap.ForEach(func(_ utxo.OutputID, output utxo.Output) bool {
-		if err = callback(output); err != nil {
-			return false
-		}
-
-		return true
-	})
-
-	return err
-}
-
-// utxoOutputs returns a slice of unwrapped Outputs.
-func (o Outputs) utxoOutputs() (slice []utxo.Output) {
-	slice = make([]utxo.Output, 0)
-	_ = o.ForEach(func(output utxo.Output) error {
-		slice = append(slice, output)
-		return nil
-	})
-
-	return slice
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

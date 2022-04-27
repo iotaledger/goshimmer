@@ -436,6 +436,7 @@ func (m *MockedOutput) Bytes() (serialized []byte) {
 		Bytes()
 }
 
+// FromObjectStorage unmarshals a MockedOutput from an ObjectStorage.
 func (m *MockedOutput) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
 	var outputID utxo.OutputID
 	if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {
@@ -446,14 +447,17 @@ func (m *MockedOutput) FromObjectStorage(key, data []byte) (result objectstorage
 	if err = newObject.FromMarshalUtil(marshalutil.New(data)); err != nil {
 		return nil, errors.Errorf("failed to unmarshal MockedOutput: %v", err)
 	}
+	newObject.SetID(outputID)
 
 	return newObject, nil
 }
 
+// ObjectStorageKey returns the key to be used when storing the MockedOutput in the object storage.
 func (m *MockedOutput) ObjectStorageKey() []byte {
 	return m.ID().Bytes()
 }
 
+// ObjectStorageValue returns the value to be stored in the object storage for the MockedOutput.
 func (m *MockedOutput) ObjectStorageValue() []byte {
 	return m.Bytes()
 }
@@ -491,6 +495,32 @@ type MockedTransaction struct {
 
 	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
 	objectstorage.StorableObjectFlags
+}
+
+// FromObjectStorage unmarshals a MockedTransaction from an ObjectStorage.
+func (m *MockedTransaction) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+	var txID utxo.TransactionID
+	if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		return nil, errors.Errorf("failed to unmarshal TransactionID: %v", err)
+	}
+
+	newObject := new(MockedTransaction)
+	if err = newObject.FromMarshalUtil(marshalutil.New(data)); err != nil {
+		return nil, errors.Errorf("failed to unmarshal MockedTransaction: %v", err)
+	}
+	newObject.SetID(txID)
+
+	return newObject, nil
+}
+
+// ObjectStorageKey returns the key to be used when storing the MockedTransaction in the object storage.
+func (m *MockedTransaction) ObjectStorageKey() []byte {
+	return m.ID().Bytes()
+}
+
+// ObjectStorageValue returns the value to be stored in the object storage for the MockedTransaction.
+func (m *MockedTransaction) ObjectStorageValue() []byte {
+	return m.Bytes()
 }
 
 // NewMockedTransaction creates a new MockedTransaction with the given inputs and specified outputCount.
@@ -637,7 +667,7 @@ func (m *MockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 
 // ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 // if the execution fails.
-func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ []utxo.Output, _ ...uint64) (outputs []utxo.Output, err error) {
+func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	mockedTransaction := transaction.(*MockedTransaction)
 
 	outputs = make([]utxo.Output, mockedTransaction.outputCount)
