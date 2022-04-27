@@ -17,7 +17,7 @@ var actionQuestion = &survey.Select{
 var fundsQuestion = &survey.Select{
 	Message: "How many fresh outputs you want to create?",
 	Options: outputNumbers,
-	Default: "10000",
+	Default: "100",
 }
 var settingsQuestion = &survey.Select{
 	Message: "Available settings:",

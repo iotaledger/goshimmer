@@ -73,11 +73,15 @@ func (p *Printer) EvilWalletStatus() {
 }
 
 func (p *Printer) SpammerSettings() {
+	rateUnit := "[mpm]"
+	if p.mode.Config.timeUnit == time.Second {
+		rateUnit = "[mps]"
+	}
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 1)
 	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
-	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.duration.Seconds())), 2)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), 2)
 	p.PrintLine()
 	fmt.Println()
 }

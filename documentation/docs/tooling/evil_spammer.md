@@ -74,8 +74,10 @@ E.g. to correctly spam with _`pear`_ you should have 4 clients configured.
 ![Request funds](/img/tooling/evil_spammer/evilwallet-request-funds.png "Request funds")
 
 In order to request faucet funds choose "Prepare faucet funds" option, and Evil Spammer will send the faucet request and split the output on the requested number. The fastest is 100 outputs, as we wait only for one transaction to be confirmed, the more output you request the longer you will need to wait.
+> :warning: On the DevNet due to higher PoW and congestion in the network, a creation of more than 100 outputs can not always be successful (as it tries to create 100 splitting transactions at once), that's why we encourage you to use 100 option on the DevNet, and play with higher spam rates and requesting large amounts of outputs in the [local docker network](docker_private_network.md).
+
 You can also enable auto funds requesting, that will trigger funds preparation whenever you'll be short on faucet outputs.
-Just go to: `Settings -> Auto funds requesting -> enable`.
+Just go to: `Settings -> Auto funds requesting -> enable`. However, as mentioned above this is recommended only on private networks, where you have enough network throughput share.
 
 #### Wallet status
 You can check how many outputs is available in the "Evil wallet details".
