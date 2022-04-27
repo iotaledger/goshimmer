@@ -114,7 +114,7 @@ func (p *Printer) UrlWarning() {
 }
 
 func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
-	p.Println(p.colorString(fmt.Sprintf("Need at least %d clients to progress", numOfClient), "red"), 2)
+	p.Println(p.colorString(fmt.Sprintf("Warning: At least %d clients is recommended if double spends are not allowed from the same node.", numOfClient), "red"), 2)
 	fmt.Println()
 }
 

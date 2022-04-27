@@ -108,6 +108,13 @@ const (
 
 var currentSpamOptions = []string{currentSpamRemove, back}
 
+const (
+	mpm = "Minute, rate is [mpm]"
+	mps = "Second, rate is [mps]"
+)
+
+var timeUnits = []string{mpm, mps}
+
 var (
 	scenarios     = []string{"msg", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
 	confirms      = []string{"enable", "disable"}
@@ -289,7 +296,6 @@ func (m *Mode) prepareFunds() {
 	}
 	if len(m.Config.clientUrls) == 0 {
 		printer.NotEnoughClientsWarning(1)
-		return
 	}
 	numToPrepareStr := ""
 	err := survey.AskOne(fundsQuestion, &numToPrepareStr)
@@ -563,6 +569,12 @@ func (m *Mode) parseSpamDetails(details spamDetailsSurvey) {
 	rate, err := strconv.Atoi(details.SpamRate)
 	if err != nil {
 		return
+	}
+	switch details.TimeUnit {
+	case mpm:
+		m.Config.timeUnit = time.Minute
+	case mps:
+		m.Config.timeUnit = time.Second
 	}
 	m.Config.Rate = rate
 	m.Config.duration = dur

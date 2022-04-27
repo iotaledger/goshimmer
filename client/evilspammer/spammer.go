@@ -191,6 +191,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	}
 	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
 	if !allSolid {
+		s.log.Debug(ErrInputsNotSolid)
 		s.ErrCounter.CountError(errors.Errorf("%v, txID: %s", ErrInputsNotSolid, tx.ID().Base58()))
 		return
 	}
