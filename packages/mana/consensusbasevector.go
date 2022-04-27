@@ -37,9 +37,9 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-//// BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
-//// `eventLogs` is expected to be sorted chronologically.
-//func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
+// // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
+// // `eventLogs` is expected to be sorted chronologically.
+// func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
 //	if c.vector == nil {
 //		c.vector = make(map[identity.ID]*ConsensusBaseMana)
 //	}
@@ -69,7 +69,7 @@ func (c *ConsensusBaseManaVector) Has(nodeID identity.ID) bool {
 //		}
 //	}
 //	return nil
-//}
+// }
 
 func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	return &TxInfo{
@@ -92,7 +92,7 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -369,7 +369,7 @@ func (c *ConsensusBaseManaVector) RemoveZeroNodes() {
 
 var _ BaseManaVector = &ConsensusBaseManaVector{}
 
-//// Region Internal methods ////
+// // Region Internal methods ////
 
 // getMana returns the consensus mana.
 func (c *ConsensusBaseManaVector) getMana(nodeID identity.ID) (float64, error) {

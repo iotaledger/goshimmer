@@ -12,7 +12,7 @@ import (
 
 // Snapshot defines a snapshot of the ledger state.
 type Snapshot struct {
-	ByNodeID map[identity.ID]SnapshotNode
+	ByNodeID map[identity.ID]*SnapshotNode
 }
 
 /*
@@ -25,6 +25,21 @@ type Snapshot struct {
 	}
 	snapshot.AccessManaByNode = aMana
 */
+
+func (s *Snapshot) NodeSnapshot(nodeID identity.ID) (nodeSnapshot *SnapshotNode) {
+	nodeSnapshot, exists := s.ByNodeID[nodeID]
+	if exists {
+		return nodeSnapshot
+	}
+
+	nodeSnapshot = &SnapshotNode{
+		AccessMana:       AccessManaSnapshot{},
+		SortedTxSnapshot: SortedTxSnapshot{},
+	}
+	s.ByNodeID[nodeID] = nodeSnapshot
+
+	return nodeSnapshot
+}
 
 func (s *Snapshot) MaxAccessManaUpdateTime() (maxTime time.Time) {
 	for _, node := range s.ByNodeID {
@@ -49,7 +64,7 @@ func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 		return errors.Errorf("could not read node count: %w", err)
 	}
 
-	s.ByNodeID = make(map[identity.ID]SnapshotNode, nodeCount)
+	s.ByNodeID = make(map[identity.ID]*SnapshotNode, nodeCount)
 	for i := uint64(0); i < nodeCount; i++ {
 		var nodeId identity.ID
 		nodeId, err = identity.IDFromMarshalUtil(marshalUtil)
@@ -62,7 +77,7 @@ func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 			return errors.Errorf("could not read snapshot of node: %w", err)
 		}
 
-		s.ByNodeID[nodeId] = snapshotNode
+		s.ByNodeID[nodeId] = &snapshotNode
 	}
 
 	return nil

@@ -38,7 +38,7 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -298,7 +298,7 @@ func (a *AccessBaseManaVector) RemoveZeroNodes() {
 
 var _ BaseManaVector = &AccessBaseManaVector{}
 
-//// Region Internal methods ////
+// // Region Internal methods ////
 
 // update updates the mana entries for a particular node wrt time. Not concurrency safe.
 func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {

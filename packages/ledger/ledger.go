@@ -103,9 +103,7 @@ func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 
 // TakeSnapshot returns a snapshot of the Ledger state.
 func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
-	outputs := utxo.NewOutputs()
-	outputsMetadata := NewOutputsMetadata()
-
+	snapshot = NewSnapshot(utxo.NewOutputs(), NewOutputsMetadata())
 	l.Storage.outputMetadataStorage.ForEach(func(key []byte, cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) bool {
 		cachedOutputMetadata.Consume(func(outputMetadata *OutputMetadata) {
 			if outputMetadata.IsSpent() || outputMetadata.GradeOfFinality() != gof.High {
@@ -113,18 +111,15 @@ func (l *Ledger) TakeSnapshot() (snapshot *Snapshot) {
 			}
 
 			l.Storage.CachedOutput(outputMetadata.ID()).Consume(func(output utxo.Output) {
-				outputs.Set(outputMetadata.ID(), output)
+				snapshot.Outputs.Set(outputMetadata.ID(), output)
 			})
-			outputsMetadata.Set(outputMetadata.ID(), outputMetadata)
+			snapshot.OutputsMetadata.Set(outputMetadata.ID(), outputMetadata)
 		})
 
 		return true
 	})
 
-	return &Snapshot{
-		Outputs:         outputs,
-		OutputsMetadata: outputsMetadata,
-	}
+	return snapshot
 }
 
 // SetTransactionInclusionTime sets the inclusion timestamp of a Transaction.

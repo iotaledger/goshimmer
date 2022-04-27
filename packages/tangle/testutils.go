@@ -265,8 +265,6 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		return
 	}
 
-	genesisOutputs := make(map[devnetvm.Address]*devnetvm.ColoredBalances)
-
 	manaPledgeID, err := identity.RandomID()
 	if err != nil {
 		panic(err)
@@ -277,51 +275,13 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	outputsMetadata := ledger.NewOutputsMetadata()
 
 	for alias, balance := range m.options.genesisOutputs {
-		addressWallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = addressWallet
-		m.walletsByAddress[addressWallet.address] = addressWallet
-
-		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
-			devnetvm.ColorIOTA: balance,
-		})
-
-		output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
-			devnetvm.ColorIOTA: balance,
-		}), addressWallet.address)
-		output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
-		outputs.Add(output)
-
-		outputMetadata := ledger.NewOutputMetadata(output.ID())
-		outputMetadata.SetGradeOfFinality(gof.High)
-		outputMetadata.SetPledgeID(manaPledgeID)
-		outputMetadata.SetCreationTime(manaPledgeTime)
-		outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
-		outputsMetadata.Add(outputMetadata)
-
-		m.outputsByAlias[alias] = output
-		m.outputsByID[output.ID()] = output
-		m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
+		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
 	}
-
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		addressWallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = addressWallet
-		m.walletsByAddress[addressWallet.address] = addressWallet
-
-		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
+		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
 	}
 
 	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
-
-	for alias := range m.options.genesisOutputs {
-		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
-				m.outputsByAlias[alias] = output.(devnetvm.Output)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.(devnetvm.Output)
-				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(addressOutputMapping.OutputID())
-			})
-		})
-	}
 
 	for alias := range m.options.coloredGenesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
@@ -331,6 +291,27 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 			})
 		})
 	}
+}
+
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs utxo.Outputs, outputsMetadata ledger.OutputsMetadata) {
+	addressWallet := createWallets(1)[0]
+	m.walletsByAlias[alias] = addressWallet
+	m.walletsByAddress[addressWallet.address] = addressWallet
+
+	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
+	outputs.Add(output)
+
+	outputMetadata := ledger.NewOutputMetadata(output.ID())
+	outputMetadata.SetGradeOfFinality(gof.High)
+	outputMetadata.SetPledgeID(manaPledgeID)
+	outputMetadata.SetCreationTime(manaPledgeTime)
+	outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+	outputsMetadata.Add(outputMetadata)
+
+	m.outputsByAlias[alias] = output
+	m.outputsByID[output.ID()] = output
+	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
 }
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
