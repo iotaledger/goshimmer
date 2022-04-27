@@ -60,8 +60,8 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(PluginName)
 	server = tcp.NewServer()
 
-	server.Events.Connect.Attach(event.NewClosure(func(event *tcp.ConnectEvent) { HandleConnection(event.ManagedConnection) }))
-	server.Events.Error.Attach(event.NewClosure(func(err error) {
+	server.Events.Connect.Hook(event.NewClosure(func(event *tcp.ConnectEvent) { HandleConnection(event.ManagedConnection) }))
+	server.Events.Error.Hook(event.NewClosure(func(err error) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
 	Events.Error.Attach(events.NewClosure(func(err error) {
@@ -112,7 +112,7 @@ func HandleConnection(conn *network.ManagedConnection) {
 			_ = conn.Close()
 		}
 	})
-	conn.Events.ReceiveData.Attach(onReceiveData)
+	conn.Events.ReceiveData.Hook(onReceiveData)
 	// starts the protocol and reads from its connection
 	go func() {
 		buffer := make([]byte, 2048)
@@ -127,10 +127,10 @@ func HandleConnection(conn *network.ManagedConnection) {
 
 // wireUp connects the Received events of the protocol to the packet specific processor.
 func wireUp(p *protocol.Protocol) {
-	p.Events.Received[packet.MessageTypeHeartbeat].Attach(event.NewClosure(func(data []byte) {
+	p.Events.Received[packet.MessageTypeHeartbeat].Hook(event.NewClosure(func(data []byte) {
 		processHeartbeatPacket(data)
 	}))
-	p.Events.Received[packet.MessageTypeMetricHeartbeat].Attach(event.NewClosure(func(data []byte) {
+	p.Events.Received[packet.MessageTypeMetricHeartbeat].Hook(event.NewClosure(func(data []byte) {
 		processMetricHeartbeatPacket(data)
 	}))
 }

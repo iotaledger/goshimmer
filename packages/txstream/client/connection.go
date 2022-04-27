@@ -71,7 +71,7 @@ var dialRetryPolicy = backoff.ConstantBackOff(backoffDelay).With(backoff.MaxRetr
 //			copy(d, data)
 //			dataReceived <- d
 //		})
-//		bconn.Events.ReceiveMessage.Attach(cl)
+//		bconn.Events.ReceiveMessage.Hook(cl)
 //		defer bconn.Events.ReceiveMessage.Detach(cl)
 //	}
 //
@@ -81,7 +81,7 @@ var dialRetryPolicy = backoff.ConstantBackOff(backoffDelay).With(backoff.MaxRetr
 //			n.log.Errorf("lost connection with %s", addr)
 //			close(connectionClosed)
 //		})
-//		bconn.Events.Close.Attach(cl)
+//		bconn.Events.Close.Hook(cl)
 //		defer bconn.Events.Close.Detach(cl)
 //	}
 //

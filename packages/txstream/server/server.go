@@ -140,7 +140,7 @@ const rcvClientIDTimeout = 5 * time.Second
 //	go func() {
 //		{
 //			cl := events.NewClosure(func() { close(bconnClosed) })
-//			c.bconn.Events.Close.Attach(cl)
+//			c.bconn.Events.Close.Hook(cl)
 //			defer c.bconn.Events.Close.Detach(cl)
 //		}
 //
@@ -151,7 +151,7 @@ const rcvClientIDTimeout = 5 * time.Second
 //				copy(d, data)
 //				bconnDataReceived <- d
 //			})
-//			c.bconn.Events.ReceiveMessage.Attach(cl)
+//			c.bconn.Events.ReceiveMessage.Hook(cl)
 //			defer c.bconn.Events.ReceiveMessage.Detach(cl)
 //		}
 //

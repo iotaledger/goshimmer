@@ -44,22 +44,22 @@ const (
 //
 //	{
 //		cl := events.NewClosure(func(msg *txstream.MsgTransaction) { go enqueueMessage(msg) })
-//		n.Events.TransactionReceived.Attach(cl)
+//		n.Events.TransactionReceived.Hook(cl)
 //		defer n.Events.TransactionReceived.Detach(cl)
 //	}
 //	{
 //		cl := events.NewClosure(func(msg *txstream.MsgTxGoF) { go enqueueMessage(msg) })
-//		n.Events.InclusionStateReceived.Attach(cl)
+//		n.Events.InclusionStateReceived.Hook(cl)
 //		defer n.Events.InclusionStateReceived.Detach(cl)
 //	}
 //	{
 //		cl := events.NewClosure(func(msg *txstream.MsgOutput) { go enqueueMessage(msg) })
-//		n.Events.OutputReceived.Attach(cl)
+//		n.Events.OutputReceived.Hook(cl)
 //		defer n.Events.OutputReceived.Detach(cl)
 //	}
 //	{
 //		cl := events.NewClosure(func(msg *txstream.MsgUnspentAliasOutput) { go enqueueMessage(msg) })
-//		n.Events.UnspentAliasOutputReceived.Attach(cl)
+//		n.Events.UnspentAliasOutputReceived.Hook(cl)
 //		defer n.Events.OutputReceived.Detach(cl)
 //	}
 //

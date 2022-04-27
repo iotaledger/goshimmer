@@ -98,7 +98,7 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	// mana.Events().Revoked.Attach(onRevokeEventClosure)
+	// mana.Events().Revoked.Hook(onRevokeEventClosure)
 }
 
 //func logPledgeEvent(ev *mana.PledgedEvent) {

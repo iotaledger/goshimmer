@@ -300,8 +300,8 @@ func registerLocalMetrics() {
 	deps.GossipMgr.NeighborsEvents(gossip.NeighborsGroupAuto).NeighborAdded.Attach(onNeighborAdded)
 
 	if deps.Selection != nil {
-		deps.Selection.Events().IncomingPeering.Attach(onAutopeeringSelection)
-		deps.Selection.Events().OutgoingPeering.Attach(onAutopeeringSelection)
+		deps.Selection.Events().IncomingPeering.Hook(onAutopeeringSelection)
+		deps.Selection.Events().OutgoingPeering.Hook(onAutopeeringSelection)
 	}
 
 	// mana pledge events

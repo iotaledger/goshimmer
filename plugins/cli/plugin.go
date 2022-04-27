@@ -27,7 +27,7 @@ func init() {
 		onAddPlugin(&node.AddEvent{Name: name, Status: plugin.Status})
 	}
 
-	node.Events.AddPlugin.Attach(event.NewClosure[*node.AddEvent](onAddPlugin))
+	node.Events.AddPlugin.Hook(event.NewClosure[*node.AddEvent](onAddPlugin))
 
 	flag.Usage = printUsage
 

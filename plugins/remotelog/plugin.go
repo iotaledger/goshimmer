@@ -97,7 +97,7 @@ func run(plugin *node.Plugin) {
 	})
 
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
-		logger.Events.AnyMsg.Attach(logEvent)
+		logger.Events.AnyMsg.Hook(logEvent)
 		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)
