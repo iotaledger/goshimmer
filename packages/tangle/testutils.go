@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
@@ -266,7 +267,15 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 
 	genesisOutputs := make(map[devnetvm.Address]*devnetvm.ColoredBalances)
 
+	manaPledgeID, err := identity.RandomID()
+	if err != nil {
+		panic(err)
+	}
+	manaPledgeTime := time.Now()
+
 	outputs := utxo.NewOutputs()
+	outputsMetadata := ledger.NewOutputsMetadata()
+
 	for alias, balance := range m.options.genesisOutputs {
 		addressWallet := createWallets(1)[0]
 		m.walletsByAlias[alias] = addressWallet
@@ -282,6 +291,13 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
 		outputs.Add(output)
 
+		outputMetadata := ledger.NewOutputMetadata(output.ID())
+		outputMetadata.SetGradeOfFinality(gof.High)
+		outputMetadata.SetPledgeID(manaPledgeID)
+		outputMetadata.SetCreationTime(manaPledgeTime)
+		outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+		outputsMetadata.Add(outputMetadata)
+
 		m.outputsByAlias[alias] = output
 		m.outputsByID[output.ID()] = output
 		m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
@@ -295,7 +311,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		genesisOutputs[addressWallet.address] = devnetvm.NewColoredBalances(coloredBalances)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, ledger.NewOutputsMetadata()))
+	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
 
 	for alias := range m.options.genesisOutputs {
 		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {

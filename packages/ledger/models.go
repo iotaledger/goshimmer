@@ -440,9 +440,33 @@ func (o *OutputMetadata) PledgeID() (id identity.ID) {
 	return o.pledgeID
 }
 
+// SetPledgeID sets the identifier of the node that received the mana pledge.
+func (o *OutputMetadata) SetPledgeID(id identity.ID) (updated bool) {
+	if o.pledgeID == id {
+		return false
+	}
+
+	o.pledgeID = id
+	o.SetModified()
+
+	return true
+}
+
 // CreationTime returns the creation time of the Output.
 func (o *OutputMetadata) CreationTime() (creationTime time.Time) {
 	return o.creationTime
+}
+
+// SetCreationTime sets the creation time of the Output.
+func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) {
+	if o.creationTime == creationTime {
+		return false
+	}
+
+	o.creationTime = creationTime
+	o.SetModified()
+
+	return true
 }
 
 // BranchIDs returns the conflicting BranchIDs that the Output depends on.
@@ -614,6 +638,11 @@ func (o OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 // Get returns the OutputMetadata object for the given OutputID.
 func (o OutputsMetadata) Get(id utxo.OutputID) (outputMetadata *OutputMetadata, exists bool) {
 	return o.OrderedMap.Get(id)
+}
+
+// Add adds the given OutputMetadata object to the collection.
+func (o OutputsMetadata) Add(output *OutputMetadata) (added bool) {
+	return o.Set(output.ID(), output)
 }
 
 func (o OutputsMetadata) Filter(predicate func(outputMetadata *OutputMetadata) bool) (filtered OutputsMetadata) {
