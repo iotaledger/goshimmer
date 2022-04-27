@@ -20,7 +20,7 @@ func Init() {
 }
 
 func init() {
-	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(initEvent *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(initEvent *node.InitEvent) {
 		if err := initEvent.Container.Invoke(func(config *configuration.Configuration) {
 			if err := logger.InitGlobalLogger(config); err != nil {
 				panic(err)

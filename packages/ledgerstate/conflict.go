@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -20,7 +19,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(ConflictIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(ConflictIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
@@ -211,25 +210,6 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 	return
 }
 
-// FromObjectStorage creates an Branch from sequences of key and bytes.
-func (c *Conflict) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
-	if branch = c; branch == nil {
-		branch = new(Branch)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, branch, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Branch: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &c.conflictInner.ID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Branch.id: %w", err)
-		return
-	}
-	return
-}
-
 // FromBytes unmarshals a Conflict from a sequence of bytes.
 func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
 	if conflict = c; conflict == nil {
@@ -411,21 +391,7 @@ func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
-func (c *ConflictMember) FromObjectStorageNew(_, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	if conflictMember = c; conflictMember == nil {
-		conflictMember = new(ConflictMember)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, conflictMember, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ConflictMember: %w", err)
-		return
-	}
-	return
-}
-
-// FromObjectStorage creates an ConflictMember from sequences of key and bytes.
 func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	// TODO: remmove this eventually
 	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)

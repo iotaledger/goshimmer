@@ -61,22 +61,22 @@ func init() {
 		panic(fmt.Errorf("error registering TransactionEssenceVersion validators: %w", err))
 	}
 
-	InputsArrayRules := &serializer.ArrayRules{
+	InputsArrayRules := &serix.ArrayRules{
 		Min:            MinInputCount,
 		Max:            MaxInputCount,
 		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(InputsArrayRules))
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(InputsArrayRules))
 	if err != nil {
 		panic(fmt.Errorf("error registering Inputs type settings: %w", err))
 	}
 
-	OutputsArrayRules := &serializer.ArrayRules{
+	OutputsArrayRules := &serix.ArrayRules{
 		Min:            MinOutputCount,
 		Max:            MaxOutputCount,
 		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
 	}
-	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(OutputsArrayRules))
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(OutputsArrayRules))
 	if err != nil {
 		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
 	}
@@ -322,7 +322,7 @@ func (t *Transaction) FromObjectStorageOld(key, bytes []byte) (objectstorage.Sto
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (t *Transaction) FromBytes(bytes []byte) (*Transaction, error) {
 	tx := new(Transaction)
-	if tx != nil {
+	if t != nil {
 		tx = t
 	}
 	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx)
@@ -867,28 +867,7 @@ func NewTransactionMetadata(transactionID TransactionID) *TransactionMetadata {
 }
 
 // FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
-func (t *TransactionMetadata) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
-	tx := new(TransactionMetadata)
-	if tx != nil {
-		tx = t
-	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata: %w", err)
-		return tx, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, tx.transactionMetadataInner.ID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata.id: %w", err)
-		return tx, err
-	}
-	return tx, err
-}
-
-// FromObjectStorage creates an TransactionMetadata from sequences of key and bytes.
 func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	// TODO: remove eventually
 	transactionMetadata, err := t.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionMetadata from bytes: %w", err)
@@ -901,7 +880,7 @@ func (t *TransactionMetadata) FromObjectStorage(key, bytes []byte) (objectstorag
 // FromBytes creates an TransactionMetadata from sequences of key and bytes.
 func (t *TransactionMetadata) FromBytes(bytes []byte) (*TransactionMetadata, error) {
 	tx := new(TransactionMetadata)
-	if tx != nil {
+	if t != nil {
 		tx = t
 	}
 

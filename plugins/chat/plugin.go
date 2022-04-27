@@ -24,7 +24,7 @@ var (
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
-	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(chat.NewChat); err != nil {
 			Plugin.Panic(err)
 		}

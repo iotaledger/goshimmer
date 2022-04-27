@@ -74,28 +74,7 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
-func (m *MarkerIndexBranchIDMapping) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
-	mapping := new(MarkerIndexBranchIDMapping)
-	if mapping != nil {
-		mapping = m
-	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), key, &mapping.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
-		return mapping, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, mapping, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
-		return mapping, err
-	}
-	return mapping, err
-}
-
-// FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
 func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	//TODO: remove eventually
 	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
@@ -107,7 +86,7 @@ func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, bytes []byte) (objec
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
 func (m *MarkerIndexBranchIDMapping) FromBytes(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
 	mapping := new(MarkerIndexBranchIDMapping)
-	if mapping != nil {
+	if m != nil {
 		mapping = m
 	}
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &mapping.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
@@ -360,26 +339,6 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
-func (m *MarkerMessageMapping) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
-	mapping := new(MarkerMessageMapping)
-	if mapping != nil {
-		mapping = m
-	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), key, mapping.markerMessageMappingInner.Marker, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
-		return mapping, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, mapping, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
-		return mapping, err
-	}
-	return mapping, err
-}
-
-// FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
 func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
 	// TODO: remove eventually
 	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
@@ -392,10 +351,11 @@ func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstora
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
 func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
 	mapping := new(MarkerMessageMapping)
-	if mapping != nil {
+	if m != nil {
 		mapping = m
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, mapping.markerMessageMappingInner.Marker, serix.WithValidation())
+	decodedMarker := new(markers.Marker)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, decodedMarker, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
 		return mapping, err
@@ -406,6 +366,8 @@ func (m *MarkerMessageMapping) FromBytes(bytes []byte) (individuallyMappedMessag
 		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
 		return mapping, err
 	}
+	mapping.markerMessageMappingInner.Marker = decodedMarker
+
 	return mapping, err
 }
 

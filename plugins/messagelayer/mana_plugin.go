@@ -49,7 +49,7 @@ var (
 )
 
 func init() {
-	ManaPlugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	ManaPlugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {

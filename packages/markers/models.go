@@ -1326,28 +1326,8 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 	}
 }
 
-// FromObjectStorage creates an Sequence from sequences of key and bytes.
-func (s *Sequence) FromObjectStorageNew(key, bytes []byte) (sequence objectstorage.StorableObject, err error) {
-	if sequence = s; sequence == nil {
-		sequence = new(Sequence)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, sequence, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence.id: %w", err)
-		return
-	}
-	return
-}
-
 // FromObjectStorage creates a Sequence from sequences of key and bytes.
 func (s *Sequence) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	// TODO: remove eventually
 	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)

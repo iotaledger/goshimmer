@@ -38,7 +38,7 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	inbox = make(chan tangle.MessageID, inboxSize)
 
-	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}

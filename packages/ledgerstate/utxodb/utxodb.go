@@ -1,8 +1,6 @@
 package utxodb
 
 import (
-	"fmt"
-
 	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -62,12 +60,10 @@ func (u *UtxoDB) AddTransaction(tx *ledgerstate.Transaction) error {
 	defer u.mutex.Unlock()
 
 	// serialize/deserialize for proper semantic check
-	fmt.Println("before", tx)
 	tx, err := new(ledgerstate.Transaction).FromBytes(tx.Bytes())
 	if err != nil {
 		return err
 	}
-	fmt.Println("after", tx)
 	if err = u.CheckNewTransaction(tx, false); err != nil {
 		return err
 	}

@@ -31,7 +31,7 @@ func init() {
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](onInit))
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](onInit))
 }
 
 func onAddPlugin(addEvent *node.AddEvent) {

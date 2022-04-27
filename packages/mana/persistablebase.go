@@ -106,28 +106,7 @@ func (p *PersistableBaseMana) ObjectStorageValueOld() []byte {
 }
 
 // FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
-func (p *PersistableBaseMana) FromObjectStorageNew(key, bytes []byte) (objectstorage.StorableObject, error) {
-	manaVector := new(PersistableBaseMana)
-	if manaVector != nil {
-		manaVector = p
-	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, manaVector, serix.WithValidation())
-	if err != nil {
-		err = errors.Wrap(err, "failed to parse PersistableBaseMana")
-		return manaVector, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &manaVector.NodeID, serix.WithValidation())
-	if err != nil {
-		err = errors.Wrap(err, "failed to parse PersistableBaseMana.NodeID")
-		return manaVector, err
-	}
-	return manaVector, err
-}
-
-// FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
 func (p *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	// TODO: remove that eventually
 	res, err := p.FromBytes(bytes)
 	copy(res.NodeID[:], key)
 	return res, err
@@ -137,7 +116,7 @@ func (p *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorag
 // FromBytes unmarshals a PersistableBaseMana from a sequence of bytes.
 func (p *PersistableBaseMana) FromBytes(bytes []byte) (*PersistableBaseMana, error) {
 	manaVector := new(PersistableBaseMana)
-	if manaVector != nil {
+	if p != nil {
 		manaVector = p
 	}
 	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, manaVector, serix.WithValidation())

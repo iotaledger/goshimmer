@@ -21,7 +21,7 @@ import (
 )
 
 func init() {
-	err := serix.DefaultAPI.RegisterTypeSettings(BranchIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
+	err := serix.DefaultAPI.RegisterTypeSettings(BranchIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
 	if err != nil {
 		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
@@ -377,32 +377,14 @@ func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstor
 	return result, err
 }
 
-// FromObjectStorage creates an Branch from sequences of key and bytes.
-func (b *Branch) FromObjectStorageNew(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
-	if branch = b; branch == nil {
-		branch = new(Branch)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, branch, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Branch: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &b.branchInner.id, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Branch.id: %w", err)
-		return
-	}
-	return
-}
-
 // FromBytes unmarshals an Branch from a sequence of bytes.
 func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 	if branch = b; branch == nil {
 		branch = new(Branch)
 	}
 
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, &b.branchInner.id, serix.WithValidation())
+	branchID := new(BranchID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), bytes, branchID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch.id: %w", err)
 		return
@@ -413,7 +395,7 @@ func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
 		err = errors.Errorf("failed to parse Branch: %w", err)
 		return
 	}
-
+	branch.branchInner.id = *branchID
 	return
 }
 
@@ -622,19 +604,6 @@ func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectst
 		return result, err
 	}
 	return result, err
-}
-
-// FromObjectStorage creates an ChildBranch from sequences of key and bytes.
-func (c *ChildBranch) FromObjectStorageNew(_, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	if childBranch = c; childBranch == nil {
-		childBranch = new(ChildBranch)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, childBranch, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ChildBranch: %w", err)
-		return
-	}
-	return
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.

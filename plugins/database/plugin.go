@@ -41,7 +41,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(event.NewClosure[*node.InitEvent](func(initEvent *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(initEvent *node.InitEvent) {
 		if err := initEvent.Container.Provide(createStore); err != nil {
 			Plugin.Panic(err)
 		}

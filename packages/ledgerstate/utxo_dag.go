@@ -925,27 +925,7 @@ func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid type
 }
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
-func (c *Consumer) FromObjectStorageNew(key, bytes []byte) (consumer objectstorage.StorableObject, err error) {
-	if consumer = c; consumer == nil {
-		consumer = new(Consumer)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, consumer, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Consumer: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &consumer.(*Consumer).consumerInner.ConsumedInput, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
-		return
-	}
-	return
-}
-
-// FromObjectStorage creates an Consumer from sequences of key and bytes.
 func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	// TODO: remove eventually
 	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
