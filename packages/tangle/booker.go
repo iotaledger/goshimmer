@@ -81,7 +81,7 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs branchdag.Bran
 		return branchdag.NewBranchIDs(branchdag.MasterBranchID), nil
 	}
 
-	if !branchIDs.IsEmpty() {
+	if !branchIDs.IsEmpty() && !branchIDs.Is(branchdag.MasterBranchID) {
 		branchIDs.Delete(branchdag.MasterBranchID)
 	}
 

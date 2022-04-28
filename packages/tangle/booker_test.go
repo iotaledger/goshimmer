@@ -2,7 +2,6 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -44,7 +43,6 @@ func TestScenario_1(t *testing.T) {
 
 	// Message8 combines conflicting branches on UTXO level
 	for _, messageAlias := range []string{"Message8"} {
-		fmt.Println(testFramework.MessageMetadata(messageAlias))
 		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not objectively invalid", messageAlias)
 	}
 
@@ -3917,7 +3915,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 
-		assert.Equal(t, messageExpectedBranchIDs, retrievedBranchIDs, "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
+		assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
 	}
 }
 
