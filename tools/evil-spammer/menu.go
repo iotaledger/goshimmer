@@ -112,9 +112,15 @@ func (p *Printer) FundsWarning() {
 }
 
 func (p *Printer) UrlWarning() {
-	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "red"), 2)
+	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), 2)
 	fmt.Println()
 
+}
+
+func (p *Printer) DevNetFundsWarning() {
+	p.Println(p.colorString("Warning: Preparing 10k outputs and more could take looong time in the DevNet due to high PoW and congestion.", "yellow"), 1)
+	p.Println(p.colorString("We advice to use 100 option only.", "yellow"), 1)
+	fmt.Println()
 }
 
 func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
@@ -139,6 +145,8 @@ func (p *Printer) colorString(s string, color string) string {
 		colorString = "\033[36m"
 	case "green":
 		colorString = "\033[32m"
+	case "yellow":
+		colorString = "\033[33m"
 	}
 
 	return colorString + s + colorStringReset

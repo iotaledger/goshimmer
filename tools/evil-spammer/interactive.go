@@ -289,6 +289,7 @@ func (m *Mode) onSettings() {
 func (m *Mode) prepareFunds() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
+	printer.DevNetFundsWarning()
 
 	if m.preparingFunds {
 		printer.FundsCurrentlyPreparedWarning()
