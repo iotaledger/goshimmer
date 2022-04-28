@@ -6,6 +6,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Snapshot /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,16 +16,11 @@ type Snapshot struct {
 	ByNodeID map[identity.ID]*SnapshotNode
 }
 
-/*
-
-	snapshot := deps.Tangle.Ledger.SnapshotUTXO()
-
-	aMana, err := snapshotAccessMana()
-	if err != nil {
-		return err
+func NewSnapshot() *Snapshot {
+	return &Snapshot{
+		ByNodeID: make(map[identity.ID]*SnapshotNode),
 	}
-	snapshot.AccessManaByNode = aMana
-*/
+}
 
 func (s *Snapshot) NodeSnapshot(nodeID identity.ID) (nodeSnapshot *SnapshotNode) {
 	nodeSnapshot, exists := s.ByNodeID[nodeID]
@@ -33,8 +29,8 @@ func (s *Snapshot) NodeSnapshot(nodeID identity.ID) (nodeSnapshot *SnapshotNode)
 	}
 
 	nodeSnapshot = &SnapshotNode{
-		AccessMana:       AccessManaSnapshot{},
-		SortedTxSnapshot: SortedTxSnapshot{},
+		AccessMana:       &AccessManaSnapshot{},
+		SortedTxSnapshot: make(SortedTxSnapshot, 0),
 	}
 	s.ByNodeID[nodeID] = nodeSnapshot
 
@@ -83,8 +79,27 @@ func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 	return nil
 }
 
+// Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte) {
-	return nil
+	marshalUtil := marshalutil.New()
+
+	marshalUtil.WriteUint64(uint64(len(s.ByNodeID)))
+	for nodeID, nodeSnapshot := range s.ByNodeID {
+		marshalUtil.Write(nodeID)
+		marshalUtil.Write(nodeSnapshot)
+	}
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human-readable version of the Snapshot.
+func (s *Snapshot) String() (humanReadable string) {
+	structBuilder := stringify.StructBuilder("Snapshot")
+	for nodeID, nodeSnapshot := range s.ByNodeID {
+		structBuilder.AddField(stringify.StructField(nodeID.String(), nodeSnapshot))
+	}
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

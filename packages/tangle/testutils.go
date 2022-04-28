@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -32,7 +31,6 @@ import (
 // simplified way.
 type MessageTestFramework struct {
 	tangle                   *Tangle
-	indexer                  *indexer.Indexer
 	branchIDs                map[string]branchdag.BranchID
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
@@ -50,7 +48,6 @@ type MessageTestFramework struct {
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
-		indexer:          indexer.New(indexer.WithStore(tangle.Options.Store), indexer.WithCacheTimeProvider(tangle.Options.CacheTimeProvider)),
 		branchIDs:        make(map[string]branchdag.BranchID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
@@ -282,15 +279,6 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 
 	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
-
-	for alias := range m.options.coloredGenesisOutputs {
-		m.indexer.CachedAddressOutputMappings(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-			m.tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
-				m.outputsByAlias[alias] = output.(devnetvm.Output)
-				m.outputsByID[addressOutputMapping.OutputID()] = output.(devnetvm.Output)
-			})
-		})
-	}
 }
 
 func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs utxo.Outputs, outputsMetadata ledger.OutputsMetadata) {
@@ -304,7 +292,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetGradeOfFinality(gof.High)
-	outputMetadata.SetPledgeID(manaPledgeID)
+	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
 	outputsMetadata.Add(outputMetadata)

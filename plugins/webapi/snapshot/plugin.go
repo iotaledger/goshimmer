@@ -3,6 +3,7 @@ package snapshot
 import (
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -10,7 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -49,8 +49,13 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
+	accessManaMap, accessManaTime, err := messagelayer.GetManaMap(mana.AccessMana)
+	if err != nil {
+		return errors.Errorf("could not get access mana map: %w", err)
+	}
+
 	nodeSnapshot := new(snapshot.Snapshot)
-	nodeSnapshot.FromNode(deps.Tangle.Ledger)
+	nodeSnapshot.FromNode(deps.Tangle.Ledger, accessManaMap, accessManaTime)
 
 	snapshotBytes := nodeSnapshot.Bytes()
 	if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
@@ -64,23 +69,6 @@ func DumpCurrentLedger(c echo.Context) (err error) {
 	Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
-}
-
-// snapshotAccessMana returns snapshot of the current access mana.
-func snapshotAccessMana() (aManaSnapshot map[identity.ID]mana.AccessManaRecord, err error) {
-	aManaSnapshot = make(map[identity.ID]mana.AccessManaRecord)
-
-	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
-	if err != nil {
-		return nil, err
-	}
-	for nodeID, aMana := range m {
-		aManaSnapshot[nodeID] = mana.AccessManaRecord{
-			Value:     aMana,
-			Timestamp: t,
-		}
-	}
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

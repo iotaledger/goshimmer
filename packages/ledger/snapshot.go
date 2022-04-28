@@ -3,6 +3,7 @@ package ledger
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
@@ -21,7 +22,7 @@ func NewSnapshot(outputs utxo.Outputs, outputsMetadata OutputsMetadata) (new *Sn
 	}
 }
 
-// FromMarshalUtil unserializes a Snapshot from the given .MarshalUtil.
+// FromMarshalUtil un-serializes a Snapshot from the given MarshalUtil.
 func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, outputFactory utxo.OutputFactory) (err error) {
 	if err = s.Outputs.FromMarshalUtil(marshalUtil, outputFactory); err != nil {
 		return errors.Errorf("could not unmarshal outputs: %w", err)
@@ -35,8 +36,16 @@ func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, outputF
 
 // Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte) {
-	marshalUtil := marshalutil.New()
-	marshalUtil.Write(s.Outputs)
+	return marshalutil.New().
+		Write(s.Outputs).
+		Write(s.OutputsMetadata).
+		Bytes()
+}
 
-	return marshalUtil.Bytes()
+// String returns a human-readable version of the Snapshot.
+func (s *Snapshot) String() (humanReadable string) {
+	return stringify.Struct("Snapshot",
+		stringify.StructField("Outputs", s.Outputs),
+		stringify.StructField("OutputsMetadata", s.OutputsMetadata),
+	)
 }

@@ -334,8 +334,8 @@ type OutputMetadata struct {
 	// id contains the identifier of the Output.
 	id utxo.OutputID
 
-	// pledgeID contains the identifier of the node that received the mana pledge.
-	pledgeID identity.ID
+	// consensusManaPledgeID contains the identifier of the node that received the consensus mana pledge.
+	consensusManaPledgeID identity.ID
 
 	// creationTime contains the time when the Output was created.
 	creationTime time.Time
@@ -406,8 +406,8 @@ func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 	if err = o.id.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse OutputID: %w", err)
 	}
-	if o.pledgeID, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse pledge id: %w", err)
+	if o.consensusManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse consensus mana pledge id: %w", err)
 	}
 	if o.creationTime, err = marshalUtil.ReadTime(); err != nil {
 		return errors.Errorf("failed to parse creation time: %w", err)
@@ -435,18 +435,18 @@ func (o *OutputMetadata) ID() (id utxo.OutputID) {
 	return o.id
 }
 
-// PledgeID returns the identifier of the node that received the mana pledge.
-func (o *OutputMetadata) PledgeID() (id identity.ID) {
-	return o.pledgeID
+// ConsensusManaPledgeID returns the identifier of the node that received the consensus mana pledge.
+func (o *OutputMetadata) ConsensusManaPledgeID() (id identity.ID) {
+	return o.consensusManaPledgeID
 }
 
-// SetPledgeID sets the identifier of the node that received the mana pledge.
-func (o *OutputMetadata) SetPledgeID(id identity.ID) (updated bool) {
-	if o.pledgeID == id {
+// SetConsensusManaPledgeID sets the identifier of the node that received the consensus mana pledge.
+func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool) {
+	if o.consensusManaPledgeID == id {
 		return false
 	}
 
-	o.pledgeID = id
+	o.consensusManaPledgeID = id
 	o.SetModified()
 
 	return true
@@ -569,7 +569,7 @@ func (o *OutputMetadata) Bytes() (serialized []byte) {
 func (o *OutputMetadata) String() (humanReadable string) {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("pledgeID", o.PledgeID()),
+		stringify.StructField("consensusManaPledgeID", o.ConsensusManaPledgeID()),
 		stringify.StructField("creationTime", o.CreationTime()),
 		stringify.StructField("branchIDs", o.BranchIDs()),
 		stringify.StructField("firstConsumer", o.FirstConsumer()),
@@ -586,7 +586,7 @@ func (o *OutputMetadata) ObjectStorageKey() (key []byte) {
 // ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
 func (o *OutputMetadata) ObjectStorageValue() (value []byte) {
 	return marshalutil.New().
-		Write(o.PledgeID()).
+		Write(o.ConsensusManaPledgeID()).
 		WriteTime(o.CreationTime()).
 		Write(o.BranchIDs()).
 		Write(o.FirstConsumer()).
@@ -620,6 +620,8 @@ func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata
 
 // FromMarshalUtil returns a new OutputsMetadata collection from the given MarshalUtil.
 func (o OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	o.OrderedMap = orderedmap.New[utxo.OutputID, *OutputMetadata]()
+
 	outputsMetadataCount, err := marshalUtil.ReadUint64()
 	if err != nil {
 		return errors.Errorf("failed to read outputs metadata count: %w", err)
@@ -630,6 +632,7 @@ func (o OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		if outputMetadataErr := outputMetadata.FromMarshalUtil(marshalUtil); outputMetadataErr != nil {
 			return errors.Errorf("failed to read output metadata: %w", outputMetadataErr)
 		}
+		o.Add(outputMetadata)
 	}
 
 	return nil
@@ -691,6 +694,29 @@ func (o OutputsMetadata) ForEach(callback func(outputMetadata *OutputMetadata) e
 	})
 
 	return err
+}
+
+// Bytes returns a serialized version of the OutputsMetadata.
+func (o OutputsMetadata) Bytes() (serialized []byte) {
+	marshalUtil := marshalutil.New()
+	marshalUtil.WriteUint64(uint64(o.Size()))
+	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
+		marshalUtil.Write(outputMetadata)
+		return nil
+	})
+
+	return marshalUtil.Bytes()
+}
+
+// String returns a human-readable version of the OutputsMetadata.
+func (o OutputsMetadata) String() (humanReadable string) {
+	structBuilder := stringify.StructBuilder("OutputsMetadata")
+	_ = o.ForEach(func(outputMetadata *OutputMetadata) error {
+		structBuilder.AddField(stringify.StructField(outputMetadata.ID().String(), outputMetadata))
+		return nil
+	})
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

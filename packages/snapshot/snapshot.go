@@ -3,10 +3,12 @@ package snapshot
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -19,9 +21,9 @@ type Snapshot struct {
 	ManaSnapshot   *mana.Snapshot
 }
 
-func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
+func (s *Snapshot) FromNode(ledger *ledger.Ledger, accessManaByNode mana.NodeMap, accessManaTime time.Time) {
 	s.LedgerSnapshot = ledger.TakeSnapshot()
-	s.ManaSnapshot = s.takeManaSnapshot()
+	s.ManaSnapshot = s.takeManaSnapshot(accessManaByNode, accessManaTime)
 }
 
 func (s *Snapshot) FromFile(fileName string) (err error) {
@@ -48,6 +50,14 @@ func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err er
 	return nil
 }
 
+func (s *Snapshot) WriteFile(fileName string) (err error) {
+	if err = os.WriteFile(fileName, s.Bytes(), 0644); err != nil {
+		return errors.Errorf("failed to write snapshot file %s: %w", fileName, err)
+	}
+
+	return nil
+}
+
 // Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte) {
 	return marshalutil.New().
@@ -56,9 +66,23 @@ func (s *Snapshot) Bytes() (serialized []byte) {
 		Bytes()
 }
 
-func (s *Snapshot) takeManaSnapshot() (snapshot *mana.Snapshot) {
+func (s *Snapshot) String() (humanReadable string) {
+	return stringify.Struct("Snapshot",
+		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
+		stringify.StructField("ManaSnapshot", s.ManaSnapshot),
+	)
+}
+
+func (s *Snapshot) takeManaSnapshot(accessManaByNode mana.NodeMap, accessManaTime time.Time) (snapshot *mana.Snapshot) {
 	snapshot = &mana.Snapshot{
 		ByNodeID: make(map[identity.ID]*mana.SnapshotNode),
+	}
+
+	for nodeID, accessManaValue := range accessManaByNode {
+		snapshot.NodeSnapshot(nodeID).AccessMana = &mana.AccessManaSnapshot{
+			Value:     accessManaValue,
+			Timestamp: accessManaTime,
+		}
 	}
 
 	_ = s.LedgerSnapshot.Outputs.ForEach(func(output utxo.Output) error {
@@ -67,7 +91,7 @@ func (s *Snapshot) takeManaSnapshot() (snapshot *mana.Snapshot) {
 			panic(fmt.Sprintf("output metadata with %s not found in snapshot", output.ID()))
 		}
 
-		s.updateConsensusManaDetails(snapshot.NodeSnapshot(outputMetadata.PledgeID()), output.(devnetvm.Output), outputMetadata)
+		s.updateConsensusManaDetails(snapshot.NodeSnapshot(outputMetadata.ConsensusManaPledgeID()), output.(devnetvm.Output), outputMetadata)
 
 		return nil
 	})

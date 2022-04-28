@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 )
@@ -272,6 +273,17 @@ func (o Outputs) Bytes() (serialized []byte) {
 	})
 
 	return marshalUtil.Bytes()
+}
+
+// Strings returns a human-readable version of the Outputs.
+func (o Outputs) String() (humanReadable string) {
+	structBuilder := stringify.StructBuilder("Outputs")
+	_ = o.ForEach(func(output Output) error {
+		structBuilder.AddField(stringify.StructField(output.ID().String(), output))
+		return nil
+	})
+
+	return structBuilder.String()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
