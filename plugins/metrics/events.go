@@ -15,7 +15,11 @@ type EventsStruct struct {
 }
 
 func newEvents() (new *EventsStruct) {
-	return &EventsStruct{}
+	return &EventsStruct{
+		ReceivedMPSUpdated:      event.New[*ReceivedMPSUpdatedEvent](),
+		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),
+		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
+	}
 
 }
 
