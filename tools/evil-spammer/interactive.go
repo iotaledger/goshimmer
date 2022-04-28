@@ -403,7 +403,11 @@ func (m *Mode) spamSubMenu(menuType string) {
 }
 
 func (m *Mode) areEnoughFundsAvailable() bool {
-	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.duration.Seconds()) && m.Config.Scenario != "msg"
+	outputsNeeded := m.Config.Rate * int(m.Config.duration.Seconds())
+	if m.Config.timeUnit == time.Minute {
+		outputsNeeded = int(float64(m.Config.Rate) * m.Config.duration.Minutes())
+	}
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != "msg"
 }
 
 func (m *Mode) startSpam() {
