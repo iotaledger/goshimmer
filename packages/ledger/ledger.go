@@ -179,8 +179,11 @@ func (l *Ledger) processTransaction(tx utxo.Transaction) (err error) {
 // the booked status).
 func (l *Ledger) processConsumingTransactions(outputIDs utxo.OutputIDs) {
 	for it := l.Utils.UnprocessedConsumingTransactions(outputIDs).Iterator(); it.HasNext(); {
-		go l.Storage.CachedTransaction(it.Next()).Consume(func(tx utxo.Transaction) {
-			_ = l.processTransaction(tx)
+		txID := it.Next()
+		event.Loop.Submit(func() {
+			l.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+				_ = l.processTransaction(tx)
+			})
 		})
 	}
 }

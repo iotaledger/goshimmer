@@ -184,9 +184,10 @@ func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgno
 }
 
 func (b *Booker) propagateBooking(messageID MessageID) {
-	// TODO: this should be handled with eventloop
 	b.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-		go b.bookPayload(approver.ApproverMessageID())
+		event.Loop.Submit(func() {
+			b.bookPayload(approver.ApproverMessageID())
+		})
 	})
 }
 

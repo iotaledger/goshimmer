@@ -54,9 +54,10 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 }
 
 func (s *Solidifier) processApprovers(messageID MessageID) {
-	// TODO: this should be handled with eventloop
 	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-		go s.Solidify(approver.ApproverMessageID())
+		event.Loop.Submit(func() {
+			s.Solidify(approver.ApproverMessageID())
+		})
 	})
 }
 
