@@ -49,16 +49,23 @@ const (
 // }
 
 // Equally distributed snapshot internal testnet.
+// var nodesToPledge = []string{
+// 	"e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ",  // entrynode
+// 	"EGgbUaAnfXG2mBtGQwSPPVxLa8uC1hnNsxtnLYbHkm8B", // bootstrap_01
+// 	"7PS8tJSjhyFMbUqbVE2pUideT6DQc2ovNv5hBDTkvUtm", // vanilla_01
+// 	"3HqasBLjyqiYWeavLZoi1k1nrMVvGZDGj3EPkKHxzxdZ", // drng_01
+// 	"85LVFFjYZj8JNwmD5BJFux3gVGsw9uT2frFrnQ8gm7dX", // drng_02
+// 	"7Hk4Airu42Gcqm3JZDAL69DSdaksF9qfahppez9LZTJr", // drng_03
+// 	"E3RmVjQHsisxxLY36AuRkV7Uceo1FReYWLMsCTEbDBeC", // drng_04
+// 	"GRbfN6HDzFxWNwN6q4ixmTjDR5oS8XQc5zWbxxFFkBmw", // drng_05
+// 	"12rLUHyF67rzqHgYR6Jxbi3GD5CTU7DaxwDQfmVYcwnV", // faucet_01
+// }
+
+// Docker network.
 var nodesToPledge = []string{
-	"e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ",  // entrynode
-	"EGgbUaAnfXG2mBtGQwSPPVxLa8uC1hnNsxtnLYbHkm8B", // bootstrap_01
-	"7PS8tJSjhyFMbUqbVE2pUideT6DQc2ovNv5hBDTkvUtm", // vanilla_01
-	"3HqasBLjyqiYWeavLZoi1k1nrMVvGZDGj3EPkKHxzxdZ", // drng_01
-	"85LVFFjYZj8JNwmD5BJFux3gVGsw9uT2frFrnQ8gm7dX", // drng_02
-	"7Hk4Airu42Gcqm3JZDAL69DSdaksF9qfahppez9LZTJr", // drng_03
-	"E3RmVjQHsisxxLY36AuRkV7Uceo1FReYWLMsCTEbDBeC", // drng_04
-	"GRbfN6HDzFxWNwN6q4ixmTjDR5oS8XQc5zWbxxFFkBmw", // drng_05
-	"12rLUHyF67rzqHgYR6Jxbi3GD5CTU7DaxwDQfmVYcwnV", // faucet_01
+	"2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5", // peer_master
+	"AXSoTPcN6SNwH64tywpz4k2XfAc24NR7ckKX8wPjeUZD", // peer_master2
+	"FZ6xmPZXRs2M8z9m9ETTQok4PCga4X8FRHwQE6uYm4rV", // faucet
 }
 
 func main() {
@@ -101,7 +108,7 @@ func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[id
 }
 
 func init() {
-	flag.Uint64(cfgGenesisTokenAmount, 800000, "the amount of tokens to add to the genesis output") // we pledge this amount to peer master
+	flag.Uint64(cfgGenesisTokenAmount, 1000000000000000, "the amount of tokens to add to the genesis output") // this amount is pledged to the empty nodeID.
 	flag.String(cfgSnapshotFileName, defaultSnapshotFileName, "the name of the generated snapshot file")
 	flag.String(cfgSnapshotGenesisSeed, "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih", "the genesis seed")
 	flag.Uint(cfgPledgeTokenAmount, 1000000000000000, "the amount of tokens to pledge to defined nodes (other than genesis)")

@@ -78,6 +78,8 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/tmp/mainnetdb
       --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
+      --node.seed=base58:4ata8GcTRMJ5sSv2jQJWmSYYTHct748p3tXmCFYm7wjA
+      --node.overwriteStoredSeed=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
@@ -209,7 +211,7 @@ volumes:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:
-    file: ${SNAPSHOT_FILE:-../integration-tests/assets/7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih.bin}
+    file: ${SNAPSHOT_FILE:-./docker-network.snapshot}
   goshimmer.config.json:
     file: ${GOSHIMMER_CONFIG:-./config.docker.json}
   prometheus.yml:

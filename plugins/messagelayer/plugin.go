@@ -51,6 +51,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle           *tangle.Tangle
+	Indexer          *indexer.Indexer
 	Local            *peer.Local
 	Discover         *discover.Protocol `optional:"true"`
 	Storage          kvstore.KVStore
@@ -141,6 +142,11 @@ func configure(plugin *node.Plugin) {
 
 		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 
+		// Add outputs to Indexer.
+		_ = nodeSnapshot.LedgerSnapshot.Outputs.ForEach(func(output utxo.Output) error {
+			deps.Indexer.IndexOutput(output.(devnetvm.Output))
+			return nil
+		})
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 
 		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.
