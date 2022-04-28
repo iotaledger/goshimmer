@@ -49,6 +49,23 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
 	}
+	err = serix.DefaultAPI.RegisterValidators(OutputID{}, validateOutputIDBytes, validateOutputID)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
+	}
+}
+
+func validateOutputID(outputID OutputID) (err error) {
+	// Validate strong parent block
+	if outputID.OutputIndex() >= MaxOutputCount {
+		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return nil
+}
+
+func validateOutputIDBytes(_ []byte) (err error) {
+	return
 }
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
@@ -140,14 +157,12 @@ func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID Outp
 }
 
 // OutputIDFromBytes unmarshals an OutputID from a sequence of bytes.
-func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
+func OutputIDFromBytes(data []byte) (outputID OutputID, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &outputID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -161,23 +176,6 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 
 	if outputID, _, err = OutputIDFromBytes(decodedBytes); err != nil {
 		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// OutputIDFromMarshalUtil unmarshals an OutputID using a MarshalUtil (for easier unmarshaling).
-func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(outputID[:], outputIDBytes)
-	// TODO: add max output count check
-	if outputID.OutputIndex() >= MaxOutputCount {
-		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
