@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
+	"github.com/iotaledger/goshimmer/plugins/notarization"
 	"github.com/iotaledger/goshimmer/plugins/peer"
 	"github.com/iotaledger/goshimmer/plugins/portcheck"
 	"github.com/iotaledger/goshimmer/plugins/pow"
@@ -52,4 +53,5 @@ var Core = node.Plugins(
 	metrics.Plugin,
 	spammer.Plugin,
 	manaeventlogger.Plugin,
+	notarization.Plugin,
 )
