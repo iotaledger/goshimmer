@@ -63,7 +63,7 @@ var nodesToPledge = []string{
 
 func main() {
 	snapshotFileName := viper.GetString(cfgSnapshotFileName)
-	log.Printf("creating snapshot %s...", snapshotFileName)
+	log.Printf("creating createdSnapshot %s...", snapshotFileName)
 
 	genesisTokenAmount := viper.GetUint64(cfgGenesisTokenAmount)
 	totalTokensToPledge := viper.GetUint64(cfgPledgeTokenAmount)
@@ -74,16 +74,16 @@ func main() {
 
 	manaDistribution := createManaDistribution(totalTokensToPledge)
 
-	snapshot, err := snapshotcreator.CreateSnapshot(genesisTokenAmount, genesisSeed, manaDistribution)
+	createdSnapshot, err := snapshotcreator.CreateSnapshot(genesisTokenAmount, genesisSeed, manaDistribution)
 	if err != nil {
-		log.Fatal("Failed to create snapshot %w", err)
+		log.Fatal("Failed to create createdSnapshot %w", err)
 	}
 
-	if err = snapshot.WriteFile(snapshotFileName); err != nil {
+	if err = createdSnapshot.WriteFile(snapshotFileName); err != nil {
 		panic(err)
 	}
 
-	fmt.Println(snapshot)
+	fmt.Println(createdSnapshot)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {

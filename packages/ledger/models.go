@@ -619,7 +619,7 @@ func NewOutputsMetadata(outputsMetadata ...*OutputMetadata) (new OutputsMetadata
 }
 
 // FromMarshalUtil returns a new OutputsMetadata collection from the given MarshalUtil.
-func (o OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+func (o *OutputsMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	o.OrderedMap = orderedmap.New[utxo.OutputID, *OutputMetadata]()
 
 	outputsMetadataCount, err := marshalUtil.ReadUint64()

@@ -40,9 +40,12 @@ func (s *Snapshot) FromFile(fileName string) (err error) {
 }
 
 func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	s.LedgerSnapshot = ledger.NewSnapshot(utxo.NewOutputs(), ledger.NewOutputsMetadata())
 	if err = s.LedgerSnapshot.FromMarshalUtil(marshalUtil, devnetvm.OutputFactory); err != nil {
 		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
+
+	s.ManaSnapshot = mana.NewSnapshot()
 	if err = s.ManaSnapshot.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to read ManaSnapshot: %w", err)
 	}

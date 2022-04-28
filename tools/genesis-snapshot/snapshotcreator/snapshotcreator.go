@@ -3,6 +3,7 @@ package snapshotcreator
 import (
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
@@ -30,7 +31,7 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, nodesToPledge m
 	manaSnapshot := mana.NewSnapshot()
 	for nodeID, value := range nodesToPledge {
 		// pledge to empty ID (burn tokens)
-		output, outputMetadata = createOutput(new(devnetvm.ED25519Address), value, nodeID, now)
+		output, outputMetadata = createOutput(devnetvm.NewED25519Address(ed25519.GenerateKeyPair().PublicKey), value, nodeID, now)
 		outputs.Add(output)
 		outputsMetadata.Add(outputMetadata)
 
