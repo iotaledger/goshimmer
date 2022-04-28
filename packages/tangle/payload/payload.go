@@ -1,11 +1,10 @@
 package payload
 
 import (
-	"fmt"
+	"context"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 // MaxPayloadSize = MaxMessageSize -
@@ -27,55 +26,13 @@ type Payload interface {
 }
 
 // FromBytes unmarshals a Payload from a sequence of bytes.
-func FromBytes(payloadBytes []byte) (payload Payload, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(payloadBytes)
-	if payload, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
+func FromBytes(data []byte) (payloadDecoded Payload, consumedBytes int, err error) {
+	payloadDecoded = Payload(nil)
 
-	return
-}
-
-// FromMarshalUtil unmarshals a Payload using a MarshalUtil (for easier unmarshaling).
-func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (payload Payload, err error) {
-	payloadSize, err := marshalUtil.ReadUint32()
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Chat Payload: %w", err)
 		return
-	}
-	if payloadSize > MaxSize {
-		err = errors.Errorf("maximum payload size of %d bytes exceeded: %w", MaxSize, cerrors.ErrParseBytesFailed)
-		return
-	}
-	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
-	if payloadSize == 0 {
-		return
-	}
-
-	payloadType, err := TypeFromMarshalUtil(marshalUtil)
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal Type from MarshalUtil: %w", err)
-		return
-	}
-
-	marshalUtil.ReadSeek(-marshalutil.Uint32Size)
-	payloadBytes, err := marshalUtil.ReadBytes(int(payloadSize))
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal payload bytes (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	readOffset := marshalUtil.ReadOffset()
-	if payload, err = Unmarshaler(payloadType)(payloadBytes); err != nil {
-		marshalUtil.ReadSeek(readOffset)
-		fmt.Printf("failed to parse Payload with custom unmarshaller: %s", err)
-
-		if payload, err = GenericDataPayloadUnmarshaler(payloadBytes); err != nil {
-			err = fmt.Errorf("failed to parse Payload with generic GenericDataPayloadUnmarshaler: %w", err)
-			return
-		}
 	}
 
 	return

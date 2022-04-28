@@ -268,9 +268,8 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
-func (m *MarkerMessageMapping) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	// TODO: remove eventually
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MarkerMessageMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
 	}

@@ -101,28 +101,6 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 	return
 }
 
-// ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshaling).
-func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
-	conflictIDsCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	conflictIDs = make(ConflictIDs)
-	for i := uint32(0); i < conflictIDsCount; i++ {
-		conflictID, conflictIDErr := ConflictIDFromMarshalUtil(marshalUtil)
-		if conflictIDErr != nil {
-			err = errors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
-			return
-		}
-
-		conflictIDs[conflictID] = types.Void
-	}
-
-	return
-}
-
 // Add adds a ConflictID to the collection and returns the collection to enable chaining.
 func (c ConflictIDs) Add(conflictID ConflictID) ConflictIDs {
 	c[conflictID] = types.Void
@@ -364,34 +342,6 @@ func (c *ConflictMember) FromBytes(data []byte) (conflictMember *ConflictMember,
 		err = errors.Errorf("failed to parse ConflictMember: %w", err)
 		return
 	}
-	return
-}
-
-// FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (c *ConflictMember) FromBytesOld(bytes []byte) (conflictMember *ConflictMember, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
-func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
-	if conflictMember = c; conflictMember == nil {
-		conflictMember = &ConflictMember{}
-	}
-	if conflictMember.conflictMemberInner.ConflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
-	}
-	if conflictMember.conflictMemberInner.BranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-
 	return
 }
 

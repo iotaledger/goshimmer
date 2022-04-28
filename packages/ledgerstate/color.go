@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -29,14 +28,12 @@ const ColorLength = 32
 type Color [ColorLength]byte
 
 // ColorFromBytes unmarshals a Color from a sequence of bytes.
-func ColorFromBytes(colorBytes []byte) (color Color, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(colorBytes)
-	if color, err = ColorFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Color from MarshalUtil: %w", err)
+func ColorFromBytes(data []byte) (color Color, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &color, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -52,18 +49,6 @@ func ColorFromBase58EncodedString(base58String string) (color Color, err error) 
 		err = errors.Errorf("failed to parse Color from bytes: %w", err)
 		return
 	}
-
-	return
-}
-
-// ColorFromMarshalUtil unmarshals a Color using a MarshalUtil (for easier unmarshalling).
-func ColorFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (color Color, err error) {
-	colorBytes, err := marshalUtil.ReadBytes(ColorLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse Color (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(color[:], colorBytes)
 
 	return
 }

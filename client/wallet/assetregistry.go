@@ -123,12 +123,13 @@ func ParseAssetRegistry(marshalUtil *marshalutil.MarshalUtil) (assetRegistry *As
 			return
 		}
 
-		txID, parseErr := ledgerstate.TransactionIDFromMarshalUtil(marshalUtil)
+		txID, readBytes, parseErr := ledgerstate.TransactionIDFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
 		if parseErr != nil {
 			err = parseErr
 
 			return
 		}
+		marshalUtil.ReadSeek(marshalUtil.ReadOffset() + readBytes)
 
 		asset.Color = color
 		asset.Name = typeutils.BytesToString(nameBytes)
@@ -261,6 +262,7 @@ func (a *AssetRegistry) Precision(color ledgerstate.Color) int {
 
 // Bytes marshal the registry into a sequence of bytes.
 func (a *AssetRegistry) Bytes() []byte {
+	//TODO: refactor
 	marshalUtil := marshalutil.New()
 
 	networkBytes := typeutils.StringToBytes(a.network)

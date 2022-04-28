@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -139,43 +138,18 @@ func TransactionIDFromBytes(bytes []byte) (transactionID TransactionID, consumed
 	return
 }
 
-// TransactionIDFromBytes unmarshals a TransactionID from a sequence of bytes.
-func TransactionIDFromBytesOld(bytes []byte) (transactionID TransactionID, consumedBytes int, err error) {
-	// TODO: remove this eventually
-	marshalUtil := marshalutil.New(bytes)
-	if transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // TransactionIDFromBase58 creates a TransactionID from a base58 encoded string.
 func TransactionIDFromBase58(base58String string) (transactionID TransactionID, err error) {
-	bytes, err := base58.Decode(base58String)
+	data, err := base58.Decode(base58String)
 	if err != nil {
 		err = errors.Errorf("error while decoding base58 encoded TransactionID (%v): %w", err, cerrors.ErrBase58DecodeFailed)
 		return
 	}
 
-	if transactionID, _, err = TransactionIDFromBytes(bytes); err != nil {
+	if transactionID, _, err = TransactionIDFromBytes(data); err != nil {
 		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
 		return
 	}
-
-	return
-}
-
-// TransactionIDFromMarshalUtil unmarshals a TransactionID using a MarshalUtil (for easier unmarshaling).
-func TransactionIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionID TransactionID, err error) {
-	transactionIDBytes, err := marshalUtil.ReadBytes(TransactionIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(transactionID[:], transactionIDBytes)
 
 	return
 }
@@ -270,12 +244,12 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 }
 
 // FromObjectStorage creates an Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
+func (t *Transaction) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
 	tx := new(Transaction)
 	if t != nil {
 		tx = t
 	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), bytes, tx, serix.WithValidation())
+	_, err := serix.DefaultAPI.Decode(context.Background(), value, tx, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction: %w", err)
 		return tx, err
@@ -395,7 +369,6 @@ func (t *Transaction) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Transaction into a sequence of bytes that are used as the value part in the
 // object storage.
 func (t *Transaction) ObjectStorageValue() []byte {
-	fmt.Println(t)
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -404,6 +377,7 @@ func (t *Transaction) ObjectStorageValue() []byte {
 	return objBytes
 }
 
+// SetOutputID assigns TransactionID to all outputs in TransactionEssence
 func SetOutputID(essence *TransactionEssence, transactionID TransactionID) {
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
@@ -474,9 +448,9 @@ func NewTransactionEssence(
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
-func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
 	transactionEssence = new(TransactionEssence)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, transactionEssence, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, transactionEssence, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
 		return

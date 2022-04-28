@@ -144,19 +144,13 @@ func NewMessageID(base58EncodedString string) (result MessageID, err error) {
 }
 
 // MessageIDFromBytes unmarshals a message id from a sequence of bytes.
-func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err error) {
+func MessageIDFromBytes(data []byte) (result MessageID, consumedBytes int, err error) {
 	// check arguments
-	if len(bytes) < MessageIDLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid message id")
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &result, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageID: %w", err)
 		return
 	}
-
-	// calculate result
-	copy(result[:], bytes)
-
-	// return the number of bytes we processed
-	consumedBytes = MessageIDLength
-
 	return
 }
 
@@ -436,9 +430,9 @@ func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageI
 }
 
 // FromObjectStorage creates a Message from sequences of key and bytes.
-func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
 	// parse the message
-	message, err := m.FromBytes(data)
+	message, err := m.FromBytes(value)
 	if err != nil {
 		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return

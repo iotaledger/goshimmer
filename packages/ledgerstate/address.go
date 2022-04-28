@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
@@ -369,28 +368,6 @@ func AliasAddressFromBase58EncodedString(base58String string) (address *AliasAdd
 		return
 	}
 
-	return
-}
-
-// AliasAddressFromMarshalUtil parses a AliasAddress from the given MarshalUtil.
-func AliasAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *AliasAddress, err error) {
-	addressType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if AddressType(addressType) != AliasAddressType {
-		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	data, err := marshalUtil.ReadBytes(AliasAddressDigestSize)
-	if err != nil {
-		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	address = &AliasAddress{}
-	copy(address.aliasAddressInner.Digest[:], data)
 	return
 }
 

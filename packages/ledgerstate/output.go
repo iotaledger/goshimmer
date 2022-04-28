@@ -265,32 +265,32 @@ type Output interface {
 }
 
 // OutputFromBytes restores an Output that was stored in the ObjectStorage.
-func OutputFromBytes(bytes []byte) (output Output, err error) {
+func OutputFromBytes(data []byte) (output Output, err error) {
 	// could be refactored to not duplicate code with FromObjectStorage
 	var outputType OutputType
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &outputType)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputType)
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 	switch outputType {
 	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromBytes(bytes); err != nil {
+		if output, err = new(SigLockedSingleOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 			return
 		}
 	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromBytes(bytes); err != nil {
+		if output, err = new(SigLockedColoredOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
 	case AliasOutputType:
-		if output, err = new(AliasOutput).FromBytes(bytes); err != nil {
+		if output, err = new(AliasOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromBytes(bytes); err != nil {
+		if output, err = new(ExtendedLockedOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
 			return
 		}
@@ -304,9 +304,9 @@ func OutputFromBytes(bytes []byte) (output Output, err error) {
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key, data []byte) (output objectstorage.StorableObject, err error) {
+func OutputFromObjectStorage(key, value []byte) (output objectstorage.StorableObject, err error) {
 	var outputType OutputType
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputType)
+	_, err = serix.DefaultAPI.Decode(context.Background(), value, &outputType)
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
@@ -314,22 +314,22 @@ func OutputFromObjectStorage(key, data []byte) (output objectstorage.StorableObj
 
 	switch outputType {
 	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, data); err != nil {
+		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, value); err != nil {
 			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 			return
 		}
 	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, data); err != nil {
+		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, value); err != nil {
 			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
 	case AliasOutputType:
-		if output, err = new(AliasOutput).FromObjectStorage(key, data); err != nil {
+		if output, err = new(AliasOutput).FromObjectStorage(key, value); err != nil {
 			err = errors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, data); err != nil {
+		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, value); err != nil {
 			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
 			return
 		}
@@ -440,13 +440,12 @@ func (o Outputs) Filter(condition func(output Output) bool) (filteredOutputs Out
 
 // Bytes returns a marshaled version of the Outputs.
 func (o Outputs) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(o)))
-	for _, output := range o {
-		marshalUtil.WriteBytes(output.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
 // String returns a human-readable version of the Outputs.
@@ -1052,7 +1051,7 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 func (a *AliasOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
 	output, err := a.FromBytes(value)
 	if err != nil {
-		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		err = errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
 		return nil, err
 	}
 	outputID, _, err := OutputIDFromBytes(key)
@@ -1955,10 +1954,10 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 }
 
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
-func (o *ExtendedLockedOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	output, err := o.FromBytes(bytes)
+func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	output, err := o.FromBytes(value)
 	if err != nil {
-		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
 		return nil, err
 	}
 	outputID, _, err := OutputIDFromBytes(key)

@@ -507,8 +507,8 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 }
 
 // FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
-func (l *LatestMarkerVotes) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := l.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (l *LatestMarkerVotes) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := l.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
 	}
@@ -797,31 +797,6 @@ type BranchVote struct {
 	BranchID  ledgerstate.BranchID `serix:"1"`
 	Opinion   Opinion              `serix:"2"`
 	VotePower VotePower            `serix:"3"`
-}
-
-// VoteFromMarshalUtil unmarshals a Vote structure using a MarshalUtil (for easier unmarshalling).
-func VoteFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (vote *BranchVote, err error) {
-	vote = new(BranchVote)
-
-	if vote.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
-	}
-
-	if vote.BranchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-	}
-
-	untypedOpinion, err := marshalUtil.ReadUint8()
-	if err != nil {
-		return nil, errors.Errorf("failed to parse Opinion from MarshalUtil: %w", err)
-	}
-	vote.Opinion = Opinion(untypedOpinion)
-
-	if vote.VotePower, err = marshalUtil.ReadUint64(); err != nil {
-		return nil, errors.Errorf("failed to parse VotePower from MarshalUtil: %w", err)
-	}
-
-	return
 }
 
 // WithOpinion derives a vote for the given Opinion.

@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
@@ -48,30 +46,6 @@ func NewType(typeNumber uint32, typeName string, typeUnmarshaler UnmarshalerFunc
 		Name:            typeName,
 		UnmarshalerFunc: typeUnmarshaler,
 	}
-
-	return
-}
-
-// TypeFromBytes unmarshals a Type from a sequence of bytes.
-func TypeFromBytes(typeBytes []byte) (typeResult Type, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(typeBytes)
-	if typeResult, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// TypeFromMarshalUtil unmarshals a Type using a MarshalUtil (for easier unmarshaling).
-func TypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (typeResult Type, err error) {
-	typeUint32, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse type (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	typeResult = Type(typeUint32)
 
 	return
 }

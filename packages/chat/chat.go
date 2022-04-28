@@ -86,15 +86,15 @@ func NewPayload(from, to, message string) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
-	payload = new(Payload)
+func FromBytes(bytes []byte) (payloadDecoded *Payload, consumedBytes int, err error) {
+	payloadDecoded = new(Payload)
 
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payload, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payloadDecoded, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Chat Payload: %w", err)
 		return
 	}
-	payload.bytes = bytes
+	payloadDecoded.bytes = bytes
 
 	return
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -56,14 +55,12 @@ func BranchIDEventHandler(handler interface{}, params ...interface{}) {
 }
 
 // BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
-func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+func BranchIDFromBytes(data []byte) (branchID BranchID, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &branchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -79,18 +76,6 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 		err = errors.Errorf("failed to parse BranchID from bytes: %w", err)
 		return
 	}
-
-	return
-}
-
-// BranchIDFromMarshalUtil unmarshals a BranchID using a MarshalUtil (for easier unmarshaling).
-func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
-	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(branchID[:], branchIDBytes)
 
 	return
 }
@@ -335,7 +320,6 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
 func (b *Branch) FromObjectStorage(key, value []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	// TODO: eventually remove
 	result, err := b.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
@@ -509,7 +493,6 @@ func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
 func (c *ChildBranch) FromObjectStorage(key, value []byte) (childBranch objectstorage.StorableObject, err error) {
-	// TODO: remove eventually
 	result, err := c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
@@ -528,35 +511,6 @@ func (c *ChildBranch) FromBytes(data []byte) (childBranch *ChildBranch, err erro
 		err = errors.Errorf("failed to parse ChildBranch: %w", err)
 		return
 	}
-	return
-}
-
-// FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (c *ChildBranch) FromBytesOld(bytes []byte) (childBranch *ChildBranch, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
-func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
-	if childBranch = c; childBranch == nil {
-		childBranch = new(ChildBranch)
-	}
-
-	if childBranch.conflictBranchInner.ParentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
-		return
-	}
-	if childBranch.conflictBranchInner.ChildBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
-		return
-	}
-
 	return
 }
 

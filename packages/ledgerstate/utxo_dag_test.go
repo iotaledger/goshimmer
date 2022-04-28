@@ -52,6 +52,7 @@ func TestExampleC(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
@@ -117,6 +118,8 @@ func TestExampleB(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
+
 		RegisterBranchIDAlias(NewBranchID(transactions["TX3"].ID()), "Branch3")
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
@@ -219,6 +222,7 @@ func TestExampleA(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)

@@ -17,13 +17,13 @@ const ElementIDLength = 32
 type ElementID [ElementIDLength]byte
 
 // ElementIDFromBytes converts byte array to an ElementID.
-func ElementIDFromBytes(bytes []byte) (result ElementID) {
+func ElementIDFromBytes(data []byte) (result ElementID) {
 	// check arguments
-	if len(bytes) < ElementIDLength {
+	if len(data) < ElementIDLength {
 		panic("bytes not long enough to encode a valid message id")
 	}
 
-	copy(result[:], bytes)
+	copy(result[:], data)
 	return
 }
 

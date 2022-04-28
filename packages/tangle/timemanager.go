@@ -185,6 +185,7 @@ type LastConfirmedMessage struct {
 
 // lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
 func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
+	//TODO: refactor
 	marshalUtil := marshalutil.New(bytes)
 	if lcm, err = lastConfirmedMessageFromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)

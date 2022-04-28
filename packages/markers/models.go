@@ -10,7 +10,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -35,19 +34,6 @@ const IndexLength = marshalutil.Uint64Size
 
 // Index represents the ever-increasing number of the Markers in a Sequence.
 type Index uint64
-
-// IndexFromMarshalUtil unmarshals an Index using a MarshalUtil (for easier unmarshalling).
-func IndexFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (index Index, err error) {
-	//TODO: remove eventually
-	untypedIndex, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse Index (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	index = Index(untypedIndex)
-
-	return
-}
 
 // Bytes returns a marshaled version of the Index.
 func (i Index) Bytes() (marshaledIndex []byte) {
@@ -111,9 +97,9 @@ func NewMarker(sequenceID SequenceID, index Index) *Marker {
 }
 
 // MarkerFromBytes unmarshals Marker from a sequence of bytes.
-func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
+func MarkerFromBytes(data []byte) (marker *Marker, consumedBytes int, err error) {
 	marker = new(Marker)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markerBytes, marker, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, marker, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Marker: %w", err)
 		return
@@ -166,9 +152,9 @@ type markersInner struct {
 }
 
 // FromBytes unmarshals a collection of Markers from a sequence of bytes.
-func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
+func FromBytes(data []byte) (markers *Markers, consumedBytes int, err error) {
 	markersDecoded := new(Markers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), markersBytes, markersDecoded, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, markersDecoded, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Markers: %w", err)
 		return
@@ -957,50 +943,6 @@ func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 // markersReferenced represents a type that encodes the reference between Markers of different Sequences.
 type markersReferenced map[SequenceID]*referencedMarkersMap
 
-// markersReferencesFromMarshalUtil unmarshals markerReferences using a MarshalUtil (for easier unmarshalling).
-func markersReferencedFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referenceMarkers markersReferenced, err error) {
-	referenceMarkers = make(map[SequenceID]*referencedMarkersMap)
-
-	sequenceCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	for i := uint32(0); i < sequenceCount; i++ {
-		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
-		if sequenceIDErr != nil {
-			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
-			return
-		}
-
-		referenceCount, referenceCountErr := marshalUtil.ReadUint32()
-		if referenceCountErr != nil {
-			err = errors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-		thresholdMap := newReferencedMarkersMap()
-		for j := uint32(0); j < referenceCount; j++ {
-			referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
-			if referencingIndexErr != nil {
-				err = errors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
-			if referencedIndexErr != nil {
-				err = errors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			thresholdMap.Set(referencingIndex, Index(referencedIndex))
-		}
-
-		referenceMarkers[sequenceID] = thresholdMap
-	}
-
-	return referenceMarkers, err
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region referencingMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
@@ -1055,50 +997,6 @@ func (l *referencedMarkersMap) Decode(b []byte) (bytesRead int, err error) {
 // TODO: remove this type when we retire MarshalUtilsEntirely
 // markersReferencing represents a type that encodes the reference between Markers of different Sequences.
 type markersReferencing map[SequenceID]*referencingMarkersMap
-
-// markersReferencesFromMarshalUtil unmarshals markerReferences using a MarshalUtil (for easier unmarshalling).
-func markersReferencingFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referenceMarkers markersReferencing, err error) {
-	referenceMarkers = make(map[SequenceID]*referencingMarkersMap)
-
-	sequenceCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	for i := uint32(0); i < sequenceCount; i++ {
-		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
-		if sequenceIDErr != nil {
-			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
-			return
-		}
-
-		referenceCount, referenceCountErr := marshalUtil.ReadUint32()
-		if referenceCountErr != nil {
-			err = errors.Errorf("failed to parse reference count (%v): %w", referenceCountErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-		thresholdMap := newReferencingMarkersMap()
-		for j := uint32(0); j < referenceCount; j++ {
-			referencedIndex, referencedIndexErr := marshalUtil.ReadUint64()
-			if referencedIndexErr != nil {
-				err = errors.Errorf("failed to read referenced Index (%v): %w", referencedIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			referencingIndex, referencingIndexErr := marshalUtil.ReadUint64()
-			if referencingIndexErr != nil {
-				err = errors.Errorf("failed to read referencing Index (%v): %w", referencingIndexErr, cerrors.ErrParseBytesFailed)
-				return
-			}
-
-			thresholdMap.Set(referencedIndex, Index(referencingIndex))
-		}
-
-		referenceMarkers[sequenceID] = thresholdMap
-	}
-
-	return referenceMarkers, err
-}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1318,32 +1216,23 @@ const SequenceIDLength = marshalutil.Uint64Size
 type SequenceID uint64
 
 // SequenceIDFromBytes unmarshals a SequenceID from a sequence of bytes.
-func SequenceIDFromBytes(sequenceIDBytes []byte) (sequenceID SequenceID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(sequenceIDBytes)
-	if sequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// SequenceIDFromMarshalUtil unmarshals a SequenceIDs using a MarshalUtil (for easier unmarshalling).
-func SequenceIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequenceID SequenceID, err error) {
-	untypedSequenceID, err := marshalUtil.ReadUint64()
+func SequenceIDFromBytes(data []byte) (sequenceID SequenceID, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &sequenceID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse SequenceID (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SequenceID: %w", err)
 		return
 	}
-	sequenceID = SequenceID(untypedSequenceID)
-
 	return
 }
 
 // Bytes returns a marshaled version of the SequenceID.
 func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
-	return marshalutil.New(marshalutil.Uint64Size).WriteUint64(uint64(a)).Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // String returns a human-readable version of the SequenceID.

@@ -66,10 +66,10 @@ func NewRequest(addr ledgerstate.Address, accessManaPledgeID, consensusManaPledg
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
-	payload = new(Payload)
+func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err error) {
+	payloadDecoded = new(Payload)
 
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payload, serix.WithValidation())
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Request: %w", err)
 		return
@@ -118,9 +118,9 @@ func (p *Payload) String() string {
 }
 
 // PayloadUnmarshaler sets the generic unmarshaler.
-func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
+func PayloadUnmarshaler(data []byte) (payloadDecoded payload.Payload, err error) {
 	var consumedBytes int
-	payload, consumedBytes, err = FromBytes(data)
+	payloadDecoded, consumedBytes, err = FromBytes(data)
 	if err != nil {
 		return nil, err
 	}

@@ -99,7 +99,7 @@ func TestMessageIDFromBytes(t *testing.T) {
 		buffer := randomBytes(MessageIDLength - 1)
 		result, consumed, err := MessageIDFromBytes(buffer)
 		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "bytes not long enough"))
+		assert.True(t, strings.Contains(err.Error(), "not enough data for deserialization"))
 		assert.Equal(t, 0, consumed)
 		assert.Equal(t, EmptyMessageID, result)
 	})
