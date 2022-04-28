@@ -46,7 +46,7 @@ type InteractiveConfig struct {
 }
 
 var configJSON = `{
-	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
+	"webAPI": ["http://localhost:8080","http://localhost:8090"],
 	"rate": 2,
 	"duration": "20s",
 	"timeUnit": "1s",
@@ -57,8 +57,8 @@ var configJSON = `{
 
 var defaultConfig = InteractiveConfig{
 	clientUrls: map[string]types.Empty{
-		"http://127.0.0.1:8080": types.Void,
-		"http://127.0.0.1:8090": types.Void,
+		"http://localhost:8080": types.Void,
+		"http://localhost:8090": types.Void,
 	},
 	Rate:     2,
 	duration: 20 * time.Second,
@@ -107,6 +107,13 @@ const (
 )
 
 var currentSpamOptions = []string{currentSpamRemove, back}
+
+const (
+	mpm = "Minute, rate is [mpm]"
+	mps = "Second, rate is [mps]"
+)
+
+var timeUnits = []string{mpm, mps}
 
 var (
 	scenarios     = []string{"msg", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
@@ -282,6 +289,7 @@ func (m *Mode) onSettings() {
 func (m *Mode) prepareFunds() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
+	printer.DevNetFundsWarning()
 
 	if m.preparingFunds {
 		printer.FundsCurrentlyPreparedWarning()
@@ -289,7 +297,6 @@ func (m *Mode) prepareFunds() {
 	}
 	if len(m.Config.clientUrls) == 0 {
 		printer.NotEnoughClientsWarning(1)
-		return
 	}
 	numToPrepareStr := ""
 	err := survey.AskOne(fundsQuestion, &numToPrepareStr)
@@ -397,7 +404,11 @@ func (m *Mode) spamSubMenu(menuType string) {
 }
 
 func (m *Mode) areEnoughFundsAvailable() bool {
-	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.duration.Seconds()) && m.Config.Scenario != "msg"
+	outputsNeeded := m.Config.Rate * int(m.Config.duration.Seconds())
+	if m.Config.timeUnit == time.Minute {
+		outputsNeeded = int(float64(m.Config.Rate) * m.Config.duration.Minutes())
+	}
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != "msg"
 }
 
 func (m *Mode) startSpam() {
@@ -564,6 +575,12 @@ func (m *Mode) parseSpamDetails(details spamDetailsSurvey) {
 	if err != nil {
 		return
 	}
+	switch details.TimeUnit {
+	case mpm:
+		m.Config.timeUnit = time.Minute
+	case mps:
+		m.Config.timeUnit = time.Second
+	}
 	m.Config.Rate = rate
 	m.Config.duration = dur
 }
@@ -660,6 +677,7 @@ func (m *Mode) loadConfig() {
 	}
 	for _, url := range m.Config.WebAPI {
 		m.Config.clientUrls[url] = types.Void
+		m.evilWallet.AddClient(url)
 	}
 	// parse duration
 	d, err := time.ParseDuration(m.Config.DurationStr)

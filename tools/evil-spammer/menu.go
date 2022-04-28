@@ -73,11 +73,15 @@ func (p *Printer) EvilWalletStatus() {
 }
 
 func (p *Printer) SpammerSettings() {
+	rateUnit := "[mpm]"
+	if p.mode.Config.timeUnit == time.Second {
+		rateUnit = "[mps]"
+	}
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 1)
 	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
-	p.PrintlnPoint(fmt.Sprintf("Rate: %d[mps], Duration: %d[s]", p.mode.Config.Rate, int(p.mode.Config.duration.Seconds())), 2)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), 2)
 	p.PrintLine()
 	fmt.Println()
 }
@@ -108,13 +112,19 @@ func (p *Printer) FundsWarning() {
 }
 
 func (p *Printer) UrlWarning() {
-	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "red"), 2)
+	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), 2)
 	fmt.Println()
 
 }
 
+func (p *Printer) DevNetFundsWarning() {
+	p.Println(p.colorString("Warning: Preparing 10k outputs and more could take looong time in the DevNet due to high PoW and congestion.", "yellow"), 1)
+	p.Println(p.colorString("We advice to use 100 option only.", "yellow"), 1)
+	fmt.Println()
+}
+
 func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
-	p.Println(p.colorString(fmt.Sprintf("Need at least %d clients to progress", numOfClient), "red"), 2)
+	p.Println(p.colorString(fmt.Sprintf("Warning: At least %d clients is recommended if double spends are not allowed from the same node.", numOfClient), "red"), 2)
 	fmt.Println()
 }
 
@@ -135,6 +145,8 @@ func (p *Printer) colorString(s string, color string) string {
 		colorString = "\033[36m"
 	case "green":
 		colorString = "\033[32m"
+	case "yellow":
+		colorString = "\033[33m"
 	}
 
 	return colorString + s + colorStringReset

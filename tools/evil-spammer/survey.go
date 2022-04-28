@@ -17,9 +17,8 @@ var actionQuestion = &survey.Select{
 var fundsQuestion = &survey.Select{
 	Message: "How many fresh outputs you want to create?",
 	Options: outputNumbers,
-	Default: "10000",
+	Default: "100",
 }
-
 var settingsQuestion = &survey.Select{
 	Message: "Available settings:",
 	Options: settingsMenuOptions,
@@ -75,6 +74,7 @@ var spamTypeQuestions = func(defaultDeep, defaultReuse string) []*survey.Questio
 type spamDetailsSurvey struct {
 	SpamDuration string
 	SpamRate     string
+	TimeUnit     string
 }
 
 var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Question {
@@ -100,9 +100,17 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Q
 			},
 		},
 		{
+			Name: "timeUnit",
+			Prompt: &survey.Select{
+				Message: "Choose time unit for the spam",
+				Options: timeUnits,
+				Default: defaultRate,
+			},
+		},
+		{
 			Name: "spamRate",
 			Prompt: &survey.Input{
-				Message: "Spam rate in [mps]",
+				Message: "Spam rate",
 				Default: defaultRate,
 			},
 			Validate: func(val interface{}) error {

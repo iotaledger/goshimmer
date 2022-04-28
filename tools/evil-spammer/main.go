@@ -77,7 +77,7 @@ func parseBasicSpamFlags() {
 	timeunit := optionFlagSet.Duration("tu", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarions can be found in evilwallet/customscenarion.go.")
-	deepSpam := optionFlagSet.Bool("deep", false, "Enable the deep spam, by reusing outputs created during the spam.")
+	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam.")
 
 	parseOptionFlagSet(optionFlagSet)
 
@@ -112,10 +112,10 @@ func parseBasicSpamFlags() {
 	customSpamParams.DelayBetweenConflicts = *delayBetweenConflicts
 
 	// fill in unused parameter: msgNums or durations with zeros
-	if *durations == "" {
+	if *durations == "" && *msgNums != "" {
 		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.MsgToBeSent))
 	}
-	if *msgNums == "" {
+	if *msgNums == "" && *durations != "" {
 		customSpamParams.MsgToBeSent = make([]int, len(customSpamParams.Durations))
 	}
 }
