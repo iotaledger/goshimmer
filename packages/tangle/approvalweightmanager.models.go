@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
@@ -84,35 +83,6 @@ func (b *BranchWeight) FromBytes(data []byte) (branchWeight *BranchWeight, err e
 	return bw, err
 }
 
-// FromBytes unmarshals a BranchWeight object from a sequence of bytes.
-func (b *BranchWeight) FromBytesOld(bytes []byte) (branchWeight *BranchWeight, err error) {
-	//TODO: remove or refactor eventually
-	marshalUtil := marshalutil.New(bytes)
-	if branchWeight, err = b.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchWeight from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals a BranchWeight object using a MarshalUtil (for easier unmarshalling).
-func (b *BranchWeight) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchWeight *BranchWeight, err error) {
-	if branchWeight = b; branchWeight == nil {
-		branchWeight = new(BranchWeight)
-	}
-	if branchWeight.branchWeightInner.BranchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-
-	if branchWeight.branchWeightInner.Weight, err = marshalUtil.ReadFloat64(); err != nil {
-		err = errors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // BranchID returns the BranchID that is being tracked.
 func (b *BranchWeight) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchWeightInner.BranchID
@@ -175,20 +145,6 @@ func (b *BranchWeight) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *BranchWeight) ObjectStorageKeyOld() []byte {
-	return b.BranchID().Bytes()
-}
-
-// ObjectStorageValue marshals the BranchWeight into a sequence of bytes that are used as the value part in the
-// object storage.
-func (b *BranchWeight) ObjectStorageValueOld() []byte {
-	return marshalutil.New(marshalutil.Float64Size).
-		WriteFloat64(b.Weight()).
-		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods).
@@ -361,46 +317,6 @@ func (b *BranchVoters) FromBytes(data []byte) (branchVoters *BranchVoters, err e
 	return votes, err
 }
 
-// FromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func (b *BranchVoters) FromBytesOld(bytes []byte) (branchVoters *BranchVoters, err error) {
-	//TODO: remove eventually or refactor
-	marshalUtil := marshalutil.New(bytes)
-	if branchVoters, err = b.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceVoters from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals a BranchVoters object using a MarshalUtil (for easier unmarshalling).
-func (b *BranchVoters) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchVoters *BranchVoters, err error) {
-	if branchVoters = b; branchVoters == nil {
-		branchVoters = new(BranchVoters)
-	}
-	if branchVoters.branchVotersInner.BranchID, err = ledgerstate.BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
-		return
-	}
-
-	votersCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse voters count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	branchVoters.branchVotersInner.Voters = NewVoters()
-	for i := uint32(0); i < votersCount; i++ {
-		voter, voterErr := identity.IDFromMarshalUtil(marshalUtil)
-		if voterErr != nil {
-			err = errors.Errorf("failed to parse Voter (%v): %w", voterErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-
-		branchVoters.branchVotersInner.Voters.SerializableSet.Add(voter)
-	}
-
-	return
-}
-
 // BranchID returns the BranchID that is being tracked.
 func (b *BranchVoters) BranchID() (branchID ledgerstate.BranchID) {
 	return b.branchVotersInner.BranchID
@@ -498,30 +414,6 @@ func (b *BranchVoters) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *BranchVoters) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return b.BranchID().Bytes()
-}
-
-// ObjectStorageValue marshals the BranchVoters into a sequence of bytes that are used as the value part in the
-// object storage.
-func (b *BranchVoters) ObjectStorageValueOld() []byte {
-	//TODO: remove eventually
-	b.votersMutex.RLock()
-	defer b.votersMutex.RUnlock()
-
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + b.branchVotersInner.Voters.SerializableSet.Size()*identity.IDLength)
-	marshalUtil.WriteUint32(uint32(b.branchVotersInner.Voters.SerializableSet.Size()))
-
-	b.branchVotersInner.Voters.SerializableSet.ForEach(func(voter Voter) {
-		marshalUtil.WriteBytes(voter.Bytes())
-	})
-
-	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the struct implements all required methods).
@@ -654,53 +546,6 @@ func (l *LatestMarkerVotes) FromBytes(data []byte) (latestMarkerVotes *LatestMar
 	return votes, err
 }
 
-// FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
-func (l *LatestMarkerVotes) FromBytesOld(bytes []byte) (latestMarkerVotes *LatestMarkerVotes, err error) {
-	//TODO: remove eventually or refactor
-	marshalUtil := marshalutil.New(bytes)
-	if latestMarkerVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals a LatestMarkerVotes using a MarshalUtil (for easier unmarshalling).
-func (l *LatestMarkerVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestMarkerVotes *LatestMarkerVotes, err error) {
-	if latestMarkerVotes = l; latestMarkerVotes == nil {
-		latestMarkerVotes = new(LatestMarkerVotes)
-	}
-
-	if latestMarkerVotes.latestMarkerVotesInner.SequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-	}
-	if latestMarkerVotes.latestMarkerVotesInner.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
-	}
-
-	mapSize, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return nil, errors.Errorf("failed to read mapSize from MarshalUtil: %w", err)
-	}
-
-	latestMarkerVotes.latestMarkerVotesInner.LatestMarkerVotes = newLatestMarkerVotesMap()
-	for i := uint32(0); i < mapSize; i++ {
-		markerIndex, markerIndexErr := markers.IndexFromMarshalUtil(marshalUtil)
-		if markerIndexErr != nil {
-			return nil, errors.Errorf("failed to read Index from MarshalUtil: %w", markerIndexErr)
-		}
-
-		votePower, votePowerErr := marshalUtil.ReadUint64()
-		if markerIndexErr != nil {
-			return nil, errors.Errorf("failed to read sequence number from MarshalUtil: %w", votePowerErr)
-		}
-
-		latestMarkerVotes.latestMarkerVotesInner.LatestMarkerVotes.Set(markerIndex, votePower)
-	}
-
-	return latestMarkerVotes, nil
-}
-
 // Voter returns the Voter for the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Voter() Voter {
 	return l.latestMarkerVotesInner.Voter
@@ -794,30 +639,6 @@ func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the storage key for this instance of LatestMarkerVotes.
-func (l *LatestMarkerVotes) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return marshalutil.New().
-		Write(l.latestMarkerVotesInner.SequenceID).
-		Write(l.latestMarkerVotesInner.Voter).
-		Bytes()
-}
-
-// ObjectStorageValue returns the storage value for this instance of LatestMarkerVotes.
-func (l *LatestMarkerVotes) ObjectStorageValueOld() []byte {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(l.latestMarkerVotesInner.LatestMarkerVotes.Size()))
-	l.latestMarkerVotesInner.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
-		marshalUtil.Write(node.Key())
-		marshalUtil.WriteUint64(node.Value())
-
-		return true
-	})
-
-	return marshalUtil.Bytes()
 }
 
 var _ objectstorage.StorableObject = new(LatestMarkerVotes)
@@ -927,51 +748,6 @@ func (l *LatestBranchVotes) FromBytes(data []byte) (latestBranchVotes *LatestBra
 	return votes, err
 }
 
-// FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func (l *LatestBranchVotes) FromBytesOld(bytes []byte) (latestBranchVotes *LatestBranchVotes, err error) {
-	//TODO: remove eventually or refactor
-	marshalUtil := marshalutil.New(bytes)
-	if latestBranchVotes, err = l.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LatestBranchVotes from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a LatestBranchVotes object using a MarshalUtil (for easier unmarshalling).
-func (l *LatestBranchVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (latestBranchVotes *LatestBranchVotes, err error) {
-	if latestBranchVotes = l; l == nil {
-		latestBranchVotes = new(LatestBranchVotes)
-	}
-	if latestBranchVotes.latestBranchVotesInner.Voter, err = identity.IDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse Voter from MarshalUtil: %w", err)
-	}
-
-	mapSize, err := marshalUtil.ReadUint32()
-	if err != nil {
-		return nil, errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-
-	latestBranchVotes.latestBranchVotesInner.LatestBranchVotes = make(map[ledgerstate.BranchID]*BranchVote, int(mapSize))
-
-	for i := uint32(0); i < mapSize; i++ {
-		branchID, voteErr := ledgerstate.BranchIDFromMarshalUtil(marshalUtil)
-		if voteErr != nil {
-			return nil, errors.Errorf("failed to parse BranchID from MarshalUtil: %w", voteErr)
-		}
-
-		vote, voteErr := VoteFromMarshalUtil(marshalUtil)
-		if voteErr != nil {
-			return nil, errors.Errorf("failed to parse Vote from MarshalUtil: %w", voteErr)
-		}
-
-		latestBranchVotes.latestBranchVotesInner.LatestBranchVotes[branchID] = vote
-	}
-
-	return latestBranchVotes, nil
-}
-
 // Bytes returns a marshaled version of the LatestBranchVotes.
 func (l *LatestBranchVotes) Bytes() []byte {
 	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
@@ -1006,32 +782,6 @@ func (l *LatestBranchVotes) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (l *LatestBranchVotes) ObjectStorageKeyOld() []byte {
-	// TODO: remove eventually
-	return l.latestBranchVotesInner.Voter.Bytes()
-}
-
-// ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes that are used as the value part in the
-// object storage.
-func (l *LatestBranchVotes) ObjectStorageValueOld() []byte {
-	// TODO: remove eventually
-	l.RLock()
-	defer l.RUnlock()
-
-	marshalUtil := marshalutil.New()
-
-	marshalUtil.WriteUint32(uint32(len(l.latestBranchVotesInner.LatestBranchVotes)))
-
-	for branchID, vote := range l.latestBranchVotesInner.LatestBranchVotes {
-		marshalUtil.Write(branchID)
-		marshalUtil.Write(vote)
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // code contract (make sure the struct implements all required methods).

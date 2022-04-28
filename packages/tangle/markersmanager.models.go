@@ -9,10 +9,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
@@ -103,53 +101,6 @@ func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (markerIndexBranchID
 	}
 	mapping.markerIndexBranchIDInner.SequenceID = *sequenceID
 	return mapping, err
-}
-
-// FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (m *MarkerIndexBranchIDMapping) FromBytesOld(bytes []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
-	//TODO: remove eventually or refactor
-	marshalUtil := marshalutil.New(bytes)
-	if markerIndexBranchIDMapping, err = m.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a MarkerIndexBranchIDMapping using a MarshalUtil (for easier unmarshalling).
-func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerIndexBranchIDMapping *MarkerIndexBranchIDMapping, err error) {
-	markerIndexBranchIDMapping = m
-	if m == nil {
-		markerIndexBranchIDMapping = &MarkerIndexBranchIDMapping{}
-	}
-	if markerIndexBranchIDMapping.markerIndexBranchIDInner.SequenceID, err = markers.SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
-	}
-	mappingCount, mappingCountErr := marshalUtil.ReadUint32()
-	if mappingCountErr != nil {
-		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
-		return
-	}
-	markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping = newMarkerIndexBranchIDMap()
-	for j := uint32(0); j < mappingCount; j++ {
-		index, indexErr := marshalUtil.ReadUint64()
-		if indexErr != nil {
-			err = errors.Errorf("failed to parse Index (%v): %w", indexErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-
-		branchIDs, branchIDErr := ledgerstate.BranchIDsFromMarshalUtil(marshalUtil)
-		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
-			return
-		}
-
-		markerIndexBranchIDMapping.markerIndexBranchIDInner.Mapping.Set(markers.Index(index), branchIDs)
-	}
-
-	return
 }
 
 // SequenceID returns the SequenceID that this MarkerIndexBranchIDMapping represents.
@@ -283,30 +234,6 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 	return objBytes
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *MarkerIndexBranchIDMapping) ObjectStorageKeyOld() []byte {
-	return m.markerIndexBranchIDInner.SequenceID.Bytes()
-}
-
-// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (m *MarkerIndexBranchIDMapping) ObjectStorageValueOld() []byte {
-	m.mappingMutex.RLock()
-	defer m.mappingMutex.RUnlock()
-
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(m.markerIndexBranchIDInner.Mapping.Size()))
-	m.markerIndexBranchIDInner.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
-		marshalUtil.Write(node.Key())
-		marshalUtil.Write(node.Value())
-
-		return true
-	})
-
-	return marshalUtil.Bytes()
-}
-
 // code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = &MarkerIndexBranchIDMapping{}
 
@@ -373,36 +300,6 @@ func (m *MarkerMessageMapping) FromBytes(data []byte) (individuallyMappedMessage
 	return mapping, err
 }
 
-// FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (m *MarkerMessageMapping) FromBytesOld(bytes []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	if individuallyMappedMessage, err = m.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an MarkerMessageMapping using a MarshalUtil (for easier unmarshalling).
-func (m *MarkerMessageMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markerMessageMapping *MarkerMessageMapping, err error) {
-	markerMessageMapping = m
-	if m == nil {
-		markerMessageMapping = &MarkerMessageMapping{}
-	}
-	if markerMessageMapping.markerMessageMappingInner.Marker, err = markers.MarkerFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
-		return
-	}
-	if markerMessageMapping.markerMessageMappingInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
 // Marker returns the Marker that is mapped to a MessageID.
 func (m *MarkerMessageMapping) Marker() *markers.Marker {
 	return m.markerMessageMappingInner.Marker
@@ -446,20 +343,6 @@ func (m *MarkerMessageMapping) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *MarkerMessageMapping) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return m.markerMessageMappingInner.Marker.Bytes()
-}
-
-// ObjectStorageValue marshals the MarkerMessageMapping into a sequence of bytes that are used as the value part in
-// the object storage.
-func (m *MarkerMessageMapping) ObjectStorageValueOld() []byte {
-	// TODO: remove eventually
-	return m.markerMessageMappingInner.MessageID.Bytes()
 }
 
 // code contract (make sure the type implements all required methods).

@@ -144,63 +144,6 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 	return
 }
 
-// ColoredBalancesFromBytes unmarshals ColoredBalances from a sequence of bytes.
-func ColoredBalancesFromBytesOld(bytes []byte) (coloredBalances *ColoredBalances, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if coloredBalances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ColoredBalances from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ColoredBalancesFromMarshalUtil unmarshals ColoredBalances using a MarshalUtil (for easier unmarshalling).
-func ColoredBalancesFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (coloredBalances *ColoredBalances, err error) {
-	balancesCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse element count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if balancesCount == 0 {
-		err = errors.Errorf("empty balances in output")
-		return
-	}
-
-	var previousColor *Color
-	coloredBalances = NewColoredBalances(nil)
-	for i := uint32(0); i < balancesCount; i++ {
-		color, colorErr := ColorFromMarshalUtil(marshalUtil)
-		if colorErr != nil {
-			err = errors.Errorf("failed to parse Color from MarshalUtil: %w", colorErr)
-			return
-		}
-
-		// check semantic correctness (ensure ordering)
-		if previousColor != nil && previousColor.Compare(color) != -1 {
-			err = errors.Errorf("parsed Colors are not in correct order: %w", cerrors.ErrParseBytesFailed)
-			return
-		}
-
-		balance, balanceErr := marshalUtil.ReadUint64()
-		if balanceErr != nil {
-			err = errors.Errorf("failed to parse balance of Color %s (%v): %w", color.String(), balanceErr, cerrors.ErrParseBytesFailed)
-			return
-		}
-		if balance == 0 {
-			err = errors.Errorf("zero balance found for color %s", color.String())
-			return
-		}
-
-		coloredBalances.coloredBalancesInner.Balances.Set(color, balance)
-
-		previousColor = &color
-	}
-
-	return
-}
-
 // Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
 func (c *ColoredBalances) Get(color Color) (uint64, bool) {
 	return c.coloredBalancesInner.Balances.Get(color)
@@ -236,19 +179,6 @@ func (c *ColoredBalances) Bytes() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the ColoredBalances.
-func (c *ColoredBalances) BytesOld() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(c.coloredBalancesInner.Balances.Size()))
-	c.ForEach(func(color Color, balance uint64) bool {
-		marshalUtil.WriteBytes(color.Bytes())
-		marshalUtil.WriteUint64(balance)
-
-		return true
-	})
-	return marshalUtil.Bytes()
 }
 
 // Map returns a vanilla golang map (unordered) containing the existing balances. Since the ColoredBalances are

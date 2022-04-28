@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
@@ -64,17 +63,6 @@ func NewPayload(id ID, sentTime int64) *Payload {
 
 // FromBytes parses the marshaled version of a Payload into a Go object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytesOld(bytes []byte) (result *Payload, consumedBytes int, err error) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// FromBytes parses the marshaled version of a Payload into a Go object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
 	payload = new(Payload)
 
@@ -83,40 +71,6 @@ func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
 		err = errors.Errorf("failed to parse NetworkDelayPayload: %w", err)
 		return
 	}
-
-	return
-}
-
-// Parse unmarshals a Payload using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
-	// read information that are required to identify the payload from the outside
-	//if _, err = marshalUtil.ReadUint32(); err != nil {
-	//	err = fmt.Errorf("failed to parse payload size of networkdelay payload: %w", err)
-	//	return
-	//}
-	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to parse payload type of networkdelay payload: %w", err)
-		return
-	}
-
-	// parse id
-	result = &Payload{}
-	id, err := marshalUtil.ReadBytes(32)
-	if err != nil {
-		err = fmt.Errorf("failed to parse id of networkdelay payload: %w", err)
-		return
-	}
-	copy(result.payloadInner.ID[:], id)
-
-	// parse sent time
-	if result.payloadInner.SentTime, err = marshalUtil.ReadInt64(); err != nil {
-		err = fmt.Errorf("failed to parse sent time of networkdelay payload: %w", err)
-		return
-	}
-
-	// store bytes, so we don't have to marshal manually
-	consumedBytes := marshalUtil.ReadOffset()
-	copy(result.payloadInner.bytes, marshalUtil.Bytes()[:consumedBytes])
 
 	return
 }
@@ -136,43 +90,6 @@ func (p *Payload) Bytes() []byte {
 	}
 	p.payloadInner.bytes = objBytes
 	return objBytes
-}
-
-// Bytes returns a marshaled version of this Payload.
-func (p *Payload) BytesOld() (bytes []byte) {
-	// remove eventuallyy
-	// acquire lock for reading bytes
-	p.bytesMutex.RLock()
-
-	// return if bytes have been determined already
-	if bytes = p.payloadInner.bytes; bytes != nil {
-		p.bytesMutex.RUnlock()
-		return
-	}
-
-	// switch to write lock
-	p.bytesMutex.RUnlock()
-	p.bytesMutex.Lock()
-	defer p.bytesMutex.Unlock()
-
-	// return if bytes have been determined in the mean time
-	if bytes = p.payloadInner.bytes; bytes != nil {
-		return
-	}
-
-	payloadLength := len(p.payloadInner.ID) + marshalutil.Int64Size
-	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size + payloadLength)
-
-	// marshal the payload specific information
-	//marshalUtil.WriteUint32(payload.TypeLength + uint32(payloadLength))
-	marshalUtil.WriteBytes(Type.Bytes())
-	marshalUtil.WriteBytes(p.payloadInner.ID[:])
-	marshalUtil.WriteInt64(p.payloadInner.SentTime)
-
-	bytes = marshalUtil.Bytes()
-
-	return bytes
 }
 
 // String returns a human-friendly representation of the Payload.

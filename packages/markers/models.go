@@ -121,34 +121,6 @@ func MarkerFromBytes(markerBytes []byte) (marker *Marker, consumedBytes int, err
 	return
 }
 
-// MarkerFromBytes unmarshals a Marker from a sequence of bytes.
-func MarkerFromBytesOld(markerBytes []byte) (marker *Marker, consumedBytes int, err error) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New(markerBytes)
-	if marker, err = MarkerFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Marker from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-	return
-}
-
-// MarkerFromMarshalUtil unmarshals a Marker using a MarshalUtil (for easier unmarshalling).
-func MarkerFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (marker *Marker, err error) {
-	//TODO: remove eventually
-	marker = new(Marker)
-	if marker.markerInner.SequenceID, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-		return
-	}
-	if marker.markerInner.Index, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Index from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
 // SequenceID returns the identifier of the Sequence of the Marker.
 func (m *Marker) SequenceID() (sequenceID SequenceID) {
 	return m.markerInner.SequenceID
@@ -167,14 +139,6 @@ func (m Marker) Bytes() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the Marker.
-func (m Marker) BytesOld() (marshaledMarker []byte) {
-	return marshalutil.New(MarkerLength).
-		Write(m.markerInner.SequenceID).
-		Write(m.markerInner.Index).
-		Bytes()
 }
 
 // String returns a human-readable version of the Marker.
@@ -213,49 +177,6 @@ func FromBytes(markersBytes []byte) (markers *Markers, consumedBytes int, err er
 	for sequenceID, index := range markersDecoded.Markers {
 		markers.Set(sequenceID, index)
 	}
-	return
-}
-
-// FromBytes unmarshals a collection of Markers from a sequence of bytes.
-func FromBytesOld(markersBytes []byte) (markers *Markers, consumedBytes int, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(markersBytes)
-	if markers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Markers from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// FromMarshalUtil unmarshals a collection of Markers using a MarshalUtil (for easier unmarshalling).
-func FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (markers *Markers, err error) {
-	markersCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse Markers count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	markers = &Markers{
-		markersInner{
-			Markers: make(map[SequenceID]Index),
-		},
-	}
-	for i := 0; i < int(markersCount); i++ {
-		sequenceID, sequenceIDErr := SequenceIDFromMarshalUtil(marshalUtil)
-		if sequenceIDErr != nil {
-			err = errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", sequenceIDErr)
-			return
-		}
-		index, indexErr := IndexFromMarshalUtil(marshalUtil)
-		if indexErr != nil {
-			err = errors.Errorf("failed to parse Index from MarshalUtil: %w", indexErr)
-			return
-		}
-		markers.Set(sequenceID, index)
-	}
-
 	return
 }
 
@@ -525,21 +446,6 @@ func (m *Markers) Bytes() []byte {
 	return objBytes
 }
 
-// Bytes returns the Markers in serialized byte form.
-func (m *Markers) BytesOld() (marshalMarkers []byte) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
-
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(len(m.markersInner.Markers)))
-	for sequenceID, index := range m.markersInner.Markers {
-		marshalUtil.Write(sequenceID)
-		marshalUtil.Write(index)
-	}
-
-	return marshalUtil.Bytes()
-}
-
 // String returns a human-readable version of the Markers.
 func (m *Markers) String() (humanReadableMarkers string) {
 	structBuilder := stringify.StructBuilder("Markers")
@@ -602,30 +508,6 @@ func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMar
 	return
 }
 
-// ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
-func ReferencingMarkersFromBytesOld(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(referencingMarkersBytes)
-	if referencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ReferencingMarkersFromMarshalUtil unmarshals ReferencingMarkers using a MarshalUtil (for easier unmarshalling).
-func ReferencingMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencingMarkers *ReferencingMarkers, err error) {
-	referencingMarkers = &ReferencingMarkers{
-		referencingMarkersInner{
-			ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
-		},
-	}
-
-	referencingMarkers.ReferencingIndexesBySequence, err = markersReferencingFromMarshalUtil(marshalUtil)
-	return referencingMarkers, err
-}
-
 // Add adds a new referencing Marker to the ReferencingMarkers.
 func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 	r.mutex.Lock()
@@ -666,27 +548,6 @@ func (r *ReferencingMarkers) Bytes() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the ReferencingMarkers.
-func (r *ReferencingMarkers) BytesOld() (marshaledReferencingMarkers []byte) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(len(r.ReferencingIndexesBySequence)))
-	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
-		marshalUtil.Write(sequenceID)
-		marshalUtil.WriteUint32(uint32(thresholdMap.Size()))
-		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
-			marshalUtil.WriteUint64(node.Key())
-			marshalUtil.WriteUint64(uint64(node.Value()))
-
-			return true
-		})
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human-readable version of the ReferencingMarkers.
@@ -792,32 +653,6 @@ func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers
 	return
 }
 
-// ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
-func ReferencedMarkersFromBytesOld(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New(parentReferencesBytes)
-	if referencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ReferencedMarkersFromMarshalUtil unmarshals ReferencedMarkers using a MarshalUtil (for easier unmarshalling).
-func ReferencedMarkersFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (referencedMarkers *ReferencedMarkers, err error) {
-	//TODO: remove eventually
-	referencedMarkers = &ReferencedMarkers{
-		referencedMarkersInner{
-			ReferencedIndexesBySequence: make(map[SequenceID]*referencedMarkersMap),
-		},
-	}
-
-	referencedMarkers.referencedMarkersInner.ReferencedIndexesBySequence, err = markersReferencedFromMarshalUtil(marshalUtil)
-	return referencedMarkers, err
-}
-
 // Add adds new referenced Markers to the ReferencedMarkers.
 func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 	r.mutex.Lock()
@@ -861,27 +696,6 @@ func (r *ReferencedMarkers) Bytes() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the ReferencedMarkers.
-func (r *ReferencedMarkers) BytesOld() (marshaledReferencedMarkers []byte) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(len(r.referencedMarkersInner.ReferencedIndexesBySequence)))
-	for sequenceID, thresholdMap := range r.referencedMarkersInner.ReferencedIndexesBySequence {
-		marshalUtil.Write(sequenceID)
-		marshalUtil.WriteUint32(uint32(thresholdMap.Size()))
-		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
-			marshalUtil.WriteUint64(node.Key())
-			marshalUtil.WriteUint64(uint64(node.Value()))
-
-			return true
-		})
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human-readable version of the ReferencedMarkers.
@@ -1358,44 +1172,6 @@ func (s *Sequence) FromBytes(data []byte) (sequence *Sequence, err error) {
 
 }
 
-// FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytesOld(sequenceBytes []byte) (sequence *Sequence, err error) {
-	marshalUtil := marshalutil.New(sequenceBytes)
-	if sequence, err = s.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Sequence from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Sequence using a MarshalUtil (for easier unmarshalling).
-func (s *Sequence) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (sequence *Sequence, err error) {
-	if sequence = s; sequence == nil {
-		sequence = new(Sequence)
-	}
-	if sequence.id, err = SequenceIDFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse SequenceID from MarshalUtil: %w", err)
-	}
-	if sequence.sequenceInner.ReferencedMarkers, err = ReferencedMarkersFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse ReferencedMarkers from MarshalUtil: %w", err)
-	}
-	if sequence.sequenceInner.ReferencingMarkers, err = ReferencingMarkersFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse ReferencingMarkers from MarshalUtil: %w", err)
-	}
-	if sequence.sequenceInner.VerticesWithoutFutureMarker, err = marshalUtil.ReadUint64(); err != nil {
-		return nil, errors.Errorf("failed to parse verticesWithoutFutureMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-	if sequence.sequenceInner.LowestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse lowest Index from MarshalUtil: %w", err)
-	}
-	if sequence.sequenceInner.HighestIndex, err = IndexFromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse highest Index from MarshalUtil: %w", err)
-	}
-
-	return sequence, nil
-}
-
 // ID returns the identifier of the Sequence.
 func (s *Sequence) ID() SequenceID {
 	return s.id
@@ -1528,27 +1304,6 @@ func (s *Sequence) ObjectStorageValue() []byte {
 	return objBytes
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *Sequence) ObjectStorageKeyOld() []byte {
-	return s.id.Bytes()
-}
-
-// ObjectStorageValue marshals the Sequence into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the object storage.
-func (s *Sequence) ObjectStorageValueOld() []byte {
-	s.verticesWithoutFutureMarkerMutex.RLock()
-	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
-
-	return marshalutil.New().
-		Write(s.sequenceInner.ReferencedMarkers).
-		Write(s.sequenceInner.ReferencingMarkers).
-		WriteUint64(s.sequenceInner.VerticesWithoutFutureMarker).
-		Write(s.sequenceInner.LowestIndex).
-		Write(s.HighestIndex()).
-		Bytes()
-}
-
 // code contract (make sure the type implements all required methods).
 var _ objectstorage.StorableObject = new(Sequence)
 
@@ -1656,7 +1411,7 @@ type StructureDetails struct {
 	futureMarkersUpdateMutex sync.Mutex
 }
 
-// StructureDetailsFromBytesNew unmarshals a StructureDetails from a sequence of bytes.
+// StructureDetailsFromBytes unmarshals a StructureDetails from a sequence of bytes.
 func StructureDetailsFromBytes(structureDetailBytes []byte) (marker *StructureDetails, consumedBytes int, err error) {
 	marker = new(StructureDetails)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), structureDetailBytes, marker, serix.WithValidation())
@@ -1665,41 +1420,6 @@ func StructureDetailsFromBytes(structureDetailBytes []byte) (marker *StructureDe
 		return
 	}
 	return
-}
-
-// StructureDetailsFromMarshalUtil unmarshals a StructureDetails using a MarshalUtil (for easier unmarshalling).
-func StructureDetailsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (structureDetails *StructureDetails, err error) {
-	detailsLength, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse exists flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if detailsLength == 0 {
-		return
-	}
-	structureDetails = new(StructureDetails)
-	if structureDetails.Rank, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse Rank (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if structureDetails.PastMarkerGap, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse PastMarkerGap (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if structureDetails.IsPastMarker, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse IsPastMarker (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if structureDetails.PastMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse PastMarkers from MarshalUtil: %w", err)
-		return
-	}
-	if structureDetails.FutureMarkers, err = FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse FutureMarkers from MarshalUtil: %w", err)
-		return
-	}
-
-	return structureDetails, nil
 }
 
 // Clone creates a deep copy of the StructureDetails.
@@ -1721,22 +1441,6 @@ func (m *StructureDetails) Bytes() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the StructureDetails.
-func (m *StructureDetails) BytesOld() (marshaledStructureDetails []byte) {
-	if m == nil {
-		return marshalutil.New(marshalutil.Int32Size).WriteUint32(0).Bytes()
-	}
-	structureDetailsBytes := marshalutil.New().
-		WriteUint64(m.Rank).
-		WriteUint64(m.PastMarkerGap).
-		WriteBool(m.IsPastMarker).
-		Write(m.PastMarkers).
-		Write(m.FutureMarkers).
-		Bytes()
-	return byteutils.ConcatBytes(marshalutil.New(marshalutil.Int32Size).WriteUint32(uint32(len(structureDetailsBytes))).Bytes(), structureDetailsBytes)
-	//return structureDetailsBytes
 }
 
 // String returns a human-readable version of the StructureDetails.

@@ -6,14 +6,13 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -118,17 +117,6 @@ func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err err
 	}
 }
 
-// AddressFromBytes unmarshals an Address from a sequence of bytes.
-func AddressFromBytesOld(bytes []byte) (address Address, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Address from MarshalUtil: %w", err)
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
 // AddressFromBase58EncodedString creates an Address from a base58 encoded string.
 func AddressFromBase58EncodedString(base58String string) (address Address, err error) {
 	bytes, err := base58.Decode(base58String)
@@ -143,28 +131,6 @@ func AddressFromBase58EncodedString(base58String string) (address Address, err e
 	}
 
 	return
-}
-
-// AddressFromMarshalUtil reads an Address from the bytes in the given MarshalUtil.
-func AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address Address, err error) {
-	addressType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	marshalUtil.ReadSeek(-1)
-
-	switch AddressType(addressType) {
-	case ED25519AddressType:
-		return ED25519AddressFromMarshalUtil(marshalUtil)
-	case BLSAddressType:
-		return BLSAddressFromMarshalUtil(marshalUtil)
-	case AliasAddressType:
-		return AliasAddressFromMarshalUtil(marshalUtil)
-	default:
-		err = errors.Errorf("unsupported address type (%X): %w", addressType, cerrors.ErrParseBytesFailed)
-		return
-	}
 }
 
 // AddressFromSignature returns address corresponding to the signature if it has one (for ed25519 and BLS).
@@ -200,65 +166,12 @@ func NewED25519Address(publicKey ed25519.PublicKey) *ED25519Address {
 }
 
 // ED25519AddressFromBytes unmarshals an ED25519Address from a sequence of bytes.
-func ED25519AddressFromBytesOld(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
-	// TODO: replace with FromBytesNew eventually
-
-	marshalUtil := marshalutil.New(bytes)
-	if address, err = ED25519AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ED25519Address from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
 func ED25519AddressFromBytes(bytes []byte) (address *ED25519Address, consumedBytes int, err error) {
 	address = new(ED25519Address)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, address, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
 	}
-	return
-}
-
-// ED25519AddressFromBase58EncodedString creates an ED25519Address from a base58 encoded string.
-func ED25519AddressFromBase58EncodedString(base58String string) (address *ED25519Address, err error) {
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded ED25519Address (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if address, _, err = ED25519AddressFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse ED25519Address from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// ED25519AddressFromMarshalUtil is a method that parses an ED25519Address from the given MarshalUtil.
-func ED25519AddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *ED25519Address, err error) {
-	addressType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if AddressType(addressType) != ED25519AddressType {
-		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	address = &ED25519Address{}
-	data, err := marshalUtil.ReadBytes(32)
-	if err != nil {
-		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(address.Digest2[:], data)
-
 	return
 }
 
@@ -285,22 +198,13 @@ func (e *ED25519Address) Equals(other Address) bool {
 }
 
 // Bytes returns a marshaled version of the Address.
-func (e *ED25519Address) BytesOld() []byte {
-	// TODO: remove eventually
-	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.Digest())
-}
-
-// Bytes returns a marshaled version of the Address.
 func (e *ED25519Address) Bytes() []byte {
-	//objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
-	//if err != nil {
-	//	// TODO: what do?
-	//	return nil
-	//}
-	//return objBytes
-
-	return byteutils.ConcatBytes([]byte{byte(ED25519AddressType)}, e.Digest())
-
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.
@@ -359,58 +263,6 @@ func BLSAddressFromBytes(bytes []byte) (address *BLSAddress, consumedBytes int, 
 	return
 }
 
-// BLSAddressFromBytes unmarshals an BLSAddress from a sequence of bytes.
-func BLSAddressFromBytesOld(bytes []byte) (address *BLSAddress, consumedBytes int, err error) {
-	// TODO: replace with FromBytesNew eventually
-	marshalUtil := marshalutil.New(bytes)
-	if address, err = BLSAddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BLSAddress from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// BLSAddressFromBase58EncodedString creates an BLSAddress from a base58 encoded string.
-func BLSAddressFromBase58EncodedString(base58String string) (address *BLSAddress, err error) {
-	bytes, err := base58.Decode(base58String)
-	if err != nil {
-		err = errors.Errorf("error while decoding base58 encoded BLSAddress (%v): %w", err, cerrors.ErrBase58DecodeFailed)
-		return
-	}
-
-	if address, _, err = BLSAddressFromBytes(bytes); err != nil {
-		err = errors.Errorf("failed to parse BLSAddress from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// BLSAddressFromMarshalUtil parses a BLSAddress from the given MarshalUtil.
-func BLSAddressFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (address *BLSAddress, err error) {
-	addressType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("error parsing AddressType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if AddressType(addressType) != BLSAddressType {
-		err = errors.Errorf("invalid AddressType (%X): %w", addressType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	address = &BLSAddress{}
-	data, err := marshalUtil.ReadBytes(32)
-	if err != nil {
-		err = errors.Errorf("error parsing Digest2 (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(address.blsAddressInner.Digest[:], data)
-
-	return
-}
-
 // Type returns the AddressType of the Address.
 func (b *BLSAddress) Type() AddressType {
 	return BLSAddressType
@@ -433,12 +285,6 @@ func (b *BLSAddress) Clone() Address {
 // Equals returns true if the two Addresses are equal.
 func (b *BLSAddress) Equals(other Address) bool {
 	return b.Type() == other.Type() && bytes.Equal(b.Digest(), other.Digest())
-}
-
-// Bytes returns a marshaled version of the Address.
-func (b *BLSAddress) BytesOld() []byte {
-	// TODO: remove eventually
-	return byteutils.ConcatBytes([]byte{byte(BLSAddressType)}, b.blsAddressInner.Digest[:])
 }
 
 // Bytes returns a marshaled version of the Address.
@@ -502,23 +348,11 @@ func NewAliasAddress(data []byte) *AliasAddress {
 
 // AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
 func AliasAddressFromBytes(data []byte) (address *AliasAddress, consumedBytes int, err error) {
+	address = new(AliasAddress)
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, address, serix.WithValidation())
 	if err != nil {
 		return nil, consumedBytes, err
 	}
-	return
-}
-
-// AliasAddressFromBytes unmarshals an AliasAddress from a sequence of bytes.
-func AliasAddressFromBytesOld(data []byte) (address *AliasAddress, consumedBytes int, err error) {
-	// TODO: replace with FromBytesNew eventually
-	marshalUtil := marshalutil.New(data)
-	if address, err = AliasAddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AliasAddress from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -583,12 +417,6 @@ func (a *AliasAddress) Bytes() []byte {
 		return nil
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the Address.
-func (a *AliasAddress) BytesOld() []byte {
-	// TODO: remove eventually
-	return byteutils.ConcatBytes([]byte{byte(AliasAddressType)}, a.aliasAddressInner.Digest[:])
 }
 
 // Array returns an array of bytes that contains the marshaled version of the Address.

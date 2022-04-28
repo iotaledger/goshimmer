@@ -1,11 +1,10 @@
 package payload
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -56,36 +55,11 @@ func NewGenericDataPayload(data []byte) *GenericDataPayload {
 
 // GenericDataPayloadFromBytes unmarshals a GenericDataPayload from a sequence of bytes.
 func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataPayload, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if genericDataPayload, err = GenericDataPayloadFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
+	genericDataPayload = new(GenericDataPayload)
 
-	return
-}
-
-// GenericDataPayloadFromMarshalUtil unmarshals a GenericDataPayload using a MarshalUtil (for easier unmarshaling).
-func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
-	//_, err = marshalUtil.ReadUint32()
-	//if err != nil {
-	//	err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
-	//	return
-	//}
-
-	genericDataPayload = &GenericDataPayload{}
-	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
-		return
-	}
-	dataSize, err := marshalUtil.ReadUint32()
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, genericDataPayload, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse data size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if genericDataPayload.Data, err = marshalUtil.ReadBytes(int(dataSize)); err != nil {
-		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse GenericDataPayload: %w", err)
 		return
 	}
 
@@ -104,12 +78,12 @@ func (g *GenericDataPayload) Blob() []byte {
 
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
-	return marshalutil.New().
-		WriteUint32(TypeLength + marshalutil.Uint32Size + uint32(len(g.Data))).
-		WriteBytes(g.Type().Bytes()).
-		WriteUint32(uint32(len(g.Data))).
-		WriteBytes(g.Blob()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), g, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // String returns a human readable version of the Payload.

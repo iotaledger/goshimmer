@@ -7,10 +7,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -546,33 +544,6 @@ var ParentTypeToApproverType = map[ParentsType]ApproverType{
 	ShallowDislikeParentType: ShallowDislikeApprover,
 }
 
-// ApproverTypeFromBytes unmarshals an ApproverType from a sequence of bytes.
-func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ApproverTypeFromMarshalUtil unmarshals an ApproverType using a MarshalUtil (for easier unmarshaling).
-func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
-	untypedApproverType, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if approverType = ApproverType(untypedApproverType); approverType < StrongApprover || approverType > ShallowDislikeApprover {
-		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // Bytes returns a marshaled version of the ApproverType.
 func (a ApproverType) Bytes() []byte {
 	return []byte{byte(a)}
@@ -652,33 +623,6 @@ func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
 	return approver, err
 }
 
-// FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytesOld(bytes []byte) (result *Approver, err error) {
-	//TODO: remove eventually or refactor
-	return a.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil parses a new approver from the given marshal util.
-func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approver *Approver, err error) {
-	if approver = a; approver == nil {
-		approver = new(Approver)
-	}
-	if approver.approverInner.ReferencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
-		return
-	}
-	if approver.approverInner.ApproverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
-	if approver.approverInner.ApproverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
 	return a.approverInner.ApproverType
@@ -716,17 +660,6 @@ func (a *Approver) ObjectStorageKey() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey marshals the keys of the stored approver into a byte array.
-// This includes the referencedMessageID and the approverMessageID.
-func (a *Approver) ObjectStorageKeyOld() []byte {
-	// TODO: remove eventually
-	return marshalutil.New().
-		Write(a.approverInner.ReferencedMessageID).
-		Write(a.approverInner.ApproverType).
-		Write(a.approverInner.ApproverMessageID).
-		Bytes()
 }
 
 // ObjectStorageValue returns the value of the stored approver object.
@@ -788,31 +721,6 @@ func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
 	return attachment, err
 }
 
-// FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
-// optionally provided one with the parsed information.
-func (a *Attachment) FromBytesOld(bytes []byte) (result *Attachment, err error) {
-	//TODO: remove eventually or refactor
-	return a.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
-// package.
-func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (attachment *Attachment, err error) {
-	if attachment = a; attachment == nil {
-		attachment = new(Attachment)
-	}
-	if attachment.attachmentInner.TransactionID, err = ledgerstate.TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse transaction ID in attachment: %w", err)
-		return
-	}
-	if attachment.attachmentInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
-		return
-	}
-
-	return
-}
-
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() ledgerstate.TransactionID {
 	return a.attachmentInner.TransactionID
@@ -845,12 +753,6 @@ func (a *Attachment) ObjectStorageKey() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database.
-func (a *Attachment) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return byteutils.ConcatBytes(a.attachmentInner.TransactionID.Bytes(), a.MessageID().Bytes())
 }
 
 // ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
@@ -920,31 +822,6 @@ func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err err
 	return missingMsg, err
 }
 
-// FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytesOld(bytes []byte) (result *MissingMessage, err error) {
-	//TODO: remove eventually or refactor
-	return m.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil parses a MissingMessage from the given MarshalUtil.
-func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
-	result = m
-	if m == nil {
-		result = new(MissingMessage)
-	}
-
-	if result.missingMessageInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
-		return
-	}
-	if result.missingMessageInner.MissingSince, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse missingSince of missing message: %w", err)
-		return
-	}
-
-	return
-}
-
 // MessageID returns the id of the message.
 func (m *MissingMessage) MessageID() MessageID {
 	return m.missingMessageInner.MessageID
@@ -980,22 +857,6 @@ func (m *MissingMessage) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key of the stored missing message.
-// This returns the bytes of the messageID of the missing message.
-func (m *MissingMessage) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return m.missingMessageInner.MessageID[:]
-}
-
-// ObjectStorageValue returns the value of the stored missing message.
-func (m *MissingMessage) ObjectStorageValueOld() (result []byte) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New()
-	result = marshalUtil.WriteTime(m.missingMessageInner.MissingSince).Bytes()
-
-	return
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.

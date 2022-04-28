@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -806,34 +805,6 @@ func (a *AddressOutputMapping) FromBytes(data []byte) (addressOutputMapping *Add
 	return
 }
 
-// FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (a *AddressOutputMapping) FromBytesOld(bytes []byte) (addressOutputMapping *AddressOutputMapping, err error) {
-	// TODO: replace with FromBytesNew eventually
-	marshalUtil := marshalutil.New(bytes)
-	if addressOutputMapping, err = a.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshalling).
-func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
-	if addressOutputMapping = a; addressOutputMapping == nil {
-		addressOutputMapping = new(AddressOutputMapping)
-	}
-	if addressOutputMapping.addressOutputMappingInner.Address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
-		return
-	}
-	if addressOutputMapping.addressOutputMappingInner.OutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
 // Address returns the Address of the AddressOutputMapping.
 func (a *AddressOutputMapping) Address() Address {
 	return a.addressOutputMappingInner.Address
@@ -847,12 +818,6 @@ func (a *AddressOutputMapping) OutputID() OutputID {
 // Bytes marshals the Consumer into a sequence of bytes.
 func (a *AddressOutputMapping) Bytes() []byte {
 	return a.ObjectStorageKey()
-}
-
-// Bytes marshals the Consumer into a sequence of bytes.
-func (a *AddressOutputMapping) BytesOld() []byte {
-	// TODO: remove that eventually
-	return a.ObjectStorageKeyOld()
 }
 
 // String returns a human-readable version of the Consumer.
@@ -872,13 +837,6 @@ func (a *AddressOutputMapping) ObjectStorageKey() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *AddressOutputMapping) ObjectStorageKeyOld() []byte {
-	// TODO: remove this function soon
-	return byteutils.ConcatBytes(a.addressOutputMappingInner.Address.Bytes(), a.addressOutputMappingInner.OutputID.Bytes())
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
@@ -960,39 +918,6 @@ func (c *Consumer) FromBytes(data []byte) (consumer *Consumer, err error) {
 	return
 }
 
-// FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytesOld(bytes []byte) (consumer *Consumer, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
-func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
-	if consumer = c; consumer == nil {
-		consumer = new(Consumer)
-	}
-	if consumer.consumerInner.ConsumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.consumerInner.TransactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.consumerInner.Valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // ConsumedInput returns the OutputID of the consumed Input.
 func (c *Consumer) ConsumedInput() OutputID {
 	return c.consumerInner.ConsumedInput
@@ -1068,20 +993,6 @@ func (c *Consumer) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *Consumer) ObjectStorageKeyOld() []byte {
-	return byteutils.ConcatBytes(c.consumerInner.ConsumedInput.Bytes(), c.consumerInner.TransactionID.Bytes())
-}
-
-// ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
-// storage.
-func (c *Consumer) ObjectStorageValueOld() []byte {
-	return marshalutil.New(marshalutil.BoolSize).
-		Write(c.Valid()).
-		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)

@@ -23,18 +23,6 @@ type ConsensusBasePastManaVectorMetadata struct {
 }
 
 // Bytes marshals the consensus base past mana vector metadata into a sequence of bytes.
-func (c *ConsensusBasePastManaVectorMetadata) BytesOld() []byte {
-	if bytes := c.bytes; bytes != nil {
-		return bytes
-	}
-	// create marshal helper
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteTime(c.Timestamp)
-	c.bytes = marshalUtil.Bytes()
-	return c.bytes
-}
-
-// Bytes marshals the consensus base past mana vector metadata into a sequence of bytes.
 func (c *ConsensusBasePastManaVectorMetadata) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
 	if err != nil {
@@ -86,11 +74,6 @@ func (c *ConsensusBasePastManaVectorMetadata) FromBytes(data []byte) (result *Co
 		return
 	}
 	return
-}
-
-// FromBytes unmarshalls bytes into a metadata.
-func (*ConsensusBasePastManaVectorMetadata) FromBytesOld(data []byte) (result *ConsensusBasePastManaVectorMetadata, err error) {
-	return parseMetadata(marshalutil.New(data))
 }
 
 var _ objectstorage.StorableObject = new(ConsensusBasePastManaVectorMetadata)

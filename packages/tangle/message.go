@@ -455,30 +455,6 @@ func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.Stor
 	return
 }
 
-// FromObjectStorage parses the given key and bytes into a message.
-func (m *Message) FromObjectStorageOld(key, value []byte) (result objectstorage.StorableObject, err error) {
-
-	// parse the message
-	message, err := m.FromBytes(value)
-	if err != nil {
-		err = fmt.Errorf("failed to parse message from object storage: %w", err)
-		return
-	}
-
-	// parse the ID from they key
-	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
-		return
-	}
-	message.id = &id
-
-	// assign result
-	result = message
-
-	return
-}
-
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (m *Message) FromBytes(data []byte) (*Message, error) {
 	msg := new(Message)
@@ -503,108 +479,6 @@ func (m *Message) FromBytes(data []byte) (*Message, error) {
 	}
 
 	return msg, err
-}
-
-// FromBytes parses the given bytes into a message.
-func (m *Message) FromBytesOld(bytes []byte) (message *Message, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	message, err = m.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return
-	}
-	consumedBytes := marshalUtil.ReadOffset()
-
-	if len(bytes) != consumedBytes {
-		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
-	}
-	return
-}
-
-// FromMarshalUtil parses a message from the given marshal util.
-func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
-	// determine read offset before starting to parse
-	readOffsetStart := marshalUtil.ReadOffset()
-
-	// parse information
-	version, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, errors.Errorf("failed to parse message Version from MarshalUtil: %w", err)
-	}
-
-	var parentsBlocksCount uint8
-	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
-		return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-	}
-	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
-		return nil, errors.Errorf("parents count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
-	}
-
-	parentsBlocks := make(map[ParentsType]MessageIDs, parentsBlocksCount)
-
-	for i := 0; i < int(parentsBlocksCount); i++ {
-		var parentType uint8
-		if parentType, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
-		}
-
-		var parentsCount uint8
-		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-		}
-		references := make([]MessageID, parentsCount)
-		for j := 0; j < int(parentsCount); j++ {
-			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
-			}
-		}
-		parentsBlocks[ParentsType(parentType)] = NewMessageIDs(references...)
-	}
-
-	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuer public key of the message: %w", err)
-	}
-	issuingTime, err := marshalUtil.ReadTime()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuing time of the message: %w", err)
-	}
-	msgSequenceNumber, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse sequence number of the message: %w", err)
-	}
-
-	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Payload of the message: %w", err)
-	}
-
-	nonce, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Nonce of the message: %w", err)
-	}
-	signature, err := ed25519.ParseSignature(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse Signature of the message: %w", err)
-	}
-
-	// retrieve the number of bytes we processed
-	readOffsetEnd := marshalUtil.ReadOffset()
-
-	// store marshaled Version as a copy
-	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
-	if err != nil {
-		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
-	}
-
-	msg, err := newMessageWithValidation(parentsBlocks, issuingTime, issuerPublicKey, msgSequenceNumber, msgPayload, nonce, signature, version)
-	if err != nil {
-		return nil, err
-	}
-
-	msg.bytes = msgBytes
-
-	return msg, nil
 }
 
 // VerifySignature verifies the Signature of the message.
@@ -733,47 +607,6 @@ func (m *Message) Bytes() []byte {
 	return objBytes
 }
 
-// Bytes returns the message in serialized byte form.
-func (m *Message) BytesOld() []byte {
-	//TODO: remove eventually
-	m.bytesMutex.Lock()
-	defer m.bytesMutex.Unlock()
-	if m.bytes != nil {
-		return m.bytes
-	}
-
-	// marshal result
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(m.messageInner.Version)
-	marshalUtil.WriteByte(byte(len(m.Parents)))
-	keys := make([]ParentsType, 0, len(m.Parents))
-	for key := range m.Parents {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(p, q int) bool {
-		return keys[p] < keys[q]
-	})
-	for _, parentType := range keys {
-		marshalUtil.WriteByte(byte(parentType))
-		marshalUtil.WriteByte(byte(len(m.Parents[parentType])))
-		sortedParents := sortParents(m.Parents[parentType])
-		for _, parent := range sortedParents {
-			marshalUtil.Write(parent)
-		}
-	}
-
-	marshalUtil.Write(m.messageInner.IssuerPublicKey)
-	marshalUtil.WriteTime(m.messageInner.IssuingTime)
-	marshalUtil.WriteUint64(m.messageInner.SequenceNumber)
-	marshalUtil.Write(m.messageInner.Payload)
-	marshalUtil.WriteUint64(m.messageInner.Nonce)
-	marshalUtil.Write(m.messageInner.Signature)
-
-	m.bytes = marshalUtil.Bytes()
-
-	return m.bytes
-}
-
 // Size returns the message size in bytes.
 func (m *Message) Size() int {
 	return len(m.Bytes())
@@ -801,20 +634,6 @@ func (m *Message) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key of the stored message object.
-// This returns the bytes of the message ID.
-func (m *Message) ObjectStorageKeyOld() []byte {
-	//TODO: remove eventually
-	return m.ID().Bytes()
-}
-
-// ObjectStorageValue returns the value stored in object storage.
-// This returns the bytes of message.
-func (m *Message) ObjectStorageValueOld() []byte {
-	//TODO: remove eventually
-	return m.Bytes()
 }
 
 func (m *Message) String() string {
@@ -1001,15 +820,6 @@ func (m *MessageMetadata) FromObjectStorage(key, value []byte) (objectstorage.St
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytesOld(bytes []byte) (result *MessageMetadata, err error) {
-	//TODO: remove eventually or refactor
-	marshalUtil := marshalutil.New(bytes)
-	result, err = m.FromMarshalUtil(marshalUtil)
-
-	return
-}
-
-// FromBytes unmarshals the given bytes into a MessageMetadata.
 func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
 	msgMetadata := new(MessageMetadata)
 	if m != nil {
@@ -1029,74 +839,6 @@ func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err e
 	}
 	msgMetadata.messageMetadataInner.MessageID = *messageID
 	return msgMetadata, err
-}
-
-// FromMarshalUtil parses a Message from the given MarshalUtil.
-func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
-	if messageMetadata = m; messageMetadata == nil {
-		messageMetadata = new(MessageMetadata)
-	}
-
-	if messageMetadata.messageMetadataInner.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.ReceivedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.SolidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.Solid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.StructureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.AddedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.SubtractedBranchIDs, err = ledgerstate.BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.Scheduled, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.ScheduledTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.Booked, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.BookedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.messageMetadataInner.ObjectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
-		return
-	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
-		return
-	}
-	messageMetadata.messageMetadataInner.GradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if messageMetadata.messageMetadataInner.GradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
-		return
-	}
-
-	return
 }
 
 // ID returns the MessageID of the Message that this MessageMetadata object belongs to.
@@ -1455,32 +1197,6 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key of the stored message metadata object.
-// This returns the bytes of the messageID.
-func (m *MessageMetadata) ObjectStorageKeyOld() []byte {
-	return m.messageMetadataInner.MessageID.Bytes()
-}
-
-// ObjectStorageValue returns the value of the stored message metadata object.
-// This includes the receivedTime, solidificationTime and solid status.
-func (m *MessageMetadata) ObjectStorageValueOld() []byte {
-	return marshalutil.New().
-		WriteTime(m.ReceivedTime()).
-		WriteTime(m.SolidificationTime()).
-		WriteBool(m.IsSolid()).
-		WriteBytes(m.StructureDetails().BytesOld()).
-		Write(m.AddedBranchIDs()).
-		Write(m.SubtractedBranchIDs()).
-		WriteBool(m.Scheduled()).
-		WriteTime(m.ScheduledTime()).
-		WriteBool(m.IsBooked()).
-		WriteTime(m.BookedTime()).
-		WriteBool(m.IsObjectivelyInvalid()).
-		WriteUint8(uint8(m.GradeOfFinality())).
-		WriteTime(m.GradeOfFinalityTime()).
-		Bytes()
 }
 
 // String returns a human-readable Version of the MessageMetadata.

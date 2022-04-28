@@ -99,17 +99,6 @@ func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
 	return
 }
 
-// FromBytes parses the marshaled version of a Payload into a Go object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytesOld(bytes []byte) (result *Payload, consumedBytes int, err error) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	result, err = Parse(marshalUtil)
-	consumedBytes = marshalUtil.ReadOffset()
-	result.bytes = bytes
-	return
-}
-
 // Parse unmarshals an Payload using the given marshalUtil (for easier marshaling/unmarshaling).
 func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
 	// read information that are required to identify the payloa from the outside
@@ -187,46 +176,6 @@ func (p *Payload) Bytes() []byte {
 	}
 	p.bytes = objBytes
 	return objBytes
-}
-
-// Bytes returns a marshaled version of this Payload.
-func (p *Payload) BytesOld() (bytes []byte) {
-	//TODO: remove eventually
-
-	// acquire lock for reading bytes
-	p.bytesMutex.RLock()
-
-	// return if bytes have been determined already
-	if bytes = p.bytes; bytes != nil {
-		p.bytesMutex.RUnlock()
-		return
-	}
-
-	// switch to write lock
-	p.bytesMutex.RUnlock()
-	p.bytesMutex.Lock()
-	defer p.bytesMutex.Unlock()
-
-	// return if bytes have been determined in the mean time
-	if bytes = p.bytes; bytes != nil {
-		return
-	}
-
-	// initialize helper
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + marshalutil.Uint32Size)
-
-	// marshal the payload specific information
-	marshalUtil.WriteBytes(Type.Bytes())
-	marshalUtil.WriteUint32(uint32(len(p.From)))
-	marshalUtil.WriteBytes([]byte(p.From))
-	marshalUtil.WriteUint32(uint32(len(p.To)))
-	marshalUtil.WriteBytes([]byte(p.To))
-	marshalUtil.WriteUint32(uint32(len(p.Message)))
-	marshalUtil.WriteBytes([]byte(p.Message))
-
-	bytes = marshalUtil.Bytes()
-
-	return bytes
 }
 
 // String returns a human-friendly representation of the Payload.

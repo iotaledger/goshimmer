@@ -7,11 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConsensusBasePastManaVectorMetadata_Bytes(t *testing.T) {
-	c := &ConsensusBasePastManaVectorMetadata{}
-	assert.Equal(t, c.BytesOld(), c.Bytes(), "should be equal")
-}
-
 func TestConsensusBasePastManaVectorMetadata_ObjectStorageKey(t *testing.T) {
 	c := &ConsensusBasePastManaVectorMetadata{}
 	key := []byte(ConsensusBaseManaPastVectorMetadataStorageKey)

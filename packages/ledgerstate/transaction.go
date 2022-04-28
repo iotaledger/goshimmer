@@ -19,7 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -36,15 +35,7 @@ var TransactionType payload.Type
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		marshalUtil := marshalutil.New(data)
-		tx, err := (&Transaction{}).FromMarshalUtil(marshalUtil)
-		if err != nil {
-			return nil, err
-		}
-		if marshalUtil.ReadOffset() != len(data) {
-			return nil, errors.New("not all payload bytes were consumed")
-		}
-		return tx, nil
+		return (&Transaction{}).FromBytes(data)
 	})
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
@@ -302,23 +293,6 @@ func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.Storab
 	return tx, err
 }
 
-// FromObjectStorage creates a Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorageOld(key, value []byte) (objectstorage.StorableObject, error) {
-	transaction, err := t.FromBytes(value)
-	if err != nil {
-		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
-		return transaction, err
-	}
-
-	transactionID, _, err := TransactionIDFromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-		return transaction, err
-	}
-	transaction.id = &transactionID
-	return transaction, err
-}
-
 // FromBytes unmarshals a Transaction from a sequence of bytes.
 func (t *Transaction) FromBytes(data []byte) (*Transaction, error) {
 	tx := new(Transaction)
@@ -333,110 +307,6 @@ func (t *Transaction) FromBytes(data []byte) (*Transaction, error) {
 	SetOutputID(tx.Essence(), tx.ID())
 
 	return tx, nil
-}
-
-// FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytesOld(bytes []byte) (transaction *Transaction, err error) {
-	//TODO: remove that eventually
-	marshalUtil := marshalutil.New(bytes)
-	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
-func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	transaction = &Transaction{}
-
-	//readStartOffset := marshalUtil.ReadOffset()
-
-	//payloadSize, err := marshalUtil.ReadUint32()
-	//if err != nil {
-	//	err = errors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
-	//	return
-	//}
-	//// a payloadSize of 0 indicates the payload is omitted and the payload is nil
-	//if payloadSize == 0 {
-	//	return
-	//}
-	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
-	if err != nil {
-		err = errors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
-		return
-	}
-	if payloadType != TransactionType {
-		err = errors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	if transaction.transactionInner.Essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
-		return
-	}
-	if transaction.transactionInner.UnlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
-		return
-	}
-
-	//parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	//if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
-	//	err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
-	//	return
-	//}
-
-	if len(transaction.transactionInner.UnlockBlocks) != len(transaction.transactionInner.Essence.Inputs()) {
-		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.transactionInner.UnlockBlocks), len(transaction.transactionInner.Essence.transactionEssenceInner.Inputs), cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	// validation from here
-	// TODO: check transaction essence version - added
-	// TODO make sure that inputs are in lexical order - added
-	// TODO make sure that outputs are in lexical order - added
-	// TODO: min/max output count - added
-	// TODO: min/max input count - added
-	// TODO: no duplicates in outputs - added
-	// TODO: no duplicates in inputs - added
-
-	maxReferencedUnlockIndex := len(transaction.transactionInner.Essence.Inputs()) - 1
-	for i, unlockBlock := range transaction.transactionInner.UnlockBlocks {
-		switch unlockBlock.Type() {
-		case SignatureUnlockBlockType:
-			continue
-		case ReferenceUnlockBlockType:
-			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
-				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
-				return
-			}
-		case AliasUnlockBlockType:
-			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
-				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
-				return
-			}
-		}
-	}
-
-	for i, output := range transaction.transactionInner.Essence.Outputs() {
-		output.SetID(NewOutputID(transaction.ID(), uint16(i)))
-		// check if an alias output is deadlocked to itself
-		// for origin alias outputs, alias address is only known once the ID of the output is set
-		if output.Type() == AliasOutputType {
-			alias := output.(*AliasOutput)
-			aliasAddress := alias.GetAliasAddress()
-			if alias.GetStateAddress().Equals(aliasAddress) {
-				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-				return
-			}
-			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58())
-				return
-			}
-		}
-	}
-
-	return
 }
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
@@ -502,23 +372,6 @@ func (t *Transaction) Bytes() []byte {
 	return objBytes
 }
 
-// Bytes returns a marshaled version of the Transaction.
-func (t *Transaction) BytesOld() []byte {
-	//TODO: remove eventually
-	if t == nil {
-		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
-		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
-	}
-
-	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.transactionInner.Essence.Bytes(), t.transactionInner.UnlockBlocks.Bytes())
-	payloadBytesLength := len(payloadBytes)
-
-	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
-		//WriteUint32(uint32(payloadBytesLength)).
-		WriteBytes(payloadBytes).
-		Bytes()
-}
-
 // String returns a human readable version of the Transaction.
 func (t *Transaction) String() string {
 	return stringify.Struct("Transaction",
@@ -542,24 +395,13 @@ func (t *Transaction) ObjectStorageKey() []byte {
 // ObjectStorageValue marshals the Transaction into a sequence of bytes that are used as the value part in the
 // object storage.
 func (t *Transaction) ObjectStorageValue() []byte {
+	fmt.Println(t)
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (t *Transaction) ObjectStorageKeyOld() []byte {
-	return t.ID().Bytes()
-}
-
-// ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
-func (t *Transaction) ObjectStorageValueOld() []byte {
-	return t.Bytes()
 }
 
 func SetOutputID(essence *TransactionEssence, transactionID TransactionID) {
@@ -642,63 +484,6 @@ func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionE
 	return
 }
 
-// TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
-func TransactionEssenceFromBytesOld(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
-	//TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshaling).
-func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
-	transactionEssence = &TransactionEssence{}
-	if transactionEssence.transactionEssenceInner.Version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
-		return
-	}
-	// unmarshal timestamp
-	if transactionEssence.transactionEssenceInner.Timestamp, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
-		return
-	}
-	// unmarshal accessPledgeID
-	var accessPledgeIDBytes []byte
-	if accessPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = errors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
-		return
-	}
-	copy(transactionEssence.transactionEssenceInner.AccessPledgeID[:], accessPledgeIDBytes)
-
-	// unmarshal consensusPledgeIDBytes
-	var consensusPledgeIDBytes []byte
-	if consensusPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = errors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
-		return
-	}
-	copy(transactionEssence.transactionEssenceInner.ConsensusPledgeID[:], consensusPledgeIDBytes)
-
-	if transactionEssence.transactionEssenceInner.Inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
-		return
-	}
-	if transactionEssence.transactionEssenceInner.Outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
-		return
-	}
-	if transactionEssence.transactionEssenceInner.Payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
 // SetPayload set the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) SetPayload(p payload.Payload) {
 	t.transactionEssenceInner.Payload = p
@@ -749,25 +534,6 @@ func (t *TransactionEssence) Bytes() []byte {
 	return objBytes
 }
 
-// Bytes returns a marshaled version of the TransactionEssence.
-func (t *TransactionEssence) BytesOld() []byte {
-	marshalUtil := marshalutil.New().
-		Write(t.transactionEssenceInner.Version).
-		WriteTime(t.transactionEssenceInner.Timestamp).
-		Write(t.transactionEssenceInner.AccessPledgeID).
-		Write(t.transactionEssenceInner.ConsensusPledgeID).
-		Write(t.transactionEssenceInner.Inputs).
-		Write(t.transactionEssenceInner.Outputs)
-
-	if !typeutils.IsInterfaceNil(t.transactionEssenceInner.Payload) {
-		marshalUtil.Write(t.transactionEssenceInner.Payload)
-	} else {
-		marshalUtil.WriteUint32(0)
-	}
-
-	return marshalUtil.Bytes()
-}
-
 // String returns a human-readable version of the TransactionEssence.
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
@@ -788,23 +554,6 @@ func (t *TransactionEssence) String() string {
 // TransactionEssenceVersion represents a version number for the TransactionEssence which can be used to ensure backward
 // compatibility if the structure ever needs to get changed.
 type TransactionEssenceVersion uint8
-
-// TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
-// unmarshaling).
-func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
-	readByte, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if readByte != 0 {
-		err = errors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ErrParseBytesFailed)
-		return
-	}
-	version = TransactionEssenceVersion(readByte)
-
-	return
-}
 
 // Bytes returns a marshaled version of the TransactionEssenceVersion.
 func (t TransactionEssenceVersion) Bytes() []byte {
@@ -897,56 +646,6 @@ func (t *TransactionMetadata) FromBytes(data []byte) (*TransactionMetadata, erro
 	}
 	tx.transactionMetadataInner.ID = *transactionID
 	return tx, err
-}
-
-// FromBytes unmarshals an TransactionMetadata object from a sequence of bytes.
-func (t *TransactionMetadata) FromBytesOld(bytes []byte) (transactionMetadata *TransactionMetadata, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	if transactionMetadata, err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionMetadata from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals an TransactionMetadata object using a MarshalUtil (for easier unmarshaling).
-func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionMetadata *TransactionMetadata, err error) {
-	if transactionMetadata = t; transactionMetadata == nil {
-		transactionMetadata = &TransactionMetadata{}
-	}
-	if transactionMetadata.transactionMetadataInner.ID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID: %w", err)
-		return
-	}
-	if transactionMetadata.transactionMetadataInner.BranchIDs, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-	if transactionMetadata.transactionMetadataInner.Solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.transactionMetadataInner.SolidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if transactionMetadata.transactionMetadataInner.LazyBooked, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse lazy booked flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	transactionMetadata.transactionMetadataInner.GradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if transactionMetadata.transactionMetadataInner.GradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
 }
 
 // ID returns the TransactionID of the Transaction that the TransactionMetadata belongs to.
@@ -1131,25 +830,6 @@ func (t *TransactionMetadata) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (t *TransactionMetadata) ObjectStorageKeyOld() []byte {
-	return t.transactionMetadataInner.ID.Bytes()
-}
-
-// ObjectStorageValue marshals the TransactionMetadata into a sequence of bytes. The ID is not serialized here as it is
-// only used as a key in the ObjectStorage.
-func (t *TransactionMetadata) ObjectStorageValueOld() []byte {
-	return marshalutil.New().
-		Write(t.BranchIDs()).
-		WriteBool(t.Solid()).
-		WriteTime(t.SolidificationTime()).
-		WriteBool(t.LazyBooked()).
-		WriteUint8(uint8(t.GradeOfFinality())).
-		WriteTime(t.GradeOfFinalityTime()).
-		Bytes()
 }
 
 // code contract (make sure the type implements all required methods)

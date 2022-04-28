@@ -6,10 +6,7 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/bytesfilter"
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -25,6 +22,12 @@ func init() {
 		panic(fmt.Errorf("error registering ReferenceUnlockBlock type settings: %w", err))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(SignatureUnlockBlock{}, serix.TypeSettings{}.WithObjectType(uint8(new(SignatureUnlockBlock).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(UnlockBlocks{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithArrayRules(&serix.ArrayRules{
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates,
+	}))
 	if err != nil {
 		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
 	}
@@ -76,52 +79,6 @@ type UnlockBlock interface {
 	String() string
 }
 
-// UnlockBlockFromBytes unmarshals an UnlockBlock from a sequence of bytes.
-func UnlockBlockFromBytes(bytes []byte) (unlockBlock UnlockBlock, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlock, err = UnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// UnlockBlockFromMarshalUtil unmarshals an UnlockBlock using a MarshalUtil (for easier unmarshaling).
-func UnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock UnlockBlock, err error) {
-	unlockBlockType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	marshalUtil.ReadSeek(-1)
-
-	switch UnlockBlockType(unlockBlockType) {
-	case SignatureUnlockBlockType:
-		if unlockBlock, err = SignatureUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse SignatureUnlockBlock from MarshalUtil: %w", err)
-			return
-		}
-	case ReferenceUnlockBlockType:
-		if unlockBlock, err = ReferenceUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse ReferenceUnlockBlock from MarshalUtil: %w", err)
-			return
-		}
-	case AliasUnlockBlockType:
-		if unlockBlock, err = AliasUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse AliasUnlockBlock from MarshalUtil: %w", err)
-			return
-		}
-
-	default:
-		err = errors.Errorf("unsupported UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region UnlockBlocks /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,48 +88,10 @@ type UnlockBlocks []UnlockBlock
 
 // UnlockBlocksFromBytes unmarshals UnlockBlocks from a sequence of bytes.
 func UnlockBlocksFromBytes(bytes []byte) (unlockBlocks UnlockBlocks, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// UnlockBlocksFromMarshalUtil unmarshals UnlockBlocks using a MarshalUtil (for easier unmarshaling).
-func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlocks UnlockBlocks, err error) {
-	unlockBlockCount, err := marshalUtil.ReadUint16()
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &unlockBlocks, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlock count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse UnlockBlocks: %w", err)
 		return
-	}
-
-	seenUnlockBlocks := bytesfilter.New(int(unlockBlockCount))
-	unlockBlocks = make(UnlockBlocks, unlockBlockCount)
-	for i := uint16(0); i < unlockBlockCount; i++ {
-		unlockBlockBytesStart := marshalUtil.ReadOffset()
-		unlockBlock, unlockBlockErr := UnlockBlockFromMarshalUtil(marshalUtil)
-		if unlockBlockErr != nil {
-			err = errors.Errorf("failed to parse UnlockBlock from MarshalUtil: %w", unlockBlockErr)
-			return
-		}
-
-		unlockBlockBytes, unlockBlockBytesErr := marshalUtil.ReadBytes(marshalUtil.ReadOffset()-unlockBlockBytesStart, unlockBlockBytesStart)
-		if unlockBlockBytesErr != nil {
-			err = errors.Errorf("failed to parse UnlockBlock bytes from MarshalUtil: %w", unlockBlockBytesErr)
-			return
-		}
-
-		if unlockBlock.Type() != ReferenceUnlockBlockType &&
-			unlockBlock.Type() != AliasUnlockBlockType &&
-			!seenUnlockBlocks.Add(unlockBlockBytes) {
-			err = errors.Errorf("duplicate UnlockBlock detected at index %d: %w", i, cerrors.ErrParseBytesFailed)
-			return
-		}
-
-		unlockBlocks[i] = unlockBlock
 	}
 
 	return
@@ -180,13 +99,12 @@ func UnlockBlocksFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBl
 
 // Bytes returns a marshaled version of the UnlockBlocks.
 func (u UnlockBlocks) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(u)))
-	for _, unlockBlock := range u {
-		marshalUtil.WriteBytes(unlockBlock.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), u)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
 // String returns a human readable version of the UnlockBlocks.
@@ -230,38 +148,6 @@ func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBl
 	return
 }
 
-// SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
-func SignatureUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlock, err = SignatureUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SignatureUnlockBlock from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// SignatureUnlockBlockFromMarshalUtil unmarshals a SignatureUnlockBlock using a MarshalUtil (for easier unmarshaling).
-func SignatureUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *SignatureUnlockBlock, err error) {
-	unlockBlockType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if UnlockBlockType(unlockBlockType) != SignatureUnlockBlockType {
-		err = errors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	unlockBlock = &SignatureUnlockBlock{}
-	if unlockBlock.signatureUnlockBlockInner.Signature, err = SignatureFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Signature from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
 // AddressSignatureValid returns true if the UnlockBlock correctly signs the given Address.
 func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) bool {
 	return s.signatureUnlockBlockInner.Signature.AddressSignatureValid(address, signedData)
@@ -280,11 +166,6 @@ func (s *SignatureUnlockBlock) Bytes() []byte {
 		return nil
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the UnlockBlock.
-func (s *SignatureUnlockBlock) BytesOld() []byte {
-	return byteutils.ConcatBytes([]byte{byte(SignatureUnlockBlockType)}, s.signatureUnlockBlockInner.Signature.Bytes())
 }
 
 // String returns a human readable version of the UnlockBlock.
@@ -334,39 +215,6 @@ func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBl
 	return
 }
 
-// ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
-func ReferenceUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *ReferenceUnlockBlock, consumedBytes int, err error) {
-	// TODO: remove eventually
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlock, err = ReferenceUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ReferenceUnlockBlock from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ReferenceUnlockBlockFromMarshalUtil unmarshals a ReferenceUnlockBlock using a MarshalUtil (for easier unmarshaling).
-func ReferenceUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *ReferenceUnlockBlock, err error) {
-	unlockBlockType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if UnlockBlockType(unlockBlockType) != ReferenceUnlockBlockType {
-		err = errors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	unlockBlock = &ReferenceUnlockBlock{}
-	if unlockBlock.referenceUnlockBlockInner.ReferencedIndex, err = marshalUtil.ReadUint16(); err != nil {
-		err = errors.Errorf("failed to parse ReferencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	return
-}
-
 // ReferencedIndex returns the index of the referenced UnlockBlock.
 func (r *ReferenceUnlockBlock) ReferencedIndex() uint16 {
 	return r.referenceUnlockBlockInner.ReferencedIndex
@@ -385,14 +233,6 @@ func (r *ReferenceUnlockBlock) Bytes() []byte {
 		return nil
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the UnlockBlock.
-func (r *ReferenceUnlockBlock) BytesOld() []byte {
-	return marshalutil.New(1 + marshalutil.Uint16Size).
-		WriteByte(byte(ReferenceUnlockBlockType)).
-		WriteUint16(r.referenceUnlockBlockInner.ReferencedIndex).
-		Bytes()
 }
 
 // String returns a human readable version of the UnlockBlock.
@@ -426,48 +266,6 @@ func NewAliasUnlockBlock(chainInputIndex uint16) *AliasUnlockBlock {
 	}
 }
 
-// AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
-func AliasUnlockBlockFromBytesOld(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if unlockBlock, err = AliasUnlockBlockFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AliasUnlockBlock from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// AliasUnlockBlockFromBytes unmarshals a AliasUnlockBlock from a sequence of bytes.
-func AliasUnlockBlockFromBytes(bytes []byte) (unlockBlock *AliasUnlockBlock, consumedBytes int, err error) {
-	unlockBlock = new(AliasUnlockBlock)
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
-	if err != nil {
-		return nil, consumedBytes, err
-	}
-	return
-}
-
-// AliasUnlockBlockFromMarshalUtil unmarshals a AliasUnlockBlock using a MarshalUtil (for easier unmarshaling).
-func AliasUnlockBlockFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (unlockBlock *AliasUnlockBlock, err error) {
-	unlockBlockType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse UnlockBlockType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if UnlockBlockType(unlockBlockType) != AliasUnlockBlockType {
-		err = errors.Errorf("invalid UnlockBlockType (%X): %w", unlockBlockType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	unlockBlock = &AliasUnlockBlock{}
-	if unlockBlock.ReferencedIndex, err = marshalUtil.ReadUint16(); err != nil {
-		err = errors.Errorf("failed to parse ReferencedIndex (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	return
-}
-
 // AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress.
 func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
 	return r.ReferencedIndex
@@ -486,14 +284,6 @@ func (r *AliasUnlockBlock) Bytes() []byte {
 		return nil
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the UnlockBlock.
-func (r *AliasUnlockBlock) BytesOld() []byte {
-	return marshalutil.New(1 + marshalutil.Uint16Size).
-		WriteByte(byte(AliasUnlockBlockType)).
-		WriteUint16(r.ReferencedIndex).
-		Bytes()
 }
 
 // String returns a human readable version of the UnlockBlock.

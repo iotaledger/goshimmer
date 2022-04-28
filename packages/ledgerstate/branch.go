@@ -166,29 +166,6 @@ func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	return
 }
 
-// BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
-func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
-	//TODO: remove this eventually, it's only used in other FromMarshalUtil methods
-	branchIDsCount, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	branchIDs = make(BranchIDs)
-	for i := uint32(0); i < branchIDsCount; i++ {
-		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
-		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
-			return
-		}
-
-		branchIDs[branchID] = types.Void
-	}
-
-	return
-}
-
 // Add adds a BranchID to the collection and returns the collection to enable chaining.
 func (b BranchIDs) Add(branchID BranchID) BranchIDs {
 	b[branchID] = types.Void
@@ -279,17 +256,6 @@ func (b BranchIDs) Bytes() []byte {
 		return nil
 	}
 	return objBytes
-}
-
-// Bytes returns a marshaled version of the BranchIDs.
-func (b BranchIDs) BytesOld() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + len(b)*BranchIDLength)
-	marshalUtil.WriteUint32(uint32(len(b)))
-	for branchID := range b {
-		marshalUtil.WriteBytes(branchID.Bytes())
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // Base58 returns a slice of base58 BranchIDs.
@@ -396,42 +362,6 @@ func (b *Branch) FromBytes(data []byte) (branch *Branch, err error) {
 		return
 	}
 	branch.branchInner.id = *branchID
-	return
-}
-
-// FromBytes unmarshals an Branch from a sequence of bytes.
-func (b *Branch) FromBytesOld(bytes []byte) (branch *Branch, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
-func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
-	if branch = b; b == nil {
-		branch = &Branch{}
-	}
-	if branch.branchInner.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse id: %w", err)
-		return
-	}
-	if branch.branchInner.Parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch parents: %w", err)
-		return
-	}
-	if branch.branchInner.Conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Conflicts: %w", err)
-		return
-	}
-	if branch.branchInner.InclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse InclusionState: %w", err)
-		return
-	}
-
 	return
 }
 
@@ -545,24 +475,6 @@ func (b *Branch) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *Branch) ObjectStorageKeyOld() []byte {
-	// TODO: remove eventually
-	return b.ID().Bytes()
-}
-
-// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
-// object storage.
-func (b *Branch) ObjectStorageValueOld() []byte {
-	// TODO: remove eventually
-	return marshalutil.New().
-		Write(b.Parents()).
-		Write(b.Conflicts()).
-		Write(b.InclusionState()).
-		Bytes()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -687,16 +599,6 @@ func (c *ChildBranch) ObjectStorageKey() []byte {
 func (c *ChildBranch) ObjectStorageValue() []byte {
 	return []byte{}
 
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *ChildBranch) ObjectStorageKeyOld() (objectStorageKey []byte) {
-	//TODO: remove eventually
-	return marshalutil.New(BranchIDLength + BranchIDLength).
-		WriteBytes(c.conflictBranchInner.ParentBranchID.Bytes()).
-		WriteBytes(c.conflictBranchInner.ChildBranchID.Bytes()).
-		Bytes()
 }
 
 // code contract (make sure the struct implements all required methods)

@@ -231,36 +231,6 @@ func (c *Conflict) FromBytes(data []byte) (conflict *Conflict, err error) {
 	return
 }
 
-// FromBytes unmarshals a Conflict from a sequence of bytes.
-func (c *Conflict) FromBytesOld(bytes []byte) (conflict *Conflict, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
-func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
-	if conflict = c; conflict == nil {
-		conflict = &Conflict{}
-	}
-	if conflict.conflictInner.ID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
-	}
-	memberCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	conflict.conflictInner.MemberCount = int64(memberCount)
-
-	return
-}
-
 // ID returns the identifier of this Conflict.
 func (c *Conflict) ID() ConflictID {
 	return c.conflictInner.ID
@@ -341,22 +311,6 @@ func (c *Conflict) ObjectStorageValue() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *Conflict) ObjectStorageKeyOld() []byte {
-	// TODO: remove eventually
-	return c.conflictInner.ID.Bytes()
-}
-
-// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (c *Conflict) ObjectStorageValueOld() []byte {
-	// TODO: remove eventuallys
-	return marshalutil.New(marshalutil.Uint64Size).
-		WriteUint64(uint64(c.MemberCount())).
-		Bytes()
 }
 
 // code contract (make sure the type implements all required methods)
@@ -473,12 +427,6 @@ func (c *ConflictMember) ObjectStorageKey() []byte {
 		panic(err)
 	}
 	return objBytes
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (c *ConflictMember) ObjectStorageKeyOld() []byte {
-	return byteutils.ConcatBytes(c.conflictMemberInner.ConflictID.Bytes(), c.conflictMemberInner.BranchID.Bytes())
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
