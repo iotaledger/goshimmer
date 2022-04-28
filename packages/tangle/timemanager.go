@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/timeutil"
 
@@ -179,45 +179,28 @@ func (t *TimeManager) mainLoop() {
 
 // LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
 type LastConfirmedMessage struct {
-	MessageID MessageID
-	Time      time.Time
+	MessageID MessageID `serix:"0"`
+	Time      time.Time `serix:"1"`
 }
 
 // lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
-func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
-	//TODO: refactor
-	marshalUtil := marshalutil.New(bytes)
-	if lcm, err = lastConfirmedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)
+func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &lcm, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Background: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// lastConfirmedMessageFromMarshalUtil unmarshals a LastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
-func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
-	lcm = LastConfirmedMessage{}
-	if lcm.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
-		return
-	}
-
-	if lcm.Time, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
 	return
 }
 
 // Bytes returns a marshaled version of the LastConfirmedMessage.
 func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
-	return marshalutil.New(MessageIDLength + marshalutil.TimeSize).
-		Write(l.MessageID).
-		WriteTime(l.Time).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // String returns a human readable version of the LastConfirmedMessage.
