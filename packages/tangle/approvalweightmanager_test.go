@@ -430,42 +430,42 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	// ISSUE Message1
 	{
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
-		testFramework.IssueMessages("Message1").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message1")).RegisterAlias("Branch1")
 	}
 
 	// ISSUE Message2
 	{
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
-		testFramework.IssueMessages("Message2").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message2")).RegisterAlias("Branch2")
 	}
 
 	// ISSUE Message3
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
-		testFramework.IssueMessages("Message3").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message3")).RegisterAlias("Branch3")
 	}
 
 	// ISSUE Message4
 	{
 		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
-		testFramework.IssueMessages("Message4").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message4")).RegisterAlias("Branch4")
 	}
 
 	// ISSUE Message5
 	{
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
-		testFramework.IssueMessages("Message5").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message5")).RegisterAlias("Branch5")
 	}
 
 	// ISSUE Message6
 	{
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
-		testFramework.IssueMessages("Message6").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message6")).RegisterAlias("Branch6")
 
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
@@ -475,14 +475,14 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	// ISSUE Message7
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
-		testFramework.IssueMessages("Message7").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message7")).RegisterAlias("Branch7")
 	}
 
 	// ISSUE Message8
 	{
 		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
-		testFramework.IssueMessages("Message8").WaitApprovalWeightProcessed()
+		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 		branchdag.NewBranchID(testFramework.TransactionID("Message8")).RegisterAlias("Branch8")
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
@@ -490,6 +490,12 @@ func TestAggregatedBranchApproval(t *testing.T) {
 }
 
 func TestOutOfOrderStatements(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Test failed: %v", r)
+		}
+	}()
+
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
 		nodes[node] = identity.GenerateIdentity()

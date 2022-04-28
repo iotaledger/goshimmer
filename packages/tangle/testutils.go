@@ -170,17 +170,8 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 	return m
 }
 
-// WaitMessagesBooked waits for all Messages to be processed by the Booker.
-func (m *MessageTestFramework) WaitMessagesBooked() *MessageTestFramework {
-	m.messagesBookedWG.Wait()
-
-	return m
-}
-
-// WaitApprovalWeightProcessed waits for all Messages to be processed by the ApprovalWeightManager.
-func (m *MessageTestFramework) WaitApprovalWeightProcessed() *MessageTestFramework {
-	m.approvalWeightProcessed.Wait()
-
+func (m *MessageTestFramework) WaitUntilAllTasksProcessed() (self *MessageTestFramework) {
+	event.Loop.WaitUntilAllTasksProcessed()
 	return m
 }
 

@@ -147,7 +147,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message1")
 		bookMessage(t, tangle, testFramework.Message("Message1"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 
 		tipManager.AddTip(testFramework.Message("Message1"))
 		assert.Equal(t, 0, tipManager.TipCount())
@@ -168,7 +168,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message2")
 		bookMessage(t, tangle, testFramework.Message("Message2"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 
 		tipManager.AddTip(testFramework.Message("Message2"))
 		assert.Equal(t, 1, tipManager.TipCount())
@@ -189,7 +189,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message3")
 		bookMessage(t, tangle, testFramework.Message("Message3"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 		tipManager.AddTip(testFramework.Message("Message3"))
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
@@ -210,7 +210,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message4")
 		bookMessage(t, tangle, testFramework.Message("Message4"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 		tipManager.AddTip(testFramework.Message("Message4"))
 		assert.Equal(t, 2, tipManager.TipCount())
 	}
@@ -223,7 +223,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message5")
 		bookMessage(t, tangle, testFramework.Message("Message5"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 		tipManager.AddTip(testFramework.Message("Message5"))
 		assert.Equal(t, 3, tipManager.TipCount())
 	}
@@ -237,7 +237,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages(messageStringID)
 		bookMessage(t, tangle, testFramework.Message(messageStringID))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 	}
 
 	// Message 6
@@ -311,7 +311,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message15")
 		bookMessage(t, tangle, testFramework.Message("Message15"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 		tipManager.AddTip(testFramework.Message("Message15"))
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
@@ -324,7 +324,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		)
 		testFramework.IssueMessages("Message16")
 		bookMessage(t, tangle, testFramework.Message("Message16"))
-		testFramework.WaitMessagesBooked()
+		testFramework.WaitUntilAllTasksProcessed()
 		tipManager.AddTip(testFramework.Message("Message16"))
 		assert.Equal(t, 8, tipManager.TipCount())
 	}
@@ -531,23 +531,23 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 0
 	{
 		testFramework.CreateMessage("Marker-0/1", WithStrongParents("Genesis"), WithIssuingTime(time.Now().Add(-9*time.Minute)))
-		testFramework.IssueMessages("Marker-0/1").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-0/1").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "0/1-preTSC", 3, []string{"Marker-0/1"}, time.Minute*8)
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSC", 3, []string{lastMsgAlias}, time.Minute)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-0/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/2").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-0/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "0/2", 5, []string{"Marker-0/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-0/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/3").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-0/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "0/3", 5, []string{"Marker-0/3"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-0/4", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-0/4").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-0/4").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -583,12 +583,12 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq1", 6, []string{lastMsgAlias}, time.Minute*4)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-1/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
-		testFramework.IssueMessages("Marker-1/2").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-1/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "1/2", 5, []string{"Marker-1/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-1/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-1/3").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-1/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "1/3", 5, []string{"Marker-1/3"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -625,12 +625,12 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq2", 6, []string{lastMsgAlias}, time.Minute*4)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-2/2", WithStrongParents(lastMsgAlias), WithIssuingTime(time.Now().Add(-3*time.Minute)))
-		testFramework.IssueMessages("Marker-2/2").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-2/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "2/2", 5, []string{"Marker-2/2"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-2/3", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-2/3").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-2/3").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "2/3", 5, []string{"Marker-2/3"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -663,7 +663,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 2 + 0
 	{
 		testFramework.CreateMessage("Marker-2/5", WithStrongParents("0/4_4", "2/3_4"))
-		testFramework.IssueMessages("Marker-2/5").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-2/5").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "2/5", 5, []string{"Marker-2/5"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -684,7 +684,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 6, []string{"0/1-preTSCSeq2_2"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-3/2").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-3/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "3/2", 5, []string{"Marker-3/2"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -709,7 +709,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		testFramework.PreventNewMarkers(true)
 		lastMsgAlias = issueMessages(testFramework, "2/3+0/4", 5, []string{"0/4_4", "2/3_4"}, 0)
 		testFramework.CreateMessage("Marker-4/5", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-4/5").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-4/5").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(false)
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -726,7 +726,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		lastMsgAlias = issueMessages(testFramework, "0/1-preTSCSeq5", 6, []string{"0/1-preTSCSeq2_2"}, time.Minute*6)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-5/2", WithStrongParents(lastMsgAlias))
-		testFramework.IssueMessages("Marker-5/2").WaitMessagesBooked()
+		testFramework.IssueMessages("Marker-5/2").WaitUntilAllTasksProcessed()
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "5/2", 5, []string{"Marker-5/2"}, 0)
 		testFramework.PreventNewMarkers(false)
@@ -759,12 +759,12 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 	msgAlias := fmt.Sprintf("%s_%d", msgPrefix, 0)
 
 	testFramework.CreateMessage(msgAlias, WithStrongParents(parents...), WithIssuingTime(time.Now().Add(-timestampOffset)))
-	testFramework.IssueMessages(msgAlias).WaitMessagesBooked()
+	testFramework.IssueMessages(msgAlias).WaitUntilAllTasksProcessed()
 
 	for i := 1; i < msgCount; i++ {
 		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
 		testFramework.CreateMessage(alias, WithStrongParents(msgAlias), WithIssuingTime(time.Now().Add(-timestampOffset)))
-		testFramework.IssueMessages(alias).WaitMessagesBooked()
+		testFramework.IssueMessages(alias).WaitUntilAllTasksProcessed()
 
 		msgAlias = alias
 	}

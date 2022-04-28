@@ -523,7 +523,7 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
-	testFramework.IssueMessages(messageAlias).WaitApprovalWeightProcessed()
+	testFramework.IssueMessages(messageAlias).WaitUntilAllTasksProcessed()
 
 	for branchAlias, expectedWeight := range expectedBranchWeights {
 		branchID := testFramework.BranchID(branchAlias)

@@ -179,7 +179,7 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	// Message 3
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3").WaitUntilAllTasksProcessed()
 
 	testFramework.RegisterBranchID("1", "1")
 	testFramework.RegisterBranchID("2", "2")
@@ -235,7 +235,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 	// Message 4
 	testFramework.CreateMessage("4", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O6", 500))
-	testFramework.IssueMessages("1", "2", "3", "4").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3", "4").WaitUntilAllTasksProcessed()
 
 	testFramework.RegisterBranchID("1", "1")
 	testFramework.RegisterBranchID("2", "2")
@@ -294,7 +294,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 	// Add reattachment that is older than the original message.
 	// Message 5 (reattachment)
 	testFramework.CreateMessage("5", WithStrongParents("Genesis"), WithReattachment("1"))
-	testFramework.IssueMessages("5").WaitMessagesBooked()
+	testFramework.IssueMessages("5").WaitUntilAllTasksProcessed()
 
 	// Select oldest attachment of the message.
 	checkReferences(t, tangle, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
@@ -339,7 +339,7 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	// Message 3
 	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-	testFramework.IssueMessages("1", "2", "3").WaitMessagesBooked()
+	testFramework.IssueMessages("1", "2", "3").WaitUntilAllTasksProcessed()
 
 	testFramework.RegisterBranchID("1", "1")
 	testFramework.RegisterBranchID("2", "2")
