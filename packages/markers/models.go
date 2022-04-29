@@ -19,14 +19,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 )
 
-//func init() {
-//	err := serix.DefaultAPI.RegisterTypeSettings(thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode), serix.TypeSettings{}.WithLengthPrefixType(serializer.SeriLengthPrefixTypeAsUint32))
-//
-//	if err != nil {
-//		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
-//	}
-//}
-
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // IndexLength represents the amount of bytes of a marshaled Index.
@@ -468,7 +460,7 @@ type ReferencingMarkers struct {
 }
 
 type referencingMarkersInner struct {
-	ReferencingIndexesBySequence markersReferencing `serix:"0,lengthPrefixType=uint32"`
+	ReferencingIndexesBySequence map[SequenceID]*referencingMarkersMap `serix:"0,lengthPrefixType=uint32"`
 	mutex                        sync.RWMutex
 }
 
@@ -603,7 +595,7 @@ type ReferencedMarkers struct {
 	referencedMarkersInner `serix:"0"`
 }
 type referencedMarkersInner struct {
-	ReferencedIndexesBySequence markersReferenced `serix:"0,lengthPrefixType=uint32"`
+	ReferencedIndexesBySequence map[SequenceID]*referencedMarkersMap `serix:"0,lengthPrefixType=uint32"`
 	mutex                       sync.RWMutex
 }
 
@@ -938,13 +930,6 @@ func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region markersReferenced /////////////////////////////////////////////////////////////////////////////////////////////
-// TODO: remove this type when we retire MarshalUtilsEntirely
-// markersReferenced represents a type that encodes the reference between Markers of different Sequences.
-type markersReferenced map[SequenceID]*referencedMarkersMap
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region referencingMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type referencingMarkersMap struct {
@@ -990,13 +975,6 @@ func (l *referencedMarkersMap) Decode(b []byte) (bytesRead int, err error) {
 	l.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[uint64, Index](thresholdmap.LowerThresholdMode)
 	return l.SerializableThresholdMap.Decode(b)
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region markersReferencing /////////////////////////////////////////////////////////////////////////////////////////////
-// TODO: remove this type when we retire MarshalUtilsEntirely
-// markersReferencing represents a type that encodes the reference between Markers of different Sequences.
-type markersReferencing map[SequenceID]*referencingMarkersMap
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

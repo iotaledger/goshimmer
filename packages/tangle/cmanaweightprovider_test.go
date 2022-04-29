@@ -1,10 +1,10 @@
 package tangle
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,15 +21,19 @@ func TestActiveNodesMarshalling(t *testing.T) {
 	for _, nodeID := range nodes {
 		a := NewActivityLog()
 
-		for i := 0; i < crypto.Randomness.Intn(100); i++ {
+		for i := 0; i < 1; i++ {
 			a.Add(time.Now().Add(time.Duration(i)*time.Minute + time.Hour))
 		}
 
 		activeNodes[nodeID] = a
 	}
+	fmt.Println(len(activeNodesToBytesOld(activeNodes)), len(activeNodesToBytes(activeNodes)))
+	//assert.Equal(t, activeNodesToBytesOld(activeNodes), activeNodesToBytes(activeNodes))
 
 	activeNodesBytes := activeNodesToBytes(activeNodes)
 	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)
+	fmt.Println(activeNodes)
+	fmt.Println(activeNodes2)
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {

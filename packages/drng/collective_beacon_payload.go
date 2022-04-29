@@ -93,6 +93,7 @@ func CollectiveBeaconPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil
 // CollectiveBeaconPayloadFromBytes parses the marshaled version of a Payload into an object.
 // It either returns a new Payload or fills an optionally provided Payload with the parsed information.
 func CollectiveBeaconPayloadFromBytes(bytes []byte) (result *CollectiveBeaconPayload, consumedBytes int, err error) {
+	// TODO: currently this still uses marshalutil as it's necessary to update dRAND nodes to generate correct byte structure compatibile with serix
 	// initialize helper
 	marshalUtil := marshalutil.New(bytes)
 
