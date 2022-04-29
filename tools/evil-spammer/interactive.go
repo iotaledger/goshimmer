@@ -434,12 +434,17 @@ func (m *Mode) startSpam() {
 	m.spamMutex.Lock()
 	defer m.spamMutex.Unlock()
 
-	s, _ := evilwallet.GetScenario(m.Config.Scenario)
-	spammer := SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
-	if spammer == nil {
-		return
-	}
+	var spammer *evilspammer.Spammer
+	if m.Config.Scenario == "msg" {
+		spammer = SpamMessages(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0)
+	} else {
+		s, _ := evilwallet.GetScenario(m.Config.Scenario)
+		spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
+		if spammer == nil {
+			return
+		}
 
+	}
 	spamId := m.spammerLog.AddSpam(m.Config)
 	m.activeSpammers[spamId] = spammer
 	go func(id int) {
