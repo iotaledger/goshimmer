@@ -518,6 +518,10 @@ func (m *Mode) validateAndAddUrl(url string) {
 	if !ok {
 		printer.UrlWarning()
 	} else {
+		if _, ok := m.Config.clientUrls[url]; ok {
+			printer.UrlExists()
+			return
+		}
 		m.Config.clientUrls[url] = types.Void
 		m.evilWallet.AddClient(url)
 	}
