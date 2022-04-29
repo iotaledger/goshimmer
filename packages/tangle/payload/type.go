@@ -50,8 +50,8 @@ func (t Type) String() string {
 	defer typeRegisterMutex.RUnlock()
 
 	if typeName, exists := typeRegister[t]; exists {
-		return typeName + "(" + strconv.FormatUint(t, 10) + ")"
+		return typeName + "(" + strconv.FormatUint(uint64(t), 10) + ")"
 	}
 
-	return "UnknownType(" + strconv.FormatUint(t, 10) + ")"
+	return "UnknownType(" + strconv.FormatUint(uint64(t), 10) + ")"
 }
