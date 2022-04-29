@@ -19,26 +19,28 @@ import (
 )
 
 const (
-	faucetFundsCheck   = time.Minute / 4
+	faucetFundsCheck   = time.Minute / 12
 	maxConcurrentSpams = 5
-	minSpamOutputs     = 2000
 	lastSpamsShowed    = 15
 	timeFormat         = "2006/01/02 15:04:05"
 )
 
 var (
-	faucetTicker *time.Ticker
-	printer      *Printer
+	faucetTicker   *time.Ticker
+	printer        *Printer
+	minSpamOutputs int
 )
 
 type InteractiveConfig struct {
-	WebAPI      []string `json:"webAPI"`
-	Rate        int      `json:"rate"`
-	DurationStr string   `json:"duration"`
-	TimeUnitStr string   `json:"timeUnit"`
-	Deep        bool     `json:"deepEnabled"`
-	Reuse       bool     `json:"reuseEnabled"`
-	Scenario    string   `json:"scenario"`
+	WebAPI               []string `json:"webAPI"`
+	Rate                 int      `json:"rate"`
+	DurationStr          string   `json:"duration"`
+	TimeUnitStr          string   `json:"timeUnit"`
+	Deep                 bool     `json:"deepEnabled"`
+	Reuse                bool     `json:"reuseEnabled"`
+	Scenario             string   `json:"scenario"`
+	AutoRequesting       bool     `json:"autoRequestingEnabled"`
+	AutoRequestingAmount string   `json:"autoRequestingAmount"`
 
 	duration   time.Duration
 	timeUnit   time.Duration
@@ -52,7 +54,9 @@ var configJSON = `{
 	"timeUnit": "1s",
 	"deepEnabled": false,
 	"reuseEnabled": true,
-	"scenario": "tx"
+	"scenario": "tx",
+	"autoRequestingEnabled": false,
+	"autoRequestingAmount": "100"
 }`
 
 var defaultConfig = InteractiveConfig{
@@ -67,6 +71,11 @@ var defaultConfig = InteractiveConfig{
 	Reuse:    true,
 	Scenario: "tx",
 }
+
+const (
+	requestAmount100 = "100"
+	requestAmount10k = "10000"
+)
 
 // region survey selections  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -132,8 +141,8 @@ func Run() {
 
 	printer.printBanner()
 	mode.loadConfig()
-	time.Sleep(time.Second)
-	configure()
+	time.Sleep(time.Millisecond * 100)
+	configure(mode)
 	go mode.runBackgroundTasks()
 	mode.menu()
 
@@ -151,8 +160,15 @@ func Run() {
 	}
 }
 
-func configure() {
+func configure(mode *Mode) {
 	faucetTicker = time.NewTicker(faucetFundsCheck)
+	switch mode.Config.AutoRequestingAmount {
+	case requestAmount100:
+		minSpamOutputs = 40
+	case requestAmount10k:
+		minSpamOutputs = 2000
+	}
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -168,8 +184,7 @@ type Mode struct {
 
 	nextAction string
 
-	preparingFunds          bool
-	autoFundsPrepareEnabled bool
+	preparingFunds bool
 
 	Config        InteractiveConfig
 	msgSent       *atomic.Uint64
@@ -196,9 +211,8 @@ func NewInteractiveMode() *Mode {
 		txSent:        atomic.NewUint64(0),
 		scenariosSent: atomic.NewUint64(0),
 
-		spammerLog:              NewSpammerLog(),
-		activeSpammers:          make(map[int]*evilspammer.Spammer),
-		autoFundsPrepareEnabled: false,
+		spammerLog:     NewSpammerLog(),
+		activeSpammers: make(map[int]*evilspammer.Spammer),
 	}
 }
 
@@ -272,12 +286,17 @@ func (m *Mode) onMenuAction() {
 
 func (m *Mode) prepareFundsIfNeeded() {
 	if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < minSpamOutputs {
-		if !m.preparingFunds && m.autoFundsPrepareEnabled {
+		if !m.preparingFunds && m.Config.AutoRequesting {
 			m.preparingFunds = true
 			go func() {
-				_ = m.evilWallet.RequestFreshBigFaucetWallet()
+				switch m.Config.AutoRequestingAmount {
+				case requestAmount100:
+					_ = m.evilWallet.RequestFreshFaucetWallet()
+				case requestAmount10k:
+					_ = m.evilWallet.RequestFreshBigFaucetWallet()
+				}
+				m.preparingFunds = false
 			}()
-			m.preparingFunds = false
 		}
 	}
 }
@@ -497,9 +516,11 @@ func (m *Mode) validateAndAddUrl(url string) {
 
 func (m *Mode) onFundsCreation(answer string) {
 	if answer == "enable" {
-		m.autoFundsPrepareEnabled = true
+		m.Config.AutoRequesting = true
+		printer.AutoRequestingEnabled()
+		m.prepareFundsIfNeeded()
 	} else {
-		m.autoFundsPrepareEnabled = false
+		m.Config.AutoRequesting = false
 	}
 }
 
@@ -513,9 +534,6 @@ func (m *Mode) settings() {
 		fmt.Println(err.Error())
 		return
 	}
-	m.onSettings()
-	printer.SettingFundsMessage()
-
 }
 
 func (m *Mode) history() {

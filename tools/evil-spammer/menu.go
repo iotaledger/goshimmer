@@ -92,22 +92,14 @@ func (p *Printer) FarewellMessage() {
 	p.PrintLine()
 }
 
-func (p *Printer) SettingFundsMessage() {
-	p.Println("", 2)
-	if p.mode.autoFundsPrepareEnabled {
-		p.Println("Auto funds creation enabled", 1)
-	} else {
-		p.Println("Auto funds creation disabled", 1)
-	}
-	p.Println("", 2)
-	fmt.Println()
-}
-
 func (p *Printer) FundsWarning() {
-
-	p.Println(p.colorString("Not enough fresh faucet outputs in the wallet to spam!", "red"), 2)
-	p.PrintlnPoint("Request more manually with 'Prepare faucet funds' option in main menu.", 2)
-	p.PrintlnPoint("You can also enable auto funds requesting in the settings.", 2)
+	p.Println(p.colorString("Not enough fresh faucet outputs in the wallet to spam!", "red"), 1)
+	if p.mode.preparingFunds {
+		p.PrintlnPoint(p.colorString("Funds are currently prepared, wait until outputs will be available.", "yellow"), 2)
+	} else {
+		p.PrintlnPoint(p.colorString("Request more outputs manually with 'Prepare faucet funds' option in main menu.", "yellow"), 2)
+		p.PrintlnPoint(p.colorString("You can also enable auto funds requesting in the settings.", "yellow"), 2)
+	}
 	fmt.Println()
 }
 
@@ -155,7 +147,7 @@ func (p *Printer) colorString(s string, color string) string {
 func (p *Printer) Settings() {
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 0)
-	p.Println(fmt.Sprintf("Auto request funds enabled: %v", p.mode.autoFundsPrepareEnabled), 1)
+	p.Println(fmt.Sprintf("Auto requesting enabled: %v", p.mode.Config.AutoRequesting), 1)
 	p.clients()
 	p.PrintLine()
 	fmt.Println()
@@ -236,6 +228,13 @@ func (p *Printer) SpammerStartedMessage() {
 	p.Println(p.colorString("Spammer started", "green"), 1)
 	p.Println("", 2)
 	fmt.Println()
+}
+
+func (p *Printer) AutoRequestingEnabled() {
+	p.Println("", 2)
+	p.Println(p.colorString(fmt.Sprintf("Automatic funds requesting enabled. %s outputs will be requested whenever output amout will go below %d.", p.mode.Config.AutoRequestingAmount, minSpamOutputs), "green"), 1)
+	p.Println(p.colorString("The size of the request can be changed in the config file. Possible values: '100', '10000'", "yellow"), 1)
+	p.Println("", 2)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
