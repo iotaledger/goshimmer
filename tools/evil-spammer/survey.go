@@ -84,19 +84,6 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Q
 			Prompt: &survey.Input{
 				Message: "Spam duration in [s].",
 				Default: defaultDuration,
-				Help:    "Max spam duration: 600.",
-			},
-			Validate: func(val interface{}) error {
-				if str, ok := val.(string); ok {
-					n, err := strconv.Atoi(str)
-					if err == nil {
-						if n <= 600 {
-							return nil
-						}
-					}
-					return errors.New("Incorrect spam duration. Provide duration in seconds.")
-				}
-				return nil
 			},
 		},
 		{
