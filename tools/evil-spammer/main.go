@@ -91,7 +91,7 @@ func parseBasicSpamFlags() {
 	}
 	if *rate != "" {
 		parsedRates := parseCommaSepInt(*rate)
-		customSpamParams.Rate = parsedRates
+		customSpamParams.Rates = parsedRates
 	}
 	if *duration != "" {
 		parsedDurations := parseDurations(*duration)

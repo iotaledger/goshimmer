@@ -11,7 +11,7 @@ import (
 type CustomSpamParams struct {
 	ClientUrls            []string
 	SpamTypes             []string
-	Rate                  []int
+	Rates                 []int
 	Durations             []time.Duration
 	MsgToBeSent           []int
 	TimeUnit              time.Duration
@@ -39,14 +39,14 @@ func CustomSpam(params *CustomSpamParams) {
 	}
 
 	for i, spamType := range params.SpamTypes {
-		log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rate[i], params.TimeUnit.String(), spamType)
+		log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rates[i], params.TimeUnit.String(), spamType)
 
 		switch spamType {
 		case "msg":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				s := SpamMessages(wallet, params.Rate[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
+				s := SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
 				if s == nil {
 					return
 				}
@@ -56,25 +56,25 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamTransaction(wallet, params.Rate[i], params.TimeUnit, params.Durations[i], params.DeepSpam)
+				SpamTransaction(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam)
 			}()
 		case "ds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamDoubleSpends(wallet, params.Rate[i], params.MsgToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
+				SpamDoubleSpends(wallet, params.Rates[i], params.MsgToBeSent[i], params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
 			}()
 		case "nds":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamNDoubleSpends(wallet, params.Rate[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
+				SpamNDoubleSpends(wallet, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam)
 			}()
 		case "custom":
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				s := SpamNestedConflicts(wallet, params.Rate[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false)
+				s := SpamNestedConflicts(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false)
 				if s == nil {
 					return
 				}
