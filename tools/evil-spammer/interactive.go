@@ -82,7 +82,7 @@ const (
 	shutdown
 )
 
-var actions = []string{"Evil wallet details", "Prepare faucet funds", "New spam", "Currently running", "Spam history", "Settings", "Close"}
+var actions = []string{"Evil wallet details", "Prepare faucet funds", "New spam", "Active spammers", "Spam history", "Settings", "Close"}
 
 const (
 	spamScenario = "Change scenario"
@@ -528,6 +528,12 @@ func (m *Mode) currentSpams() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
 
+	if len(m.activeSpammers) == 0 {
+		printer.Println(printer.colorString("There are no currently running spammers.", "red"), 1)
+		fmt.Println("")
+		m.mainMenu <- types.Void
+		return
+	}
 	printer.CurrentSpams()
 	answer := ""
 	err := survey.AskOne(currentMenuQuestion, &answer)

@@ -173,17 +173,21 @@ func (p *Printer) CurrentSpams() {
 	p.mode.spamMutex.Lock()
 	defer p.mode.spamMutex.Unlock()
 
-	if len(p.mode.activeSpammers) == 0 {
-		p.Println(p.colorString("There are no currently running spams.", "red"), 1)
-		return
-	}
-	p.Println(p.colorString("Currently active spammers:", "green"), 1)
+	lines := make([]string, 0)
 	for id := range p.mode.activeSpammers {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
 		endTime := startTime.Add(details.duration)
 		timeLeft := int(endTime.Sub(time.Now()).Seconds())
-		p.PrintlnPoint(fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft), 2)
+		lines = append(lines, fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft))
+	}
+	if len(lines) == 0 {
+		p.Println(p.colorString("There are no currently running spams.", "red"), 1)
+		return
+	}
+	p.Println(p.colorString("Currently active spammers:", "green"), 1)
+	for _, line := range lines {
+		p.PrintlnPoint(line, 2)
 	}
 	p.PrintLine()
 	fmt.Println()
