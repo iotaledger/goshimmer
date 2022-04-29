@@ -156,6 +156,7 @@ func Run() {
 			mode.menu()
 		case <-mode.shutdown:
 			printer.FarewellMessage()
+			mode.saveConfigsToFile()
 			os.Exit(0)
 			return
 		}
@@ -722,6 +723,32 @@ func (m *Mode) loadConfig() {
 	}
 	m.Config.duration = d
 	m.Config.timeUnit = u
+}
+
+func (m *Mode) saveConfigsToFile() {
+	// open config file
+	file, err := os.Open("config.json")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// update client urls
+	m.Config.WebAPI = []string{}
+	for url := range m.Config.clientUrls {
+		m.Config.WebAPI = append(m.Config.WebAPI, url)
+	}
+
+	// update duration
+	m.Config.DurationStr = m.Config.duration.String()
+
+	// update time unit
+	m.Config.TimeUnitStr = m.Config.timeUnit.String()
+
+	jsonConfigs, _ := json.MarshalIndent(m.Config, "", "    ")
+	if err = os.WriteFile("config.json", jsonConfigs, 0o644); err != nil {
+		panic(err)
+	}
 }
 
 func enableToBool(e string) bool {
