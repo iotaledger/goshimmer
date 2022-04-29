@@ -33,9 +33,7 @@ var TransactionType payload.Type
 
 // init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		return (&Transaction{}).FromBytes(data)
-	})
+	TransactionType = payload.NewType(1337, "TransactionType")
 
 	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
 	if err != nil {
@@ -77,7 +75,7 @@ func init() {
 	}
 }
 
-func validateTransactionEssenceVersion(version TransactionEssenceVersion) (err error) {
+func validateTransactionEssenceVersion(_ context.Context, version TransactionEssenceVersion) (err error) {
 	// Validate strong parent block
 	if version != 0 {
 		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -86,11 +84,11 @@ func validateTransactionEssenceVersion(version TransactionEssenceVersion) (err e
 	return nil
 }
 
-func validateTransactionEssenceVersionBytes(_ []byte) (err error) {
+func validateTransactionEssenceVersionBytes(_ context.Context, _ []byte) (err error) {
 	return
 }
 
-func validateTransaction(tx Transaction) (err error) {
+func validateTransaction(_ context.Context, tx Transaction) (err error) {
 	maxReferencedUnlockIndex := len(tx.transactionInner.Essence.Inputs()) - 1
 	for i, unlockBlock := range tx.transactionInner.UnlockBlocks {
 		switch unlockBlock.Type() {
@@ -112,7 +110,7 @@ func validateTransaction(tx Transaction) (err error) {
 	return nil
 }
 
-func validateTransactionBytes(_ []byte) (err error) {
+func validateTransactionBytes(_ context.Context, _ []byte) (err error) {
 	return
 }
 

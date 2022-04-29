@@ -55,7 +55,7 @@ func init() {
 	}
 }
 
-func validateOutputID(outputID OutputID) (err error) {
+func validateOutputID(_ context.Context, outputID OutputID) (err error) {
 	// Validate strong parent block
 	if outputID.OutputIndex() >= MaxOutputCount {
 		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
@@ -64,7 +64,7 @@ func validateOutputID(outputID OutputID) (err error) {
 	return nil
 }
 
-func validateOutputIDBytes(_ []byte) (err error) {
+func validateOutputIDBytes(_ context.Context, _ []byte) (err error) {
 	return
 }
 

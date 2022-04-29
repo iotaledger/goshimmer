@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -32,21 +31,7 @@ const (
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // PayloadType defines the type of the drng payload.
-var PayloadType = payload.NewType(111, ObjectName, func(data []byte) (payload payload.Payload, err error) {
-	var consumedBytes int
-	payload, consumedBytes, err = CollectiveBeaconPayloadFromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("Bytes read 222", consumedBytes, "total bytes:", len(data))
-
-	if consumedBytes != len(data) {
-		return nil, errors.New(fmt.Sprint("not all payload bytes were consumed Bytes read 222", consumedBytes, "total bytes:", len(data)))
-	}
-
-	return
-})
+var PayloadType = payload.NewType(111, ObjectName)
 
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

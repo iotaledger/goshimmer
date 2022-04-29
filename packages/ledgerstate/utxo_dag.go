@@ -968,7 +968,6 @@ func (c *Consumer) String() (humanReadableConsumer string) {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-
 	inputBytes, err := serix.DefaultAPI.Encode(context.Background(), c.consumerInner.ConsumedInput, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?

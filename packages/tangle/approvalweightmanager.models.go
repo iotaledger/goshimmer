@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/serix/customtypes"
@@ -817,16 +816,6 @@ func (v *BranchVote) WithBranchID(branchID ledgerstate.BranchID) (rejectedVote *
 		Opinion:   v.Opinion,
 		VotePower: v.VotePower,
 	}
-}
-
-// Bytes returns the bytes of the Vote.
-func (v *BranchVote) Bytes() []byte {
-	return marshalutil.New().
-		Write(v.Voter).
-		Write(v.BranchID).
-		WriteUint8(uint8(v.Opinion)).
-		WriteUint64(v.VotePower).
-		Bytes()
 }
 
 // String returns a human-readable version of the Vote.

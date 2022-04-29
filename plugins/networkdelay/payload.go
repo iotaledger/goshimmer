@@ -103,9 +103,7 @@ func (p *Payload) String() string {
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////
 
 // Type represents the identifier which addresses the network delay Payload type.
-var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload payload.Payload, err error) {
-	return
-})
+var Type = payload.NewType(payloadType, PayloadName)
 
 // Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {

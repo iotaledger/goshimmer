@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -129,17 +128,6 @@ func (i Inputs) Clone() (clonedInputs Inputs) {
 	copy(clonedInputs[:], i)
 
 	return
-}
-
-// Bytes returns a marshaled version of the Inputs.
-func (i Inputs) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(i)))
-	for _, input := range i {
-		marshalUtil.WriteBytes(input.Bytes())
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human readable version of the Inputs.

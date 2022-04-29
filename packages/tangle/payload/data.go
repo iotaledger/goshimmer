@@ -22,19 +22,7 @@ func init() {
 }
 
 // GenericDataPayloadType is the Type of a generic GenericDataPayload.
-var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPayloadUnmarshaler)
-
-// GenericDataPayloadUnmarshaler is the UnmarshalerFunc of the GenericDataPayload which is also used as a unmarshaler for unknown Types.
-func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
-	payload, consumedBytes, err := GenericDataPayloadFromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	if consumedBytes != len(data) {
-		return nil, errors.New("not all payload bytes were consumed")
-	}
-	return payload, nil
-}
+var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {

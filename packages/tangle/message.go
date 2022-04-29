@@ -72,7 +72,7 @@ func init() {
 	}
 }
 
-func validateMessage(parents ParentMessageIDs) (err error) {
+func validateMessage(_ context.Context, parents ParentMessageIDs) (err error) {
 	// Validate strong parent block
 	if strongParents, strongParentsExist := parents[StrongParentType]; len(parents) == 0 || !strongParentsExist ||
 		len(strongParents) < MinStrongParentsCount {
@@ -85,7 +85,7 @@ func validateMessage(parents ParentMessageIDs) (err error) {
 	return nil
 }
 
-func validateMessageBytes(bytes []byte) (err error) {
+func validateMessageBytes(_ context.Context, _ []byte) (err error) {
 	return
 }
 

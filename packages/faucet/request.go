@@ -46,7 +46,7 @@ type requestInner struct {
 
 // RequestType represents the identifier for the faucet Payload type.
 var (
-	RequestType = payload.NewType(payloadType, ObjectName, PayloadUnmarshaler)
+	RequestType = payload.NewType(payloadType, ObjectName)
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
@@ -115,19 +115,6 @@ func (p *Payload) String() string {
 		stringify.StructField("accessManaPledgeID", p.requestInner.AccessManaPledgeID.String()),
 		stringify.StructField("consensusManaPledgeID", p.requestInner.ConsensusManaPledgeID.String()),
 	)
-}
-
-// PayloadUnmarshaler sets the generic unmarshaler.
-func PayloadUnmarshaler(data []byte) (payloadDecoded payload.Payload, err error) {
-	var consumedBytes int
-	payloadDecoded, consumedBytes, err = FromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	if consumedBytes != len(data) {
-		return nil, errors.New("not all payload bytes were consumed")
-	}
-	return
 }
 
 // IsFaucetReq checks if the message is faucet payload.

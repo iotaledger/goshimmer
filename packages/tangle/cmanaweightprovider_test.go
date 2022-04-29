@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -27,17 +26,16 @@ func TestActiveNodesMarshalling(t *testing.T) {
 
 		activeNodes[nodeID] = a
 	}
-	fmt.Println(len(activeNodesToBytesOld(activeNodes)), len(activeNodesToBytes(activeNodes)))
-	//assert.Equal(t, activeNodesToBytesOld(activeNodes), activeNodesToBytes(activeNodes))
-
 	activeNodesBytes := activeNodesToBytes(activeNodes)
 	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)
-	fmt.Println(activeNodes)
-	fmt.Println(activeNodes2)
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.Bytes(), activeNodes2[nodeID].Bytes())
+		encoded1, err := a.setTimes.Encode()
+		require.NoError(t, err)
+		encoded2, err := activeNodes2[nodeID].setTimes.Encode()
+		require.NoError(t, err)
+		assert.EqualValues(t, encoded1, encoded2)
 	}
 }
 

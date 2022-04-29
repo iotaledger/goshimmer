@@ -27,14 +27,6 @@ const IndexLength = marshalutil.Uint64Size
 // Index represents the ever-increasing number of the Markers in a Sequence.
 type Index uint64
 
-// Bytes returns a marshaled version of the Index.
-func (i Index) Bytes() (marshaledIndex []byte) {
-	// TODO: remove eventually
-	return marshalutil.New(marshalutil.Uint64Size).
-		WriteUint64(uint64(i)).
-		Bytes()
-}
-
 // String returns a human-readable version of the Index.
 func (i Index) String() (humanReadableIndex string) {
 	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
@@ -1233,17 +1225,6 @@ func NewSequenceIDs(sequenceIDs ...SequenceID) (result SequenceIDs) {
 	}
 
 	return
-}
-
-// Bytes returns a marshaled version of the SequenceIDs.
-func (s SequenceIDs) Bytes() (marshaledSequenceIDs []byte) {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint32(uint32(len(s)))
-	for sequenceID := range s {
-		marshalUtil.Write(sequenceID)
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human-readable version of the SequenceIDs.

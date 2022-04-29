@@ -118,17 +118,6 @@ func (c ConflictIDs) Slice() (list []ConflictID) {
 	return
 }
 
-// Bytes returns a marshaled version of the ConflictIDs.
-func (c ConflictIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int32Size + len(c)*ConflictIDLength)
-	marshalUtil.WriteUint32(uint32(len(c)))
-	for conflictID := range c {
-		marshalUtil.WriteBytes(conflictID.Bytes())
-	}
-
-	return marshalUtil.Bytes()
-}
-
 // String returns a human readable version of the ConflictIDs.
 func (c ConflictIDs) String() string {
 	if len(c) == 0 {

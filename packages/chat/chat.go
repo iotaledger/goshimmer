@@ -188,17 +188,7 @@ func (p *Payload) String() string {
 }
 
 // Type represents the identifier which addresses the chat payload type.
-var Type = payload.NewType(payloadType, PayloadName, func(data []byte) (payload payload.Payload, err error) {
-	var consumedBytes int
-	payload, consumedBytes, err = FromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	if consumedBytes != len(data) {
-		return nil, errors.New("not all payload bytes were consumed")
-	}
-	return
-})
+var Type = payload.NewType(payloadType, PayloadName)
 
 // Type returns the type of the Payload.
 func (p *Payload) Type() payload.Type {
