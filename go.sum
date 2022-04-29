@@ -528,12 +528,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20220427063636-698b1e6c1d73 h1:Lzf0Y6EVMM9XgcRZtFLemyaIin1JaDaht4PXUYkdC54=
-github.com/iotaledger/hive.go v0.0.0-20220427063636-698b1e6c1d73/go.mod h1:KCL0b5WUzugDOxv4JkycWVFzcJbiLO/J5ijUULdusPM=
 github.com/iotaledger/hive.go v0.0.0-20220429043012-1f37deae4664 h1:LEcFwP+bEXh6hWkO7CgwOKLhLcRLRfjVJAbkFUQIH8c=
 github.com/iotaledger/hive.go v0.0.0-20220429043012-1f37deae4664/go.mod h1:KCL0b5WUzugDOxv4JkycWVFzcJbiLO/J5ijUULdusPM=
-github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220427063636-698b1e6c1d73 h1:OSL8TS/i1p2vsoLronZQyInMTXNpDu/iosIT4rV5QQY=
-github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220427063636-698b1e6c1d73/go.mod h1:O18k+0+qtbHfk8AYI+dgMOoDBDKy9vwXk2ocyD7MyRI=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220429043012-1f37deae4664 h1:m6slAKArxf4qS53m4ae67M0o+NmFm5Ww+0xXKKrtVG8=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220429043012-1f37deae4664/go.mod h1:O18k+0+qtbHfk8AYI+dgMOoDBDKy9vwXk2ocyD7MyRI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
