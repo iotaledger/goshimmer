@@ -4,6 +4,7 @@ package tangle
 import (
 	"testing"
 
+	"github.com/iotaledger/hive.go/debug"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
@@ -11,6 +12,8 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
+	debug.Enabled = true
+
 	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
@@ -996,6 +999,8 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 // Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test.
 func TestBookerMarkerMappings(t *testing.T) {
+	debug.Enabled = true
+
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
@@ -3922,10 +3927,10 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 func checkMessageMetadataDiffBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedDiffBranchIDs map[string][]branchdag.BranchIDs) {
 	for messageID, expectedDiffBranchID := range expectedDiffBranchIDs {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedDiffBranchID[0], messageMetadata.AddedBranchIDs(), "AddBranchIDs of %s should be %s but is %s in the Metadata", messageID, expectedDiffBranchID[0], messageMetadata.AddedBranchIDs())
+			assert.True(t, expectedDiffBranchID[0].Equal(messageMetadata.AddedBranchIDs()), "AddBranchIDs of %s should be %s but is %s in the Metadata", messageID, expectedDiffBranchID[0], messageMetadata.AddedBranchIDs())
 		}))
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.Equal(t, expectedDiffBranchID[1], messageMetadata.SubtractedBranchIDs(), "SubtractedBranchIDs of %s should be %s but is %s in the Metadata", messageID, expectedDiffBranchID[1], messageMetadata.SubtractedBranchIDs())
+			assert.True(t, expectedDiffBranchID[1].Equal(messageMetadata.SubtractedBranchIDs()), "SubtractedBranchIDs of %s should be %s but is %s in the Metadata", messageID, expectedDiffBranchID[1], messageMetadata.SubtractedBranchIDs())
 		}))
 	}
 }

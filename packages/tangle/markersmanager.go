@@ -1,13 +1,9 @@
 package tangle
 
 import (
-	"time"
-
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
-
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -16,8 +12,7 @@ import (
 // BranchMarkersMapper is a Tangle component that takes care of managing the Markers which are used to infer structural
 // information about the Tangle in an efficient way.
 type BranchMarkersMapper struct {
-	tangle         *Tangle
-	discardedNodes map[identity.ID]time.Time
+	tangle *Tangle
 	*markers.Manager
 
 	Events *BranchMarkersMapperEvents
@@ -26,10 +21,9 @@ type BranchMarkersMapper struct {
 // NewBranchMarkersMapper is the constructor of the MarkersManager.
 func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 	b = &BranchMarkersMapper{
-		tangle:         tangle,
-		discardedNodes: make(map[identity.ID]time.Time),
-		Manager:        markers.NewManager(markers.WithStore(tangle.Options.Store)),
-		Events:         newBranchMarkersMapperEvents(),
+		tangle:  tangle,
+		Manager: markers.NewManager(markers.WithStore(tangle.Options.Store)),
+		Events:  newBranchMarkersMapperEvents(),
 	}
 
 	// Always set Genesis to MasterBranch.

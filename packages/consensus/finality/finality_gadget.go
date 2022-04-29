@@ -331,7 +331,7 @@ func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMet
 
 	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
 		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
-			MessageID: messageMetadata.ID(),
+			Message: message,
 		})
 
 		// set GoF of payload (applicable only to transactions)

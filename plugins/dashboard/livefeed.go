@@ -29,9 +29,7 @@ func configureLiveFeed() {
 
 func runLiveFeed() {
 	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			liveFeedWorkerPool.TrySubmit(message)
-		})
+		liveFeedWorkerPool.TrySubmit(event.Message)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[MsgUpdater]", func(ctx context.Context) {

@@ -69,7 +69,7 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 }
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
-	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.MessageID) }))
+	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
 	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
 	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }

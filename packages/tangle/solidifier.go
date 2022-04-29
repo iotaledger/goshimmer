@@ -1,8 +1,10 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 )
@@ -36,20 +38,24 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
-	s.tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
-		s.Solidify(event.MessageID)
+	s.tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
+		s.solidify(event.Message)
 	}))
+
 	s.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
-		s.processApprovers(event.MessageID)
+		s.processApprovers(event.Message.ID())
 	}))
 }
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			s.checkMessageSolidity(message, messageMetadata)
-		})
+	s.tangle.Storage.Message(messageID).Consume(s.solidify)
+}
+
+// Solidify solidifies the given Message.
+func (s *Solidifier) solidify(message *Message) {
+	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		s.checkMessageSolidity(message, messageMetadata)
 	})
 }
 
@@ -79,26 +85,48 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
 func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) {
-	s.tangle.dagMutex.Lock(messageMetadata.ID())
+	s.tangle.dagMutex.RLock(message.Parents()...)
+	defer s.tangle.dagMutex.RUnlock(message.Parents()...)
+	s.tangle.dagMutex.Lock(message.ID())
 	defer s.tangle.dagMutex.Unlock(message.ID())
 
 	if !s.isMessageSolid(message, messageMetadata) {
+		fmt.Println(debug.GoroutineID(), "HIE0R2", message.ID())
+
 		return
 	}
+
+	fmt.Println(debug.GoroutineID(), "HIE0R3", message.ID())
 
 	if !s.areParentMessagesValid(message) {
 		if !messageMetadata.SetObjectivelyInvalid(true) {
+			fmt.Println(debug.GoroutineID(), "HIE0R4", message.ID())
+
 			return
 		}
+
+		fmt.Println(debug.GoroutineID(), "HIE0R5", message.ID())
+
 		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
+
+		fmt.Println(debug.GoroutineID(), "HIE0R6", message.ID())
+
 		return
 	}
+
+	fmt.Println(debug.GoroutineID(), "HIE0R7", message.ID())
 
 	if !messageMetadata.SetSolid(true) {
+		fmt.Println(debug.GoroutineID(), "HIE0R8", message.ID())
+
 		return
 	}
 
-	s.Events.MessageSolid.Trigger(&MessageSolidEvent{message.ID()})
+	fmt.Println(debug.GoroutineID(), "Solidified", message.ID())
+
+	s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
+
+	fmt.Println(debug.GoroutineID(), "Solidified Triggered", message.ID())
 }
 
 // isMessageSolid checks if the given Message is solid.

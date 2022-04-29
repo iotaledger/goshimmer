@@ -58,7 +58,7 @@ func registerTangleEvents() {
 	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeTangleVertex,
-			Data: newTangleVertex(event.MessageID),
+			Data: newTangleVertex(event.Message),
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
@@ -86,7 +86,7 @@ func registerTangleEvents() {
 	})
 
 	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		messageID := event.MessageID
+		messageID := event.Message.ID()
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
@@ -121,18 +121,15 @@ func registerTangleEvents() {
 
 func registerUTXOEvents() {
 	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		messageID := event.MessageID
-		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-			if msg.Payload().Type() == devnetvm.TransactionType {
-				tx := msg.Payload().(*devnetvm.Transaction)
-				wsMsg := &wsMessage{
-					Type: MsgTypeUTXOVertex,
-					Data: newUTXOVertex(messageID, tx),
-				}
-				visualizerWorkerPool.TrySubmit(wsMsg)
-				storeWsMessage(wsMsg)
+		if event.Message.Payload().Type() == devnetvm.TransactionType {
+			tx := event.Message.Payload().(*devnetvm.Transaction)
+			wsMsg := &wsMessage{
+				Type: MsgTypeUTXOVertex,
+				Data: newUTXOVertex(event.Message.ID(), tx),
 			}
-		})
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
+		}
 	})
 
 	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
@@ -272,7 +269,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 				// only keep messages that is issued in the given time interval
 				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
 					// add message
-					tangleNode := newTangleVertex(msg.ID())
+					tangleNode := newTangleVertex(msg)
 					messages = append(messages, tangleNode)
 
 					// add tx
@@ -330,32 +327,30 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 	return true
 }
 
-func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
-	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
-			if err != nil {
-				branchIDs = branchdag.NewBranchIDs()
-			}
-			ret = &tangleVertex{
-				ID:                      messageID.Base58(),
-				StrongParentIDs:         msg.ParentsByType(tangle.StrongParentType).Base58(),
-				WeakParentIDs:           msg.ParentsByType(tangle.WeakParentType).Base58(),
-				ShallowLikeParentIDs:    msg.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-				ShallowDislikeParentIDs: msg.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
-				BranchIDs:               lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58),
-				IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
-				IsTx:                    msg.Payload().Type() == devnetvm.TransactionType,
-				IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(messageID),
-				ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
-				GoF:                     msgMetadata.GradeOfFinality().String(),
-			}
-		})
-
-		if ret.IsTx {
-			ret.TxID = msg.Payload().(*devnetvm.Transaction).ID().Base58()
+func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
+	deps.Tangle.Storage.MessageMetadata(message.ID()).Consume(func(msgMetadata *tangle.MessageMetadata) {
+		branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(message.ID())
+		if err != nil {
+			branchIDs = branchdag.NewBranchIDs()
+		}
+		ret = &tangleVertex{
+			ID:                      message.ID().Base58(),
+			StrongParentIDs:         message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParentIDs:           message.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
+			BranchIDs:               lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58),
+			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
+			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
+			ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
+			GoF:                     msgMetadata.GradeOfFinality().String(),
 		}
 	})
+
+	if ret.IsTx {
+		ret.TxID = message.Payload().(*devnetvm.Transaction).ID().Base58()
+	}
 	return
 }
 

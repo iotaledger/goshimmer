@@ -50,7 +50,7 @@ func TestNeighborWrite(t *testing.T) {
 	neighborA := newTestNeighbor("A", a)
 	defer neighborA.disconnect()
 	var countA uint32
-	neighborA.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+	neighborA.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
 		assert.Equal(t, testPacket2.String(), event.Packet.String())
 		atomic.AddUint32(&countA, 1)
 	}))
@@ -60,7 +60,7 @@ func TestNeighborWrite(t *testing.T) {
 	defer neighborB.disconnect()
 
 	var countB uint32
-	neighborB.Events.PacketReceived.Attach(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+	neighborB.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
 		assert.Equal(t, testPacket1.String(), event.Packet.String())
 		atomic.AddUint32(&countB, 1)
 	}))

@@ -52,7 +52,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 
 	messageDiscarded := make(chan MessageID, 1)
 	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
-	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
+	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
 
 	msg, _ := NewMessage(
 		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),

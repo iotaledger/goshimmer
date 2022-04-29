@@ -54,7 +54,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
-	prl.Events.Hit.Attach(event.NewClosure(func(event *ratelimiter.HitEvent) {
+	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter.HitEvent) {
 		p := event.Peer
 		rl := event.RateLimit
 		eventCalled.Inc()

@@ -80,7 +80,7 @@ func (t *TimeManager) Start() {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
-		t.updateTime(event.MessageID)
+		t.updateTime(event.Message)
 	}))
 	t.Start()
 }
@@ -144,22 +144,20 @@ func (t *TimeManager) updateSyncedState() {
 }
 
 // updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(messageID MessageID) {
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		t.lastConfirmedMutex.Lock()
-		defer t.lastConfirmedMutex.Unlock()
+func (t *TimeManager) updateTime(message *Message) {
+	t.lastConfirmedMutex.Lock()
+	defer t.lastConfirmedMutex.Unlock()
 
-		if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
-			return
-		}
+	if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
+		return
+	}
 
-		t.lastConfirmedMessage = LastConfirmedMessage{
-			MessageID: messageID,
-			Time:      message.IssuingTime(),
-		}
+	t.lastConfirmedMessage = LastConfirmedMessage{
+		MessageID: message.ID(),
+		Time:      message.IssuingTime(),
+	}
 
-		t.updateSyncedState()
-	})
+	t.updateSyncedState()
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated

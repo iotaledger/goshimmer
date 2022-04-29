@@ -80,20 +80,18 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 }
 
 func runVisualizer() {
-	processMessage := func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
-			addToHistory(message, finalized)
-			visualizerWorkerPool.TrySubmit(message, finalized)
-		})
+	processMessage := func(message *tangle.Message) {
+		finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(message.ID())
+		addToHistory(message, finalized)
+		visualizerWorkerPool.TrySubmit(message, finalized)
 	}
 
 	notifyNewMsgStored := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		processMessage(event.MessageID)
+		processMessage(event.Message)
 	})
 
 	notifyNewMsgConfirmed := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		processMessage(event.MessageID)
+		processMessage(event.Message)
 	})
 
 	notifyNewTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {

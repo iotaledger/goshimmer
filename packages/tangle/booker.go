@@ -3,13 +3,12 @@ package tangle
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -44,26 +43,22 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) { b.bookPayload(event.MessageID) }))
-	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
-		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
-	}))
-	b.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
-		b.propagateBooking(event.MessageID)
+	b.tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
+		b.bookPayload(event.Message)
 	}))
 
-	b.tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *MessageDiscardedEvent) {
-		b.tangle.Storage.Message(event.MessageID).Consume(func(message *Message) {
-			nodeID := identity.NewID(message.IssuerPublicKey())
-			b.MarkersManager.discardedNodes[nodeID] = time.Now()
-		})
-	}))
-
-	// TODO: hook to event TransactionForked
-	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Attach(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
+	}))
+
+	b.tangle.Ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *ledger.TransactionBookedEvent) {
+		b.processBookedTransaction(event.TransactionID, MessageIDFromContext(event.Context))
+	}))
+
+	b.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
+		b.propagateBooking(event.MessageID)
 	}))
 }
 
@@ -116,68 +111,72 @@ func (b *Booker) Shutdown() {
 // region BOOK PAYLOAD LOGIC ///////////////////////////////////////////////////////////////////////////////////////////
 
 // bookPayload books the Payload of a Message.
-func (b *Booker) bookPayload(messageID MessageID) {
-	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-			b.tangle.dagMutex.RLock(message.Parents()...)
-			b.tangle.dagMutex.Lock(messageID)
-			defer b.tangle.dagMutex.Unlock(messageID)
-			defer b.tangle.dagMutex.RUnlock(message.Parents()...)
+func (b *Booker) bookPayload(message *Message) {
+	messageID := message.ID()
 
-			if !b.readyForBooking(message, messageMetadata) {
-				return
-			}
+	b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		if !b.readyForBooking(message, messageMetadata) {
+			return
+		}
 
-			payload := message.Payload()
-			tx, ok := payload.(utxo.Transaction)
-			if !ok {
-				// Data payloads are considered as booked immediately.
-				if err := b.BookMessage(message, messageMetadata); err != nil {
-					b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
-				}
-				return
+		payload := message.Payload()
+		tx, ok := payload.(utxo.Transaction)
+		if !ok {
+			// Data payloads are considered as booked immediately.
+			if err := b.BookMessage(message, messageMetadata); err != nil {
+				b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
 			}
+			return
+		}
 
-			cachedAttachment, stored := b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
-			if stored {
-				cachedAttachment.Release()
-			}
-			err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
-			if err != nil {
+		cachedAttachment, stored := b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
+		if stored {
+			cachedAttachment.Release()
+		}
+		err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
+		if err != nil {
+			if !errors.Is(err, ledger.ErrTransactionUnsolid) {
 				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
 				//  delete attachments of transaction
 				fmt.Println(err)
 			}
 
-			// TODO: if transaction successfully booked
-			if err := b.BookMessage(message, messageMetadata); err != nil {
-				b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
-			}
-		})
+			return
+		}
+
+		if err = b.BookMessage(message, messageMetadata); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
+		}
 	})
 }
 
 func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgnore MessageID) {
 	b.tangle.Storage.Attachments(id).Consume(func(attachment *Attachment) {
-		// TODO: this is now executed sequentially. Is this a problem or should we fire one event for each of the attachments to make it async?
-		b.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-			b.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
-				if attachment.MessageID() == messageIDToIgnore {
-					return
-				}
+		event.Loop.Submit(func() {
+			b.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+				b.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+					if attachment.MessageID() == messageIDToIgnore {
+						fmt.Println(debug.GoroutineID(), "IGNORE")
+						return
+					}
 
-				b.tangle.dagMutex.RLock(message.Parents()...)
-				b.tangle.dagMutex.Lock(attachment.MessageID())
-				defer b.tangle.dagMutex.Unlock(attachment.MessageID())
-				defer b.tangle.dagMutex.RUnlock(message.Parents()...)
+					b.tangle.dagMutex.RLock(message.Parents()...)
+					b.tangle.dagMutex.Lock(attachment.MessageID())
+					defer b.tangle.dagMutex.Unlock(attachment.MessageID())
+					defer b.tangle.dagMutex.RUnlock(message.Parents()...)
 
-				if !b.readyForBooking(message, messageMetadata) {
-					return
-				}
+					if !b.readyForBooking(message, messageMetadata) {
+						return
+					}
 
-				if err := b.BookMessage(message, messageMetadata); err != nil {
-					b.Events.Error.Trigger(errors.Errorf("failed to book message with %s when processing booked transaction %s: %w", attachment.MessageID(), id, err))
-				}
+					fmt.Println(debug.GoroutineID(), "Booking message: ", attachment.MessageID())
+
+					if err := b.BookMessage(message, messageMetadata); err != nil {
+						b.Events.Error.Trigger(errors.Errorf("failed to book message with %s when processing booked transaction %s: %w", attachment.MessageID(), id, err))
+					}
+
+					fmt.Println(debug.GoroutineID(), "Booked message: ", attachment.MessageID())
+				})
 			})
 		})
 	})
@@ -186,14 +185,21 @@ func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgno
 func (b *Booker) propagateBooking(messageID MessageID) {
 	b.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
 		event.Loop.Submit(func() {
-			b.bookPayload(approver.ApproverMessageID())
+			b.tangle.Storage.Message(approver.ApproverMessageID()).Consume(func(approvingMessage *Message) {
+				b.tangle.dagMutex.RLock(approvingMessage.Parents()...)
+				defer b.tangle.dagMutex.RUnlock(approvingMessage.Parents()...)
+				b.tangle.dagMutex.Lock(approvingMessage.ID())
+				defer b.tangle.dagMutex.Unlock(approvingMessage.ID())
+
+				b.bookPayload(approvingMessage)
+			})
 		})
 	})
 }
 
 func (b *Booker) readyForBooking(message *Message, metadata *MessageMetadata) (ready bool) {
 	if metadata.IsBooked() {
-		return false
+		return true
 	}
 
 	ready = true
@@ -529,20 +535,15 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedBranchID branchdag.BranchID) (err error) {
+
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
-		if !messageMetadata.IsBooked() {
+		updated, forkErr := b.propagateForkedBranch(messageMetadata, forkedBranchID, transactionID)
+		if forkErr != nil {
+			messageWalker.StopWalk()
+			err = errors.Errorf("failed to propagate forked BranchID %s to future cone of %s: %w", forkedBranchID, messageMetadata.ID(), forkErr)
 			return
 		}
-
-		if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-			if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID); err != nil {
-				err = errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
-				messageWalker.StopWalk()
-			}
-			return
-		}
-
-		if !messageMetadata.AddBranchID(forkedBranchID) {
+		if !updated {
 			return
 		}
 
@@ -557,6 +558,26 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedB
 	}, b.tangle.Storage.AttachmentMessageIDs(transactionID), false)
 
 	return
+}
+
+func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, forkedBranchID branchdag.BranchID, transactionID utxo.TransactionID) (propagated bool, err error) {
+	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), forkedBranchID, transactionID)
+
+	b.tangle.dagMutex.Lock(messageMetadata.ID())
+	defer b.tangle.dagMutex.Unlock(messageMetadata.ID())
+
+	if !messageMetadata.IsBooked() {
+		return false, nil
+	}
+
+	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID); err != nil {
+			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
+		}
+		return true, nil
+	}
+
+	return messageMetadata.AddBranchID(forkedBranchID), nil
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.

@@ -129,9 +129,10 @@ func (s *Scheduler) Setup() {
 		s.updateApprovers(event.MessageID)
 	}))
 
-	onMessageConfirmed := func(messageID MessageID) {
+	onMessageConfirmed := func(message *Message) {
+		messageID := message.ID()
 		var scheduled bool
-		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			scheduled = messageMetadata.Scheduled()
 		})
 		if scheduled {
@@ -149,7 +150,7 @@ func (s *Scheduler) Setup() {
 		s.updateApprovers(messageID)
 	}
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
-		onMessageConfirmed(event.MessageID)
+		onMessageConfirmed(event.Message)
 	}))
 
 	s.Start()
@@ -270,19 +271,17 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 }
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
-func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
-	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		err = s.submit(message)
-		if err == nil {
-			s.ready(message)
-		}
-	}) {
-		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+	if err = s.submit(message); err != nil {
+		return err
 	}
-	return err
+
+	s.ready(message)
+
+	return nil
 }
 
 // GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.

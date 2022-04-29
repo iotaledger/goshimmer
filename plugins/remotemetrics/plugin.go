@@ -155,7 +155,7 @@ func configureMessageFinalizedMetrics() {
 		}))
 	} else {
 		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-			onMessageFinalized(event.MessageID)
+			onMessageFinalized(event.Message)
 		}))
 	}
 }

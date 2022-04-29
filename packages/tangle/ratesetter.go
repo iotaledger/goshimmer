@@ -160,7 +160,7 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
-			if err := r.tangle.Scheduler.SubmitAndReady(msg.ID()); err != nil {
+			if err := r.tangle.Scheduler.SubmitAndReady(msg); err != nil {
 				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
 			}
 			lastIssueTime = time.Now()

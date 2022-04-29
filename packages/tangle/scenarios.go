@@ -1,10 +1,12 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
@@ -520,10 +522,14 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 // IssueAndValidateMessageApproval issues the msg by the given alias and assets the expected weights.
 //nolint:gomnd
 func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *EventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {
+	fmt.Println(debug.GoroutineID(), "IssueAndValidateMessageApproval", messageAlias)
+
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
 	testFramework.IssueMessages(messageAlias).WaitUntilAllTasksProcessed()
+
+	fmt.Println(debug.GoroutineID(), "WaitUntilAllTasksProcessed", messageAlias)
 
 	for branchAlias, expectedWeight := range expectedBranchWeights {
 		branchID := testFramework.BranchID(branchAlias)

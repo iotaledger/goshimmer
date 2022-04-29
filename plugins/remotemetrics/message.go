@@ -94,13 +94,15 @@ func onTransactionConfirmed(transactionID utxo.TransactionID) {
 		return
 	}
 
-	onMessageFinalized(messageIDs.First())
+	deps.Tangle.Storage.Message(messageIDs.First()).Consume(onMessageFinalized)
 }
 
-func onMessageFinalized(messageID tangle.MessageID) {
+func onMessageFinalized(message *tangle.Message) {
 	if !deps.Tangle.Synced() {
 		return
 	}
+
+	messageID := message.ID()
 
 	var nodeID string
 	if deps.Local != nil {
@@ -114,21 +116,19 @@ func onMessageFinalized(messageID tangle.MessageID) {
 		MessageID:    messageID.Base58(),
 	}
 
-	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-		issuerID := identity.NewID(message.IssuerPublicKey())
-		record.IssuedTimestamp = message.IssuingTime()
-		record.IssuerID = issuerID.String()
-		record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
-		if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
-			record.WeakEdgeCount = weakParentsCount
-		}
-		if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
-			record.ShallowLikeEdgeCount = shallowLikeParentsCount
-		}
-		if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
-			record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
-		}
-	})
+	issuerID := identity.NewID(message.IssuerPublicKey())
+	record.IssuedTimestamp = message.IssuingTime()
+	record.IssuerID = issuerID.String()
+	record.StrongEdgeCount = len(message.ParentsByType(tangle.StrongParentType))
+	if weakParentsCount := len(message.ParentsByType(tangle.WeakParentType)); weakParentsCount > 0 {
+		record.WeakEdgeCount = weakParentsCount
+	}
+	if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
+		record.ShallowLikeEdgeCount = shallowLikeParentsCount
+	}
+	if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
+		record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
+	}
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 		record.DeltaScheduled = messageMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()

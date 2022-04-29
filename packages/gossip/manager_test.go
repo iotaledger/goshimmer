@@ -389,9 +389,9 @@ func TestDropNeighbor(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalA)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(signalA)
 		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalA)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalB)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(signalB)
 		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
@@ -407,9 +407,9 @@ func TestDropNeighbor(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(signal)
 		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
 
 		// assure that no DropNeighbor calls are leaking
@@ -451,9 +451,9 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Hook(signal)
 		defer mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Hook(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
@@ -567,9 +567,9 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(event.NewClosure(e.neighborAdded))
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(event.NewClosure(e.neighborRemoved))
-	e.Events.MessageReceived.Attach(event.NewClosure(e.messageReceived))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
+	e.Events.MessageReceived.Hook(event.NewClosure(e.messageReceived))
 
 	return e
 }

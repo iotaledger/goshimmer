@@ -2,6 +2,10 @@ module github.com/iotaledger/goshimmer
 
 go 1.18
 
+replace (
+	github.com/iotaledger/hive.go => /home/administrator/sources/github/hive.go
+)
+
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/beevik/ntp v0.3.0

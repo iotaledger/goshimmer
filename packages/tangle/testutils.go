@@ -3,7 +3,6 @@ package tangle
 import (
 	"fmt"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -40,8 +39,6 @@ type MessageTestFramework struct {
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
-	messagesBookedWG         sync.WaitGroup
-	approvalWeightProcessed  sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -59,17 +56,6 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	}
 
 	messageTestFramework.createGenesisOutputs()
-
-	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(_ *MessageBookedEvent) {
-		messageTestFramework.messagesBookedWG.Done()
-	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
-		messageTestFramework.approvalWeightProcessed.Done()
-	}))
-	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(_ *MessageInvalidEvent) {
-		messageTestFramework.messagesBookedWG.Done()
-		messageTestFramework.approvalWeightProcessed.Done()
-	}))
 
 	return
 }
@@ -160,11 +146,12 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
-	m.messagesBookedWG.Add(len(messageAliases))
-	m.approvalWeightProcessed.Add(len(messageAliases))
-
 	for _, messageAlias := range messageAliases {
-		m.tangle.Storage.StoreMessage(m.messagesByAlias[messageAlias])
+		currentMessageAlias := messageAlias
+
+		event.Loop.Submit(func() {
+			m.tangle.Storage.StoreMessage(m.messagesByAlias[currentMessageAlias])
+		})
 	}
 
 	return m
@@ -801,7 +788,7 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
-	t.Events.Error.Attach(event.NewClosure(func(e error) {
+	t.Events.Error.Hook(event.NewClosure(func(e error) {
 		fmt.Println(e)
 	}))
 

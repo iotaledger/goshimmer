@@ -44,7 +44,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	{
 		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
-		tangle.TimeManager.updateTime(messages["1"].ID())
+		tangle.TimeManager.updateTime(messages["1"])
 
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
@@ -174,7 +174,7 @@ func TestTipManager_TransactionTips(t *testing.T) {
 		assert.Equal(t, 1, tipManager.TipCount())
 
 		// use this message to set TangleTime
-		tangle.TimeManager.updateTime(testFramework.Message("Message2").ID())
+		tangle.TimeManager.updateTime(testFramework.Message("Message2"))
 	}
 
 	// Message 3
@@ -442,7 +442,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	confirmedMarkers := markers.NewMarkers()
 
 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
-	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3").ID())
+	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
@@ -494,7 +494,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3))
 
 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
-	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3").ID())
+	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
@@ -772,7 +772,7 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 }
 
 func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
-	tangle.Booker.bookPayload(message.ID())
+	tangle.Booker.bookPayload(message)
 
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch

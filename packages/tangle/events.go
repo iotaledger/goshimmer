@@ -47,7 +47,7 @@ func NewConfirmationEvents() (new *ConfirmationEvents) {
 }
 
 type MessageConfirmedEvent struct {
-	MessageID MessageID
+	Message *Message
 }
 
 // region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
@@ -226,7 +226,7 @@ func newSolidifierEvents() (new *SolidifierEvents) {
 }
 
 type MessageSolidEvent struct {
-	MessageID MessageID
+	Message *Message
 }
 
 type MessageMissingEvent struct {
@@ -258,7 +258,7 @@ func newStorageEvents() (new *StorageEvents) {
 }
 
 type MessageStoredEvent struct {
-	MessageID MessageID
+	Message *Message
 }
 
 type MessageRemovedEvent struct {

@@ -29,8 +29,6 @@ func configureFinality() {
 
 	// we need to update the WeightProvider on confirmation
 	finalityGadget.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			deps.Tangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
+		deps.Tangle.WeightProvider.Update(event.Message.IssuingTime(), identity.NewID(event.Message.IssuerPublicKey()))
 	}))
 }

@@ -16,7 +16,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	defer tangle.Shutdown()
 
 	tangle.Setup()
-	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
+	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
 	}))
 

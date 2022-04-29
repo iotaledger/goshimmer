@@ -56,9 +56,7 @@ func run(_ *node.Plugin) {
 	// Get Messages from node.
 	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			go func() {
-				server.Broadcast([]byte(message.String()))
-			}()
+			server.Broadcast([]byte(message.String()))
 		})
 	})
 

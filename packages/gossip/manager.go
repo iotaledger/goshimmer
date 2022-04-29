@@ -290,7 +290,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 		}
 		return errors.WithStack(err)
 	}
-	nbr.Events.Disconnected.Attach(event.NewClosure(func(_ *NeighborDisconnectedEvent) {
+	nbr.Events.Disconnected.Hook(event.NewClosure(func(_ *NeighborDisconnectedEvent) {
 		m.deleteNeighbor(nbr)
 		m.NeighborsEvents(nbr.Group).NeighborRemoved.Trigger(&NeighborRemovedEvent{nbr})
 	}))

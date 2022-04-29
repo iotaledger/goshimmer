@@ -322,6 +322,9 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		}
 
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
+		if strongParentBranchIDs.Equal(branchdag.NewBranchIDs(branchdag.MasterBranchID)) {
+			fmt.Println(tangle.Booker.MessageBranchIDs(strongParent))
+		}
 		if err != nil {
 			return nil, referenceNotPossible, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
@@ -331,7 +334,9 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		opinionCanBeExpressed := true
 		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
 			strongParentBranchID := it.Next()
+			// fmt.Println(tangle, strongParentBranchID, issuingTime)
 			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
+			// fmt.Println(referenceParentType, referenceMessageID, err)
 			// Explicitly ignore error since we can't create a like/dislike reference to the message.
 			// This means this message can't be added as a strong parent.
 			if err != nil {

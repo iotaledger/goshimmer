@@ -135,14 +135,11 @@ func registerLocalMetrics() {
 	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		sumTimeMutex.Lock()
 		defer sumTimeMutex.Unlock()
-		messageID := event.MessageID
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			increaseReceivedMPSCounter()
-			increasePerPayloadCounter(message.Payload().Type())
+		increaseReceivedMPSCounter()
+		increasePerPayloadCounter(event.Message.Payload().Type())
 
-			deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
-				sumTimesSinceIssued[Store] += msgMetaData.ReceivedTime().Sub(message.IssuingTime())
-			})
+		deps.Tangle.Storage.MessageMetadata(event.Message.ID()).Consume(func(msgMetaData *tangle.MessageMetadata) {
+			sumTimesSinceIssued[Store] += msgMetaData.ReceivedTime().Sub(event.Message.IssuingTime())
 		})
 		increasePerComponentCounter(Store)
 	}))
@@ -154,7 +151,7 @@ func registerLocalMetrics() {
 		defer sumTimeMutex.Unlock()
 
 		// Consume should release cachedMessageMetadata
-		deps.Tangle.Storage.MessageMetadata(event.MessageID).Consume(func(msgMetaData *tangle.MessageMetadata) {
+		deps.Tangle.Storage.MessageMetadata(event.Message.ID()).Consume(func(msgMetaData *tangle.MessageMetadata) {
 			if msgMetaData.IsSolid() {
 				sumTimesSinceReceived[Solidifier] += msgMetaData.SolidificationTime().Sub(msgMetaData.ReceivedTime())
 			}
@@ -239,7 +236,8 @@ func registerLocalMetrics() {
 
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		messageType := DataMessage
-		messageID := event.MessageID
+		message := event.Message
+		messageID := message.ID()
 		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(_ utxo.TransactionID) {
 			messageType = Transaction
 		})
@@ -248,12 +246,10 @@ func registerLocalMetrics() {
 		finalizedMessageCountMutex.Lock()
 		defer finalizedMessageCountMutex.Unlock()
 
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			message.ForEachParent(func(parent tangle.Parent) {
-				increasePerParentType(parent.Type)
-			})
-			messageFinalizationIssuedTotalTime[messageType] += uint64(clock.Since(message.IssuingTime()).Milliseconds())
+		message.ForEachParent(func(parent tangle.Parent) {
+			increasePerParentType(parent.Type)
 		})
+		messageFinalizationIssuedTotalTime[messageType] += uint64(clock.Since(message.IssuingTime()).Milliseconds())
 		if deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 			messageFinalizationReceivedTotalTime[messageType] += uint64(clock.Since(messageMetadata.ReceivedTime()).Milliseconds())
 		}) {

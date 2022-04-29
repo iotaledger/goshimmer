@@ -14,7 +14,7 @@ func TestCollectiveBeaconEvent(t *testing.T) {
 
 	eventTest := event.New[*CollectiveBeaconEvent]()
 
-	eventTest.Attach(event.NewClosure(func(cb *CollectiveBeaconEvent) {
+	eventTest.Hook(event.NewClosure(func(cb *CollectiveBeaconEvent) {
 		cbReceived = cb
 	}))
 

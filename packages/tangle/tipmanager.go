@@ -145,7 +145,7 @@ func (t *TipManager) Setup() {
 	}))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
-		t.tangle.Storage.Message(event.MessageID).Consume(t.removeStrongParents)
+		t.removeStrongParents(event.Message)
 	}))
 
 	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(event.NewClosure(func(event *MessageReferenceImpossibleEvent) {

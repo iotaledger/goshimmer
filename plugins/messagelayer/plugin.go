@@ -101,9 +101,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			deps.Tangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
+		deps.Tangle.WeightProvider.Update(event.Message.IssuingTime(), identity.NewID(event.Message.IssuerPublicKey()))
 	}))
 
 	deps.Tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *tangle.MessageRejectedEvent) {

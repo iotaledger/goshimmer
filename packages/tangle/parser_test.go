@@ -56,7 +56,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	msgParser.Setup()
 	msgParser.Parse(msg.Bytes(), nil)
 
-	msgParser.Events.MessageParsed.Attach(event.NewClosure(func(_ *MessageParsedEvent) {
+	msgParser.Events.MessageParsed.Hook(event.NewClosure(func(_ *MessageParsedEvent) {
 		log.Infof("parsed message")
 	}))
 }

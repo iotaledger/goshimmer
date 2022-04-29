@@ -141,18 +141,18 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	messageTangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
-		fmt.Println("STORED:", event.MessageID)
+	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
+		fmt.Println("STORED:", event.Message.ID())
 		atomic.AddInt32(&storedMessages, 1)
 		wg.Done()
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
-		fmt.Println("SOLID:", event.MessageID)
+	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
+		fmt.Println("SOLID:", event.Message.ID())
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
-	messageTangle.Events.MessageInvalid.Attach(event.NewClosure(func(event *MessageInvalidEvent) {
+	messageTangle.Events.MessageInvalid.Hook(event.NewClosure(func(event *MessageInvalidEvent) {
 		fmt.Println("INVALID:", event.MessageID)
 		atomic.AddInt32(&invalidMessages, 1)
 	}))
@@ -187,19 +187,19 @@ func TestTangle_StoreMessage(t *testing.T) {
 		return
 	}
 
-	messageTangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
-		fmt.Println("STORED:", event.MessageID)
+	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
+		fmt.Println("STORED:", event.Message.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
-		fmt.Println("SOLID:", event.MessageID)
+	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
+		fmt.Println("SOLID:", event.Message.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
+	messageTangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		fmt.Println("MISSING:", event.MessageID)
 	}))
 
-	messageTangle.Storage.Events.MessageRemoved.Attach(event.NewClosure(func(event *MessageRemovedEvent) {
+	messageTangle.Storage.Events.MessageRemoved.Hook(event.NewClosure(func(event *MessageRemovedEvent) {
 		fmt.Println("REMOVED:", event.MessageID)
 	}))
 
@@ -287,13 +287,13 @@ func TestTangle_MissingMessages(t *testing.T) {
 		missingMessages int32
 		solidMessages   int32
 	)
-	tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(_ *MessageStoredEvent) {
+	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(_ *MessageStoredEvent) {
 		n := atomic.AddInt32(&storedMessages, 1)
 		t.Logf("stored messages %d/%d", n, messageCount)
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
+	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		atomic.AddInt32(&missingMessages, 1)
 		// store the message after it has been requested
 		go func() {
@@ -303,12 +303,12 @@ func TestTangle_MissingMessages(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(_ *MissingMessageStoredEvent) {
+	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(_ *MissingMessageStoredEvent) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(_ *MessageSolidEvent) {
+	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(_ *MessageSolidEvent) {
 		n := atomic.AddInt32(&solidMessages, 1)
 		t.Logf("solid messages %d/%d", n, messageCount)
 	}))
@@ -341,7 +341,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(_ *MessageDispatchedEvent) {
+	messageTangle.Dispatcher.Events.MessageDispatched.Hook(event.NewClosure(func(_ *MessageDispatchedEvent) {
 		wg.Done()
 	}))
 
@@ -487,34 +487,34 @@ func TestTangle_Flow(t *testing.T) {
 		rejectedMessages   int32
 	)
 
-	tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *BytesRejectedEvent) {
+	tangle.Parser.Events.BytesRejected.Hook(event.NewClosure(func(event *BytesRejectedEvent) {
 		t.Logf("rejected bytes %v - %s", event.Bytes, event.Error)
 	}))
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *MessageRejectedEvent) {
+	tangle.Parser.Events.MessageRejected.Hook(event.NewClosure(func(event *MessageRejectedEvent) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
 		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, event.Message.ID(), event.Error)
 	}))
 
-	tangle.Parser.Events.MessageParsed.Attach(event.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.Attach(event.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Hook(event.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageInvalidEvent.MessageID)
 	}))
 
-	tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *MessageStoredEvent) {
+	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, event.MessageID)
+		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
+	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
@@ -522,36 +522,36 @@ func TestTangle_Flow(t *testing.T) {
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *MissingMessageStoredEvent) {
+	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(event *MissingMessageStoredEvent) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d - %s", n, event.MessageID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
 		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, event.MessageID)
+		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
 		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
+	tangle.Booker.Events.MessageBooked.Hook(event.NewClosure(func(event *MessageBookedEvent) {
 		n := atomic.AddInt32(&bookedMessages, 1)
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(_ *MessageDispatchedEvent) {
+	tangle.Dispatcher.Events.MessageDispatched.Hook(event.NewClosure(func(_ *MessageDispatchedEvent) {
 		n := atomic.AddInt32(&dispatchedMessages, 1)
 		t.Logf("dispatched messages %d/%d", n, totalMsgCount)
 	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(_ *MessageProcessedEvent) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(_ *MessageProcessedEvent) {
 		n := atomic.AddInt32(&awMessages, 1)
 		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.Events.Error.Attach(event.NewClosure(func(err error) {
+	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
 		t.Logf("Error %s", err)
 	}))
 
