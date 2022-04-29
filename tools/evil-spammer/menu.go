@@ -109,6 +109,12 @@ func (p *Printer) UrlWarning() {
 
 }
 
+func (p *Printer) UrlExists() {
+	p.Println(p.colorString("The url already exists.", "red"), 2)
+	fmt.Println()
+
+}
+
 func (p *Printer) DevNetFundsWarning() {
 	p.Println(p.colorString("Warning: Preparing 10k outputs and more could take looong time in the DevNet due to high PoW and congestion.", "yellow"), 1)
 	p.Println(p.colorString("We advice to use 100 option only.", "yellow"), 1)
