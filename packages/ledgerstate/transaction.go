@@ -28,10 +28,9 @@ import (
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionType represents the payload Type of a Transaction.
+// TransactionType represents the payload Type of Transaction.
 var TransactionType payload.Type
 
-// init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
 	TransactionType = payload.NewType(1337, "TransactionType")
 

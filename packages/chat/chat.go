@@ -8,7 +8,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
@@ -97,68 +96,6 @@ func FromBytes(bytes []byte) (payloadDecoded *Payload, consumedBytes int, err er
 	payloadDecoded.bytes = bytes
 
 	return
-}
-
-// Parse unmarshals an Payload using the given marshalUtil (for easier marshaling/unmarshaling).
-func Parse(marshalUtil *marshalutil.MarshalUtil) (result *Payload, err error) {
-	// read information that are required to identify the payloa from the outside
-	//if _, err = marshalUtil.ReadUint32(); err != nil {
-	//	err = fmt.Errorf("failed to parse payload size of chat payload: %w", err)
-	//	return
-	//}
-	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = fmt.Errorf("failed to parse payload type of chat payload: %w", err)
-		return
-	}
-
-	// parse From
-	result = &Payload{}
-	fromLen, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = fmt.Errorf("failed to parse fromLen field of chat payload: %w", err)
-		return
-	}
-
-	from, err := marshalUtil.ReadBytes(int(fromLen))
-	if err != nil {
-		err = fmt.Errorf("failed to parse from field of chat payload: %w", err)
-		return
-	}
-	result.From = string(from)
-
-	// parse To
-	toLen, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = fmt.Errorf("failed to parse toLen field of chat payload: %w", err)
-		return
-	}
-
-	to, err := marshalUtil.ReadBytes(int(toLen))
-	if err != nil {
-		err = fmt.Errorf("failed to parse to field of chat payload: %w", err)
-		return
-	}
-	result.To = string(to)
-
-	// parse Message
-	messageLen, err := marshalUtil.ReadUint32()
-	if err != nil {
-		err = fmt.Errorf("failed to parse messageLen field of chat payload: %w", err)
-		return
-	}
-
-	message, err := marshalUtil.ReadBytes(int(messageLen))
-	if err != nil {
-		err = fmt.Errorf("failed to parse message field of chat payload: %w", err)
-		return
-	}
-	result.Message = string(message)
-
-	// store bytes, so we don't have to marshal manually
-	consumedBytes := marshalUtil.ReadOffset()
-	copy(result.bytes, marshalUtil.Bytes()[:consumedBytes])
-
-	return result, nil
 }
 
 // Bytes returns a marshaled version of this Payload.

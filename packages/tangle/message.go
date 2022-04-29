@@ -29,18 +29,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
-// 3. Parent count per block 1 <= x <= 8. -- array rules (min/max size) - done (test it now)
-
-// 1. A Strong Parents Block must exist. --  validate function - done (test it now)
-// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents. -- validate function - done (test it now)
-
-// TODO: implement the following tests:
-// 2. Parents Block types cannot repeat. --  array rules (uniqueness slice func)  - done (can be tested during deserialization only)
-// 4. Parents unique within block. -- will be checked by array rules - done  (can be tested during deserialization only)
-
-// 5. Parents lexicographically sorted within block. -- automatically handled by serix, which always sorts maps - done (do we need to test it in goshimmer?)
-// 7. Blocks should be ordered by type in ascending order. -- automatically handled by serix, which always sorts maps - done (do we need to test it in goshimmer?)
-
 func init() {
 	messageIDsArrayRules := &serix.ArrayRules{
 		Min:            MinParentsCount,

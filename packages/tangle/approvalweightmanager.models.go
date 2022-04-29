@@ -7,10 +7,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
@@ -188,46 +186,24 @@ func (v *Voters) Clone() (clonedVoters *Voters) {
 
 // Encode returns a serialized byte slice of the object.
 func (v *Voters) Encode() ([]byte, error) {
-	seri := serializer.NewSerializer()
-
-	seri.WriteNum(uint32(v.SerializableSet.Size()), func(err error) error {
-		return errors.Wrap(err, "failed to write voters size to serializer")
-	})
-
-	v.SerializableSet.ForEach(func(voter Voter) {
-		bytes, err := serix.DefaultAPI.Encode(context.Background(), voter)
-		if err != nil {
-			seri.AbortIf(func(err error) error {
-				return errors.Wrap(err, "failed to serialize Voter")
-			})
-		}
-		seri.WriteBytes(bytes, func(err error) error {
-			return errors.Wrap(err, "failed to write voter to serializer")
-		})
-	})
-	return seri.Serialize()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), v.SerializableSet, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes, nil
 }
 
 // Decode deserializes bytes into a valid object.
-func (v *Voters) Decode(b []byte) (bytesRead int, err error) {
-	v.Set = set.New[Voter]()
+func (v *Voters) Decode(data []byte) (bytesRead int, err error) {
 
-	var votersCount uint32
-	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &votersCount)
+	v.Set = customtypes.NewSerializableSet[Voter]()
+	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &v.Set, serix.WithValidation())
 	if err != nil {
-		return 0, err
+		err = errors.Errorf("failed to parse Voters: %w", err)
+		return
 	}
-
-	for i := uint32(0); i < votersCount; i++ {
-		var voter Voter
-		bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), b[bytesRead:], &voter)
-		if err != nil {
-			return 0, err
-		}
-		bytesRead += bytesReadVoter
-		v.SerializableSet.Add(voter)
-	}
-	return bytesRead, nil
+	return
 }
 
 // Intersect creates an intersection of two set of Voters.

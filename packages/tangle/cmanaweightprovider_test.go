@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ func TestActiveNodesMarshalling(t *testing.T) {
 	for _, nodeID := range nodes {
 		a := NewActivityLog()
 
-		for i := 0; i < 1; i++ {
+		for i := 0; i < crypto.Randomness.Intn(100); i++ {
 			a.Add(time.Now().Add(time.Duration(i)*time.Minute + time.Hour))
 		}
 
@@ -31,11 +32,7 @@ func TestActiveNodesMarshalling(t *testing.T) {
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {
-		encoded1, err := a.setTimes.Encode()
-		require.NoError(t, err)
-		encoded2, err := activeNodes2[nodeID].setTimes.Encode()
-		require.NoError(t, err)
-		assert.EqualValues(t, encoded1, encoded2)
+		assert.EqualValues(t, a.setTimes.Size(), activeNodes2[nodeID].setTimes.Size())
 	}
 }
 
