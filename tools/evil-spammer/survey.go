@@ -95,6 +95,14 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Q
 			},
 		},
 		{
+			Name: "timeUnit",
+			Prompt: &survey.Select{
+				Message: "Choose time unit for the spam",
+				Options: timeUnits,
+				Default: defaultRate,
+			},
+		},
+		{
 			Name: "spamRate",
 			Prompt: &survey.Input{
 				Message: "Spam rate",

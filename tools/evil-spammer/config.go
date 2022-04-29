@@ -17,7 +17,7 @@ var (
 	customSpamParams = CustomSpamParams{
 		ClientUrls:            urls,
 		SpamTypes:             []string{"msg"},
-		Rate:                  []int{1},
+		Rates:                 []int{1},
 		Durations:             []time.Duration{time.Second * 20},
 		MsgToBeSent:           []int{0},
 		TimeUnit:              time.Second,

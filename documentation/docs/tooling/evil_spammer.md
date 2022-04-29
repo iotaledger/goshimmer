@@ -68,6 +68,7 @@ Evil wallet will start with API endpoints configured for the local docker networ
 **if you want to play with different nodes on different network you need to update urls** in the config.json file and restart the tool,
 or update it directly in the settings menu.
 The url for the DevNet is: http://nodes.nectar.iota.cafe
+The url for the devnet is: http://nodes.nectar.iota.cafe
 
 Some nodes might have double spend filter enabled. In that case, to correctly execute N-spend (a conflict set with size N) in scenarios, you need to provide at least N distinct urls to issue them simultaneously. The evil tool will pop an warning if more urls are needed. We disabled the double spend filter for now on our nodes - everything should work also with only one url provided, so you don't need to worry about the warning.
 E.g. to correctly spam with _`pear`_ you should have 4 clients configured.
@@ -76,7 +77,7 @@ E.g. to correctly spam with _`pear`_ you should have 4 clients configured.
 ![Request funds](/img/tooling/evil_spammer/evilwallet-request-funds.png "Request funds")
 
 In order to request faucet funds choose "Prepare faucet funds" option, and Evil Spammer will send the faucet request and split the output on the requested number. The fastest is 100 outputs, as we wait only for one transaction to be confirmed, the more output you request the longer you will need to wait.
-> :warning: On the DevNet due to higher PoW and congestion in the network, a creation of more than 100 outputs can not always be successful (as it tries to create 100 splitting transactions at once), that's why we encourage you to use 100 option on the DevNet, and play with higher spam rate and requesting large amounts of outputs in the [local docker network](docker_private_network.md).
+> :warning: On the DevNet due to higher PoW and congestion in the network, a creation of more than 100 outputs can not always be successful (as it tries to create 100 splitting transactions at once), that's why we encourage you to use 100 option on the DevNet, and play with higher spam rates and requesting large amounts of outputs in the [local docker network](docker_private_network.md).
 
 You can also enable auto funds requesting, that will trigger funds preparation whenever you'll be short on faucet outputs.
 Just go to: `Settings -> Auto funds requesting -> enable`. However, as mentioned above this is recommended only on private networks, where you have enough network throughput share.
