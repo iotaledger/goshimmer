@@ -77,7 +77,7 @@ type spamDetailsSurvey struct {
 	TimeUnit     string
 }
 
-var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Question {
+var spamDetailsQuestions = func(defaultDuration, defaultRate, defaultTimeUnit string) []*survey.Question {
 	return []*survey.Question{
 		{
 			Name: "spamDuration",
@@ -91,15 +91,7 @@ var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Q
 			Prompt: &survey.Select{
 				Message: "Choose time unit for the spam",
 				Options: timeUnits,
-				Default: defaultRate,
-			},
-		},
-		{
-			Name: "timeUnit",
-			Prompt: &survey.Select{
-				Message: "Choose time unit for the spam",
-				Options: timeUnits,
-				Default: defaultRate,
+				Default: defaultTimeUnit,
 			},
 		},
 		{

@@ -64,12 +64,14 @@ var defaultConfig = InteractiveConfig{
 		"http://localhost:8080": types.Void,
 		"http://localhost:8090": types.Void,
 	},
-	Rate:     2,
-	duration: 20 * time.Second,
-	timeUnit: time.Second,
-	Deep:     false,
-	Reuse:    true,
-	Scenario: "tx",
+	Rate:                 2,
+	duration:             20 * time.Second,
+	timeUnit:             time.Second,
+	Deep:                 false,
+	Reuse:                true,
+	Scenario:             "tx",
+	AutoRequesting:       false,
+	AutoRequestingAmount: "100",
 }
 
 const (
@@ -373,8 +375,9 @@ func (m *Mode) spamMenu() {
 func (m *Mode) spamSubMenu(menuType string) {
 	switch menuType {
 	case spamDetails:
+		defaultTimeUnit := timeUnitToString(m.Config.duration)
 		var spamSurvey spamDetailsSurvey
-		err := survey.Ask(spamDetailsQuestions(strconv.Itoa(int(m.Config.duration.Seconds())), strconv.Itoa(m.Config.Rate)), &spamSurvey)
+		err := survey.Ask(spamDetailsQuestions(strconv.Itoa(int(m.Config.duration.Seconds())), strconv.Itoa(m.Config.Rate), defaultTimeUnit), &spamSurvey)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -739,6 +742,17 @@ func validateUrl(url string) (ok bool) {
 		return
 	}
 	return true
+}
+
+func timeUnitToString(d time.Duration) string {
+	defaultTimeUnit := ""
+	switch d {
+	case time.Minute:
+		defaultTimeUnit = mpm
+	case time.Second:
+		defaultTimeUnit = mps
+	}
+	return defaultTimeUnit
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
