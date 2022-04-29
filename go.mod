@@ -14,7 +14,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/iotaledger/hive.go v0.0.0-20220429043012-1f37deae4664
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220427063636-698b1e6c1d73
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220429043012-1f37deae4664
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
