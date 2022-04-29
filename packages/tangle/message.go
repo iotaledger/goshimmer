@@ -53,27 +53,56 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering ParentMessageIDs type settings: %w", err))
 	}
-	err = serix.DefaultAPI.RegisterValidators(ParentMessageIDs{}, validateMessageBytes, validateMessage)
+	err = serix.DefaultAPI.RegisterValidators(ParentMessageIDs{}, validateParentMessageIDsBytes, validateParentMessageIDs)
 
 	if err != nil {
 		panic(fmt.Errorf("error registering ParentMessageIDs validators: %w", err))
 	}
 }
 
-func validateMessage(_ context.Context, parents ParentMessageIDs) (err error) {
+func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err error) {
 	// Validate strong parent block
 	if strongParents, strongParentsExist := parents[StrongParentType]; len(parents) == 0 || !strongParentsExist ||
 		len(strongParents) < MinStrongParentsCount {
 		return ErrNoStrongParents
 	}
-
+	for parentsType, _ := range parents {
+		if parentsType > LastValidBlockType {
+			return ErrBlockTypeIsUnknown
+		}
+	}
 	if areReferencesConflictingAcrossBlocks(parents) {
-		return ErrConflictingReferenceAcrossBlocks
+		return
 	}
 	return nil
 }
 
-func validateMessageBytes(_ context.Context, _ []byte) (err error) {
+// validate messagesIDs are unique across blocks
+// there may be repetition across strong and like parents.
+func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
+	additiveParents := NewMessageIDs()
+	subtractiveParents := NewMessageIDs()
+
+	for parentsType, parentBlockReferences := range parentsBlocks {
+		for _, parent := range parentBlockReferences.Slice() {
+			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
+				additiveParents.Add(parent)
+			} else if parentsType == ShallowDislikeParentType {
+				subtractiveParents.Add(parent)
+			}
+		}
+	}
+
+	for parent := range subtractiveParents {
+		if _, exists := additiveParents[parent]; exists {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateParentMessageIDsBytes(_ context.Context, _ []byte) (err error) {
 	return
 }
 
@@ -390,31 +419,6 @@ func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time
 		return nil, err
 	}
 	return msg, nil
-}
-
-// validate messagesIDs are unique across blocks
-// there may be repetition across strong and like parents.
-func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
-	additiveParents := NewMessageIDs()
-	subtractiveParents := NewMessageIDs()
-
-	for parentsType, parentBlockReferences := range parentsBlocks {
-		for _, parent := range parentBlockReferences.Slice() {
-			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
-				additiveParents.Add(parent)
-			} else if parentsType == ShallowDislikeParentType {
-				subtractiveParents.Add(parent)
-			}
-		}
-	}
-
-	for parent := range subtractiveParents {
-		if _, exists := additiveParents[parent]; exists {
-			return true
-		}
-	}
-
-	return false
 }
 
 // FromObjectStorage creates a Message from sequences of key and bytes.
@@ -1213,18 +1217,8 @@ var _ objectstorage.StorableObject = new(MessageMetadata)
 var (
 	// ErrNoStrongParents is triggered if there no strong parents.
 	ErrNoStrongParents = errors.New("missing strong messages in first parent block")
-	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
-	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
 	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
-	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType-1)
-	// ErrParentsOutOfRange is triggered when a block is out of range.
-	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
-	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
-	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
-	// ErrRepeatingBlockTypes is triggered if there are repeating block types in the message.
-	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
-	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
-	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType)
 	// ErrConflictingReferenceAcrossBlocks is triggered if there conflicting references across blocks.
 	ErrConflictingReferenceAcrossBlocks = errors.New("different blocks have conflicting references")
 )
