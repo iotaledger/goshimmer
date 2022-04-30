@@ -907,14 +907,6 @@ type EventMock struct {
 	}
 }
 
-type mockedT struct {
-	*testing.T
-}
-
-func (m *mockedT) FailNow() {
-	panic("FailNow")
-}
-
 // NewEventMock creates a new EventMock.
 func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *EventMock {
 	e := &EventMock{
