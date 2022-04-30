@@ -43,11 +43,13 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
+	b.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
 		b.bookPayload(event.Message)
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		fmt.Println(MessageIDFromContext(event.Context), "TransactionBranchIDUpdatedEvent", event.TransactionID, b.tangle.Storage.AttachmentMessageIDs(event.TransactionID))
+
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -535,7 +537,6 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedBranchID branchdag.BranchID) (err error) {
-
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
 		updated, forkErr := b.propagateForkedBranch(messageMetadata, forkedBranchID, transactionID)
 		if forkErr != nil {

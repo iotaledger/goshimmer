@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -491,15 +490,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 }
 
 func TestOutOfOrderStatements(t *testing.T) {
-	debug.Enabled = true
-
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println(r)
-		}
-	}()
-
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1; i++ {
 		nodes := make(map[string]*identity.Identity)
 		for _, node := range []string{"A", "B", "C", "D", "E"} {
 			nodes[node] = identity.GenerateIdentity()
@@ -597,7 +588,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(0, 5): 0.30,
 			})
 		}
-		fmt.Println("HIER")
+
 		// ISSUE Message6
 		{
 			testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A3"), WithOutput("B6", 500))
@@ -662,7 +653,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(0, 5): 0.30,
 			})
 		}
-		fmt.Println("HIER1")
+
 		// ISSUE Message9
 		{
 			testFramework.CreateMessage("Message9", WithStrongParents("Message6", "Message7"), WithIssuer(nodes["A"].PublicKey()))
@@ -761,8 +752,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 			})
 		}
 
-		fmt.Println(debug.GoroutineID(), "HIOR")
-
 		// ISSUE Message13
 		{
 			// We simulate an "old" vote
@@ -790,7 +779,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(1, 6): 0.10,
 			})
 		}
-		fmt.Println("HIOR")
+
 		testEventMock.AssertExpectations(t)
 	}
 }

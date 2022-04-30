@@ -1002,7 +1002,6 @@ func TestBookerMarkerMappings(t *testing.T) {
 	debug.Enabled = true
 
 	tangle := NewTestTangle()
-	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
 		tangle,

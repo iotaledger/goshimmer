@@ -1,10 +1,8 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
 )
@@ -91,42 +89,24 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 	defer s.tangle.dagMutex.Unlock(message.ID())
 
 	if !s.isMessageSolid(message, messageMetadata) {
-		fmt.Println(debug.GoroutineID(), "HIE0R2", message.ID())
-
 		return
 	}
-
-	fmt.Println(debug.GoroutineID(), "HIE0R3", message.ID())
 
 	if !s.areParentMessagesValid(message) {
 		if !messageMetadata.SetObjectivelyInvalid(true) {
-			fmt.Println(debug.GoroutineID(), "HIE0R4", message.ID())
-
 			return
 		}
 
-		fmt.Println(debug.GoroutineID(), "HIE0R5", message.ID())
-
 		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
 
-		fmt.Println(debug.GoroutineID(), "HIE0R6", message.ID())
-
 		return
 	}
-
-	fmt.Println(debug.GoroutineID(), "HIE0R7", message.ID())
 
 	if !messageMetadata.SetSolid(true) {
-		fmt.Println(debug.GoroutineID(), "HIE0R8", message.ID())
-
 		return
 	}
 
-	fmt.Println(debug.GoroutineID(), "Solidified", message.ID())
-
 	s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
-
-	fmt.Println(debug.GoroutineID(), "Solidified Triggered", message.ID())
 }
 
 // isMessageSolid checks if the given Message is solid.

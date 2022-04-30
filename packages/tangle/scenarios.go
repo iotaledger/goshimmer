@@ -522,8 +522,6 @@ func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 // IssueAndValidateMessageApproval issues the msg by the given alias and assets the expected weights.
 //nolint:gomnd
 func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMock *EventMock, testFramework *MessageTestFramework, expectedBranchWeights map[string]float64, expectedMarkerWeights map[markers.Marker]float64) {
-	fmt.Println(debug.GoroutineID(), "IssueAndValidateMessageApproval", messageAlias)
-
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)

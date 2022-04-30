@@ -317,7 +317,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 // Tests if error is returned when non-existing transaction is tried to be liked.
 func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100; i++ {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {

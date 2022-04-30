@@ -134,7 +134,7 @@ type TransactionForkedEvent struct {
 	// ParentBranches contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
 	ParentBranches branchdag.BranchIDs
 
-	// ForkerdBranchID contains the newly forked BranchID that trigger this event.
+	// ForkedBranchID contains the newly forked BranchID that trigger this event.
 	ForkedBranchID branchdag.BranchID
 
 	// Context contains a Context provided by the caller that triggered this event.
@@ -156,6 +156,9 @@ type TransactionBranchIDUpdatedEvent struct {
 
 	// RemovedBranchIDs contains the set of the BranchIDs that were removed while updating the Transaction.
 	RemovedBranchIDs branchdag.BranchIDs
+
+	// Context contains a Context provided by the caller that triggered this event.
+	Context context.Context
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
