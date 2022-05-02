@@ -493,7 +493,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 func TestOutOfOrderStatements(t *testing.T) {
 	debug.Enabled = true
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10000; i++ {
 		nodes := make(map[string]*identity.Identity)
 		for _, node := range []string{"A", "B", "C", "D", "E"} {
 			nodes[node] = identity.GenerateIdentity()
@@ -701,6 +701,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(1, 5): 0.15,
 			})
 		}
+
 		// ISSUE Message11
 		{
 			// We skip ahead with the Sequence Number
@@ -727,6 +728,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(1, 5): 0.15,
 			})
 		}
+
+		continue
 
 		// ISSUE Message12
 		{
@@ -755,6 +758,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 			})
 		}
 
+		testEventMock.AssertExpectations(t)
+
 		// ISSUE Message13
 		{
 			// We simulate an "old" vote
@@ -782,7 +787,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(1, 6): 0.10,
 			})
 		}
-		testEventMock.AssertExpectations(t)
 	}
 }
 

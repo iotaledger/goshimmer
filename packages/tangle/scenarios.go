@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -533,14 +533,14 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 		branchID := testFramework.BranchID(branchAlias)
 		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfBranch(branchID)
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
 		}
 	}
 
 	for marker, expectedWeight := range expectedMarkerWeights {
 		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(&marker, testFramework.Message(messageAlias).IssuingTime())
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
 		}
 	}
 

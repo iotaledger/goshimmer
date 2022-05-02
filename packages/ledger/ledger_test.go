@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 func TestLedger_BookInOrder(t *testing.T) {
@@ -562,4 +563,17 @@ func TestLedger_TransactionCausallyRelated(t *testing.T) {
 	}
 
 	assert.EqualError(t, testFramework.IssueTransaction("TX3"), "TransactionID(TX3) is trying to spend causally related Outputs: transaction invalid")
+}
+
+func TestLedger_Aliases(t *testing.T) {
+	var transactionID utxo.TransactionID
+	assert.NoError(t, transactionID.FromRandomness())
+
+	branchID := branchdag.NewBranchID(transactionID)
+
+	transactionID.RegisterAlias("TX1")
+	branchID.RegisterAlias("Branch1")
+
+	fmt.Println(transactionID)
+	fmt.Println(branchID)
 }
