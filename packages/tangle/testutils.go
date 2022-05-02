@@ -158,6 +158,7 @@ func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageT
 }
 
 func (m *MessageTestFramework) WaitUntilAllTasksProcessed() (self *MessageTestFramework) {
+	// time.Sleep(100 * time.Millisecond)
 	event.Loop.WaitUntilAllTasksProcessed()
 	return m
 }

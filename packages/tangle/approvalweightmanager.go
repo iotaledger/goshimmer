@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
@@ -43,7 +44,9 @@ func (a *ApprovalWeightManager) Setup() {
 		a.processForkedMessage(event.MessageID, event.BranchID)
 	}))
 	a.tangle.Booker.Events.MarkerBranchAdded.Attach(event.NewClosure(func(event *MarkerBranchAddedEvent) {
+		fmt.Println("MarkerBranchAdded", event.NewBranchID)
 		a.processForkedMarker(event.Marker, event.OldBranchIDs, event.NewBranchID)
+		fmt.Println("processForkedMarker finished", event.NewBranchID)
 	}))
 }
 

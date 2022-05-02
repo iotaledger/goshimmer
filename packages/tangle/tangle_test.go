@@ -341,7 +341,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Dispatcher.Events.MessageDispatched.Hook(event.NewClosure(func(_ *MessageDispatchedEvent) {
+	messageTangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(_ *MessageScheduledEvent) {
 		wg.Done()
 	}))
 
@@ -475,16 +475,15 @@ func TestTangle_Flow(t *testing.T) {
 
 	// counter for the different stages
 	var (
-		parsedMessages     int32
-		storedMessages     int32
-		missingMessages    int32
-		solidMessages      int32
-		scheduledMessages  int32
-		bookedMessages     int32
-		dispatchedMessages int32
-		awMessages         int32
-		invalidMessages    int32
-		rejectedMessages   int32
+		parsedMessages    int32
+		storedMessages    int32
+		missingMessages   int32
+		solidMessages     int32
+		scheduledMessages int32
+		bookedMessages    int32
+		awMessages        int32
+		invalidMessages   int32
+		rejectedMessages  int32
 	)
 
 	tangle.Parser.Events.BytesRejected.Hook(event.NewClosure(func(event *BytesRejectedEvent) {
@@ -542,10 +541,6 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Dispatcher.Events.MessageDispatched.Hook(event.NewClosure(func(_ *MessageDispatchedEvent) {
-		n := atomic.AddInt32(&dispatchedMessages, 1)
-		t.Logf("dispatched messages %d/%d", n, totalMsgCount)
-	}))
 	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(_ *MessageProcessedEvent) {
 		n := atomic.AddInt32(&awMessages, 1)
 		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
@@ -578,7 +573,6 @@ func TestTangle_Flow(t *testing.T) {
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&dispatchedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
 	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))

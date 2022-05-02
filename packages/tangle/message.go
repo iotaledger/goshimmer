@@ -149,12 +149,22 @@ func (id MessageID) String() string {
 		return "MessageID(EmptyMessageID)"
 	}
 
-	if messageIDAlias, exists := messageIDAliases[id]; exists {
+	if messageIDAlias, exists := getMessageAlias(id); exists {
 		return "MessageID(" + messageIDAlias + ")"
 	}
 
 	return "MessageID(" + base58.Encode(id[:]) + ")"
 }
+
+func getMessageAlias(id MessageID) (string, bool) {
+	messageIDAliasMutex.RLock()
+	defer messageIDAliasMutex.RUnlock()
+
+	alias, exists := messageIDAliases[id]
+	return alias, exists
+}
+
+var messageIDAliasMutex sync.RWMutex
 
 // messageIDAliases contains a list of aliases registered for a set of MessageIDs.
 var messageIDAliases = make(map[MessageID]string)
@@ -162,11 +172,17 @@ var messageIDAliases = make(map[MessageID]string)
 // RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
 // readable string instead of the base58 encoded version of itself.
 func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliasMutex.Lock()
+	defer messageIDAliasMutex.Unlock()
+
 	messageIDAliases[messageID] = alias
 }
 
 // UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
 func UnregisterMessageIDAliases() {
+	messageIDAliasMutex.Lock()
+	defer messageIDAliasMutex.Unlock()
+
 	messageIDAliases = make(map[MessageID]string)
 }
 

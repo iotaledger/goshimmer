@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -490,7 +491,9 @@ func TestAggregatedBranchApproval(t *testing.T) {
 }
 
 func TestOutOfOrderStatements(t *testing.T) {
-	for i := 0; i < 1; i++ {
+	debug.Enabled = true
+
+	for i := 0; i < 100; i++ {
 		nodes := make(map[string]*identity.Identity)
 		for _, node := range []string{"A", "B", "C", "D", "E"} {
 			nodes[node] = identity.GenerateIdentity()
@@ -779,7 +782,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 				*markers.NewMarker(1, 6): 0.10,
 			})
 		}
-
 		testEventMock.AssertExpectations(t)
 	}
 }

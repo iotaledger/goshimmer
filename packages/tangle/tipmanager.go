@@ -132,7 +132,7 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Dispatcher.Events.MessageDispatched.Attach(event.NewClosure(func(event *MessageDispatchedEvent) {
+	t.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
 		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
