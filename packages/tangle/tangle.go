@@ -153,7 +153,7 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
-	if !t.Synced() {
+	if !t.Bootstrapped() {
 		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
 		return
 	}
@@ -161,10 +161,10 @@ func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *
 	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
-// Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
+// Bootstrapped returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
 // until the genesis.
-func (t *Tangle) Synced() (synced bool) {
-	return t.TimeManager.Synced()
+func (t *Tangle) Bootstrapped() (bootstrapped bool) {
+	return t.TimeManager.Bootstrapped()
 }
 
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").

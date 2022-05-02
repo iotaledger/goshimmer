@@ -102,7 +102,7 @@ func getInfo(c echo.Context) error {
 	// get TangleTime
 	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:    deps.Tangle.TimeManager.Synced(),
+		Synced:    deps.Tangle.TimeManager.Bootstrapped(),
 		Time:      lcm.Time.UnixNano(),
 		MessageID: lcm.MessageID.Base58(),
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 func onRandomnessReceived(state *drng.State) {
-	if !deps.Tangle.Synced() {
+	if !deps.Tangle.Bootstrapped() {
 		return
 	}
 

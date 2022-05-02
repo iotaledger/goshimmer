@@ -107,17 +107,22 @@ func (t *TimeManager) LastConfirmedMessage() LastConfirmedMessage {
 	return t.lastConfirmedMessage
 }
 
-// Time returns the TangleTime, i.e., the issuing time of the last confirmed message.
-func (t *TimeManager) Time() time.Time {
+// CurrentTangleTime returns the CTT, i.e., the issuing time of the last confirmed message.
+func (t *TimeManager) CurrentTangleTime() time.Time {
 	t.lastConfirmedMutex.RLock()
 	defer t.lastConfirmedMutex.RUnlock()
 
 	return t.lastConfirmedMessage.Time
 }
 
-// Synced returns whether the node is in sync based on the difference between TangleTime and current wall time which can
+// FinalizedTangleTime returns the CTT, it's just a stub for now.
+func (t *TimeManager) FinalizedTangleTime() time.Time {
+	return t.CurrentTangleTime()
+}
+
+// Bootstrapped returns whether the node is in sync based on the difference between TangleTime and current wall time which can
 // be configured via SyncTimeWindow.
-func (t *TimeManager) Synced() bool {
+func (t *TimeManager) Bootstrapped() bool {
 	t.lastSyncedMutex.RLock()
 	defer t.lastSyncedMutex.RUnlock()
 	return t.lastSynced
@@ -152,7 +157,6 @@ func (t *TimeManager) updateTime(messageID MessageID) {
 		if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
 			return
 		}
-
 		t.lastConfirmedMessage = LastConfirmedMessage{
 			MessageID: messageID,
 			Time:      message.IssuingTime(),

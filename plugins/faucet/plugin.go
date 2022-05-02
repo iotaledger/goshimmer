@@ -176,7 +176,7 @@ func waitUntilSynced(ctx context.Context) bool {
 	defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(closure)
 
 	// if we are already synced, there is no need to wait for the event
-	if deps.Tangle.TimeManager.Synced() {
+	if deps.Tangle.TimeManager.Bootstrapped() {
 		return true
 	}
 

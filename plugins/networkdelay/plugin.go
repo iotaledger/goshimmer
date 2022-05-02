@@ -125,7 +125,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 		ReceiveTime: receiveTime,
 		Delta:       receiveTime - networkDelayObject.sentTime,
 		Clock:       clockEnabled,
-		Sync:        deps.Tangle.Synced(),
+		Sync:        deps.Tangle.Bootstrapped(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)
@@ -139,7 +139,7 @@ func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),
 		Clock:       clockEnabled,
-		Sync:        deps.Tangle.Synced(),
+		Sync:        deps.Tangle.Bootstrapped(),
 		Type:        remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)

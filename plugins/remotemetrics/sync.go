@@ -11,7 +11,7 @@ var isTangleTimeSynced atomic.Bool
 
 func checkSynced() {
 	oldTangleTimeSynced := isTangleTimeSynced.Load()
-	tts := deps.Tangle.TimeManager.Synced()
+	tts := deps.Tangle.TimeManager.Bootstrapped()
 	if oldTangleTimeSynced != tts {
 		var myID string
 		if deps.Local != nil {
