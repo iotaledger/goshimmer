@@ -14,7 +14,9 @@ The main goal is to test how the network will handle more complicated spam scena
 Also, do not forget to choose the right name for your spam.*
 
 ## How to be evil?
-There are many options, but we encorage you to use our Evil Spammer Tool. It is available in a form of command line tool and in the interactive mode.
+There are many options, but we encourage you to use our Evil Spammer Tool. It is available in a form of command line tool and in the interactive mode.
+
+The compiled versions of the tool for Windows, Linux, macOS are available in [goshimmer releases](https://github.com/iotaledger/goshimmer/releases).
 
 ### Evil spammer command line
 The tool starts with the `main.go` file in `tools/evil-spammer`.
@@ -36,12 +38,12 @@ and providing spam parameters with flags.
 Below is an example with custom spam:
 ```shell
 # under tools/evil-spammer
-go run . basic --spammers custom --scenario <scenario-name> --rates 10 --durations 1m
+go run . basic --spammer custom --scenario <scenario-name> --rate 5 --duration 30s
 ```
 
 It is possible to start multiple spam types at once by providing parameters separated by commas.
 ```shell
-go run . basic --urls http://localhost:8080 --spammers ds,msg,custom --rates 5,10,2 --durations 20s,20s,20s --tu 1s --scenario peace
+go run . basic --urls http://localhost:8080 --spammer ds,msg,custom --rate 5,10,2 --duration 20s,20s,20s --tu 1s --scenario peace
 ```
 
 #### Quick Test
@@ -50,7 +52,7 @@ Can be used for fast and intense spamming test. First is transaction spam, next 
 Example usage:
 ```shell
 # under tools/evil-spammer
-go run . quick --urls http://localhost:8080,http://localhost:8090 --rate 50 --durations 1m --tu 1s --dbc 100ms
+go run . quick --urls http://localhost:8080,http://localhost:8090 --rate 50 --duration 1m --tu 1s --dbc 100ms
 ```
 ### Go interactive!
 
@@ -65,6 +67,7 @@ go run . interactive
 Evil wallet will start with API endpoints configured for the local docker network,
 **if you want to play with different nodes on different network you need to update urls** in the config.json file and restart the tool,
 or update it directly in the settings menu.
+The url for the DevNet is: http://nodes.nectar.iota.cafe
 The url for the devnet is: http://nodes.nectar.iota.cafe
 
 Some nodes might have double spend filter enabled. In that case, to correctly execute N-spend (a conflict set with size N) in scenarios, you need to provide at least N distinct urls to issue them simultaneously. The evil tool will pop an warning if more urls are needed. We disabled the double spend filter for now on our nodes - everything should work also with only one url provided, so you don't need to worry about the warning.

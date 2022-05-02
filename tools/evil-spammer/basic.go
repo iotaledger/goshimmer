@@ -46,7 +46,11 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
+				s := SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
+				if s == nil {
+					return
+				}
+				s.Spam()
 			}()
 		case "tx":
 			wg.Add(1)
@@ -204,7 +208,7 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	return
 }
 
-func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numMsgToSend int) {
+func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numMsgToSend int) *evilspammer.Spammer {
 	if wallet.NumOfClient() < 1 {
 		printer.NotEnoughClientsWarning(1)
 	}
@@ -217,5 +221,5 @@ func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration ti
 		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
 	}
 	spammer := evilspammer.NewSpammer(options...)
-	spammer.Spam()
+	return spammer
 }

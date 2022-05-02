@@ -92,27 +92,25 @@ func (p *Printer) FarewellMessage() {
 	p.PrintLine()
 }
 
-func (p *Printer) SettingFundsMessage() {
-	p.Println("", 2)
-	if p.mode.autoFundsPrepareEnabled {
-		p.Println("Auto funds creation enabled", 1)
-	} else {
-		p.Println("Auto funds creation disabled", 1)
-	}
-	p.Println("", 2)
-	fmt.Println()
-}
-
 func (p *Printer) FundsWarning() {
-
-	p.Println(p.colorString("Not enough fresh faucet outputs in the wallet to spam!", "red"), 2)
-	p.PrintlnPoint("Request more manually with 'Prepare faucet funds' option in main menu.", 2)
-	p.PrintlnPoint("You can also enable auto funds requesting in the settings.", 2)
+	p.Println(p.colorString("Not enough fresh faucet outputs in the wallet to spam!", "red"), 1)
+	if p.mode.preparingFunds {
+		p.PrintlnPoint(p.colorString("Funds are currently prepared, wait until outputs will be available.", "yellow"), 2)
+	} else {
+		p.PrintlnPoint(p.colorString("Request more outputs manually with 'Prepare faucet funds' option in main menu.", "yellow"), 2)
+		p.PrintlnPoint(p.colorString("You can also enable auto funds requesting in the settings.", "yellow"), 2)
+	}
 	fmt.Println()
 }
 
 func (p *Printer) UrlWarning() {
 	p.Println(p.colorString("Could not connect to provided API endpoint, client not added.", "yellow"), 2)
+	fmt.Println()
+
+}
+
+func (p *Printer) UrlExists() {
+	p.Println(p.colorString("The url already exists.", "red"), 2)
 	fmt.Println()
 
 }
@@ -155,7 +153,7 @@ func (p *Printer) colorString(s string, color string) string {
 func (p *Printer) Settings() {
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 0)
-	p.Println(fmt.Sprintf("Auto request funds enabled: %v", p.mode.autoFundsPrepareEnabled), 1)
+	p.Println(fmt.Sprintf("Auto requesting enabled: %v", p.mode.Config.AutoRequesting), 1)
 	p.clients()
 	p.PrintLine()
 	fmt.Println()
@@ -173,17 +171,21 @@ func (p *Printer) CurrentSpams() {
 	p.mode.spamMutex.Lock()
 	defer p.mode.spamMutex.Unlock()
 
-	if len(p.mode.activeSpammers) == 0 {
-		p.Println(p.colorString("There are no currently running spams.", "red"), 1)
-		return
-	}
-	p.Println(p.colorString("Currently active spammers:", "green"), 1)
+	lines := make([]string, 0)
 	for id := range p.mode.activeSpammers {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
 		endTime := startTime.Add(details.duration)
 		timeLeft := int(endTime.Sub(time.Now()).Seconds())
-		p.PrintlnPoint(fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft), 2)
+		lines = append(lines, fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft))
+	}
+	if len(lines) == 0 {
+		p.Println(p.colorString("There are no currently running spams.", "red"), 1)
+		return
+	}
+	p.Println(p.colorString("Currently active spammers:", "green"), 1)
+	for _, line := range lines {
+		p.PrintlnPoint(line, 2)
 	}
 	p.PrintLine()
 	fmt.Println()
@@ -232,6 +234,13 @@ func (p *Printer) SpammerStartedMessage() {
 	p.Println(p.colorString("Spammer started", "green"), 1)
 	p.Println("", 2)
 	fmt.Println()
+}
+
+func (p *Printer) AutoRequestingEnabled() {
+	p.Println("", 2)
+	p.Println(p.colorString(fmt.Sprintf("Automatic funds requesting enabled. %s outputs will be requested whenever output amout will go below %d.", p.mode.Config.AutoRequestingAmount, minSpamOutputs), "green"), 1)
+	p.Println(p.colorString("The size of the request can be changed in the config file. Possible values: '100', '10000'", "yellow"), 1)
+	p.Println("", 2)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

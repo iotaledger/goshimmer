@@ -59,7 +59,7 @@ func NewSpammer(options ...Options) *Spammer {
 		logTickTime:   time.Second * 30,
 	}
 	s := &Spammer{
-		SpamDetails:    DefaultSpamDetails,
+		SpamDetails:    &SpamDetails{},
 		spamFunc:       CustomConflictSpammingFunc,
 		State:          state,
 		EvilScenario:   evilwallet.NewEvilScenario(),
@@ -118,7 +118,7 @@ func (s *Spammer) setupSpamDetails() {
 	}
 	// provided only maxDuration, calculating the default max for maxMsgSent
 	if s.SpamDetails.MaxBatchesSent == 0 && s.SpamDetails.MaxDuration > 0 {
-		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration/s.SpamDetails.TimeUnit)*s.SpamDetails.Rate + 1
+		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
 	}
 }
 
