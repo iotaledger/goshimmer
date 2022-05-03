@@ -22,7 +22,7 @@ func checkSynced() {
 			NodeID:                   myID,
 			MetricsLevel:             Parameters.MetricsLevel,
 			Time:                     clock.SyncedTime(),
-			LastConfirmedMessageTime: deps.Tangle.TimeManager.Time(),
+			LastConfirmedMessageTime: deps.Tangle.TimeManager.CurrentTangleTime(),
 			CurrentStatus:            tts,
 			PreviousStatus:           oldTangleTimeSynced,
 		}

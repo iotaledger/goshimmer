@@ -128,7 +128,7 @@ func run(plugin *node.Plugin) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
 		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(ctx) {
+		if !waitUntilBootstrapped(ctx) {
 			return
 		}
 		plugin.LogInfo("Waiting for node to become synced... done")
@@ -161,7 +161,7 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func waitUntilSynced(ctx context.Context) bool {
+func waitUntilBootstrapped(ctx context.Context) bool {
 	synced := make(chan struct{}, 1)
 	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
 		if e.Synced {

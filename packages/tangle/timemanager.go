@@ -36,6 +36,9 @@ type TimeManager struct {
 	lastSyncedMutex      sync.RWMutex
 	lastSynced           bool
 
+	lastRCTTMutex sync.RWMutex
+	lastRCTT      time.Time
+
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -53,8 +56,9 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 
 	// initialize with Genesis
 	t.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID: EmptyMessageID,
-		Time:      time.Unix(DefaultGenesisTime, 0),
+		MessageID:     EmptyMessageID,
+		Time:          time.Unix(DefaultGenesisTime, 0),
+		ConfirmedTime: time.Unix(DefaultGenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -67,7 +71,6 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 			panic(err)
 		}
 	}
-
 	// initialize the synced status
 	t.lastSynced = t.synced()
 
@@ -158,12 +161,41 @@ func (t *TimeManager) updateTime(messageID MessageID) {
 			return
 		}
 		t.lastConfirmedMessage = LastConfirmedMessage{
-			MessageID: messageID,
-			Time:      message.IssuingTime(),
+			MessageID:     messageID,
+			Time:          message.IssuingTime(),
+			ConfirmedTime: time.Now(),
 		}
-
 		t.updateSyncedState()
 	})
+}
+
+// RCTT return relative current tangle time.
+func (t *TimeManager) RCTT() time.Time {
+	newRCTT := t.calculateNewRCTT()
+	t.lastRCTTMutex.Lock()
+	defer t.lastRCTTMutex.Unlock()
+	if newRCTT.After(t.lastRCTT) {
+		t.lastRCTT = newRCTT
+	}
+	return t.lastRCTT
+}
+
+// RFTT return relative finalized tangle time. For now it's the same as RCTT.
+func (t *TimeManager) RFTT() time.Time {
+	return t.RCTT()
+}
+
+func (t *TimeManager) calculateNewRCTT() time.Time {
+	now := time.Now()
+	lastConfirmedTime := t.lastConfirmedTime()
+	ctt := t.CurrentTangleTime()
+	return ctt.Add(now.Sub(lastConfirmedTime))
+}
+
+func (t *TimeManager) lastConfirmedTime() time.Time {
+	t.lastConfirmedMutex.RLock()
+	defer t.lastConfirmedMutex.RUnlock()
+	return t.lastConfirmedMessage.ConfirmedTime
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
@@ -183,8 +215,9 @@ func (t *TimeManager) mainLoop() {
 
 // LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
 type LastConfirmedMessage struct {
-	MessageID MessageID
-	Time      time.Time
+	MessageID     MessageID
+	Time          time.Time
+	ConfirmedTime time.Time
 }
 
 // lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
@@ -212,6 +245,11 @@ func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (
 		return
 	}
 
+	if lcm.ConfirmedTime, err = marshalUtil.ReadTime(); err != nil {
+		err = errors.Errorf("failed to parse confirmed time (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+
 	return
 }
 
@@ -220,6 +258,7 @@ func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	return marshalutil.New(MessageIDLength + marshalutil.TimeSize).
 		Write(l.MessageID).
 		WriteTime(l.Time).
+		WriteTime(l.ConfirmedTime).
 		Bytes()
 }
 
@@ -228,6 +267,7 @@ func (l LastConfirmedMessage) String() string {
 	return stringify.Struct("LastConfirmedMessage",
 		stringify.StructField("MessageID", l.MessageID),
 		stringify.StructField("Time", l.Time),
+		stringify.StructField("ConfirmedTime", l.ConfirmedTime),
 	)
 }
 
