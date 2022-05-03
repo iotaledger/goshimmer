@@ -9,7 +9,7 @@ import (
 
 // Manager is the notarization manager.
 type Manager struct {
-	// TODO: epochManager
+	epochManager *EpochManager
 
 	// pending branch counter
 	pendingBranchesCount map[ECI]uint64
@@ -17,8 +17,9 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager() *Manager {
+func NewManager(epochManager *EpochManager) *Manager {
 	return &Manager{
+		epochManager:         epochManager,
 		pendingBranchesCount: make(map[ECI]uint64),
 	}
 }

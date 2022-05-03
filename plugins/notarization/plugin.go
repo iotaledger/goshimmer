@@ -23,6 +23,7 @@ type dependencies struct {
 	dig.In
 
 	NotarizationManager *notarization.Manager
+	EpochManager        *notarization.EpochManager
 	Tangle              *tangle.Tangle
 }
 
@@ -35,6 +36,10 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(newEpochManager); err != nil {
+			Plugin.Panic(err)
+		}
+
 		if err := container.Provide(newNotarizationManager); err != nil {
 			Plugin.Panic(err)
 		}
@@ -74,5 +79,9 @@ func run(*node.Plugin) {
 }
 
 func newNotarizationManager() *notarization.Manager {
-	return notarization.NewManager()
+	return notarization.NewManager(deps.EpochManager)
+}
+
+func newEpochManager() *notarization.EpochManager {
+	return notarization.NewEpochManager()
 }
