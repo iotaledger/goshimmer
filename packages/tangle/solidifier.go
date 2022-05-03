@@ -107,11 +107,7 @@ func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *Mes
 		return false
 	}
 
-	if !messageMetadata.SetSolid(true) {
-		return false
-	}
-
-	return true
+	return messageMetadata.SetSolid(true)
 }
 
 // isMessageSolid checks if the given Message is solid.
@@ -187,7 +183,6 @@ func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 				return
 			}
 		})
-
 	})
 
 	return

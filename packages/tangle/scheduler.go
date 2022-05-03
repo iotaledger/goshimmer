@@ -125,7 +125,7 @@ func (s *Scheduler) Setup() {
 		s.tryReady(event.MessageID)
 	}))
 
-	s.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+	s.tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
 		s.updateApprovers(event.MessageID)
 	}))
 
@@ -358,7 +358,10 @@ func (s *Scheduler) submit(message *Message) error {
 		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
 	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	droppedMessageIDs, err := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	if err != nil {
+		panic(errors.Errorf("failed to submit %s: %w", message.ID(), err))
+	}
 	for _, droppedMsgID := range droppedMessageIDs {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetDiscardedTime(clock.SyncedTime())

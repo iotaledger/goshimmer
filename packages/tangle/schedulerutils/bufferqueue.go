@@ -59,7 +59,7 @@ func (b *BufferQueue) NodeQueue(nodeID identity.ID) *NodeQueue {
 
 // Submit submits a message. Return messages dropped from the scheduler to make room for the submitted message.
 // The submitted message can also be returned as dropped if the issuing node does not have enough access mana.
-func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) float64) []ElementID {
+func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) float64) (elements []ElementID, err error) {
 	nodeID := identity.NewID(msg.IssuerPublicKey())
 	element, nodeActive := b.activeNode[nodeID]
 	var nodeQueue *NodeQueue
@@ -71,7 +71,7 @@ func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) 
 
 	// first we submit the message, and if it turns out that the node doesn't have enough bandwidth to submit, it will be removed by dropHead
 	if !nodeQueue.Submit(msg) {
-		panic("message already submitted")
+		return nil, errors.Errorf("message already submitted")
 	}
 	// if the node was not active before, add it now
 	if !nodeActive {
@@ -81,10 +81,10 @@ func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) 
 
 	// if max buffer size exceeded, drop from head of the longest mana-scaled queue
 	if b.size > b.maxBuffer {
-		return b.dropHead(accessManaRetriever)
+		return b.dropHead(accessManaRetriever), nil
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (messagesDropped []ElementID) {

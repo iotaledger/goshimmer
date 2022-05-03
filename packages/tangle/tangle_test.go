@@ -142,18 +142,15 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 
 	var wg sync.WaitGroup
 	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		fmt.Println("STORED:", event.Message.ID())
 		atomic.AddInt32(&storedMessages, 1)
 		wg.Done()
 	}))
 
 	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		fmt.Println("SOLID:", event.Message.ID())
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
 	messageTangle.Events.MessageInvalid.Hook(event.NewClosure(func(event *MessageInvalidEvent) {
-		fmt.Println("INVALID:", event.MessageID)
 		atomic.AddInt32(&invalidMessages, 1)
 	}))
 
@@ -376,16 +373,13 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
 	)
-	// create rocksdb store
-	rocksdb, err := testutil.RocksDB(t)
-	require.NoError(t, err)
 
 	// map to keep track of the tips
 	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -470,6 +464,7 @@ func TestTangle_Flow(t *testing.T) {
 	invalidmsgs := make(map[MessageID]*Message, invalidMsgCount)
 	for i := 0; i < invalidMsgCount; i++ {
 		msg := createNewMessage(true)
+		messages[msg.ID()] = msg
 		invalidmsgs[msg.ID()] = msg
 	}
 
@@ -541,7 +536,7 @@ func TestTangle_Flow(t *testing.T) {
 		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(_ *MessageProcessedEvent) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(*MessageProcessedEvent) {
 		n := atomic.AddInt32(&awMessages, 1)
 		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
 	}))
@@ -566,7 +561,15 @@ func TestTangle_Flow(t *testing.T) {
 	}
 
 	// wait for all messages to be scheduled
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	lastWaitNotice := time.Now()
+	assert.Eventually(t, func() bool {
+		if time.Now().Sub(lastWaitNotice) > time.Second {
+			lastWaitNotice = time.Now()
+			t.Logf("waiting for scheduled messages %d/%d", atomic.LoadInt32(&scheduledMessages), totalMsgCount)
+		}
+
+		return atomic.LoadInt32(&scheduledMessages) == solidMsgCount
+	}, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
 	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")

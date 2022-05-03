@@ -2,11 +2,9 @@ package tangle
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
@@ -52,8 +50,6 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
-		fmt.Println(MessageIDFromContext(event.Context), "TransactionBranchIDUpdatedEvent", event.TransactionID, b.tangle.Storage.AttachmentMessageIDs(event.TransactionID))
-
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -178,13 +174,9 @@ func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgno
 						return
 					}
 
-					fmt.Println(debug.GoroutineID(), "Booking message: ", attachment.MessageID())
-
 					if err := b.BookMessage(message, messageMetadata); err != nil {
 						b.Events.Error.Trigger(errors.Errorf("failed to book message with %s when processing booked transaction %s: %w", attachment.MessageID(), id, err))
 					}
-
-					fmt.Println(debug.GoroutineID(), "Booked message: ", attachment.MessageID())
 				})
 			})
 		})
@@ -201,9 +193,9 @@ func (b *Booker) propagateBooking(messageID MessageID) {
 	})
 }
 
-func (b *Booker) readyForBooking(message *Message, metadata *MessageMetadata) (ready bool) {
-	if metadata.IsBooked() {
-		return true
+func (b *Booker) readyForBooking(message *Message, messageMetadata *MessageMetadata) (ready bool) {
+	if !messageMetadata.IsSolid() || messageMetadata.IsBooked() {
+		return false
 	}
 
 	ready = true
@@ -537,8 +529,6 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 }
 
 func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (propagated bool, err error) {
-	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), addedBranchID, removedBranchIDs)
-
 	b.bookingMutex.Lock(messageMetadata.ID())
 	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
