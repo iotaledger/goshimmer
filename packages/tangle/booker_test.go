@@ -988,10 +988,10 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"B1":   testFramework.BranchIDs("B"),
 			"C1":   testFramework.BranchIDs("C"),
 			"D1":   testFramework.BranchIDs("D"),
-			"A2":   testFramework.BranchIDs("A", "A2"),
-			"A3":   testFramework.BranchIDs("A", "A2"),
-			"A+C1": testFramework.BranchIDs("A", "A2", "C"),
-			"A+C2": testFramework.BranchIDs("A", "A2", "C"),
+			"A2":   testFramework.BranchIDs("A2"),
+			"A3":   testFramework.BranchIDs("A2"),
+			"A+C1": testFramework.BranchIDs("A2", "C"),
+			"A+C2": testFramework.BranchIDs("A2", "C"),
 			"A2*":  testFramework.BranchIDs("A", "A2*"),
 		})
 	}
@@ -999,7 +999,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 
 // Please refer to packages/tangle/images/TestBookerMarkerMappings.html for a diagram of this test.
 func TestBookerMarkerMappings(t *testing.T) {
-	debug.Enabled = true
+	debug.Enabled = false
 
 	tangle := NewTestTangle()
 

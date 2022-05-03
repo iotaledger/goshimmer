@@ -139,6 +139,10 @@ func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (confl
 	u.ledger.BranchDAG.Storage.CachedBranch(branchdag.NewBranchID(transactionID)).Consume(func(branch *branchdag.Branch) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember) {
+				if conflictMember.BranchID().TransactionID() == transactionID {
+					return
+				}
+
 				conflictingTransactions.Add(utxo.TransactionID{conflictMember.BranchID().Identifier})
 			})
 		}
