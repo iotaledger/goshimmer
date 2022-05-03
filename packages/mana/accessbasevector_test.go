@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -49,7 +48,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
-				InputID: utxo.OutputID{Identifier: types.Identifier{1}},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -59,7 +58,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
-				InputID: utxo.OutputID{Identifier: types.Identifier{2}},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -69,7 +68,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
-				InputID: utxo.OutputID{Identifier: types.Identifier{3}},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 		},
 	}

@@ -55,9 +55,7 @@ func run(_ *node.Plugin) {
 
 	// Get Messages from node.
 	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			server.Broadcast([]byte(message.String()))
-		})
+		server.Broadcast([]byte(event.Message.String()))
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(ctx context.Context) {
