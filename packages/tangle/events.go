@@ -119,9 +119,8 @@ type MessageBranchUpdatedEvent struct {
 }
 
 type MarkerBranchAddedEvent struct {
-	Marker       *markers.Marker
-	OldBranchIDs branchdag.BranchIDs
-	NewBranchID  branchdag.BranchID
+	Marker      *markers.Marker
+	NewBranchID branchdag.BranchID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

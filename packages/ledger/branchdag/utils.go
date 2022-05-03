@@ -19,6 +19,12 @@ func newUtils(branchDAG *BranchDAG) (new *Utils) {
 	}
 }
 
+func (u *Utils) ForEachChildBranchID(branchID BranchID, callback func(childBranchID BranchID)) {
+	u.branchDAG.Storage.CachedChildBranches(branchID).Consume(func(childBranch *ChildBranch) {
+		callback(childBranch.ChildBranchID())
+	})
+}
+
 // ForEachBranch iterates over every existing Branch in the entire Storage.
 func (u *Utils) ForEachBranch(consumer func(branch *Branch)) {
 	u.branchDAG.Storage.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Branch]) bool {

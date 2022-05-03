@@ -45,10 +45,10 @@ func NewRequester(tangle *Tangle, optionalOptions ...RequesterOption) *Requester
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (r *Requester) Setup() {
-	r.tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *MessageMissingEvent) {
+	r.tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		r.StartRequest(event.MessageID)
 	}))
-	r.tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *MissingMessageStoredEvent) {
+	r.tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(event *MissingMessageStoredEvent) {
 		r.StopRequest(event.MessageID)
 	}))
 }

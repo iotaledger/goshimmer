@@ -114,7 +114,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
-	s.tangle.Parser.Events.MessageParsed.Attach(event.NewClosure(func(event *MessageParsedEvent) {
+	s.tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(event *MessageParsedEvent) {
 		s.tangle.Storage.StoreMessage(event.Message)
 	}))
 }

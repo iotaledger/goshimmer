@@ -3880,6 +3880,66 @@ func TestObjectiveInvalidity(t *testing.T) {
 	}
 }
 
+func TestFutureConeDislike(t *testing.T) {
+	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("G", 1),
+	)
+
+	tangle.Setup()
+
+	testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithInputs("G"), WithOutput("A", 1))
+	testFramework.CreateMessage("Message1*", WithStrongParents("Genesis"), WithInputs("G"), WithOutput("A*", 1))
+	testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithInputs("A"), WithOutput("B", 1))
+	testFramework.CreateMessage("Message2*", WithStrongParents("Message1"), WithInputs("A"), WithOutput("B*", 1))
+	testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithShallowDislikeParents("Message1*"))
+	testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithShallowDislikeParents("Message1*"))
+
+	testFramework.RegisterBranchID("A", "Message1")
+	testFramework.RegisterBranchID("A*", "Message1*")
+	testFramework.RegisterBranchID("B", "Message2")
+	testFramework.RegisterBranchID("B*", "Message2*")
+
+	{
+		testFramework.IssueMessages("Message1", "Message1*", "Message2", "Message3").WaitUntilAllTasksProcessed()
+
+		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+			"Message1":  testFramework.BranchIDs("A"),
+			"Message1*": testFramework.BranchIDs("A*"),
+			"Message2":  testFramework.BranchIDs("A"),
+			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		})
+	}
+
+	{
+		testFramework.IssueMessages("Message2*").WaitUntilAllTasksProcessed()
+
+		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+			"Message1":  testFramework.BranchIDs("A"),
+			"Message1*": testFramework.BranchIDs("A*"),
+			"Message2":  testFramework.BranchIDs("B"),
+			"Message2*": testFramework.BranchIDs("A", "B*"),
+			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		})
+	}
+
+	{
+		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
+
+		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+			"Message1":  testFramework.BranchIDs("A"),
+			"Message1*": testFramework.BranchIDs("A*"),
+			"Message2":  testFramework.BranchIDs("B"),
+			"Message2*": testFramework.BranchIDs("A", "B*"),
+			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		})
+	}
+}
+
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {

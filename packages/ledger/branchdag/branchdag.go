@@ -122,7 +122,7 @@ func (b *BranchDAG) UpdateBranchParents(branchID, addedBranchID BranchID, remove
 // rejected ones behind).
 func (b *BranchDAG) FilterPendingBranches(branchIDs BranchIDs) (pendingBranchIDs BranchIDs) {
 	if !b.options.mergeToMaster {
-		return branchIDs
+		return branchIDs.Clone()
 	}
 
 	pendingBranchIDs = NewBranchIDs()

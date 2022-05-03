@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -26,16 +27,21 @@ type Booker struct {
 	// Events is a dictionary for the Booker related Events.
 	Events *BookerEvents
 
-	tangle         *Tangle
 	MarkersManager *BranchMarkersMapper
+
+	tangle              *Tangle
+	payloadBookingMutex *syncutils.DAGMutex[MessageID]
+	bookingMutex        *syncutils.DAGMutex[MessageID]
 }
 
 // NewBooker is the constructor of a Booker.
 func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 	messageBooker = &Booker{
-		Events:         NewBookerEvents(),
-		tangle:         tangle,
-		MarkersManager: NewBranchMarkersMapper(tangle),
+		Events:              NewBookerEvents(),
+		tangle:              tangle,
+		MarkersManager:      NewBranchMarkersMapper(tangle),
+		payloadBookingMutex: syncutils.NewDAGMutex[MessageID](),
+		bookingMutex:        syncutils.NewDAGMutex[MessageID](),
 	}
 
 	return
@@ -43,14 +49,14 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
-	b.tangle.Solidifier.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+	b.tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
 		b.bookPayload(event.Message)
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
 		fmt.Println(MessageIDFromContext(event.Context), "TransactionBranchIDUpdatedEvent", event.TransactionID, b.tangle.Storage.AttachmentMessageIDs(event.TransactionID))
 
-		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID); err != nil {
+		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
 	}))
@@ -114,6 +120,9 @@ func (b *Booker) Shutdown() {
 
 // bookPayload books the Payload of a Message.
 func (b *Booker) bookPayload(message *Message) {
+	b.payloadBookingMutex.Lock(message.ID())
+	defer b.payloadBookingMutex.Unlock(message.ID())
+
 	messageID := message.ID()
 
 	b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
@@ -188,11 +197,6 @@ func (b *Booker) propagateBooking(messageID MessageID) {
 	b.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
 		event.Loop.Submit(func() {
 			b.tangle.Storage.Message(approver.ApproverMessageID()).Consume(func(approvingMessage *Message) {
-				b.tangle.dagMutex.RLock(approvingMessage.Parents()...)
-				defer b.tangle.dagMutex.RUnlock(approvingMessage.Parents()...)
-				b.tangle.dagMutex.Lock(approvingMessage.ID())
-				defer b.tangle.dagMutex.Unlock(approvingMessage.ID())
-
 				b.bookPayload(approvingMessage)
 			})
 		})
@@ -224,6 +228,11 @@ func (b *Booker) readyForBooking(message *Message, metadata *MessageMetadata) (r
 // as booked. Following, the message branch is set, and it can continue in the dataflow to add support to the determined
 // branches and markers.
 func (b *Booker) BookMessage(message *Message, messageMetadata *MessageMetadata) (err error) {
+	b.bookingMutex.RLock(message.Parents()...)
+	defer b.bookingMutex.RUnlock(message.Parents()...)
+	b.bookingMutex.Lock(message.ID())
+	defer b.bookingMutex.Unlock(message.ID())
+
 	// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
 	// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
 	// therefore we would know the payload branch from the solidifier and we could check for this
@@ -300,43 +309,44 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 // determineBookingDetails determines the booking details of an unbooked Message.
 func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs branchdag.BranchIDs, err error) {
+	inheritedBranchIDs = branchdag.NewBranchIDs()
+
 	branchIDsOfPayload, err := b.PayloadBranchIDs(message.ID())
 	if err != nil {
 		return
 	}
+	inheritedBranchIDs.AddAll(branchIDsOfPayload)
 
 	parentsStructureDetails, parentsPastMarkersBranchIDs, strongParentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
 	if bookingDetailsErr != nil {
 		err = errors.Errorf("failed to retrieve booking details of parents of Message with %s: %w", message.ID(), bookingDetailsErr)
 		return
 	}
-
-	strongParentsBranchIDs.AddAll(branchIDsOfPayload)
-	arithmeticBranchIDs := branchdag.NewArithmeticBranchIDs(strongParentsBranchIDs)
+	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
 
 	weakPayloadBranchIDs, weakParentsErr := b.collectWeakParentsBranchIDs(message)
 	if weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", message.ID(), weakParentsErr)
 	}
-	arithmeticBranchIDs.Add(weakPayloadBranchIDs)
+	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 
-	likedBranchIDs, dislikedBranchIDs, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
+	dislikedBranchIDs := branchdag.NewBranchIDs()
+	likedBranchIDs, dislikedBranchesFromShallowLike, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
 	if shallowLikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", message.ID(), shallowLikeErr)
 	}
-	arithmeticBranchIDs.Add(likedBranchIDs)
-	arithmeticBranchIDs.Subtract(dislikedBranchIDs)
+	inheritedBranchIDs.AddAll(likedBranchIDs)
+	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowLike)
 
-	dislikedBranchIDs, shallowDislikeErr := b.collectShallowDislikedParentsBranchIDs(message)
+	dislikedBranchesFromShallowDislike, shallowDislikeErr := b.collectShallowDislikedParentsBranchIDs(message)
 	if shallowDislikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow dislikes of %s: %w", message.ID(), shallowDislikeErr)
 	}
-	arithmeticBranchIDs.Subtract(dislikedBranchIDs)
+	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowDislike)
 
-	// Make sure that we do not return confirmed branches (aka merge to master).
-	inheritedBranchIDs = b.tangle.Ledger.BranchDAG.FilterPendingBranches(arithmeticBranchIDs.BranchIDs())
+	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
 
-	return parentsStructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs, nil
+	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.BranchDAG.FilterPendingBranches(inheritedBranchIDs), nil
 }
 
 // allMessagesContainTransactions checks whether all passed messages contain a transaction.
@@ -362,18 +372,11 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		structureDetails = messageMetadata.StructureDetails()
-		if structureDetails == nil {
-			err = errors.Errorf("failed to retrieve StructureDetails of Message with %s: %w", messageID, cerrors.ErrFatal)
+		if pastMarkersBranchIDs, err = b.branchIDsFromStructureDetails(structureDetails); err != nil {
+			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s: %w", structureDetails, err)
 			return
 		}
-
-		structureDetailsBranchIDs, structureDetailsBranchIDsErr := b.branchIDsFromStructureDetails(structureDetails)
-		if structureDetailsBranchIDsErr != nil {
-			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s: %w", structureDetails, structureDetailsBranchIDsErr)
-			return
-		}
-		pastMarkersBranchIDs.AddAll(structureDetailsBranchIDs)
-		messageBranchIDs.AddAll(structureDetailsBranchIDs)
+		messageBranchIDs.AddAll(pastMarkersBranchIDs)
 
 		if addedBranchIDs := messageMetadata.AddedBranchIDs(); !addedBranchIDs.IsEmpty() {
 			messageBranchIDs.AddAll(addedBranchIDs)
@@ -391,6 +394,10 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 
 // branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
 func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs branchdag.BranchIDs, err error) {
+	if structureDetails == nil {
+		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
+	}
+
 	structureDetailsBranchIDs = branchdag.NewBranchIDs()
 	// obtain all the Markers
 	structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
@@ -536,12 +543,12 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedBranchID branchdag.BranchID) (err error) {
+func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
-		updated, forkErr := b.propagateForkedBranch(messageMetadata, forkedBranchID, transactionID)
+		updated, forkErr := b.propagateForkedBranch(messageMetadata, addedBranchID, removedBranchIDs)
 		if forkErr != nil {
 			messageWalker.StopWalk()
-			err = errors.Errorf("failed to propagate forked BranchID %s to future cone of %s: %w", forkedBranchID, messageMetadata.ID(), forkErr)
+			err = errors.Errorf("failed to propagate forked BranchID %s to future cone of %s: %w", addedBranchID, messageMetadata.ID(), forkErr)
 			return
 		}
 		if !updated {
@@ -550,7 +557,7 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedB
 
 		b.Events.MessageBranchUpdated.Trigger(&MessageBranchUpdatedEvent{
 			MessageID: messageMetadata.ID(),
-			BranchID:  forkedBranchID,
+			BranchID:  addedBranchID,
 		})
 
 		for approvingMessageID := range b.tangle.Utils.ApprovingMessageIDs(messageMetadata.ID(), StrongApprover) {
@@ -561,35 +568,68 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, forkedB
 	return
 }
 
-func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, forkedBranchID branchdag.BranchID, transactionID utxo.TransactionID) (propagated bool, err error) {
-	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), forkedBranchID, transactionID)
+func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (propagated bool, err error) {
+	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), addedBranchID, removedBranchIDs)
 
-	b.tangle.dagMutex.Lock(messageMetadata.ID())
-	defer b.tangle.dagMutex.Unlock(messageMetadata.ID())
+	b.bookingMutex.Lock(messageMetadata.ID())
+	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
 	if !messageMetadata.IsBooked() {
 		return false, nil
 	}
 
 	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), forkedBranchID); err != nil {
-			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", forkedBranchID, structureDetails.PastMarkers.Marker(), err)
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {
+			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers.Marker(), err)
 		}
 		return true, nil
 	}
 
-	return messageMetadata.AddBranchID(forkedBranchID), nil
+	return b.updateMessageBranches(messageMetadata, addedBranchID, removedBranchIDs)
+}
+
+func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch branchdag.BranchID, removedBranches branchdag.BranchIDs) (updated bool, err error) {
+	addedBranchIDs := messageMetadata.AddedBranchIDs()
+	if !addedBranchIDs.Add(addedBranch) {
+		return false, nil
+	}
+
+	pastMarkerBranchIDs, err := b.branchIDsFromStructureDetails(messageMetadata.StructureDetails())
+	if err != nil {
+		return false, errors.Errorf("failed to retrieve BranchIDs from Structure Details of %s: %w", messageMetadata.ID(), err)
+	}
+	if pastMarkerBranchIDs.Has(addedBranch) {
+		return false, nil
+	}
+
+	removedBranchIDsFromPastMarkers := pastMarkerBranchIDs.DeleteAll(removedBranches)
+	removedBranchIDsFromAddedBranchIDs := addedBranchIDs.DeleteAll(removedBranches)
+
+	allRemovedBranchIDs := branchdag.NewBranchIDs()
+	allRemovedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
+	allRemovedBranchIDs.AddAll(removedBranchIDsFromAddedBranchIDs)
+	if !allRemovedBranchIDs.Equal(removedBranches) {
+		return false, nil
+	}
+
+	subtractedBranchIDs := messageMetadata.SubtractedBranchIDs()
+	subtractedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
+
+	updated = messageMetadata.SetAddedBranchIDs(addedBranchIDs)
+	updated = messageMetadata.SetSubtractedBranchIDs(subtractedBranchIDs) || updated
+
+	return updated, nil
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID branchdag.BranchID) (err error) {
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (err error) {
 	markerWalker := walker.New[*markers.Marker](false)
 	markerWalker.Push(marker)
 
 	for markerWalker.HasNext() {
 		currentMarker := markerWalker.Next()
 
-		if err = b.forkSingleMarker(currentMarker, branchID, markerWalker); err != nil {
+		if err = b.forkSingleMarker(currentMarker, branchID, removedBranchIDs, markerWalker); err != nil {
 			err = errors.Errorf("failed to propagate Conflict%s to Messages approving %s: %w", branchID, currentMarker, err)
 			return
 		}
@@ -600,25 +640,25 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID branchdag.BranchID, markerWalker *walker.Walker[*markers.Marker]) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs, markerWalker *walker.Walker[*markers.Marker]) (err error) {
 	// update BranchID mapping
-	oldBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
-
-	if oldBranchIDs.Has(newBranchID) {
+	newBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
+	if !newBranchIDs.Add(newBranchID) {
 		return nil
 	}
 
-	newBranchIDs := oldBranchIDs.Clone()
-	newBranchIDs.Add(newBranchID)
+	if newBranchIDs.DeleteAll(removedBranchIDs).Size() != removedBranchIDs.Size() {
+		return nil
+	}
+
 	if !b.MarkersManager.SetBranchIDs(currentMarker, newBranchIDs) {
 		return nil
 	}
 
 	// trigger event
 	b.Events.MarkerBranchAdded.Trigger(&MarkerBranchAddedEvent{
-		Marker:       currentMarker,
-		OldBranchIDs: oldBranchIDs,
-		NewBranchID:  newBranchID,
+		Marker:      currentMarker,
+		NewBranchID: newBranchID,
 	})
 
 	// propagate updates to later BranchID mappings of the same sequence.
@@ -633,5 +673,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID bra
 
 	return
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -20,14 +20,15 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	triggerMutex syncutils.MultiMutex
-	tangle       *Tangle
+	mutex  *syncutils.DAGMutex[MessageID]
+	tangle *Tangle
 }
 
 // NewSolidifier is the constructor of the Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
 		Events: newSolidifierEvents(),
+		mutex:  syncutils.NewDAGMutex[MessageID](),
 		tangle: tangle,
 	}
 
@@ -53,7 +54,9 @@ func (s *Solidifier) Solidify(messageID MessageID) {
 // Solidify solidifies the given Message.
 func (s *Solidifier) solidify(message *Message) {
 	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		s.checkMessageSolidity(message, messageMetadata)
+		if s.checkMessageSolidity(message, messageMetadata) {
+			s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
+		}
 	})
 }
 
@@ -82,31 +85,31 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) {
-	s.tangle.dagMutex.RLock(message.Parents()...)
-	defer s.tangle.dagMutex.RUnlock(message.Parents()...)
-	s.tangle.dagMutex.Lock(message.ID())
-	defer s.tangle.dagMutex.Unlock(message.ID())
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) (messageBecameSolid bool) {
+	s.mutex.Lock(message.ID())
+	defer s.mutex.Unlock(message.ID())
+
+	if messageMetadata.IsSolid() {
+		return false
+	}
 
 	if !s.isMessageSolid(message, messageMetadata) {
-		return
+		return false
 	}
 
 	if !s.areParentMessagesValid(message) {
-		if !messageMetadata.SetObjectivelyInvalid(true) {
-			return
+		if messageMetadata.SetObjectivelyInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
 		}
 
-		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
-
-		return
+		return false
 	}
 
 	if !messageMetadata.SetSolid(true) {
-		return
+		return false
 	}
 
-	s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
+	return true
 }
 
 // isMessageSolid checks if the given Message is solid.

@@ -116,9 +116,9 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
-	t.Scheduler.Setup()
 	t.Booker.Setup()
 	t.ApprovalWeightManager.Setup()
+	t.Scheduler.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
 

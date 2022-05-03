@@ -25,6 +25,26 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
+func (u *Utils) BranchIDsInFutureCone(branchIDs branchdag.BranchIDs) (branchIDsInFutureCone branchdag.BranchIDs) {
+	branchIDsInFutureCone = branchdag.NewBranchIDs()
+
+	for branchIDWalker := branchIDs.Iterator(); branchIDWalker.HasNext(); {
+		branchID := branchIDWalker.Next()
+
+		branchIDsInFutureCone.Add(branchID)
+
+		if u.ledger.BranchDAG.InclusionState(branchdag.NewBranchIDs(branchID)) == branchdag.Confirmed {
+			panic("WHAAAT")
+		}
+
+		u.ledger.BranchDAG.Utils.ForEachChildBranchID(branchID, func(childBranchID branchdag.BranchID) {
+			branchIDWalker.Push(childBranchID)
+		})
+	}
+
+	return branchIDsInFutureCone
+}
+
 // ResolveInputs returns the OutputIDs that were referenced by the given Inputs.
 func (u *Utils) ResolveInputs(inputs []utxo.Input) (outputIDs utxo.OutputIDs) {
 	return utxo.NewOutputIDs(lo.Map(inputs, u.ledger.options.vm.ResolveInput)...)

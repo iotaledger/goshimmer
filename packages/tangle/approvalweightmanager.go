@@ -47,8 +47,8 @@ func (a *ApprovalWeightManager) Setup() {
 		a.processForkedMessage(event.MessageID, event.BranchID)
 	}))
 	a.tangle.Booker.Events.MarkerBranchAdded.Hook(event.NewClosure(func(event *MarkerBranchAddedEvent) {
-		fmt.Println("ApprovalWeightManager.Setup: MessageBranchUpdated", event.Marker, event.NewBranchID, event.OldBranchIDs)
-		a.processForkedMarker(event.Marker, event.OldBranchIDs, event.NewBranchID)
+		fmt.Println("ApprovalWeightManager.Setup: MessageBranchUpdated", event.Marker, event.NewBranchID)
+		a.processForkedMarker(event.Marker, event.NewBranchID)
 	}))
 }
 
@@ -402,8 +402,8 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 }
 
 // take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldBranchIDs branchdag.BranchIDs, forkedBranchID branchdag.BranchID) {
-	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), oldBranchIDs, forkedBranchID)
+func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID branchdag.BranchID) {
+	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID)
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
 		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch) {
@@ -426,7 +426,7 @@ func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, oldB
 		return
 	}
 
-	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), oldBranchIDs, forkedBranchID, branchVotesUpdated)
+	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID, branchVotesUpdated)
 	a.updateBranchWeight(forkedBranchID)
 }
 
