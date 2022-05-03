@@ -19,10 +19,6 @@ func onMessageDiscarded(messageID tangle.MessageID) {
 }
 
 func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
-	if !deps.Tangle.Bootstrapped() {
-		return
-	}
-
 	var nodeID string
 	if deps.Local != nil {
 		nodeID = deps.Local.Identity.ID().String()
@@ -91,9 +87,6 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 }
 
 func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	if !deps.Tangle.Bootstrapped() {
-		return
-	}
 
 	messageIDs := deps.Tangle.Storage.AttachmentMessageIDs(transactionID)
 	if len(messageIDs) == 0 {
@@ -104,9 +97,6 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 }
 
 func onMessageFinalized(messageID tangle.MessageID) {
-	if !deps.Tangle.Bootstrapped() {
-		return
-	}
 
 	var nodeID string
 	if deps.Local != nil {
@@ -162,9 +152,6 @@ func onMissingMessageStored(messageID tangle.MessageID) {
 }
 
 func sendMissingMessageRecord(messageID tangle.MessageID, recordType string) {
-	if !deps.Tangle.Bootstrapped() {
-		return
-	}
 
 	var nodeID string
 	if deps.Local != nil {

@@ -144,7 +144,7 @@ func (t *TimeManager) synced() bool {
 func (t *TimeManager) updateSyncedState() {
 	t.lastSyncedMutex.Lock()
 	defer t.lastSyncedMutex.Unlock()
-	if newSynced := t.synced(); t.lastSynced != newSynced {
+	if newSynced := t.synced(); newSynced && t.lastSynced != newSynced {
 		t.lastSynced = newSynced
 		// trigger the event inside the lock to assure that the status is still correct
 		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})

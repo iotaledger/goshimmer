@@ -7,9 +7,6 @@ import (
 )
 
 func onRandomnessReceived(state *drng.State) {
-	if !deps.Tangle.Bootstrapped() {
-		return
-	}
 
 	var nodeID string
 	if deps.Local != nil {
