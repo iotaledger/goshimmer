@@ -3,7 +3,6 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -317,67 +316,54 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 
 // Tests if error is returned when non-existing transaction is tried to be liked.
 func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
-	for i := 0; i < 100; i++ {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					fmt.Println(r)
-				}
-			}()
-			tangle := NewTestTangle()
+	tangle := NewTestTangle()
 
-			testFramework := NewMessageTestFramework(
-				tangle,
-				WithGenesisOutput("O1", 500),
-				WithGenesisOutput("O2", 500),
-			)
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("O1", 500),
+		WithGenesisOutput("O2", 500),
+	)
 
-			tangle.Setup()
+	tangle.Setup()
 
-			tangle.Events.Error.Hook(event.NewClosure(func(err error) {
-				t.Logf("Error fired: %v", err)
-			}))
+	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
+		t.Logf("Error fired: %v", err)
+	}))
 
-			// Message 1
-			testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
+	// Message 1
+	testFramework.CreateMessage("1", WithStrongParents("Genesis"), WithInputs("O1"), WithOutput("O3", 500))
 
-			// Message 2
-			testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
+	// Message 2
+	testFramework.CreateMessage("2", WithStrongParents("Genesis"), WithInputs("O2"), WithOutput("O5", 500))
 
-			// Message 3
-			testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
-			testFramework.IssueMessages("1", "2", "3").WaitUntilAllTasksProcessed()
+	// Message 3
+	testFramework.CreateMessage("3", WithStrongParents("Genesis"), WithInputs("O2", "O1"), WithOutput("O4", 1000))
+	testFramework.IssueMessages("1", "2", "3").WaitUntilAllTasksProcessed()
 
-			testFramework.RegisterBranchID("1", "1")
-			testFramework.RegisterBranchID("2", "2")
-			testFramework.RegisterBranchID("3", "3")
+	testFramework.RegisterBranchID("1", "1")
+	testFramework.RegisterBranchID("2", "2")
+	testFramework.RegisterBranchID("3", "3")
 
-			nonExistingBranchID := randomBranchID()
+	nonExistingBranchID := randomBranchID()
 
-			mockOTV := &SimpleMockOnTangleVoting{
-				likedConflictMember: map[branchdag.BranchID]LikedConflictMembers{
-					testFramework.BranchID("2"): {
-						likedBranch:     nonExistingBranchID,
-						conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("3"), nonExistingBranchID),
-					},
-					testFramework.BranchID("3"): {
-						likedBranch:     nonExistingBranchID,
-						conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
-					},
-				},
-			}
-
-			tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
-
-			_, referenceNotPossible, err := PrepareReferences(NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
-			require.Error(t, err)
-			assert.Equal(t, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), referenceNotPossible)
-
-			fmt.Println(i)
-			tangle = nil
-		}()
+	mockOTV := &SimpleMockOnTangleVoting{
+		likedConflictMember: map[branchdag.BranchID]LikedConflictMembers{
+			testFramework.BranchID("2"): {
+				likedBranch:     nonExistingBranchID,
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("3"), nonExistingBranchID),
+			},
+			testFramework.BranchID("3"): {
+				likedBranch:     nonExistingBranchID,
+				conflictMembers: branchdag.NewBranchIDs(testFramework.BranchID("2"), nonExistingBranchID),
+			},
+		},
 	}
 
+	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
+
+	_, referenceNotPossible, err := PrepareReferences(NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
+	require.Error(t, err)
+	assert.Equal(t, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), referenceNotPossible)
 }
 
 func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDs, expectedReferences map[ParentsType]MessageIDs, issuingTime time.Time, errorExpected ...bool) {

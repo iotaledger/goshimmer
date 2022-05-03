@@ -80,12 +80,6 @@ func TestTransactionFilter_Filter(t *testing.T) {
 		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
 	})
-
-	t.Run("reject on failed parse", func(t *testing.T) {
-		msg := &Message{payload: &testTxPayload{}}
-		m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return err != nil }), testPeer)
-		filter.Filter(msg, testPeer)
-	})
 }
 
 func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {

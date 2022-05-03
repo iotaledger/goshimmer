@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/stretchr/testify/require"
 
@@ -950,7 +951,10 @@ var (
 		"A": {
 			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
 			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(branchdag.ConflictID{Identifier: types.Identifier{1}}),
+			Conflicting: branchdag.NewConflictIDs(branchdag.ConflictID{OutputID: utxo.OutputID{
+				TransactionID: utxo.TransactionID{Identifier: types.Identifier{1}},
+				Index:         0,
+			}}),
 			ApprovalWeight: 0.6,
 		},
 		"B": {
