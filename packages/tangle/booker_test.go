@@ -34,8 +34,8 @@ func TestScenario_1(t *testing.T) {
 	testFramework.CreateMessage("Message8", WithStrongParents("Message4", "Message5"), WithInputs("F", "D"), WithOutput("I", 2))
 	testFramework.CreateMessage("Message9", WithStrongParents("Message4", "Message6"), WithInputs("H"), WithOutput("J", 3))
 
-	testFramework.RegisterBranchID("red", "Message4")
-	testFramework.RegisterBranchID("yellow", "Message5")
+	testFramework.RegisterBranchID("Branch4", "Message4")
+	testFramework.RegisterBranchID("Branch5", "Message5")
 
 	testFramework.RegisterBranchID("Branch6", "Message6")
 	testFramework.RegisterBranchID("Branch8", "Message8")
@@ -46,7 +46,7 @@ func TestScenario_1(t *testing.T) {
 
 	// Message8 combines conflicting branches on UTXO level
 	for _, messageAlias := range []string{"Message8"} {
-		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not objectively invalid", messageAlias)
+		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not subjectively invalid", messageAlias)
 	}
 
 	// Message9 combines conflicting branches on message level
@@ -58,12 +58,12 @@ func TestScenario_1(t *testing.T) {
 		"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
 		"Message3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
 		"Message2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-		"Message4": testFramework.BranchIDs("red"),
-		"Message5": testFramework.BranchIDs("yellow"),
-		"Message6": testFramework.BranchIDs("yellow", "Branch6"),
-		"Message7": testFramework.BranchIDs("red", "yellow"),
-		"Message8": testFramework.BranchIDs("red", "yellow", "Branch8"),
-		"Message9": testFramework.BranchIDs("red", "yellow", "Branch6"),
+		"Message4": testFramework.BranchIDs("Branch4"),
+		"Message5": testFramework.BranchIDs("Branch5"),
+		"Message6": testFramework.BranchIDs("Branch6"),
+		"Message7": testFramework.BranchIDs("Branch4", "Branch5"),
+		"Message8": testFramework.BranchIDs("Branch4", "Branch5", "Branch8"),
+		"Message9": testFramework.BranchIDs("Branch4", "Branch6"),
 	})
 }
 
