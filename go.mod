@@ -2,10 +2,6 @@ module github.com/iotaledger/goshimmer
 
 go 1.18
 
-replace (
-	github.com/iotaledger/hive.go => /home/administrator/sources/github/hive.go
-)
-
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/beevik/ntp v0.3.0
@@ -16,7 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.7.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/iotaledger/hive.go v0.0.0-20220428194538-ce48f23e1e0e
+	github.com/iotaledger/hive.go v0.0.0-20220502103030-ba8ad3a97a4c
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
 	github.com/libp2p/go-libp2p v0.15.0
