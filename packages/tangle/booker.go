@@ -539,12 +539,12 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (propagated bool, err error) {
 	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), addedBranchID, removedBranchIDs)
 
+	b.bookingMutex.Lock(messageMetadata.ID())
+	defer b.bookingMutex.Unlock(messageMetadata.ID())
+
 	if !messageMetadata.IsBooked() {
 		return false, nil
 	}
-
-	b.bookingMutex.Lock(messageMetadata.ID())
-	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
 	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {
