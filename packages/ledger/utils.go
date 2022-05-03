@@ -34,7 +34,14 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs branchdag.BranchIDs) (branchIDsI
 		branchIDsInFutureCone.Add(branchID)
 
 		if u.ledger.BranchDAG.InclusionState(branchdag.NewBranchIDs(branchID)) == branchdag.Confirmed {
-			panic("WHAAAT")
+			u.ledger.Storage.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(txMetadata *TransactionMetadata) {
+				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
+					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
+
+					walker.PushAll(txMetadata.OutputIDs().Slice()...)
+				})
+			})
+			continue
 		}
 
 		u.ledger.BranchDAG.Utils.ForEachChildBranchID(branchID, func(childBranchID branchdag.BranchID) {

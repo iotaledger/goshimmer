@@ -11,11 +11,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -50,7 +48,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		b.bookPayload(event.Message)
+		b.book(event.Message)
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
@@ -118,47 +116,48 @@ func (b *Booker) Shutdown() {
 
 // region BOOK PAYLOAD LOGIC ///////////////////////////////////////////////////////////////////////////////////////////
 
-// bookPayload books the Payload of a Message.
-func (b *Booker) bookPayload(message *Message) {
+func (b *Booker) bookDataPayload() {
+
+}
+
+// book books the Payload of a Message.
+func (b *Booker) book(message *Message) {
 	b.payloadBookingMutex.Lock(message.ID())
 	defer b.payloadBookingMutex.Unlock(message.ID())
 
-	messageID := message.ID()
-
-	b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+	b.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		if !b.readyForBooking(message, messageMetadata) {
 			return
 		}
 
-		payload := message.Payload()
-		tx, ok := payload.(utxo.Transaction)
-		if !ok {
-			// Data payloads are considered as booked immediately.
-			if err := b.BookMessage(message, messageMetadata); err != nil {
-				b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
+		if tx, isTx := message.Payload().(utxo.Transaction); isTx {
+			if !b.bookTransaction(messageMetadata.ID(), tx) {
+				return
 			}
-			return
 		}
 
-		cachedAttachment, stored := b.tangle.Storage.StoreAttachment(tx.ID(), messageID)
-		if stored {
-			cachedAttachment.Release()
-		}
-		err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx)
-		if err != nil {
-			if !errors.Is(err, ledger.ErrTransactionUnsolid) {
-				// TODO: handle invalid transactions (possibly need to attach to invalid event though)
-				//  delete attachments of transaction
-				fmt.Println(err)
-			}
-
-			return
-		}
-
-		if err = b.BookMessage(message, messageMetadata); err != nil {
-			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", messageID, err))
+		if err := b.BookMessage(message, messageMetadata); err != nil {
+			b.Events.Error.Trigger(errors.Errorf("failed to book message with %s after booking its payload: %w", message.ID(), err))
 		}
 	})
+}
+
+func (b *Booker) bookTransaction(messageID MessageID, tx utxo.Transaction) (success bool) {
+	if cachedAttachment, stored := b.tangle.Storage.StoreAttachment(tx.ID(), messageID); stored {
+		cachedAttachment.Release()
+	}
+
+	if err := b.tangle.Ledger.StoreAndProcessTransaction(MessageIDToContext(context.Background(), messageID), tx); err != nil {
+		if !errors.Is(err, ledger.ErrTransactionUnsolid) {
+			// TODO: handle invalid transactions (possibly need to attach to invalid event though)
+			//  delete attachments of transaction
+			b.Events.Error.Trigger(errors.Errorf("failed to book transaction with %s: %w", tx.ID(), err))
+		}
+
+		return false
+	}
+
+	return true
 }
 
 func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgnore MessageID) {
@@ -167,14 +166,13 @@ func (b *Booker) processBookedTransaction(id utxo.TransactionID, messageIDToIgno
 			b.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 				b.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
 					if attachment.MessageID() == messageIDToIgnore {
-						fmt.Println(debug.GoroutineID(), "IGNORE")
 						return
 					}
 
-					b.tangle.dagMutex.RLock(message.Parents()...)
-					b.tangle.dagMutex.Lock(attachment.MessageID())
-					defer b.tangle.dagMutex.Unlock(attachment.MessageID())
-					defer b.tangle.dagMutex.RUnlock(message.Parents()...)
+					b.payloadBookingMutex.RLock(message.Parents()...)
+					b.payloadBookingMutex.Lock(attachment.MessageID())
+					defer b.payloadBookingMutex.Unlock(attachment.MessageID())
+					defer b.payloadBookingMutex.RUnlock(message.Parents()...)
 
 					if !b.readyForBooking(message, messageMetadata) {
 						return
@@ -197,7 +195,7 @@ func (b *Booker) propagateBooking(messageID MessageID) {
 	b.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
 		event.Loop.Submit(func() {
 			b.tangle.Storage.Message(approver.ApproverMessageID()).Consume(func(approvingMessage *Message) {
-				b.bookPayload(approvingMessage)
+				b.book(approvingMessage)
 			})
 		})
 	})
@@ -232,20 +230,6 @@ func (b *Booker) BookMessage(message *Message, messageMetadata *MessageMetadata)
 	defer b.bookingMutex.RUnlock(message.Parents()...)
 	b.bookingMutex.Lock(message.ID())
 	defer b.bookingMutex.Unlock(message.ID())
-
-	// TODO: we need to enforce that the dislike references contain "the other" branch with respect to the strong references
-	// it should be done as part of the solidification refactor, as a payload can only be solid if all its inputs are solid,
-	// therefore we would know the payload branch from the solidifier and we could check for this
-
-	// Like and dislike references need to point to Messages containing transactions to evaluate opinion.
-	for _, parentType := range []ParentsType{ShallowDislikeParentType, ShallowLikeParentType} {
-		if !b.allMessagesContainTransactions(message.ParentsByType(parentType)) {
-			messageMetadata.SetObjectivelyInvalid(true)
-			err = errors.Errorf("message like or dislike reference does not contain a transaction %s", messageMetadata.ID())
-			b.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: messageMetadata.ID(), Error: err})
-			return
-		}
-	}
 
 	if err = b.inheritBranchIDs(message, messageMetadata); err != nil {
 		err = errors.Errorf("failed to inherit BranchIDs of Message with %s: %w", messageMetadata.ID(), err)
@@ -347,22 +331,6 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.BranchDAG.FilterPendingBranches(inheritedBranchIDs), nil
-}
-
-// allMessagesContainTransactions checks whether all passed messages contain a transaction.
-func (b *Booker) allMessagesContainTransactions(messageIDs MessageIDs) (areAllTransactions bool) {
-	areAllTransactions = true
-	for messageID := range messageIDs {
-		b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-			if message.Payload().Type() != devnetvm.TransactionType {
-				areAllTransactions = false
-			}
-		})
-		if !areAllTransactions {
-			return
-		}
-	}
-	return
 }
 
 // messageBookingDetails returns the Branch and Marker related details of the given Message.
@@ -571,12 +539,12 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (propagated bool, err error) {
 	fmt.Println(debug.GoroutineID(), "propagateForkedBranch", messageMetadata.ID(), addedBranchID, removedBranchIDs)
 
-	b.bookingMutex.Lock(messageMetadata.ID())
-	defer b.bookingMutex.Unlock(messageMetadata.ID())
-
 	if !messageMetadata.IsBooked() {
 		return false, nil
 	}
+
+	b.bookingMutex.Lock(messageMetadata.ID())
+	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
 	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {

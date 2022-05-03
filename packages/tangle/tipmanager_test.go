@@ -772,7 +772,7 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 }
 
 func bookMessage(t *testing.T, tangle *Tangle, message *Message) {
-	tangle.Booker.bookPayload(message)
+	tangle.Booker.book(message)
 
 	tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 		// make sure that everything was booked into master branch
