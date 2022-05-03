@@ -5,6 +5,8 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
@@ -153,37 +155,56 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isParentMessageValid(parent.ID, message)
+		if !valid {
+			return
+		}
+
+		if parent.ID == EmptyMessageID {
+			if s.tangle.Options.GenesisNode != nil {
+				if valid = *s.tangle.Options.GenesisNode == message.IssuerPublicKey(); !valid {
+					return
+				}
+			}
+
+			s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				timeDifference := message.IssuingTime().Sub(messageMetadata.SolidificationTime())
+				if valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference; !valid {
+					return
+				}
+			})
+
+			return
+		}
+
+		s.tangle.Storage.Message(parent.ID).Consume(func(parentMessage *Message) {
+			if parent.Type == ShallowDislikeParentType || parent.Type == ShallowLikeParentType {
+				if _, valid = parentMessage.Payload().(utxo.Transaction); !valid {
+					return
+				}
+			}
+
+			if valid = s.isParentMessageValid(parentMessage, message); !valid {
+				return
+			}
+		})
+
 	})
 
 	return
 }
 
 // isParentMessageValid checks whether the given parent Message is valid.
-func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessage *Message) (valid bool) {
-	if parentMessageID == EmptyMessageID {
-		if s.tangle.Options.GenesisNode != nil {
-			return *s.tangle.Options.GenesisNode == childMessage.IssuerPublicKey()
-		}
-
-		s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			timeDifference := childMessage.IssuingTime().Sub(messageMetadata.SolidificationTime())
-			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
-		})
-		return
+func (s *Solidifier) isParentMessageValid(parentMessage *Message, childMessage *Message) (valid bool) {
+	timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
+	if timeDifference < minParentsTimeDifference || timeDifference > maxParentsTimeDifference {
+		return false
 	}
 
-	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-		timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
-
-		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+	s.tangle.Storage.MessageMetadata(parentMessage.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		valid = !messageMetadata.IsObjectivelyInvalid()
 	})
 
-	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = valid && !messageMetadata.IsObjectivelyInvalid()
-	})
-
-	return
+	return valid
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
