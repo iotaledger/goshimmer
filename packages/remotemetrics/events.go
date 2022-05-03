@@ -37,8 +37,14 @@ type SyncStatusChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// LastConfirmedMessageTime contains time of the last confirmed message
-	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
+	// CTT contains time of the last confirmed message
+	CTT time.Time `json:"CurrentTangleTime" bson:"CurrentTangleTime"`
+	// RCTT contains relative time of the last confirmed message
+	RCTT time.Time `json:"RelativeCurrentTangleTime" bson:"RelativeCurrentTangleTime"`
+	// FTT contains time of the last finalized message
+	FTT time.Time `json:"FinalizedTangleTime" bson:"FinalizedTangleTime"`
+	// RFTT contains relative time of the last finalized message
+	RFTT time.Time `json:"RelativeFinalizedTangleTime" bson:"RelativeFinalizedTangleTime"`
 }
 
 // MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
