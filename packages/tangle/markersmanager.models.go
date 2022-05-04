@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
@@ -22,22 +21,22 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	*customtypes.SerializableThresholdMap[markers.Index, ledgerstate.BranchIDs]
+	*thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs]
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
+	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
 }
 
 // Encode returns a serialized byte slice of the object.
 func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
-	return m.SerializableThresholdMap.Encode()
+	return m.ThresholdMap.Encode()
 }
 
 // Decode deserializes bytes into a valid object.
 func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
-	m.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
-	return m.SerializableThresholdMap.Decode(b)
+	m.ThresholdMap = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
+	return m.ThresholdMap.Decode(b)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/serix/customtypes"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 )
@@ -925,24 +924,24 @@ func (m *markersByRank) String() (humanReadableMarkersByRank string) {
 // region referencingMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type referencingMarkersMap struct {
-	*customtypes.SerializableThresholdMap[uint64, Index] `serix:"0"`
+	*thresholdmap.ThresholdMap[uint64, Index] `serix:"0"`
 }
 
 func newReferencingMarkersMap() *referencingMarkersMap {
 	return &referencingMarkersMap{
-		customtypes.NewSerializableThresholdMap[uint64, Index](thresholdmap.UpperThresholdMode),
+		thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode),
 	}
 }
 
 // Encode returns a serialized byte slice of the object.
 func (l *referencingMarkersMap) Encode() ([]byte, error) {
-	return l.SerializableThresholdMap.Encode()
+	return l.ThresholdMap.Encode()
 }
 
 // Decode deserializes bytes into a valid object.
 func (l *referencingMarkersMap) Decode(b []byte) (bytesRead int, err error) {
-	l.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[uint64, Index](thresholdmap.UpperThresholdMode)
-	return l.SerializableThresholdMap.Decode(b)
+	l.ThresholdMap = thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode)
+	return l.ThresholdMap.Decode(b)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -950,22 +949,22 @@ func (l *referencingMarkersMap) Decode(b []byte) (bytesRead int, err error) {
 // region referencedMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type referencedMarkersMap struct {
-	*customtypes.SerializableThresholdMap[uint64, Index] `serix:"0"`
+	*thresholdmap.ThresholdMap[uint64, Index] `serix:"0"`
 }
 
 func newReferencedMarkersMap() *referencedMarkersMap {
-	return &referencedMarkersMap{customtypes.NewSerializableThresholdMap[uint64, Index](thresholdmap.LowerThresholdMode)}
+	return &referencedMarkersMap{thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)}
 }
 
 // Encode returns a serialized byte slice of the object.
 func (l *referencedMarkersMap) Encode() ([]byte, error) {
-	return l.SerializableThresholdMap.Encode()
+	return l.ThresholdMap.Encode()
 }
 
 // Decode deserializes bytes into a valid object.
 func (l *referencedMarkersMap) Decode(b []byte) (bytesRead int, err error) {
-	l.SerializableThresholdMap = customtypes.NewSerializableThresholdMap[uint64, Index](thresholdmap.LowerThresholdMode)
-	return l.SerializableThresholdMap.Decode(b)
+	l.ThresholdMap = thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)
+	return l.ThresholdMap.Decode(b)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

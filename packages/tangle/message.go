@@ -475,7 +475,7 @@ func (m *Message) VerifySignature() bool {
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return m.IssuerPublicKey().VerifySignature(content, signature)
+	return m.messageInner.IssuerPublicKey.VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
@@ -850,11 +850,11 @@ func (m *MessageMetadata) IsSolid() (result bool) {
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	m.solidMutex.RLock()
-	if m.IsSolid() != solid {
+	if m.messageMetadataInner.Solid != solid {
 		m.solidMutex.RUnlock()
 
 		m.solidMutex.Lock()
-		if m.IsSolid() != solid {
+		if m.messageMetadataInner.Solid != solid {
 			m.messageMetadataInner.Solid = solid
 			if solid {
 				m.solidificationTimeMutex.Lock()
@@ -910,7 +910,7 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.AddedBranchIDs().Equals(addedBranchIDs) {
+	if m.messageMetadataInner.AddedBranchIDs.Equals(addedBranchIDs) {
 		return false
 	}
 
@@ -926,7 +926,7 @@ func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified b
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.AddedBranchIDs().Contains(branchID) {
+	if m.messageMetadataInner.AddedBranchIDs.Contains(branchID) {
 		return
 	}
 
@@ -948,7 +948,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.SubtractedBranchIDs().Equals(subtractedBranchIDs) {
+	if m.messageMetadataInner.SubtractedBranchIDs.Equals(subtractedBranchIDs) {
 		return false
 	}
 
@@ -975,7 +975,7 @@ func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledTimeMutex.Lock()
 	defer m.scheduledTimeMutex.Unlock()
 
-	if m.Scheduled() == scheduled {
+	if m.messageMetadataInner.Scheduled == scheduled {
 		return false
 	}
 
@@ -1043,7 +1043,7 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedTimeMutex.Lock()
 	defer m.bookedTimeMutex.Unlock()
 
-	if m.IsBooked() == booked {
+	if m.messageMetadataInner.Booked == booked {
 		return false
 	}
 
@@ -1130,7 +1130,7 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	m.gradeOfFinalityMutex.Lock()
 	defer m.gradeOfFinalityMutex.Unlock()
 
-	if m.GradeOfFinality() == gradeOfFinality {
+	if m.messageMetadataInner.GradeOfFinality == gradeOfFinality {
 		return false
 	}
 

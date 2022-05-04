@@ -941,7 +941,7 @@ func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
 	c.validMutex.Lock()
 	defer c.validMutex.Unlock()
 
-	if valid == c.Valid() {
+	if valid == c.consumerInner.Valid {
 		return
 	}
 

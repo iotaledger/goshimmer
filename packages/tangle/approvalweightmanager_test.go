@@ -85,9 +85,9 @@ func TestBranchVotersMarshalling(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters
-	assert.Equal(t, branchVoters.Voters().SerializableSet.Size(), branchVotersFromBytes.Voters().SerializableSet.Size())
-	branchVoters.Voters().SerializableSet.ForEach(func(voter Voter) {
-		assert.True(t, branchVotersFromBytes.Voters().SerializableSet.Has(voter))
+	assert.Equal(t, branchVoters.Voters().Set.Size(), branchVotersFromBytes.Voters().Set.Size())
+	branchVoters.Voters().Set.ForEach(func(voter Voter) {
+		assert.True(t, branchVotersFromBytes.Voters().Set.Has(voter))
 	})
 }
 
@@ -910,7 +910,7 @@ func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeigh
 		for branchID := range branchIDs[branchIDString] {
 			voters := approvalWeightManager.VotersOfBranch(branchID)
 			if voters != nil {
-				actualResult = voters.SerializableSet.Has(voter)
+				actualResult = voters.Set.Has(voter)
 			}
 			if !actualResult {
 				break

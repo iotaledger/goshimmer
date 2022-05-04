@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/serix/customtypes"
 )
 
 func init() {
@@ -197,7 +197,7 @@ func timeToUnixGranularity(t time.Time) int64 {
 // ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	setTimes customtypes.SerializableSet[int64] `serix:"0,lengthPrefixType=uint32"`
+	setTimes set.Set[int64] `serix:"0,lengthPrefixType=uint32"`
 	times    *minHeap
 }
 
@@ -206,7 +206,7 @@ func NewActivityLog() *ActivityLog {
 	var mh minHeap
 
 	a := &ActivityLog{
-		setTimes: customtypes.NewSerializableSet[int64](),
+		setTimes: set.New[int64](),
 		times:    &mh,
 	}
 	heap.Init(a.times)
@@ -302,7 +302,7 @@ func (a *ActivityLog) Encode() ([]byte, error) {
 func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
 	var mh minHeap
 
-	a.setTimes = customtypes.NewSerializableSet[int64]()
+	a.setTimes = set.New[int64]()
 	a.times = &mh
 	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.setTimes, serix.WithValidation())
 	if err != nil {
