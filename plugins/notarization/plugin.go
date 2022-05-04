@@ -79,7 +79,9 @@ func run(*node.Plugin) {
 }
 
 func newNotarizationManager() *notarization.Manager {
-	return notarization.NewManager(deps.EpochManager)
+	return notarization.NewManager(
+		deps.EpochManager,
+		notarization.MinCommitableEpochAge(Parameters.MinEpochCommitableDuration))
 }
 
 func newEpochManager() *notarization.EpochManager {
