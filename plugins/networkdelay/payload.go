@@ -95,8 +95,8 @@ func (p *Payload) Bytes() []byte {
 // String returns a human-friendly representation of the Payload.
 func (p *Payload) String() string {
 	return stringify.Struct("NetworkDelayPayload",
-		stringify.StructField("id", p.payloadInner.ID),
-		stringify.StructField("sentTime", uint64(p.payloadInner.SentTime)),
+		stringify.StructField("id", p.ID),
+		stringify.StructField("sentTime", uint64(p.SentTime)),
 	)
 }
 

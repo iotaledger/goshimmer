@@ -87,7 +87,7 @@ func TestBranchVotersMarshalling(t *testing.T) {
 	// verify that branchVotersFromBytes has all voters from branchVoters
 	assert.Equal(t, branchVoters.Voters().SerializableSet.Size(), branchVotersFromBytes.Voters().SerializableSet.Size())
 	branchVoters.Voters().SerializableSet.ForEach(func(voter Voter) {
-		assert.True(t, branchVotersFromBytes.branchVotersInner.Voters.SerializableSet.Has(voter))
+		assert.True(t, branchVotersFromBytes.Voters().SerializableSet.Has(voter))
 	})
 }
 

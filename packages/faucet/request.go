@@ -112,8 +112,8 @@ func (p *Payload) Bytes() []byte {
 func (p *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
 		stringify.StructField("address", p.Address().Base58()),
-		stringify.StructField("accessManaPledgeID", p.requestInner.AccessManaPledgeID.String()),
-		stringify.StructField("consensusManaPledgeID", p.requestInner.ConsensusManaPledgeID.String()),
+		stringify.StructField("accessManaPledgeID", p.AccessManaPledgeID().String()),
+		stringify.StructField("consensusManaPledgeID", p.ConsensusManaPledgeID().String()),
 	)
 }
 

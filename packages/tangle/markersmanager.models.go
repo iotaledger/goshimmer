@@ -113,7 +113,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	value, exists := m.markerIndexBranchIDInner.Mapping.Get(markerIndex)
+	value, exists := m.Mapping.Get(markerIndex)
 	if !exists {
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
@@ -126,7 +126,7 @@ func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.markerIndexBranchIDInner.Mapping.Set(index, branchIDs)
+	m.Mapping.Set(index, branchIDs)
 	m.SetModified()
 }
 
@@ -135,7 +135,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
-	m.markerIndexBranchIDInner.Mapping.Delete(index)
+	m.Mapping.Delete(index)
 	m.SetModified()
 }
 
@@ -145,7 +145,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.markerIndexBranchIDInner.Mapping.Floor(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.Mapping.Floor(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -158,7 +158,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.markerIndexBranchIDInner.Mapping.Ceiling(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.Mapping.Ceiling(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -177,7 +177,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 
 	indexes := make([]markers.Index, 0)
 	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
-	m.markerIndexBranchIDInner.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+	m.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -205,7 +205,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	}
 
 	return stringify.Struct("MarkerIndexBranchIDMapping",
-		stringify.StructField("sequenceID", m.markerIndexBranchIDInner.SequenceID),
+		stringify.StructField("sequenceID", m.SequenceID()),
 		stringify.StructField("mapping", mapping),
 	)
 }
@@ -213,7 +213,7 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerIndexBranchIDMapping) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.markerIndexBranchIDInner.SequenceID, serix.WithValidation())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.SequenceID(), serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)
@@ -317,15 +317,15 @@ func (m *MarkerMessageMapping) Bytes() []byte {
 // String returns a human-readable version of the MarkerMessageMapping.
 func (m *MarkerMessageMapping) String() string {
 	return stringify.Struct("MarkerMessageMapping",
-		stringify.StructField("marker", m.markerMessageMappingInner.Marker),
-		stringify.StructField("messageID", m.markerMessageMappingInner.MessageID),
+		stringify.StructField("marker", m.Marker()),
+		stringify.StructField("messageID", m.MessageID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MarkerMessageMapping) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.markerMessageMappingInner.Marker, serix.WithValidation())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.Marker(), serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)

@@ -87,8 +87,8 @@ func validateTransactionEssenceVersionBytes(_ context.Context, _ []byte) (err er
 }
 
 func validateTransaction(_ context.Context, tx Transaction) (err error) {
-	maxReferencedUnlockIndex := len(tx.transactionInner.Essence.Inputs()) - 1
-	for i, unlockBlock := range tx.transactionInner.UnlockBlocks {
+	maxReferencedUnlockIndex := len(tx.Essence().Inputs()) - 1
+	for i, unlockBlock := range tx.UnlockBlocks() {
 		switch unlockBlock.Type() {
 		case SignatureUnlockBlockType:
 			continue
@@ -224,7 +224,7 @@ type transactionInner struct {
 // NewTransaction creates a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
-		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.transactionEssenceInner.Inputs)))
+		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.Inputs())))
 	}
 
 	transaction = &Transaction{

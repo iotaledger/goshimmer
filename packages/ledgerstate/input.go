@@ -207,7 +207,7 @@ func (u *UTXOInput) Compare(other Input) int {
 // String returns a human readable version of the Input.
 func (u *UTXOInput) String() string {
 	return stringify.Struct("UTXOInput",
-		stringify.StructField("ReferencedOutputID", u.utxoInputInner.ReferencedOutputID),
+		stringify.StructField("ReferencedOutputID", u.ReferencedOutputID()),
 	)
 }
 

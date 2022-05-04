@@ -73,27 +73,27 @@ func (a *AssetRegistry) Network() string {
 
 // LoadAsset returns an asset either from local or from central registry.
 func (a *AssetRegistry) LoadAsset(id ledgerstate.Color) (*Asset, error) {
-	_, ok := a.assetRegistryInner.Assets[id]
+	_, ok := a.Assets[id]
 	if !ok {
 		success := a.updateLocalFromCentral(id)
 		if !success {
 			return nil, errors.Errorf("no asset found with assetID (color) %s", id.Base58())
 		}
 	}
-	asset := a.assetRegistryInner.Assets[id]
+	asset := a.Assets[id]
 	return &asset, nil
 }
 
 // RegisterAsset registers an asset in the registry, so we can look up names and symbol of colored coins.
 func (a *AssetRegistry) RegisterAsset(color ledgerstate.Color, asset Asset) error {
-	a.assetRegistryInner.Assets[color] = asset
-	return a.client.SaveAsset(context.TODO(), a.assetRegistryInner.Network, asset.ToRegistry())
+	a.Assets[color] = asset
+	return a.client.SaveAsset(context.TODO(), a.Network(), asset.ToRegistry())
 }
 
 // Name returns the name of the given asset.
 func (a *AssetRegistry) Name(color ledgerstate.Color) string {
 	// check in local registry
-	if asset, assetExists := a.assetRegistryInner.Assets[color]; assetExists {
+	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.Name
 	}
 
@@ -103,7 +103,7 @@ func (a *AssetRegistry) Name(color ledgerstate.Color) string {
 	// not in local
 	// fetch from central, update local
 	if a.updateLocalFromCentral(color) {
-		return a.assetRegistryInner.Assets[color].Name
+		return a.Assets[color].Name
 	}
 	// fallback if we fetch was not successful, just use the color as name
 	return color.String()
@@ -111,7 +111,7 @@ func (a *AssetRegistry) Name(color ledgerstate.Color) string {
 
 // Symbol return the symbol of the token.
 func (a *AssetRegistry) Symbol(color ledgerstate.Color) string {
-	if asset, assetExists := a.assetRegistryInner.Assets[color]; assetExists {
+	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.Symbol
 	}
 
@@ -122,7 +122,7 @@ func (a *AssetRegistry) Symbol(color ledgerstate.Color) string {
 	// not in local
 	// fetch from central, update local
 	if a.updateLocalFromCentral(color) {
-		return a.assetRegistryInner.Assets[color].Symbol
+		return a.Assets[color].Symbol
 	}
 
 	return "cI"
@@ -130,7 +130,7 @@ func (a *AssetRegistry) Symbol(color ledgerstate.Color) string {
 
 // Supply returns the initial supply of the token.
 func (a *AssetRegistry) Supply(color ledgerstate.Color) string {
-	if asset, assetExists := a.assetRegistryInner.Assets[color]; assetExists {
+	if asset, assetExists := a.Assets[color]; assetExists {
 		return strconv.FormatUint(asset.Supply, 10)
 	}
 
@@ -141,7 +141,7 @@ func (a *AssetRegistry) Supply(color ledgerstate.Color) string {
 	// not in local
 	// fetch from central, update local
 	if a.updateLocalFromCentral(color) {
-		return strconv.FormatUint(a.assetRegistryInner.Assets[color].Supply, 10)
+		return strconv.FormatUint(a.Assets[color].Supply, 10)
 	}
 
 	return "unknown"
@@ -149,7 +149,7 @@ func (a *AssetRegistry) Supply(color ledgerstate.Color) string {
 
 // TransactionID returns the ID of the transaction that created the token.
 func (a *AssetRegistry) TransactionID(color ledgerstate.Color) string {
-	if asset, assetExists := a.assetRegistryInner.Assets[color]; assetExists {
+	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.TransactionID.Base58()
 	}
 
@@ -160,7 +160,7 @@ func (a *AssetRegistry) TransactionID(color ledgerstate.Color) string {
 	// not in local
 	// fetch from central, update local
 	if a.updateLocalFromCentral(color) {
-		return a.assetRegistryInner.Assets[color].TransactionID.Base58()
+		return a.Assets[color].TransactionID.Base58()
 	}
 
 	return "unknown"
@@ -168,7 +168,7 @@ func (a *AssetRegistry) TransactionID(color ledgerstate.Color) string {
 
 // Precision returns the amount of decimal places that this token uses.
 func (a *AssetRegistry) Precision(color ledgerstate.Color) int {
-	if asset, assetExists := a.assetRegistryInner.Assets[color]; assetExists {
+	if asset, assetExists := a.Assets[color]; assetExists {
 		return int(asset.Precision)
 	}
 
@@ -186,13 +186,13 @@ func (a *AssetRegistry) Bytes() []byte {
 }
 
 func (a *AssetRegistry) updateLocalFromCentral(color ledgerstate.Color) (success bool) {
-	loadedAsset, err := a.client.LoadAsset(context.TODO(), a.assetRegistryInner.Network, color.Base58())
+	loadedAsset, err := a.client.LoadAsset(context.TODO(), a.Network(), color.Base58())
 	if err == nil {
 		// save it locally
 		var walletAsset *Asset
 		walletAsset, err = AssetFromRegistryEntry(loadedAsset)
 		if err == nil {
-			a.assetRegistryInner.Assets[walletAsset.Color] = *walletAsset
+			a.Assets[walletAsset.Color] = *walletAsset
 			return true
 		}
 	}

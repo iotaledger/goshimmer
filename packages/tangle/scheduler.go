@@ -343,7 +343,7 @@ func (s *Scheduler) tryReady(messageID MessageID) {
 // tries to mark them as ready.
 func (s *Scheduler) updateApprovers(messageID MessageID) {
 	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
-		s.tryReady(approver.approverInner.ApproverMessageID)
+		s.tryReady(approver.ApproverMessageID())
 	})
 }
 

@@ -112,7 +112,7 @@ func NewColoredBalances(balances map[Color]uint64) (coloredBalances *ColoredBala
 
 	// add sorted colors to the underlying map
 	for _, color := range sortedColors {
-		coloredBalances.coloredBalancesInner.Balances.Set(color, balances[color])
+		coloredBalances.Balances.Set(color, balances[color])
 	}
 
 	return
@@ -131,23 +131,23 @@ func ColoredBalancesFromBytes(bytes []byte) (coloredBalances *ColoredBalances, c
 
 // Get returns the balance of the given Color and a boolean value indicating if the requested Color existed.
 func (c *ColoredBalances) Get(color Color) (uint64, bool) {
-	return c.coloredBalancesInner.Balances.Get(color)
+	return c.Balances.Get(color)
 }
 
 // ForEach calls the consumer for each element in the collection and aborts the iteration if the consumer returns false.
 func (c *ColoredBalances) ForEach(consumer func(color Color, balance uint64) bool) {
-	c.coloredBalancesInner.Balances.ForEach(consumer)
+	c.Balances.ForEach(consumer)
 }
 
 // Size returns the amount of individual balances in the ColoredBalances.
 func (c *ColoredBalances) Size() int {
-	return c.coloredBalancesInner.Balances.Size()
+	return c.Balances.Size()
 }
 
 // Clone returns a copy of the ColoredBalances.
 func (c *ColoredBalances) Clone() *ColoredBalances {
 	copiedBalances := orderedmap.New[Color, uint64]()
-	c.coloredBalancesInner.Balances.ForEach(copiedBalances.Set)
+	c.Balances.ForEach(copiedBalances.Set)
 
 	return &ColoredBalances{
 		coloredBalancesInner{

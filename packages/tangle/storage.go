@@ -200,7 +200,7 @@ func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMis
 func (s *Storage) MissingMessages() (ids []MessageID) {
 	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
 		cachedObject.Consume(func(object *MissingMessage) {
-			ids = append(ids, object.missingMessageInner.MessageID)
+			ids = append(ids, object.MessageID())
 		})
 
 		return true

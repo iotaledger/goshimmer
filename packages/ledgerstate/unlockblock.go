@@ -150,7 +150,7 @@ func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBl
 
 // AddressSignatureValid returns true if the UnlockBlock correctly signs the given Address.
 func (s *SignatureUnlockBlock) AddressSignatureValid(address Address, signedData []byte) bool {
-	return s.signatureUnlockBlockInner.Signature.AddressSignatureValid(address, signedData)
+	return s.Signature().AddressSignatureValid(address, signedData)
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
@@ -171,7 +171,7 @@ func (s *SignatureUnlockBlock) Bytes() []byte {
 // String returns a human readable version of the UnlockBlock.
 func (s *SignatureUnlockBlock) String() string {
 	return stringify.Struct("SignatureUnlockBlock",
-		stringify.StructField("signature", s.signatureUnlockBlockInner.Signature),
+		stringify.StructField("signature", s.Signature()),
 	)
 }
 
@@ -238,7 +238,7 @@ func (r *ReferenceUnlockBlock) Bytes() []byte {
 // String returns a human readable version of the UnlockBlock.
 func (r *ReferenceUnlockBlock) String() string {
 	return stringify.Struct("ReferenceUnlockBlock",
-		stringify.StructField("referencedIndex", int(r.referenceUnlockBlockInner.ReferencedIndex)),
+		stringify.StructField("referencedIndex", int(r.ReferencedIndex())),
 	)
 }
 
