@@ -232,7 +232,7 @@ func (b BranchIDs) Equals(o BranchIDs) bool {
 	return true
 }
 
-// Bytes returns a marshaled version of the Transaction.
+// Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
 	if err != nil {

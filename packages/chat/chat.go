@@ -17,11 +17,11 @@ import (
 func init() {
 	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+		panic(fmt.Errorf("error registering Chat type settings: %w", err))
 	}
 	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
 	if err != nil {
-		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+		panic(fmt.Errorf("error registering Chat as Payload interface: %w", err))
 	}
 }
 

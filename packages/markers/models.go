@@ -655,7 +655,7 @@ func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 	return
 }
 
-// Bytes returns a marshaled version of the PersistableBaseMana.
+// Bytes returns a marshaled version of the ReferencingMarkers.
 func (r *ReferencedMarkers) Bytes() []byte {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
