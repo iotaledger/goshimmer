@@ -121,7 +121,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		issuingTime = f.getIssuingTime(strongParents)
 		if len(references) == 0 {
 			var referenceNotPossible MessageIDs
-			references, referenceNotPossible, err = f.referencesFunc(strongParents, issuingTime, f.tangle)
+			references, referenceNotPossible, err = f.referencesFunc(p, strongParents, issuingTime, f.tangle)
 			for m := range referenceNotPossible {
 				f.Events.Error.Trigger(errors.Errorf("References for %s could not be determined", m))
 				f.Events.MessageReferenceImpossible.Trigger(&MessageReferenceImpossibleEvent{m})
@@ -191,7 +191,7 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	if ok {
 		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID())
 		if !conflictingTransactions.IsEmpty() {
-			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
+			switch earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
 				return
 			default:
@@ -203,7 +203,7 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	return
 }
 
-func (f *MessageFactory) earliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
+func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
 	earliestIssuingTime := time.Now()
 	for it := transactionIDs.Iterator(); it.HasNext(); {
 		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
@@ -211,6 +211,7 @@ func (f *MessageFactory) earliestAttachment(transactionIDs utxo.TransactionIDs) 
 				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
 						earliestAttachment = message
+						earliestIssuingTime = message.IssuingTime()
 					}
 				})
 			})
@@ -218,6 +219,22 @@ func (f *MessageFactory) earliestAttachment(transactionIDs utxo.TransactionIDs) 
 	}
 
 	return earliestAttachment
+}
+
+func (f *MessageFactory) LatestAttachment(transactionID utxo.TransactionID) (latestAttachment *Message) {
+	var latestIssuingTime time.Time
+	f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+			f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+				if messageMetadata.IsBooked() && message.IssuingTime().After(latestIssuingTime) {
+					latestAttachment = message
+					latestIssuingTime = message.IssuingTime()
+				}
+			})
+		})
+	})
+
+	return latestAttachment
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.
@@ -308,10 +325,10 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error)
+type ReferencesFunc func(payload payload.Payload, strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error)
 
 // PrepareReferences is an implementation of ReferencesFunc.
-func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
+func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	references = NewParentMessageIDs()
 	referenceNotPossible = NewMessageIDs()
 
@@ -377,6 +394,33 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 
 	if len(references[StrongParentType]) == 0 {
 		return nil, referenceNotPossible, errors.Errorf("none of the provided strong parents can be referenced")
+	}
+
+	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
+		if len(references[parentType]) > MaxParentsCount {
+			return nil, referenceNotPossible, errors.Errorf("parent overflow while creating references for message with strong Parents %s", strongParents)
+		}
+
+	}
+
+	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
+	if tx, isTx := payload.(utxo.Transaction); isTx {
+		referencedTxs := tangle.Ledger.Utils.ReferencedTransactions(tx)
+		for it := referencedTxs.Iterator(); it.HasNext(); {
+			referencedTx := it.Next()
+			if !tangle.ConfirmationOracle.IsTransactionConfirmed(referencedTx) {
+				latestAttachment := tangle.MessageFactory.LatestAttachment(referencedTx)
+				timeDifference := clock.SyncedTime().Sub(latestAttachment.IssuingTime())
+				// If the latest attachment of the transaction we are consuming is too old we are not
+				// able to add it is a weak parent.
+				if timeDifference <= maxParentsTimeDifference {
+					if len(references[WeakParentType]) == MaxParentsCount {
+						return references, referenceNotPossible, nil
+					}
+					references.Add(WeakParentType, latestAttachment.ID())
+				}
+			}
+		}
 	}
 
 	return references, referenceNotPossible, nil

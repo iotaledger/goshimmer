@@ -165,7 +165,20 @@ func (m *MessageTestFramework) WaitUntilAllTasksProcessed() (self *MessageTestFr
 
 // Message retrieves the Messages that is associated with the given alias.
 func (m *MessageTestFramework) Message(alias string) (message *Message) {
-	return m.messagesByAlias[alias]
+	message, ok := m.messagesByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Message alias %s not registered", alias))
+	}
+	return
+}
+
+// Message retrieves the Messages that is associated with the given alias.
+func (m *MessageTestFramework) MessageIDs(aliases ...string) (messageIDs MessageIDs) {
+	messageIDs = NewMessageIDs()
+	for _, alias := range aliases {
+		messageIDs.Add(m.Message(alias).ID())
+	}
+	return
 }
 
 // MessageMetadata retrieves the MessageMetadata that is associated with the given alias.
@@ -823,6 +836,9 @@ func (m *MockConfirmationOracle) IsBranchConfirmed(branchID branchdag.BranchID) 
 
 // IsTransactionConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID utxo.TransactionID) bool {
+	if transactionID == utxo.EmptyTransactionID {
+		return true
+	}
 	return false
 }
 
@@ -887,7 +903,7 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID branchdag.BranchID) (bra
 	return likedConflictMembers.conflictMembers.Has(branchID)
 }
 
-func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
+func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil, nil
 }
 

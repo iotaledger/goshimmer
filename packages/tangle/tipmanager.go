@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -345,24 +343,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	}
 
 	// select parents
-	parents = t.selectTips(p, countParents)
-	// if transaction, make sure that all inputs are in the past cone of the selected tips
-	tx, ok := p.(utxo.Transaction)
-	if p != nil && ok {
-
-		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(t.tangle.Ledger.Utils.ReferencedTransactions(tx), parents) || len(parents) == 0 {
-			if tries == 0 {
-				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips and parents have correct time-since-confirmation")
-				return nil, err
-			}
-			tries--
-
-			parents = t.selectTips(p, MaxParentsCount)
-		}
-	}
-
-	return parents, nil
+	return t.selectTips(p, countParents), nil
 }
 
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
@@ -576,53 +557,13 @@ func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, marke
 func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = NewMessageIDs()
 
-	// if transaction: reference young parents directly
-	if tx, ok := p.(utxo.Transaction); ok {
-		referencedTransactionIDs := t.tangle.Ledger.Utils.ReferencedTransactions(tx)
-		if referencedTransactionIDs.Size() <= 8 {
-			for it := referencedTransactionIDs.Iterator(); it.HasNext(); {
-				txID := it.Next()
-				// only one attachment needs to be added
-				added := false
-
-				for attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(txID) {
-					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
-						// check if message is too old
-						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
-						if timeDifference <= maxParentsTimeDifference && t.isPastConeTimestampCorrect(attachmentMessageID) {
-							parents.Add(attachmentMessageID)
-							added = true
-						}
-					})
-
-					if added {
-						break
-					}
-				}
-			}
-		} else {
-			// if there are more than 8 referenced transactions:
-			// for now we simply select as many parents as possible and hope all transactions will be covered
-			count = MaxParentsCount
-		}
-	}
-
-	// nothing to do anymore
-	if len(parents) == MaxParentsCount {
-		return
-	}
-
-	// select some current tips (depending on length of parents)
-	if count+len(parents) > MaxParentsCount {
-		count = MaxParentsCount - len(parents)
-	}
-
 	tips := t.tips.RandomUniqueEntries(count)
 
 	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
 	// or selected ones had incorrect time-since-confirmation
-	if len(parents) == 0 && len(tips) == 0 {
+	if len(tips) == 0 {
 		parents.Add(EmptyMessageID)
+		return
 	}
 
 	// at least one tip is returned
