@@ -38,3 +38,8 @@ func (f *EpochCommitmentFactory) InsertECSMR(eci ECI, txID ledgerstate.Transacti
 func (f *EpochCommitmentFactory) RemoveECTR(eci ECI, msgID tangle.MessageID) {
 
 }
+
+// GetCommitment returns the commitment with the given eci.
+func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *EpochCommitment {
+	return nil
+}

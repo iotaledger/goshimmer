@@ -14,15 +14,16 @@ const (
 
 // Manager is the notarization manager.
 type Manager struct {
-	epochManager *EpochManager
-	options      *ManagerOptions
+	epochManager           *EpochManager
+	epochCommitmentFactory *EpochCommitmentFactory
+	options                *ManagerOptions
 	// pending branch counter
 	pendingBranchesCount map[ECI]uint64
 	pbcMutex             sync.RWMutex
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, opts ...ManagerOption) *Manager {
+func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
 		MinCommitableEpochAge: minEpochCommitableDuration,
 	}
@@ -30,9 +31,10 @@ func NewManager(epochManager *EpochManager, opts ...ManagerOption) *Manager {
 		option(options)
 	}
 	return &Manager{
-		epochManager:         epochManager,
-		pendingBranchesCount: make(map[ECI]uint64),
-		options:              options,
+		epochManager:           epochManager,
+		epochCommitmentFactory: epochCommitmentFactory,
+		pendingBranchesCount:   make(map[ECI]uint64),
+		options:                options,
 	}
 }
 
@@ -59,7 +61,7 @@ func (m *Manager) GetLatestEC() *EpochCommitment {
 		}
 		eci -= 1
 	}
-	return nil
+	return m.epochCommitmentFactory.GetCommitment(eci)
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
