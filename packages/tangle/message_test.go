@@ -491,36 +491,36 @@ func TestNewMessageWithValidation(t *testing.T) {
 		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
-		// check for repeating message across weak and dislike block
-		//weakParents := testSortParents(randomParents(4))
-		//dislikeParents := randomParents(4).Slice()
-		//// create duplicate
-		//dislikeParents[2] = weakParents[2]
-		//dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
-		//
-		//parentBlocks = NewParentMessageIDs()
-		//parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
-		//parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
-		//parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(dislikeParents...))
-		//
-		//msg, err = NewMessage(
-		//	parentBlocks,
-		//	time.Now(),
-		//	ed25519.PublicKey{},
-		//	0,
-		//	payload.NewGenericDataPayload([]byte("")),
-		//	0,
-		//	ed25519.Signature{},
-		//	MessageVersion)
-		//
-		//assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: missing strong messages in first parent block",
-		//	func() {
-		//		msg.ObjectStorageValue()
-		//	},
-		//)
-		//
-		//_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
-		//assert.ErrorContains(t, err, "min count of elements within the array not reached")
+		//check for repeating message across weak and dislike block
+		weakParents := testSortParents(randomParents(4))
+		dislikeParents := randomParents(4).Slice()
+		// create duplicate
+		dislikeParents[2] = weakParents[2]
+		dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
+
+		parentBlocks = NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
+		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(dislikeParents...))
+
+		msg, err = NewMessage(
+			parentBlocks,
+			time.Now(),
+			ed25519.PublicKey{},
+			0,
+			payload.NewGenericDataPayload([]byte("")),
+			0,
+			ed25519.Signature{},
+			MessageVersion)
+
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: different blocks have conflicting references",
+			func() {
+				msg.ObjectStorageValue()
+			},
+		)
+
+		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks)
 	})
 }
 

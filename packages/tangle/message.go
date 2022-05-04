@@ -72,7 +72,7 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 		}
 	}
 	if areReferencesConflictingAcrossBlocks(parents) {
-		return
+		return ErrConflictingReferenceAcrossBlocks
 	}
 	return nil
 }
