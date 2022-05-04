@@ -12,7 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/marshalutil"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
@@ -45,7 +47,7 @@ type Storage struct {
 
 // newStorage returns a new storage instance for the given Ledger.
 func newStorage(ledger *Ledger) (new *Storage) {
-	return &Storage{
+	new = &Storage{
 		transactionStorage: objectstorage.New[utxo.Transaction](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
@@ -78,6 +80,27 @@ func newStorage(ledger *Ledger) (new *Storage) {
 		),
 		ledger: ledger,
 	}
+
+	new.storeGenesis()
+
+	return new
+}
+
+func (s *Storage) storeGenesis() {
+	s.CachedTransactionMetadata(utxo.EmptyTransactionID, func(transactionID utxo.TransactionID) *TransactionMetadata {
+		genesisTx := &TransactionMetadata{
+			id:              utxo.EmptyTransactionID,
+			booked:          true,
+			gradeOfFinality: gof.High,
+			branchIDs:       branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			outputIDs:       utxo.NewOutputIDs(),
+		}
+
+		genesisTx.Persist()
+		genesisTx.SetModified()
+
+		return genesisTx
+	}).Release()
 }
 
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback
