@@ -1,12 +1,10 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/require"
 
@@ -526,8 +524,6 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
 	testFramework.IssueMessages(messageAlias).WaitUntilAllTasksProcessed()
-
-	fmt.Println(debug.GoroutineID(), "WaitUntilAllTasksProcessed", messageAlias)
 
 	for branchAlias, expectedWeight := range expectedBranchWeights {
 		branchID := testFramework.BranchID(branchAlias)

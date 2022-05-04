@@ -1,10 +1,8 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
-	"github.com/iotaledger/hive.go/debug"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
@@ -39,15 +37,12 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
-		fmt.Println("ApprovalWeightManager.Setup: MessageBookedEvent", event.MessageID)
 		a.processBookedMessage(event.MessageID)
 	}))
 	a.tangle.Booker.Events.MessageBranchUpdated.Hook(event.NewClosure(func(event *MessageBranchUpdatedEvent) {
-		fmt.Println("ApprovalWeightManager.Setup: MessageBranchUpdated", event.MessageID)
 		a.processForkedMessage(event.MessageID, event.BranchID)
 	}))
 	a.tangle.Booker.Events.MarkerBranchAdded.Hook(event.NewClosure(func(event *MarkerBranchAddedEvent) {
-		fmt.Println("ApprovalWeightManager.Setup: MessageBranchUpdated", event.Marker, event.NewBranchID)
 		a.processForkedMarker(event.Marker, event.NewBranchID)
 	}))
 }
@@ -120,7 +115,6 @@ func (a *ApprovalWeightManager) markerVotes(marker *markers.Marker) (markerVotes
 }
 
 func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
-	fmt.Println(debug.GoroutineID(), "ApprovalWeightManager.updateBranchVoters:", message.ID(), message.SequenceNumber())
 	branchesOfMessage, err := a.tangle.Booker.MessageBranchIDs(message.ID())
 	if err != nil {
 		panic(err)
@@ -134,34 +128,25 @@ func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
 
 	addedBranchIDs, revokedBranchIDs, isInvalid := a.determineVotes(branchesOfMessage, vote)
 	if isInvalid {
-		fmt.Println("ApprovalWeightManager.updateBranchVoters (isInvalid):", message.ID())
-
 		a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetSubjectivelyInvalid(true)
 		})
 	}
 
 	if !a.isRelevantVoter(message) {
-		fmt.Println("ApprovalWeightManager.updateBranchVoters (!isRelevantVoter):", message.ID())
 		return
 	}
-
-	fmt.Println("ApprovalWeightManager.updateBranchVoters (addedBranchIDs):", message.ID(), addedBranchIDs)
 
 	addedVote := vote.WithOpinion(Confirmed)
 	for it := addedBranchIDs.Iterator(); it.HasNext(); {
 		addBranchID := it.Next()
 		a.addVoterToBranch(addBranchID, addedVote.WithBranchID(addBranchID))
-		fmt.Println("ApprovalWeightManager.updateBranchVoters (revokedVote):", message.ID(), addedVote.WithBranchID(addBranchID))
 	}
-
-	fmt.Println("ApprovalWeightManager.updateBranchVoters (revokedBranchIDs):", message.ID(), revokedBranchIDs)
 
 	revokedVote := vote.WithOpinion(Rejected)
 	for it := revokedBranchIDs.Iterator(); it.HasNext(); {
 		revokedBranchID := it.Next()
 		a.revokeVoterFromBranch(revokedBranchID, revokedVote.WithBranchID(revokedBranchID))
-		fmt.Println("ApprovalWeightManager.updateBranchVoters (revokedVote):", message.ID(), revokedVote.WithBranchID(revokedBranchID))
 	}
 }
 
@@ -292,7 +277,6 @@ func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID branchdag.BranchI
 }
 
 func (a *ApprovalWeightManager) updateSequenceVoters(message *Message) {
-	fmt.Println("ApprovalWeightManager.updateSequenceVoters:", message.ID(), message.SequenceNumber())
 	if !a.isRelevantVoter(message) {
 		return
 	}
@@ -387,14 +371,13 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID branchdag.BranchID) 
 
 // processForkedMessage updates the Branch weight after an individually mapped Message was forked into a new Branch.
 func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID branchdag.BranchID) {
-	fmt.Println("processForkedMessage", messageID, forkedBranchID)
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
 			a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch) {
 				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
 					return
 				}
-				fmt.Println("processForkedMessage", messageID, forkedBranchID, forkedBranchVoters)
+
 				a.updateBranchWeight(forkedBranchID)
 			})
 		})
@@ -403,7 +386,6 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 
 // take everything in future cone because it was not conflicting before and move to new branch.
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID branchdag.BranchID) {
-	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID)
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
 		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch) {
@@ -426,7 +408,6 @@ func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, fork
 		return
 	}
 
-	fmt.Println("processForkedMarker", marker.SequenceID(), marker.Index(), forkedBranchID, branchVotesUpdated)
 	a.updateBranchWeight(forkedBranchID)
 }
 
