@@ -59,7 +59,7 @@ func NewSpammer(options ...Options) *Spammer {
 		logTickTime:   time.Second * 30,
 	}
 	s := &Spammer{
-		SpamDetails:    DefaultSpamDetails,
+		SpamDetails:    &SpamDetails{},
 		spamFunc:       CustomConflictSpammingFunc,
 		State:          state,
 		EvilScenario:   evilwallet.NewEvilScenario(),
@@ -118,7 +118,7 @@ func (s *Spammer) setupSpamDetails() {
 	}
 	// provided only maxDuration, calculating the default max for maxMsgSent
 	if s.SpamDetails.MaxBatchesSent == 0 && s.SpamDetails.MaxDuration > 0 {
-		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration/s.SpamDetails.TimeUnit)*s.SpamDetails.Rate + 1
+		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
 	}
 }
 
@@ -191,6 +191,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	}
 	allSolid := s.handleSolidityForReuseOutputs(clt, tx)
 	if !allSolid {
+		s.log.Debug(ErrInputsNotSolid)
 		s.ErrCounter.CountError(errors.Errorf("%v, txID: %s", ErrInputsNotSolid, tx.ID().Base58()))
 		return
 	}

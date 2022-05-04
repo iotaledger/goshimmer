@@ -17,9 +17,9 @@ var (
 	customSpamParams = CustomSpamParams{
 		ClientUrls:            urls,
 		SpamTypes:             []string{"msg"},
-		Rates:                 []int{10},
-		Durations:             []time.Duration{time.Minute},
-		MsgToBeSent:           []int{},
+		Rates:                 []int{1},
+		Durations:             []time.Duration{time.Second * 20},
+		MsgToBeSent:           []int{0},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		Scenario:              evilwallet.Scenario1(),

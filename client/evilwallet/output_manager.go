@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	awaitOutputsByAddress    = 3 * time.Second
-	awaitOutputToBeConfirmed = 3 * time.Second
+	awaitOutputsByAddress    = 150 * time.Second
+	awaitOutputToBeConfirmed = 150 * time.Second
 )
 
 // Output contains details of an output ID.

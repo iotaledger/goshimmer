@@ -17,9 +17,8 @@ var actionQuestion = &survey.Select{
 var fundsQuestion = &survey.Select{
 	Message: "How many fresh outputs you want to create?",
 	Options: outputNumbers,
-	Default: "10000",
+	Default: "100",
 }
-
 var settingsQuestion = &survey.Select{
 	Message: "Available settings:",
 	Options: settingsMenuOptions,
@@ -75,34 +74,30 @@ var spamTypeQuestions = func(defaultDeep, defaultReuse string) []*survey.Questio
 type spamDetailsSurvey struct {
 	SpamDuration string
 	SpamRate     string
+	TimeUnit     string
 }
 
-var spamDetailsQuestions = func(defaultDuration, defaultRate string) []*survey.Question {
+var spamDetailsQuestions = func(defaultDuration, defaultRate, defaultTimeUnit string) []*survey.Question {
 	return []*survey.Question{
 		{
 			Name: "spamDuration",
 			Prompt: &survey.Input{
 				Message: "Spam duration in [s].",
 				Default: defaultDuration,
-				Help:    "Max spam duration: 600.",
 			},
-			Validate: func(val interface{}) error {
-				if str, ok := val.(string); ok {
-					n, err := strconv.Atoi(str)
-					if err == nil {
-						if n <= 600 {
-							return nil
-						}
-					}
-					return errors.New("Incorrect spam duration. Provide duration in seconds.")
-				}
-				return nil
+		},
+		{
+			Name: "timeUnit",
+			Prompt: &survey.Select{
+				Message: "Choose time unit for the spam",
+				Options: timeUnits,
+				Default: defaultTimeUnit,
 			},
 		},
 		{
 			Name: "spamRate",
 			Prompt: &survey.Input{
-				Message: "Spam rate in [mps]",
+				Message: "Spam rate",
 				Default: defaultRate,
 			},
 			Validate: func(val interface{}) error {

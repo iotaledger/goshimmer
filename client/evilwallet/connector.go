@@ -132,6 +132,7 @@ func (c *WebClients) AddClient(url string, setters ...client.Option) {
 
 	clt := NewWebClient(url, setters...)
 	c.clients = append(c.clients, clt)
+	c.urls = append(c.urls, url)
 }
 
 // RemoveClient removes client with the provided url from the WebClients.
