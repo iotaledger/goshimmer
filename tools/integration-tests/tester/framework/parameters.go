@@ -104,6 +104,8 @@ func PeerConfig() config.GoShimmer {
 
 	c.DRNG.Enabled = false
 
+	c.Notarization.Enabled = true
+
 	return c
 }
 
@@ -114,7 +116,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
 		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
 		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall", "remotelog", "remotelogmetrics",
-		"DAGsVisualizer")
+		"DAGsVisualizer", "Notarization")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
@@ -126,6 +128,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c.DRNG.Enabled = false
 	c.Dashboard.Enabled = false
 	c.Dagsvisualizer.Enabled = false
+	c.Notarization.Enabled = false
 
 	return c
 }
