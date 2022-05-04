@@ -41,5 +41,5 @@ func (f *EpochCommitmentFactory) RemoveECTR(eci ECI, msgID tangle.MessageID) {
 
 // GetCommitment returns the commitment with the given eci.
 func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *EpochCommitment {
-	return nil
+	return &EpochCommitment{ECI: eci}
 }

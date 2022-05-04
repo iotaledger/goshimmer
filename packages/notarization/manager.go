@@ -17,9 +17,8 @@ type Manager struct {
 	epochManager           *EpochManager
 	epochCommitmentFactory *EpochCommitmentFactory
 	options                *ManagerOptions
-	// pending branch counter
-	pendingBranchesCount map[ECI]uint64
-	pbcMutex             sync.RWMutex
+	pendingBranchesCount   map[ECI]uint64
+	pbcMutex               sync.RWMutex
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -49,7 +48,7 @@ func (m *Manager) PendingBranchesCount(eci ECI) uint64 {
 func (m *Manager) IsCommittable(eci ECI) bool {
 	t := m.epochManager.ECIToStartTime(eci)
 	diff := time.Since(t)
-	return m.PendingBranchesCount(eci) == 0 || diff >= m.options.MinCommitableEpochAge
+	return m.PendingBranchesCount(eci) == 0 && diff >= m.options.MinCommitableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
