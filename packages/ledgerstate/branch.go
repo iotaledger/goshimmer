@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -251,11 +250,6 @@ func (b BranchIDs) Base58() (result []string) {
 	}
 
 	return
-}
-
-// LengthPrefixType returns type of the length prefix to use.
-func (b BranchIDs) LengthPrefixType() serializer.SeriLengthPrefixType {
-	return serializer.SeriLengthPrefixTypeAsUint32
 }
 
 // String returns a human readable version of the BranchIDs.

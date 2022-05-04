@@ -56,7 +56,6 @@ func init() {
 }
 
 func validateOutputID(_ context.Context, outputID OutputID) (err error) {
-	// Validate strong parent block
 	if outputID.OutputIndex() >= MaxOutputCount {
 		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
@@ -305,41 +304,7 @@ func OutputFromBytes(data []byte) (output Output, err error) {
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
 func OutputFromObjectStorage(key, value []byte) (output objectstorage.StorableObject, err error) {
-	var outputType OutputType
-	_, err = serix.DefaultAPI.Decode(context.Background(), value, &outputType)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	switch outputType {
-	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
-			return
-		}
-	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
-			return
-		}
-	case AliasOutputType:
-		if output, err = new(AliasOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse AliasOutput: %w", err)
-			return
-		}
-	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
-			return
-		}
-
-	default:
-		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
+	return OutputFromBytes(byteutils.ConcatBytes(key, value))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

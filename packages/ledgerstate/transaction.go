@@ -75,7 +75,6 @@ func init() {
 }
 
 func validateTransactionEssenceVersion(_ context.Context, version TransactionEssenceVersion) (err error) {
-	// Validate strong parent block
 	if version != 0 {
 		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return

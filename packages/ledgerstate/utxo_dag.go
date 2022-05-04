@@ -310,7 +310,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			cached.Release()
 		}
 
-		for i, output := range record.Essence.transactionEssenceInner.Outputs {
+		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
 				continue
 			}
@@ -823,8 +823,8 @@ func (a *AddressOutputMapping) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 	return stringify.Struct("AddressOutputMapping",
-		stringify.StructField("Address", a.addressOutputMappingInner.Address),
-		stringify.StructField("OutputID", a.addressOutputMappingInner.OutputID),
+		stringify.StructField("Address", a.Address()),
+		stringify.StructField("OutputID", a.OutputID()),
 	)
 }
 
@@ -941,7 +941,7 @@ func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
 	c.validMutex.Lock()
 	defer c.validMutex.Unlock()
 
-	if valid == c.consumerInner.Valid {
+	if valid == c.Valid() {
 		return
 	}
 
@@ -960,21 +960,21 @@ func (c *Consumer) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
-		stringify.StructField("ConsumedInput", c.consumerInner.ConsumedInput),
-		stringify.StructField("TransactionID", c.consumerInner.TransactionID),
+		stringify.StructField("ConsumedInput", c.ConsumedInput()),
+		stringify.StructField("TransactionID", c.TransactionID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	inputBytes, err := serix.DefaultAPI.Encode(context.Background(), c.consumerInner.ConsumedInput, serix.WithValidation())
+	inputBytes, err := serix.DefaultAPI.Encode(context.Background(), c.ConsumedInput(), serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)
 	}
 
-	txBytes, err := serix.DefaultAPI.Encode(context.Background(), c.consumerInner.TransactionID, serix.WithValidation())
+	txBytes, err := serix.DefaultAPI.Encode(context.Background(), c.TransactionID(), serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)

@@ -96,7 +96,6 @@ type Address interface {
 
 // AddressFromBytes unmarshals an Address from a sequence of bytes.
 func AddressFromBytes(bytes []byte) (address Address, consumedBytes int, err error) {
-	// could be refactored to not duplicate code with FromObjectStorage
 	var addressType AddressType
 	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, &addressType)
 	if err != nil {

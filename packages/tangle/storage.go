@@ -452,16 +452,16 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
 				res.SolidCount++
-				res.SumSolidificationReceivedTime += msgMetaData.messageMetadataInner.SolidificationTime.Sub(received)
+				res.SumSolidificationReceivedTime += msgMetaData.SolidificationTime().Sub(received)
 			}
 			if msgMetaData.IsBooked() {
 				res.BookedCount++
-				res.SumBookedReceivedTime += msgMetaData.messageMetadataInner.BookedTime.Sub(received)
+				res.SumBookedReceivedTime += msgMetaData.BookedTime().Sub(received)
 			}
 			if msgMetaData.Scheduled() {
 				res.ScheduledCount++
-				res.SumSchedulerReceivedTime += msgMetaData.messageMetadataInner.ScheduledTime.Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.messageMetadataInner.ScheduledTime.Sub(msgMetaData.messageMetadataInner.BookedTime)
+				res.SumSchedulerReceivedTime += msgMetaData.ScheduledTime().Sub(received)
+				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.messageMetadataInner.BookedTime)
 			}
 		})
 		return true

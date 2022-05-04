@@ -475,7 +475,7 @@ func (m *Message) VerifySignature() bool {
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return m.messageInner.IssuerPublicKey.VerifySignature(content, signature)
+	return m.IssuerPublicKey().VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
@@ -763,9 +763,9 @@ type messageMetadataInner struct {
 	ObjectivelyInvalid  bool                      `serix:"11"`
 	GradeOfFinality     gof.GradeOfFinality       `serix:"12"`
 	GradeOfFinalityTime time.Time                 `serix:"13"`
-	DiscardedTime       time.Time
-	QueuedTime          time.Time
-	SubjectivelyInvalid bool
+	DiscardedTime       time.Time                 `serix:"14"`
+	QueuedTime          time.Time                 `serix:"15"`
+	SubjectivelyInvalid bool                      `serix:"16"`
 
 	solidMutex               sync.RWMutex
 	solidificationTimeMutex  sync.RWMutex
@@ -850,11 +850,11 @@ func (m *MessageMetadata) IsSolid() (result bool) {
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	m.solidMutex.RLock()
-	if m.messageMetadataInner.Solid != solid {
+	if m.IsSolid() != solid {
 		m.solidMutex.RUnlock()
 
 		m.solidMutex.Lock()
-		if m.messageMetadataInner.Solid != solid {
+		if m.IsSolid() != solid {
 			m.messageMetadataInner.Solid = solid
 			if solid {
 				m.solidificationTimeMutex.Lock()
@@ -910,7 +910,7 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Equals(addedBranchIDs) {
+	if m.AddedBranchIDs().Equals(addedBranchIDs) {
 		return false
 	}
 
@@ -926,7 +926,7 @@ func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified b
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Contains(branchID) {
+	if m.AddedBranchIDs().Contains(branchID) {
 		return
 	}
 
@@ -948,7 +948,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.SubtractedBranchIDs.Equals(subtractedBranchIDs) {
+	if m.SubtractedBranchIDs().Equals(subtractedBranchIDs) {
 		return false
 	}
 
@@ -975,7 +975,7 @@ func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledTimeMutex.Lock()
 	defer m.scheduledTimeMutex.Unlock()
 
-	if m.messageMetadataInner.Scheduled == scheduled {
+	if m.Scheduled() == scheduled {
 		return false
 	}
 
@@ -1043,7 +1043,7 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedTimeMutex.Lock()
 	defer m.bookedTimeMutex.Unlock()
 
-	if m.messageMetadataInner.Booked == booked {
+	if m.IsBooked() == booked {
 		return false
 	}
 
@@ -1130,7 +1130,7 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	m.gradeOfFinalityMutex.Lock()
 	defer m.gradeOfFinalityMutex.Unlock()
 
-	if m.messageMetadataInner.GradeOfFinality == gradeOfFinality {
+	if m.GradeOfFinality() == gradeOfFinality {
 		return false
 	}
 
@@ -1166,7 +1166,7 @@ func (m *MessageMetadata) Bytes() []byte {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (m *MessageMetadata) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.messageMetadataInner.MessageID, serix.WithValidation())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.MessageID, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
 		panic(err)
@@ -1188,7 +1188,7 @@ func (m *MessageMetadata) ObjectStorageValue() []byte {
 // String returns a human-readable Version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
-		stringify.StructField("ID", m.messageMetadataInner.MessageID),
+		stringify.StructField("ID", m.MessageID),
 		stringify.StructField("receivedTime", m.ReceivedTime()),
 		stringify.StructField("solid", m.IsSolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
