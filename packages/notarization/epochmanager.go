@@ -2,6 +2,8 @@ package notarization
 
 import (
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 const (
@@ -19,12 +21,12 @@ const (
 
 // EpochManager is responsible for time/ECI conversions.
 type EpochManager struct {
-	options *ManagerOptions
+	options *EpochManagerOptions
 }
 
 // NewEpochManager is the constructor of the EpochManager that takes a KVStore to persist its state.
-func NewEpochManager(opts ...ManagerOption) *EpochManager {
-	options := &ManagerOptions{
+func NewEpochManager(opts ...EpochManagerOption) *EpochManager {
+	options := &EpochManagerOptions{
 		GenesisTime:      DefaultGenesisTime,
 		Interval:         defaultInterval,
 		OracleEpochShift: defaultOracleEpochShift,
@@ -74,40 +76,45 @@ func (m *EpochManager) ECIToEndTime(eci ECI) time.Time {
 	return time.Unix(endUnix, 0)
 }
 
+// CurrentECI returns the ECI at the current synced time.
+func (m *EpochManager) CurrentECI() ECI {
+	return m.TimeToECI(clock.SyncedTime())
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region ManagerOptions ///////////////////////////////////////////////////////////////////////////////////////////////
+// region EpochManagerOptions ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// ManagerOption represents the return type of optional parameters that can be handed into the constructor of the
+// EpochManagerOption represents the return type of optional parameters that can be handed into the constructor of the
 // Manager to configure its behavior.
-type ManagerOption func(options *ManagerOptions)
+type EpochManagerOption func(options *EpochManagerOptions)
 
-// ManagerOptions is a container for all configurable parameters of the EpochManager.
-type ManagerOptions struct {
+// EpochManagerOptions is a container for all configurable parameters of the EpochManager.
+type EpochManagerOptions struct {
 	GenesisTime      int64
 	Interval         int64
 	OracleEpochShift ECI
 }
 
-// GenesisTime is a ManagerOption that allows to define the time of the genesis, i.e., the start of the epochs,
+// GenesisTime is a EpochManagerOption that allows to define the time of the genesis, i.e., the start of the epochs,
 // specified in Unix time (seconds).
-func GenesisTime(genesisTime int64) ManagerOption {
-	return func(options *ManagerOptions) {
+func GenesisTime(genesisTime int64) EpochManagerOption {
+	return func(options *EpochManagerOptions) {
 		options.GenesisTime = genesisTime
 	}
 }
 
-// Interval is a ManagerOption that allows to define the epoch interval, i.e., the duration of each Epoch, specified
+// Interval is a EpochManagerOption that allows to define the epoch interval, i.e., the duration of each Epoch, specified
 // in seconds.
-func Interval(interval int64) ManagerOption {
-	return func(options *ManagerOptions) {
+func Interval(interval int64) EpochManagerOption {
+	return func(options *EpochManagerOptions) {
 		options.Interval = interval
 	}
 }
 
-// OracleEpochShift is a ManagerOption that allows to define the shift of the oracle epoch.
-func OracleEpochShift(shift int) ManagerOption {
-	return func(options *ManagerOptions) {
+// OracleEpochShift is a EpochManagerOption that allows to define the shift of the oracle epoch.
+func OracleEpochShift(shift int) EpochManagerOption {
+	return func(options *EpochManagerOptions) {
 		options.OracleEpochShift = ECI(shift)
 	}
 }
