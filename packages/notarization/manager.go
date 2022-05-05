@@ -64,13 +64,18 @@ func (m *Manager) GetLatestEC() *EpochCommitment {
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
-func (m *Manager) OnMessageConfirmed(messageID tangle.MessageID) {
-
+func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+	eci := m.epochManager.TimeToECI(message.IssuingTime())
+	m.epochCommitmentFactory.InsertECTR(eci, message.ID())
 }
 
 // OnTransactionConfirmed isi the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(txID ledgerstate.TransactionID) {
-
+func (m *Manager) OnTransactionConfirmed(tx *ledgerstate.Transaction) {
+	eci := m.epochManager.TimeToECI(tx.Essence().Timestamp())
+	m.epochCommitmentFactory.InsertECSMR(eci, tx.ID())
+	for _, o := range tx.Essence().Outputs() {
+		m.epochCommitmentFactory.InsertECSR(eci, o.ID())
+	}
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
