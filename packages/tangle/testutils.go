@@ -765,7 +765,7 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 var (
 	aMana               = 1.0
 	totalAMana          = 1000.0
-	testMaxBuffer       = 1 * 1024 * 1024
+	testMaxBuffer       = 10000
 	testRate            = time.Second / 5000
 	tscThreshold        = 5 * time.Minute
 	selfLocalIdentity   = identity.GenerateLocalIdentity()

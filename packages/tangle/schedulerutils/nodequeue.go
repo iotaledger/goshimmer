@@ -88,7 +88,7 @@ func (q *NodeQueue) Submit(element Element) bool {
 	}
 
 	q.submitted[id] = &element
-	q.size.Add(int64(element.Size()))
+	q.size.Inc()
 	return true
 }
 
@@ -100,7 +100,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 	}
 
 	delete(q.submitted, id)
-	q.size.Sub(int64(element.Size()))
+	q.size.Dec()
 	return true
 }
 
@@ -138,7 +138,7 @@ func (q *NodeQueue) Front() Element {
 // PopFront removes the first ready message from the queue.
 func (q *NodeQueue) PopFront() Element {
 	msg := heap.Pop(q.inbox).(Element)
-	q.size.Sub(int64(msg.Size()))
+	q.size.Dec()
 	return msg
 }
 
