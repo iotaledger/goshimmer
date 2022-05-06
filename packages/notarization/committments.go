@@ -90,7 +90,9 @@ func (f *EpochCommitmentFactory) InsertECSR(eci ECI, outputID ledgerstate.Output
 
 // InsertECSMR inserts the transaction ID in the ECSMR.
 func (f *EpochCommitmentFactory) InsertECSMR(eci ECI, txID ledgerstate.TransactionID) {
-
+	commitment := f.getOrCreateCommitment(eci)
+	commitment.transactionRoot.Update(txID.Bytes(), txID.Bytes())
+	f.onTransactionRootChanged(commitment)
 }
 
 // RemoveECTR removes the message ID from the ECTR.
