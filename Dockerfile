@@ -5,11 +5,11 @@
 ARG REMOTE_DEBUGGING=0
 
 ############################
-# golang 1.18-buster multi-arch
-FROM golang:1.18-buster AS build
+# golang 1.18-bullseye multi-arch
+FROM golang:1.18.1-bullseye AS build
 
 ARG RUN_TEST=0
-ARG BUILD_TAGS=rocksdb,builtin_static
+ARG BUILD_TAGS=rocksdb
 
 # Define second time inside the build stage to work in bash conditions.
 ARG REMOTE_DEBUGGING=0
@@ -95,7 +95,7 @@ RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] ; then 
 ############################
 # https://github.com/GoogleContainerTools/distroless/tree/master/cc
 # using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
-FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5dd6313be41a8c55adb as prepare-runtime
+FROM gcr.io/distroless/cc-debian11:nonroot as prepare-runtime
 
 # Gossip
 EXPOSE 14666/tcp
@@ -118,6 +118,13 @@ COPY config.default.json /config.json
 
 # Copy the Pre-built binary file from the previous stage
 COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /run/goshimmer
+
+# Fix permission issue when mounting volumes.
+COPY --chown=nonroot:nonroot --from=build /tmp/ /tmp/mainnetdb/
+COPY --chown=nonroot:nonroot --from=build /tmp/ /tmp/peerdb/
+
+WORKDIR /tmp
+USER nonroot
 
 # We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0.
 FROM prepare-runtime as debugger-enabled-0

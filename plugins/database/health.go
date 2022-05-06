@@ -15,7 +15,11 @@ var (
 )
 
 func configureHealthStore(store kvstore.KVStore) {
-	healthStore = store.WithRealm([]byte{database.PrefixHealth})
+	var err error
+	healthStore, err = store.WithRealm([]byte{database.PrefixHealth})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // MarkDatabaseUnhealthy marks the database as not healthy, meaning

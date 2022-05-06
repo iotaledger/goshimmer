@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,11 +12,18 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(BranchIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 // region BranchID /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -45,14 +54,12 @@ func BranchIDEventHandler(handler interface{}, params ...interface{}) {
 }
 
 // BranchIDFromBytes unmarshals a BranchID from a sequence of bytes.
-func BranchIDFromBytes(bytes []byte) (branchID BranchID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID from MarshalUtil: %w", err)
+func BranchIDFromBytes(data []byte) (branchID BranchID, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &branchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse BranchID: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -68,18 +75,6 @@ func BranchIDFromBase58(base58String string) (branchID BranchID, err error) {
 		err = errors.Errorf("failed to parse BranchID from bytes: %w", err)
 		return
 	}
-
-	return
-}
-
-// BranchIDFromMarshalUtil unmarshals a BranchID using a MarshalUtil (for easier unmarshaling).
-func BranchIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchID BranchID, err error) {
-	branchIDBytes, err := marshalUtil.ReadBytes(BranchIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(branchID[:], branchIDBytes)
 
 	return
 }
@@ -149,28 +144,6 @@ type BranchIDs map[BranchID]types.Empty
 func NewBranchIDs(branches ...BranchID) (branchIDs BranchIDs) {
 	branchIDs = make(BranchIDs)
 	for _, branchID := range branches {
-		branchIDs[branchID] = types.Void
-	}
-
-	return
-}
-
-// BranchIDsFromMarshalUtil unmarshals a collection of BranchIDs using a MarshalUtil (for easier unmarshaling).
-func BranchIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branchIDs BranchIDs, err error) {
-	branchIDsCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchIDs count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	branchIDs = make(BranchIDs)
-	for i := uint64(0); i < branchIDsCount; i++ {
-		branchID, branchIDErr := BranchIDFromMarshalUtil(marshalUtil)
-		if branchIDErr != nil {
-			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
-			return
-		}
-
 		branchIDs[branchID] = types.Void
 	}
 
@@ -261,13 +234,12 @@ func (b BranchIDs) Equals(o BranchIDs) bool {
 
 // Bytes returns a marshaled version of the BranchIDs.
 func (b BranchIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Uint64Size + len(b)*BranchIDLength)
-	marshalUtil.WriteUint64(uint64(len(b)))
-	for branchID := range b {
-		marshalUtil.WriteBytes(branchID.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
 // Base58 returns a slice of base58 BranchIDs.
@@ -311,12 +283,15 @@ func (b BranchIDs) Clone() (clonedBranchIDs BranchIDs) {
 
 // Branch represents a container for Transactions and Outputs representing a certain perception of the ledger state.
 type Branch struct {
+	branchInner `serix:"0"`
+}
+type branchInner struct {
 	id                  BranchID
-	parents             BranchIDs
+	Parents             BranchIDs      `serix:"0"`
+	Conflicts           ConflictIDs    `serix:"1"`
+	InclusionState      InclusionState `serix:"2"`
 	parentsMutex        sync.RWMutex
-	conflicts           ConflictIDs
 	conflictsMutex      sync.RWMutex
-	inclusionState      InclusionState
 	inclusionStateMutex sync.RWMutex
 	objectstorage.StorableObjectFlags
 }
@@ -324,9 +299,11 @@ type Branch struct {
 // NewBranch creates a new Branch from the given details.
 func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 	c := &Branch{
-		id:        id,
-		parents:   parents.Clone(),
-		conflicts: conflicts.Clone(),
+		branchInner{
+			id:        id,
+			Parents:   parents.Clone(),
+			Conflicts: conflicts.Clone(),
+		},
 	}
 
 	c.SetModified()
@@ -336,8 +313,8 @@ func NewBranch(id BranchID, parents BranchIDs, conflicts ConflictIDs) *Branch {
 }
 
 // FromObjectStorage creates an Branch from sequences of key and bytes.
-func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstorage.StorableObject, err error) {
-	result, err := b.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (b *Branch) FromObjectStorage(key, value []byte) (conflictBranch objectstorage.StorableObject, err error) {
+	result, err := b.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Branch from bytes: %w", err)
 	}
@@ -345,38 +322,24 @@ func (b *Branch) FromObjectStorage(key, bytes []byte) (conflictBranch objectstor
 }
 
 // FromBytes unmarshals an Branch from a sequence of bytes.
-func (b *Branch) FromBytes(bytes []byte) (branch *Branch, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if branch, err = b.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch from MarshalUtil: %w", err)
+func (b *Branch) FromBytes(data []byte) (branch *Branch, err error) {
+	if branch = b; branch == nil {
+		branch = new(Branch)
+	}
+
+	branchID := new(BranchID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, branchID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
 		return
 	}
 
-	return
-}
-
-// FromMarshalUtil unmarshals an Branch using a MarshalUtil (for easier unmarshaling).
-func (b *Branch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (branch *Branch, err error) {
-	if branch = b; b == nil {
-		branch = &Branch{}
-	}
-	if branch.id, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse id: %w", err)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], branch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
 		return
 	}
-	if branch.parents, err = BranchIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Branch parents: %w", err)
-		return
-	}
-	if branch.conflicts, err = ConflictIDsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse conflicts: %w", err)
-		return
-	}
-	if branch.inclusionState, err = InclusionStateFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse inclusionState: %w", err)
-		return
-	}
-
+	branch.branchInner.id = *branchID
 	return
 }
 
@@ -390,7 +353,7 @@ func (b *Branch) InclusionState() (inclusionState InclusionState) {
 	b.inclusionStateMutex.RLock()
 	defer b.inclusionStateMutex.RUnlock()
 
-	return b.inclusionState
+	return b.branchInner.InclusionState
 }
 
 // setInclusionState sets the InclusionState of the Branch (it is private because the InclusionState should be
@@ -399,11 +362,11 @@ func (b *Branch) setInclusionState(inclusionState InclusionState) (modified bool
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
-	if modified = b.inclusionState != inclusionState; !modified {
+	if modified = b.branchInner.InclusionState != inclusionState; !modified {
 		return
 	}
 
-	b.inclusionState = inclusionState
+	b.branchInner.InclusionState = inclusionState
 	b.SetModified()
 
 	return
@@ -414,7 +377,7 @@ func (b *Branch) Parents() BranchIDs {
 	b.parentsMutex.RLock()
 	defer b.parentsMutex.RUnlock()
 
-	return b.parents.Clone()
+	return b.branchInner.Parents.Clone()
 }
 
 // SetParents updates the parents of the Branch.
@@ -422,7 +385,7 @@ func (b *Branch) SetParents(parentBranches BranchIDs) (modified bool) {
 	b.parentsMutex.Lock()
 	defer b.parentsMutex.Unlock()
 
-	b.parents = parentBranches
+	b.branchInner.Parents = parentBranches
 	b.SetModified()
 	modified = true
 
@@ -434,7 +397,7 @@ func (b *Branch) Conflicts() (conflicts ConflictIDs) {
 	b.conflictsMutex.RLock()
 	defer b.conflictsMutex.RUnlock()
 
-	conflicts = b.conflicts.Clone()
+	conflicts = b.branchInner.Conflicts.Clone()
 
 	return
 }
@@ -444,11 +407,11 @@ func (b *Branch) AddConflict(conflictID ConflictID) (added bool) {
 	b.conflictsMutex.Lock()
 	defer b.conflictsMutex.Unlock()
 
-	if _, exists := b.conflicts[conflictID]; exists {
+	if _, exists := b.branchInner.Conflicts[conflictID]; exists {
 		return
 	}
 
-	b.conflicts[conflictID] = types.Void
+	b.branchInner.Conflicts[conflictID] = types.Void
 	b.SetModified()
 	added = true
 
@@ -464,25 +427,32 @@ func (b *Branch) Bytes() []byte {
 func (b *Branch) String() string {
 	return stringify.Struct("Branch",
 		stringify.StructField("id", b.ID()),
-		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("conflicts", b.Conflicts()),
+		stringify.StructField("Parents", b.Parents()),
+		stringify.StructField("Conflicts", b.Conflicts()),
+		stringify.StructField("InclusionState", b.InclusionState()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (b *Branch) ObjectStorageKey() []byte {
-	return b.ID().Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
 func (b *Branch) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		Write(b.Parents()).
-		Write(b.Conflicts()).
-		Write(b.InclusionState()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -496,8 +466,11 @@ var ChildBranchKeyPartition = objectstorage.PartitionKey(BranchIDLength, BranchI
 // unbounded amount of child Branches, we store this as a separate k/v pair instead of a marshaled list of children
 // inside the Branch.
 type ChildBranch struct {
-	parentBranchID BranchID
-	childBranchID  BranchID
+	conflictBranchInner `serix:"0"`
+}
+type conflictBranchInner struct {
+	ParentBranchID BranchID `serix:"0"`
+	ChildBranchID  BranchID `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -505,14 +478,16 @@ type ChildBranch struct {
 // NewChildBranch is the constructor of the ChildBranch reference.
 func NewChildBranch(parentBranchID, childBranchID BranchID) *ChildBranch {
 	return &ChildBranch{
-		parentBranchID: parentBranchID,
-		childBranchID:  childBranchID,
+		conflictBranchInner{
+			ParentBranchID: parentBranchID,
+			ChildBranchID:  childBranchID,
+		},
 	}
 }
 
 // FromObjectStorage creates an ChildBranch from sequences of key and bytes.
-func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *ChildBranch) FromObjectStorage(key, value []byte) (childBranch objectstorage.StorableObject, err error) {
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse ChildBranch from bytes: %w", err)
 		return result, err
@@ -521,42 +496,26 @@ func (c *ChildBranch) FromObjectStorage(key, bytes []byte) (childBranch objectst
 }
 
 // FromBytes unmarshals a ChildBranch from a sequence of bytes.
-func (c *ChildBranch) FromBytes(bytes []byte) (childBranch objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if childBranch, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ChildBranch from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an ChildBranch using a MarshalUtil (for easier unmarshaling).
-func (c *ChildBranch) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (childBranch *ChildBranch, err error) {
+func (c *ChildBranch) FromBytes(data []byte) (childBranch *ChildBranch, err error) {
 	if childBranch = c; childBranch == nil {
 		childBranch = new(ChildBranch)
 	}
-
-	if childBranch.parentBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse parent BranchID from MarshalUtil: %w", err)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, childBranch, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ChildBranch: %w", err)
 		return
 	}
-	if childBranch.childBranchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse child BranchID from MarshalUtil: %w", err)
-		return
-	}
-
 	return
 }
 
 // ParentBranchID returns the BranchID of the parent Branch in the BranchDAG.
 func (c *ChildBranch) ParentBranchID() (parentBranchID BranchID) {
-	return c.parentBranchID
+	return c.conflictBranchInner.ParentBranchID
 }
 
 // ChildBranchID returns the BranchID of the child Branch in the BranchDAG.
 func (c *ChildBranch) ChildBranchID() (childBranchID BranchID) {
-	return c.childBranchID
+	return c.conflictBranchInner.ChildBranchID
 }
 
 // Bytes returns a marshaled version of the ChildBranch.
@@ -567,24 +526,27 @@ func (c *ChildBranch) Bytes() (marshaledChildBranch []byte) {
 // String returns a human readable version of the ChildBranch.
 func (c *ChildBranch) String() (humanReadableChildBranch string) {
 	return stringify.Struct("ChildBranch",
-		stringify.StructField("parentBranchID", c.ParentBranchID()),
-		stringify.StructField("childBranchID", c.ChildBranchID()),
+		stringify.StructField("ParentBranchID", c.ParentBranchID()),
+		stringify.StructField("ChildBranchID", c.ChildBranchID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
-func (c *ChildBranch) ObjectStorageKey() (objectStorageKey []byte) {
-	return marshalutil.New(BranchIDLength + BranchIDLength).
-		WriteBytes(c.parentBranchID.Bytes()).
-		WriteBytes(c.childBranchID.Bytes()).
-		Bytes()
+func (c *ChildBranch) ObjectStorageKey() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue marshals the AggregatedBranch into a sequence of bytes that are used as the value part in the
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
 // object storage.
-func (c *ChildBranch) ObjectStorageValue() (objectStorageValue []byte) {
+func (c *ChildBranch) ObjectStorageValue() []byte {
 	return []byte{}
+
 }
 
 // code contract (make sure the struct implements all required methods)

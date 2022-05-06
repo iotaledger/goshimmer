@@ -22,7 +22,7 @@ var (
 	// bufferSize number of bytes waiting to be scheduled.
 	bufferSize int
 
-	// maxBufferSize maximum number of bytes that can be stored in the buffer.
+	// maxBufferSize maximum number of messages can be stored in the buffer.
 	maxBufferSize int
 
 	// nodeQueueSizes current size of each node's queue.
@@ -88,7 +88,7 @@ func SchedulerReadyMessagesCount() int {
 	return readyMessagesCount
 }
 
-// SchedulerMaxBufferSize returns if the node is synced based on tangle time.
+// SchedulerMaxBufferSize returns the maximum buffer size.
 func SchedulerMaxBufferSize() int {
 	return maxBufferSize
 }

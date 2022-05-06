@@ -77,10 +77,10 @@ func (b *BufferQueue) Submit(msg Element, accessManaRetriever func(identity.ID) 
 	if !nodeActive {
 		b.activeNode[nodeID] = b.ringInsert(nodeQueue)
 	}
-	b.size += msg.Size()
+	b.size++
 
 	// if max buffer size exceeded, drop from head of the longest mana-scaled queue
-	if b.size > b.maxBuffer {
+	if b.Size() > b.maxBuffer {
 		return b.dropHead(accessManaRetriever)
 	}
 
@@ -129,7 +129,7 @@ func (b *BufferQueue) dropHead(accessManaRetriever func(identity.ID) float64) (m
 			b.Unsubmit(oldestMessage)
 		} else if readyQueueFront != nil {
 			msg := longestQueue.PopFront()
-			b.size -= msg.Size()
+			b.size--
 			messagesDropped = append(messagesDropped, ElementIDFromBytes(msg.IDBytes()))
 		} else {
 			panic("scheduler buffer size exceeded and the longest scheduler queue is empty.")
@@ -153,7 +153,7 @@ func (b *BufferQueue) Unsubmit(msg Element) bool {
 		return false
 	}
 
-	b.size -= msg.Size()
+	b.size--
 	return true
 }
 
@@ -247,7 +247,7 @@ func (b *BufferQueue) Current() *NodeQueue {
 func (b *BufferQueue) PopFront() Element {
 	q := b.Current()
 	msg := q.PopFront()
-	b.size -= msg.Size()
+	b.size--
 	return msg
 }
 

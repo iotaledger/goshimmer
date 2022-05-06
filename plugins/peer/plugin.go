@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/mr-tron/base58"
@@ -50,8 +50,8 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(configureLocalPeer); err != nil {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(configureLocalPeer); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -171,7 +171,10 @@ func initPeerDB() (*peer.DB, kvstore.KVStore, bool, error) {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %s", err)
 	}
 
-	peerDBKVStore := db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer})
+	peerDBKVStore, err := db.NewStore().WithRealm([]byte{databasePkg.PrefixPeer})
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("error creating peer store: %w", err)
+	}
 	peerDB, err := peer.NewDB(peerDBKVStore)
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("error creating peer database: %w", err)

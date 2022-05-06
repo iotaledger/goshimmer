@@ -21,13 +21,13 @@ const (
 	FaucetRequestSplitNumber = 100
 	faucetTokensPerRequest   = 1000000
 
-	waitForConfirmation   = 60 * time.Second
-	waitForSolidification = 10 * time.Second
+	waitForConfirmation   = 150 * time.Second
+	waitForSolidification = 150 * time.Second
 
-	awaitConfirmationSleep   = time.Second
+	awaitConfirmationSleep   = 3 * time.Second
 	awaitSolidificationSleep = time.Millisecond * 500
 
-	WaitForTxSolid = 2 * time.Second
+	WaitForTxSolid = 150 * time.Second
 
 	maxGoroutines = 5
 )

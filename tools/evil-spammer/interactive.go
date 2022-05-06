@@ -19,26 +19,28 @@ import (
 )
 
 const (
-	faucetFundsCheck   = time.Minute / 4
+	faucetFundsCheck   = time.Minute / 12
 	maxConcurrentSpams = 5
-	minSpamOutputs     = 2000
 	lastSpamsShowed    = 15
 	timeFormat         = "2006/01/02 15:04:05"
 )
 
 var (
-	faucetTicker *time.Ticker
-	printer      *Printer
+	faucetTicker   *time.Ticker
+	printer        *Printer
+	minSpamOutputs int
 )
 
 type InteractiveConfig struct {
-	WebAPI      []string `json:"webAPI"`
-	Rate        int      `json:"rate"`
-	DurationStr string   `json:"duration"`
-	TimeUnitStr string   `json:"timeUnit"`
-	Deep        bool     `json:"deepEnabled"`
-	Reuse       bool     `json:"reuseEnabled"`
-	Scenario    string   `json:"scenario"`
+	WebAPI               []string `json:"webAPI"`
+	Rate                 int      `json:"rate"`
+	DurationStr          string   `json:"duration"`
+	TimeUnitStr          string   `json:"timeUnit"`
+	Deep                 bool     `json:"deepEnabled"`
+	Reuse                bool     `json:"reuseEnabled"`
+	Scenario             string   `json:"scenario"`
+	AutoRequesting       bool     `json:"autoRequestingEnabled"`
+	AutoRequestingAmount string   `json:"autoRequestingAmount"`
 
 	duration   time.Duration
 	timeUnit   time.Duration
@@ -46,27 +48,36 @@ type InteractiveConfig struct {
 }
 
 var configJSON = `{
-	"webAPI": ["http://127.0.0.1:8080","http://127.0.0.1:8090"],
+	"webAPI": ["http://localhost:8080","http://localhost:8090"],
 	"rate": 2,
 	"duration": "20s",
 	"timeUnit": "1s",
 	"deepEnabled": false,
 	"reuseEnabled": true,
-	"scenario": "tx"
+	"scenario": "tx",
+	"autoRequestingEnabled": false,
+	"autoRequestingAmount": "100"
 }`
 
 var defaultConfig = InteractiveConfig{
 	clientUrls: map[string]types.Empty{
-		"http://127.0.0.1:8080": types.Void,
-		"http://127.0.0.1:8090": types.Void,
+		"http://localhost:8080": types.Void,
+		"http://localhost:8090": types.Void,
 	},
-	Rate:     2,
-	duration: 20 * time.Second,
-	timeUnit: time.Second,
-	Deep:     false,
-	Reuse:    true,
-	Scenario: "tx",
+	Rate:                 2,
+	duration:             20 * time.Second,
+	timeUnit:             time.Second,
+	Deep:                 false,
+	Reuse:                true,
+	Scenario:             "tx",
+	AutoRequesting:       false,
+	AutoRequestingAmount: "100",
 }
+
+const (
+	requestAmount100 = "100"
+	requestAmount10k = "10000"
+)
 
 // region survey selections  ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -82,7 +93,7 @@ const (
 	shutdown
 )
 
-var actions = []string{"Evil wallet details", "Prepare faucet funds", "New spam", "Currently running", "Spam history", "Settings", "Close"}
+var actions = []string{"Evil wallet details", "Prepare faucet funds", "New spam", "Active spammers", "Spam history", "Settings", "Close"}
 
 const (
 	spamScenario = "Change scenario"
@@ -108,6 +119,13 @@ const (
 
 var currentSpamOptions = []string{currentSpamRemove, back}
 
+const (
+	mpm = "Minute, rate is [mpm]"
+	mps = "Second, rate is [mps]"
+)
+
+var timeUnits = []string{mpm, mps}
+
 var (
 	scenarios     = []string{"msg", "tx", "ds", "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
 	confirms      = []string{"enable", "disable"}
@@ -125,8 +143,8 @@ func Run() {
 
 	printer.printBanner()
 	mode.loadConfig()
-	time.Sleep(time.Second)
-	configure()
+	time.Sleep(time.Millisecond * 100)
+	configure(mode)
 	go mode.runBackgroundTasks()
 	mode.menu()
 
@@ -138,14 +156,22 @@ func Run() {
 			mode.menu()
 		case <-mode.shutdown:
 			printer.FarewellMessage()
+			mode.saveConfigsToFile()
 			os.Exit(0)
 			return
 		}
 	}
 }
 
-func configure() {
+func configure(mode *Mode) {
 	faucetTicker = time.NewTicker(faucetFundsCheck)
+	switch mode.Config.AutoRequestingAmount {
+	case requestAmount100:
+		minSpamOutputs = 40
+	case requestAmount10k:
+		minSpamOutputs = 2000
+	}
+
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -161,8 +187,7 @@ type Mode struct {
 
 	nextAction string
 
-	preparingFunds          bool
-	autoFundsPrepareEnabled bool
+	preparingFunds bool
 
 	Config        InteractiveConfig
 	msgSent       *atomic.Uint64
@@ -189,9 +214,8 @@ func NewInteractiveMode() *Mode {
 		txSent:        atomic.NewUint64(0),
 		scenariosSent: atomic.NewUint64(0),
 
-		spammerLog:              NewSpammerLog(),
-		activeSpammers:          make(map[int]*evilspammer.Spammer),
-		autoFundsPrepareEnabled: false,
+		spammerLog:     NewSpammerLog(),
+		activeSpammers: make(map[int]*evilspammer.Spammer),
 	}
 }
 
@@ -265,12 +289,17 @@ func (m *Mode) onMenuAction() {
 
 func (m *Mode) prepareFundsIfNeeded() {
 	if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < minSpamOutputs {
-		if !m.preparingFunds && m.autoFundsPrepareEnabled {
+		if !m.preparingFunds && m.Config.AutoRequesting {
 			m.preparingFunds = true
 			go func() {
-				_ = m.evilWallet.RequestFreshBigFaucetWallet()
+				switch m.Config.AutoRequestingAmount {
+				case requestAmount100:
+					_ = m.evilWallet.RequestFreshFaucetWallet()
+				case requestAmount10k:
+					_ = m.evilWallet.RequestFreshBigFaucetWallet()
+				}
+				m.preparingFunds = false
 			}()
-			m.preparingFunds = false
 		}
 	}
 }
@@ -282,6 +311,7 @@ func (m *Mode) onSettings() {
 func (m *Mode) prepareFunds() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
+	printer.DevNetFundsWarning()
 
 	if m.preparingFunds {
 		printer.FundsCurrentlyPreparedWarning()
@@ -289,7 +319,6 @@ func (m *Mode) prepareFunds() {
 	}
 	if len(m.Config.clientUrls) == 0 {
 		printer.NotEnoughClientsWarning(1)
-		return
 	}
 	numToPrepareStr := ""
 	err := survey.AskOne(fundsQuestion, &numToPrepareStr)
@@ -347,8 +376,9 @@ func (m *Mode) spamMenu() {
 func (m *Mode) spamSubMenu(menuType string) {
 	switch menuType {
 	case spamDetails:
+		defaultTimeUnit := timeUnitToString(m.Config.duration)
 		var spamSurvey spamDetailsSurvey
-		err := survey.Ask(spamDetailsQuestions(strconv.Itoa(int(m.Config.duration.Seconds())), strconv.Itoa(m.Config.Rate)), &spamSurvey)
+		err := survey.Ask(spamDetailsQuestions(strconv.Itoa(int(m.Config.duration.Seconds())), strconv.Itoa(m.Config.Rate), defaultTimeUnit), &spamSurvey)
 		if err != nil {
 			fmt.Println(err.Error())
 			m.mainMenu <- types.Void
@@ -397,19 +427,28 @@ func (m *Mode) spamSubMenu(menuType string) {
 }
 
 func (m *Mode) areEnoughFundsAvailable() bool {
-	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < m.Config.Rate*int(m.Config.duration.Seconds()) && m.Config.Scenario != "msg"
+	outputsNeeded := m.Config.Rate * int(m.Config.duration.Seconds())
+	if m.Config.timeUnit == time.Minute {
+		outputsNeeded = int(float64(m.Config.Rate) * m.Config.duration.Minutes())
+	}
+	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != "msg"
 }
 
 func (m *Mode) startSpam() {
 	m.spamMutex.Lock()
 	defer m.spamMutex.Unlock()
 
-	s, _ := evilwallet.GetScenario(m.Config.Scenario)
-	spammer := SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
-	if spammer == nil {
-		return
-	}
+	var spammer *evilspammer.Spammer
+	if m.Config.Scenario == "msg" {
+		spammer = SpamMessages(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, 0)
+	} else {
+		s, _ := evilwallet.GetScenario(m.Config.Scenario)
+		spammer = SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.Config.duration, s, m.Config.Deep, m.Config.Reuse)
+		if spammer == nil {
+			return
+		}
 
+	}
 	spamId := m.spammerLog.AddSpam(m.Config)
 	m.activeSpammers[spamId] = spammer
 	go func(id int) {
@@ -479,6 +518,10 @@ func (m *Mode) validateAndAddUrl(url string) {
 	if !ok {
 		printer.UrlWarning()
 	} else {
+		if _, ok := m.Config.clientUrls[url]; ok {
+			printer.UrlExists()
+			return
+		}
 		m.Config.clientUrls[url] = types.Void
 		m.evilWallet.AddClient(url)
 	}
@@ -486,9 +529,11 @@ func (m *Mode) validateAndAddUrl(url string) {
 
 func (m *Mode) onFundsCreation(answer string) {
 	if answer == "enable" {
-		m.autoFundsPrepareEnabled = true
+		m.Config.AutoRequesting = true
+		printer.AutoRequestingEnabled()
+		m.prepareFundsIfNeeded()
 	} else {
-		m.autoFundsPrepareEnabled = false
+		m.Config.AutoRequesting = false
 	}
 }
 
@@ -502,9 +547,6 @@ func (m *Mode) settings() {
 		fmt.Println(err.Error())
 		return
 	}
-	m.onSettings()
-	printer.SettingFundsMessage()
-
 }
 
 func (m *Mode) history() {
@@ -517,6 +559,12 @@ func (m *Mode) currentSpams() {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
 
+	if len(m.activeSpammers) == 0 {
+		printer.Println(printer.colorString("There are no currently running spammers.", "red"), 1)
+		fmt.Println("")
+		m.mainMenu <- types.Void
+		return
+	}
 	printer.CurrentSpams()
 	answer := ""
 	err := survey.AskOne(currentMenuQuestion, &answer)
@@ -563,6 +611,12 @@ func (m *Mode) parseSpamDetails(details spamDetailsSurvey) {
 	rate, err := strconv.Atoi(details.SpamRate)
 	if err != nil {
 		return
+	}
+	switch details.TimeUnit {
+	case mpm:
+		m.Config.timeUnit = time.Minute
+	case mps:
+		m.Config.timeUnit = time.Second
 	}
 	m.Config.Rate = rate
 	m.Config.duration = dur
@@ -660,6 +714,7 @@ func (m *Mode) loadConfig() {
 	}
 	for _, url := range m.Config.WebAPI {
 		m.Config.clientUrls[url] = types.Void
+		m.evilWallet.AddClient(url)
 	}
 	// parse duration
 	d, err := time.ParseDuration(m.Config.DurationStr)
@@ -672,6 +727,32 @@ func (m *Mode) loadConfig() {
 	}
 	m.Config.duration = d
 	m.Config.timeUnit = u
+}
+
+func (m *Mode) saveConfigsToFile() {
+	// open config file
+	file, err := os.Open("config.json")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	// update client urls
+	m.Config.WebAPI = []string{}
+	for url := range m.Config.clientUrls {
+		m.Config.WebAPI = append(m.Config.WebAPI, url)
+	}
+
+	// update duration
+	m.Config.DurationStr = m.Config.duration.String()
+
+	// update time unit
+	m.Config.TimeUnitStr = m.Config.timeUnit.String()
+
+	jsonConfigs, _ := json.MarshalIndent(m.Config, "", "    ")
+	if err = os.WriteFile("config.json", jsonConfigs, 0o644); err != nil {
+		panic(err)
+	}
 }
 
 func enableToBool(e string) bool {
@@ -692,6 +773,17 @@ func validateUrl(url string) (ok bool) {
 		return
 	}
 	return true
+}
+
+func timeUnitToString(d time.Duration) string {
+	defaultTimeUnit := ""
+	switch d {
+	case time.Minute:
+		defaultTimeUnit = mpm
+	case time.Second:
+		defaultTimeUnit = mps
+	}
+	return defaultTimeUnit
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

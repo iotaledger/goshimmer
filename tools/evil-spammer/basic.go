@@ -46,7 +46,11 @@ func CustomSpam(params *CustomSpamParams) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
+				s := SpamMessages(wallet, params.Rates[i], params.TimeUnit, params.Durations[i], params.MsgToBeSent[i])
+				if s == nil {
+					return
+				}
+				s.Spam()
 			}()
 		case "tx":
 			wg.Add(1)
@@ -89,7 +93,6 @@ func CustomSpam(params *CustomSpamParams) {
 func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, deepSpam bool) {
 	if wallet.NumOfClient() < 1 {
 		printer.NotEnoughClientsWarning(1)
-		return
 	}
 
 	scenarioOptions := []evilwallet.ScenarioOption{
@@ -118,7 +121,6 @@ func SpamTransaction(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration
 func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
 	if wallet.NumOfClient() < 2 {
 		printer.NotEnoughClientsWarning(2)
-		return
 	}
 
 	scenarioOptions := []evilwallet.ScenarioOption{
@@ -147,7 +149,6 @@ func SpamDoubleSpends(wallet *evilwallet.EvilWallet, rate, numDsToSend int, time
 func SpamNDoubleSpends(wallet *evilwallet.EvilWallet, rate, nSpend int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam bool) {
 	if nSpend > wallet.NumOfClient() {
 		printer.NotEnoughClientsWarning(nSpend)
-		return
 	}
 
 	scenarioOptions := []evilwallet.ScenarioOption{
@@ -194,7 +195,6 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	if scenario.NumOfClientsNeeded > wallet.NumOfClient() {
 		spammer = nil
 		printer.NotEnoughClientsWarning(scenario.NumOfClientsNeeded)
-		return
 	}
 
 	options := []evilspammer.Options{
@@ -208,10 +208,9 @@ func SpamNestedConflicts(wallet *evilwallet.EvilWallet, rate int, timeUnit, dura
 	return
 }
 
-func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numMsgToSend int) {
+func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numMsgToSend int) *evilspammer.Spammer {
 	if wallet.NumOfClient() < 1 {
 		printer.NotEnoughClientsWarning(1)
-		return
 	}
 
 	options := []evilspammer.Options{
@@ -222,5 +221,5 @@ func SpamMessages(wallet *evilwallet.EvilWallet, rate int, timeUnit, duration ti
 		evilspammer.WithSpammingFunc(evilspammer.DataSpammingFunction),
 	}
 	spammer := evilspammer.NewSpammer(options...)
-	spammer.Spam()
+	return spammer
 }

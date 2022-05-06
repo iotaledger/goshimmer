@@ -27,13 +27,12 @@ func TestActiveNodesMarshalling(t *testing.T) {
 
 		activeNodes[nodeID] = a
 	}
-
 	activeNodesBytes := activeNodesToBytes(activeNodes)
 	activeNodes2, err := activeNodesFromBytes(activeNodesBytes)
 	require.NoError(t, err)
 
 	for nodeID, a := range activeNodes {
-		assert.EqualValues(t, a.Bytes(), activeNodes2[nodeID].Bytes())
+		assert.EqualValues(t, a.setTimes.Size(), activeNodes2[nodeID].setTimes.Size())
 	}
 }
 

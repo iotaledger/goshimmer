@@ -58,7 +58,7 @@ func testPayload() *CollectiveBeaconPayload {
 
 func TestDispatcher(t *testing.T) {
 	marshalUtil := marshalutil.New(testPayload().Bytes())
-	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	parsedPayload, err := CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 	config := make(map[uint32][]Option)
 	config[1] = []Option{SetCommittee(committeeTest)}
@@ -71,7 +71,7 @@ func TestDispatcher(t *testing.T) {
 
 func TestEmptyState(t *testing.T) {
 	marshalUtil := marshalutil.New(testPayload().Bytes())
-	parsedPayload, err := PayloadFromMarshalUtil(marshalUtil)
+	parsedPayload, err := CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	require.NoError(t, err)
 	config := make(map[uint32][]Option)
 

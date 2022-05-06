@@ -1,6 +1,8 @@
 package ledgerstate
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -10,10 +12,18 @@ import (
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(ConflictIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 // region ConflictID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -91,28 +101,6 @@ func NewConflictIDs(optionalConflictIDs ...ConflictID) (conflictIDs ConflictIDs)
 	return
 }
 
-// ConflictIDsFromMarshalUtil unmarshals a collection of ConflictIDs using a MarshalUtil (for easier unmarshaling).
-func ConflictIDsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictIDs ConflictIDs, err error) {
-	conflictIDsCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to parse count of ConflictIDs (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	conflictIDs = make(ConflictIDs)
-	for i := uint64(0); i < conflictIDsCount; i++ {
-		conflictID, conflictIDErr := ConflictIDFromMarshalUtil(marshalUtil)
-		if conflictIDErr != nil {
-			err = errors.Errorf("failed to parse ConflictID: %w", conflictIDErr)
-			return
-		}
-
-		conflictIDs[conflictID] = types.Void
-	}
-
-	return
-}
-
 // Add adds a ConflictID to the collection and returns the collection to enable chaining.
 func (c ConflictIDs) Add(conflictID ConflictID) ConflictIDs {
 	c[conflictID] = types.Void
@@ -128,17 +116,6 @@ func (c ConflictIDs) Slice() (list []ConflictID) {
 	}
 
 	return
-}
-
-// Bytes returns a marshaled version of the ConflictIDs.
-func (c ConflictIDs) Bytes() []byte {
-	marshalUtil := marshalutil.New(marshalutil.Int64Size + len(c)*ConflictIDLength)
-	marshalUtil.WriteUint64(uint64(len(c)))
-	for conflictID := range c {
-		marshalUtil.WriteBytes(conflictID.Bytes())
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human readable version of the ConflictIDs.
@@ -172,8 +149,11 @@ func (c ConflictIDs) Clone() (clonedConflictIDs ConflictIDs) {
 
 // Conflict represents a set of Branches that are conflicting with each other.
 type Conflict struct {
-	id               ConflictID
-	memberCount      int
+	conflictInner `serix:"0"`
+}
+type conflictInner struct {
+	ID               ConflictID
+	MemberCount      int64 `serix:"1"`
 	memberCountMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -182,13 +162,15 @@ type Conflict struct {
 // NewConflict is the constructor for new Conflicts.
 func NewConflict(conflictID ConflictID) *Conflict {
 	return &Conflict{
-		id: conflictID,
+		conflictInner{
+			ID: conflictID,
+		},
 	}
 }
 
 // FromObjectStorage creates a Conflict from sequences of key and bytes.
-func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.StorableObject, err error) {
-	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *Conflict) FromObjectStorage(key, value []byte) (conflict objectstorage.StorableObject, err error) {
+	conflict, err = c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Conflict from bytes: %w", err)
 	}
@@ -196,38 +178,29 @@ func (c *Conflict) FromObjectStorage(key, bytes []byte) (conflict objectstorage.
 }
 
 // FromBytes unmarshals a Conflict from a sequence of bytes.
-func (c *Conflict) FromBytes(bytes []byte) (conflict *Conflict, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflict, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Conflict using a MarshalUtil (for easier unmarshaling).
-func (c *Conflict) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflict *Conflict, err error) {
+func (c *Conflict) FromBytes(data []byte) (conflict *Conflict, err error) {
 	if conflict = c; conflict == nil {
-		conflict = &Conflict{}
+		conflict = new(Conflict)
 	}
-	if conflict.id, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
-		return
-	}
-	memberCount, err := marshalUtil.ReadUint64()
+	conflictID := new(ConflictID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, conflictID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse member count (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse Branch.id: %w", err)
 		return
 	}
-	conflict.memberCount = int(memberCount)
 
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], conflict, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Branch: %w", err)
+		return
+	}
+	conflict.conflictInner.ID = *conflictID
 	return
 }
 
 // ID returns the identifier of this Conflict.
 func (c *Conflict) ID() ConflictID {
-	return c.id
+	return c.conflictInner.ID
 }
 
 // MemberCount returns the amount of Branches that are part of this Conflict.
@@ -235,7 +208,7 @@ func (c *Conflict) MemberCount() int {
 	c.memberCountMutex.RLock()
 	defer c.memberCountMutex.RUnlock()
 
-	return c.memberCount
+	return int(c.conflictInner.MemberCount)
 }
 
 // IncreaseMemberCount increase the MemberCount of this Conflict.
@@ -248,11 +221,11 @@ func (c *Conflict) IncreaseMemberCount(optionalDelta ...int) (newMemberCount int
 	c.memberCountMutex.Lock()
 	defer c.memberCountMutex.Unlock()
 
-	c.memberCount += delta
+	c.conflictInner.MemberCount += int64(delta)
 	c.SetModified()
-	newMemberCount = c.memberCount
+	newMemberCount = int(c.conflictInner.MemberCount)
 
-	return c.memberCount
+	return int(c.conflictInner.MemberCount)
 }
 
 // DecreaseMemberCount decreases the MemberCount of this Conflict.
@@ -265,9 +238,9 @@ func (c *Conflict) DecreaseMemberCount(optionalDelta ...int) (newMemberCount int
 	c.memberCountMutex.Lock()
 	defer c.memberCountMutex.Unlock()
 
-	c.memberCount -= delta
+	c.conflictInner.MemberCount -= int64(delta)
 	c.SetModified()
-	newMemberCount = c.memberCount
+	newMemberCount = int(c.conflictInner.MemberCount)
 
 	return
 }
@@ -280,23 +253,31 @@ func (c *Conflict) Bytes() []byte {
 // String returns a human readable version of the Conflict.
 func (c *Conflict) String() string {
 	return stringify.Struct("Conflict",
-		stringify.StructField("id", c.ID()),
-		stringify.StructField("memberCount", c.MemberCount()),
+		stringify.StructField("ID", c.ID()),
+		stringify.StructField("MemberCount", c.MemberCount()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Conflict) ObjectStorageKey() []byte {
-	return c.id.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue marshals the Conflict into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
+// ObjectStorageValue marshals the Conflict into a sequence of bytes that are used as the value part in the
+// object storage.
 func (c *Conflict) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.Uint64Size).
-		WriteUint64(uint64(c.MemberCount())).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // code contract (make sure the type implements all required methods)
@@ -313,23 +294,27 @@ var ConflictMemberKeyPartition = objectstorage.PartitionKey(ConflictIDLength, Br
 // potentially unbounded amount of conflicting Consumers, we store the membership of the Branches in the corresponding
 // Conflicts as a separate k/v pair instead of a marshaled list of members inside the Branch.
 type ConflictMember struct {
-	conflictID ConflictID
-	branchID   BranchID
-
+	conflictMemberInner `serix:"0"`
+}
+type conflictMemberInner struct {
+	ConflictID ConflictID `serix:"0"`
+	BranchID   BranchID   `serix:"1"`
 	objectstorage.StorableObjectFlags
 }
 
 // NewConflictMember is the constructor of the ConflictMember reference.
 func NewConflictMember(conflictID ConflictID, branchID BranchID) *ConflictMember {
 	return &ConflictMember{
-		conflictID: conflictID,
-		branchID:   branchID,
+		conflictMemberInner{
+			ConflictID: conflictID,
+			BranchID:   branchID,
+		},
 	}
 }
 
 // FromObjectStorage creates an ConflictMember from sequences of key and bytes.
-func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember objectstorage.StorableObject, err error) {
-	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *ConflictMember) FromObjectStorage(key, value []byte) (conflictMember objectstorage.StorableObject, err error) {
+	conflictMember, err = c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse ConflictMember from bytes: %w", err)
 	}
@@ -337,41 +322,26 @@ func (c *ConflictMember) FromObjectStorage(key, bytes []byte) (conflictMember ob
 }
 
 // FromBytes unmarshals a ConflictMember from a sequence of bytes.
-func (c *ConflictMember) FromBytes(bytes []byte) (conflictMember *ConflictMember, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if conflictMember, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictMember from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals an ConflictMember using a MarshalUtil (for easier unmarshaling).
-func (c *ConflictMember) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (conflictMember *ConflictMember, err error) {
+func (c *ConflictMember) FromBytes(data []byte) (conflictMember *ConflictMember, err error) {
 	if conflictMember = c; conflictMember == nil {
-		conflictMember = &ConflictMember{}
+		conflictMember = new(ConflictMember)
 	}
-	if conflictMember.conflictID, err = ConflictIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ConflictID from MarshalUtil: %w", err)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, conflictMember, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ConflictMember: %w", err)
 		return
 	}
-	if conflictMember.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-
 	return
 }
 
 // ConflictID returns the identifier of the Conflict that this ConflictMember belongs to.
 func (c *ConflictMember) ConflictID() ConflictID {
-	return c.conflictID
+	return c.conflictMemberInner.ConflictID
 }
 
 // BranchID returns the identifier of the Branch that this ConflictMember references.
 func (c *ConflictMember) BranchID() BranchID {
-	return c.branchID
+	return c.conflictMemberInner.BranchID
 }
 
 // Bytes returns a marshaled version of this ConflictMember.
@@ -382,15 +352,20 @@ func (c *ConflictMember) Bytes() []byte {
 // String returns a human readable version of this ConflictMember.
 func (c *ConflictMember) String() string {
 	return stringify.Struct("ConflictMember",
-		stringify.StructField("conflictID", c.conflictID),
-		stringify.StructField("branchID", c.branchID),
+		stringify.StructField("ConflictID", c.ConflictID),
+		stringify.StructField("BranchID", c.BranchID),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *ConflictMember) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.conflictID.Bytes(), c.branchID.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
