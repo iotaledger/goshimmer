@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -26,7 +25,8 @@ func init() {
 		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
 	}
 	err = serix.DefaultAPI.RegisterTypeSettings(UnlockBlocks{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithArrayRules(&serix.ArrayRules{
-		ValidationMode: serializer.ArrayValidationModeNoDuplicates,
+		// TODO: Avoid failing on duplicated unlock blocks. They seem to have been wrongly generated in the old snapshot.
+		// ValidationMode: serializer.ArrayValidationModeNoDuplicates,
 	}))
 	if err != nil {
 		panic(fmt.Errorf("error registering SignatureUnlockBlock type settings: %w", err))
