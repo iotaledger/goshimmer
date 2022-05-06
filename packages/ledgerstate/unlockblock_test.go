@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestUnlockBlockFromMarshalUtil(t *testing.T) {
+func TestUnlockBlockFromBytes(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 
 	// test a valid set of UnlockBlocks

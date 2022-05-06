@@ -108,7 +108,7 @@ func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessag
 		IssuerID:          identity.NewID(message.IssuerPublicKey()).String(),
 		IssuerPublicKey:   message.IssuerPublicKey().String(),
 	}
-	drngPayload := message.Payload().(*drng.Payload)
+	drngPayload := message.Payload().(*drng.CollectiveBeaconPayload)
 
 	// parse as CollectiveBeaconType
 	marshalUtil := marshalutil.New(drngPayload.Bytes())

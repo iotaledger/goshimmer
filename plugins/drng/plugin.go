@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
@@ -37,8 +38,8 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	inbox = make(chan tangle.MessageID, inboxSize)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(configureDRNG); err != nil {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -65,7 +66,7 @@ func run(plugin *node.Plugin) {
 						return
 					}
 					marshalUtil := marshalutil.New(msg.Payload().Bytes())
-					parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
+					parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 					if err != nil {
 						// TODO: handle error
 						plugin.LogDebug(err)

@@ -2,18 +2,27 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(UTXOInput{}, serix.TypeSettings{}.WithObjectType(uint8(new(UTXOInput).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering UTXOInput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Input)(nil), new(UTXOInput))
+	if err != nil {
+		panic(fmt.Errorf("error registering Input interface implementations: %w", err))
+	}
+}
 
 // region InputType ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -68,41 +77,6 @@ type Input interface {
 	Compare(other Input) int
 }
 
-// InputFromBytes unmarshals an Input from a sequence of bytes.
-func InputFromBytes(inputBytes []byte) (input Input, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(inputBytes)
-	if input, err = InputFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Input from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// InputFromMarshalUtil unmarshals an Input using a MarshalUtil (for easier unmarshaling).
-func InputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input Input, err error) {
-	inputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	marshalUtil.ReadSeek(-1)
-
-	switch InputType(inputType) {
-	case UTXOInputType:
-		if input, err = UTXOInputFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse UTXOInput from MarshalUtil: %w", err)
-			return
-		}
-	default:
-		err = errors.Errorf("unsupported InputType (%X): %w", inputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Inputs ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,7 +107,7 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 			inputSerialized []byte
 		}{input, marshaledInput})
 	}
-
+	// TODO: does it need to be sorted here? Is ordering in serialized form enough?
 	// sort inputs
 	sort.Slice(sortedInputs, func(i, j int) bool {
 		return bytes.Compare(sortedInputs[i].inputSerialized, sortedInputs[j].inputSerialized) < 0
@@ -148,71 +122,12 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 	return
 }
 
-// InputsFromBytes unmarshals a collection of Inputs from a sequence of bytes.
-func InputsFromBytes(inputBytes []byte) (inputs Inputs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(inputBytes)
-	if inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// InputsFromMarshalUtil unmarshals a collection of Inputs using a MarshalUtil (for easier unmarshaling).
-func InputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (inputs Inputs, err error) {
-	inputsCount, err := marshalUtil.ReadUint16()
-	if err != nil {
-		err = errors.Errorf("failed to parse inputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if inputsCount < MinInputCount {
-		err = errors.Errorf("amount of Inputs (%d) failed to reach MinInputCount (%d): %w", inputsCount, MinInputCount, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if inputsCount > MaxInputCount {
-		err = errors.Errorf("amount of Inputs (%d) exceeds MaxInputCount (%d): %w", inputsCount, MaxInputCount, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	var previousInput Input
-	parsedInputs := make([]Input, inputsCount)
-	for i := uint16(0); i < inputsCount; i++ {
-		if parsedInputs[i], err = InputFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse Input from MarshalUtil: %w", err)
-			return
-		}
-
-		if previousInput != nil && previousInput.Compare(parsedInputs[i]) != -1 {
-			err = errors.Errorf("order of Inputs is invalid: %w", ErrTransactionInvalid)
-			return
-		}
-		previousInput = parsedInputs[i]
-	}
-
-	inputs = NewInputs(parsedInputs...)
-
-	return
-}
-
 // Clone creates a copy of the Inputs.
 func (i Inputs) Clone() (clonedInputs Inputs) {
 	clonedInputs = make(Inputs, len(i))
 	copy(clonedInputs[:], i)
 
 	return
-}
-
-// Bytes returns a marshaled version of the Inputs.
-func (i Inputs) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(i)))
-	for _, input := range i {
-		marshalUtil.WriteBytes(input.Bytes())
-	}
-
-	return marshalUtil.Bytes()
 }
 
 // String returns a human readable version of the Inputs.
@@ -243,35 +158,19 @@ func (i Inputs) Strings() (result []string) {
 
 // UTXOInput represents a reference to an Output in the UTXODAG.
 type UTXOInput struct {
-	referencedOutputID OutputID
+	utxoInputInner `serix:"0"`
+}
+type utxoInputInner struct {
+	ReferencedOutputID OutputID `serix:"0"`
 }
 
 // NewUTXOInput is the constructor for UTXOInputs.
 func NewUTXOInput(referencedOutputID OutputID) *UTXOInput {
 	return &UTXOInput{
-		referencedOutputID: referencedOutputID,
+		utxoInputInner{
+			ReferencedOutputID: referencedOutputID,
+		},
 	}
-}
-
-// UTXOInputFromMarshalUtil unmarshals a UTXOInput using a MarshalUtil (for easier unmarshaling).
-func UTXOInputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (input *UTXOInput, err error) {
-	inputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse InputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if InputType(inputType) != UTXOInputType {
-		err = errors.Errorf("invalid InputType (%X): %w", inputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	input = &UTXOInput{}
-	if input.referencedOutputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse referenced OutputID from MarshalUtil: %w", err)
-		return
-	}
-
-	return
 }
 
 // Type returns the type of the Input.
@@ -281,17 +180,22 @@ func (u *UTXOInput) Type() InputType {
 
 // ReferencedOutputID returns the OutputID that this Input references.
 func (u *UTXOInput) ReferencedOutputID() OutputID {
-	return u.referencedOutputID
+	return u.utxoInputInner.ReferencedOutputID
 }
 
-// Bytes returns a marshaled version of the Input.
+// Bytes returns a marshaled version of the Address.
 func (u *UTXOInput) Bytes() []byte {
-	return byteutils.ConcatBytes([]byte{byte(UTXOInputType)}, u.referencedOutputID.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), u, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		return nil
+	}
+	return objBytes
 }
 
 // Base58 returns the base58 encoded referenced output ID of this input.
 func (u *UTXOInput) Base58() string {
-	return u.referencedOutputID.Base58()
+	return u.utxoInputInner.ReferencedOutputID.Base58()
 }
 
 // Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
@@ -303,7 +207,7 @@ func (u *UTXOInput) Compare(other Input) int {
 // String returns a human readable version of the Input.
 func (u *UTXOInput) String() string {
 	return stringify.Struct("UTXOInput",
-		stringify.StructField("referencedOutputID", u.referencedOutputID),
+		stringify.StructField("ReferencedOutputID", u.ReferencedOutputID()),
 	)
 }
 

@@ -175,7 +175,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
 func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangle.Message, string, error) {
-	faucetReq := requestMsg.Payload().(*faucet.Request)
+	faucetReq := requestMsg.Payload().(*faucet.Payload)
 
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared

@@ -52,6 +52,7 @@ func TestExampleC(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
@@ -117,6 +118,8 @@ func TestExampleB(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
+
 		RegisterBranchIDAlias(NewBranchID(transactions["TX3"].ID()), "Branch3")
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
@@ -219,6 +222,7 @@ func TestExampleA(t *testing.T) {
 		outputs["D"] = transactions["TX2"].Essence().Outputs()[0].(*SigLockedSingleOutput)
 
 		transactions["TX3"] = buildTransaction(ledgerstate, wallets[0], wallets[0], []*SigLockedSingleOutput{outputs["C"], outputs["D"]})
+		transactions["TX3"].UnlockBlocks()[1] = &ReferenceUnlockBlock{referenceUnlockBlockInner{ReferencedIndex: 0}}
 		targetBranch3, err := ledgerstate.BookTransaction(transactions["TX3"])
 		require.NoError(t, err)
 		assert.Equal(t, NewBranchIDs(MasterBranchID), targetBranch3)
@@ -382,10 +386,14 @@ func TestOutputsUnspent(t *testing.T) {
 
 	outputsMetadata := []*OutputMetadata{
 		{
-			consumerCount: 0,
+			outputMetadataInner{
+				ConsumerCount: 0,
+			},
 		},
 		{
-			consumerCount: 1,
+			outputMetadataInner{
+				ConsumerCount: 1,
+			},
 		},
 	}
 
@@ -645,7 +653,7 @@ func TestUTXODAG_CheckTransaction(t *testing.T) {
 	t.Run("CASE: Tx not okay, alias unlocked for governance", func(t *testing.T) {
 		// tx alias output will be unlocked for governance
 		nextAlias = alias.NewAliasOutputNext(true)
-		essence.outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
+		essence.transactionEssenceInner.Outputs = NewOutputs(nextAlias, NewSigLockedSingleOutput(1, randEd25119Address()))
 
 		// create mapping from outputID to unlockBlock
 		inputToUnlockMapping := make(map[OutputID]UnlockBlock)
@@ -705,8 +713,8 @@ func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
 	unlockBlock := NewSignatureUnlockBlock(w.sign(txEssence))
-	unlockBlocks := make([]UnlockBlock, len(txEssence.inputs))
-	for i := range txEssence.inputs {
+	unlockBlocks := make([]UnlockBlock, len(txEssence.transactionEssenceInner.Inputs))
+	for i := range txEssence.transactionEssenceInner.Inputs {
 		unlockBlocks[i] = unlockBlock
 	}
 	return unlockBlocks

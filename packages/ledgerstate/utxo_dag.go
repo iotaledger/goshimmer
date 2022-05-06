@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"container/list"
+	"context"
 	"fmt"
 	"sync"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -24,7 +25,7 @@ import (
 
 // IUTXODAG is the interface for UTXODAG which is the core of the ledger state
 // that is formed by Transactions consuming Inputs and creating Outputs.  It represents all the methods
-// that helps to keep track of the balances and the different perceptions of potential conflicts.
+// that helps to keep track of the balances and the different perceptions of potential Conflicts.
 type IUTXODAG interface {
 	// Events returns all events of the UTXODAG
 	Events() *UTXODAGEvents
@@ -67,7 +68,7 @@ type IUTXODAG interface {
 }
 
 // UTXODAG represents the DAG that is formed by Transactions consuming Inputs and creating Outputs. It forms the core of
-// the ledger state and keeps track of the balances and the different perceptions of potential conflicts.
+// the ledger state and keeps track of the balances and the different perceptions of potential Conflicts.
 type UTXODAG struct {
 	events *UTXODAGEvents
 
@@ -85,17 +86,18 @@ type UTXODAG struct {
 // NewUTXODAG create a new UTXODAG from the given details.
 func NewUTXODAG(ledgerstate *Ledgerstate) (utxoDAG *UTXODAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
+
 	utxoDAG = &UTXODAG{
 		events: &UTXODAGEvents{
 			TransactionBranchIDUpdatedByFork: events.NewEvent(TransactionBranchIDUpdatedByForkEventHandler),
 		},
 		ledgerstate:                 ledgerstate,
-		transactionStorage:          objectstorage.New[*Transaction](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionStorage}), options.transactionStorageOptions...),
-		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixTransactionMetadataStorage}), options.transactionMetadataStorageOptions...),
-		outputStorage:               objectstorage.New[Output](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputStorage}), options.outputStorageOptions...),
-		outputMetadataStorage:       objectstorage.New[*OutputMetadata](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixOutputMetadataStorage}), options.outputMetadataStorageOptions...),
-		consumerStorage:             objectstorage.New[*Consumer](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConsumerStorage}), options.consumerStorageOptions...),
-		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixAddressOutputMappingStorage}), options.addressOutputMappingStorageOptions...),
+		transactionStorage:          objectstorage.New[*Transaction](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixTransactionStorage), options.transactionStorageOptions...),
+		transactionMetadataStorage:  objectstorage.New[*TransactionMetadata](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixTransactionMetadataStorage), options.transactionMetadataStorageOptions...),
+		outputStorage:               objectstorage.New[Output](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixOutputStorage), options.outputStorageOptions...),
+		outputMetadataStorage:       objectstorage.New[*OutputMetadata](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixOutputMetadataStorage), options.outputMetadataStorageOptions...),
+		consumerStorage:             objectstorage.New[*Consumer](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixConsumerStorage), options.consumerStorageOptions...),
+		addressOutputMappingStorage: objectstorage.New[*AddressOutputMapping](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixAddressOutputMappingStorage), options.addressOutputMappingStorageOptions...),
 	}
 	return
 }
@@ -308,7 +310,7 @@ func (u *UTXODAG) LoadSnapshot(snapshot *Snapshot) {
 			cached.Release()
 		}
 
-		for i, output := range record.Essence.outputs {
+		for i, output := range record.Essence.Outputs() {
 			if !record.UnspentOutputs[i] {
 				continue
 			}
@@ -504,7 +506,6 @@ func (u *UTXODAG) bookOutputs(transaction *Transaction, targetBranchIDs BranchID
 	for _, output := range transaction.Essence().Outputs() {
 		// replace ColorMint color with unique color based on OutputID
 		updatedOutput := output.UpdateMintingColor()
-
 		// store Output
 		u.outputStorage.Store(updatedOutput).Release()
 
@@ -763,8 +764,11 @@ func TransactionBranchIDUpdatedByForkEventHandler(handler interface{}, params ..
 // potentially unbounded amount of Outputs, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type AddressOutputMapping struct {
-	address  Address
-	outputID OutputID
+	addressOutputMappingInner `serix:"0"`
+}
+type addressOutputMappingInner struct {
+	Address  Address  `serix:"0"`
+	OutputID OutputID `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -772,8 +776,10 @@ type AddressOutputMapping struct {
 // NewAddressOutputMapping returns a new AddressOutputMapping.
 func NewAddressOutputMapping(address Address, outputID OutputID) *AddressOutputMapping {
 	return &AddressOutputMapping{
-		address:  address,
-		outputID: outputID,
+		addressOutputMappingInner{
+			Address:  address,
+			OutputID: outputID,
+		},
 	}
 }
 
@@ -787,40 +793,26 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (objectstorage.S
 }
 
 // FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
-func (a *AddressOutputMapping) FromBytes(bytes []byte) (addressOutputMapping objectstorage.StorableObject, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if addressOutputMapping, err = a.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AddressOutputMapping from MarshalUtil: %w", err)
-		return
-	}
-	return
-}
-
-// FromMarshalUtil unmarshals an AddressOutputMapping using a MarshalUtil (for easier unmarshalling).
-func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (addressOutputMapping *AddressOutputMapping, err error) {
+func (a *AddressOutputMapping) FromBytes(data []byte) (addressOutputMapping *AddressOutputMapping, err error) {
 	if addressOutputMapping = a; addressOutputMapping == nil {
 		addressOutputMapping = new(AddressOutputMapping)
 	}
-	if addressOutputMapping.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, addressOutputMapping, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse AddressOutputMapping: %w", err)
 		return
 	}
-	if addressOutputMapping.outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
-		return
-	}
-
 	return
 }
 
 // Address returns the Address of the AddressOutputMapping.
 func (a *AddressOutputMapping) Address() Address {
-	return a.address
+	return a.addressOutputMappingInner.Address
 }
 
 // OutputID returns the OutputID of the AddressOutputMapping.
 func (a *AddressOutputMapping) OutputID() OutputID {
-	return a.outputID
+	return a.addressOutputMappingInner.OutputID
 }
 
 // Bytes marshals the Consumer into a sequence of bytes.
@@ -831,15 +823,20 @@ func (a *AddressOutputMapping) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (a *AddressOutputMapping) String() (humanReadableConsumer string) {
 	return stringify.Struct("AddressOutputMapping",
-		stringify.StructField("address", a.address),
-		stringify.StructField("outputID", a.outputID),
+		stringify.StructField("Address", a.Address()),
+		stringify.StructField("OutputID", a.OutputID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (a *AddressOutputMapping) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(a.address.Bytes(), a.outputID.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
@@ -862,10 +859,13 @@ var ConsumerPartitionKeys = objectstorage.PartitionKey([]int{OutputIDLength, Tra
 // potentially unbounded amount of spending Transactions, we store this as a separate k/v pair instead of a marshaled
 // list of spending Transactions inside the Output.
 type Consumer struct {
-	consumedInput OutputID
-	transactionID TransactionID
+	consumerInner `serix:"0"`
+}
+type consumerInner struct {
+	ConsumedInput OutputID
+	TransactionID TransactionID
+	Valid         types.TriBool `serix:"0"`
 	validMutex    sync.RWMutex
-	valid         types.TriBool
 
 	objectstorage.StorableObjectFlags
 }
@@ -873,61 +873,59 @@ type Consumer struct {
 // NewConsumer creates a Consumer object from the given information.
 func NewConsumer(consumedInput OutputID, transactionID TransactionID, valid types.TriBool) *Consumer {
 	return &Consumer{
-		consumedInput: consumedInput,
-		transactionID: transactionID,
-		valid:         valid,
+		consumerInner{
+			ConsumedInput: consumedInput,
+			TransactionID: transactionID,
+			Valid:         valid,
+		},
 	}
 }
 
 // FromObjectStorage creates an Consumer from sequences of key and bytes.
-func (c *Consumer) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := c.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (c *Consumer) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := c.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = errors.Errorf("failed to parse Consumer from bytes: %w", err)
 	}
 	return result, err
 }
 
-// FromBytes unmarshals a Consumer from a sequence of bytes.
-func (c *Consumer) FromBytes(bytes []byte) (consumer *Consumer, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if consumer, err = c.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Consumer from MarshalUtil: %w", err)
-		return
-	}
-
-	return
-}
-
-// FromMarshalUtil unmarshals a Consumer using a MarshalUtil (for easier unmarshalling).
-func (c *Consumer) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (consumer *Consumer, err error) {
+// FromBytes creates an Consumer from sequences of bytes.
+func (c *Consumer) FromBytes(data []byte) (consumer *Consumer, err error) {
 	if consumer = c; consumer == nil {
 		consumer = new(Consumer)
 	}
-	if consumer.consumedInput, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse consumed Input from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.transactionID, err = TransactionIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from MarshalUtil: %w", err)
-		return
-	}
-	if consumer.valid, err = types.TriBoolFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse valid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
+	consumedInputID := new(OutputID)
+	readBytesConsumedInput, err := serix.DefaultAPI.Decode(context.Background(), data, consumedInputID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
 		return
 	}
 
+	transactionID := new(TransactionID)
+	readBytesTransactionID, err := serix.DefaultAPI.Decode(context.Background(), data[readBytesConsumedInput:], transactionID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer.ConsumedInput: %w", err)
+		return
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[readBytesConsumedInput+readBytesTransactionID:], consumer, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Consumer: %w", err)
+		return
+	}
+	consumer.consumerInner.ConsumedInput = *consumedInputID
+	consumer.consumerInner.TransactionID = *transactionID
 	return
 }
 
 // ConsumedInput returns the OutputID of the consumed Input.
 func (c *Consumer) ConsumedInput() OutputID {
-	return c.consumedInput
+	return c.consumerInner.ConsumedInput
 }
 
 // TransactionID returns the TransactionID of the consuming Transaction.
 func (c *Consumer) TransactionID() TransactionID {
-	return c.transactionID
+	return c.consumerInner.TransactionID
 }
 
 // Valid returns a flag that indicates if the spending Transaction is valid or not.
@@ -935,7 +933,7 @@ func (c *Consumer) Valid() (valid types.TriBool) {
 	c.validMutex.RLock()
 	defer c.validMutex.RUnlock()
 
-	return c.valid
+	return c.consumerInner.Valid
 }
 
 // SetValid updates the valid flag of the Consumer and returns true if the value was changed.
@@ -943,11 +941,11 @@ func (c *Consumer) SetValid(valid types.TriBool) (updated bool) {
 	c.validMutex.Lock()
 	defer c.validMutex.Unlock()
 
-	if valid == c.valid {
+	if valid == c.consumerInner.Valid {
 		return
 	}
 
-	c.valid = valid
+	c.consumerInner.Valid = valid
 	c.SetModified()
 	updated = true
 
@@ -962,23 +960,38 @@ func (c *Consumer) Bytes() []byte {
 // String returns a human-readable version of the Consumer.
 func (c *Consumer) String() (humanReadableConsumer string) {
 	return stringify.Struct("Consumer",
-		stringify.StructField("consumedInput", c.consumedInput),
-		stringify.StructField("transactionID", c.transactionID),
+		stringify.StructField("ConsumedInput", c.ConsumedInput()),
+		stringify.StructField("TransactionID", c.TransactionID()),
 	)
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (c *Consumer) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(c.consumedInput.Bytes(), c.transactionID.Bytes())
+	inputBytes, err := serix.DefaultAPI.Encode(context.Background(), c.ConsumedInput(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+
+	txBytes, err := serix.DefaultAPI.Encode(context.Background(), c.TransactionID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+
+	return byteutils.ConcatBytes(inputBytes, txBytes)
 }
 
 // ObjectStorageValue marshals the Consumer into a sequence of bytes that are used as the value part in the object
 // storage.
 func (c *Consumer) ObjectStorageValue() []byte {
-	return marshalutil.New(marshalutil.BoolSize).
-		Write(c.Valid()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), c, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // code contract (make sure the struct implements all required methods)

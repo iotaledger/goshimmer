@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"go.uber.org/atomic"
 
 	gossipPkg "github.com/iotaledger/goshimmer/packages/gossip"
@@ -36,7 +37,7 @@ var (
 		neighborConnectionsCount.Inc()
 	})
 
-	onAutopeeringSelection = events.NewClosure(func(ev *selection.PeeringEvent) {
+	onAutopeeringSelection = event.NewClosure[*selection.PeeringEvent](func(ev *selection.PeeringEvent) {
 		distanceMutex.Lock()
 		defer distanceMutex.Unlock()
 		autopeeringConnectionsCount++

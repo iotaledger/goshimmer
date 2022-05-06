@@ -17,8 +17,25 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-// region AliasOutput Tests
+// region OutputID Tests
 
+func TestOutputID(t *testing.T) {
+	t.Run("CASE: Index within limit", func(t *testing.T) {
+		outputID := NewOutputID(TransactionID{}, 1)
+		outputIDdecoded, _, err := OutputIDFromBytes(outputID.Bytes())
+		assert.NoError(t, err)
+		assert.Equal(t, outputID, outputIDdecoded)
+	})
+
+	t.Run("CASE: Index out of bounds", func(t *testing.T) {
+		outputID := NewOutputID(TransactionID{}, 1)
+		outputID[33] = byte(10)
+		_, _, err := OutputIDFromBytes(outputID.Bytes())
+		assert.Error(t, err)
+	})
+}
+
+// region AliasOutput Tests
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		stateAddy := randEd25119Address()
@@ -150,10 +167,8 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 func TestAliasOutputFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		originAlias := dummyAliasOutput().WithDelegationAndTimelock(time.Now())
-		bytesLength := len(originAlias.Bytes())
-		marshaledAlias, consumed, err := OutputFromBytes(originAlias.Bytes())
+		marshaledAlias, err := OutputFromBytes(originAlias.Bytes())
 		assert.NoError(t, err)
-		assert.Equal(t, bytesLength, consumed)
 		assert.Equal(t, marshaledAlias.Bytes(), originAlias.Bytes())
 	})
 
@@ -174,7 +189,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.ClearBit(flagAliasOutputStateDataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		assert.Error(t, err)
 	})
 
@@ -185,7 +200,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.ClearBit(flagAliasOutputGovernanceMetadataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -197,7 +212,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.ClearBit(flagAliasOutputImmutableDataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		assert.Error(t, err)
 	})
 
@@ -208,9 +223,8 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.ClearBit(flagAliasOutputGovernanceSet)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, consumedBytes, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		assert.NoError(t, err)
-		assert.NotEqual(t, len(originBytes), consumedBytes)
 	})
 
 	t.Run("CASE: Flags provided, state data missing", func(t *testing.T) {
@@ -222,7 +236,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.SetBit(flagAliasOutputStateDataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -236,7 +250,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.SetBit(flagAliasOutputGovernanceMetadataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -251,7 +265,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.SetBit(flagAliasOutputImmutableDataPresent)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err = OutputFromBytes(originBytes)
+		_, err = OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -265,7 +279,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		flags = flags.SetBit(flagAliasOutputGovernanceSet)
 		// manually change flags
 		originBytes[1] = byte(flags)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -277,7 +291,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		originBytes := originAlias.Bytes()
 		// serialized balances start at : output type (1 byte) + flags (1 byte) + AliasAddressLength bytes
 		copy(originBytes[1+1+AddressLength:], invalidBalancesBytes)
-		_, _, err := OutputFromBytes(originBytes)
+		_, err := OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -288,7 +302,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		originBytes := originAlias.Bytes()
 		stateIndexStartIndex := 1 + 1 + AddressLength + len(originAlias.balances.Bytes()) + AddressLength
 		binary.LittleEndian.PutUint32(originBytes[stateIndexStartIndex:], 5)
-		_, _, err = OutputFromBytes(originBytes)
+		_, err = OutputFromBytes(originBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -305,7 +319,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		fakeStateData := make([]byte, MaxOutputPayloadSize)
 		// original one byte state data is left untouched
 		modBytes := byteutils.ConcatBytes(originBytes, fakeStateData)
-		_, _, err := OutputFromBytes(modBytes)
+		_, err := OutputFromBytes(modBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -322,7 +336,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		fakeGovernanceMetadata := make([]byte, MaxOutputPayloadSize)
 		// original one byte governance metadata is left untouched
 		modBytes := byteutils.ConcatBytes(originBytes, fakeGovernanceMetadata)
-		_, _, err := OutputFromBytes(modBytes)
+		_, err := OutputFromBytes(modBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -339,7 +353,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		fakeImmutableData := make([]byte, MaxOutputPayloadSize)
 		// original one byte state data is left untouched
 		modBytes := byteutils.ConcatBytes(originBytes, fakeImmutableData)
-		_, _, err := OutputFromBytes(modBytes)
+		_, err := OutputFromBytes(modBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -954,7 +968,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		assert.NoError(t, err)
 	})
 
@@ -964,10 +978,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
 		// happy case, time-lock expired
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}})
 		assert.NoError(t, err)
 		// not happy case, time-lock is still active
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
+		err = prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -975,7 +989,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: State update, delegation without time-lock", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		assert.NoError(t, err)
 	})
 
@@ -984,10 +998,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(false)
 		// time-lock is active state transition allowed
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(-time.Second)}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}})
 		assert.NoError(t, err)
 		// time-lock expired, state transition should fail
-		err = prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: timeLock.Add(time.Second)}})
+		err = prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -996,7 +1010,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
-		err := prev.validateTransition(next, &Transaction{essence: &TransactionEssence{timestamp: time.Now()}})
+		err := prev.validateTransition(next, &Transaction{transactionInner{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}})
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1325,11 +1339,11 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.referencedOutputID == alias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == alias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, alias)
 			}
-			if castedInput.referencedOutputID == governingAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
@@ -1589,11 +1603,11 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.referencedOutputID == governedAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governedAlias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, governedAlias)
 			}
-			if castedInput.referencedOutputID == governingAlias.ID() {
+			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
@@ -1668,7 +1682,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.NoError(t, err)
 		oBytes := o.Bytes()
 		var restored Output
-		restored, _, err = OutputFromBytes(oBytes)
+		restored, err = OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
 		assert.True(t, ok)
@@ -1684,7 +1698,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 	t.Run("CASE: Happy path, no optional fields", func(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address())
 		oBytes := o.Bytes()
-		restored, _, err := OutputFromBytes(oBytes)
+		restored, err := OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
 		assert.True(t, ok)
@@ -1702,7 +1716,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
 			WithTimeLock(time.Now().Add(1 * time.Hour))
 		oBytes := o.Bytes()
-		restored, _, err := OutputFromBytes(oBytes)
+		restored, err := OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
 		assert.True(t, ok)
@@ -1720,7 +1734,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		o := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}, randEd25119Address()).
 			WithFallbackOptions(randEd25119Address(), time.Now().Add(2*time.Hour))
 		oBytes := o.Bytes()
-		restored, _, err := OutputFromBytes(oBytes)
+		restored, err := OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
 		assert.True(t, ok)
@@ -1739,7 +1753,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.NoError(t, err)
 		oBytes := o.Bytes()
 		var restored Output
-		restored, _, err = OutputFromBytes(oBytes)
+		restored, err = OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
 		assert.True(t, ok)
@@ -1819,12 +1833,12 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		input, ok := output.Input().(*UTXOInput)
 		assert.True(t, ok)
-		assert.Equal(t, input.referencedOutputID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, input.utxoInputInner.ReferencedOutputID.Bytes(), output.ID().Bytes())
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
 		// serialized form of output doesn't have OutputID
-		output, _, err := OutputFromBytes(dummyExtendedLockedOutput().Bytes())
+		output, err := OutputFromBytes(dummyExtendedLockedOutput().Bytes())
 		assert.NoError(t, err)
 		assert.Panics(t, func() {
 			_, _ = output.Input().(*UTXOInput)
@@ -2027,7 +2041,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.SetBit(flagExtendedLockedOutputFallbackPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		_, _, err := OutputFromBytes(outputBytes)
+		_, err := OutputFromBytes(outputBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -2040,7 +2054,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.SetBit(flagExtendedLockedOutputTimeLockPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		_, _, err = OutputFromBytes(outputBytes)
+		_, err = OutputFromBytes(outputBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -2053,7 +2067,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.SetBit(flagExtendedLockedOutputPayloadPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		_, _, err = OutputFromBytes(outputBytes)
+		_, err = OutputFromBytes(outputBytes)
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -2066,11 +2080,8 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.ClearBit(flagExtendedLockedOutputFallbackPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		var consumedBytes int
-		_, consumedBytes, err = OutputFromBytes(outputBytes)
+		_, err = OutputFromBytes(outputBytes)
 		assert.NoError(t, err)
-		// we did not consume all bytes
-		assert.NotEqual(t, len(outputBytes), consumedBytes)
 	})
 
 	t.Run("CASE: Time-lock present, wrong flag", func(t *testing.T) {
@@ -2081,11 +2092,8 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.ClearBit(flagExtendedLockedOutputTimeLockPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		var consumedBytes int
-		_, consumedBytes, err = OutputFromBytes(outputBytes)
+		_, err = OutputFromBytes(outputBytes)
 		assert.NoError(t, err)
-		// we did not consume all bytes
-		assert.NotEqual(t, len(outputBytes), consumedBytes)
 	})
 
 	t.Run("CASE: Payload present, wrong flag", func(t *testing.T) {
@@ -2094,10 +2102,8 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		flags := output.compressFlags()
 		flags = flags.ClearBit(flagExtendedLockedOutputPayloadPresent)
 		outputBytes[1+len(output.balances.Bytes())+AddressLength] = byte(flags)
-		_, consumedBytes, err := OutputFromBytes(outputBytes)
+		_, err := OutputFromBytes(outputBytes)
 		assert.NoError(t, err)
-		// we did not consume all bytes
-		assert.NotEqual(t, len(outputBytes), consumedBytes)
 	})
 }
 
@@ -2246,7 +2252,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		input := NewExtendedLockedOutput(map[Color]uint64{ColorIOTA: 1}, randAliasAddress())
 		unlockBlock := NewReferenceUnlockBlock(0)
 
-		valid, err := input.UnlockValid(&Transaction{essence: new(TransactionEssence)}, unlockBlock, Outputs{input})
+		valid, err := input.UnlockValid(&Transaction{transactionInner{Essence: new(TransactionEssence)}}, unlockBlock, Outputs{input})
 		t.Log(err)
 		assert.Error(t, err)
 		assert.False(t, valid)
@@ -2380,6 +2386,8 @@ func randAliasAddress() *AliasAddress {
 func randOutputID() OutputID {
 	randOutputIDBytes := make([]byte, 34)
 	_, _ = rand.Read(randOutputIDBytes)
+	randOutputIDBytes[32] = 2
+	randOutputIDBytes[33] = 0
 	outputID, _, _ := OutputIDFromBytes(randOutputIDBytes)
 	return outputID
 }

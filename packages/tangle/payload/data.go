@@ -1,68 +1,53 @@
 package payload
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
-// GenericDataPayloadType is the Type of a generic GenericDataPayload.
-var GenericDataPayloadType = NewType(0, "GenericDataPayloadType", GenericDataPayloadUnmarshaler)
-
-// GenericDataPayloadUnmarshaler is the UnmarshalerFunc of the GenericDataPayload which is also used as a unmarshaler for unknown Types.
-func GenericDataPayloadUnmarshaler(data []byte) (Payload, error) {
-	payload, consumedBytes, err := GenericDataPayloadFromBytes(data)
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(GenericDataPayload{}, serix.TypeSettings{}.WithObjectType(uint32(new(GenericDataPayload).Type())))
 	if err != nil {
-		return nil, err
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
 	}
-	if consumedBytes != len(data) {
-		return nil, errors.New("not all payload bytes were consumed")
+
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Payload)(nil), new(GenericDataPayload))
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload as Payload interface: %w", err))
 	}
-	return payload, nil
 }
+
+// GenericDataPayloadType is the Type of a generic GenericDataPayload.
+var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
 
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {
+	genericDataPayloadInner `serix:"0"`
+}
+type genericDataPayloadInner struct {
 	payloadType Type
-	data        []byte
+	Data        []byte `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewGenericDataPayload creates new GenericDataPayload.
 func NewGenericDataPayload(data []byte) *GenericDataPayload {
-	return &GenericDataPayload{
+	return &GenericDataPayload{genericDataPayloadInner{
 		payloadType: GenericDataPayloadType,
-		data:        data,
-	}
+		Data:        data,
+	}}
 }
 
 // GenericDataPayloadFromBytes unmarshals a GenericDataPayload from a sequence of bytes.
 func GenericDataPayloadFromBytes(bytes []byte) (genericDataPayload *GenericDataPayload, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if genericDataPayload, err = GenericDataPayloadFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse GenericDataPayload from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
+	genericDataPayload = new(GenericDataPayload)
 
-	return
-}
-
-// GenericDataPayloadFromMarshalUtil unmarshals a GenericDataPayload using a MarshalUtil (for easier unmarshaling).
-func GenericDataPayloadFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (genericDataPayload *GenericDataPayload, err error) {
-	payloadSize, err := marshalUtil.ReadUint32()
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, genericDataPayload, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	genericDataPayload = &GenericDataPayload{}
-	if genericDataPayload.payloadType, err = TypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
-		return
-	}
-	if genericDataPayload.data, err = marshalUtil.ReadBytes(int(payloadSize) - TypeLength); err != nil {
-		err = errors.Errorf("failed to parse data (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse GenericDataPayload: %w", err)
 		return
 	}
 
@@ -76,16 +61,17 @@ func (g *GenericDataPayload) Type() Type {
 
 // Blob returns the contained data of the GenericDataPayload (without its type and size headers).
 func (g *GenericDataPayload) Blob() []byte {
-	return g.data
+	return g.Data
 }
 
 // Bytes returns a marshaled version of the Payload.
 func (g *GenericDataPayload) Bytes() []byte {
-	return marshalutil.New().
-		WriteUint32(TypeLength + uint32(len(g.data))).
-		WriteBytes(g.Type().Bytes()).
-		WriteBytes(g.Blob()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), g, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // String returns a human readable version of the Payload.
