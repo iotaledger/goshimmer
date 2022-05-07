@@ -112,10 +112,6 @@ func (b *Booker) Shutdown() {
 
 // region BOOK PAYLOAD LOGIC ///////////////////////////////////////////////////////////////////////////////////////////
 
-func (b *Booker) bookDataPayload() {
-
-}
-
 // book books the Payload of a Message.
 func (b *Booker) book(message *Message) {
 	b.payloadBookingMutex.Lock(message.ID())

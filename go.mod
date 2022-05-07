@@ -177,6 +177,7 @@ require (
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
+	gitlab.com/NebulousLabs/merkletree v0.0.0-20200118113624-07fbf710afc4 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
