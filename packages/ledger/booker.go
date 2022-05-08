@@ -57,10 +57,11 @@ func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Ne
 func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs utxo.Outputs) {
 	branchIDs := b.inheritBranchIDs(ctx, txMetadata.ID(), inputsMetadata)
 
-	b.storeOutputs(outputs, branchIDs)
-
 	txMetadata.SetBranchIDs(branchIDs)
 	txMetadata.SetOutputIDs(outputs.IDs())
+
+	b.storeOutputs(outputs, branchIDs)
+
 	txMetadata.SetBooked(true)
 
 	lo.ForEach(consumers, func(consumer *Consumer) { consumer.SetBooked() })
