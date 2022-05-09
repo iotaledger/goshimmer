@@ -107,11 +107,19 @@ func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgersta
 func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions ...MessageOption) (message *Message) {
 	options := NewMessageTestFrameworkMessageOptions(messageOptions...)
 
-	references := ParentMessageIDs{
-		StrongParentType:         m.strongParentIDs(options),
-		WeakParentType:           m.weakParentIDs(options),
-		ShallowDislikeParentType: m.shallowDislikeParentIDs(options),
-		ShallowLikeParentType:    m.shallowLikeParentIDs(options),
+	references := NewParentMessageIDs()
+
+	if parents := m.strongParentIDs(options); len(parents) > 0 {
+		references.AddAll(StrongParentType, parents)
+	}
+	if parents := m.weakParentIDs(options); len(parents) > 0 {
+		references.AddAll(WeakParentType, parents)
+	}
+	if parents := m.shallowDislikeParentIDs(options); len(parents) > 0 {
+		references.AddAll(ShallowDislikeParentType, parents)
+	}
+	if parents := m.shallowLikeParentIDs(options); len(parents) > 0 {
+		references.AddAll(ShallowLikeParentType, parents)
 	}
 
 	if options.reattachmentMessageAlias != "" {
@@ -667,10 +675,14 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	} else {
 		sequenceNumber = nextSequenceNumber()
 	}
+	var err error
 	if options.issuingTime.IsZero() {
-		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, err = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
 	} else {
-		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, err = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+	}
+	if err != nil {
+		panic(err)
 	}
 	return
 }
@@ -765,7 +777,7 @@ func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) 
 var (
 	aMana               = 1.0
 	totalAMana          = 1000.0
-	testMaxBuffer       = 1 * 1024 * 1024
+	testMaxBuffer       = 10000
 	testRate            = time.Second / 5000
 	tscThreshold        = 5 * time.Minute
 	selfLocalIdentity   = identity.GenerateLocalIdentity()

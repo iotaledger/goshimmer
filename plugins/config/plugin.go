@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/iotaledger/hive.go/configuration"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/dig"
@@ -29,11 +29,11 @@ var (
 
 // Init triggers the Init event.
 func Init(container *dig.Container) {
-	Plugin.Events.Init.Trigger(Plugin, container)
+	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin, container})
 }
 
 func init() {
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present
@@ -46,7 +46,7 @@ func init() {
 			panic(err)
 		}
 
-		if err := container.Provide(func() *configuration.Configuration {
+		if err := event.Container.Provide(func() *configuration.Configuration {
 			return _node
 		}); err != nil {
 			panic(err)

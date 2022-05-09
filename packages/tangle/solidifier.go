@@ -21,7 +21,7 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	triggerMutex syncutils.MultiMutex
+	triggerMutex *syncutils.MultiMutex
 	tangle       *Tangle
 }
 
@@ -32,8 +32,8 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 			MessageSolid:   events.NewEvent(MessageIDCaller),
 			MessageMissing: events.NewEvent(MessageIDCaller),
 		},
-
-		tangle: tangle,
+		triggerMutex: syncutils.NewMultiMutex(),
+		tangle:       tangle,
 	}
 
 	return

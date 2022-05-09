@@ -377,9 +377,6 @@ func checkReferences(t *testing.T, tangle *Tangle, parents MessageIDs, expectedR
 	}
 
 	for _, referenceType := range []ParentsType{StrongParentType, ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
-		if expectedReferences[referenceType] == nil {
-			expectedReferences[referenceType] = NewMessageIDs()
-		}
 		assert.Equalf(t, expectedReferences[referenceType], actualReferences[referenceType], "references type %s do not match: expected %s - actual %s", referenceType, expectedReferences[referenceType], actualReferences[referenceType])
 	}
 }

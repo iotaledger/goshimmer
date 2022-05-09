@@ -33,10 +33,10 @@ type BranchDAG struct {
 func NewBranchDAG(ledgerstate *Ledgerstate) (newBranchDAG *BranchDAG) {
 	options := buildObjectStorageOptions(ledgerstate.Options.CacheTimeProvider)
 	newBranchDAG = &BranchDAG{
-		branchStorage:         objectstorage.New[*Branch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixBranchStorage}), options.branchStorageOptions...),
-		childBranchStorage:    objectstorage.New[*ChildBranch](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixChildBranchStorage}), options.childBranchStorageOptions...),
-		conflictStorage:       objectstorage.New[*Conflict](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictStorage}), options.conflictStorageOptions...),
-		conflictMemberStorage: objectstorage.New[*ConflictMember](ledgerstate.Options.Store.WithRealm([]byte{database.PrefixLedgerState, PrefixConflictMemberStorage}), options.conflictMemberStorageOptions...),
+		branchStorage:         objectstorage.New[*Branch](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixBranchStorage), options.branchStorageOptions...),
+		childBranchStorage:    objectstorage.New[*ChildBranch](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixChildBranchStorage), options.childBranchStorageOptions...),
+		conflictStorage:       objectstorage.New[*Conflict](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixConflictStorage), options.conflictStorageOptions...),
+		conflictMemberStorage: objectstorage.New[*ConflictMember](objectstorage.NewStoreWithRealm(ledgerstate.Options.Store, database.PrefixLedgerState, PrefixConflictMemberStorage), options.conflictMemberStorageOptions...),
 		Events: &BranchDAGEvents{
 			BranchCreated:        events.NewEvent(BranchIDEventHandler),
 			BranchParentsUpdated: events.NewEvent(branchParentUpdateEventCaller),

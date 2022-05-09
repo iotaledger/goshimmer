@@ -1812,7 +1812,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message18").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1890,7 +1890,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message19").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.False(t, messageMetadata.subjectivelyInvalid)
+			assert.False(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -1971,7 +1971,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message20").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2054,7 +2054,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message21").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2141,7 +2141,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message22").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.False(t, messageMetadata.subjectivelyInvalid)
+			assert.False(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2231,7 +2231,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message23").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.False(t, messageMetadata.subjectivelyInvalid)
+			assert.False(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2324,7 +2324,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message24").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2420,7 +2420,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message25").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2519,7 +2519,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message26").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.False(t, messageMetadata.subjectivelyInvalid)
+			assert.False(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -2736,7 +2736,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.IssueMessages("Message28").WaitMessagesBooked()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.False(t, messageMetadata.subjectivelyInvalid)
+			assert.False(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
@@ -3420,7 +3420,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message34", WithStrongParents("Message31"), WithInputs("L2"), WithOutput("N", 500))
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.subjectivelyInvalid)
+			assert.True(t, messageMetadata.IsSubjectivelyInvalid())
 		})
 
 		testFramework.RegisterBranchID("M", "Message31")

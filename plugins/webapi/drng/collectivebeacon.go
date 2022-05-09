@@ -19,7 +19,8 @@ func collectiveBeaconHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
 	}
 
-	marshalUtil := marshalutil.New(request.Payload)
+	// TODO: refactor dRNG nodes so that it's not necessary to skip first four bytes that contain payload length which
+	marshalUtil := marshalutil.New(request.Payload[4:])
 	parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.CollectiveBeaconResponse{Error: err.Error()})
