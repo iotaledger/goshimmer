@@ -14,6 +14,7 @@ const (
 
 // Manager is the notarization manager.
 type Manager struct {
+	tangle                 *tangle.Tangle
 	epochManager           *EpochManager
 	epochCommitmentFactory *EpochCommitmentFactory
 	options                *ManagerOptions
@@ -22,7 +23,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, opts ...ManagerOption) *Manager {
+func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, tangle *tangle.Tangle, opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
 		MinCommitableEpochAge: minEpochCommitableDuration,
 	}
@@ -30,6 +31,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		option(options)
 	}
 	return &Manager{
+		tangle:                 tangle,
 		epochManager:           epochManager,
 		epochCommitmentFactory: epochCommitmentFactory,
 		pendingBranchesCount:   make(map[ECI]uint64),
@@ -75,11 +77,35 @@ func (m *Manager) OnTransactionConfirmed(txID ledgerstate.TransactionID) {
 
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
+	m.pbcMutex.Lock()
+	defer m.pbcMutex.Unlock()
 
+	eci := m.getBranchECI(branchID)
+	m.pendingBranchesCount[eci] -= 1
 }
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
+	m.pbcMutex.Lock()
+	defer m.pbcMutex.Unlock()
+
+	eci := m.getBranchECI(branchID)
+	m.pendingBranchesCount[eci] += 1
+}
+
+// OnBranchRejected is the handler for branch created event.
+func (m *Manager) OnBranchRejected(branchID ledgerstate.BranchID) {
+	m.pbcMutex.Lock()
+	defer m.pbcMutex.Unlock()
+
+	eci := m.getBranchECI(branchID)
+	m.pendingBranchesCount[eci] -= 1
+}
+
+func (m *Manager) getBranchECI(branchID ledgerstate.BranchID) ECI {
+	tx := m.tangle.LedgerState.Ledgerstate.Transaction(branchID.TransactionID())
+	eci := m.epochManager.TimeToECI(tx.Essence().Timestamp())
+	return eci
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
