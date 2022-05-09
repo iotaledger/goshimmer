@@ -22,8 +22,10 @@ const (
 type dependencies struct {
 	dig.In
 
-	NotarizationManager *notarization.Manager
-	Tangle              *tangle.Tangle
+	NotarizationManager    *notarization.Manager
+	EpochManager           *notarization.EpochManager
+	EpochCommitmentFactory *notarization.EpochCommitmentFactory
+	Tangle                 *tangle.Tangle
 }
 
 var (
@@ -35,13 +37,21 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
+		if err := container.Provide(newEpochManager); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := container.Provide(newEpochCommitmentFactory); err != nil {
+			Plugin.Panic(err)
+		}
+
 		if err := container.Provide(newNotarizationManager); err != nil {
 			Plugin.Panic(err)
 		}
 
 		if err := container.Provide(func() *node.Plugin {
 			return Plugin
-		}, dig.Name("Notarization")); err != nil {
+		}, dig.Name("notarization")); err != nil {
 			Plugin.Panic(err)
 		}
 	}))
@@ -74,5 +84,16 @@ func run(*node.Plugin) {
 }
 
 func newNotarizationManager() *notarization.Manager {
-	return notarization.NewManager()
+	return notarization.NewManager(
+		deps.EpochManager,
+		deps.EpochCommitmentFactory,
+		notarization.MinCommitableEpochAge(Parameters.MinEpochCommitableDuration))
+}
+
+func newEpochManager() *notarization.EpochManager {
+	return notarization.NewEpochManager()
+}
+
+func newEpochCommitmentFactory() *notarization.EpochCommitmentFactory {
+	return notarization.NewCommitmentFactory()
 }

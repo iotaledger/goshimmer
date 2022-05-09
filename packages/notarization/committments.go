@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// EpochCommitment is a commitment is a compressed form of all the information (messages and confirmed value payloads) of a certain epoch.
+// EpochCommitment is a compressed form of all the information (messages and confirmed value payloads) of a certain epoch.
 type EpochCommitment struct {
 	ECI ECI
 }
@@ -37,4 +37,9 @@ func (f *EpochCommitmentFactory) InsertECSMR(eci ECI, txID ledgerstate.Transacti
 // RemoveECTR removes the message ID from the ECTR.
 func (f *EpochCommitmentFactory) RemoveECTR(eci ECI, msgID tangle.MessageID) {
 
+}
+
+// GetCommitment returns the commitment with the given eci.
+func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *EpochCommitment {
+	return &EpochCommitment{ECI: eci}
 }
