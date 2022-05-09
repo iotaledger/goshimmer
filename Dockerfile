@@ -113,7 +113,7 @@ EXPOSE 8081/tcp
 EXPOSE 8061/tcp
 
 # Copy configuration
-COPY --from=build /tmp/snapshot.bin /snapshot.bin
+COPY --from=build /tmp/snapshot.bin /tmp/snapshot.bin
 COPY config.default.json /config.json
 
 # Copy the Pre-built binary file from the previous stage
