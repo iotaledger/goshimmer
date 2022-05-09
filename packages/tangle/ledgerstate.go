@@ -35,11 +35,15 @@ func NewLedgerState(tangle *Tangle) (ledgerState *LedgerState) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (l *LedgerState) Setup() {
+	var rejectedBranches ledgerstate.BranchIDs
 	l.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		if l.tangle.Options.LedgerState.MergeBranches {
-			l.SetBranchConfirmed(branchID)
+			_, rejectedBranches = l.SetBranchConfirmed(branchID)
 		}
 	}))
+	for branchID := range rejectedBranches {
+		l.tangle.ConfirmationOracle.Events().BranchRejected.Trigger(branchID)
+	}
 }
 
 // Shutdown shuts down the LedgerState and persists its state.

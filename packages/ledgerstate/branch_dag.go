@@ -164,7 +164,7 @@ func (b *BranchDAG) ResolvePendingBranchIDs(branchIDs BranchIDs) (pendingBranchI
 }
 
 // SetBranchConfirmed sets the InclusionState of the given Branch to be Confirmed.
-func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
+func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool, rejectedBranches BranchIDs) {
 	b.inclusionStateMutex.Lock()
 	defer b.inclusionStateMutex.Unlock()
 
@@ -193,19 +193,20 @@ func (b *BranchDAG) SetBranchConfirmed(branchID BranchID) (modified bool) {
 		})
 	}
 
+	rejectedBranches = NewBranchIDs()
 	for rejectedWalker.HasNext() {
 		b.Branch(rejectedWalker.Next()).Consume(func(branch *Branch) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
-
+			rejectedBranches.Add(branch.ID())
 			b.ChildBranches(branch.ID()).Consume(func(childBranch *ChildBranch) {
 				rejectedWalker.Push(childBranch.ChildBranchID())
 			})
 		})
 	}
 
-	return modified
+	return modified, rejectedBranches
 }
 
 // InclusionState returns the InclusionState of the given BranchIDs.

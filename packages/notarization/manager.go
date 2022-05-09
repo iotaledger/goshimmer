@@ -57,5 +57,4 @@ func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
-
 }
