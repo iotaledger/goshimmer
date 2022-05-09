@@ -85,7 +85,8 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(eci ECI, msgID tangle.MessageI
 
 // InsertStateLeaf inserts the outputID to the ledgerstate sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateLeaf(eci ECI, outputID ledgerstate.OutputID) {
-
+	commitment := f.getOrCreateCommitment(eci)
+	commitment.ledgerStateRoot.Update(outputID.Bytes(), outputID.Bytes())
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the transaction sparse merkle tree.
@@ -98,8 +99,20 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(eci ECI, txID ledgersta
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) RemoveTangleLeaf(eci ECI, msgID tangle.MessageID) {
 	commitment := f.getOrCreateCommitment(eci)
-	commitment.messageRoot.Delete(msgID.Bytes())
-	f.onMessageRootChanged(commitment)
+	exists, _ := commitment.ledgerStateRoot.Has(msgID.Bytes())
+	if exists {
+		commitment.messageRoot.Delete(msgID.Bytes())
+		f.onMessageRootChanged(commitment)
+	}
+}
+
+// RemoveStateLeaf removes the output ID from the ledgerstate sparse merkle tree.
+func (f *EpochCommitmentFactory) RemoveStateLeaf(eci ECI, outID ledgerstate.OutputID) {
+	commitment := f.getOrCreateCommitment(eci)
+	exists, _ := commitment.ledgerStateRoot.Has(outID.Bytes())
+	if exists {
+		commitment.ledgerStateRoot.Delete(outID.Bytes())
+	}
 }
 
 // GetCommitment returns the commitment with the given eci.
