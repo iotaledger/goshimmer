@@ -216,7 +216,9 @@ func (t *TimeManager) mainLoop() {
 // LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
 type LastConfirmedMessage struct {
 	MessageID MessageID `serix:"0"`
-	Time      time.Time `serix:"1"`
+	// Time field is the time of the last confirmed message.
+	Time time.Time `serix:"1"`
+	// ConfirmedTime field is the time when the last confirmed message was updated.
 	ConfirmedTime time.Time `serix:"2"`
 }
 

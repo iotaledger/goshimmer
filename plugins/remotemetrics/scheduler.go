@@ -18,7 +18,7 @@ func obtainSchedulerStats(timestamp time.Time) {
 	record := remotemetrics.SchedulerMetrics{
 		Type:                         "schedulerSample",
 		NodeID:                       myID,
-		Synced:                       deps.Tangle.Bootstrapped(),
+		Bootstrapped:                 deps.Tangle.Bootstrapped(),
 		MetricsLevel:                 Parameters.MetricsLevel,
 		BufferSize:                   uint32(scheduler.BufferSize()),
 		BufferLength:                 uint32(scheduler.TotalMessagesCount()),

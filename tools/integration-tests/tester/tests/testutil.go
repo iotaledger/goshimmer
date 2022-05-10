@@ -128,7 +128,7 @@ func Context(ctx context.Context, t *testing.T) (context.Context, context.Cancel
 func Synced(t *testing.T, node *framework.Node) bool {
 	info, err := node.Info()
 	require.NoError(t, err)
-	return info.TangleTime.Synced
+	return info.TangleTime.Bootstrapped
 }
 
 // Mana returns the mana reported by node.

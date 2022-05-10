@@ -119,39 +119,39 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 
 func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 	m := networkDelay{
-		NodeID:      myID,
-		ID:          networkDelayObject.ID.String(),
-		SentTime:    networkDelayObject.SentTime,
-		ReceiveTime: receiveTime,
-		Delta:       receiveTime - networkDelayObject.SentTime,
-		Clock:       clockEnabled,
-		Sync:        deps.Tangle.Bootstrapped(),
-		Type:        remoteLogType,
+		NodeID:       myID,
+		ID:           networkDelayObject.ID.String(),
+		SentTime:     networkDelayObject.SentTime,
+		ReceiveTime:  receiveTime,
+		Delta:        receiveTime - networkDelayObject.SentTime,
+		Clock:        clockEnabled,
+		Bootstrapped: deps.Tangle.Bootstrapped(),
+		Type:         remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)
 }
 
 func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 	m := networkDelay{
-		NodeID:      myID,
-		ID:          payload.ID.String(),
-		SentTime:    0,
-		ReceiveTime: 0,
-		Delta:       powDelta.Nanoseconds(),
-		Clock:       clockEnabled,
-		Sync:        deps.Tangle.Bootstrapped(),
-		Type:        remoteLogType,
+		NodeID:       myID,
+		ID:           payload.ID.String(),
+		SentTime:     0,
+		ReceiveTime:  0,
+		Delta:        powDelta.Nanoseconds(),
+		Clock:        clockEnabled,
+		Bootstrapped: deps.Tangle.Bootstrapped(),
+		Type:         remoteLogType,
 	}
 	_ = deps.RemoteLogger.Send(m)
 }
 
 type networkDelay struct {
-	NodeID      string `json:"nodeId"`
-	ID          string `json:"id"`
-	SentTime    int64  `json:"sentTime"`
-	ReceiveTime int64  `json:"receiveTime"`
-	Delta       int64  `json:"delta"`
-	Clock       bool   `json:"clock"`
-	Sync        bool   `json:"sync"`
-	Type        string `json:"type"`
+	NodeID       string `json:"nodeId"`
+	ID           string `json:"id"`
+	SentTime     int64  `json:"sentTime"`
+	ReceiveTime  int64  `json:"receiveTime"`
+	Delta        int64  `json:"delta"`
+	Clock        bool   `json:"clock"`
+	Bootstrapped bool   `json:"sync"`
+	Type         string `json:"type"`
 }
