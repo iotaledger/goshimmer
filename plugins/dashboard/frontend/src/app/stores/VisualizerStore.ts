@@ -58,9 +58,11 @@ export class VisualizerStore {
         try {
             let res = await fetch(`/api/visualizer/history`);
             let history: history = await res.json();
-            history.vertices.forEach(v => {
-                this.addVertex(v);
-            });
+            if (history.vertices != null) {
+                history.vertices.forEach(v => {
+                    this.addVertex(v);
+                });
+            }
         } catch (err) {
             console.log("Fail to fetch history in visualizer", err);
         }
