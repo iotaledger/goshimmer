@@ -68,7 +68,7 @@
 - name: Stop existing services gracefully
   community.general.docker_compose:
     project_src: /opt/metrics
-    timeout: 180
+    timeout: 10
     state: present
     stopped: yes
 
