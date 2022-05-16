@@ -141,7 +141,7 @@ EXPOSE 40000
 
 # Copy the Delve binary
 COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /app/dlv
-ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/app/goshimmer", "--", "--config=/app/config.json"]
+ENTRYPOINT ["/app/dlv","--listen=:40000", "--headless" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/app/goshimmer", "--", "--config=/app/config.json"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
 FROM debugger-enabled-${REMOTE_DEBUGGING} as runtime
