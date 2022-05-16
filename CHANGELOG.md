@@ -1,3 +1,10 @@
+# v0.8.14 - 2022-05-16
+
+> Minor revision introducing small docker changes.
+
+The snapshot has been taken at 2022-05-07 16:30 UTC.
+- Fix several Docker discrepancies (#2201, #2206)
+
 # v0.8.13 - 2022-05-06
 
 > This release introduces serix, a reflection-based serialization library that enables us to automatically serialize all models.
