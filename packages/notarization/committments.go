@@ -123,19 +123,23 @@ func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *EpochCommitment {
 }
 
 func (f *EpochCommitmentFactory) getOrCreateCommitment(eci ECI) *EpochCommitment {
-	f.commitmentsMutex.Lock()
-	defer f.commitmentsMutex.Unlock()
+	f.commitmentsMutex.RLock()
 	commitment, ok := f.commitments[eci]
+	f.commitmentsMutex.RUnlock()
 	if !ok {
 		var previousMessageRoot []byte
 		var previousTransactionRoot []byte
 
-		if previousEpochCommitment := f.GetCommitment(eci - 1); previousEpochCommitment != nil {
-			previousMessageRoot = previousEpochCommitment.MessageRoot()
-			previousTransactionRoot = previousEpochCommitment.TransactionRoot()
+		if eci > 0 {
+			if previousEpochCommitment := f.GetCommitment(eci - 1); previousEpochCommitment != nil {
+				previousMessageRoot = previousEpochCommitment.MessageRoot()
+				previousTransactionRoot = previousEpochCommitment.TransactionRoot()
+			}
 		}
 		commitment = NewEpochCommitment(eci, previousMessageRoot, previousTransactionRoot)
+		f.commitmentsMutex.Lock()
 		f.commitments[eci] = commitment
+		f.commitmentsMutex.Unlock()
 	}
 	return commitment
 }
