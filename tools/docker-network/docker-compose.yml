@@ -16,8 +16,8 @@ services:
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
@@ -36,8 +36,8 @@ services:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     volumes:
-      - shimmerdb:/tmp/mainnetdb
-      - peerdb:/tmp/peerdb
+      - mainnetdb:/app/mainnetdb
+      - peerdb:/app/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
@@ -47,14 +47,14 @@ services:
     expose:
       - 1888/tcp # analysis server
     networks:
-      - shimmer
+      - goshimmer
   peer_replica:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
@@ -68,7 +68,7 @@ services:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   peer_master2:
@@ -76,7 +76,7 @@ services:
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
+      --database.directory=/app/mainnetdb
       --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
@@ -94,7 +94,7 @@ services:
       - "8071:8081/tcp" # dashboard
       - "6071:6061/tcp" # pprof
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   faucet:
@@ -102,8 +102,8 @@ services:
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
@@ -126,7 +126,7 @@ services:
       - "8091:8081/tcp" # dashboard
       - "6091:6061/tcp" # pprof
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   prometheus:
@@ -140,7 +140,7 @@ services:
     secrets:
       - prometheus.yml
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   grafana:
@@ -154,7 +154,7 @@ services:
       - GF_ALERTING_ENABLED=true
       - GF_UNIFIED_ALERTING_ENABLED=false
     networks:
-      - shimmer
+      - goshimmer
     ports:
       - "3000:3000"
     user: "104"
@@ -171,7 +171,7 @@ services:
       - "8000:8000/tcp"
       - "8800:8081/tcp"
     networks:
-      - shimmer
+      - goshimmer
     environment:
       LEADER: 1
       GOSHIMMER: http://peer_master:8080
@@ -191,19 +191,19 @@ services:
       # Manually set the container name for the leader to what the container expects
       - drand-leader:testdrng-drand_0
     networks:
-      - shimmer
+      - goshimmer
     environment:
       GOSHIMMER: http://peer_master:8080
     depends_on:
       - drand-leader
 # Create our own network
 networks:
-  shimmer:
+  goshimmer:
     driver: bridge
 # Named Docker volumes for data persistence
 # ./run.sh removes these on exit
 volumes:
-  shimmerdb:
+  mainnetdb:
   peerdb:
   grafana-data-volume:
 # read only files to load in the containers that may be shared across containers
