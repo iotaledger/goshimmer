@@ -58,12 +58,15 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		deps.NotarizationManager.OnMessageConfirmed(messageID)
+		deps.Tangle.Storage.Message(messageID).Consume(func(m *tangle.Message) {
+			deps.NotarizationManager.OnMessageConfirmed(m)
+		})
 	}))
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		deps.NotarizationManager.OnTransactionConfirmed(transactionID)
+		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(t *ledgerstate.Transaction) {
+			deps.NotarizationManager.OnTransactionConfirmed(t)
+		})
 	}))
 	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		deps.NotarizationManager.OnBranchConfirmed(branchID)

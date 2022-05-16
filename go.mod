@@ -4,6 +4,8 @@ go 1.18
 
 replace github.com/linxGnu/grocksdb => github.com/gohornet/grocksdb v1.6.34-0.20210518222204-d6ea5eedcfb9
 
+replace github.com/lazyledger/smt => github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
@@ -18,6 +20,7 @@ require (
 	github.com/iotaledger/hive.go v0.0.0-20220323102937-0cf57aabb23a
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
+	github.com/lazyledger/smt v0.2.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/libp2p/go-yamux/v2 v2.2.0
