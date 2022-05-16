@@ -7,8 +7,7 @@ services:
     build:
       context: "https://github.com/iotaledger/goshimmer.git#${TAG}"
     volumes:
-      - entrynode:/tmp/mainnetdb
-      - entrynode:/mainnetdb
+      - entrynode:/app/mainnetdb
     ports:
       - "1888:188/tcp"    # analysis server
       - "8080:80/tcp"     # analysis dashboard
