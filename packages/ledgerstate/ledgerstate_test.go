@@ -26,7 +26,8 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 
 	// Mark A as Confirmed
 	{
-		require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "A")))
+		modified, _ := ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "A"))
+		require.True(t, modified)
 
 		assertBranchIDs(t, ledgerstate, transactions["A"], branches["A"])
 		assertBranchIDs(t, ledgerstate, transactions["B"], branches["B"])
@@ -93,7 +94,8 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		})
 	}
 
-	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "D")))
+	modified, _ := ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "D"))
+	require.True(t, modified)
 
 	setupScenarioTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions, branches)
 
@@ -118,8 +120,8 @@ func TestLedgerstate_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["H"]))
 		assert.Equal(t, Pending, ledgerstate.BranchDAG.InclusionState(branches["I"]))
 	}
-
-	require.True(t, ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "H")))
+	modified, _ = ledgerstate.BranchDAG.SetBranchConfirmed(getSingleBranch(branches, "H"))
+	require.True(t, modified)
 
 	setupScenarioTopTopTopLayer(t, wallets, outputs, ledgerstate, inputs, manaPledgeID, transactions)
 

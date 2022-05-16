@@ -130,6 +130,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 			MessageConfirmed:      events.NewEvent(tangle.MessageIDCaller),
 			TransactionConfirmed:  events.NewEvent(ledgerstate.TransactionIDEventHandler),
 			BranchConfirmed:       events.NewEvent(ledgerstate.BranchIDEventHandler),
+			BranchRejected:        events.NewEvent(ledgerstate.BranchIDEventHandler),
 			TransactionGoFChanged: events.NewEvent(ledgerstate.TransactionIDEventHandler),
 			BranchGoFChanged:      events.NewEvent(BranchIDGoFEventHandler),
 		},

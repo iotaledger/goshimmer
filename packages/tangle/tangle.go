@@ -68,6 +68,7 @@ type ConfirmationOracle interface {
 type ConfirmationEvents struct {
 	MessageConfirmed      *events.Event
 	BranchConfirmed       *events.Event
+	BranchRejected        *events.Event
 	TransactionConfirmed  *events.Event
 	TransactionGoFChanged *events.Event
 	BranchGoFChanged      *events.Event
