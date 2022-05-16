@@ -164,7 +164,7 @@ A node that is used to expose ports via the host and to have a single attachment
 
 ##### Volumes
 
-Docker Compose creates a `shimmerdb` volume to maintain a tangle even after tearing down the containers. Run `docker-compose down -v` to clear the volume.
+Docker Compose creates a `mainnetdb` volume to maintain a tangle even after tearing down the containers. Run `docker-compose down -v` to clear the volume.
 
 ##### Ports
 
