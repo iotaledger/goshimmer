@@ -5,7 +5,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -115,12 +115,12 @@ type MessageBookedEvent struct {
 
 type MessageBranchUpdatedEvent struct {
 	MessageID MessageID
-	BranchID  branchdag.BranchID
+	BranchID  utxo.TransactionID
 }
 
 type MarkerBranchAddedEvent struct {
 	Marker      *markers.Marker
-	NewBranchID branchdag.BranchID
+	NewBranchID utxo.TransactionID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -200,7 +200,7 @@ type MarkerWeightChangedEvent struct {
 
 // BranchWeightChangedEvent holds information about a branch and its updated weight.
 type BranchWeightChangedEvent struct {
-	BranchID branchdag.BranchID
+	BranchID utxo.TransactionID
 	Weight   float64
 }
 

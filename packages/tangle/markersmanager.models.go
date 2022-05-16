@@ -10,11 +10,12 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -23,7 +24,7 @@ import (
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
 	sequenceID   markers.SequenceID
-	mapping      *thresholdmap.ThresholdMap[markers.Index, branchdag.BranchIDs]
+	mapping      *thresholdmap.ThresholdMap[markers.Index, *set.AdvancedSet[utxo.TransactionID]]
 	mappingMutex sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -33,7 +34,7 @@ type MarkerIndexBranchIDMapping struct {
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
 		sequenceID: sequenceID,
-		mapping:    thresholdmap.New[markers.Index, branchdag.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator),
+		mapping:    thresholdmap.New[markers.Index, *set.AdvancedSet[utxo.TransactionID]](thresholdmap.LowerThresholdMode, markerIndexComparator),
 	}
 
 	markerBranchMapping.SetModified()
@@ -78,7 +79,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 		err = errors.Errorf("failed to parse reference count (%v): %w", mappingCountErr, cerrors.ErrParseBytesFailed)
 		return
 	}
-	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, branchdag.BranchIDs](thresholdmap.LowerThresholdMode, markerIndexComparator)
+	markerIndexBranchIDMapping.mapping = thresholdmap.New[markers.Index, *set.AdvancedSet[utxo.TransactionID]](thresholdmap.LowerThresholdMode, markerIndexComparator)
 	for j := uint64(0); j < mappingCount; j++ {
 		index, indexErr := marshalUtil.ReadUint64()
 		if indexErr != nil {
@@ -86,7 +87,7 @@ func (m *MarkerIndexBranchIDMapping) FromMarshalUtil(marshalUtil *marshalutil.Ma
 			return
 		}
 
-		branchIDs := branchdag.NewBranchIDs()
+		branchIDs := set.NewAdvancedSet[utxo.TransactionID]()
 		if branchIDErr := branchIDs.FromMarshalUtil(marshalUtil); branchIDErr != nil {
 			err = errors.Errorf("failed to parse BranchID: %w", branchIDErr)
 			return
@@ -104,7 +105,7 @@ func (m *MarkerIndexBranchIDMapping) SequenceID() markers.SequenceID {
 }
 
 // BranchIDs returns the BranchID that is associated to the given marker Index.
-func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs branchdag.BranchIDs) {
+func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -117,7 +118,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 }
 
 // SetBranchIDs creates a mapping between the given marker Index and the given BranchID.
-func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs branchdag.BranchIDs) {
+func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
@@ -136,7 +137,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs branchdag.BranchIDs, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -144,12 +145,12 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, branchdag.NewBranchIDs(), false
+	return 0, set.NewAdvancedSet[utxo.TransactionID](), false
 }
 
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs branchdag.BranchIDs, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -157,7 +158,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, branchdag.NewBranchIDs(), false
+	return 0, set.NewAdvancedSet[utxo.TransactionID](), false
 }
 
 // Bytes returns a marshaled version of the MarkerIndexBranchIDMapping.
@@ -171,8 +172,8 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	defer m.mappingMutex.RUnlock()
 
 	indexes := make([]markers.Index, 0)
-	branchIDs := make(map[markers.Index]branchdag.BranchIDs)
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, branchdag.BranchIDs]) bool {
+	branchIDs := make(map[markers.Index]*set.AdvancedSet[utxo.TransactionID])
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, *set.AdvancedSet[utxo.TransactionID]]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -219,7 +220,7 @@ func (m *MarkerIndexBranchIDMapping) ObjectStorageValue() []byte {
 
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(m.mapping.Size()))
-	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, branchdag.BranchIDs]) bool {
+	m.mapping.ForEach(func(node *thresholdmap.Element[markers.Index, *set.AdvancedSet[utxo.TransactionID]]) bool {
 		marshalUtil.Write(node.Key())
 		marshalUtil.Write(node.Value())
 

@@ -241,7 +241,7 @@ func GetBranch(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
+	if deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
 		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
@@ -280,12 +280,12 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
-		branchIDsPerConflictID := make(map[branchdag.ConflictID][]branchdag.BranchID)
+	if deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		branchIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
-			branchIDsPerConflictID[conflictID] = make([]branchdag.BranchID, 0)
-			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember) {
+			branchIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
+			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
 			})
 		}
@@ -467,10 +467,10 @@ func GetTransactionAttachments(c echo.Context) (err error) {
 // branchIDFromContext determines the BranchID from the branchID parameter in an echo.Context. It expects it to either
 // be a base58 encoded string or one of the builtin aliases (MasterBranchID, LazyBookedConflictsBranchID or
 // InvalidBranchID)
-func branchIDFromContext(c echo.Context) (branchID branchdag.BranchID, err error) {
+func branchIDFromContext(c echo.Context) (branchID utxo.TransactionID, err error) {
 	switch branchIDString := c.Param("branchID"); branchIDString {
 	case "MasterBranchID":
-		branchID = branchdag.MasterBranchID
+		branchID = utxo.EmptyTransactionID
 	default:
 		err = branchID.FromBase58(branchIDString)
 	}

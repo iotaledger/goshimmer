@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 
@@ -33,11 +34,11 @@ var (
 )
 
 type conflict struct {
-	ConflictID    branchdag.ConflictID `json:"conflictID"`
-	ArrivalTime   time.Time            `json:"arrivalTime"`
-	Resolved      bool                 `json:"resolved"`
-	TimeToResolve time.Duration        `json:"timeToResolve"`
-	UpdatedTime   time.Time            `json:"updatedTime"`
+	ConflictID    utxo.OutputID `json:"conflictID"`
+	ArrivalTime   time.Time     `json:"arrivalTime"`
+	Resolved      bool          `json:"resolved"`
+	TimeToResolve time.Duration `json:"timeToResolve"`
+	UpdatedTime   time.Time     `json:"updatedTime"`
 }
 
 type conflictJSON struct {
@@ -57,13 +58,13 @@ func (c *conflict) ToJSON() *conflictJSON {
 }
 
 type branch struct {
-	BranchID     branchdag.BranchID    `json:"branchID"`
-	ConflictIDs  branchdag.ConflictIDs `json:"conflictIDs"`
-	AW           float64               `json:"aw"`
-	GoF          gof.GradeOfFinality   `json:"gof"`
-	IssuingTime  time.Time             `json:"issuingTime"`
-	IssuerNodeID identity.ID           `json:"issuerNodeID"`
-	UpdatedTime  time.Time             `json:"updatedTime"`
+	BranchID     utxo.TransactionID              `json:"branchID"`
+	ConflictIDs  *set.AdvancedSet[utxo.OutputID] `json:"conflictIDs"`
+	AW           float64                         `json:"aw"`
+	GoF          gof.GradeOfFinality             `json:"gof"`
+	IssuingTime  time.Time                       `json:"issuingTime"`
+	IssuerNodeID identity.ID                     `json:"issuerNodeID"`
+	UpdatedTime  time.Time                       `json:"updatedTime"`
 }
 
 type branchJSON struct {
@@ -112,8 +113,8 @@ func runConflictLiveFeed() {
 		defer conflictsLiveFeedWorkerPool.Stop()
 
 		conflicts = &boundedConflictMap{
-			conflicts:    make(map[branchdag.ConflictID]*conflict),
-			branches:     make(map[branchdag.BranchID]*branch),
+			conflicts:    make(map[utxo.OutputID]*conflict),
+			branches:     make(map[utxo.TransactionID]*branch),
 			conflictHeap: &timeHeap{},
 		}
 
@@ -133,14 +134,14 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onBranchCreated(event *branchdag.BranchCreatedEvent) {
+func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 	branchID := event.BranchID
 	b := &branch{
 		BranchID:    branchID,
 		UpdatedTime: clock.SyncedTime(),
 	}
 
-	deps.Tangle.Ledger.Storage.CachedTransaction(branchID.TransactionID()).Consume(func(transaction utxo.Transaction) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(transaction utxo.Transaction) {
 		if tx, ok := transaction.(*devnetvm.Transaction); ok {
 			b.IssuingTime = tx.Essence().Timestamp()
 		}
@@ -153,7 +154,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
+	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			_, exists := conflicts.conflict(conflictID)
@@ -168,7 +169,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent) {
 			}
 
 			// update all existing branches with a possible new conflict membership
-			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember) {
+			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
 			})
 		}
@@ -213,7 +214,7 @@ func sendAllConflicts() {
 	conflicts.sendAllConflicts()
 }
 
-func issuerOfOldestAttachment(branchID branchdag.BranchID) (id identity.ID) {
+func issuerOfOldestAttachment(branchID utxo.TransactionID) (id identity.ID) {
 	var oldestAttachmentTime time.Time
 	deps.Tangle.Storage.Attachments(utxo.TransactionID(branchID)).Consume(func(attachment *tangle.Attachment) {
 		deps.Tangle.Storage.Message(attachment.MessageID()).Consume(func(message *tangle.Message) {
@@ -227,7 +228,7 @@ func issuerOfOldestAttachment(branchID branchdag.BranchID) (id identity.ID) {
 }
 
 type timeHeapElement struct {
-	conflictID  branchdag.ConflictID
+	conflictID  utxo.OutputID
 	updatedTime time.Time
 }
 
@@ -260,12 +261,12 @@ func (h *timeHeap) Pop() interface{} {
 var _ heap.Interface = &timeHeap{}
 
 type boundedConflictMap struct {
-	conflicts    map[branchdag.ConflictID]*conflict
-	branches     map[branchdag.BranchID]*branch
+	conflicts    map[utxo.OutputID]*conflict
+	branches     map[utxo.TransactionID]*branch
 	conflictHeap *timeHeap
 }
 
-func (b *boundedConflictMap) conflict(conflictID branchdag.ConflictID) (conflict *conflict, exists bool) {
+func (b *boundedConflictMap) conflict(conflictID utxo.OutputID) (conflict *conflict, exists bool) {
 	conflict, exists = b.conflicts[conflictID]
 	return
 }
@@ -291,7 +292,7 @@ func (b *boundedConflictMap) addConflict(c *conflict) {
 	sendConflictUpdate(c)
 }
 
-func (b *boundedConflictMap) resolveConflict(conflictID branchdag.ConflictID) {
+func (b *boundedConflictMap) resolveConflict(conflictID utxo.OutputID) {
 	if c, exists := b.conflicts[conflictID]; exists && !c.Resolved {
 		c.Resolved = true
 		c.TimeToResolve = clock.Since(c.ArrivalTime)
@@ -315,7 +316,7 @@ func (b *boundedConflictMap) addBranch(br *branch) {
 	sendBranchUpdate(br)
 }
 
-func (b *boundedConflictMap) addConflictMember(branchID branchdag.BranchID, conflictID branchdag.ConflictID) {
+func (b *boundedConflictMap) addConflictMember(branchID utxo.TransactionID, conflictID utxo.OutputID) {
 	if _, exists := b.branches[branchID]; exists {
 		b.branches[branchID].ConflictIDs.Add(conflictID)
 		b.branches[branchID].UpdatedTime = clock.SyncedTime()
@@ -323,7 +324,7 @@ func (b *boundedConflictMap) addConflictMember(branchID branchdag.BranchID, conf
 	}
 }
 
-func (b *boundedConflictMap) branch(branchID branchdag.BranchID) (branch *branch, exists bool) {
+func (b *boundedConflictMap) branch(branchID utxo.TransactionID) (branch *branch, exists bool) {
 	branch, exists = b.branches[branchID]
 	return
 }

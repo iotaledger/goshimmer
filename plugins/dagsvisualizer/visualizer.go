@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
@@ -17,6 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -69,7 +71,7 @@ func registerTangleEvents() {
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
 			if err != nil {
-				branchIDs = branchdag.NewBranchIDs()
+				branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 			}
 
 			wsMsg := &wsMessage{
@@ -77,7 +79,7 @@ func registerTangleEvents() {
 				Data: &tangleBooked{
 					ID:        messageID.Base58(),
 					IsMarker:  msgMetadata.StructureDetails().IsPastMarker,
-					BranchIDs: lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58),
+					BranchIDs: lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -142,7 +144,7 @@ func registerUTXOEvents() {
 						Type: MsgTypeUTXOBooked,
 						Data: &utxoBooked{
 							ID:        tx.ID().Base58(),
-							BranchIDs: lo.Map(txMetadata.BranchIDs().Slice(), branchdag.BranchID.Base58),
+							BranchIDs: lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58),
 						},
 					}
 					visualizerWorkerPool.TrySubmit(wsMsg)
@@ -174,7 +176,7 @@ func registerUTXOEvents() {
 }
 
 func registerBranchEvents() {
-	createdClosure := event.NewClosure(func(event *branchdag.BranchCreatedEvent) {
+	createdClosure := event.NewClosure(func(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
 			Data: newBranchVertex(event.BranchID),
@@ -183,20 +185,20 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	parentUpdateClosure := event.NewClosure(func(event *branchdag.BranchParentsUpdatedEvent) {
-		lo.Map(event.ParentsBranchIDs.Slice(), branchdag.BranchID.Base58)
+	parentUpdateClosure := event.NewClosure(func(event *branchdag.BranchParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
 			Data: &branchParentUpdate{
 				ID:      event.BranchID.Base58(),
-				Parents: lo.Map(event.ParentsBranchIDs.Slice(), branchdag.BranchID.Base58),
+				Parents: lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	branchConfirmedClosure := event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
+	branchConfirmedClosure := event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchConfirmed,
 			Data: &branchConfirmed{
@@ -230,7 +232,7 @@ func registerBranchEvents() {
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/dagsvisualizer/branch/:branchID", func(c echo.Context) (err error) {
 		parents := make(map[string]*branchVertex)
-		var branchID branchdag.BranchID
+		var branchID utxo.TransactionID
 		if err = branchID.FromBase58(c.Param("branchID")); err != nil {
 			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 			return
@@ -258,7 +260,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		messages := []*tangleVertex{}
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
-		branchMap := branchdag.NewBranchIDs()
+		branchMap := set.NewAdvancedSet[utxo.TransactionID]()
 		entryMsgs := tangle.NewMessageIDs()
 		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
 			entryMsgs.Add(approver.ApproverMessageID())
@@ -281,7 +283,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 					// add branch
 					branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(msg.ID())
 					if err != nil {
-						branchIDs = branchdag.NewBranchIDs()
+						branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 					}
 					for it := branchIDs.Iterator(); it.HasNext(); {
 						branchID := it.Next()
@@ -331,7 +333,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 	deps.Tangle.Storage.MessageMetadata(message.ID()).Consume(func(msgMetadata *tangle.MessageMetadata) {
 		branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(message.ID())
 		if err != nil {
-			branchIDs = branchdag.NewBranchIDs()
+			branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 		}
 		ret = &tangleVertex{
 			ID:                      message.ID().Base58(),
@@ -339,7 +341,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			WeakParentIDs:           message.ParentsByType(tangle.WeakParentType).Base58(),
 			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
 			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
-			BranchIDs:               lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58),
+			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
 			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
 			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
@@ -371,7 +373,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), branchdag.BranchID.Base58)
+		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58)
 	})
 
 	ret = &utxoVertex{
@@ -388,14 +390,14 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	return ret
 }
 
-func newBranchVertex(branchID branchdag.BranchID) (ret *branchVertex) {
-	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
-		conflicts := make(map[branchdag.ConflictID][]branchdag.BranchID)
+func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
+	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a branch
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
-			conflicts[conflictID] = make([]branchdag.BranchID, 0)
-			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember) {
+			conflicts[conflictID] = make([]utxo.TransactionID, 0)
+			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
 			})
 		}
@@ -403,7 +405,7 @@ func newBranchVertex(branchID branchdag.BranchID) (ret *branchVertex) {
 		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
-			Parents:     lo.Map(branch.Parents().Slice(), branchdag.BranchID.Base58),
+			Parents:     lo.Map(branch.Parents().Slice(), utxo.TransactionID.Base58),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 			GoF:         branchGoF.String(),
@@ -425,7 +427,7 @@ func storeWsMessage(msg *wsMessage) {
 func getBranchesToMaster(vertex *branchVertex, parents map[string]*branchVertex) {
 	for _, IDBase58 := range vertex.Parents {
 		if _, ok := parents[IDBase58]; !ok {
-			var ID branchdag.BranchID
+			var ID utxo.TransactionID
 			if err := ID.FromBase58(IDBase58); err == nil {
 				parentVertex := newBranchVertex(ID)
 				parents[parentVertex.ID] = parentVertex

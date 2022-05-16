@@ -530,7 +530,7 @@ type Branch struct {
 }
 
 // NewBranch returns a Branch from the given ledger.Branch.
-func NewBranch(branch *branchdag.Branch, gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
+func NewBranch(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
 		Parents: func() []string {
@@ -564,7 +564,7 @@ type ChildBranch struct {
 }
 
 // NewChildBranch returns a ChildBranch from the given ledger.ChildBranch.
-func NewChildBranch(childBranch *branchdag.ChildBranch) *ChildBranch {
+func NewChildBranch(childBranch *branchdag.ChildBranch[utxo.TransactionID]) *ChildBranch {
 	return &ChildBranch{
 		BranchID: childBranch.ChildBranchID().Base58(),
 	}
@@ -581,9 +581,9 @@ type Conflict struct {
 }
 
 // NewConflict returns a Conflict from the given ledger.ConflictID.
-func NewConflict(conflictID branchdag.ConflictID, branchIDs []branchdag.BranchID) *Conflict {
+func NewConflict(conflictID utxo.OutputID, branchIDs []utxo.TransactionID) *Conflict {
 	return &Conflict{
-		OutputID: NewOutputID(conflictID.OutputID),
+		OutputID: NewOutputID(conflictID),
 		BranchIDs: func() (mappedBranchIDs []string) {
 			mappedBranchIDs = make([]string, 0)
 			for _, branchID := range branchIDs {

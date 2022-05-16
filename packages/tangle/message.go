@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
@@ -21,7 +22,7 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -909,8 +910,8 @@ type MessageMetadata struct {
 	solid               bool
 	solidificationTime  time.Time
 	structureDetails    *markers.StructureDetails
-	addedBranchIDs      branchdag.BranchIDs
-	subtractedBranchIDs branchdag.BranchIDs
+	addedBranchIDs      *set.AdvancedSet[utxo.TransactionID]
+	subtractedBranchIDs *set.AdvancedSet[utxo.TransactionID]
 	scheduled           bool
 	scheduledTime       time.Time
 	discardedTime       time.Time
@@ -942,8 +943,8 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
 		messageID:           messageID,
 		receivedTime:        clock.SyncedTime(),
-		addedBranchIDs:      branchdag.NewBranchIDs(),
-		subtractedBranchIDs: branchdag.NewBranchIDs(),
+		addedBranchIDs:      set.NewAdvancedSet[utxo.TransactionID](),
+		subtractedBranchIDs: set.NewAdvancedSet[utxo.TransactionID](),
 	}
 }
 
@@ -968,8 +969,8 @@ func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err 
 func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
 	if messageMetadata = m; messageMetadata == nil {
 		messageMetadata = new(MessageMetadata)
-		messageMetadata.addedBranchIDs = branchdag.NewBranchIDs()
-		messageMetadata.subtractedBranchIDs = branchdag.NewBranchIDs()
+		messageMetadata.addedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+		messageMetadata.subtractedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	}
 
 	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
@@ -1113,7 +1114,7 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs branchdag.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
@@ -1129,7 +1130,7 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs branchdag.BranchIDs) 
 }
 
 // AddBranchID sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) AddBranchID(branchID branchdag.BranchID) (modified bool) {
+func (m *MessageMetadata) AddBranchID(branchID utxo.TransactionID) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
@@ -1143,7 +1144,7 @@ func (m *MessageMetadata) AddBranchID(branchID branchdag.BranchID) (modified boo
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
-func (m *MessageMetadata) AddedBranchIDs() branchdag.BranchIDs {
+func (m *MessageMetadata) AddedBranchIDs() *set.AdvancedSet[utxo.TransactionID] {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
@@ -1151,7 +1152,7 @@ func (m *MessageMetadata) AddedBranchIDs() branchdag.BranchIDs {
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
-func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs branchdag.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
@@ -1167,7 +1168,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs branchdag.B
 }
 
 // SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
-func (m *MessageMetadata) SubtractedBranchIDs() branchdag.BranchIDs {
+func (m *MessageMetadata) SubtractedBranchIDs() *set.AdvancedSet[utxo.TransactionID] {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 
