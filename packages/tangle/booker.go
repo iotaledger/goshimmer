@@ -51,7 +51,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
-		fmt.Println("TransactionBranchIDUpdated", event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs)
+		// fmt.Println("TransactionBranchIDUpdated", event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs)
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -504,6 +504,9 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
 func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
+
+		// TODO: we need to actually figure out what to do with this. this is just a quick fix.
+		removedBranchIDs.Delete(branchdag.MasterBranchID)
 		updated, forkErr := b.propagateForkedBranch(messageMetadata, addedBranchID, removedBranchIDs)
 		if forkErr != nil {
 			messageWalker.StopWalk()
@@ -531,14 +534,14 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 	b.bookingMutex.Lock(messageMetadata.ID())
 	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
-	fmt.Println(">>propagateForkedBranch", messageMetadata.ID())
+	// fmt.Println(">>propagateForkedBranch", messageMetadata.ID())
 	if !messageMetadata.IsBooked() {
-		fmt.Println(">>Message not booked", messageMetadata.ID(), addedBranchID)
+		// fmt.Println(">>Message not booked", messageMetadata.ID(), addedBranchID)
 		return false, nil
 	}
 
 	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-		fmt.Println(">>isMarker", messageMetadata.ID())
+		// fmt.Println(">>isMarker", messageMetadata.ID())
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {
 			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers.Marker(), err)
 		}
@@ -549,16 +552,21 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 }
 
 func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch branchdag.BranchID, removedBranches branchdag.BranchIDs) (updated bool, err error) {
+	// fmt.Println(">>updateMessageBranches", messageMetadata.ID())
+
 	addedBranchIDs := messageMetadata.AddedBranchIDs()
 	if !addedBranchIDs.Add(addedBranch) {
+		// fmt.Println(">>already added", messageMetadata.ID(), addedBranch)
 		return false, nil
 	}
 
 	pastMarkerBranchIDs, err := b.branchIDsFromStructureDetails(messageMetadata.StructureDetails())
 	if err != nil {
+		// fmt.Println(">>failed to get past marker branchIDs", messageMetadata.ID(), addedBranch)
 		return false, errors.Errorf("failed to retrieve BranchIDs from Structure Details of %s: %w", messageMetadata.ID(), err)
 	}
 	if pastMarkerBranchIDs.Has(addedBranch) {
+		// fmt.Println(">>past marker", messageMetadata.ID(), addedBranch)
 		return false, nil
 	}
 
@@ -569,6 +577,7 @@ func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBr
 	allRemovedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
 	allRemovedBranchIDs.AddAll(removedBranchIDsFromAddedBranchIDs)
 	if !allRemovedBranchIDs.Equal(removedBranches) {
+		// fmt.Println(">>removed branches not equal", messageMetadata.ID(), allRemovedBranchIDs, removedBranchIDsFromPastMarkers, removedBranchIDsFromAddedBranchIDs, removedBranches)
 		return false, nil
 	}
 
@@ -578,6 +587,7 @@ func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBr
 	updated = messageMetadata.SetAddedBranchIDs(addedBranchIDs)
 	updated = messageMetadata.SetSubtractedBranchIDs(subtractedBranchIDs) || updated
 
+	// fmt.Println(">>updated", messageMetadata.ID(), addedBranch)
 	return updated, nil
 }
 

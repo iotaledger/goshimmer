@@ -3935,8 +3935,8 @@ func TestFutureConeDislike(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForking(t *testing.T) {
-	const layersNum = 15
-	const widthSize = 3
+	const layersNum = 127
+	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
 	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -4008,8 +4008,8 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 	for i := 0; i < len(msgs); i++ {
 		wg.Add(1)
 		go func(i int) {
-			//time.Sleep(time.Duration(int(50 * 1000000 * rand.Float32())))
-			//time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
+			// time.Sleep(time.Duration(int(50 * 1000000 * rand.Float32())))
+			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
 			testFramework.IssueMessages(msgs[i])
 			wg.Done()
 		}(i)
@@ -4085,7 +4085,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 
-		//assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
+		// assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
 		missing := messageExpectedBranchIDs.Clone()
 		missing.DeleteAll(retrievedBranchIDs)
 		assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s misses %s", messageID, missing)
