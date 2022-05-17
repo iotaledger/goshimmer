@@ -99,5 +99,5 @@ func newEpochManager() *notarization.EpochManager {
 }
 
 func newEpochCommitmentFactory() *notarization.EpochCommitmentFactory {
-	return notarization.NewCommitmentFactory()
+	return notarization.NewEpochCommitmentFactory()
 }
