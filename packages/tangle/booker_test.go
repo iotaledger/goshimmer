@@ -5,9 +5,11 @@ import (
 	"testing"
 
 	"github.com/iotaledger/hive.go/debug"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -54,10 +56,10 @@ func TestScenario_1(t *testing.T) {
 		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not subjectively invalid", messageAlias)
 	}
 
-	checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-		"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-		"Message3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-		"Message2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+		"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
+		"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		"Message4": testFramework.BranchIDs("Branch4"),
 		"Message5": testFramework.BranchIDs("Branch5"),
 		"Message6": testFramework.BranchIDs("Branch6"),
@@ -103,8 +105,8 @@ func TestScenario_2(t *testing.T) {
 	testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 	testFramework.IssueMessages("Message9").WaitUntilAllTasksProcessed()
 
-	checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-		"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		"Message2": testFramework.BranchIDs("yellow"),
 		"Message3": testFramework.BranchIDs("yellow"),
 		"Message4": testFramework.BranchIDs("red"),
@@ -165,8 +167,8 @@ func TestScenario_3(t *testing.T) {
 	testFramework.RegisterBranchID("blue", "Message9")
 	testFramework.RegisterBranchID("blue", "Message9")
 
-	checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-		"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		"Message2": testFramework.BranchIDs("purple"),
 		"Message3": testFramework.BranchIDs("purple"),
 		"Message4": testFramework.BranchIDs("red"),
@@ -200,11 +202,11 @@ func TestBookerMarkerGap(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -217,13 +219,13 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message1.5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message1.5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -238,15 +240,15 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1.5": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Message2":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message1.5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message1.5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message2":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message2":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 	// ISSUE Message3
@@ -264,15 +266,15 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message2":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message3":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message1.5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3":   {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":   {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message1.5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message2":   testFramework.BranchIDs("Message2"),
 			"Message3":   testFramework.BranchIDs("Message3"),
 		})
@@ -294,14 +296,14 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message3":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message4":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message1.5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3":   {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4":   {testFramework.BranchIDs("Message3", "Message4"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":   {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":   {testFramework.BranchIDs("Message3", "Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":   testFramework.BranchIDs("Message1"),
 			"Message1.5": testFramework.BranchIDs("Message1"),
 			"Message2":   testFramework.BranchIDs("Message1", "Message2"),
@@ -332,11 +334,11 @@ func TestBookerMarkerGap2(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -352,11 +354,11 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 		})
@@ -372,15 +374,15 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
-			"Message3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -398,13 +400,13 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("Message4"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
@@ -424,14 +426,14 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("Message4"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
@@ -453,15 +455,15 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("Message4"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
@@ -485,16 +487,16 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message7": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("Message4"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
@@ -524,17 +526,17 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message7": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message8": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("Message2"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("Message4"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {testFramework.BranchIDs("Message3"), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8": {testFramework.BranchIDs("Message8"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("Message2"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("Message4"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8": {testFramework.BranchIDs("Message8"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
 			"Message3": testFramework.BranchIDs("Message3"),
@@ -567,11 +569,11 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -584,13 +586,13 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -604,15 +606,15 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A3": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -627,17 +629,17 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A3": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A4": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A3": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A4": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -657,16 +659,16 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A4":  markers.NewMarkers(markers.NewMarker(0, 3)),
 			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A2":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3":  {testFramework.BranchIDs("A3"), branchdag.NewBranchIDs()},
-			"A4":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3*": {testFramework.BranchIDs("A3*"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":  {testFramework.BranchIDs("A3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"A2":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A2":  set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"A3":  testFramework.BranchIDs("A3"),
 			"A4":  testFramework.BranchIDs("A3"),
 			"A3*": testFramework.BranchIDs("A3*"),
@@ -690,15 +692,15 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A3*": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"A1*": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A2":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3":  {testFramework.BranchIDs("A3"), branchdag.NewBranchIDs()},
-			"A4":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3*": {testFramework.BranchIDs("A3*"), branchdag.NewBranchIDs()},
-			"A1*": {testFramework.BranchIDs("A1*"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":  {testFramework.BranchIDs("A3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A1*": {testFramework.BranchIDs("A1*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  testFramework.BranchIDs("A1"),
 			"A2":  testFramework.BranchIDs("A1"),
 			"A3":  testFramework.BranchIDs("A1", "A3"),
@@ -732,11 +734,11 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"A1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -753,11 +755,11 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
 		})
@@ -777,15 +779,15 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"B1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
-			"C1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"C1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -804,13 +806,13 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"C1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1": {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
 			"C1": testFramework.BranchIDs("C"),
@@ -831,14 +833,14 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"D1": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1": {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"A2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
 			"C1": testFramework.BranchIDs("C"),
@@ -861,15 +863,15 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"A3": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1": {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"A2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1": {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
 			"C1": testFramework.BranchIDs("C"),
@@ -894,16 +896,16 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A3":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1":   {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1":   {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"A2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A+C1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   testFramework.BranchIDs("A"),
 			"B1":   testFramework.BranchIDs("B"),
 			"C1":   testFramework.BranchIDs("C"),
@@ -930,17 +932,17 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A+C1": markers.NewMarkers(markers.NewMarker(0, 4)),
 			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1":   {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1":   {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"A2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A+C1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A+C2": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C2": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   testFramework.BranchIDs("A"),
 			"B1":   testFramework.BranchIDs("B"),
 			"C1":   testFramework.BranchIDs("C"),
@@ -972,18 +974,18 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A+C2": markers.NewMarkers(markers.NewMarker(0, 0), markers.NewMarker(0, 3)),
 			"A2*":  markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"A1":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"B1":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"C1":   {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"D1":   {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"A2":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A3":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A+C1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"A+C2": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"A2*":  {testFramework.BranchIDs("A2*"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"A1":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"B1":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"C1":   {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"D1":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C2": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A2*":  {testFramework.BranchIDs("A2*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":   testFramework.BranchIDs("A"),
 			"B1":   testFramework.BranchIDs("B"),
 			"C1":   testFramework.BranchIDs("C"),
@@ -1020,11 +1022,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -1041,11 +1043,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 		})
@@ -1064,12 +1066,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
@@ -1087,17 +1089,17 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -1113,19 +1115,19 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -1142,20 +1144,20 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6": testFramework.BranchIDs("B"),
 		})
 	}
@@ -1174,21 +1176,21 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Message7": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 		})
@@ -1210,22 +1212,22 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message7": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message8": markers.NewMarkers(markers.NewMarker(0, 4)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 			"Message8": testFramework.BranchIDs("A", "C"),
@@ -1248,23 +1250,23 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message8": markers.NewMarkers(markers.NewMarker(0, 4)),
 			"Message9": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 			"Message8": testFramework.BranchIDs("A", "C"),
@@ -1289,24 +1291,24 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message9":  markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message10": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":  {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":  {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":  {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":  {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":  {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":  {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message3":  testFramework.BranchIDs("C"),
-			"Message4":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5":  set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6":  testFramework.BranchIDs("B"),
 			"Message7":  testFramework.BranchIDs("B"),
 			"Message8":  testFramework.BranchIDs("A", "C"),
@@ -1335,26 +1337,26 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message11":   markers.NewMarkers(markers.NewMarker(0, 5)),
 			"Message11.5": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message5":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message5":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B"),
 			"Message8":    testFramework.BranchIDs("A", "C"),
@@ -1389,26 +1391,26 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message11.5": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message12":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1443,27 +1445,27 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message12":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message13":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1500,28 +1502,28 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message13.1": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1559,29 +1561,29 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13.1": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message14":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1622,30 +1624,30 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message14":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message15":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1658,7 +1660,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -1688,31 +1690,31 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message15":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message16":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1725,7 +1727,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("A", "E"),
 		})
 	}
@@ -1760,32 +1762,32 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message16":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message17":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1798,7 +1800,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 		})
@@ -1836,33 +1838,33 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message17":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message18":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1875,7 +1877,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -1915,34 +1917,34 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message18":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message19":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1955,7 +1957,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -1997,35 +1999,35 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message19":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message20":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2038,7 +2040,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -2081,36 +2083,36 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message20":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message21":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2123,7 +2125,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -2169,37 +2171,37 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message21":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message22":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2212,14 +2214,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -2260,38 +2262,38 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message22":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message23":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2304,14 +2306,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 		})
 	}
@@ -2350,39 +2352,39 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message23":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message24":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2395,14 +2397,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 		})
@@ -2443,40 +2445,40 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message24":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message25":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2489,14 +2491,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2543,41 +2545,41 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message25":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message26":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2590,14 +2592,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2611,11 +2613,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
 		testFramework.tangle.Ledger.BranchDAG.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *branchdag.Branch) {
+		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Confirmed)
 		})
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *branchdag.Branch) {
+		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
@@ -2656,42 +2658,42 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message26":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message27":   markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2704,14 +2706,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2762,43 +2764,43 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message27":   markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message28":   markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2811,14 +2813,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2867,44 +2869,44 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message28":   markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message29":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2917,14 +2919,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2943,11 +2945,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *branchdag.Branch) {
+		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *branchdag.Branch) {
+		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
@@ -2987,45 +2989,45 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message29":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message30":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("H"), branchdag.NewBranchIDs()},
-			"Message30":   {testFramework.BranchIDs("D", "I"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("H"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message30":   {testFramework.BranchIDs("D", "I"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3038,14 +3040,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3099,46 +3101,46 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message30":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message31":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("H"), branchdag.NewBranchIDs()},
-			"Message30":   {testFramework.BranchIDs("D", "I"), branchdag.NewBranchIDs()},
-			"Message31":   {testFramework.BranchIDs("A", "C", "D"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("H"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message30":   {testFramework.BranchIDs("D", "I"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message31":   {testFramework.BranchIDs("A", "C", "D"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3151,14 +3153,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3213,47 +3215,47 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message31":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message32":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("H"), branchdag.NewBranchIDs()},
-			"Message30":   {testFramework.BranchIDs("D", "I"), branchdag.NewBranchIDs()},
-			"Message31":   {testFramework.BranchIDs("A", "C", "D"), branchdag.NewBranchIDs()},
-			"Message32":   {testFramework.BranchIDs("A", "C", "D", "Z"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("H"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message30":   {testFramework.BranchIDs("D", "I"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message31":   {testFramework.BranchIDs("A", "C", "D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message32":   {testFramework.BranchIDs("A", "C", "D", "Z"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3266,14 +3268,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3330,48 +3332,48 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message32":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message33":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("H"), branchdag.NewBranchIDs()},
-			"Message30":   {testFramework.BranchIDs("D", "I"), branchdag.NewBranchIDs()},
-			"Message31":   {testFramework.BranchIDs("A", "C", "D"), branchdag.NewBranchIDs()},
-			"Message32":   {testFramework.BranchIDs("A", "C", "D", "Z"), branchdag.NewBranchIDs()},
-			"Message33":   {testFramework.BranchIDs("A", "C", "D", "Z"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("H"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message30":   {testFramework.BranchIDs("D", "I"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message31":   {testFramework.BranchIDs("A", "C", "D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message32":   {testFramework.BranchIDs("A", "C", "D", "Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message33":   {testFramework.BranchIDs("A", "C", "D", "Z"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3384,14 +3386,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3457,49 +3459,49 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message33":   markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message34":   markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2":    {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3":    {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message5":    {testFramework.BranchIDs("D"), branchdag.NewBranchIDs()},
-			"Message6":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message8":    {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2":    {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3":    {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5":    {testFramework.BranchIDs("D"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message8":    {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message9":    {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message10":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message11":   {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+			"Message10":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message11":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message11.5": {testFramework.BranchIDs("A", "C"), testFramework.BranchIDs("B")},
-			"Message12":   {testFramework.BranchIDs("E"), branchdag.NewBranchIDs()},
+			"Message12":   {testFramework.BranchIDs("E"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message13":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message13.1": {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
 			"Message14":   {testFramework.BranchIDs("E"), testFramework.BranchIDs("D")},
-			"Message15":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("B", "D")},
-			"Message16":   {testFramework.BranchIDs("Z"), branchdag.NewBranchIDs()},
-			"Message17":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), branchdag.NewBranchIDs()},
-			"Message19":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), branchdag.NewBranchIDs()},
-			"Message21":   {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+			"Message15":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("B", "D")},
+			"Message16":   {testFramework.BranchIDs("Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message17":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message18":   {testFramework.BranchIDs("Y", "A", "E"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message19":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message20":   {testFramework.BranchIDs("Y", "E", "B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message21":   {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"Message22":   {testFramework.BranchIDs(), testFramework.BranchIDs("A")},
 			"Message23":   {testFramework.BranchIDs("B"), testFramework.BranchIDs("A")},
 			"Message24":   {testFramework.BranchIDs("B", "D"), testFramework.BranchIDs("A")},
 			"Message25":   {testFramework.BranchIDs("D"), testFramework.BranchIDs("A")},
-			"Message26":   {testFramework.BranchIDs("E", "Y"), branchdag.NewBranchIDs()},
-			"Message27":   {testFramework.BranchIDs("Y"), branchdag.NewBranchIDs()},
-			"Message28":   {branchdag.NewBranchIDs(), testFramework.BranchIDs("D")},
-			"Message29":   {testFramework.BranchIDs("H"), branchdag.NewBranchIDs()},
-			"Message30":   {testFramework.BranchIDs("D", "I"), branchdag.NewBranchIDs()},
-			"Message31":   {testFramework.BranchIDs("A", "C", "D", "M"), branchdag.NewBranchIDs()},
-			"Message32":   {testFramework.BranchIDs("A", "C", "D", "M", "Z"), branchdag.NewBranchIDs()},
-			"Message33":   {testFramework.BranchIDs("A", "C", "D", "M", "Z"), branchdag.NewBranchIDs()},
-			"Message34":   {testFramework.BranchIDs("A", "C", "D", "M", "N"), branchdag.NewBranchIDs()},
+			"Message26":   {testFramework.BranchIDs("E", "Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message27":   {testFramework.BranchIDs("Y"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message28":   {set.NewAdvancedSet[utxo.TransactionID](), testFramework.BranchIDs("D")},
+			"Message29":   {testFramework.BranchIDs("H"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message30":   {testFramework.BranchIDs("D", "I"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message31":   {testFramework.BranchIDs("A", "C", "D", "M"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message32":   {testFramework.BranchIDs("A", "C", "D", "M", "Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message33":   {testFramework.BranchIDs("A", "C", "D", "M", "Z"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message34":   {testFramework.BranchIDs("A", "C", "D", "M", "N"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3512,14 +3514,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3556,11 +3558,11 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -3573,13 +3575,13 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -3594,15 +3596,15 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 2)),
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message2": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message3": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -3621,14 +3623,14 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 3)),
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("red"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
@@ -3649,15 +3651,15 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 4)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("red"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
@@ -3682,21 +3684,21 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message5": markers.NewMarkers(markers.NewMarker(0, 4)),
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("red"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
 			"Message5": testFramework.BranchIDs("blue"),
-			"Message6": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message6": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -3716,23 +3718,23 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message6": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message7": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message3": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("red"), branchdag.NewBranchIDs()},
-			"Message5": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message6": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message7": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
 			"Message5": testFramework.BranchIDs("blue"),
-			"Message6": branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message7": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message6": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message7": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 }
@@ -3759,11 +3761,11 @@ func TestObjectiveInvalidity(t *testing.T) {
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
-			"Message1": branchdag.NewBranchIDs(branchdag.MasterBranchID),
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
@@ -3780,11 +3782,11 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 		})
@@ -3803,12 +3805,12 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Message2": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
@@ -3826,13 +3828,13 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
@@ -3855,13 +3857,13 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Message3": markers.NewMarkers(markers.NewMarker(0, 0)),
 			"Message4": markers.NewMarkers(markers.NewMarker(0, 0)),
 		})
-		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]branchdag.BranchIDs{
-			"Message1": {branchdag.NewBranchIDs(), branchdag.NewBranchIDs()},
-			"Message2": {testFramework.BranchIDs("B"), branchdag.NewBranchIDs()},
-			"Message3": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
-			"Message4": {testFramework.BranchIDs("C"), branchdag.NewBranchIDs()},
+		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
+			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message2": {testFramework.BranchIDs("B"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message3": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"Message4": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
@@ -3896,36 +3898,36 @@ func TestFutureConeDislike(t *testing.T) {
 	{
 		testFramework.IssueMessages("Message1", "Message1*", "Message2", "Message3").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A"),
-			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
 	{
 		testFramework.IssueMessages("Message2*").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 
 	{
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]branchdag.BranchIDs{
+		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			"Message4":  branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":  set.NewAdvancedSet(utxo.EmptyTransactionID),
 		})
 	}
 }
@@ -3959,7 +3961,7 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 	}
 }
 
-func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]branchdag.BranchIDs) {
+func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
 	for messageID, messageExpectedBranchIDs := range expectedBranchIDs {
 		// fmt.Println(">>", messageID)
 
@@ -3973,7 +3975,7 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 	}
 }
 
-func checkMessageMetadataDiffBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedDiffBranchIDs map[string][]branchdag.BranchIDs) {
+func checkMessageMetadataDiffBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedDiffBranchIDs map[string][]*set.AdvancedSet[utxo.TransactionID]) {
 	for messageID, expectedDiffBranchID := range expectedDiffBranchIDs {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
 			assert.True(t, expectedDiffBranchID[0].Equal(messageMetadata.AddedBranchIDs()), "AddBranchIDs of %s should be %s but is %s in the Metadata", messageID, expectedDiffBranchID[0], messageMetadata.AddedBranchIDs())
