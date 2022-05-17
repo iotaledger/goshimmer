@@ -68,6 +68,11 @@ func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
 	branchID.RegisterAlias(alias)
 }
 
+func (m *MessageTestFramework) RegisterTransactionID(alias, messageAlias string) {
+	TxID := m.BranchIDFromMessage(messageAlias)
+	TxID.RegisterAlias(alias)
+}
+
 // BranchID returns the BranchID registered with the given alias.
 func (m *MessageTestFramework) BranchID(alias string) (branchID branchdag.BranchID) {
 	branchID, ok := m.branchIDs[alias]

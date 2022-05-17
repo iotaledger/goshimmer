@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -50,6 +51,7 @@ func (b *Booker) Setup() {
 	}))
 
 	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+		fmt.Println("TransactionBranchIDUpdated", event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs)
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}
@@ -143,6 +145,7 @@ func (b *Booker) bookTransaction(messageID MessageID, tx utxo.Transaction) (succ
 		if !errors.Is(err, ledger.ErrTransactionUnsolid) {
 			// TODO: handle invalid transactions (possibly need to attach to invalid event though)
 			//  delete attachments of transaction
+			fmt.Println(">>", messageID)
 			b.Events.Error.Trigger(errors.Errorf("failed to book transaction with %s: %w", tx.ID(), err))
 		}
 
@@ -528,11 +531,14 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 	b.bookingMutex.Lock(messageMetadata.ID())
 	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
+	fmt.Println(">>propagateForkedBranch", messageMetadata.ID())
 	if !messageMetadata.IsBooked() {
+		fmt.Println(">>Message not booked", messageMetadata.ID(), addedBranchID)
 		return false, nil
 	}
 
 	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
+		fmt.Println(">>isMarker", messageMetadata.ID())
 		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {
 			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers.Marker(), err)
 		}

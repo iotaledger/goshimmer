@@ -540,6 +540,9 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 
 // String returns a human-readable version of the LatestMarkerVotes.
 func (l *LatestMarkerVotes) String() string {
+	l.RLock()
+	defer l.RUnlock()
+
 	builder := stringify.StructBuilder("LatestMarkerVotes")
 
 	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
@@ -566,6 +569,9 @@ func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
 
 // ObjectStorageValue returns the storage value for this instance of LatestMarkerVotes.
 func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
+	l.RLock()
+	defer l.RUnlock()
+
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint64(uint64(l.latestMarkerVotes.Size()))
 	l.latestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
