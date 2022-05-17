@@ -1,11 +1,12 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 func TestNewManager(t *testing.T) {
@@ -40,6 +41,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
 	for i := 0; i <= 5; i++ {
 		m.pendingBranchesCount[ECI(i)] = uint64(i)
+		m.epochCommitmentFactory.InsertTangleLeaf(ECI(i), tangle.EmptyMessageID)
 	}
 
 	commitment := m.GetLatestEC()
