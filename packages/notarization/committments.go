@@ -12,36 +12,55 @@ import (
 )
 
 var (
-	prevMessageRootKey     = []byte("previousMessageRoot")
-	prevTransactionRootKey = []byte("previousTransactionRoot")
+	prevTangleRootKey        = []byte("previousTangleRoot")
+	prevStateMutationRootKey = []byte("prevStateMutationRootKey")
+	prevECR                  = []byte("previousEpochCommitmentRoot")
 )
 
-// EpochCommitment is a compressed form of all the information (messages and confirmed value payloads) of a certain epoch.
+// EpochCommitment contains the ECR and prevECR of a certain epoch.
 type EpochCommitment struct {
-	ECI             ECI
-	messageRoot     *smt.SparseMerkleTree
-	transactionRoot *smt.SparseMerkleTree
-	ledgerStateRoot *smt.SparseMerkleTree
-	manaStateRoot   *smt.SparseMerkleTree
+	ECI     ECI
+	ECR     []byte
+	PrevECR []byte
 }
 
-// MessageRoot returns the root of the message merkle tree.
-func (e *EpochCommitment) MessageRoot() []byte {
-	return e.messageRoot.Root()
+// Commitment is a compressed form of all the information (messages and confirmed value payloads) of a certain epoch.
+type Commitment struct {
+	ECI               ECI
+	tangleRoot        *smt.SparseMerkleTree
+	stateMutationRoot *smt.SparseMerkleTree
+	stateRoot         *smt.SparseMerkleTree
+	prevECR           []byte
 }
 
-// TransactionRoot returns the root of the transaction merkle tree.
-func (e *EpochCommitment) TransactionRoot() []byte {
-	return e.transactionRoot.Root()
+// TangleRoot returns the root of the message merkle tree.
+func (e *Commitment) TangleRoot() []byte {
+	return e.tangleRoot.Root()
 }
 
-// LedgerStateRoot returns the root of the ledgerstate merkle tree.
-func (e *EpochCommitment) LedgerStateRoot() []byte {
-	return e.ledgerStateRoot.Root()
+// StateMutationRoot returns the root of the transaction merkle tree.
+func (e *Commitment) StateMutationRoot() []byte {
+	return e.stateMutationRoot.Root()
 }
 
-// NewEpochCommitment returns an empty commitment for the epoch.
-func NewEpochCommitment(eci ECI, prevMessageRoot, prevTransactionRoot []byte) *EpochCommitment {
+// StateRoot returns the root of the ledgerstate merkle tree.
+func (e *Commitment) StateRoot() []byte {
+	return e.stateRoot.Root()
+}
+
+// ECR returns the root of the commitment, which is the hash of prevECR, tangle root, state root and state mutation root.
+func (e *Commitment) ECR() []byte {
+	branch1 := blake2b.Sum256(append(e.prevECR, e.TangleRoot()...))
+	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
+	var root []byte
+	root = append(root, branch1[:]...)
+	root = append(root, branch2[:]...)
+	ecr := blake2b.Sum256(root)
+	return ecr[:]
+}
+
+// NewCommitment returns an empty commitment for the epoch.
+func NewCommitment(eci ECI, prevECR, prevMessageRoot, prevTransactionRoot []byte) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -51,92 +70,108 @@ func NewEpochCommitment(eci ECI, prevMessageRoot, prevTransactionRoot []byte) *E
 	stateMutationValueStore := db.NewStore()
 
 	hasher, _ := blake2b.New256(nil)
-	commitment := &EpochCommitment{
-		ECI:             eci,
-		messageRoot:     smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
-		transactionRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, hasher),
-		ledgerStateRoot: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, hasher),
+	commitment := &Commitment{
+		ECI:               eci,
+		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
+		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, hasher),
+		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, hasher),
+		prevECR:           prevECR,
 	}
 
-	commitment.messageRoot.Update(prevMessageRootKey, prevMessageRoot)
-	commitment.transactionRoot.Update(prevTransactionRootKey, prevTransactionRoot)
+	commitment.tangleRoot.Update(prevTangleRootKey, prevMessageRoot)
+	commitment.stateMutationRoot.Update(prevStateMutationRootKey, prevTransactionRoot)
 	return commitment
 }
 
 // EpochCommitmentFactory manages epoch commitments.
 type EpochCommitmentFactory struct {
-	commitments      map[ECI]*EpochCommitment
+	commitments      map[ECI]*Commitment
 	commitmentsMutex sync.RWMutex
 }
 
-// NewCommitmentFactory returns a new commitment factory.
-func NewCommitmentFactory() *EpochCommitmentFactory {
+// NewEpochCommitmentFactory returns a new commitment factory.
+func NewEpochCommitmentFactory() *EpochCommitmentFactory {
 	return &EpochCommitmentFactory{
-		commitments: make(map[ECI]*EpochCommitment),
+		commitments: make(map[ECI]*Commitment),
 	}
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertTangleLeaf(eci ECI, msgID tangle.MessageID) {
 	commitment := f.getOrCreateCommitment(eci)
-	commitment.messageRoot.Update(msgID.Bytes(), msgID.Bytes())
-	f.onMessageRootChanged(commitment)
+	commitment.tangleRoot.Update(msgID.Bytes(), msgID.Bytes())
+	f.onTangleRootChanged(commitment)
 }
 
 // InsertStateLeaf inserts the outputID to the ledgerstate sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateLeaf(eci ECI, outputID ledgerstate.OutputID) {
 	commitment := f.getOrCreateCommitment(eci)
-	commitment.ledgerStateRoot.Update(outputID.Bytes(), outputID.Bytes())
+	commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the transaction sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateMutationLeaf(eci ECI, txID ledgerstate.TransactionID) {
 	commitment := f.getOrCreateCommitment(eci)
-	commitment.transactionRoot.Update(txID.Bytes(), txID.Bytes())
-	f.onTransactionRootChanged(commitment)
+	commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
+	f.onStateMutationRootChanged(commitment)
 }
 
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) RemoveTangleLeaf(eci ECI, msgID tangle.MessageID) {
 	commitment := f.getOrCreateCommitment(eci)
-	exists, _ := commitment.ledgerStateRoot.Has(msgID.Bytes())
+	exists, _ := commitment.stateRoot.Has(msgID.Bytes())
 	if exists {
-		commitment.messageRoot.Delete(msgID.Bytes())
-		f.onMessageRootChanged(commitment)
+		commitment.tangleRoot.Delete(msgID.Bytes())
+		f.onTangleRootChanged(commitment)
 	}
 }
 
 // RemoveStateLeaf removes the output ID from the ledgerstate sparse merkle tree.
 func (f *EpochCommitmentFactory) RemoveStateLeaf(eci ECI, outID ledgerstate.OutputID) {
 	commitment := f.getOrCreateCommitment(eci)
-	exists, _ := commitment.ledgerStateRoot.Has(outID.Bytes())
+	exists, _ := commitment.stateRoot.Has(outID.Bytes())
 	if exists {
-		commitment.ledgerStateRoot.Delete(outID.Bytes())
+		commitment.stateRoot.Delete(outID.Bytes())
 	}
 }
 
 // GetCommitment returns the commitment with the given eci.
-func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *EpochCommitment {
+func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *Commitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	return f.commitments[eci]
 }
 
-func (f *EpochCommitmentFactory) getOrCreateCommitment(eci ECI) *EpochCommitment {
+// GetEpochCommitment returns the commitment with the given eci.
+func (f *EpochCommitmentFactory) GetEpochCommitment(eci ECI) *EpochCommitment {
+	f.commitmentsMutex.RLock()
+	defer f.commitmentsMutex.RUnlock()
+	if commitment, ok := f.commitments[eci]; ok {
+		return &EpochCommitment{
+			ECI:     eci,
+			ECR:     commitment.ECR(),
+			PrevECR: commitment.prevECR,
+		}
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) getOrCreateCommitment(eci ECI) *Commitment {
 	f.commitmentsMutex.RLock()
 	commitment, ok := f.commitments[eci]
 	f.commitmentsMutex.RUnlock()
 	if !ok {
 		var previousMessageRoot []byte
-		var previousTransactionRoot []byte
+		var previousTransactionRoot, previousECR []byte
 
 		if eci > 0 {
-			if previousEpochCommitment := f.GetCommitment(eci - 1); previousEpochCommitment != nil {
-				previousMessageRoot = previousEpochCommitment.MessageRoot()
-				previousTransactionRoot = previousEpochCommitment.TransactionRoot()
+			if previousCommitment := f.GetCommitment(eci - 1); previousCommitment != nil {
+				previousMessageRoot = previousCommitment.TangleRoot()
+				previousTransactionRoot = previousCommitment.StateMutationRoot()
+				previousECR = previousCommitment.ECR()
 			}
 		}
-		commitment = NewEpochCommitment(eci, previousMessageRoot, previousTransactionRoot)
+		commitment = NewCommitment(eci, previousECR, previousMessageRoot, previousTransactionRoot)
 		f.commitmentsMutex.Lock()
 		f.commitments[eci] = commitment
 		f.commitmentsMutex.Unlock()
@@ -144,22 +179,22 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(eci ECI) *EpochCommitment
 	return commitment
 }
 
-func (f *EpochCommitmentFactory) onMessageRootChanged(commitment *EpochCommitment) {
+func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	forwardCommitment, ok := f.commitments[commitment.ECI+1]
 	if !ok {
 		return
 	}
-	forwardCommitment.messageRoot.Update(prevMessageRootKey, commitment.MessageRoot())
+	forwardCommitment.tangleRoot.Update(prevTangleRootKey, commitment.TangleRoot())
 }
 
-func (f *EpochCommitmentFactory) onTransactionRootChanged(commitment *EpochCommitment) {
+func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitment) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	forwardCommitment, ok := f.commitments[commitment.ECI+1]
 	if !ok {
 		return
 	}
-	forwardCommitment.transactionRoot.Update(prevTransactionRootKey, commitment.TransactionRoot())
+	forwardCommitment.stateMutationRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
 }
