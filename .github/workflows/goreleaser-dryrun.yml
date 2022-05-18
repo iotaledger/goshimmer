@@ -1,0 +1,34 @@
+name: GoReleaser dryrun
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+
+  goreleaser:
+    name: GoReleaser dryrun
+    runs-on:
+      - ubuntu-latest
+    container:
+      image: gohornet/goreleaser-cgo-cross-compiler:1.18.1
+      volumes: [/repo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+
+      - name: Copy config.default.json to config.json
+        run: cp config.default.json config.json
+
+      - name: Download latest snapshot file
+        run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
+
+      - name: Run GoReleaser
+        run: goreleaser --skip-publish --skip-announce
+        shell: bash

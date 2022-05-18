@@ -28,6 +28,7 @@ testNodes/*
 # Project files
 .idea
 go.work
+go.work.sum
 
 # Database directory
 mainnetdb/
