@@ -62,7 +62,7 @@ func (m *Manager) GetLatestEC() *EpochCommitment {
 		}
 		eci -= 1
 	}
-	return m.epochCommitmentFactory.GetCommitment(eci)
+	return m.epochCommitmentFactory.GetEpochCommitment(eci)
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.

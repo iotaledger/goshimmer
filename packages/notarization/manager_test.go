@@ -10,12 +10,12 @@ import (
 )
 
 func TestNewManager(t *testing.T) {
-	m := NewManager(NewEpochManager(), NewCommitmentFactory(), tangle.NewTestTangle())
+	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(), tangle.NewTestTangle())
 	assert.NotNil(t, m)
 }
 
 func TestManager_PendingBranchesCount(t *testing.T) {
-	m := NewManager(NewEpochManager(), NewCommitmentFactory(), tangle.NewTestTangle())
+	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(), tangle.NewTestTangle())
 	m.pendingBranchesCount[3] = 3
 	assert.Equal(t, uint64(3), m.PendingBranchesCount(3))
 }
@@ -62,5 +62,5 @@ func TestManager_GetLatestEC(t *testing.T) {
 func testNotarizationManager() *Manager {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	interval := int64(5 * 60)
-	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewCommitmentFactory(), tangle.NewTestTangle(), MinCommitableEpochAge(10*time.Minute))
+	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(), tangle.NewTestTangle(), MinCommitableEpochAge(10*time.Minute))
 }
