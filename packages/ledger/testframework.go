@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -153,6 +154,12 @@ func (t *TestFramework) CreateTransaction(txAlias string, outputCount uint16, in
 // IssueTransaction issues the transaction given by txAlias.
 func (t *TestFramework) IssueTransaction(txAlias string) (err error) {
 	return t.ledger.StoreAndProcessTransaction(context.Background(), t.Transaction(txAlias))
+}
+
+func (t *TestFramework) WaitUntilAllTasksProcessed() (self *TestFramework) {
+	// time.Sleep(100 * time.Millisecond)
+	event.Loop.WaitUntilAllTasksProcessed()
+	return t
 }
 
 // MockOutputFromTx creates an utxo.OutputID from a given MockedTransaction and outputIndex.

@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
@@ -444,9 +443,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 
 	// Verify branches for all transactions in the layers.
 	{
-		assert.Eventually(t, func() bool {
-			return testFramework.AllBooked(createdAliases...)
-		}, 5*time.Second, 100*time.Millisecond)
+		testFramework.WaitUntilAllTasksProcessed()
 		testFramework.AssertBooked(bookedAliases)
 
 		mappedBranches := make(map[string][]string)
@@ -459,10 +456,6 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 
 	// Verify branches for TX11.
 	{
-		assert.Eventually(t, func() bool {
-			return testFramework.AllBooked("TX11")
-		}, 5*time.Second, 100*time.Millisecond)
-
 		testFramework.AssertBranchIDs(map[string][]string{
 			"TX11": {"TX-0-0", "TX-0-1", "TX-0-2", "TX-0-3", "TX-0-4", "TX-0-5", "TX-0-6", "TX-0-7", "TX-0-8", "TX-0-9"},
 		})
@@ -472,6 +465,8 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 	{
 		testFramework.CreateTransaction("TX12", 10, "TX-0-0.0", "TX-0-1.0", "TX-0-2.0", "TX-0-3.0", "TX-0-4.0", "TX-0-5.0", "TX-0-6.0", "TX-0-7.0", "TX-0-8.0", "TX-0-9.0")
 		assert.NoError(t, testFramework.IssueTransaction("TX12"))
+
+		testFramework.WaitUntilAllTasksProcessed()
 
 		testFramework.AssertBranchIDs(map[string][]string{
 			"TX11": {"TX-1-0", "TX-1-1", "TX-1-2", "TX-1-3", "TX-1-4", "TX-1-5", "TX-1-6", "TX-1-7", "TX-1-8", "TX-1-9"},
