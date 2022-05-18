@@ -28,7 +28,7 @@ type ConflictSetIDType[T any] interface {
 
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
 
-// InclusionState represents the confirmation status of branches in the BranchDAG.
+// InclusionState represents the confirmation status of branches in the ConflictDAG.
 type InclusionState uint8
 
 // FromMarshalUtil un-serializes an InclusionState using a MarshalUtil.

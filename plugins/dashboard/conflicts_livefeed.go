@@ -120,13 +120,13 @@ func runConflictLiveFeed() {
 
 		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := event.NewClosure(onBranchWeightChanged)
-		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(onBranchWeightChangedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
@@ -154,7 +154,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utx
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			_, exists := conflicts.conflict(conflictID)
@@ -169,7 +169,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utx
 			}
 
 			// update all existing branches with a possible new conflict membership
-			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
 			})
 		}

@@ -11,7 +11,7 @@ import (
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// WithStore is an Option for the BranchDAG that allows to configure which KVStore is supposed to be used to persist
+// WithStore is an Option for the ConflictDAG that allows to configure which KVStore is supposed to be used to persist
 // data (the default option is to use a MapDB).
 func WithStore(store kvstore.KVStore) Option {
 	return func(options *options) {
@@ -23,7 +23,7 @@ func WithStore(store kvstore.KVStore) Option {
 
 // region WithCacheTimeProvider ////////////////////////////////////////////////////////////////////////////////////////
 
-// WithCacheTimeProvider is an Option for the BranchDAG that allows to configure which CacheTimeProvider is supposed to
+// WithCacheTimeProvider is an Option for the ConflictDAG that allows to configure which CacheTimeProvider is supposed to
 // be used.
 func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	return func(options *options) {
@@ -35,7 +35,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option
 
 // region WithBranchCacheTime //////////////////////////////////////////////////////////////////////////////////////////
 
-// WithBranchCacheTime is an Option for the BranchDAG that allows to configure how long Branch objects stay cached after
+// WithBranchCacheTime is an Option for the ConflictDAG that allows to configure how long Branch objects stay cached after
 // they have been released.
 func WithBranchCacheTime(branchCacheTime time.Duration) Option {
 	return func(options *options) {
@@ -47,7 +47,7 @@ func WithBranchCacheTime(branchCacheTime time.Duration) Option {
 
 // region WithChildBranchCacheTime /////////////////////////////////////////////////////////////////////////////////////
 
-// WithChildBranchCacheTime is an Option for the BranchDAG that allows to configure how long ChildBranch objects stay
+// WithChildBranchCacheTime is an Option for the ConflictDAG that allows to configure how long ChildBranch objects stay
 // cached after they have been released.
 func WithChildBranchCacheTime(childBranchCacheTime time.Duration) Option {
 	return func(options *options) {
@@ -59,7 +59,7 @@ func WithChildBranchCacheTime(childBranchCacheTime time.Duration) Option {
 
 // region WithConflictMemberCacheTime //////////////////////////////////////////////////////////////////////////////////
 
-// WithConflictMemberCacheTime is an Option for the BranchDAG that allows to configure how long ConflictMember objects
+// WithConflictMemberCacheTime is an Option for the ConflictDAG that allows to configure how long ConflictMember objects
 // stay cached after they have been released.
 func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 	return func(options *options) {
@@ -71,7 +71,7 @@ func WithConflictMemberCacheTime(conflictMemberCacheTime time.Duration) Option {
 
 // region WithMergeToMaster ////////////////////////////////////////////////////////////////////////////////////////////
 
-// WithMergeToMaster is an Option for the BranchDAG that allows to configure whether the BranchDAG should merge
+// WithMergeToMaster is an Option for the ConflictDAG that allows to configure whether the ConflictDAG should merge
 // confirmed Branches to the MasterBranch.
 func WithMergeToMaster(mergeToMaster bool) Option {
 	return func(options *options) {
@@ -83,7 +83,7 @@ func WithMergeToMaster(mergeToMaster bool) Option {
 
 // region options //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// options is a container for all configurable parameters of a BranchDAG.
+// options is a container for all configurable parameters of a ConflictDAG.
 type options struct {
 	// store contains the KVStore that is used to persist data.
 	store kvstore.KVStore
@@ -101,7 +101,7 @@ type options struct {
 	// released.
 	conflictMemberCacheTime time.Duration
 
-	// mergeToMaster contains a boolean flag that indicates whether the BranchDAG should merge Confirmed Branches to the
+	// mergeToMaster contains a boolean flag that indicates whether the ConflictDAG should merge Confirmed Branches to the
 	// MasterBranch.
 	mergeToMaster bool
 }
@@ -128,7 +128,7 @@ func (o *options) apply(options ...Option) (self *options) {
 	return o
 }
 
-// Option represents a configurable parameter for the BranchDAG that modifies its behavior.
+// Option represents a configurable parameter for the ConflictDAG that modifies its behavior.
 type Option func(*options)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

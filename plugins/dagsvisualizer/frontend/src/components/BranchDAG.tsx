@@ -1,10 +1,10 @@
 import * as React from 'react';
 import Container from 'react-bootstrap/Container';
-import { inject, observer } from 'mobx-react';
-import { MdKeyboardArrowDown, MdKeyboardArrowUp } from 'react-icons/md';
-import { Collapse } from 'react-bootstrap';
+import {inject, observer} from 'mobx-react';
+import {MdKeyboardArrowDown, MdKeyboardArrowUp} from 'react-icons/md';
+import {Collapse} from 'react-bootstrap';
 import BranchStore from 'stores/BranchStore';
-import { BranchInfo } from 'components/BranchInfo';
+import {BranchInfo} from 'components/BranchInfo';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Button from 'react-bootstrap/Button';
@@ -14,7 +14,7 @@ import InputGroup from 'react-bootstrap/InputGroup';
 import FormControl from 'react-bootstrap/FormControl';
 import 'styles/style.css';
 import GlobalStore from '../stores/GlobalStore';
-import { BranchLegend } from './Legend';
+import {BranchLegend} from './Legend';
 
 interface Props {
     branchStore?: BranchStore;
@@ -24,7 +24,7 @@ interface Props {
 @inject('branchStore')
 @inject('globalStore')
 @observer
-export default class BranchDAG extends React.Component<Props, any> {
+export default class ConflictDAG extends React.Component<Props, any> {
     constructor(props) {
         super(props);
         this.state = { isIdle: true, open: true };

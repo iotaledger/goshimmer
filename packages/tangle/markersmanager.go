@@ -76,7 +76,7 @@ func (b *BranchMarkersMapper) SetMessageID(marker *markers.Marker, messageID Mes
 
 // PendingBranchIDs returns the pending BranchIDs that are associated with the given Marker.
 func (b *BranchMarkersMapper) PendingBranchIDs(marker *markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	return b.tangle.Ledger.BranchDAG.FilterPendingBranches(b.branchIDs(marker))
+	return b.tangle.Ledger.ConflictDAG.FilterPendingBranches(b.branchIDs(marker))
 }
 
 // SetBranchIDs associates ledger.BranchIDs with the given Marker.

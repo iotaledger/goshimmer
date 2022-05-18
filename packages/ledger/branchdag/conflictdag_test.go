@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBranchDAG_RetrieveBranch(t *testing.T) {
+func TestConflictDAG_RetrieveBranch(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -64,7 +64,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictIDs())
 }
 
-func TestBranchDAG_ConflictMembers(t *testing.T) {
+func TestConflictDAG_ConflictMembers(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -120,7 +120,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
-func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
+func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -207,7 +207,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	})
 }
 
-func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT ConflictSetIDType[ConflictSetT]](t *testing.T, branchDAG *BranchDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
+func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT ConflictSetIDType[ConflictSetT]](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
 	for branchIDStrings, expectedInclusionState := range expectedInclusionStates {
 		branchIDs := set.NewAdvancedSet[ConflictT]()
 		for _, branchString := range strings.Split(branchIDStrings, "+") {
@@ -218,7 +218,7 @@ func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT Con
 	}
 }
 
-func createBranch(t *testing.T, branchDAG *BranchDAG[MockedConflictID, MockedConflictSetID], branchAlias string, parents *set.AdvancedSet[MockedConflictID], conflictIDs *set.AdvancedSet[MockedConflictSetID]) MockedConflictID {
+func createBranch(t *testing.T, branchDAG *ConflictDAG[MockedConflictID, MockedConflictSetID], branchAlias string, parents *set.AdvancedSet[MockedConflictID], conflictIDs *set.AdvancedSet[MockedConflictSetID]) MockedConflictID {
 	var randomBranchID MockedConflictID
 	if err := randomBranchID.FromRandomness(); err != nil {
 		t.Error(err)

@@ -15,7 +15,7 @@ import (
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Storage is a BranchDAG component that bundles the storage related API.
+// Storage is a ConflictDAG component that bundles the storage related API.
 type Storage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
 	// branchStorage is an object storage used to persist Branch objects.
 	branchStorage *objectstorage.ObjectStorage[*Branch[ConflictID, ConflictSetID]]
@@ -37,19 +37,19 @@ func newStorage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSet
 
 	new = &Storage[ConflictID, ConflictSetID]{
 		branchStorage: objectstorage.New[*Branch[ConflictID, ConflictSetID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixBranchStorage),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixBranchStorage),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
 		childBranchStorage: objectstorage.New[*ChildBranch[ConflictID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixChildBranchStorage),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixChildBranchStorage),
 			objectstorage.PartitionKey(len(conflictID.Bytes()), len(conflictID.Bytes())),
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictMemberStorage: objectstorage.New[*ConflictMember[ConflictID, ConflictSetID]](
-			objectstorage.NewStoreWithRealm(options.store, database.PrefixBranchDAG, PrefixConflictMemberStorage),
+			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixConflictMemberStorage),
 			objectstorage.PartitionKey(len(conflictSetID.Bytes()), len(conflictID.Bytes())),
 			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

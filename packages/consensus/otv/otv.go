@@ -16,12 +16,12 @@ import (
 // Nakamoto consensus for the parallel-reality-based ledger state where the heaviest branch according to approval weight
 // is liked by any given node.
 type OnTangleVoting struct {
-	branchDAG  *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID]
+	branchDAG  *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	weightFunc consensus.WeightFunc
 }
 
 // NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting(branchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID], weightFunc consensus.WeightFunc) *OnTangleVoting {
+func NewOnTangleVoting(branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc consensus.WeightFunc) *OnTangleVoting {
 	return &OnTangleVoting{
 		branchDAG:  branchDAG,
 		weightFunc: weightFunc,

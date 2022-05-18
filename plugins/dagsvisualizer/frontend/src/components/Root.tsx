@@ -3,10 +3,10 @@ import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import TangleDAG from 'components/TangleDAG';
 import UTXODAG from 'components/UTXODAG';
-import BranchDAG from 'components/BranchDAG';
+import ConflictDAG from 'components/ConflictDAG';
 import GlobalSettings from 'components/GlobalSettings';
-import { connectWebSocket } from 'utils/WS';
-import { Navbar } from 'react-bootstrap';
+import {connectWebSocket} from 'utils/WS';
+import {Navbar} from 'react-bootstrap';
 import logo from './../images/logo_dark.png';
 
 export class Root extends React.Component {
@@ -54,7 +54,7 @@ export class Root extends React.Component {
                         <UTXODAG />
                     </Row>
                     <Row>
-                        <BranchDAG />
+                        <ConflictDAG />
                     </Row>
                 </Container>
             </>
