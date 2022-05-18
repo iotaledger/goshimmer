@@ -18,13 +18,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-
-      - name: Copy config.default.json to config.json
-        run: cp config.default.json config.json
+      - name: Create fake config.json and snapshot.bin
+        run: touch config.json snapshot.bin
 
       - name: Run GoReleaser
         run: goreleaser --snapshot
