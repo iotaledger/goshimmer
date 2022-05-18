@@ -16,7 +16,7 @@ import (
 )
 
 func TestScenario_1(t *testing.T) {
-	debug.Enabled = true
+	debug.SetEnabled(true)
 
 	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
@@ -4008,7 +4008,6 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 	for i := 0; i < len(msgs); i++ {
 		wg.Add(1)
 		go func(i int) {
-			// time.Sleep(time.Duration(int(50 * 1000000 * rand.Float32())))
 			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
 			testFramework.IssueMessages(msgs[i])
 			wg.Done()

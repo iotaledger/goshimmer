@@ -491,7 +491,7 @@ func TestAggregatedBranchApproval(t *testing.T) {
 }
 
 func TestOutOfOrderStatements(t *testing.T) {
-	debug.Enabled = true
+	debug.SetEnabled(true)
 
 	nodes := make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
