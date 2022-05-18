@@ -1,7 +1,6 @@
 package branchdag
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
@@ -43,8 +42,6 @@ func New[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[
 // CreateBranch tries to create a Branch with the given details. It returns true if the Branch could be created or false
 // if it already existed. It triggers a BranchCreated event if the branch was successfully created.
 func (b *BranchDAG[ConflictID, ConflictSetID]) CreateBranch(branchID ConflictID, parentBranchIDs *set.AdvancedSet[ConflictID], conflictIDs *set.AdvancedSet[ConflictSetID]) (created bool) {
-	fmt.Println(branchID)
-
 	b.inclusionStateMutex.RLock()
 	b.Storage.CachedBranch(branchID, func(ConflictID) (branch *Branch[ConflictID, ConflictSetID]) {
 		branch = NewBranch(branchID, parentBranchIDs, set.NewAdvancedSet[ConflictSetID]())
