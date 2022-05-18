@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -23,7 +23,7 @@ import (
 
 // BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
-	branchID branchdag.BranchID
+	branchID utxo.TransactionID
 	weight   float64
 
 	weightMutex sync.RWMutex
@@ -32,7 +32,7 @@ type BranchWeight struct {
 }
 
 // NewBranchWeight creates a new BranchWeight.
-func NewBranchWeight(branchID branchdag.BranchID) (branchWeight *BranchWeight) {
+func NewBranchWeight(branchID utxo.TransactionID) (branchWeight *BranchWeight) {
 	branchWeight = &BranchWeight{
 		branchID: branchID,
 	}
@@ -81,7 +81,7 @@ func (b *BranchWeight) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (br
 }
 
 // BranchID returns the BranchID that is being tracked.
-func (b *BranchWeight) BranchID() (branchID branchdag.BranchID) {
+func (b *BranchWeight) BranchID() (branchID utxo.TransactionID) {
 	return b.branchID
 }
 
@@ -206,7 +206,7 @@ func (v *Voters) String() string {
 
 // BranchVoters is a data structure that tracks which nodes support a branch.
 type BranchVoters struct {
-	branchID branchdag.BranchID
+	branchID utxo.TransactionID
 	voters   *Voters
 
 	votersMutex sync.RWMutex
@@ -215,7 +215,7 @@ type BranchVoters struct {
 }
 
 // NewBranchVoters is the constructor for the BranchVoters object.
-func NewBranchVoters(branchID branchdag.BranchID) (branchVoters *BranchVoters) {
+func NewBranchVoters(branchID utxo.TransactionID) (branchVoters *BranchVoters) {
 	branchVoters = &BranchVoters{
 		branchID: branchID,
 		voters:   NewVoters(),
@@ -276,7 +276,7 @@ func (b *BranchVoters) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (br
 }
 
 // BranchID returns the BranchID that is being tracked.
-func (b *BranchVoters) BranchID() (branchID branchdag.BranchID) {
+func (b *BranchVoters) BranchID() (branchID utxo.TransactionID) {
 	return b.branchID
 }
 
@@ -610,14 +610,14 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 // LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
 	voter             Voter
-	latestBranchVotes map[branchdag.BranchID]*BranchVote
+	latestBranchVotes map[utxo.TransactionID]*BranchVote
 
 	sync.RWMutex
 	objectstorage.StorableObjectFlags
 }
 
 // Vote returns the Vote for the LatestBranchVotes.
-func (l *LatestBranchVotes) Vote(branchID branchdag.BranchID) (vote *BranchVote, exists bool) {
+func (l *LatestBranchVotes) Vote(branchID utxo.TransactionID) (vote *BranchVote, exists bool) {
 	l.RLock()
 	defer l.RUnlock()
 
@@ -645,7 +645,7 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 	latestBranchVotes = &LatestBranchVotes{
 		voter:             voter,
-		latestBranchVotes: make(map[branchdag.BranchID]*BranchVote),
+		latestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
 	}
 
 	latestBranchVotes.Persist()
@@ -688,10 +688,10 @@ func (l *LatestBranchVotes) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil
 		return nil, errors.Errorf("failed to parse map size (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
 
-	latestBranchVotes.latestBranchVotes = make(map[branchdag.BranchID]*BranchVote, int(mapSize))
+	latestBranchVotes.latestBranchVotes = make(map[utxo.TransactionID]*BranchVote, int(mapSize))
 
 	for i := uint64(0); i < mapSize; i++ {
-		var branchID branchdag.BranchID
+		var branchID utxo.TransactionID
 		if voteErr := branchID.FromMarshalUtil(marshalUtil); voteErr != nil {
 			return nil, errors.Errorf("failed to parse BranchID from MarshalUtil: %w", voteErr)
 		}
@@ -753,7 +753,7 @@ var _ objectstorage.StorableObject = new(LatestBranchVotes)
 // BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
 type BranchVote struct {
 	Voter     Voter
-	BranchID  branchdag.BranchID
+	BranchID  utxo.TransactionID
 	Opinion   Opinion
 	VotePower VotePower
 }
@@ -794,7 +794,7 @@ func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) 
 }
 
 // WithBranchID derives a vote for the given BranchID.
-func (v *BranchVote) WithBranchID(branchID branchdag.BranchID) (rejectedVote *BranchVote) {
+func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
 	return &BranchVote{
 		Voter:     v.Voter,
 		BranchID:  branchID,

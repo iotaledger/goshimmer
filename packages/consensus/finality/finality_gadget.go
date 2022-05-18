@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -18,7 +17,7 @@ import (
 // Gadget is an interface that describes the finality gadget.
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
-	HandleBranch(branchID branchdag.BranchID, aw float64) (err error)
+	HandleBranch(branchID utxo.TransactionID, aw float64) (err error)
 	tangle.ConfirmationOracle
 }
 
@@ -26,7 +25,7 @@ type Gadget interface {
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 
 // BranchThresholdTranslation is a function which translates approval weight to a gof.GradeOfFinality.
-type BranchThresholdTranslation func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality
+type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality
 
 const (
 	lowLowerBound    = 0.25
@@ -36,7 +35,7 @@ const (
 
 var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
-	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality {
+	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
@@ -200,7 +199,7 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 }
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID branchdag.BranchID) (confirmed bool) {
+func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID utxo.TransactionID) (confirmed bool) {
 	// TODO: HANDLE ERRORS INSTEAD?
 	branchGoF, _ := s.tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
 
@@ -315,7 +314,7 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
-func (s *SimpleFinalityGadget) HandleBranch(branchID branchdag.BranchID, aw float64) (err error) {
+func (s *SimpleFinalityGadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
 	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
 		s.tangle.Ledger.BranchDAG.SetBranchConfirmed(branchID)
 	}

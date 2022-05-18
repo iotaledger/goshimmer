@@ -33,9 +33,9 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch) {
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
-		case branchdag.MasterBranchID:
+		case utxo.EmptyTransactionID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
@@ -70,15 +70,15 @@ type DiagnosticBranchInfo struct {
 	GradeOfFinality   gof.GradeOfFinality
 }
 
-func getDiagnosticConflictsInfo(branchID branchdag.BranchID) DiagnosticBranchInfo {
+func getDiagnosticConflictsInfo(branchID utxo.TransactionID) DiagnosticBranchInfo {
 	conflictInfo := DiagnosticBranchInfo{
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch) {
+	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
-		transactionID := utxo.TransactionID(branchID)
+		transactionID := branchID
 
 		conflictInfo.ConflictSet = branch.ConflictIDs().Base58()
 

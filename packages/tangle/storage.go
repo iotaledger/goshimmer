@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -273,7 +273,7 @@ func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageM
 }
 
 // DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerMessageMapping(branchID branchdag.BranchID, messageID MessageID) {
+func (s *Storage) DeleteMarkerMessageMapping(branchID utxo.TransactionID, messageID MessageID) {
 	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
 }
 
@@ -292,7 +292,7 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 }
 
 // BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
-func (s *Storage) BranchVoters(branchID branchdag.BranchID, computeIfAbsentCallback ...func(branchID branchdag.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
+func (s *Storage) BranchVoters(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
 			return computeIfAbsentCallback[0](branchID)
@@ -340,7 +340,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 }
 
 // BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID branchdag.BranchID, computeIfAbsentCallback ...func(branchID branchdag.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
+func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
 			return computeIfAbsentCallback[0](branchID)
@@ -353,8 +353,8 @@ func (s *Storage) BranchWeight(branchID branchdag.BranchID, computeIfAbsentCallb
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			addedBranchIDs:      branchdag.NewBranchIDs(),
-			subtractedBranchIDs: branchdag.NewBranchIDs(),
+			addedBranchIDs:      set.NewAdvancedSet[utxo.TransactionID](),
+			subtractedBranchIDs: set.NewAdvancedSet[utxo.TransactionID](),
 			solidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
 			messageID:           EmptyMessageID,
 			solid:               true,

@@ -61,7 +61,7 @@ type Tangle struct {
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
-	IsBranchConfirmed(branchID branchdag.BranchID) bool
+	IsBranchConfirmed(branchID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
 	IsOutputConfirmed(outputID utxo.OutputID) bool
 	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)

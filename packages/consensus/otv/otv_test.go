@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/stretchr/testify/require"
@@ -13,23 +14,24 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
 func TestOnTangleVoting_LikedInstead(t *testing.T) {
-	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID branchdag.BranchID, actualConflictMembers branchdag.BranchIDs)
+	type ExpectedLikedBranch func(executionBranchAlias string, actualBranchID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID])
 
 	mustMatch := func(s *Scenario, aliasLikedBranches []string, aliasConflictMembers []string) ExpectedLikedBranch {
-		return func(_ string, actualBranchID branchdag.BranchID, actualConflictMembers branchdag.BranchIDs) {
-			expectedBranches := branchdag.NewBranchIDs()
-			expectedConflictMembers := branchdag.NewBranchIDs()
+		return func(_ string, actualBranchID utxo.TransactionID, actualConflictMembers *set.AdvancedSet[utxo.TransactionID]) {
+			expectedBranches := set.NewAdvancedSet[utxo.TransactionID]()
+			expectedConflictMembers := set.NewAdvancedSet[utxo.TransactionID]()
 			if len(aliasLikedBranches) > 0 {
 				for _, aliasLikedBranch := range aliasLikedBranches {
 					expectedBranches.Add(s.BranchID(aliasLikedBranch))
 				}
 			} else {
-				expectedBranches.Add(branchdag.UndefinedBranchID)
+				expectedBranches.Add(utxo.EmptyTransactionID)
 			}
 			if len(aliasConflictMembers) > 0 {
 				for _, aliasConflictMember := range aliasConflictMembers {
@@ -842,9 +844,9 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 // BranchMeta describes a branch in a branchDAG with its conflicts and approval weight.
 type BranchMeta struct {
 	Order          int
-	BranchID       branchdag.BranchID
-	ParentBranches branchdag.BranchIDs
-	Conflicting    branchdag.ConflictIDs
+	BranchID       utxo.TransactionID
+	ParentBranches *set.AdvancedSet[utxo.TransactionID]
+	Conflicting    *set.AdvancedSet[utxo.OutputID]
 	ApprovalWeight float64
 }
 
@@ -853,8 +855,8 @@ type BranchMeta struct {
 type Scenario map[string]*BranchMeta
 
 // IDsToNames returns a mapping of BranchIDs to their alias.
-func (s *Scenario) IDsToNames() map[branchdag.BranchID]string {
-	mapping := map[branchdag.BranchID]string{}
+func (s *Scenario) IDsToNames() map[utxo.TransactionID]string {
+	mapping := map[utxo.TransactionID]string{}
 	for name, m := range *s {
 		mapping[m.BranchID] = name
 	}
@@ -862,13 +864,13 @@ func (s *Scenario) IDsToNames() map[branchdag.BranchID]string {
 }
 
 // BranchID returns the BranchID of the given branch alias.
-func (s *Scenario) BranchID(alias string) branchdag.BranchID {
+func (s *Scenario) BranchID(alias string) utxo.TransactionID {
 	return (*s)[alias].BranchID
 }
 
 // BranchIDs returns either all BranchIDs in the scenario or only the ones with the given aliases.
-func (s *Scenario) BranchIDs(aliases ...string) branchdag.BranchIDs {
-	branchIDs := branchdag.NewBranchIDs()
+func (s *Scenario) BranchIDs(aliases ...string) *set.AdvancedSet[utxo.TransactionID] {
+	branchIDs := set.NewAdvancedSet[utxo.TransactionID]()
 	for name, meta := range *s {
 		if len(aliases) > 0 {
 			var has bool
@@ -888,7 +890,7 @@ func (s *Scenario) BranchIDs(aliases ...string) branchdag.BranchIDs {
 }
 
 // CreateBranches orders and creates the branches for the scenario.
-func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG) {
+func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -910,15 +912,15 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG) 
 }
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *branchdag.BranchDAG, alias string, branchMeta *BranchMeta) bool {
+func createTestBranch(t *testing.T, branchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
 	var newBranchCreated bool
 
-	if branchMeta.BranchID == branchdag.UndefinedBranchID {
+	if branchMeta.BranchID == utxo.EmptyTransactionID {
 		panic("a branch must have its ID defined in its BranchMeta")
 	}
 	newBranchCreated = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
-	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch) {
+	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()
 	})
 	branchMeta.BranchID.RegisterAlias(alias)
@@ -929,7 +931,7 @@ func createTestBranch(t *testing.T, branchDAG *branchdag.BranchDAG, alias string
 // according to the branch weight's specified in the scenario.
 func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFunc {
 	branchIDsToName := scenario.IDsToNames()
-	return func(branchID branchdag.BranchID) (weight float64) {
+	return func(branchID utxo.TransactionID) (weight float64) {
 		name, nameOk := branchIDsToName[branchID]
 		require.True(t, nameOk)
 		meta, metaOk := scenario[name]
@@ -942,7 +944,7 @@ func WeightFuncFromScenario(t *testing.T, scenario Scenario) consensus.WeightFun
 
 // region Scenario definition according to images/otv-testcases.png ////////////////////////////////////////////////////
 
-func newConflictID() (conflictID branchdag.ConflictID) {
+func newConflictID() (conflictID utxo.OutputID) {
 	if err := conflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
@@ -965,795 +967,795 @@ var (
 
 	s1 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.6,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s2 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.6,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.8,
 		},
 	}
 
 	s3 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.5,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.4,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 	}
 
 	s4 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s45 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{200}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{200}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s5 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s6 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID5),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID5),
 			ApprovalWeight: 0.4,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID5),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID5),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s7 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s8 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0, conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0),
 			ApprovalWeight: 0.5,
 		},
 	}
 
 	s9 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0, conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0),
 			ApprovalWeight: 0.1,
 		},
 	}
 
 	s10 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0, conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID1),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID0, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID0, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 	}
 
 	s12 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.25,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.35,
 		},
 	}
 
 	s13 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.4,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.35,
 		},
 	}
 
 	s14 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.4,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.35,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.17,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID6),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:    set.NewAdvancedSet(conflictID6),
 			ApprovalWeight: 0.1,
 		},
 		"I": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID6),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:    set.NewAdvancedSet(conflictID6),
 			ApprovalWeight: 0.05,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{11}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID9),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID9),
 			ApprovalWeight: 0.04,
 		},
 		"K": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{12}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID9),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID9),
 			ApprovalWeight: 0.06,
 		},
 	}
 
 	s15 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"D": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{5}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{5}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.15,
 		},
 		"E": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{6}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID3),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{6}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID3),
 			ApprovalWeight: 0.35,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.17,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID6),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:    set.NewAdvancedSet(conflictID6),
 			ApprovalWeight: 0.1,
 		},
 		"I": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{6}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID6),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{6}}),
+			Conflicting:    set.NewAdvancedSet(conflictID6),
 			ApprovalWeight: 0.05,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{11}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID9),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID9),
 			ApprovalWeight: 0.04,
 		},
 		"K": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{12}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID9),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID9),
 			ApprovalWeight: 0.06,
 		},
 	}
 
 	s16 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2, conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s17 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2, conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
 			ApprovalWeight: 0.15,
 		},
 	}
 
 	s18 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.05,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2, conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
 			ApprovalWeight: 0.15,
 		},
 		"K": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID11),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID11),
 			ApprovalWeight: 0.1,
 		},
 		"L": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{11}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID11),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID11),
 			ApprovalWeight: 0.2,
 		},
 		"M": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{12}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID12),
 			ApprovalWeight: 0.05,
 		},
 		"N": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{13}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{13}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID12),
 			ApprovalWeight: 0.06,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{14}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{14}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8),
 			ApprovalWeight: 0.07,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{15}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{15}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8),
 			ApprovalWeight: 0.08,
 		},
 		"O": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{16}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}, branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8, conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{16}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8, conflictID12),
 			ApprovalWeight: 0.05,
 		},
 	}
 
 	s19 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.3,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.1,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.05,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2, conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
 			ApprovalWeight: 0.15,
 		},
 		"K": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID11),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID11),
 			ApprovalWeight: 0.1,
 		},
 		"L": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{11}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID11),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID11),
 			ApprovalWeight: 0.2,
 		},
 		"M": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{12}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{12}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID12),
 			ApprovalWeight: 0.05,
 		},
 		"N": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{13}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{13}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID12),
 			ApprovalWeight: 0.06,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{14}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{14}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8),
 			ApprovalWeight: 0.07,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{15}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{15}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8),
 			ApprovalWeight: 0.08,
 		},
 		"O": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{16}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{9}}, branchdag.BranchID{Identifier: types.Identifier{11}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID8, conflictID12),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{16}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{9}}, utxo.TransactionID{Identifier: types.Identifier{11}}),
+			Conflicting:    set.NewAdvancedSet(conflictID8, conflictID12),
 			ApprovalWeight: 0.09,
 		},
 	}
 
 	s20 = Scenario{
 		"A": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{2}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{2}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1),
 			ApprovalWeight: 0.2,
 		},
 		"B": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{3}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID1, conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{3}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID1, conflictID2),
 			ApprovalWeight: 0.3,
 		},
 		"C": {
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{4}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{4}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID),
+			Conflicting:    set.NewAdvancedSet(conflictID2),
 			ApprovalWeight: 0.2,
 		},
 		"F": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{7}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{7}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.02,
 		},
 		"G": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{8}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{8}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID4),
 			ApprovalWeight: 0.03,
 		},
 		"H": {
 			Order:          1,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{9}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.MasterBranchID, branchdag.BranchID{Identifier: types.Identifier{2}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID2, conflictID4),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{9}},
+			ParentBranches: set.NewAdvancedSet(utxo.EmptyTransactionID, utxo.TransactionID{Identifier: types.Identifier{2}}),
+			Conflicting:    set.NewAdvancedSet(conflictID2, conflictID4),
 			ApprovalWeight: 0.15,
 		},
 		"I": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{10}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{7}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID7),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{10}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
+			Conflicting:    set.NewAdvancedSet(conflictID7),
 			ApprovalWeight: 0.005,
 		},
 		"J": {
 			Order:          2,
-			BranchID:       branchdag.BranchID{Identifier: types.Identifier{11}},
-			ParentBranches: branchdag.NewBranchIDs(branchdag.BranchID{Identifier: types.Identifier{7}}),
-			Conflicting:    branchdag.NewConflictIDs(conflictID7),
+			BranchID:       utxo.TransactionID{Identifier: types.Identifier{11}},
+			ParentBranches: set.NewAdvancedSet(utxo.TransactionID{Identifier: types.Identifier{7}}),
+			Conflicting:    set.NewAdvancedSet(conflictID7),
 			ApprovalWeight: 0.015,
 		},
 	}

@@ -4,12 +4,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
@@ -69,7 +69,7 @@ func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identit
 	outputMetadata.SetGradeOfFinality(gof.High)
 	outputMetadata.SetConsensusManaPledgeID(pledgeID)
 	outputMetadata.SetCreationTime(creationTime)
-	outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+	outputMetadata.SetBranchIDs(set.NewAdvancedSet(utxo.EmptyTransactionID))
 
 	return output, outputMetadata
 }

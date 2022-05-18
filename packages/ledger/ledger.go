@@ -30,7 +30,7 @@ type Ledger struct {
 	Utils *Utils
 
 	// BranchDAG is a reference to the BranchDAG that is used by this Ledger.
-	BranchDAG *branchdag.BranchDAG
+	BranchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID]
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -56,7 +56,7 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.BranchDAG = branchdag.New(append([]branchdag.Option{
+	ledger.BranchDAG = branchdag.New[utxo.TransactionID, utxo.OutputID](append([]branchdag.Option{
 		branchdag.WithStore(ledger.options.store),
 		branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
 	}, ledger.options.branchDAGOptions...)...)
@@ -67,12 +67,12 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
-		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID.TransactionID())
+	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID)
 	}))
 
-	ledger.BranchDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent) {
-		ledger.propagatedRejectionToTransactions(event.BranchID.TransactionID())
+	ledger.BranchDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent[utxo.TransactionID]) {
+		ledger.propagatedRejectionToTransactions(event.BranchID)
 	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {

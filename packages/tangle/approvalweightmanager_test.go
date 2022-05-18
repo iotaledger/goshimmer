@@ -8,12 +8,14 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/debug"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -111,7 +113,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
-	conflictIDs := map[string]branchdag.ConflictID{
+	conflictIDs := map[string]utxo.OutputID{
 		"Conflict 1": randomConflictID(),
 		"Conflict 2": randomConflictID(),
 		"Conflict 3": randomConflictID(),
@@ -119,24 +121,24 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		"Conflict 5": randomConflictID(),
 	}
 
-	branchIDs := map[string]branchdag.BranchIDs{
-		"Branch 1":     branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 1.1":   branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 1.2":   branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 1.3":   branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 2":     branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 3":     branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 4":     branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 4.1":   branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 4.1.1": branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 4.1.2": branchdag.NewBranchIDs(randomBranchID()),
-		"Branch 4.2":   branchdag.NewBranchIDs(randomBranchID()),
+	branchIDs := map[string]*set.AdvancedSet[utxo.TransactionID]{
+		"Branch 1":     set.NewAdvancedSet(randomBranchID()),
+		"Branch 1.1":   set.NewAdvancedSet(randomBranchID()),
+		"Branch 1.2":   set.NewAdvancedSet(randomBranchID()),
+		"Branch 1.3":   set.NewAdvancedSet(randomBranchID()),
+		"Branch 2":     set.NewAdvancedSet(randomBranchID()),
+		"Branch 3":     set.NewAdvancedSet(randomBranchID()),
+		"Branch 4":     set.NewAdvancedSet(randomBranchID()),
+		"Branch 4.1":   set.NewAdvancedSet(randomBranchID()),
+		"Branch 4.1.1": set.NewAdvancedSet(randomBranchID()),
+		"Branch 4.1.2": set.NewAdvancedSet(randomBranchID()),
+		"Branch 4.2":   set.NewAdvancedSet(randomBranchID()),
 	}
 
-	createBranch(t, tangle, "Branch 1", branchIDs, branchdag.NewBranchIDs(branchdag.MasterBranchID), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 2", branchIDs, branchdag.NewBranchIDs(branchdag.MasterBranchID), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 3", branchIDs, branchdag.NewBranchIDs(branchdag.MasterBranchID), conflictIDs["Conflict 2"])
-	createBranch(t, tangle, "Branch 4", branchIDs, branchdag.NewBranchIDs(branchdag.MasterBranchID), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 1", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 2", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 3", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 4", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 2"])
 
 	createBranch(t, tangle, "Branch 1.1", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
 	createBranch(t, tangle, "Branch 1.2", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
@@ -148,7 +150,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
 
-	branchIDs["Branch 1.1 + Branch 4.1.1"] = branchdag.NewBranchIDs()
+	branchIDs["Branch 1.1 + Branch 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
 	branchIDs["Branch 1.1 + Branch 4.1.1"].AddAll(branchIDs["Branch 1.1"])
 	branchIDs["Branch 1.1 + Branch 4.1.1"].AddAll(branchIDs["Branch 4.1.1"])
 
@@ -432,42 +434,42 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G1"), WithOutput("A", 500))
 		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message1")).RegisterAlias("Branch1")
+		testFramework.TransactionID("Message1").RegisterAlias("Branch1")
 	}
 
 	// ISSUE Message2
 	{
 		testFramework.CreateMessage("Message2", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithInputs("G2"), WithOutput("B", 500))
 		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message2")).RegisterAlias("Branch2")
+		testFramework.TransactionID("Message2").RegisterAlias("Branch2")
 	}
 
 	// ISSUE Message3
 	{
 		testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("C", 500))
 		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message3")).RegisterAlias("Branch3")
+		testFramework.TransactionID("Message3").RegisterAlias("Branch3")
 	}
 
 	// ISSUE Message4
 	{
 		testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithIssuer(nodes["A"].PublicKey()), WithInputs("B"), WithOutput("D", 500))
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message4")).RegisterAlias("Branch4")
+		testFramework.TransactionID("Message4").RegisterAlias("Branch4")
 	}
 
 	// ISSUE Message5
 	{
 		testFramework.CreateMessage("Message5", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("E", 500))
 		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message5")).RegisterAlias("Branch5")
+		testFramework.TransactionID("Message5").RegisterAlias("Branch5")
 	}
 
 	// ISSUE Message6
 	{
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4", "Message1"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("F", 500))
 		testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message6")).RegisterAlias("Branch6")
+		testFramework.TransactionID("Message6").RegisterAlias("Branch6")
 
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message6").ID())
 		require.NoError(t, err)
@@ -477,14 +479,14 @@ func TestAggregatedBranchApproval(t *testing.T) {
 	{
 		testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("H", 500))
 		testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message7")).RegisterAlias("Branch7")
+		testFramework.TransactionID("Message7").RegisterAlias("Branch7")
 	}
 
 	// ISSUE Message8
 	{
 		testFramework.CreateMessage("Message8", WithStrongParents("Message5"), WithIssuer(nodes["A"].PublicKey()), WithInputs("E"), WithOutput("I", 500))
 		testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
-		branchdag.NewBranchID(testFramework.TransactionID("Message8")).RegisterAlias("Branch8")
+		testFramework.TransactionID("Message8").RegisterAlias("Branch8")
 		_, err := tangle.Booker.MessageBranchIDs(testFramework.Message("Message8").ID())
 		require.NoError(t, err)
 	}
@@ -887,7 +889,7 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 	return true
 }
 
-func getSingleBranch(branches map[string]branchdag.BranchIDs, alias string) branchdag.BranchID {
+func getSingleBranch(branches map[string]*set.AdvancedSet[utxo.TransactionID], alias string) utxo.TransactionID {
 	if branches[alias].Size() != 1 {
 		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
 	}
@@ -896,16 +898,16 @@ func getSingleBranch(branches map[string]branchdag.BranchIDs, alias string) bran
 		return it.Next()
 	}
 
-	return branchdag.UndefinedBranchID
+	return utxo.EmptyTransactionID
 }
 
-func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]branchdag.BranchIDs, parentBranchIDs branchdag.BranchIDs, conflictID branchdag.ConflictID) {
+func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentBranchIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	tangle.Ledger.BranchDAG.CreateBranch(branchID, parentBranchIDs, branchdag.NewConflictIDs(conflictID))
+	tangle.Ledger.BranchDAG.CreateBranch(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
 	branchID.RegisterAlias(branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]branchdag.BranchIDs, voter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for it := branchIDs[branchIDString].Iterator(); it.HasNext(); {

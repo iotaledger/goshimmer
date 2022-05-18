@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
@@ -92,7 +92,7 @@ func (s *Storage) storeGenesis() {
 			id:              utxo.EmptyTransactionID,
 			booked:          true,
 			gradeOfFinality: gof.High,
-			branchIDs:       branchdag.NewBranchIDs(branchdag.MasterBranchID),
+			branchIDs:       set.NewAdvancedSet(utxo.EmptyTransactionID),
 			outputIDs:       utxo.NewOutputIDs(),
 		}
 

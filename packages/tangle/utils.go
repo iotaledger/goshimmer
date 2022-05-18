@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -237,7 +237,7 @@ func (u *Utils) ApprovingMessageIDs(messageID MessageID, optionalApproverType ..
 }
 
 // AllBranchesLiked returns true if all the passed branches are liked.
-func (u *Utils) AllBranchesLiked(branchIDs branchdag.BranchIDs) bool {
+func (u *Utils) AllBranchesLiked(branchIDs *set.AdvancedSet[utxo.TransactionID]) bool {
 	for it := branchIDs.Iterator(); it.HasNext(); {
 		if !u.tangle.OTVConsensusManager.BranchLiked(it.Next()) {
 			return false

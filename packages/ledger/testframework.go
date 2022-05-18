@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
@@ -111,15 +112,15 @@ func (t *TestFramework) TransactionIDs(txAliases ...string) (txIDs utxo.Transact
 
 // BranchIDs gets all branchdag.BranchIDs given by txAliases.
 // Panics if an alias doesn't exist.
-func (t *TestFramework) BranchIDs(txAliases ...string) (branchIDs branchdag.BranchIDs) {
-	branchIDs = branchdag.NewBranchIDs()
+func (t *TestFramework) BranchIDs(txAliases ...string) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	for _, expectedBranchAlias := range txAliases {
 		if expectedBranchAlias == "MasterBranch" {
-			branchIDs.Add(branchdag.MasterBranchID)
+			branchIDs.Add(utxo.TransactionID{})
 			continue
 		}
 
-		branchIDs.Add(branchdag.NewBranchID(t.Transaction(expectedBranchAlias).ID()))
+		branchIDs.Add(t.Transaction(expectedBranchAlias).ID())
 	}
 
 	return branchIDs
@@ -173,20 +174,20 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 // from "branch1"->"branch3" and "branch2"->"branch3".
 func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 	// Parent -> child references.
-	childBranches := make(map[branchdag.BranchID]branchdag.BranchIDs)
+	childBranches := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
 
 	for branchAlias, expectedParentAliases := range expectedParents {
-		currentBranchID := branchdag.NewBranchID(t.Transaction(branchAlias).ID())
+		currentBranchID := t.Transaction(branchAlias).ID()
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
 		// Verify child -> parent references.
-		t.ConsumeBranch(currentBranchID, func(branch *branchdag.Branch) {
+		t.ConsumeBranch(currentBranchID, func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
 		})
 
 		for _, parentBranchID := range expectedBranchIDs.Slice() {
 			if _, exists := childBranches[parentBranchID]; !exists {
-				childBranches[parentBranchID] = branchdag.NewBranchIDs()
+				childBranches[parentBranchID] = set.NewAdvancedSet[utxo.TransactionID]()
 			}
 			childBranches[parentBranchID].Add(currentBranchID)
 		}
@@ -199,7 +200,7 @@ func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 		cachedChildBranches.Release()
 
 		for _, childBranchID := range childBranchIDs.Slice() {
-			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *branchdag.ChildBranch) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
+			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
 		}
 	}
 }
@@ -209,10 +210,10 @@ func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 // "output.0": {"branch1", "branch2"}
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
 	// Branch -> conflictIDs.
-	branchConflicts := make(map[branchdag.BranchID]branchdag.ConflictIDs)
+	branchConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
 
 	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
-		conflictID := branchdag.NewConflictID(t.OutputID(outputAlias))
+		conflictID := t.OutputID(outputAlias)
 		expectedConflictMembers := t.BranchIDs(expectedConflictMembersAliases...)
 
 		// Check count of conflict members for this conflictID.
@@ -222,10 +223,10 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 		// Verify that all named branches are stored as conflict members (conflictID -> branchIDs).
 		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
+			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
 
 			if _, exists := branchConflicts[branchID]; !exists {
-				branchConflicts[branchID] = branchdag.NewConflictIDs()
+				branchConflicts[branchID] = set.NewAdvancedSet[utxo.OutputID]()
 			}
 			branchConflicts[branchID].Add(conflictID)
 		}
@@ -233,7 +234,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 	// Make sure that all branches have all specified conflictIDs (reverse mapping).
 	for branchID, expectedConflicts := range branchConflicts {
-		t.ConsumeBranch(branchID, func(branch *branchdag.Branch) {
+		t.ConsumeBranch(branchID, func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictIDs())
 		})
 	}
@@ -289,7 +290,7 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 }
 
 // ConsumeBranch loads and consumes branchdag.Branch. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeBranch(branchID branchdag.BranchID, consumer func(branch *branchdag.Branch)) {
+func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID])) {
 	assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
 }
 

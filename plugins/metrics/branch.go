@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 var (
@@ -33,7 +34,7 @@ var (
 	branchConfirmationTotalTime atomic.Uint64
 
 	// all active branches stored in this map, to avoid duplicated event triggers for branch confirmation.
-	activeBranches map[branchdag.BranchID]types.Empty
+	activeBranches map[utxo.TransactionID]types.Empty
 
 	activeBranchesMutex sync.Mutex
 )
@@ -61,11 +62,11 @@ func FinalizedBranchCountDB() uint64 {
 func measureInitialBranchStats() {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
-	activeBranches = make(map[branchdag.BranchID]types.Empty)
-	conflictsToRemove := make([]branchdag.BranchID, 0)
-	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch) {
+	activeBranches = make(map[utxo.TransactionID]types.Empty)
+	conflictsToRemove := make([]utxo.TransactionID, 0)
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
-		case branchdag.MasterBranchID:
+		case utxo.EmptyTransactionID:
 			return
 		default:
 			initialBranchTotalCountDB++
@@ -75,7 +76,7 @@ func measureInitialBranchStats() {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID branchdag.BranchID) bool {
+				deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID utxo.TransactionID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
@@ -90,7 +91,7 @@ func measureInitialBranchStats() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}

@@ -35,17 +35,17 @@ var (
 	initialConfirmedBranchCountDB uint64
 
 	// all active branches stored in this map, to avoid duplicated event triggers for branch confirmation.
-	activeBranches      map[branchdag.BranchID]types.Empty
+	activeBranches      map[utxo.TransactionID]types.Empty
 	activeBranchesMutex sync.Mutex
 )
 
-func onBranchConfirmed(branchID branchdag.BranchID) {
+func onBranchConfirmed(branchID utxo.TransactionID) {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
 	if _, exists := activeBranches[branchID]; !exists {
 		return
 	}
-	transactionID := branchID.TransactionID()
+	transactionID := branchID
 	// update branch metric counts even if node is not synced.
 	oldestAttachmentTime, oldestAttachmentMessageID, err := updateMetricCounts(branchID, transactionID)
 
@@ -103,12 +103,12 @@ func sendBranchMetrics() {
 	_ = deps.RemoteLogger.Send(record)
 }
 
-func updateMetricCounts(branchID branchdag.BranchID, transactionID utxo.TransactionID) (time.Time, tangle.MessageID, error) {
+func updateMetricCounts(branchID utxo.TransactionID, transactionID utxo.TransactionID) (time.Time, tangle.MessageID, error) {
 	oldestAttachmentTime, oldestAttachmentMessageID, err := deps.Tangle.Utils.FirstAttachment(transactionID)
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 			delete(activeBranches, conflictingBranchID)
@@ -124,11 +124,11 @@ func updateMetricCounts(branchID branchdag.BranchID, transactionID utxo.Transact
 func measureInitialBranchCounts() {
 	activeBranchesMutex.Lock()
 	defer activeBranchesMutex.Unlock()
-	activeBranches = make(map[branchdag.BranchID]types.Empty)
-	conflictsToRemove := make([]branchdag.BranchID, 0)
-	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch) {
+	activeBranches = make(map[utxo.TransactionID]types.Empty)
+	conflictsToRemove := make([]utxo.TransactionID, 0)
+	deps.Tangle.Ledger.BranchDAG.Utils.ForEachBranch(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
-		case branchdag.MasterBranchID:
+		case utxo.EmptyTransactionID:
 			return
 		default:
 			initialBranchTotalCountDB++
@@ -138,7 +138,7 @@ func measureInitialBranchCounts() {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID branchdag.BranchID) bool {
+				deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID utxo.TransactionID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
@@ -153,7 +153,7 @@ func measureInitialBranchCounts() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}
