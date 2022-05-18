@@ -3943,10 +3943,6 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
-	// tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
-	// 	fmt.Println("Booked", event.MessageID)
-	// }))
-
 	testFramework := NewMessageTestFramework(
 		tangle,
 		WithGenesisOutput("G", layersNum),
@@ -4078,18 +4074,13 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 
 func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedBranchIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
 	for messageID, messageExpectedBranchIDs := range expectedBranchIDs {
-		// fmt.Println(">>", messageID)
-
 		// messageMetadata := testFramework.MessageMetadata(messageID)
 		// fmt.Println("Add:", messageMetadata.addedBranchIDs, "Sub:", messageMetadata.subtractedBranchIDs)
 
 		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
 		assert.NoError(t, errRetrieve)
 
-		// assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
-		missing := messageExpectedBranchIDs.Clone()
-		missing.DeleteAll(retrievedBranchIDs)
-		assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s misses %s", messageID, missing)
+		assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
 	}
 }
 

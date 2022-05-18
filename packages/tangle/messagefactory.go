@@ -351,9 +351,7 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 		opinionCanBeExpressed := true
 		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
 			strongParentBranchID := it.Next()
-			// fmt.Println(tangle, strongParentBranchID, issuingTime)
 			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
-			// fmt.Println(referenceParentType, referenceMessageID, err)
 			// Explicitly ignore error since we can't create a like/dislike reference to the message.
 			// This means this message can't be added as a strong parent.
 			if err != nil {
