@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID branchdag.BranchID, aw float64) gof.GradeOfFinality {
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
 			return gof.Low
@@ -60,7 +60,7 @@ func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
 	handler.Called(msgID)
 }
 
-func (handler *EventHandlerMock) BranchConfirmed(branchID branchdag.BranchID) {
+func (handler *EventHandlerMock) BranchConfirmed(branchID utxo.TransactionID) {
 	handler.Called(branchID)
 }
 
@@ -70,7 +70,9 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
 	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
-	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) { handler.BranchConfirmed(event.BranchID) }))
+	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		handler.BranchConfirmed(event.BranchID)
+	}))
 	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 

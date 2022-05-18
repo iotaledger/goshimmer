@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -132,10 +132,10 @@ type TransactionForkedEvent struct {
 	TransactionID utxo.TransactionID
 
 	// ParentBranches contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
-	ParentBranches branchdag.BranchIDs
+	ParentBranches *set.AdvancedSet[utxo.TransactionID]
 
 	// ForkedBranchID contains the newly forked BranchID that trigger this event.
-	ForkedBranchID branchdag.BranchID
+	ForkedBranchID utxo.TransactionID
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context
@@ -152,10 +152,10 @@ type TransactionBranchIDUpdatedEvent struct {
 	TransactionID utxo.TransactionID
 
 	// AddedBranchID contains the identifier of the Branch that was added to the BranchIDs of the Transaction.
-	AddedBranchID branchdag.BranchID
+	AddedBranchID utxo.TransactionID
 
 	// RemovedBranchIDs contains the set of the BranchIDs that were removed while updating the Transaction.
-	RemovedBranchIDs branchdag.BranchIDs
+	RemovedBranchIDs *set.AdvancedSet[utxo.TransactionID]
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context

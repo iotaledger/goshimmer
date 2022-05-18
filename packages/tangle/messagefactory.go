@@ -7,11 +7,11 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -339,7 +339,7 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 		}
 
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
-		if strongParentBranchIDs.Equal(branchdag.NewBranchIDs(branchdag.MasterBranchID)) {
+		if strongParentBranchIDs.Equal(set.NewAdvancedSet(utxo.EmptyTransactionID)) {
 			fmt.Println(tangle.Booker.MessageBranchIDs(strongParent))
 		}
 		if err != nil {
@@ -426,8 +426,8 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 	return references, referenceNotPossible, nil
 }
 
-func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	if strongParentBranchID == branchdag.MasterBranchID {
+func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
+	if strongParentBranchID == utxo.EmptyTransactionID {
 		return
 	}
 
@@ -436,8 +436,8 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 		return
 	}
 
-	if likedBranchID != branchdag.UndefinedBranchID {
-		txID := likedBranchID.TransactionID()
+	if likedBranchID != utxo.EmptyTransactionID {
+		txID := likedBranchID
 		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
 		if err != nil {
 			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
@@ -451,7 +451,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 
 	for it := conflictMembers.Iterator(); it.HasNext(); {
 		conflictMember := it.Next()
-		txID := likedBranchID.TransactionID()
+		txID := likedBranchID
 
 		// Always point to another branch, to make sure the receiver forks the branch.
 		if conflictMember == strongParentBranchID {
@@ -468,7 +468,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID branchdag.Br
 		}
 	}
 
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

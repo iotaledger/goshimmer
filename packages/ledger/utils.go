@@ -25,16 +25,16 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
-func (u *Utils) BranchIDsInFutureCone(branchIDs branchdag.BranchIDs) (branchIDsInFutureCone branchdag.BranchIDs) {
-	branchIDsInFutureCone = branchdag.NewBranchIDs()
+func (u *Utils) BranchIDsInFutureCone(branchIDs *set.AdvancedSet[utxo.TransactionID]) (branchIDsInFutureCone *set.AdvancedSet[utxo.TransactionID]) {
+	branchIDsInFutureCone = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for branchIDWalker := branchIDs.Iterator(); branchIDWalker.HasNext(); {
 		branchID := branchIDWalker.Next()
 
 		branchIDsInFutureCone.Add(branchID)
 
-		if u.ledger.BranchDAG.InclusionState(branchdag.NewBranchIDs(branchID)) == branchdag.Confirmed {
-			u.ledger.Storage.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(txMetadata *TransactionMetadata) {
+		if u.ledger.BranchDAG.InclusionState(set.NewAdvancedSet(branchID)) == branchdag.Confirmed {
+			u.ledger.Storage.CachedTransactionMetadata(branchID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
 
@@ -44,7 +44,7 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs branchdag.BranchIDs) (branchIDsI
 			continue
 		}
 
-		u.ledger.BranchDAG.Utils.ForEachChildBranchID(branchID, func(childBranchID branchdag.BranchID) {
+		u.ledger.BranchDAG.Utils.ForEachChildBranchID(branchID, func(childBranchID utxo.TransactionID) {
 			branchIDWalker.Push(childBranchID)
 		})
 	}
@@ -113,8 +113,8 @@ func (u *Utils) WithTransactionAndMetadata(txID utxo.TransactionID, callback fun
 }
 
 // TransactionBranchIDs returns the BranchIDs of the given TransactionID.
-func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs branchdag.BranchIDs, err error) {
-	branchIDs = branchdag.NewBranchIDs()
+func (u *Utils) TransactionBranchIDs(txID utxo.TransactionID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	if !u.ledger.Storage.CachedTransactionMetadata(txID).Consume(func(metadata *TransactionMetadata) {
 		branchIDs = metadata.BranchIDs()
 	}) {
@@ -136,10 +136,10 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.BranchDAG.Storage.CachedBranch(branchdag.NewBranchID(transactionID)).Consume(func(branch *branchdag.Branch) {
+	u.ledger.BranchDAG.Storage.CachedBranch(transactionID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
-			u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember) {
-				if conflictMember.BranchID().TransactionID() == transactionID {
+			u.ledger.BranchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+				if conflictMember.BranchID() == transactionID {
 					return
 				}
 
@@ -163,8 +163,8 @@ func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFina
 }
 
 // BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
-func (u *Utils) BranchGradeOfFinality(branchID branchdag.BranchID) (gradeOfFinality gof.GradeOfFinality, err error) {
-	if branchID == branchdag.MasterBranchID {
+func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
+	if branchID == utxo.EmptyTransactionID {
 		return gof.High, nil
 	}
 

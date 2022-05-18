@@ -2,8 +2,9 @@ package finality
 
 import (
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,13 +37,13 @@ func newEvents() *Events {
 // BranchCreatedEvent is a container that acts as a dictionary for the BranchCreated event related parameters.
 type BranchCreatedEvent struct {
 	// BranchID contains the identifier of the newly created Branch.
-	BranchID branchdag.BranchID
+	BranchID utxo.TransactionID
 
 	// ParentBranchIDs contains the parent Branches of the newly created Branch.
-	ParentBranchIDs branchdag.BranchIDs
+	ParentBranchIDs *set.AdvancedSet[utxo.TransactionID]
 
 	// ConflictIDs contains the set of conflicts that this Branch is involved with.
-	ConflictIDs branchdag.ConflictIDs
+	ConflictIDs *set.AdvancedSet[utxo.OutputID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -53,10 +54,10 @@ type BranchCreatedEvent struct {
 // parameters.
 type BranchConflictsUpdatedEvent struct {
 	// BranchID contains the identifier of the updated Branch.
-	BranchID branchdag.BranchID
+	BranchID utxo.TransactionID
 
 	// NewConflictIDs contains the set of conflicts that this Branch was added to.
-	NewConflictIDs branchdag.ConflictIDs
+	NewConflictIDs *set.AdvancedSet[utxo.OutputID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,13 +68,13 @@ type BranchConflictsUpdatedEvent struct {
 // parameters.
 type BranchParentsUpdatedEvent struct {
 	// BranchID contains the identifier of the updated Branch.
-	BranchID branchdag.BranchID
+	BranchID utxo.TransactionID
 
 	// AddedBranch contains the forked parent Branch that replaces the removed parents.
-	AddedBranch branchdag.BranchID
+	AddedBranch utxo.TransactionID
 
 	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Branch.
-	RemovedBranches branchdag.BranchIDs
+	RemovedBranches *set.AdvancedSet[utxo.TransactionID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

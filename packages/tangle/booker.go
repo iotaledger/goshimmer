@@ -6,11 +6,11 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -65,9 +65,9 @@ func (b *Booker) Setup() {
 }
 
 // MessageBranchIDs returns the BranchIDs of the given Message.
-func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs branchdag.BranchIDs, err error) {
+func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	if messageID == EmptyMessageID {
-		return branchdag.NewBranchIDs(branchdag.MasterBranchID), nil
+		return set.NewAdvancedSet(utxo.EmptyTransactionID), nil
 	}
 
 	if _, _, branchIDs, err = b.messageBookingDetails(messageID); err != nil {
@@ -75,24 +75,24 @@ func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs branchdag.Bran
 	}
 
 	if branchIDs.IsEmpty() {
-		return branchdag.NewBranchIDs(branchdag.MasterBranchID), nil
+		return set.NewAdvancedSet(utxo.EmptyTransactionID), nil
 	}
 
-	if !branchIDs.IsEmpty() && !branchIDs.Is(branchdag.MasterBranchID) {
-		branchIDs.Delete(branchdag.MasterBranchID)
+	if !branchIDs.IsEmpty() && !branchIDs.Is(utxo.EmptyTransactionID) {
+		branchIDs.Delete(utxo.EmptyTransactionID)
 	}
 
 	return
 }
 
 // PayloadBranchIDs returns the BranchIDs of the payload contained in the given Message.
-func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs branchdag.BranchIDs, err error) {
-	branchIDs = branchdag.NewBranchIDs()
+func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		transaction, isTransaction := message.Payload().(utxo.Transaction)
 		if !isTransaction {
-			branchIDs.Add(branchdag.MasterBranchID)
+			branchIDs.Add(utxo.EmptyTransactionID)
 			return
 		}
 
@@ -253,11 +253,11 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 	addedBranchIDs := inheritedBranchIDs.Clone()
 	addedBranchIDs.DeleteAll(pastMarkersBranchIDs)
-	addedBranchIDs.Delete(branchdag.MasterBranchID)
+	addedBranchIDs.Delete(utxo.EmptyTransactionID)
 
 	subtractedBranchIDs := pastMarkersBranchIDs.Clone()
 	subtractedBranchIDs.DeleteAll(inheritedBranchIDs)
-	subtractedBranchIDs.Delete(branchdag.MasterBranchID)
+	subtractedBranchIDs.Delete(utxo.EmptyTransactionID)
 
 	if addedBranchIDs.Size()+subtractedBranchIDs.Size() == 0 {
 		return nil
@@ -280,8 +280,8 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 }
 
 // determineBookingDetails determines the booking details of an unbooked Message.
-func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs branchdag.BranchIDs, err error) {
-	inheritedBranchIDs = branchdag.NewBranchIDs()
+func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	inheritedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	branchIDsOfPayload, err := b.PayloadBranchIDs(message.ID())
 	if err != nil {
@@ -302,7 +302,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 	}
 	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 
-	dislikedBranchIDs := branchdag.NewBranchIDs()
+	dislikedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
 	likedBranchIDs, dislikedBranchesFromShallowLike, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
 	if shallowLikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", message.ID(), shallowLikeErr)
@@ -322,9 +322,9 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 }
 
 // messageBookingDetails returns the Branch and Marker related details of the given Message.
-func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *markers.StructureDetails, pastMarkersBranchIDs, messageBranchIDs branchdag.BranchIDs, err error) {
-	pastMarkersBranchIDs = branchdag.NewBranchIDs()
-	messageBranchIDs = branchdag.NewBranchIDs()
+func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *markers.StructureDetails, pastMarkersBranchIDs, messageBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	pastMarkersBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	messageBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		structureDetails = messageMetadata.StructureDetails()
@@ -349,12 +349,12 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 }
 
 // branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
-func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs branchdag.BranchIDs, err error) {
+func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	if structureDetails == nil {
 		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
 	}
 
-	structureDetailsBranchIDs = branchdag.NewBranchIDs()
+	structureDetailsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	// obtain all the Markers
 	structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		branchIDs := b.MarkersManager.PendingBranchIDs(markers.NewMarker(sequenceID, index))
@@ -366,10 +366,10 @@ func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.Structu
 }
 
 // collectStrongParentsBookingDetails returns the booking details of a Message's strong parents.
-func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs branchdag.BranchIDs, err error) {
+func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, parentsBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	parentsStructureDetails = make([]*markers.StructureDetails, 0)
-	parentsPastMarkersBranchIDs = branchdag.NewBranchIDs()
-	parentsBranchIDs = branchdag.NewBranchIDs()
+	parentsPastMarkersBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	parentsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		parentStructureDetails, parentPastMarkersBranchIDs, parentBranchIDs, parentErr := b.messageBookingDetails(parentMessageID)
@@ -390,9 +390,9 @@ func (b *Booker) collectStrongParentsBookingDetails(message *Message) (parentsSt
 
 // collectShallowLikedParentsBranchIDs adds the BranchIDs of the shallow like reference and removes all its conflicts from
 // the supplied ArithmeticBranchIDs.
-func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collectedLikedBranchIDs, collectedDislikedBranchIDs branchdag.BranchIDs, err error) {
-	collectedLikedBranchIDs = branchdag.NewBranchIDs()
-	collectedDislikedBranchIDs = branchdag.NewBranchIDs()
+func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collectedLikedBranchIDs, collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	collectedLikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	message.ForEachParentByType(ShallowLikeParentType, func(parentMessageID MessageID) bool {
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			transaction, isTransaction := message.Payload().(utxo.Transaction)
@@ -429,8 +429,8 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 
 // collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
 // the supplied ArithmeticBranchIDs.
-func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (collectedDislikedBranchIDs branchdag.BranchIDs, err error) {
-	collectedDislikedBranchIDs = branchdag.NewBranchIDs()
+func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	message.ForEachParentByType(ShallowDislikeParentType, func(parentMessageID MessageID) bool {
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			transaction, isTransaction := message.Payload().(utxo.Transaction)
@@ -467,8 +467,8 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 
 // collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
 // the supplied ArithmeticBranchIDs.
-func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs branchdag.BranchIDs, err error) {
-	payloadBranchIDs = branchdag.NewBranchIDs()
+func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+	payloadBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	message.ForEachParentByType(WeakParentType, func(parentMessageID MessageID) bool {
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			transaction, isTransaction := message.Payload().(utxo.Transaction)
@@ -499,7 +499,7 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 // region FORK LOGIC ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // PropagateForkedBranch propagates the forked BranchID to the future cone of the attachments of the given Transaction.
-func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (err error) {
+func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
 		updated, forkErr := b.propagateForkedBranch(messageMetadata, addedBranchID, removedBranchIDs)
 		if forkErr != nil {
@@ -524,7 +524,7 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 	return
 }
 
-func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (propagated bool, err error) {
+func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (propagated bool, err error) {
 	b.bookingMutex.Lock(messageMetadata.ID())
 	defer b.bookingMutex.Unlock(messageMetadata.ID())
 
@@ -542,7 +542,7 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 	return b.updateMessageBranches(messageMetadata, addedBranchID, removedBranchIDs)
 }
 
-func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch branchdag.BranchID, removedBranches branchdag.BranchIDs) (updated bool, err error) {
+func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch utxo.TransactionID, removedBranches *set.AdvancedSet[utxo.TransactionID]) (updated bool, err error) {
 	addedBranchIDs := messageMetadata.AddedBranchIDs()
 	if !addedBranchIDs.Add(addedBranch) {
 		return false, nil
@@ -559,7 +559,7 @@ func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBr
 	removedBranchIDsFromPastMarkers := pastMarkerBranchIDs.DeleteAll(removedBranches)
 	removedBranchIDsFromAddedBranchIDs := addedBranchIDs.DeleteAll(removedBranches)
 
-	allRemovedBranchIDs := branchdag.NewBranchIDs()
+	allRemovedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
 	allRemovedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
 	allRemovedBranchIDs.AddAll(removedBranchIDsFromAddedBranchIDs)
 	if !allRemovedBranchIDs.Equal(removedBranches) {
@@ -576,7 +576,7 @@ func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBr
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
-func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs) (err error) {
+func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Marker, branchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
 	markerWalker := walker.New[*markers.Marker](false)
 	markerWalker.Push(marker)
 
@@ -594,7 +594,7 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker *markers.Ma
 
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
-func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID branchdag.BranchID, removedBranchIDs branchdag.BranchIDs, markerWalker *walker.Walker[*markers.Marker]) (err error) {
+func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[*markers.Marker]) (err error) {
 	// update BranchID mapping
 	newBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
 	if !newBranchIDs.Add(newBranchID) {
@@ -616,7 +616,7 @@ func (b *Booker) forkSingleMarker(currentMarker *markers.Marker, newBranchID bra
 	})
 
 	// propagate updates to later BranchID mappings of the same sequence.
-	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ branchdag.BranchIDs) {
+	b.MarkersManager.ForEachBranchIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker *markers.Marker, _ *set.AdvancedSet[utxo.TransactionID]) {
 		markerWalker.Push(mappedMarker)
 	})
 

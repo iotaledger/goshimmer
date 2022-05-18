@@ -257,7 +257,7 @@ func registerLocalMetrics() {
 		}
 	}))
 
-	deps.Tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 
@@ -265,11 +265,11 @@ func registerLocalMetrics() {
 		if _, exists := activeBranches[branchID]; !exists {
 			return
 		}
-		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(utxo.TransactionID(branchID))
+		oldestAttachmentTime, _, err := deps.Tangle.Utils.FirstAttachment(branchID)
 		if err != nil {
 			return
 		}
-		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID branchdag.BranchID) bool {
+		deps.Tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 			if _, exists := activeBranches[branchID]; exists && conflictingBranchID != branchID {
 				finalizedBranchCountDB.Inc()
 				delete(activeBranches, conflictingBranchID)
@@ -283,7 +283,7 @@ func registerLocalMetrics() {
 		delete(activeBranches, branchID)
 	}))
 
-	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *branchdag.BranchCreatedEvent) {
+	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 

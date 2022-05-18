@@ -4,10 +4,12 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -60,7 +62,7 @@ func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 }
 
 // WeightOfBranch returns the weight of the given Branch that was added by Voters of the given epoch.
-func (a *ApprovalWeightManager) WeightOfBranch(branchID branchdag.BranchID) (weight float64) {
+func (a *ApprovalWeightManager) WeightOfBranch(branchID utxo.TransactionID) (weight float64) {
 	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
 		weight = branchWeight.Weight()
 	})
@@ -90,7 +92,7 @@ func (a *ApprovalWeightManager) isRelevantVoter(message *Message) bool {
 }
 
 // VotersOfBranch returns the Voters of the given branch ledger.BranchID.
-func (a *ApprovalWeightManager) VotersOfBranch(branchID branchdag.BranchID) (voters *Voters) {
+func (a *ApprovalWeightManager) VotersOfBranch(branchID utxo.TransactionID) (voters *Voters) {
 	if !a.tangle.Storage.BranchVoters(branchID).Consume(func(branchVoters *BranchVoters) {
 		voters = branchVoters.Voters()
 	}) {
@@ -153,12 +155,12 @@ func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
 // determineVotes iterates over a set of branches and, taking into account the opinion a Voter expressed previously,
 // computes the branches that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overrall valid state transition.
-func (a *ApprovalWeightManager) determineVotes(votedBranchIDs branchdag.BranchIDs, vote *BranchVote) (addedBranches, revokedBranches branchdag.BranchIDs, isInvalid bool) {
-	addedBranches = branchdag.NewBranchIDs()
+func (a *ApprovalWeightManager) determineVotes(votedBranchIDs *set.AdvancedSet[utxo.TransactionID], vote *BranchVote) (addedBranches, revokedBranches *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+	addedBranches = set.NewAdvancedSet[utxo.TransactionID]()
 	for it := votedBranchIDs.Iterator(); it.HasNext(); {
 		votedBranchID := it.Next()
 		conflictingBranchWithHigherVoteExists := false
-		a.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID branchdag.BranchID) bool {
+		a.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
 			conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
 
 			return !conflictingBranchWithHigherVoteExists
@@ -169,7 +171,7 @@ func (a *ApprovalWeightManager) determineVotes(votedBranchIDs branchdag.BranchID
 		}
 
 		// The starting branches should not be considered as having common Parents, hence we treat them separately.
-		conflictAddedBranches, _ := a.determineBranchesToAdd(branchdag.NewBranchIDs(votedBranchID), vote.WithOpinion(Confirmed))
+		conflictAddedBranches, _ := a.determineBranchesToAdd(set.NewAdvancedSet(votedBranchID), vote.WithOpinion(Confirmed))
 		addedBranches.AddAll(conflictAddedBranches)
 	}
 	revokedBranches, isInvalid = a.determineBranchesToRevoke(addedBranches, votedBranchIDs, vote.WithOpinion(Rejected))
@@ -179,8 +181,8 @@ func (a *ApprovalWeightManager) determineVotes(votedBranchIDs branchdag.BranchID
 
 // determineBranchesToAdd iterates through the past cone of the given Branches and determines the BranchIDs that
 // are affected by the Vote.
-func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs branchdag.BranchIDs, branchVote *BranchVote) (addedBranches branchdag.BranchIDs, allParentsAdded bool) {
-	addedBranches = branchdag.NewBranchIDs()
+func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSet[utxo.TransactionID], branchVote *BranchVote) (addedBranches *set.AdvancedSet[utxo.TransactionID], allParentsAdded bool) {
+	addedBranches = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for it := branchIDs.Iterator(); it.HasNext(); {
 		currentBranchID := it.Next()
@@ -191,7 +193,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs branchdag.Branc
 			continue
 		}
 
-		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *branchdag.Branch) {
+		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
@@ -206,11 +208,11 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs branchdag.Branc
 
 // determineBranchesToRevoke determines which Branches of the conflicting future cone of the added Branches are affected
 // by the vote and if the vote is valid (not voting for conflicting Branches).
-func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBranches branchdag.BranchIDs, vote *BranchVote) (revokedBranches branchdag.BranchIDs, isInvalid bool) {
-	revokedBranches = branchdag.NewBranchIDs()
-	subTractionWalker := walker.New[branchdag.BranchID]()
+func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBranches *set.AdvancedSet[utxo.TransactionID], vote *BranchVote) (revokedBranches *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
+	revokedBranches = set.NewAdvancedSet[utxo.TransactionID]()
+	subTractionWalker := walker.New[utxo.TransactionID]()
 	for it := addedBranches.Iterator(); it.HasNext(); {
-		a.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(it.Next(), func(conflictingBranchID branchdag.BranchID) bool {
+		a.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(it.Next(), func(conflictingBranchID utxo.TransactionID) bool {
 			subTractionWalker.Push(conflictingBranchID)
 
 			return true
@@ -226,7 +228,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 
 		revokedBranches.Add(currentVote.BranchID)
 
-		a.tangle.Ledger.BranchDAG.Storage.CachedChildBranches(currentVote.BranchID).Consume(func(childBranch *branchdag.ChildBranch) {
+		a.tangle.Ledger.BranchDAG.Storage.CachedChildBranches(currentVote.BranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {
 			subTractionWalker.Push(childBranch.ChildBranchID())
 		})
 	}
@@ -248,8 +250,8 @@ func (a *ApprovalWeightManager) voteWithHigherPower(vote *BranchVote) (existingV
 	return existingVote, exists && existingVote.VotePower > vote.VotePower
 }
 
-func (a *ApprovalWeightManager) addVoterToBranch(branchID branchdag.BranchID, branchVote *BranchVote) {
-	if branchID == branchdag.MasterBranchID {
+func (a *ApprovalWeightManager) addVoterToBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
+	if branchID == utxo.EmptyTransactionID {
 		return
 	}
 
@@ -264,7 +266,7 @@ func (a *ApprovalWeightManager) addVoterToBranch(branchID branchdag.BranchID, br
 	a.updateBranchWeight(branchID)
 }
 
-func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID branchdag.BranchID, branchVote *BranchVote) {
+func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
 	a.tangle.Storage.LatestBranchVotes(branchVote.Voter, NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
 		latestBranchVotes.Store(branchVote)
 	})
@@ -350,7 +352,7 @@ func (a *ApprovalWeightManager) updateMarkerWeights(sequenceID markers.SequenceI
 	}
 }
 
-func (a *ApprovalWeightManager) updateBranchWeight(branchID branchdag.BranchID) {
+func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) {
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	var voterWeight float64
@@ -370,10 +372,10 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID branchdag.BranchID) 
 }
 
 // processForkedMessage updates the Branch weight after an individually mapped Message was forked into a new Branch.
-func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID branchdag.BranchID) {
+func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID utxo.TransactionID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
-			a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch) {
+			a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
 					return
 				}
@@ -385,10 +387,10 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 }
 
 // take everything in future cone because it was not conflicting before and move to new branch.
-func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID branchdag.BranchID) {
+func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID utxo.TransactionID) {
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch) {
+		a.tangle.Ledger.BranchDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
 			// voters of the marker we are forking also voted for all parents of the branch the marker is
 			// being forked into.
@@ -411,7 +413,7 @@ func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, fork
 	a.updateBranchWeight(forkedBranchID)
 }
 
-func (a *ApprovalWeightManager) addSupportToForkedBranchVoters(voter Voter, forkedBranchVoters *BranchVoters, parentBranchIDs branchdag.BranchIDs, sequenceNumber uint64) (supportAdded bool) {
+func (a *ApprovalWeightManager) addSupportToForkedBranchVoters(voter Voter, forkedBranchVoters *BranchVoters, parentBranchIDs *set.AdvancedSet[utxo.TransactionID], sequenceNumber uint64) (supportAdded bool) {
 	if !a.voterSupportsAllBranches(voter, parentBranchIDs) {
 		return false
 	}
@@ -428,11 +430,11 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchVoters(voter Voter, fork
 	return supportAdded && forkedBranchVoters.AddVoter(voter)
 }
 
-func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs branchdag.BranchIDs) (allBranchesSupported bool) {
+func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs *set.AdvancedSet[utxo.TransactionID]) (allBranchesSupported bool) {
 	allBranchesSupported = true
 	for it := branchIDs.Iterator(); it.HasNext(); {
 		branchID := it.Next()
-		if branchID == branchdag.MasterBranchID {
+		if branchID == utxo.EmptyTransactionID {
 			continue
 		}
 

@@ -9,13 +9,13 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -27,7 +27,7 @@ type TransactionMetadata struct {
 	id utxo.TransactionID
 
 	// branchIDs contains the conflicting BranchIDs that this Transaction depends on.
-	branchIDs branchdag.BranchIDs
+	branchIDs *set.AdvancedSet[utxo.TransactionID]
 
 	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
 	branchIDsMutex sync.RWMutex
@@ -73,7 +73,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
 	new = &TransactionMetadata{
 		id:        txID,
-		branchIDs: branchdag.NewBranchIDs(),
+		branchIDs: set.NewAdvancedSet[utxo.TransactionID](),
 		outputIDs: utxo.NewOutputIDs(),
 	}
 	new.SetModified()
@@ -103,7 +103,7 @@ func (t *TransactionMetadata) FromBytes(bytes []byte) (err error) {
 
 // FromMarshalUtil un-serializes TransactionMetadata using a MarshalUtil.
 func (t *TransactionMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	t.branchIDs = branchdag.NewBranchIDs()
+	t.branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	t.outputIDs = utxo.NewOutputIDs()
 
 	if err = t.id.FromMarshalUtil(marshalUtil); err != nil {
@@ -142,7 +142,7 @@ func (t *TransactionMetadata) ID() (id utxo.TransactionID) {
 }
 
 // BranchIDs returns the conflicting BranchIDs that the Transaction depends on.
-func (t *TransactionMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
+func (t *TransactionMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	t.branchIDsMutex.RLock()
 	defer t.branchIDsMutex.RUnlock()
 
@@ -150,7 +150,7 @@ func (t *TransactionMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 }
 
 // SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (t *TransactionMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
+func (t *TransactionMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	t.branchIDsMutex.Lock()
 	defer t.branchIDsMutex.Unlock()
 
@@ -282,7 +282,7 @@ func (t *TransactionMetadata) GradeOfFinalityTime() (gradeOfFinalityTime time.Ti
 
 // IsConflicting returns true if the Transaction is conflicting with another Transaction (is a Branch).
 func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
-	return t.BranchIDs().Is(branchdag.NewBranchID(t.ID()))
+	return t.BranchIDs().Is(t.ID())
 }
 
 // Bytes returns a serialized version of the TransactionMetadata.
@@ -341,7 +341,7 @@ type OutputMetadata struct {
 	creationTime time.Time
 
 	// branchIDs contains the conflicting BranchIDs that this Output depends on.
-	branchIDs branchdag.BranchIDs
+	branchIDs *set.AdvancedSet[utxo.TransactionID]
 
 	// branchIDsMutex contains a mutex that is used to synchronize parallel access to the branchIDs.
 	branchIDsMutex sync.RWMutex
@@ -372,7 +372,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
 	new = &OutputMetadata{
 		id:        outputID,
-		branchIDs: branchdag.NewBranchIDs(),
+		branchIDs: set.NewAdvancedSet[utxo.TransactionID](),
 	}
 	new.Persist()
 	new.SetModified()
@@ -401,7 +401,7 @@ func (o *OutputMetadata) FromBytes(bytes []byte) (err error) {
 
 // FromMarshalUtil un-serializes TransactionMetadata using a MarshalUtil.
 func (o *OutputMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	o.branchIDs = branchdag.NewBranchIDs()
+	o.branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	if err = o.id.FromMarshalUtil(marshalUtil); err != nil {
 		return errors.Errorf("failed to parse OutputID: %w", err)
@@ -470,7 +470,7 @@ func (o *OutputMetadata) SetCreationTime(creationTime time.Time) (updated bool) 
 }
 
 // BranchIDs returns the conflicting BranchIDs that the Output depends on.
-func (o *OutputMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
+func (o *OutputMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	o.branchIDsMutex.RLock()
 	defer o.branchIDsMutex.RUnlock()
 
@@ -478,7 +478,7 @@ func (o *OutputMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
 }
 
 // SetBranchIDs sets the conflicting BranchIDs that this Transaction depends on.
-func (o *OutputMetadata) SetBranchIDs(branchIDs branchdag.BranchIDs) (modified bool) {
+func (o *OutputMetadata) SetBranchIDs(branchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
 	o.branchIDsMutex.Lock()
 	defer o.branchIDsMutex.Unlock()
 
@@ -673,8 +673,8 @@ func (o OutputsMetadata) IDs() (ids utxo.OutputIDs) {
 }
 
 // BranchIDs returns a union of all BranchIDs of the contained OutputMetadata objects.
-func (o OutputsMetadata) BranchIDs() (branchIDs branchdag.BranchIDs) {
-	branchIDs = branchdag.NewBranchIDs()
+func (o OutputsMetadata) BranchIDs() (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	_ = o.ForEach(func(outputMetadata *OutputMetadata) (err error) {
 		branchIDs.AddAll(outputMetadata.BranchIDs())
 		return nil

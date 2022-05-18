@@ -12,7 +12,7 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -167,9 +167,9 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Solid:               metadata.IsSolid(),
 		SolidificationTime:  metadata.SolidificationTime().Unix(),
 		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchIDs:           lo.Map(branchIDs.Slice(), branchdag.BranchID.Base58),
-		AddedBranchIDs:      lo.Map(metadata.AddedBranchIDs().Slice(), branchdag.BranchID.Base58),
-		SubtractedBranchIDs: lo.Map(metadata.SubtractedBranchIDs().Slice(), branchdag.BranchID.Base58),
+		BranchIDs:           lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+		AddedBranchIDs:      lo.Map(metadata.AddedBranchIDs().Slice(), utxo.TransactionID.Base58),
+		SubtractedBranchIDs: lo.Map(metadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Base58),
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		Booked:              metadata.IsBooked(),

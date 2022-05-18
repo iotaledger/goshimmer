@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ import (
 // simplified way.
 type MessageTestFramework struct {
 	tangle                   *Tangle
-	branchIDs                map[string]branchdag.BranchID
+	branchIDs                map[string]utxo.TransactionID
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
 	walletsByAddress         map[devnetvm.Address]wallet
@@ -45,7 +46,7 @@ type MessageTestFramework struct {
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
-		branchIDs:        make(map[string]branchdag.BranchID),
+		branchIDs:        make(map[string]utxo.TransactionID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
 		walletsByAddress: make(map[devnetvm.Address]wallet),
@@ -69,7 +70,7 @@ func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
 }
 
 // BranchID returns the BranchID registered with the given alias.
-func (m *MessageTestFramework) BranchID(alias string) (branchID branchdag.BranchID) {
+func (m *MessageTestFramework) BranchID(alias string) (branchID utxo.TransactionID) {
 	branchID, ok := m.branchIDs[alias]
 	if !ok {
 		panic("no branch registered with such alias " + alias)
@@ -79,8 +80,8 @@ func (m *MessageTestFramework) BranchID(alias string) (branchID branchdag.Branch
 }
 
 // BranchIDs returns the BranchIDs registered with the given aliases.
-func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs branchdag.BranchIDs) {
-	branchIDs = branchdag.NewBranchIDs()
+func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs utxo.TransactionIDs) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for _, alias := range aliases {
 		branchID, ok := m.branchIDs[alias]
@@ -228,21 +229,21 @@ func (m *MessageTestFramework) OutputMetadata(outputID utxo.OutputID) (outMeta *
 }
 
 // BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) branchdag.BranchID {
+func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.TransactionID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
 	tx, ok := messagePayload.(utxo.Transaction)
 	if !ok {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
 	}
 
-	return branchdag.NewBranchID(tx.ID())
+	return tx.ID()
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
 // This function thus only works on the message creating ledger.Branch.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b *branchdag.Branch) {
-	m.tangle.Ledger.BranchDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *branchdag.Branch) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.BranchDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		b = branch
 	})
 	return
@@ -286,7 +287,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	outputMetadata.SetGradeOfFinality(gof.High)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
-	outputMetadata.SetBranchIDs(branchdag.NewBranchIDs(branchdag.MasterBranchID))
+	outputMetadata.SetBranchIDs(set.NewAdvancedSet(utxo.EmptyTransactionID))
 	outputsMetadata.Add(outputMetadata)
 
 	m.outputsByAlias[alias] = output
@@ -589,7 +590,7 @@ func randomTransactionID() (randomTransactionID utxo.TransactionID) {
 	return randomTransactionID
 }
 
-func randomBranchID() (randomBranchID branchdag.BranchID) {
+func randomBranchID() (randomBranchID utxo.TransactionID) {
 	if err := randomBranchID.FromRandomness(); err != nil {
 		panic(err)
 	}
@@ -597,7 +598,7 @@ func randomBranchID() (randomBranchID branchdag.BranchID) {
 	return randomBranchID
 }
 
-func randomConflictID() (randomConflictID branchdag.ConflictID) {
+func randomConflictID() (randomConflictID utxo.OutputID) {
 	if err := randomConflictID.FromRandomness(); err != nil {
 		panic(err)
 	}
@@ -830,7 +831,7 @@ func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
 }
 
 // IsBranchConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsBranchConfirmed(branchID branchdag.BranchID) bool {
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchID utxo.TransactionID) bool {
 	return false
 }
 
@@ -875,18 +876,18 @@ func (m *MockWeightProvider) Shutdown() {
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
-	likedConflictMember map[branchdag.BranchID]LikedConflictMembers
+	likedConflictMember map[utxo.TransactionID]LikedConflictMembers
 }
 
 // LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
 // ConflictMembers.
 type LikedConflictMembers struct {
-	likedBranch     branchdag.BranchID
-	conflictMembers branchdag.BranchIDs
+	likedBranch     utxo.TransactionID
+	conflictMembers utxo.TransactionIDs
 }
 
 // LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID branchdag.BranchID) (likedBranchID branchdag.BranchID, conflictMembers branchdag.BranchIDs) {
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID utxo.TransactionID) (likedBranchID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
 	likedConflictMembers := o.likedConflictMember[branchID]
 	innerConflictMembers := likedConflictMembers.conflictMembers.Clone()
 	innerConflictMembers.Delete(branchID)
@@ -895,7 +896,7 @@ func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID branchdag.Branch
 }
 
 // BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
-func (o *SimpleMockOnTangleVoting) BranchLiked(branchID branchdag.BranchID) (branchLiked bool) {
+func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (branchLiked bool) {
 	likedConflictMembers, ok := o.likedConflictMember[branchID]
 	if !ok {
 		return false

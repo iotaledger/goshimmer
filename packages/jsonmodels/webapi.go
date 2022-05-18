@@ -62,7 +62,7 @@ type GetBranchChildrenResponse struct {
 }
 
 // NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given details.
-func NewGetBranchChildrenResponse(branchID branchdag.BranchID, childBranches []*branchdag.ChildBranch) *GetBranchChildrenResponse {
+func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*branchdag.ChildBranch[utxo.TransactionID]) *GetBranchChildrenResponse {
 	return &GetBranchChildrenResponse{
 		BranchID: branchID.Base58(),
 		ChildBranches: func() (mappedChildBranches []*ChildBranch) {
@@ -87,7 +87,7 @@ type GetBranchConflictsResponse struct {
 }
 
 // NewGetBranchConflictsResponse returns a GetBranchConflictsResponse from the given details.
-func NewGetBranchConflictsResponse(branchID branchdag.BranchID, branchIDsPerConflictID map[branchdag.ConflictID][]branchdag.BranchID) *GetBranchConflictsResponse {
+func NewGetBranchConflictsResponse(branchID utxo.TransactionID, branchIDsPerConflictID map[utxo.OutputID][]utxo.TransactionID) *GetBranchConflictsResponse {
 	return &GetBranchConflictsResponse{
 		BranchID: branchID.Base58(),
 		Conflicts: func() (mappedConflicts []*Conflict) {
@@ -112,7 +112,7 @@ type GetBranchVotersResponse struct {
 }
 
 // NewGetBranchVotersResponse returns a GetBranchVotersResponse from the given details.
-func NewGetBranchVotersResponse(branchID branchdag.BranchID, voters *tangle.Voters) *GetBranchVotersResponse {
+func NewGetBranchVotersResponse(branchID utxo.TransactionID, voters *tangle.Voters) *GetBranchVotersResponse {
 	return &GetBranchVotersResponse{
 		BranchID: branchID.Base58(),
 		Voters: func() (votersStr []string) {
