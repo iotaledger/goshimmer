@@ -4015,7 +4015,7 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 	wg.Wait()
 	testFramework.WaitUntilAllTasksProcessed()
 
-	expectedBranches := make(map[string]branchdag.BranchIDs)
+	expectedConflicts := make(map[string]utxo.TransactionIDs)
 	for layer := 0; layer < layersNum; layer++ {
 		for width := 0; width < widthSize; width++ {
 			msgName := fmt.Sprintf("Message.%d.%d", layer, width)
@@ -4032,15 +4032,15 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 			}
 
 			if layer == 0 && width >= 2 {
-				expectedBranches[msgName] = branchdag.NewBranchIDs(branchdag.MasterBranchID)
+				expectedConflicts[msgName] = utxo.NewTransactionIDs()
 				continue
 			}
 
-			expectedBranches[msgName] = testFramework.BranchIDs(branches...)
+			expectedConflicts[msgName] = testFramework.BranchIDs(branches...)
 		}
 	}
 
-	checkBranchIDs(t, testFramework, expectedBranches)
+	checkBranchIDs(t, testFramework, expectedConflicts)
 }
 
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {

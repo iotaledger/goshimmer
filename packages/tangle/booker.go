@@ -503,7 +503,7 @@ func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBr
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
 
 		// TODO: we need to actually figure out what to do with this. this is just a quick fix.
-		removedBranchIDs.Delete(branchdag.MasterBranchID)
+		//removedBranchIDs.Delete(branchdag.MasterBranchID)
 		updated, forkErr := b.propagateForkedBranch(messageMetadata, addedBranchID, removedBranchIDs)
 		if forkErr != nil {
 			messageWalker.StopWalk()
