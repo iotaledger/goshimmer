@@ -26,9 +26,6 @@ jobs:
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json
 
-      - name: Download latest snapshot file
-        run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
-
       - name: Run GoReleaser
         run: goreleaser --snapshot
         shell: bash
