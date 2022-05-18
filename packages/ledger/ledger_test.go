@@ -156,7 +156,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		for _, txAlias := range []string{"G", "TXA", "TXB", "TXC", "TXD", "TXH", "TXI"} {
 			assert.NoError(t, testFramework.IssueTransaction(txAlias))
 		}
-		require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXA").ID())))
+		require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(testFramework.Transaction("TXA").ID()))
 
 		testFramework.AssertBranchIDs(map[string][]string{
 			"G":   {},
@@ -292,7 +292,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, branchdag.Pending, testFramework.ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG")))
 	}
 
-	require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXD").ID())))
+	require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(testFramework.Transaction("TXD").ID()))
 
 	// TX L combines a child (G) of a Rejected branch (C) and a pending branch H, resulting in (G,H)
 	{
@@ -336,7 +336,7 @@ func TestLedger_SetBranchConfirmed(t *testing.T) {
 		assert.Equal(t, branchdag.Rejected, testFramework.ledger.BranchDAG.InclusionState(testFramework.BranchIDs("TXG", "TXH")))
 	}
 
-	require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(branchdag.NewBranchID(testFramework.Transaction("TXH").ID())))
+	require.True(t, testFramework.ledger.BranchDAG.SetBranchConfirmed(testFramework.Transaction("TXH").ID()))
 
 	// The new TX M should be now booked under G, as branch H confirmed, just G because we don't propagate H further.
 	{
@@ -569,7 +569,7 @@ func TestLedger_Aliases(t *testing.T) {
 	var transactionID utxo.TransactionID
 	assert.NoError(t, transactionID.FromRandomness())
 
-	branchID := branchdag.NewBranchID(transactionID)
+	branchID := transactionID
 
 	transactionID.RegisterAlias("TX1")
 	branchID.RegisterAlias("Branch1")
