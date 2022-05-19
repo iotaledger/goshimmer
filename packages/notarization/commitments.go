@@ -108,6 +108,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(eci ECI, msgID tangle.MessageI
 func (f *EpochCommitmentFactory) InsertStateLeaf(eci ECI, outputID ledgerstate.OutputID) {
 	commitment := f.getOrCreateCommitment(eci)
 	commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
+	f.onStateRootChanged(commitment)
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
@@ -133,6 +134,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(eci ECI, outID ledgerstate.Outp
 	exists, _ := commitment.stateRoot.Has(outID.Bytes())
 	if exists {
 		commitment.stateRoot.Delete(outID.Bytes())
+		f.onStateRootChanged(commitment)
 	}
 }
 
@@ -199,5 +201,16 @@ func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitme
 		return
 	}
 	forwardCommitment.stateMutationRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
+	forwardCommitment.prevECR = commitment.ECR()
+}
+
+func (f *EpochCommitmentFactory) onStateRootChanged(commitment *Commitment) {
+	f.commitmentsMutex.RLock()
+	defer f.commitmentsMutex.RUnlock()
+	forwardCommitment, ok := f.commitments[commitment.ECI+1]
+	if !ok {
+		return
+	}
+	forwardCommitment.stateRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
 	forwardCommitment.prevECR = commitment.ECR()
 }
