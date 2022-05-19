@@ -151,8 +151,6 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 
 		b.propagateForkedBranchToFutureCone(ctx, txMetadata.OutputIDs(), forkedBranchID, previousParentBranches)
 	})
-
-	return
 }
 
 // propagateForkedBranchToFutureCone propagates a newly introduced Branch to its future cone.

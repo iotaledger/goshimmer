@@ -26,7 +26,7 @@ func newDataFlow(ledger *Ledger) (new *dataFlow) {
 
 // storeAndProcessTransaction returns a DataFlow that stores and processes a Transaction.
 func (d *dataFlow) storeAndProcessTransaction() (dataFlow *dataflow.DataFlow[*dataFlowParams]) {
-	return dataflow.New[*dataFlowParams](
+	return dataflow.New(
 		d.ledger.Storage.storeTransactionCommand,
 		d.processTransaction().ChainedCommand,
 	)
@@ -34,7 +34,7 @@ func (d *dataFlow) storeAndProcessTransaction() (dataFlow *dataflow.DataFlow[*da
 
 // processTransaction returns a DataFlow that processes a previously stored Transaction.
 func (d *dataFlow) processTransaction() (dataFlow *dataflow.DataFlow[*dataFlowParams]) {
-	return dataflow.New[*dataFlowParams](
+	return dataflow.New(
 		d.ledger.booker.checkAlreadyBookedCommand,
 		d.checkTransaction().ChainedCommand,
 		d.ledger.booker.bookTransactionCommand,
@@ -43,7 +43,7 @@ func (d *dataFlow) processTransaction() (dataFlow *dataflow.DataFlow[*dataFlowPa
 
 // checkTransaction returns a DataFlow that checks the validity of a Transaction.
 func (d *dataFlow) checkTransaction() (dataFlow *dataflow.DataFlow[*dataFlowParams]) {
-	return dataflow.New[*dataFlowParams](
+	return dataflow.New(
 		d.ledger.validator.checkSolidityCommand,
 		d.ledger.validator.checkOutputsCausallyRelatedCommand,
 		d.ledger.validator.checkTransactionExecutionCommand,

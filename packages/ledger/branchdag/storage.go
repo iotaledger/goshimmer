@@ -153,7 +153,7 @@ func (s *Storage[ConflictID, ConflictSetID]) Shutdown() {
 func (s *Storage[ConflictID, ConflictSetID]) init() {
 	var rootConflict ConflictID
 
-	cachedMasterBranch, stored := s.branchStorage.StoreIfAbsent(NewBranch[ConflictID, ConflictSetID](rootConflict, set.NewAdvancedSet[ConflictID](), set.NewAdvancedSet[ConflictSetID]()))
+	cachedMasterBranch, stored := s.branchStorage.StoreIfAbsent(NewBranch(rootConflict, set.NewAdvancedSet[ConflictID](), set.NewAdvancedSet[ConflictSetID]()))
 	if stored {
 		cachedMasterBranch.Consume(func(branch *Branch[ConflictID, ConflictSetID]) {
 			branch.setInclusionState(Confirmed)

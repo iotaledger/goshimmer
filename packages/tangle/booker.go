@@ -49,7 +49,7 @@ func (b *Booker) Setup() {
 		b.book(event.Message)
 	}))
 
-	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure[*ledger.TransactionBranchIDUpdatedEvent](func(event *ledger.TransactionBranchIDUpdatedEvent) {
+	b.tangle.Ledger.Events.TransactionBranchIDUpdated.Hook(event.NewClosure(func(event *ledger.TransactionBranchIDUpdatedEvent) {
 		if err := b.PropagateForkedBranch(event.TransactionID, event.AddedBranchID, event.RemovedBranchIDs); err != nil {
 			b.Events.Error.Trigger(errors.Errorf("failed to propagate Branch update of %s to tangle: %w", event.TransactionID, err))
 		}

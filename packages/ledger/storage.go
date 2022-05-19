@@ -306,13 +306,11 @@ func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectst
 		var txID utxo.TransactionID
 		if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
 			panic(err)
-			return nil, err
 		}
 
 		parsedTransaction, err := vm.ParseTransaction(data)
 		if err != nil {
 			panic(err)
-			return nil, err
 		}
 
 		parsedTransaction.SetID(txID)
