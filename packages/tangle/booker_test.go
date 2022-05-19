@@ -3936,7 +3936,7 @@ func TestFutureConeDislike(t *testing.T) {
 	}
 }
 
-func TestMultiThreadedBookingAndForking(t *testing.T) {
+func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const layersNum = 127
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
@@ -4043,6 +4043,107 @@ func TestMultiThreadedBookingAndForking(t *testing.T) {
 	checkBranchIDs(t, testFramework, expectedConflicts)
 }
 
+func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
+	const layersNum = 127
+	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
+
+	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	defer tangle.Shutdown()
+
+	testFramework := NewMessageTestFramework(
+		tangle,
+		WithGenesisOutput("G", widthSize),
+	)
+
+	tangle.Setup()
+
+	// Create base-layer outputs to double-spend
+	genesisMessageOptions := []MessageOption{
+		WithStrongParents("Genesis"),
+		WithInputs("G"),
+	}
+	for layer := 0; layer < widthSize; layer++ {
+		genesisMessageOptions = append(genesisMessageOptions, WithOutput(fmt.Sprintf("G.%d", layer), 1))
+	}
+	testFramework.CreateMessage("Message.G", genesisMessageOptions...)
+	testFramework.IssueMessages("Message.G").WaitUntilAllTasksProcessed()
+
+	msgs := make([]string, 0)
+
+	for layer := 0; layer < layersNum; layer++ {
+		for width := 0; width < widthSize; width++ {
+			msgName := fmt.Sprintf("Message.%d.%d", layer, width)
+			strongParents := make([]string, 0)
+			likeParents := make([]string, 0)
+			if layer == 0 {
+				strongParents = append(strongParents, "Message.G")
+			} else {
+				for innerWidth := 0; innerWidth < widthSize; innerWidth++ {
+					strongParents = append(strongParents, fmt.Sprintf("Message.%d.%d", layer-1, innerWidth))
+					// We only like the first conflict over the second, to fork it on the next layer.
+					if innerWidth%2 == 0 {
+						likeParents = append(likeParents, fmt.Sprintf("Message.%d.%d", layer-1, innerWidth))
+					}
+				}
+			}
+
+			var input string
+			var output string
+			var conflict string
+
+			if layer == 0 {
+				input = fmt.Sprintf("G.%d", width-width%2)
+			} else {
+				// We spend from the first of the couple forks
+				input = fmt.Sprintf("O.%d.%d", layer-1, width-width%2)
+			}
+			output = fmt.Sprintf("O.%d.%d", layer, width)
+			conflict = fmt.Sprintf("C.%d.%d", layer, width)
+
+			testFramework.CreateMessage(msgName, WithStrongParents(strongParents...), WithShallowLikeParents(likeParents...), WithInputs(input), WithOutput(output, 1))
+			testFramework.RegisterBranchID(conflict, msgName)
+			testFramework.RegisterTransactionID(conflict, msgName)
+
+			msgs = append(msgs, msgName)
+		}
+	}
+
+	var wg sync.WaitGroup
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < len(msgs); i++ {
+		wg.Add(1)
+		go func(i int) {
+			time.Sleep(time.Duration(int(50 * 1000 * rand.Float32())))
+			testFramework.IssueMessages(msgs[i])
+			wg.Done()
+		}(i)
+	}
+	wg.Wait()
+	testFramework.WaitUntilAllTasksProcessed()
+
+	expectedConflicts := make(map[string]utxo.TransactionIDs)
+	for layer := 0; layer < layersNum; layer++ {
+		for width := 0; width < widthSize; width++ {
+			msgName := fmt.Sprintf("Message.%d.%d", layer, width)
+			branches := make([]string, 0)
+
+			// Add conflict of the current layer
+			branches = append(branches, fmt.Sprintf("C.%d.%d", layer, width))
+
+			// Add conflicts of the previous layers
+			for innerLayer := layer - 1; innerLayer >= 0; innerLayer-- {
+				for innerWidth := 0; innerWidth < widthSize; innerWidth += 2 {
+					branches = append(branches, fmt.Sprintf("C.%d.%d", innerLayer, innerWidth))
+				}
+			}
+
+			expectedConflicts[msgName] = testFramework.BranchIDs(branches...)
+		}
+	}
+
+	checkNormalizedBranchIDsContained(t, testFramework, expectedConflicts)
+}
+
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -4081,6 +4182,29 @@ func checkBranchIDs(t *testing.T, testFramework *MessageTestFramework, expectedB
 		assert.NoError(t, errRetrieve)
 
 		assert.True(t, messageExpectedBranchIDs.Equal(retrievedBranchIDs), "BranchID of %s should be %s but is %s", messageID, messageExpectedBranchIDs, retrievedBranchIDs)
+	}
+}
+
+func checkNormalizedBranchIDsContained(t *testing.T, testFramework *MessageTestFramework, expectedContainedBranchIDs map[string]*set.AdvancedSet[utxo.TransactionID]) {
+	for messageID, messageExpectedBranchIDs := range expectedContainedBranchIDs {
+		retrievedBranchIDs, errRetrieve := testFramework.tangle.Booker.MessageBranchIDs(testFramework.Message(messageID).ID())
+		assert.NoError(t, errRetrieve)
+
+		normalizedRetrievedBranchIDs := retrievedBranchIDs.Clone()
+		for it := retrievedBranchIDs.Iterator(); it.HasNext(); {
+			testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+				normalizedRetrievedBranchIDs.DeleteAll(b.Parents())
+			})
+		}
+
+		normalizedExpectedBranchIDs := messageExpectedBranchIDs.Clone()
+		for it := messageExpectedBranchIDs.Iterator(); it.HasNext(); {
+			testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+				normalizedExpectedBranchIDs.DeleteAll(b.Parents())
+			})
+		}
+
+		assert.True(t, normalizedExpectedBranchIDs.Intersect(normalizedRetrievedBranchIDs).Size() == normalizedExpectedBranchIDs.Size(), "BranchID of %s should be %s but is %s", messageID, normalizedExpectedBranchIDs, normalizedRetrievedBranchIDs)
 	}
 }
 
