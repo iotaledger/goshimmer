@@ -328,7 +328,7 @@ func currentNodeStatus() *nodestatus {
 	status.TangleTime = tangleTime{
 		Bootstrapped: tm.Bootstrapped(),
 		MessageID:    lcm.MessageID.Base58(),
-		CTT:          lcm.Time.UnixNano(),
+		CTT:          lcm.MessageTime.UnixNano(),
 		RCTT:         tm.RCTT().UnixNano(),
 		FTT:          tm.FinalizedTangleTime().UnixNano(),
 		RFTT:         tm.RFTT().UnixNano(),

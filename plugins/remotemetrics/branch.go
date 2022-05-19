@@ -48,7 +48,7 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 	// update branch metric counts even if node is not synced.
 	oldestAttachmentTime, oldestAttachmentMessageID, err := updateMetricCounts(branchID, transactionID)
 
-	if err != nil {
+	if err != nil || !deps.Tangle.Bootstrapped() {
 		return
 	}
 

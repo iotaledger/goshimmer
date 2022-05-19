@@ -22,7 +22,7 @@ func checkSynced() {
 			NodeID:         myID,
 			MetricsLevel:   Parameters.MetricsLevel,
 			Time:           clock.SyncedTime(),
-			CTT:            deps.Tangle.TimeManager.CurrentTangleTime(),
+			CTT:            deps.Tangle.TimeManager.CTT(),
 			RCTT:           deps.Tangle.TimeManager.RCTT(),
 			FTT:            deps.Tangle.TimeManager.FinalizedTangleTime(),
 			RFTT:           deps.Tangle.TimeManager.RFTT(),

@@ -105,7 +105,7 @@ func getInfo(c echo.Context) error {
 	tangleTime := jsonmodels.TangleTime{
 		Bootstrapped: deps.Tangle.TimeManager.Bootstrapped(),
 		MessageID:    lcm.MessageID.Base58(),
-		CTT:          lcm.Time.UnixNano(),
+		CTT:          lcm.MessageTime.UnixNano(),
 		RCTT:         tm.RCTT().UnixNano(),
 		FTT:          tm.FinalizedTangleTime().UnixNano(),
 		RFTT:         tm.RFTT().UnixNano(),
