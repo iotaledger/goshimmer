@@ -168,7 +168,7 @@ The snapshot has been taken at 2021-11-05 12:18pm CET.
 Changelog:
 - Add caching to CI operations
 - Upgrade hive.go and adjust codebase to use context for cancellation instead of channels
-- Add LRU cache to BranchDAG
+- Add LRU cache to ConflictDAG
 - Add new consensus mechanism
   - Implement pure On Tangle Voting (OTV)
   - Remove FCOB, FPC and timestamp voting with FPC from the dataflow

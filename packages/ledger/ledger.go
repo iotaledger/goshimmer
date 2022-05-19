@@ -29,8 +29,8 @@ type Ledger struct {
 	// Utils is a dictionary for utility methods that simplify the interaction with the Ledger.
 	Utils *Utils
 
-	// BranchDAG is a reference to the BranchDAG that is used by this Ledger.
-	BranchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID]
+	// ConflictDAG is a reference to the ConflictDAG that is used by this Ledger.
+	ConflictDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -56,7 +56,7 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.BranchDAG = branchdag.New[utxo.TransactionID, utxo.OutputID](append([]branchdag.Option{
+	ledger.ConflictDAG = branchdag.New[utxo.TransactionID, utxo.OutputID](append([]branchdag.Option{
 		branchdag.WithStore(ledger.options.store),
 		branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
 	}, ledger.options.branchDAGOptions...)...)
@@ -67,11 +67,11 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID)
 	}))
 
-	ledger.BranchDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent[utxo.TransactionID]) {
 		ledger.propagatedRejectionToTransactions(event.BranchID)
 	}))
 
@@ -136,7 +136,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.BranchDAG.InclusionState(txMetadata.BranchIDs()) == branchdag.Confirmed {
+		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == branchdag.Confirmed {
 			l.triggerConfirmedEvent(txMetadata, false)
 		}
 	})
@@ -161,10 +161,10 @@ func (l *Ledger) PruneTransaction(txID utxo.TransactionID, pruneFutureCone bool)
 	l.Storage.pruneTransaction(txID, pruneFutureCone)
 }
 
-// Shutdown shuts down the stateful elements of the Ledger (the Storage and the BranchDAG).
+// Shutdown shuts down the stateful elements of the Ledger (the Storage and the ConflictDAG).
 func (l *Ledger) Shutdown() {
 	l.Storage.Shutdown()
-	l.BranchDAG.Shutdown()
+	l.ConflictDAG.Shutdown()
 }
 
 // processTransaction tries to book a single Transaction.
@@ -239,7 +239,7 @@ func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.Transact
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.BranchDAG.InclusionState(consumingTxMetadata.BranchIDs()) != branchdag.Confirmed {
+			if l.ConflictDAG.InclusionState(consumingTxMetadata.BranchIDs()) != branchdag.Confirmed {
 				return
 			}
 

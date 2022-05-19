@@ -168,11 +168,11 @@ func (t *TestFramework) MockOutputFromTx(tx *MockedTransaction, outputIndex uint
 	return utxo.NewOutputID(tx.ID(), outputIndex)
 }
 
-// AssertBranchDAG asserts the structure of the branch DAG as specified in expectedParents.
+// AssertConflictDAG asserts the structure of the branch DAG as specified in expectedParents.
 // "branch3": {"branch1","branch2"} asserts that "branch3" should have "branch1" and "branch2" as parents.
 // It also verifies the reverse mapping, that there is a child reference (branchdag.ChildBranch)
 // from "branch1"->"branch3" and "branch2"->"branch3".
-func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
+func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 	// Parent -> child references.
 	childBranches := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.TransactionID])
 
@@ -195,12 +195,12 @@ func (t *TestFramework) AssertBranchDAG(expectedParents map[string][]string) {
 
 	// Verify parent -> child references.
 	for parentBranchID, childBranchIDs := range childBranches {
-		cachedChildBranches := t.ledger.BranchDAG.Storage.CachedChildBranches(parentBranchID)
+		cachedChildBranches := t.ledger.ConflictDAG.Storage.CachedChildBranches(parentBranchID)
 		assert.Equalf(t.t, childBranchIDs.Size(), len(cachedChildBranches), "child branches count does not match for parent branch %s, expected=%s, actual=%s", parentBranchID, childBranchIDs, cachedChildBranches.Unwrap())
 		cachedChildBranches.Release()
 
 		for _, childBranchID := range childBranchIDs.Slice() {
-			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
+			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedChildBranch(parentBranchID, childBranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {}), "could not load ChildBranch %s,%s", parentBranchID, childBranchID)
 		}
 	}
 }
@@ -217,13 +217,13 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 		expectedConflictMembers := t.BranchIDs(expectedConflictMembersAliases...)
 
 		// Check count of conflict members for this conflictID.
-		cachedConflictMembers := t.ledger.BranchDAG.Storage.CachedConflictMembers(conflictID)
+		cachedConflictMembers := t.ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID)
 		assert.Equalf(t.t, expectedConflictMembers.Size(), len(cachedConflictMembers), "conflict member count does not match for conflict %s, expected=%s, actual=%s", conflictID, expectedConflictsAliases, cachedConflictMembers.Unwrap())
 		cachedConflictMembers.Release()
 
 		// Verify that all named branches are stored as conflict members (conflictID -> branchIDs).
 		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
+			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
 
 			if _, exists := branchConflicts[branchID]; !exists {
 				branchConflicts[branchID] = set.NewAdvancedSet[utxo.OutputID]()
@@ -291,7 +291,7 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 
 // ConsumeBranch loads and consumes branchdag.Branch. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID])) {
-	assert.Truef(t.t, t.ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
+	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
 }
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.

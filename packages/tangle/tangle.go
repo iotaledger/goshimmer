@@ -79,7 +79,7 @@ func New(options ...Option) (tangle *Tangle) {
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithBranchDAGOptions(tangle.Options.BranchDAGOptions...))
+	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithConflictDAGOptions(tangle.Options.ConflictDAGOptions...))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
@@ -190,7 +190,7 @@ type Option func(*Options)
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
 	Store                          kvstore.KVStore
-	BranchDAGOptions               []branchdag.Option
+	ConflictDAGOptions             []branchdag.Option
 	Identity                       *identity.LocalIdentity
 	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
 	TangleWidth                    int
@@ -298,10 +298,10 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// WithBranchDAGOptions is an Option for the Tangle that allows to set the BranchDAG options.
-func WithBranchDAGOptions(branchDAGOptions ...branchdag.Option) Option {
+// WithConflictDAGOptions is an Option for the Tangle that allows to set the ConflictDAG options.
+func WithConflictDAGOptions(branchDAGOptions ...branchdag.Option) Option {
 	return func(o *Options) {
-		o.BranchDAGOptions = branchDAGOptions
+		o.ConflictDAGOptions = branchDAGOptions
 	}
 }
 

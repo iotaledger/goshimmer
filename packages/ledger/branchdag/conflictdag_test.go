@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBranchDAG_RetrieveBranch(t *testing.T) {
+func TestConflictDAG_RetrieveBranch(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -30,7 +30,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	require.NoError(t, conflictID2.FromRandomness())
 	require.NoError(t, conflictID3.FromRandomness())
 
-	assert.True(t, branchDAG.CreateBranch(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0, conflictID1)))
+	assert.True(t, branchDAG.CreateConflict(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0, conflictID1)))
 	cachedBranch2 := branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists := cachedBranch2.Unwrap()
@@ -38,7 +38,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, set.NewAdvancedSet(MockedConflictID{}), Branch2.Parents())
 	assert.True(t, set.NewAdvancedSet(conflictID0, conflictID1).Equal(Branch2.ConflictIDs()))
 
-	assert.True(t, branchDAG.CreateBranch(branchID3, set.NewAdvancedSet(Branch2.ID()), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	assert.True(t, branchDAG.CreateConflict(branchID3, set.NewAdvancedSet(Branch2.ID()), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	cachedBranch3 := branchDAG.Storage.CachedBranch(branchID3)
 	defer cachedBranch3.Release()
 	Branch3, exists := cachedBranch3.Unwrap()
@@ -47,8 +47,8 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, set.NewAdvancedSet(Branch2.ID()), Branch3.Parents())
 	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch3.ConflictIDs())
 
-	assert.False(t, branchDAG.CreateBranch(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
-	assert.True(t, branchDAG.AddBranchToConflicts(branchID2, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	assert.False(t, branchDAG.CreateConflict(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
+	assert.True(t, branchDAG.AddConflictToConflictSets(branchID2, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2)))
 	cachedBranch2 = branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	Branch2, exists = cachedBranch2.Unwrap()
@@ -56,7 +56,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 
 	assert.Equal(t, set.NewAdvancedSet(conflictID0, conflictID1, conflictID2), Branch2.ConflictIDs())
 
-	assert.True(t, branchDAG.CreateBranch(branchID4, set.NewAdvancedSet(Branch3.ID(), Branch3.ID()), set.NewAdvancedSet(conflictID3)))
+	assert.True(t, branchDAG.CreateConflict(branchID4, set.NewAdvancedSet(Branch3.ID(), Branch3.ID()), set.NewAdvancedSet(conflictID3)))
 	cachedBranch4 := branchDAG.Storage.CachedBranch(branchID4)
 	defer cachedBranch4.Release()
 	Branch4, exists := cachedBranch4.Unwrap()
@@ -64,7 +64,7 @@ func TestBranchDAG_RetrieveBranch(t *testing.T) {
 	assert.Equal(t, set.NewAdvancedSet(conflictID3), Branch4.ConflictIDs())
 }
 
-func TestBranchDAG_ConflictMembers(t *testing.T) {
+func TestConflictDAG_ConflictMembers(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -80,13 +80,13 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	require.NoError(t, conflictID0.FromRandomness())
 
 	// create initial branches
-	assert.True(t, branchDAG.CreateBranch(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
+	assert.True(t, branchDAG.CreateConflict(branchID2, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
 	cachedBranch2 := branchDAG.Storage.CachedBranch(branchID2)
 	defer cachedBranch2.Release()
 	branch2, exists := cachedBranch2.Unwrap()
 	assert.True(t, exists)
 
-	assert.True(t, branchDAG.CreateBranch(branchID3, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
+	assert.True(t, branchDAG.CreateConflict(branchID3, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
 	cachedBranch3 := branchDAG.Storage.CachedBranch(branchID3)
 	defer cachedBranch3.Release()
 	branch3, exists := cachedBranch3.Unwrap()
@@ -103,7 +103,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
 	// add branch 4
-	assert.True(t, branchDAG.CreateBranch(branchID4, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
+	assert.True(t, branchDAG.CreateConflict(branchID4, set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID0)))
 	cachedBranch4 := branchDAG.Storage.CachedBranch(branchID4)
 	defer cachedBranch4.Release()
 	branch4, exists := cachedBranch4.Unwrap()
@@ -120,7 +120,7 @@ func TestBranchDAG_ConflictMembers(t *testing.T) {
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }
 
-func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
+func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
 	branchDAG := New[MockedConflictID, MockedConflictSetID]()
 	defer branchDAG.Shutdown()
 
@@ -207,7 +207,7 @@ func TestBranchDAG_SetBranchConfirmed(t *testing.T) {
 	})
 }
 
-func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT ConflictSetIDType[ConflictSetT]](t *testing.T, branchDAG *BranchDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
+func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT ConflictSetIDType[ConflictSetT]](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
 	for branchIDStrings, expectedInclusionState := range expectedInclusionStates {
 		branchIDs := set.NewAdvancedSet[ConflictT]()
 		for _, branchString := range strings.Split(branchIDStrings, "+") {
@@ -218,14 +218,14 @@ func assertInclusionStates[ConflictT ConflictIDType[ConflictT], ConflictSetT Con
 	}
 }
 
-func createBranch(t *testing.T, branchDAG *BranchDAG[MockedConflictID, MockedConflictSetID], branchAlias string, parents *set.AdvancedSet[MockedConflictID], conflictIDs *set.AdvancedSet[MockedConflictSetID]) MockedConflictID {
+func createBranch(t *testing.T, branchDAG *ConflictDAG[MockedConflictID, MockedConflictSetID], branchAlias string, parents *set.AdvancedSet[MockedConflictID], conflictIDs *set.AdvancedSet[MockedConflictSetID]) MockedConflictID {
 	var randomBranchID MockedConflictID
 	if err := randomBranchID.FromRandomness(); err != nil {
 		t.Error(err)
 		return MockedConflictID{}
 	}
 
-	assert.True(t, branchDAG.CreateBranch(randomBranchID, parents, conflictIDs))
+	assert.True(t, branchDAG.CreateConflict(randomBranchID, parents, conflictIDs))
 	cachedBranch := branchDAG.Storage.CachedBranch(randomBranchID)
 	cachedBranch.Release()
 

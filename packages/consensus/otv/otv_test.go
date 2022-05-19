@@ -827,8 +827,8 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 			ls := ledger.New(ledger.WithCacheTimeProvider(database.NewCacheTimeProvider(0)))
 			defer ls.Shutdown()
 
-			tt.test.Scenario.CreateBranches(t, ls.BranchDAG)
-			o := NewOnTangleVoting(ls.BranchDAG, tt.test.WeightFunc)
+			tt.test.Scenario.CreateBranches(t, ls.ConflictDAG)
+			o := NewOnTangleVoting(ls.ConflictDAG, tt.test.WeightFunc)
 
 			for _, e := range tt.test.executions {
 				liked, conflictMembers := o.LikedConflictMember(tt.test.Scenario.BranchID(e.branchAlias))
@@ -890,7 +890,7 @@ func (s *Scenario) BranchIDs(aliases ...string) *set.AdvancedSet[utxo.Transactio
 }
 
 // CreateBranches orders and creates the branches for the scenario.
-func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID]) {
+func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -912,13 +912,13 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.BranchDAG[u
 }
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *branchdag.BranchDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
+func createTestBranch(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
 	var newBranchCreated bool
 
 	if branchMeta.BranchID == utxo.EmptyTransactionID {
 		panic("a branch must have its ID defined in its BranchMeta")
 	}
-	newBranchCreated = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
 	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()

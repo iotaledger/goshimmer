@@ -70,14 +70,14 @@ func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 
 func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
 	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
-	tangleInstance.Ledger.BranchDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	tangleInstance.Ledger.ConflictDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		handler.BranchConfirmed(event.BranchID)
 	}))
 	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario(t, tangle.WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	processMsgScenario := tangle.ProcessMessageScenario(t, tangle.WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := recover(); err != nil {
 			t.Error(err)
@@ -381,7 +381,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 }
 
 func TestWeakVsStrongParentWalk(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario2(t, tangle.WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	processMsgScenario := tangle.ProcessMessageScenario2(t, tangle.WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := processMsgScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)

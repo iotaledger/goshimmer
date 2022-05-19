@@ -223,9 +223,9 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	deps.Tangle.Ledger.BranchDAG.Events.BranchCreated.Attach(createdClosure)
-	deps.Tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
-	deps.Tangle.Ledger.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(createdClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
 
@@ -391,13 +391,13 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 }
 
 func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
-	deps.Tangle.Ledger.BranchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a branch
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.BranchDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
 			})
 		}

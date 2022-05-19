@@ -316,7 +316,7 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 // in the branch (UTXO future cone) and their outputs.
 func (s *SimpleFinalityGadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
 	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
-		s.tangle.Ledger.BranchDAG.SetBranchConfirmed(branchID)
+		s.tangle.Ledger.ConflictDAG.SetBranchConfirmed(branchID)
 	}
 
 	return nil

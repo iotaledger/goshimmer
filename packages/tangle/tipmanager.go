@@ -140,7 +140,7 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.Ledger.BranchDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 
@@ -255,7 +255,7 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 
 	for it := messageBranchIDs.Iterator(); it.HasNext(); {
 		messageBranchID := it.Next()
-		if t.tangle.Ledger.BranchDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
 			continue
 		}
 
@@ -287,7 +287,7 @@ func (t *TipManager) deleteConfirmedBranchCount(branchID utxo.TransactionID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	t.tangle.Ledger.BranchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
+	t.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 		delete(t.tipsBranchCount, conflictingBranchID)
 		return true
 	})
@@ -306,7 +306,7 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 	for it := messageBranchIDs.Iterator(); it.HasNext(); {
 		messageBranchID := it.Next()
 		// Lazily introduce a counter for Pending branches only.
-		if t.tangle.Ledger.BranchDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
 			continue
 		}
 		count, exists := t.tipsBranchCount[messageBranchID]

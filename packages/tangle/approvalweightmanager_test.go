@@ -109,7 +109,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -516,7 +516,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
 
 	tangle.Setup()
@@ -903,7 +903,7 @@ func getSingleBranch(branches map[string]*set.AdvancedSet[utxo.TransactionID], a
 
 func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentBranchIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	tangle.Ledger.BranchDAG.CreateBranch(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
+	tangle.Ledger.ConflictDAG.CreateConflict(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
 	branchID.RegisterAlias(branchAlias)
 }
 

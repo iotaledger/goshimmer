@@ -1,22 +1,17 @@
-import { action, makeObservable, observable, ObservableMap } from 'mobx';
-import { registerHandler, unregisterHandler, WSMsgType } from 'utils/WS';
-import { MAX_VERTICES } from 'utils/constants';
+import {action, makeObservable, observable, ObservableMap} from 'mobx';
+import {registerHandler, unregisterHandler, WSMsgType} from 'utils/WS';
+import {MAX_VERTICES} from 'utils/constants';
 import dagre from 'cytoscape-dagre';
 import layoutUtilities from 'cytoscape-layout-utilities';
 import {
     cytoscapeLib,
     drawBranch,
-    initBranchDAG,
+    initConflictDAG,
     removeConfirmationStyle,
     updateConfirmedBranch
 } from 'graph/cytoscape';
-import {
-    branchConfirmed,
-    branchParentUpdate,
-    branchVertex,
-    branchWeightChanged
-} from 'models/branch';
-import { BRANCH } from '../styles/cytoscapeStyles';
+import {branchConfirmed, branchParentUpdate, branchVertex, branchWeightChanged} from 'models/branch';
+import {BRANCH} from '../styles/cytoscapeStyles';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
@@ -319,7 +314,7 @@ export class BranchStore {
     };
 
     start = () => {
-        this.graph = new cytoscapeLib([dagre, layoutUtilities], initBranchDAG);
+        this.graph = new cytoscapeLib([dagre, layoutUtilities], initConflictDAG);
 
         // add master branch
         const master = this.addMasterBranch();

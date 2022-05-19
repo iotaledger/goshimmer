@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -13,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/marshalutil"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
@@ -81,26 +79,7 @@ func newStorage(ledger *Ledger) (new *Storage) {
 		ledger: ledger,
 	}
 
-	new.storeGenesis()
-
 	return new
-}
-
-func (s *Storage) storeGenesis() {
-	s.CachedTransactionMetadata(utxo.EmptyTransactionID, func(transactionID utxo.TransactionID) *TransactionMetadata {
-		genesisTx := &TransactionMetadata{
-			id:              utxo.EmptyTransactionID,
-			booked:          true,
-			gradeOfFinality: gof.High,
-			branchIDs:       set.NewAdvancedSet(utxo.EmptyTransactionID),
-			outputIDs:       utxo.NewOutputIDs(),
-		}
-
-		genesisTx.Persist()
-		genesisTx.SetModified()
-
-		return genesisTx
-	}).Release()
 }
 
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback

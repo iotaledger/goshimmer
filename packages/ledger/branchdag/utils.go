@@ -6,14 +6,14 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-// Utils is a BranchDAG component that bundles utility related API to simplify common interactions with the BranchDAG.
+// Utils is a ConflictDAG component that bundles utility related API to simplify common interactions with the ConflictDAG.
 type Utils[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// branchDAG contains a reference to the BranchDAG that created the Utils.
-	branchDAG *BranchDAG[ConflictID, ConflictSetID]
+	// branchDAG contains a reference to the ConflictDAG that created the Utils.
+	branchDAG *ConflictDAG[ConflictID, ConflictSetID]
 }
 
-// newUtils returns a new Utils instance for the given BranchDAG.
-func newUtils[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](branchDAG *BranchDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
+// newUtils returns a new Utils instance for the given ConflictDAG.
+func newUtils[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](branchDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
 	return &Utils[ConflictID, ConflictSetID]{
 		branchDAG: branchDAG,
 	}

@@ -20,7 +20,7 @@ import (
 func TestScenario_1(t *testing.T) {
 	debug.SetEnabled(true)
 
-	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -74,7 +74,7 @@ func TestScenario_1(t *testing.T) {
 }
 
 func TestScenario_2(t *testing.T) {
-	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -2616,12 +2616,12 @@ func TestBookerMarkerMappings(t *testing.T) {
 		msg := testFramework.CreateMessage("Message27", WithStrongParents("Message19"))
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
-		testFramework.tangle.Ledger.BranchDAG.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.SetBranchConfirmed(testFramework.BranchID("E"))
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Confirmed)
 		})
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
@@ -2949,11 +2949,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
-		testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), branchdag.Rejected)
 		})
 
@@ -3674,7 +3674,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 	// ISSUE Message6
 	{
 
-		tg.Ledger.BranchDAG.SetBranchConfirmed(testFramework.BranchID("red"))
+		tg.Ledger.ConflictDAG.SetBranchConfirmed(testFramework.BranchID("red"))
 
 		testFramework.CreateMessage("Message6", WithStrongParents("Message4"))
 
@@ -3877,7 +3877,7 @@ func TestObjectiveInvalidity(t *testing.T) {
 }
 
 func TestFutureConeDislike(t *testing.T) {
-	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -3940,7 +3940,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 	const layersNum = 127
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
-	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(

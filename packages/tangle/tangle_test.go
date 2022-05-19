@@ -218,7 +218,7 @@ func TestTangle_MissingMessages(t *testing.T) {
 
 	// create the tangle
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())

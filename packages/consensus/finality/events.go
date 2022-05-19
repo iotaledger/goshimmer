@@ -9,7 +9,7 @@ import (
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Events is a container that acts as a dictionary for the existing events of a BranchDAG.
+// Events is a container that acts as a dictionary for the existing events of a ConflictDAG.
 type Events struct {
 	// BranchCreated is an event that gets triggered whenever a new Branch is created.
 	BranchCreated *event.Event[*BranchCreatedEvent]
