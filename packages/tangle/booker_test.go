@@ -4047,7 +4047,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 	const layersNum = 127
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
-	tangle := NewTestTangle(WithBranchDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 
 	testFramework := NewMessageTestFramework(
@@ -4192,14 +4192,14 @@ func checkNormalizedBranchIDsContained(t *testing.T, testFramework *MessageTestF
 
 		normalizedRetrievedBranchIDs := retrievedBranchIDs.Clone()
 		for it := retrievedBranchIDs.Iterator(); it.HasNext(); {
-			testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedBranchIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedBranchIDs := messageExpectedBranchIDs.Clone()
 		for it := messageExpectedBranchIDs.Iterator(); it.HasNext(); {
-			testFramework.tangle.Ledger.BranchDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedBranchIDs.DeleteAll(b.Parents())
 			})
 		}

@@ -842,10 +842,7 @@ func (m *MockConfirmationOracle) IsBranchConfirmed(branchID utxo.TransactionID) 
 
 // IsTransactionConfirmed mocks its interface function.
 func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID utxo.TransactionID) bool {
-	if transactionID == utxo.EmptyTransactionID {
-		return true
-	}
-	return false
+	return transactionID == utxo.EmptyTransactionID
 }
 
 // IsOutputConfirmed mocks its interface function.
