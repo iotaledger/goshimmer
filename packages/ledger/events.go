@@ -131,11 +131,8 @@ type TransactionForkedEvent struct {
 	// TransactionID contains the identifier of the forked Transaction.
 	TransactionID utxo.TransactionID
 
-	// ParentBranches contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
-	ParentBranches *set.AdvancedSet[utxo.TransactionID]
-
-	// ForkedBranchID contains the newly forked BranchID that trigger this event.
-	ForkedBranchID utxo.TransactionID
+	// ParentConflicts contains the set of BranchIDs that form the parent Branches for the newly forked Transaction.
+	ParentConflicts *set.AdvancedSet[utxo.TransactionID]
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context

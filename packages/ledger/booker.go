@@ -131,25 +131,23 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		b.ledger.mutex.Lock(txID)
 
 		conflictingInputs := b.ledger.Utils.ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
-		previousParentBranches := txMetadata.BranchIDs()
+		parentConflicts := txMetadata.BranchIDs()
 
-		forkedBranchID := txID
-		if !b.ledger.ConflictDAG.CreateConflict(forkedBranchID, previousParentBranches, conflictingInputs) {
-			b.ledger.ConflictDAG.AddConflictToConflictSets(forkedBranchID, conflictingInputs)
+		if !b.ledger.ConflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs) {
+			b.ledger.ConflictDAG.AddConflictToConflictSets(txID, conflictingInputs)
 			b.ledger.mutex.Unlock(txID)
 			return
 		}
 
 		b.ledger.Events.TransactionForked.Trigger(&TransactionForkedEvent{
-			TransactionID:  txID,
-			ParentBranches: previousParentBranches,
-			ForkedBranchID: forkedBranchID,
+			TransactionID:   txID,
+			ParentConflicts: parentConflicts,
 		})
 
-		b.updateBranchesAfterFork(ctx, txMetadata, forkedBranchID, previousParentBranches)
+		b.updateBranchesAfterFork(ctx, txMetadata, txID, parentConflicts)
 		b.ledger.mutex.Unlock(txID)
 
-		b.propagateForkedBranchToFutureCone(ctx, txMetadata.OutputIDs(), forkedBranchID, previousParentBranches)
+		b.propagateForkedBranchToFutureCone(ctx, txMetadata.OutputIDs(), txID, parentConflicts)
 	})
 
 	return
