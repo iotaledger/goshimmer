@@ -17,46 +17,20 @@ var (
 	prevECR                  = []byte("previousEpochCommitmentRoot")
 )
 
-// EpochCommitment contains the ECR and prevECR of a certain epoch.
+// EpochCommitment contains the ECR and prevECR of an epoch.
 type EpochCommitment struct {
 	ECI     ECI
 	ECR     []byte
 	PrevECR []byte
 }
 
-// Commitment is a compressed form of all the information (messages and confirmed value payloads) of a certain epoch.
+// Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
 	ECI               ECI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
 	prevECR           []byte
-}
-
-// TangleRoot returns the root of the message merkle tree.
-func (e *Commitment) TangleRoot() []byte {
-	return e.tangleRoot.Root()
-}
-
-// StateMutationRoot returns the root of the transaction merkle tree.
-func (e *Commitment) StateMutationRoot() []byte {
-	return e.stateMutationRoot.Root()
-}
-
-// StateRoot returns the root of the ledgerstate merkle tree.
-func (e *Commitment) StateRoot() []byte {
-	return e.stateRoot.Root()
-}
-
-// ECR returns the root of the commitment, which is the hash of prevECR, tangle root, state root and state mutation root.
-func (e *Commitment) ECR() []byte {
-	branch1 := blake2b.Sum256(append(e.prevECR, e.TangleRoot()...))
-	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
-	var root []byte
-	root = append(root, branch1[:]...)
-	root = append(root, branch2[:]...)
-	ecr := blake2b.Sum256(root)
-	return ecr[:]
 }
 
 // NewCommitment returns an empty commitment for the epoch.
@@ -83,6 +57,33 @@ func NewCommitment(eci ECI, prevECR, prevMessageRoot, prevTransactionRoot []byte
 	return commitment
 }
 
+// TangleRoot returns the root of the tangle sparse merkle tree.
+func (e *Commitment) TangleRoot() []byte {
+	return e.tangleRoot.Root()
+}
+
+// StateMutationRoot returns the root of the state mutation sparse merkle tree.
+func (e *Commitment) StateMutationRoot() []byte {
+	return e.stateMutationRoot.Root()
+}
+
+// StateRoot returns the root of the state sparse merkle tree.
+func (e *Commitment) StateRoot() []byte {
+	return e.stateRoot.Root()
+}
+
+// ECR generates the epoch commitment root.
+func (e *Commitment) ECR() []byte {
+	branch1 := blake2b.Sum256(append(e.prevECR, e.TangleRoot()...))
+	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
+	var root []byte
+	root = append(root, branch1[:]...)
+	root = append(root, branch2[:]...)
+	ecr := blake2b.Sum256(root)
+
+	return ecr[:]
+}
+
 // EpochCommitmentFactory manages epoch commitments.
 type EpochCommitmentFactory struct {
 	commitments      map[ECI]*Commitment
@@ -103,13 +104,13 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(eci ECI, msgID tangle.MessageI
 	f.onTangleRootChanged(commitment)
 }
 
-// InsertStateLeaf inserts the outputID to the ledgerstate sparse merkle tree.
+// InsertStateLeaf inserts the outputID to the state sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateLeaf(eci ECI, outputID ledgerstate.OutputID) {
 	commitment := f.getOrCreateCommitment(eci)
 	commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
 }
 
-// InsertStateMutationLeaf inserts the transaction ID to the transaction sparse merkle tree.
+// InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateMutationLeaf(eci ECI, txID ledgerstate.TransactionID) {
 	commitment := f.getOrCreateCommitment(eci)
 	commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
@@ -142,7 +143,7 @@ func (f *EpochCommitmentFactory) GetCommitment(eci ECI) *Commitment {
 	return f.commitments[eci]
 }
 
-// GetEpochCommitment returns the commitment with the given eci.
+// GetEpochCommitment returns the epoch commitment with the given eci.
 func (f *EpochCommitmentFactory) GetEpochCommitment(eci ECI) *EpochCommitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
@@ -187,6 +188,7 @@ func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
 		return
 	}
 	forwardCommitment.tangleRoot.Update(prevTangleRootKey, commitment.TangleRoot())
+	forwardCommitment.prevECR = commitment.ECR()
 }
 
 func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitment) {
@@ -197,4 +199,5 @@ func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitme
 		return
 	}
 	forwardCommitment.stateMutationRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
+	forwardCommitment.prevECR = commitment.ECR()
 }
