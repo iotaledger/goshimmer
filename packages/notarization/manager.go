@@ -75,10 +75,10 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 func (m *Manager) OnTransactionConfirmed(tx *ledgerstate.Transaction) {
 	eci := m.epochManager.TimeToECI(tx.Essence().Timestamp())
 	m.epochCommitmentFactory.InsertStateMutationLeaf(eci, tx.ID())
-	m.updateLedgerstateSMT(eci, tx)
+	m.updateStateSMT(eci, tx)
 }
 
-func (m *Manager) updateLedgerstateSMT(eci ECI, tx *ledgerstate.Transaction) {
+func (m *Manager) updateStateSMT(eci ECI, tx *ledgerstate.Transaction) {
 	for _, o := range tx.Essence().Outputs() {
 		m.epochCommitmentFactory.InsertStateLeaf(eci, o.ID())
 	}
