@@ -8,8 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-// ConflictDAG is an entity that manages conflicting versions of a quadruple-entry accounting ledger and their causal
-// relationships.
+// ConflictDAG is a DAG that models the causal dependencies between conflicting entities.
 type ConflictDAG[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
 	// Events is a dictionary for ConflictDAG related events.
 	Events *Events[ConflictID, ConflictSetID]
@@ -39,15 +38,15 @@ func New[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[
 	return
 }
 
-// CreateBranch tries to create a Branch with the given details. It returns true if the Branch could be created or false
+// CreateConflict tries to create a Branch with the given details. It returns true if the Branch could be created or false
 // if it already existed. It triggers a BranchCreated event if the branch was successfully created.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) CreateBranch(branchID ConflictID, parentBranchIDs *set.AdvancedSet[ConflictID], conflictIDs *set.AdvancedSet[ConflictSetID]) (created bool) {
+func (b *ConflictDAG[ConflictID, ConflictSetID]) CreateConflict(id ConflictID, parentConflicts *set.AdvancedSet[ConflictID], conflictSets *set.AdvancedSet[ConflictSetID]) (created bool) {
 	b.inclusionStateMutex.RLock()
-	b.Storage.CachedBranch(branchID, func(ConflictID) (branch *Branch[ConflictID, ConflictSetID]) {
-		branch = NewBranch(branchID, parentBranchIDs, set.NewAdvancedSet[ConflictSetID]())
+	b.Storage.CachedBranch(id, func(ConflictID) (branch *Branch[ConflictID, ConflictSetID]) {
+		branch = NewBranch(id, parentConflicts, set.NewAdvancedSet[ConflictSetID]())
 
-		b.addConflictMembers(branch, conflictIDs)
-		b.createChildBranchReferences(parentBranchIDs, branchID)
+		b.addConflictMembers(branch, conflictSets)
+		b.createChildBranchReferences(parentConflicts, id)
 
 		if b.anyParentRejected(branch) || b.anyConflictingBranchConfirmed(branch) {
 			branch.setInclusionState(Rejected)
@@ -61,18 +60,18 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) CreateBranch(branchID ConflictI
 
 	if created {
 		b.Events.BranchCreated.Trigger(&BranchCreatedEvent[ConflictID, ConflictSetID]{
-			BranchID:        branchID,
-			ParentBranchIDs: parentBranchIDs,
-			ConflictIDs:     conflictIDs,
+			BranchID:        id,
+			ParentBranchIDs: parentConflicts,
+			ConflictIDs:     conflictSets,
 		})
 	}
 
 	return created
 }
 
-// AddBranchToConflicts adds the Branch to the named conflicts - it returns true if the conflict membership was modified
+// AddConflictToConflictSets adds the Branch to the named conflicts - it returns true if the conflict membership was modified
 // during this operation.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) AddBranchToConflicts(branchID ConflictID, newConflictIDs *set.AdvancedSet[ConflictSetID]) (updated bool) {
+func (b *ConflictDAG[ConflictID, ConflictSetID]) AddConflictToConflictSets(branchID ConflictID, newConflictIDs *set.AdvancedSet[ConflictSetID]) (updated bool) {
 	b.inclusionStateMutex.RLock()
 	b.Storage.CachedBranch(branchID).Consume(func(branch *Branch[ConflictID, ConflictSetID]) {
 		updated = b.addConflictMembers(branch, newConflictIDs)
@@ -89,8 +88,8 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) AddBranchToConflicts(branchID C
 	return updated
 }
 
-// UpdateBranchParents changes the parents of a Branch after a fork (also updating the corresponding references).
-func (b *ConflictDAG[ConflictID, ConflictSetID]) UpdateBranchParents(branchID, addedBranchID ConflictID, removedBranchIDs *set.AdvancedSet[ConflictID]) (updated bool) {
+// UpdateConflictParents changes the parents of a Branch after a fork (also updating the corresponding references).
+func (b *ConflictDAG[ConflictID, ConflictSetID]) UpdateConflictParents(branchID, addedBranchID ConflictID, removedBranchIDs *set.AdvancedSet[ConflictID]) (updated bool) {
 	b.inclusionStateMutex.RLock()
 
 	var parentBranchIDs *set.AdvancedSet[ConflictID]

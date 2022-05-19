@@ -918,7 +918,7 @@ func createTestBranch(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.Transa
 	if branchMeta.BranchID == utxo.EmptyTransactionID {
 		panic("a branch must have its ID defined in its BranchMeta")
 	}
-	newBranchCreated = branchDAG.CreateBranch(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
+	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
 	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()

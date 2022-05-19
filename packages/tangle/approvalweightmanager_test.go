@@ -903,7 +903,7 @@ func getSingleBranch(branches map[string]*set.AdvancedSet[utxo.TransactionID], a
 
 func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], parentBranchIDs *set.AdvancedSet[utxo.TransactionID], conflictID utxo.OutputID) {
 	branchID := getSingleBranch(branchIDs, branchAlias)
-	tangle.Ledger.ConflictDAG.CreateBranch(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
+	tangle.Ledger.ConflictDAG.CreateConflict(branchID, parentBranchIDs, set.NewAdvancedSet(conflictID))
 	branchID.RegisterAlias(branchAlias)
 }
 
