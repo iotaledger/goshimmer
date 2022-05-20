@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/cockroachdb/errors"
@@ -425,14 +426,19 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 		rand.Shuffle(len(createdAliases), func(i, j int) {
 			createdAliases[i], createdAliases[j] = createdAliases[j], createdAliases[i]
 		})
+
+		var wg sync.WaitGroup
 		for _, createdAlias := range createdAliases {
+			wg.Add(1)
 			go func(createdAlias string) {
+				defer wg.Done()
 				err := testFramework.IssueTransaction(createdAlias)
 				if err != nil && !errors.Is(err, ErrTransactionUnsolid) {
 					panic(err)
 				}
 			}(createdAlias)
 		}
+		wg.Wait()
 	}
 
 	// Create ad-hoc TX11 to mix and match branches propagated from the bottom layer.

@@ -4032,7 +4032,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 			}
 
 			if layer == 0 && width >= 2 {
-				expectedConflicts[msgName] = utxo.NewTransactionIDs[utxo.TransactionID{}]()
+				expectedConflicts[msgName] = utxo.NewTransactionIDs()
 				continue
 			}
 
