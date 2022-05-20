@@ -37,9 +37,6 @@ type TimeManager struct {
 	lastSynced           bool
 	bootstrapped         bool
 
-	lastRCTTMutex sync.RWMutex
-	lastRCTT      time.Time
-
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -185,25 +182,15 @@ func (t *TimeManager) updateTime(messageID MessageID) {
 
 // RCTT return relative confirmed tangle time.
 func (t *TimeManager) RCTT() time.Time {
-	newRCTT := t.calculateNewRCTT()
-	t.lastRCTTMutex.Lock()
-	defer t.lastRCTTMutex.Unlock()
-	if newRCTT.After(t.lastRCTT) {
-		t.lastRCTT = newRCTT
-	}
-	return t.lastRCTT
+	now := time.Now()
+	lastConfirmedTime := t.lastConfirmedTime()
+	ctt := t.CTT()
+	return ctt.Add(now.Sub(lastConfirmedTime))
 }
 
 // RFTT return relative finalized tangle time. For now, it's the same as RCTT.
 func (t *TimeManager) RFTT() time.Time {
 	return t.RCTT()
-}
-
-func (t *TimeManager) calculateNewRCTT() time.Time {
-	now := time.Now()
-	lastConfirmedTime := t.lastConfirmedTime()
-	ctt := t.CTT()
-	return ctt.Add(now.Sub(lastConfirmedTime))
 }
 
 func (t *TimeManager) lastConfirmedTime() time.Time {

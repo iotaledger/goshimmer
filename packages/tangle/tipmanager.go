@@ -374,7 +374,6 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 		return
 	}
 
-	// if last confirmed message if older than minSupportedTimestamp, then all tips are invalid
 	if t.tangle.TimeManager.RCTT().Before(minSupportedTimestamp) {
 		return false
 	}
