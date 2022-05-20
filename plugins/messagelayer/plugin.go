@@ -65,6 +65,12 @@ type tangledeps struct {
 	Local   *peer.Local
 }
 
+type indexerdeps struct {
+	dig.In
+
+	Tangle *tangle.Tangle
+}
+
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
@@ -78,7 +84,7 @@ func init() {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(Indexer); err != nil {
+		if err := container.Provide(newIndexer); err != nil {
 			Plugin.Panic(err)
 		}
 
@@ -124,8 +130,8 @@ func configure(plugin *node.Plugin) {
 		plugin.LogInfof("node %s is blacklisted in Scheduler", event.NodeID.String())
 	}))
 
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(ev *tangle.SyncChangedEvent) {
-		plugin.LogInfo("Sync changed: ", ev.Synced)
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
+		plugin.LogInfo("Sync changed: ", event.Synced)
 	}))
 
 	// read snapshot file
@@ -173,10 +179,10 @@ func run(*node.Plugin) {
 var tangleInstance *tangle.Tangle
 
 // newTangle gets the tangle instance.
-func newTangle(deps tangledeps) *tangle.Tangle {
+func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 	tangleInstance = tangle.New(
-		tangle.Store(deps.Storage),
-		tangle.Identity(deps.Local.LocalIdentity()),
+		tangle.Store(tangleDeps.Storage),
+		tangle.Identity(tangleDeps.Local.LocalIdentity()),
 		tangle.Width(Parameters.TangleWidth),
 		tangle.TimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
@@ -198,16 +204,18 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
+	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, tangleDeps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget
 
-	index = indexer.New(indexer.WithStore(deps.Storage), indexer.WithCacheTimeProvider(database.CacheTimeProvider()))
-
 	tangleInstance.Setup()
 	return tangleInstance
+}
+
+func newIndexer(indexerDeps indexerdeps) *indexer.Indexer {
+	return indexer.New(indexerDeps.Tangle.Ledger, indexer.WithStore(indexerDeps.Tangle.Options.Store), indexer.WithCacheTimeProvider(database.CacheTimeProvider()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
