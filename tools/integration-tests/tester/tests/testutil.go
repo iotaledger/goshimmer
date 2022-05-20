@@ -21,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -722,10 +721,6 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 
 // TryConfirmBranch tries to confirm the given branch in the duration specified.
 func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
-	if branchID == branchdag.MasterBranchID.Base58() {
-		return
-	}
-
 	// check that the branch exists in the network and fail fast if it does not
 	exists := false
 	for _, peer := range n.Peers() {

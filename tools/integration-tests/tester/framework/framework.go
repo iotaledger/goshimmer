@@ -13,9 +13,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -143,48 +143,42 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
+func createSnapshots(snapshotInfos []SnapshotInfo) error {
 	for _, snapshotInfo := range snapshotInfos {
 		nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
 		if err != nil {
 			return err
 		}
 
-		_, err = snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0,
-			nodesToPledgeMap, snapshotInfo.FilePath)
+		createdSnapshot, err := snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap)
 		if err != nil {
 			return err
 		}
+
+		// default to /assets/snapshot.bin
+		if snapshotInfo.FilePath == "" {
+			snapshotInfo.FilePath = "/assets/snapshot.bin"
+		}
+
+		if err = createdSnapshot.WriteFile(snapshotInfo.FilePath); err != nil {
+			return err
+		}
 	}
-	return
+	return nil
 }
 
-// createPledgeMap will create a pledge map according to snapshotInfo
-func createPledgeMap(snapshotInfo SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
-	numOfPeers := len(snapshotInfo.PeersSeedBase58)
-	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfPeers)
-	if snapshotInfo.MasterSeed != "" {
-		masterSeedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
-		if err != nil {
-			return nil, err
-		}
-		publicKey := ed25519.PrivateKeyFromSeed(masterSeedBytes).Public()
-		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-			Genesis: true,
-		}
-	}
+// createPledgeMap creates a pledge map according to snapshotInfo
+func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge map[identity.ID]uint64, err error) {
+	nodesToPledge = make(map[identity.ID]uint64)
 
-	for i := 0; i < numOfPeers; i++ {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[i])
+	for i, peerSeedBase58 := range snapshotInfo.PeersSeedBase58 {
+		seedBytes, err := base58.Decode(peerSeedBase58)
 		if err != nil {
 			return nil, err
 		}
 		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
 
-		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
-			Amount:  snapshotInfo.PeersAmountsPledged[i],
-		}
+		nodesToPledge[identity.New(publicKey).ID()] = snapshotInfo.PeersAmountsPledged[i]
 	}
 
 	return nodesToPledge, nil
