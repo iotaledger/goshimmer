@@ -35,7 +35,7 @@ func WithCacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option
 
 // region WithBranchCacheTime //////////////////////////////////////////////////////////////////////////////////////////
 
-// WithBranchCacheTime is an Option for the ConflictDAG that allows to configure how long Branch objects stay cached after
+// WithBranchCacheTime is an Option for the ConflictDAG that allows to configure how long Conflict objects stay cached after
 // they have been released.
 func WithBranchCacheTime(branchCacheTime time.Duration) Option {
 	return func(options *options) {
@@ -91,7 +91,7 @@ type options struct {
 	// cacheTimeProvider contains the CacheTimeProvider that overrides the local cache times.
 	cacheTimeProvider *database.CacheTimeProvider
 
-	// branchCacheTime contains the duration that Branch objects stay cached after they have been released.
+	// branchCacheTime contains the duration that Conflict objects stay cached after they have been released.
 	branchCacheTime time.Duration
 
 	// childBranchCacheTime contains the duration that ChildBranch objects stay cached after they have been released.

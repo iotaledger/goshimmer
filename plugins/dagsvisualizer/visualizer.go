@@ -15,9 +15,9 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -176,10 +176,10 @@ func registerUTXOEvents() {
 }
 
 func registerBranchEvents() {
-	createdClosure := event.NewClosure(func(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
-			Data: newBranchVertex(event.BranchID),
+			Data: newBranchVertex(event.ID),
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
@@ -223,7 +223,7 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(createdClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
@@ -391,7 +391,7 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 }
 
 func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a branch
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {

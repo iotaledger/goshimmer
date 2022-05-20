@@ -8,27 +8,27 @@ import (
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Events is a container that acts as a dictionary for the existing events of a ConflictDAG.
-type Events[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// BranchCreated is an event that gets triggered whenever a new Branch is created.
-	BranchCreated *event.Event[*BranchCreatedEvent[ConflictID, ConflictSetID]]
+type Events[ConflictID ConflictIDType[ConflictID], ConflictingResourceID ConflictSetIDType[ConflictingResourceID]] struct {
+	// ConflictCreated is an event that gets triggered whenever a new Conflict is created.
+	ConflictCreated *event.Event[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]]
 
-	// BranchConflictsUpdated is an event that gets triggered whenever the ConflictIDs of a Branch are updated.
-	BranchConflictsUpdated *event.Event[*BranchConflictsUpdatedEvent[ConflictID, ConflictSetID]]
+	// BranchConflictsUpdated is an event that gets triggered whenever the ConflictIDs of a Conflict are updated.
+	BranchConflictsUpdated *event.Event[*BranchConflictsUpdatedEvent[ConflictID, ConflictingResourceID]]
 
-	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Branch are updated.
-	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent[ConflictID, ConflictSetID]]
+	// BranchParentsUpdated is an event that gets triggered whenever the parent BranchIDs of a Conflict are updated.
+	BranchParentsUpdated *event.Event[*BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID]]
 
-	// BranchConfirmed is an event that gets triggered whenever a Branch is confirmed.
+	// BranchConfirmed is an event that gets triggered whenever a Conflict is confirmed.
 	BranchConfirmed *event.Event[*BranchConfirmedEvent[ConflictID]]
 
-	// BranchRejected is an event that gets triggered whenever a Branch is rejected.
+	// BranchRejected is an event that gets triggered whenever a Conflict is rejected.
 	BranchRejected *event.Event[*BranchRejectedEvent[ConflictID]]
 }
 
 // newEvents returns a new Events object.
 func newEvents[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]]() *Events[ConflictID, ConflictSetID] {
 	return &Events[ConflictID, ConflictSetID]{
-		BranchCreated:          event.New[*BranchCreatedEvent[ConflictID, ConflictSetID]](),
+		ConflictCreated:        event.New[*ConflictCreatedEvent[ConflictID, ConflictSetID]](),
 		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent[ConflictID, ConflictSetID]](),
 		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent[ConflictID, ConflictSetID]](),
 		BranchConfirmed:        event.New[*BranchConfirmedEvent[ConflictID]](),
@@ -38,18 +38,18 @@ func newEvents[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetI
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region BranchCreatedEvent ///////////////////////////////////////////////////////////////////////////////////////////
+// region ConflictCreatedEvent /////////////////////////////////////////////////////////////////////////////////////////
 
-// BranchCreatedEvent is a container that acts as a dictionary for the BranchCreated event related parameters.
-type BranchCreatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// BranchID contains the identifier of the newly created Branch.
-	BranchID ConflictID
+// ConflictCreatedEvent is an event that gets triggered when a new Conflict was created.
+type ConflictCreatedEvent[ConflictID ConflictIDType[ConflictID], ConflictingResourceID ConflictSetIDType[ConflictingResourceID]] struct {
+	// ID contains the identifier of the newly created Conflict.
+	ID ConflictID
 
-	// ParentBranchIDs contains the parent Branches of the newly created Branch.
-	ParentBranchIDs *set.AdvancedSet[ConflictID]
+	// ParentConflictIDs contains the identifiers of the parents of the newly created Conflict.
+	ParentConflictIDs *set.AdvancedSet[ConflictID]
 
-	// ConflictIDs contains the set of conflicts that this Branch is involved with.
-	ConflictIDs *set.AdvancedSet[ConflictSetID]
+	// ConflictingResourceIDs contains the identifiers of the conflicting resources that this Conflict is associated to.
+	ConflictingResourceIDs *set.AdvancedSet[ConflictingResourceID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,10 +59,10 @@ type BranchCreatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID Con
 // BranchConflictsUpdatedEvent is a container that acts as a dictionary for the BranchConflictsUpdated event related
 // parameters.
 type BranchConflictsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// BranchID contains the identifier of the updated Branch.
+	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 
-	// NewConflictIDs contains the set of conflicts that this Branch was added to.
+	// NewConflictIDs contains the set of conflicts that this Conflict was added to.
 	NewConflictIDs *set.AdvancedSet[ConflictSetID]
 }
 
@@ -73,13 +73,13 @@ type BranchConflictsUpdatedEvent[ConflictID ConflictIDType[ConflictID], Conflict
 // BranchParentsUpdatedEvent is a container that acts as a dictionary for the BranchParentsUpdated event related
 // parameters.
 type BranchParentsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// BranchID contains the identifier of the updated Branch.
+	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 
-	// AddedBranch contains the forked parent Branch that replaces the removed parents.
+	// AddedBranch contains the forked parent Conflict that replaces the removed parents.
 	AddedBranch ConflictID
 
-	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Branch.
+	// RemovedBranches contains the parent BranchIDs that were replaced by the newly forked Conflict.
 	RemovedBranches *set.AdvancedSet[ConflictID]
 
 	// ParentsBranchIDs contains the updated list of parent BranchIDs.
@@ -92,7 +92,7 @@ type BranchParentsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSe
 
 // BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related parameters.
 type BranchConfirmedEvent[ConflictID ConflictIDType[ConflictID]] struct {
-	// BranchID contains the identifier of the confirmed Branch.
+	// BranchID contains the identifier of the confirmed Conflict.
 	BranchID ConflictID
 }
 
@@ -102,7 +102,7 @@ type BranchConfirmedEvent[ConflictID ConflictIDType[ConflictID]] struct {
 
 // BranchRejectedEvent is a container that acts as a dictionary for the BranchRejected event related parameters.
 type BranchRejectedEvent[ConflictID ConflictIDType[ConflictID]] struct {
-	// BranchID contains the identifier of the rejected Branch.
+	// BranchID contains the identifier of the rejected Conflict.
 	BranchID ConflictID
 }
 

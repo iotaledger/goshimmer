@@ -20,8 +20,8 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -134,11 +134,11 @@ func configureBranchConfirmationMetrics() {
 		onBranchConfirmed(event.BranchID)
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 
-		branchID := event.BranchID
+		branchID := event.ID
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
 			activeBranches[branchID] = types.Void

@@ -50,7 +50,7 @@ func (a *ApprovalWeightManager) Setup() {
 }
 
 // processBookedMessage is the main entry point for the ApprovalWeightManager. It takes the Message's issuer, adds it to the
-// voters of the Message's ledger.Branch and approved markers.Marker and eventually triggers events when
+// voters of the Message's ledger.Conflict and approved markers.Marker and eventually triggers events when
 // approval weights for branch and markers are reached.
 func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
@@ -61,7 +61,7 @@ func (a *ApprovalWeightManager) processBookedMessage(messageID MessageID) {
 	})
 }
 
-// WeightOfBranch returns the weight of the given Branch that was added by Voters of the given epoch.
+// WeightOfBranch returns the weight of the given Conflict that was added by Voters of the given epoch.
 func (a *ApprovalWeightManager) WeightOfBranch(branchID utxo.TransactionID) (weight float64) {
 	a.tangle.Storage.BranchWeight(branchID).Consume(func(branchWeight *BranchWeight) {
 		weight = branchWeight.Weight()
@@ -193,7 +193,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSe
 			continue
 		}
 
-		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
@@ -367,11 +367,11 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) 
 	})
 }
 
-// processForkedMessage updates the Branch weight after an individually mapped Message was forked into a new Branch.
+// processForkedMessage updates the Conflict weight after an individually mapped Message was forked into a new Conflict.
 func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID utxo.TransactionID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
-			a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
 					return
 				}
@@ -386,7 +386,7 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID utxo.TransactionID) {
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
 			// voters of the marker we are forking also voted for all parents of the branch the marker is
 			// being forked into.

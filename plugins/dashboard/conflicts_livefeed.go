@@ -14,8 +14,8 @@ import (
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -120,13 +120,13 @@ func runConflictLiveFeed() {
 
 		onBranchCreatedClosure := event.NewClosure(onBranchCreated)
 		onBranchWeightChangedClosure := event.NewClosure(onBranchWeightChanged)
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(onBranchWeightChangedClosure)
 
 		<-ctx.Done()
 
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ...")
-		deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Detach(onBranchCreatedClosure)
+		deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Detach(onBranchCreatedClosure)
 		deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Detach(onBranchWeightChangedClosure)
 		log.Info("Stopping Dashboard[ConflictsLiveFeed] ... done")
 	}, shutdown.PriorityDashboard); err != nil {
@@ -134,8 +134,8 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onBranchCreated(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-	branchID := event.BranchID
+func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	branchID := event.ID
 	b := &branch{
 		BranchID:    branchID,
 		UpdatedTime: clock.SyncedTime(),
@@ -154,7 +154,7 @@ func onBranchCreated(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, u
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			_, exists := conflicts.conflict(conflictID)

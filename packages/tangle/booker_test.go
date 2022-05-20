@@ -2617,11 +2617,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 		// We confirm E, thus we should NOT inherit it when attaching again to Message19.
 		testFramework.tangle.Ledger.ConflictDAG.SetBranchConfirmed(testFramework.BranchID("E"))
-		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("E")).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), conflictdag.Confirmed)
 		})
 
-		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("D")).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), conflictdag.Rejected)
 		})
 
@@ -2949,11 +2949,11 @@ func TestBookerMarkerMappings(t *testing.T) {
 		testFramework.RegisterBranchID("H", "Message29")
 		testFramework.RegisterBranchID("I", "Message30")
 
-		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("H")).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), conflictdag.Rejected)
 		})
 
-		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(testFramework.BranchID("I")).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Equal(t, branch.InclusionState(), conflictdag.Rejected)
 		})
 
@@ -4192,14 +4192,14 @@ func checkNormalizedBranchIDsContained(t *testing.T, testFramework *MessageTestF
 
 		normalizedRetrievedBranchIDs := retrievedBranchIDs.Clone()
 		for it := retrievedBranchIDs.Iterator(); it.HasNext(); {
-			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedRetrievedBranchIDs.DeleteAll(b.Parents())
 			})
 		}
 
 		normalizedExpectedBranchIDs := messageExpectedBranchIDs.Clone()
 		for it := messageExpectedBranchIDs.Iterator(); it.HasNext(); {
-			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			testFramework.tangle.Ledger.ConflictDAG.Storage.CachedBranch(it.Next()).Consume(func(b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 				normalizedExpectedBranchIDs.DeleteAll(b.Parents())
 			})
 		}

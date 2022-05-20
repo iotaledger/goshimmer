@@ -11,9 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -920,7 +920,7 @@ func createTestBranch(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.Tran
 	}
 	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
-	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()
 	})
 	branchMeta.BranchID.RegisterAlias(alias)

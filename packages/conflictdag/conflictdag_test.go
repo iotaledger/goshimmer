@@ -161,7 +161,7 @@ func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
 
 	assert.True(t, branchDAG.SetBranchConfirmed(branchIDs["Branch8"]))
 
-	// Create a new Branch in an already-decided Conflict Set results in straight Reject
+	// Create a new Conflict in an already-decided Conflict Set results in straight Reject
 	branchIDs["Branch9"] = createBranch(t, branchDAG, "Branch9", set.NewAdvancedSet(MockedConflictID{}), set.NewAdvancedSet(conflictID2))
 
 	assertInclusionStates(t, branchDAG, branchIDs, map[string]InclusionState{

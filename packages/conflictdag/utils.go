@@ -25,10 +25,10 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachChildBranchID(branchID Conflic
 	})
 }
 
-// ForEachBranch iterates over every existing Branch in the entire Storage.
-func (u *Utils[ConflictID, ConflictSetID]) ForEachBranch(consumer func(branch *Branch[ConflictID, ConflictSetID])) {
-	u.branchDAG.Storage.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Branch[ConflictID, ConflictSetID]]) bool {
-		cachedObject.Consume(func(branch *Branch[ConflictID, ConflictSetID]) {
+// ForEachBranch iterates over every existing Conflict in the entire Storage.
+func (u *Utils[ConflictID, ConflictSetID]) ForEachBranch(consumer func(branch *Conflict[ConflictID, ConflictSetID])) {
+	u.branchDAG.Storage.branchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) bool {
+		cachedObject.Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
 			consumer(branch)
 		})
 
@@ -36,15 +36,15 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachBranch(consumer func(branch *B
 	})
 }
 
-// ForEachConflictingBranchID executes the callback for each Branch that is conflicting with the named Branch.
+// ForEachConflictingBranchID executes the callback for each Conflict that is conflicting with the named Conflict.
 func (u *Utils[ConflictID, ConflictSetID]) ForEachConflictingBranchID(branchID ConflictID, callback func(conflictingBranchID ConflictID) bool) {
-	u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Branch[ConflictID, ConflictSetID]) {
+	u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
 		u.forEachConflictingBranchID(branch, callback)
 	})
 }
 
-// ForEachConnectedConflictingBranchID executes the callback for each Branch that is directly or indirectly connected to
-// the named Branch through a chain of intersecting conflicts.
+// ForEachConnectedConflictingBranchID executes the callback for each Conflict that is directly or indirectly connected to
+// the named Conflict through a chain of intersecting conflicts.
 func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(branchID ConflictID, callback func(conflictingBranchID ConflictID)) {
 	traversedBranches := set.New[ConflictID]()
 	conflictSetsWalker := walker.New[ConflictSetID]()
@@ -54,7 +54,7 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 			return
 		}
 
-		u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Branch[ConflictID, ConflictSetID]) {
+		u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
 			_ = branch.ConflictIDs().ForEach(func(conflictID ConflictSetID) (err error) {
 				conflictSetsWalker.Push(conflictID)
 				return nil
@@ -73,8 +73,8 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 	traversedBranches.ForEach(callback)
 }
 
-// forEachConflictingBranchID executes the callback for each Branch that is conflicting with the named Branch.
-func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingBranchID(branch *Branch[ConflictID, ConflictSetID], callback func(conflictingBranchID ConflictID) bool) {
+// forEachConflictingBranchID executes the callback for each Conflict that is conflicting with the named Conflict.
+func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingBranchID(branch *Conflict[ConflictID, ConflictSetID], callback func(conflictingBranchID ConflictID) bool) {
 	for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 		abort := false
 		u.branchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember[ConflictID, ConflictSetID]) {

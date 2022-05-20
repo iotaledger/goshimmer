@@ -8,9 +8,9 @@ import (
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
@@ -518,9 +518,9 @@ func NewConsumer(consumer *ledger.Consumer) *Consumer {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region Branch ///////////////////////////////////////////////////////////////////////////////////////////////////////
+// region Conflict ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Branch represents the JSON model of a ledger.Branch.
+// Branch represents the JSON model of a ledger.Conflict.
 type Branch struct {
 	ID              string              `json:"id"`
 	Parents         []string            `json:"parents"`
@@ -529,8 +529,8 @@ type Branch struct {
 	ApprovalWeight  float64             `json:"approvalWeight"`
 }
 
-// NewBranch returns a Branch from the given ledger.Branch.
-func NewBranch(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
+// NewBranch returns a Branch from the given ledger.Conflict.
+func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
 		Parents: func() []string {

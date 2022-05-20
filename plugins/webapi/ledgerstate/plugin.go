@@ -16,9 +16,9 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -241,7 +241,7 @@ func GetBranch(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
 		err = c.JSON(http.StatusOK, jsonmodels.NewBranch(branch, branchGoF, deps.Tangle.ApprovalWeightManager.WeightOfBranch(branchID)))
@@ -249,7 +249,7 @@ func GetBranch(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -280,7 +280,7 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	if deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		branchIDsPerConflictID := make(map[utxo.OutputID][]utxo.TransactionID)
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
@@ -295,7 +295,7 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		return
 	}
 
-	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Branch with %s", branchID)))
+	return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", branchID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -122,49 +122,49 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	}
 
 	branchIDs := map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Branch 1":     set.NewAdvancedSet(randomBranchID()),
-		"Branch 1.1":   set.NewAdvancedSet(randomBranchID()),
-		"Branch 1.2":   set.NewAdvancedSet(randomBranchID()),
-		"Branch 1.3":   set.NewAdvancedSet(randomBranchID()),
-		"Branch 2":     set.NewAdvancedSet(randomBranchID()),
-		"Branch 3":     set.NewAdvancedSet(randomBranchID()),
-		"Branch 4":     set.NewAdvancedSet(randomBranchID()),
-		"Branch 4.1":   set.NewAdvancedSet(randomBranchID()),
-		"Branch 4.1.1": set.NewAdvancedSet(randomBranchID()),
-		"Branch 4.1.2": set.NewAdvancedSet(randomBranchID()),
-		"Branch 4.2":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 1":     set.NewAdvancedSet(randomBranchID()),
+		"Conflict 1.1":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 1.2":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 1.3":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 2":     set.NewAdvancedSet(randomBranchID()),
+		"Conflict 3":     set.NewAdvancedSet(randomBranchID()),
+		"Conflict 4":     set.NewAdvancedSet(randomBranchID()),
+		"Conflict 4.1":   set.NewAdvancedSet(randomBranchID()),
+		"Conflict 4.1.1": set.NewAdvancedSet(randomBranchID()),
+		"Conflict 4.1.2": set.NewAdvancedSet(randomBranchID()),
+		"Conflict 4.2":   set.NewAdvancedSet(randomBranchID()),
 	}
 
-	createBranch(t, tangle, "Branch 1", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 2", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 3", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
-	createBranch(t, tangle, "Branch 4", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Conflict 1", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Conflict 2", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Conflict 3", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Conflict 4", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
 
-	createBranch(t, tangle, "Branch 1.1", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, "Branch 1.2", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
-	createBranch(t, tangle, "Branch 1.3", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Conflict 1.1", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Conflict 1.2", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
+	createBranch(t, tangle, "Conflict 1.3", branchIDs, branchIDs["Conflict 1"], conflictIDs["Conflict 3"])
 
-	createBranch(t, tangle, "Branch 4.1", branchIDs, branchIDs["Branch 4"], conflictIDs["Conflict 4"])
-	createBranch(t, tangle, "Branch 4.2", branchIDs, branchIDs["Branch 4"], conflictIDs["Conflict 4"])
+	createBranch(t, tangle, "Conflict 4.1", branchIDs, branchIDs["Conflict 4"], conflictIDs["Conflict 4"])
+	createBranch(t, tangle, "Conflict 4.2", branchIDs, branchIDs["Conflict 4"], conflictIDs["Conflict 4"])
 
-	createBranch(t, tangle, "Branch 4.1.1", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
-	createBranch(t, tangle, "Branch 4.1.2", branchIDs, branchIDs["Branch 4.1"], conflictIDs["Conflict 5"])
+	createBranch(t, tangle, "Conflict 4.1.1", branchIDs, branchIDs["Conflict 4.1"], conflictIDs["Conflict 5"])
+	createBranch(t, tangle, "Conflict 4.1.2", branchIDs, branchIDs["Conflict 4.1"], conflictIDs["Conflict 5"])
 
-	branchIDs["Branch 1.1 + Branch 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
-	branchIDs["Branch 1.1 + Branch 4.1.1"].AddAll(branchIDs["Branch 1.1"])
-	branchIDs["Branch 1.1 + Branch 4.1.1"].AddAll(branchIDs["Branch 4.1.1"])
+	branchIDs["Conflict 1.1 + Conflict 4.1.1"] = set.NewAdvancedSet[utxo.TransactionID]()
+	branchIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(branchIDs["Conflict 1.1"])
+	branchIDs["Conflict 1.1 + Conflict 4.1.1"].AddAll(branchIDs["Conflict 4.1.1"])
 
 	// Issue statements in different order to make sure that no information is lost when nodes apply statements in arbitrary order
 
 	message1 := newTestDataMessagePublicKey("test1", keyPair.PublicKey)
 	message2 := newTestDataMessagePublicKey("test2", keyPair.PublicKey)
-	// statement 2: "Branch 4.1.2"
+	// statement 2: "Conflict 4.1.2"
 	{
 		message := message2
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 4.1.2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -173,28 +173,28 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
-			"Branch 1":     false,
-			"Branch 1.1":   false,
-			"Branch 1.2":   false,
-			"Branch 1.3":   false,
-			"Branch 2":     false,
-			"Branch 3":     false,
-			"Branch 4":     true,
-			"Branch 4.1":   true,
-			"Branch 4.1.1": false,
-			"Branch 4.1.2": true,
-			"Branch 4.2":   false,
+			"Conflict 1":     false,
+			"Conflict 1.1":   false,
+			"Conflict 1.2":   false,
+			"Conflict 1.3":   false,
+			"Conflict 2":     false,
+			"Conflict 3":     false,
+			"Conflict 4":     true,
+			"Conflict 4.1":   true,
+			"Conflict 4.1.1": false,
+			"Conflict 4.1.2": true,
+			"Conflict 4.2":   false,
 		}
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	// statement 1: "Branch 1.1 + Branch 4.1.1"
+	// statement 1: "Conflict 1.1 + Conflict 4.1.1"
 	{
 		message := message1
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 1.1 + Branch 4.1.1"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -203,28 +203,28 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
-			"Branch 1":     true,
-			"Branch 1.1":   true,
-			"Branch 1.2":   false,
-			"Branch 1.3":   false,
-			"Branch 2":     false,
-			"Branch 3":     false,
-			"Branch 4":     true,
-			"Branch 4.1":   true,
-			"Branch 4.1.1": false,
-			"Branch 4.1.2": true,
-			"Branch 4.2":   false,
+			"Conflict 1":     true,
+			"Conflict 1.1":   true,
+			"Conflict 1.2":   false,
+			"Conflict 1.3":   false,
+			"Conflict 2":     false,
+			"Conflict 3":     false,
+			"Conflict 4":     true,
+			"Conflict 4.1":   true,
+			"Conflict 4.1.1": false,
+			"Conflict 4.1.2": true,
+			"Conflict 4.2":   false,
 		}
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}
 
-	// statement 3: "Branch 2"
+	// statement 3: "Conflict 2"
 	{
 		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
 		tangle.Storage.StoreMessage(message)
 		RegisterMessageIDAlias(message.ID(), "Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-			messageMetadata.SetAddedBranchIDs(branchIDs["Branch 2"])
+			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
 				PastMarkers:   markers.NewMarkers(),
 				FutureMarkers: markers.NewMarkers(),
@@ -233,17 +233,17 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		approvalWeightManager.updateBranchVoters(message)
 
 		expectedResults := map[string]bool{
-			"Branch 1":     false,
-			"Branch 1.1":   false,
-			"Branch 1.2":   false,
-			"Branch 1.3":   false,
-			"Branch 2":     true,
-			"Branch 3":     false,
-			"Branch 4":     true,
-			"Branch 4.1":   true,
-			"Branch 4.1.1": false,
-			"Branch 4.1.2": true,
-			"Branch 4.2":   false,
+			"Conflict 1":     false,
+			"Conflict 1.1":   false,
+			"Conflict 1.2":   false,
+			"Conflict 1.3":   false,
+			"Conflict 2":     true,
+			"Conflict 3":     false,
+			"Conflict 4":     true,
+			"Conflict 4.1":   true,
+			"Conflict 4.1.1": false,
+			"Conflict 4.1.2": true,
+			"Conflict 4.2":   false,
 		}
 		validateStatementResults(t, approvalWeightManager, branchIDs, identity.NewID(keyPair.PublicKey), expectedResults)
 	}

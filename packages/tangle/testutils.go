@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -245,10 +245,10 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.Tra
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledger.Branch.
+// This function thus only works on the message creating ledger.Conflict.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
-	m.tangle.Ledger.ConflictDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b = branch
 	})
 	return
@@ -881,7 +881,7 @@ type SimpleMockOnTangleVoting struct {
 	likedConflictMember map[utxo.TransactionID]LikedConflictMembers
 }
 
-// LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
+// LikedConflictMembers is a struct that holds information about which Conflict is the liked one out of a set of
 // ConflictMembers.
 type LikedConflictMembers struct {
 	likedBranch     utxo.TransactionID

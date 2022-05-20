@@ -8,9 +8,9 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
@@ -33,7 +33,7 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachBranch(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachBranch(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
 		case utxo.EmptyTransactionID:
 			return
@@ -75,7 +75,7 @@ func getDiagnosticConflictsInfo(branchID utxo.TransactionID) DiagnosticBranchInf
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
 		transactionID := branchID

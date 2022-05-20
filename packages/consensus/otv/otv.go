@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -65,7 +65,7 @@ func (o *OnTangleVoting) branchPreferred(branchID utxo.TransactionID, likeWalker
 		return
 	}
 
-	o.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	o.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.InclusionState() {
 		case conflictdag.Rejected:
 			preferred = false

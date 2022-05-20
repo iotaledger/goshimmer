@@ -16,8 +16,8 @@ import (
 
 // Storage is a ConflictDAG component that bundles the storage related API.
 type Storage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// branchStorage is an object storage used to persist Branch objects.
-	branchStorage *objectstorage.ObjectStorage[*Branch[ConflictID, ConflictSetID]]
+	// branchStorage is an object storage used to persist Conflict objects.
+	branchStorage *objectstorage.ObjectStorage[*Conflict[ConflictID, ConflictSetID]]
 
 	// childBranchStorage is an object storage used to persist ChildBranch objects.
 	childBranchStorage *objectstorage.ObjectStorage[*ChildBranch[ConflictID]]
@@ -35,7 +35,7 @@ func newStorage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSet
 	var conflictSetID ConflictSetID
 
 	new = &Storage[ConflictID, ConflictSetID]{
-		branchStorage: objectstorage.New[*Branch[ConflictID, ConflictSetID]](
+		branchStorage: objectstorage.New[*Conflict[ConflictID, ConflictSetID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixBranchStorage),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
@@ -59,11 +59,11 @@ func newStorage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSet
 	return new
 }
 
-// CachedBranch retrieves the CachedObject representing the named Branch. The optional computeIfAbsentCallback can be
-// used to dynamically initialize a non-existing Branch.
-func (s *Storage[ConflictID, ConflictSetID]) CachedBranch(branchID ConflictID, computeIfAbsentCallback ...func(branchID ConflictID) *Branch[ConflictID, ConflictSetID]) (cachedBranch *objectstorage.CachedObject[*Branch[ConflictID, ConflictSetID]]) {
+// CachedBranch retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can be
+// used to dynamically initialize a non-existing Conflict.
+func (s *Storage[ConflictID, ConflictSetID]) CachedBranch(branchID ConflictID, computeIfAbsentCallback ...func(branchID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedBranch *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Branch[ConflictID, ConflictSetID] {
+		return s.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
 			return computeIfAbsentCallback[0](branchID)
 		})
 	}
@@ -83,7 +83,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedChildBranch(parentBranchID, c
 	return s.childBranchStorage.Load(byteutils.ConcatBytes(parentBranchID.Bytes(), childBranchID.Bytes()))
 }
 
-// CachedChildBranches retrieves the CachedObjects containing the ChildBranch references approving the named Branch.
+// CachedChildBranches retrieves the CachedObjects containing the ChildBranch references approving the named Conflict.
 func (s *Storage[ConflictID, ConflictSetID]) CachedChildBranches(branchID ConflictID) (cachedChildBranches objectstorage.CachedObjects[*ChildBranch[ConflictID]]) {
 	cachedChildBranches = make(objectstorage.CachedObjects[*ChildBranch[ConflictID]], 0)
 	s.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch[ConflictID]]) bool {
@@ -149,7 +149,7 @@ func (s *Storage[ConflictID, ConflictSetID]) Shutdown() {
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// PrefixBranchStorage defines the storage prefix for the Branch object storage.
+	// PrefixBranchStorage defines the storage prefix for the Conflict object storage.
 	PrefixBranchStorage byte = iota
 	// PrefixChildBranchStorage defines the storage prefix for the ChildBranch object storage.
 	PrefixChildBranchStorage

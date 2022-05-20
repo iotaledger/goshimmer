@@ -17,8 +17,8 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
@@ -181,8 +181,8 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 		expectedBranchIDs := t.BranchIDs(expectedParentAliases...)
 
 		// Verify child -> parent references.
-		t.ConsumeBranch(currentBranchID, func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
-			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Branch(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
+		t.ConsumeBranch(currentBranchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			assert.Truef(t.t, expectedBranchIDs.Equal(branch.Parents()), "Conflict(%s): expected parents %s are not equal to actual parents %s", currentBranchID, expectedBranchIDs, branch.Parents())
 		})
 
 		for _, parentBranchID := range expectedBranchIDs.Slice() {
@@ -209,7 +209,7 @@ func (t *TestFramework) AssertConflictDAG(expectedParents map[string][]string) {
 // expectedConflictAliases should be specified as
 // "output.0": {"branch1", "branch2"}
 func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]string) {
-	// Branch -> conflictIDs.
+	// Conflict -> conflictIDs.
 	branchConflicts := make(map[utxo.TransactionID]*set.AdvancedSet[utxo.OutputID])
 
 	for outputAlias, expectedConflictMembersAliases := range expectedConflictsAliases {
@@ -234,7 +234,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 	// Make sure that all branches have all specified conflictIDs (reverse mapping).
 	for branchID, expectedConflicts := range branchConflicts {
-		t.ConsumeBranch(branchID, func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		t.ConsumeBranch(branchID, func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			assert.Truef(t.t, expectedConflicts.Equal(branch.ConflictIDs()), "%s: conflicts expected=%s, actual=%s", branchID, expectedConflicts, branch.ConflictIDs())
 		})
 	}
@@ -289,8 +289,8 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 	return
 }
 
-// ConsumeBranch loads and consumes conflictdag.Branch. Asserts that the loaded entity exists.
-func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID])) {
+// ConsumeBranch loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
+func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
 	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
 }
 

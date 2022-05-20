@@ -7,8 +7,8 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
-	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -136,7 +136,7 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedBranch(transactionID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	u.ledger.ConflictDAG.Storage.CachedBranch(transactionID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				if conflictMember.BranchID() == transactionID {
@@ -162,7 +162,7 @@ func (u *Utils) TransactionGradeOfFinality(txID utxo.TransactionID) (gradeOfFina
 	return
 }
 
-// BranchGradeOfFinality returns the GradeOfFinality of the Branch with the given BranchID.
+// BranchGradeOfFinality returns the GradeOfFinality of the Conflict with the given BranchID.
 func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinality gof.GradeOfFinality, err error) {
 	if branchID == utxo.EmptyTransactionID {
 		return gof.High, nil

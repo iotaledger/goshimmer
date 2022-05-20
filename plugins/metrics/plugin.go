@@ -15,8 +15,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
@@ -283,11 +283,11 @@ func registerLocalMetrics() {
 		delete(activeBranches, branchID)
 	}))
 
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchCreated.Attach(event.NewClosure(func(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
 
-		branchID := event.BranchID
+		branchID := event.ID
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
 			activeBranches[branchID] = types.Void
