@@ -4044,7 +4044,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
-	const layersNum = 127
+	const layersNum = 50
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
 	tangle := NewTestTangle(WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))

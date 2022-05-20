@@ -28,7 +28,7 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 	}
 
 	// Always set Genesis to MasterBranch.
-	b.SetBranchIDs(markers.NewMarker(0, 0), set.NewAdvancedSet(utxo.EmptyTransactionID))
+	b.SetBranchIDs(markers.NewMarker(0, 0), set.NewAdvancedSet[utxo.TransactionID]())
 
 	return
 }

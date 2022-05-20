@@ -251,10 +251,6 @@ func (a *ApprovalWeightManager) voteWithHigherPower(vote *BranchVote) (existingV
 }
 
 func (a *ApprovalWeightManager) addVoterToBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
-	if branchID == utxo.EmptyTransactionID {
-		return
-	}
-
 	a.tangle.Storage.LatestBranchVotes(branchVote.Voter, NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
 		latestBranchVotes.Store(branchVote)
 	})
@@ -433,12 +429,7 @@ func (a *ApprovalWeightManager) addSupportToForkedBranchVoters(voter Voter, fork
 func (a *ApprovalWeightManager) voterSupportsAllBranches(voter Voter, branchIDs *set.AdvancedSet[utxo.TransactionID]) (allBranchesSupported bool) {
 	allBranchesSupported = true
 	for it := branchIDs.Iterator(); it.HasNext(); {
-		branchID := it.Next()
-		if branchID == utxo.EmptyTransactionID {
-			continue
-		}
-
-		a.tangle.Storage.BranchVoters(branchID).Consume(func(branchVoters *BranchVoters) {
+		a.tangle.Storage.BranchVoters(it.Next()).Consume(func(branchVoters *BranchVoters) {
 			allBranchesSupported = branchVoters.Has(voter)
 		})
 
