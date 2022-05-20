@@ -61,9 +61,9 @@ func TestScenario_1(t *testing.T) {
 	}
 
 	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-		"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
-		"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+		"Message1": set.NewAdvancedSet[utxo.TransactionID](),
+		"Message3": set.NewAdvancedSet[utxo.TransactionID](),
+		"Message2": set.NewAdvancedSet[utxo.TransactionID](),
 		"Message4": testFramework.BranchIDs("Branch4"),
 		"Message5": testFramework.BranchIDs("Branch5"),
 		"Message6": testFramework.BranchIDs("Branch6"),
@@ -110,7 +110,7 @@ func TestScenario_2(t *testing.T) {
 	testFramework.IssueMessages("Message9").WaitUntilAllTasksProcessed()
 
 	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+		"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		"Message2": testFramework.BranchIDs("yellow"),
 		"Message3": testFramework.BranchIDs("yellow"),
 		"Message4": testFramework.BranchIDs("red"),
@@ -172,7 +172,7 @@ func TestScenario_3(t *testing.T) {
 	testFramework.RegisterBranchID("blue", "Message9")
 
 	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+		"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		"Message2": testFramework.BranchIDs("purple"),
 		"Message3": testFramework.BranchIDs("purple"),
 		"Message4": testFramework.BranchIDs("red"),
@@ -210,7 +210,7 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -228,8 +228,8 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message1.5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1":   set.NewAdvancedSet[utxo.TransactionID](),
+			"Message1.5": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -250,9 +250,9 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message2":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1":   set.NewAdvancedSet[utxo.TransactionID](),
+			"Message1.5": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message2":   set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 	// ISSUE Message3
@@ -277,8 +277,8 @@ func TestBookerMarkerGap(t *testing.T) {
 			"Message3":   {testFramework.BranchIDs("Message3"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1":   set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message1.5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1":   set.NewAdvancedSet[utxo.TransactionID](),
+			"Message1.5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message2":   testFramework.BranchIDs("Message2"),
 			"Message3":   testFramework.BranchIDs("Message3"),
 		})
@@ -342,7 +342,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -386,7 +386,7 @@ func TestBookerMarkerGap2(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1": testFramework.BranchIDs("Message1"),
 			"Message2": testFramework.BranchIDs("Message2"),
-			"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message3": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -577,7 +577,7 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -595,8 +595,8 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1": set.NewAdvancedSet[utxo.TransactionID](),
+			"A2": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -616,9 +616,9 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A3": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1": set.NewAdvancedSet[utxo.TransactionID](),
+			"A2": set.NewAdvancedSet[utxo.TransactionID](),
+			"A3": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -640,10 +640,10 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A4": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A2": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A3": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1": set.NewAdvancedSet[utxo.TransactionID](),
+			"A2": set.NewAdvancedSet[utxo.TransactionID](),
+			"A3": set.NewAdvancedSet[utxo.TransactionID](),
+			"A4": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -671,8 +671,8 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1":  set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"A2":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1":  set.NewAdvancedSet[utxo.TransactionID](),
+			"A2":  set.NewAdvancedSet[utxo.TransactionID](),
 			"A3":  testFramework.BranchIDs("A3"),
 			"A4":  testFramework.BranchIDs("A3"),
 			"A3*": testFramework.BranchIDs("A3*"),
@@ -742,7 +742,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"A1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"A1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -791,7 +791,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"A1": testFramework.BranchIDs("A"),
 			"B1": testFramework.BranchIDs("B"),
-			"C1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"C1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -1030,7 +1030,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -1103,7 +1103,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -1130,8 +1130,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -1160,8 +1160,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6": testFramework.BranchIDs("B"),
 		})
 	}
@@ -1193,8 +1193,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 		})
@@ -1230,8 +1230,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 			"Message8": testFramework.BranchIDs("A", "C"),
@@ -1269,8 +1269,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1": testFramework.BranchIDs("A"),
 			"Message2": testFramework.BranchIDs("B"),
 			"Message3": testFramework.BranchIDs("C"),
-			"Message4": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6": testFramework.BranchIDs("B"),
 			"Message7": testFramework.BranchIDs("B"),
 			"Message8": testFramework.BranchIDs("A", "C"),
@@ -1311,8 +1311,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message3":  testFramework.BranchIDs("C"),
-			"Message4":  set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":  set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5":  set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6":  testFramework.BranchIDs("B"),
 			"Message7":  testFramework.BranchIDs("B"),
 			"Message8":  testFramework.BranchIDs("A", "C"),
@@ -1359,8 +1359,8 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message5":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
+			"Message5":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B"),
 			"Message8":    testFramework.BranchIDs("A", "C"),
@@ -1414,7 +1414,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1469,7 +1469,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1527,7 +1527,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1587,7 +1587,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1651,7 +1651,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1664,7 +1664,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -1718,7 +1718,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1731,7 +1731,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("A", "E"),
 		})
 	}
@@ -1791,7 +1791,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1804,7 +1804,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 		})
@@ -1868,7 +1868,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1881,7 +1881,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -1948,7 +1948,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -1961,7 +1961,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -2031,7 +2031,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2044,7 +2044,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -2116,7 +2116,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2129,7 +2129,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
@@ -2205,7 +2205,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2218,14 +2218,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -2297,7 +2297,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2310,14 +2310,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 		})
 	}
@@ -2388,7 +2388,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2401,14 +2401,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 		})
@@ -2482,7 +2482,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2495,14 +2495,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2583,7 +2583,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2596,14 +2596,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "E", "B", "D"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "E", "B"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2697,7 +2697,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2710,14 +2710,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2804,7 +2804,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2817,14 +2817,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -2910,7 +2910,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -2923,14 +2923,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3031,7 +3031,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3044,14 +3044,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3144,7 +3144,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3157,14 +3157,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3259,7 +3259,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3272,14 +3272,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3377,7 +3377,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3390,14 +3390,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3505,7 +3505,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message1":    testFramework.BranchIDs("A"),
 			"Message2":    testFramework.BranchIDs("B"),
 			"Message3":    testFramework.BranchIDs("C"),
-			"Message4":    set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message4":    set.NewAdvancedSet[utxo.TransactionID](),
 			"Message5":    testFramework.BranchIDs("D"),
 			"Message6":    testFramework.BranchIDs("B"),
 			"Message7":    testFramework.BranchIDs("B", "D"),
@@ -3518,14 +3518,14 @@ func TestBookerMarkerMappings(t *testing.T) {
 			"Message13":   testFramework.BranchIDs("B", "E"),
 			"Message13.1": testFramework.BranchIDs("B", "E"),
 			"Message14":   testFramework.BranchIDs("B", "E"),
-			"Message15":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message15":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message16":   testFramework.BranchIDs("Z", "A"),
 			"Message17":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message18":   testFramework.BranchIDs("Y", "A", "B", "D", "E"),
 			"Message19":   testFramework.BranchIDs("Y", "A", "E"),
 			"Message20":   testFramework.BranchIDs("Y", "A", "B", "E"),
 			"Message21":   testFramework.BranchIDs("A", "B"),
-			"Message22":   set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message22":   set.NewAdvancedSet[utxo.TransactionID](),
 			"Message23":   testFramework.BranchIDs("B"),
 			"Message24":   testFramework.BranchIDs("B", "D"),
 			"Message25":   testFramework.BranchIDs("D"),
@@ -3566,7 +3566,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3584,8 +3584,8 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message2": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message2": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3606,9 +3606,9 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message3": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message2": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message3": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message2": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message3": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3634,7 +3634,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message4": {testFramework.BranchIDs("red"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
@@ -3663,7 +3663,7 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message5": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
@@ -3697,12 +3697,12 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message6": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
 			"Message5": testFramework.BranchIDs("blue"),
-			"Message6": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message6": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3732,13 +3732,13 @@ func TestBookerMarkerMappingContinue(t *testing.T) {
 			"Message7": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 			"Message2": testFramework.BranchIDs("blue"),
 			"Message3": testFramework.BranchIDs("blue"),
 			"Message4": testFramework.BranchIDs("red"),
 			"Message5": testFramework.BranchIDs("blue"),
-			"Message6": set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message7": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message6": set.NewAdvancedSet[utxo.TransactionID](),
+			"Message7": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 }
@@ -3769,7 +3769,7 @@ func TestObjectiveInvalidity(t *testing.T) {
 			"Message1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-			"Message1": set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message1": set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3906,7 +3906,7 @@ func TestFutureConeDislike(t *testing.T) {
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A"),
-			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3918,7 +3918,7 @@ func TestFutureConeDislike(t *testing.T) {
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 
@@ -3930,8 +3930,8 @@ func TestFutureConeDislike(t *testing.T) {
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  set.NewAdvancedSet(utxo.EmptyTransactionID),
-			"Message4":  set.NewAdvancedSet(utxo.EmptyTransactionID),
+			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
+			"Message4":  set.NewAdvancedSet[utxo.TransactionID](),
 		})
 	}
 }
@@ -4032,7 +4032,7 @@ func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
 			}
 
 			if layer == 0 && width >= 2 {
-				expectedConflicts[msgName] = utxo.NewTransactionIDs(utxo.EmptyTransactionID)
+				expectedConflicts[msgName] = utxo.NewTransactionIDs[utxo.TransactionID{}]()
 				continue
 			}
 
