@@ -13,7 +13,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
@@ -104,7 +103,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		return nil, err
 	}
 
-	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	errCreateSnapshots := createSnapshot(conf.Snapshot)
 	if errCreateSnapshots != nil {
 		return nil, errors.Wrap(errCreateSnapshots, "failed to create snapshot")
 	}
@@ -143,42 +142,49 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createSnapshots(snapshotInfos []SnapshotInfo) error {
-	for _, snapshotInfo := range snapshotInfos {
-		nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
-		if err != nil {
-			return err
-		}
+func createSnapshot(snapshotInfo SnapshotInfo) error {
+	nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
+	if err != nil {
+		return err
+	}
 
-		createdSnapshot, err := snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap)
-		if err != nil {
-			return err
-		}
+	if len(nodesToPledgeMap) == 0 {
+		return errors.Errorf("no nodes to pledge specified in SnapshotInfo")
+	}
 
-		// default to /assets/snapshot.bin
-		if snapshotInfo.FilePath == "" {
-			snapshotInfo.FilePath = "/assets/snapshot.bin"
-		}
+	masterSeed, err := base58.Decode(snapshotInfo.MasterSeed)
+	if err != nil {
+		return errors.Wrap(err, "failed to decode master seed")
+	}
+	createdSnapshot, err := snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
+	if err != nil {
+		return err
+	}
 
-		if err = createdSnapshot.WriteFile(snapshotInfo.FilePath); err != nil {
-			return err
-		}
+	// default to /assets/snapshot.bin
+	if snapshotInfo.FilePath == "" {
+		snapshotInfo.FilePath = "/assets/snapshot.bin"
+	}
+
+	if err = createdSnapshot.WriteFile(snapshotInfo.FilePath); err != nil {
+		return err
 	}
 	return nil
 }
 
 // createPledgeMap creates a pledge map according to snapshotInfo
-func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge map[identity.ID]uint64, err error) {
-	nodesToPledge = make(map[identity.ID]uint64)
+func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge map[[32]byte]uint64, err error) {
+	nodesToPledge = make(map[[32]byte]uint64)
 
 	for i, peerSeedBase58 := range snapshotInfo.PeersSeedBase58 {
 		seedBytes, err := base58.Decode(peerSeedBase58)
 		if err != nil {
 			return nil, err
 		}
-		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
 
-		nodesToPledge[identity.New(publicKey).ID()] = snapshotInfo.PeersAmountsPledged[i]
+		var seed [32]byte
+		copy(seed[:], seedBytes)
+		nodesToPledge[seed] = snapshotInfo.PeersAmountsPledged[i]
 	}
 
 	return nodesToPledge, nil
@@ -195,8 +201,8 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	// make sure that autopeering is on
 	conf.Autopeering = true
 
-	// Create Snapshots defined in the networkc configuration.
-	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	// Create Snapshot defined in the network configuration.
+	errCreateSnapshots := createSnapshot(conf.Snapshot)
 	if errCreateSnapshots != nil {
 		return nil, errCreateSnapshots
 	}

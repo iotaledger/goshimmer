@@ -16,15 +16,20 @@ import (
 	"github.com/iotaledger/goshimmer/packages/snapshot"
 )
 
-// CreateSnapshot writes a new snapshot file to the path declared by snapshot name. Genesis is defined by genesisTokenAmount
-// and seedBytes. The amount pledge to each node is defined by nodesToPledge map. Whenever the amount is 0 in the map pledgeTokenAmount is used.
-func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, nodesToPledge map[identity.ID]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
+// CreateSnapshot creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it is pledged to the
+// empty nodeID. The amount to pledge to each node is defined by nodesToPledge map, the funds of each pledge is burned.
+// pledge funds
+// | Pledge | Funds        |
+// | ------ | ------------ |
+// | empty  | genesisSeed  |
+// | node1  | empty/burned |
+// | node2  | empty/burned |
+func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToPledge map[identity.ID]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
 	now := time.Now()
-	genesisSeed := seed.NewSeed(seedBytes)
 	outputs := utxo.NewOutputs()
 	outputsMetadata := ledger.NewOutputsMetadata()
 
-	output, outputMetadata := createOutput(genesisSeed.Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
+	output, outputMetadata := createOutput(seed.NewSeed(genesisSeedBytes).Address(0).Address(), genesisTokenAmount, identity.ID{}, now)
 	outputs.Add(output)
 	outputsMetadata.Add(outputMetadata)
 
@@ -36,6 +41,66 @@ func CreateSnapshot(genesisTokenAmount uint64, seedBytes []byte, nodesToPledge m
 		outputsMetadata.Add(outputMetadata)
 
 		manaSnapshot.ByNodeID[nodeID] = &mana.SnapshotNode{
+			AccessMana: &mana.AccessManaSnapshot{
+				Value:     float64(value),
+				Timestamp: now,
+			},
+			SortedTxSnapshot: mana.SortedTxSnapshot{
+				&mana.TxSnapshot{
+					TxID:      output.ID().TransactionID,
+					Timestamp: now,
+					Value:     float64(value),
+				},
+			},
+		}
+	}
+
+	return &snapshot.Snapshot{
+		LedgerSnapshot: ledger.NewSnapshot(outputs, outputsMetadata),
+		ManaSnapshot:   manaSnapshot,
+	}, nil
+}
+
+// CreateSnapshotForIntegrationTest creates a new snapshot. Genesis is defined by genesisTokenAmount and seedBytes, it
+// is pledged to the node that is derived from the same seed. The amount to pledge to each node is defined by
+// nodesToPledge map (seedBytes->amount), the funds of each pledge is sent to the same seed.
+// | Pledge      | Funds       |
+// | ----------- | ----------- |
+// | genesisSeed | genesisSeed |
+// | node1       | node1       |
+// | node2       | node2       |
+func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, seedBytes []byte, genesisNodePledge []byte, nodesToPledge map[[32]byte]uint64) (createdSnapshot *snapshot.Snapshot, err error) {
+	now := time.Now()
+	outputs := utxo.NewOutputs()
+	outputsMetadata := ledger.NewOutputsMetadata()
+	manaSnapshot := mana.NewSnapshot()
+
+	genesisIdentity := identity.New(ed25519.PrivateKeyFromSeed(genesisNodePledge).Public()).ID()
+	output, outputMetadata := createOutput(seed.NewSeed(seedBytes).Address(0).Address(), genesisTokenAmount, genesisIdentity, now)
+	outputs.Add(output)
+	outputsMetadata.Add(outputMetadata)
+
+	manaSnapshot.ByNodeID[genesisIdentity] = &mana.SnapshotNode{
+		AccessMana: &mana.AccessManaSnapshot{
+			Value:     float64(genesisTokenAmount),
+			Timestamp: now,
+		},
+		SortedTxSnapshot: mana.SortedTxSnapshot{
+			&mana.TxSnapshot{
+				TxID:      output.ID().TransactionID,
+				Timestamp: now,
+				Value:     float64(genesisTokenAmount),
+			},
+		},
+	}
+
+	for nodeSeedBytes, value := range nodesToPledge {
+		// pledge to empty ID (burn tokens)
+		output, outputMetadata = createOutput(seed.NewSeed(nodeSeedBytes[:]).Address(0).Address(), value, nodeSeedBytes, now)
+		outputs.Add(output)
+		outputsMetadata.Add(outputMetadata)
+
+		manaSnapshot.ByNodeID[identity.New(ed25519.PrivateKeyFromSeed(nodeSeedBytes[:]).Public()).ID()] = &mana.SnapshotNode{
 			AccessMana: &mana.AccessManaSnapshot{
 				Value:     float64(value),
 				Timestamp: now,

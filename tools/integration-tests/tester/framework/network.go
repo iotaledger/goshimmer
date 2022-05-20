@@ -378,6 +378,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.Activity {
 		conf.Activity.Enabled = true
 	}
+	conf.Snapshot.File = networkConfig.Snapshot.FilePath
 
 	// the first peer is the peer master, it uses a special conf
 	if networkConfig.PeerMaster {

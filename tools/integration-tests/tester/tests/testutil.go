@@ -43,15 +43,13 @@ const (
 
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
-	FilePath: "/assets/dynamic_snapshots/equal_snapshot.bin",
-	// node ID: dAnF7pQ6k7a
-	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
-	GenesisTokenAmount: 2_500_000_000_000_000, // pledged to peer master
-	// peer IDs: H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // dAnF7pQ6k7a
+	GenesisTokenAmount: 2_500_000_000_000_000,
 	PeersSeedBase58: []string{
-		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
-		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
-		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
+		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
+		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em", // JHxvcap7xhv
+		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN", // 7rRpyEGU7Sf
 	},
 	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
