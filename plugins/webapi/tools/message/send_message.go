@@ -18,7 +18,7 @@ const maxIssuedAwaitTime = 5 * time.Second
 // SendMessage is the handler for tools/message endpoint.
 func SendMessage(c echo.Context) error {
 	if !deps.Tangle.Bootstrapped() {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotSynced.Error()})
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotBootstrapped.Error()})
 
 	}
 	if c.Request().Body == nil {

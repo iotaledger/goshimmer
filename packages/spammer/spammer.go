@@ -88,7 +88,7 @@ func (s *Spammer) run(rate int, timeUnit time.Duration, imif string) {
 				defer s.goroutinesCount.Add(-1)
 				// we don't care about errors or the actual issued message
 				_, err := s.issuePayloadFunc(payload.NewGenericDataPayload([]byte("SPAM")))
-				if errors.Is(err, tangle.ErrNotSynced) {
+				if errors.Is(err, tangle.ErrNotBootstrapped) {
 					s.log.Info("Stopped spamming messages because node lost sync")
 					s.signalShutdown()
 					return

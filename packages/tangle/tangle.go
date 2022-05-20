@@ -153,6 +153,10 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
+	if !t.Bootstrapped() {
+		err = errors.Errorf("can't issue payload: %w", ErrNotBootstrapped)
+		return
+	}
 	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
