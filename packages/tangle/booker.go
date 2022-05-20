@@ -318,7 +318,7 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 	if !b.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		structureDetails = messageMetadata.StructureDetails()
 		if pastMarkersBranchIDs, err = b.branchIDsFromStructureDetails(structureDetails); err != nil {
-			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s: %w", structureDetails, err)
+			err = errors.Errorf("failed to retrieve BranchIDs from Structure Details %s of message with %s: %w", structureDetails, messageMetadata.ID(), err)
 			return
 		}
 		messageBranchIDs.AddAll(pastMarkersBranchIDs)

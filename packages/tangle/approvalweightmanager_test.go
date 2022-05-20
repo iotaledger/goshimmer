@@ -135,10 +135,10 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		"Branch 4.2":   set.NewAdvancedSet(randomBranchID()),
 	}
 
-	createBranch(t, tangle, "Branch 1", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 2", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 1"])
-	createBranch(t, tangle, "Branch 3", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 2"])
-	createBranch(t, tangle, "Branch 4", branchIDs, set.NewAdvancedSet(utxo.EmptyTransactionID), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 1", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 2", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 1"])
+	createBranch(t, tangle, "Branch 3", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
+	createBranch(t, tangle, "Branch 4", branchIDs, set.NewAdvancedSet[utxo.TransactionID](), conflictIDs["Conflict 2"])
 
 	createBranch(t, tangle, "Branch 1.1", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])
 	createBranch(t, tangle, "Branch 1.2", branchIDs, branchIDs["Branch 1"], conflictIDs["Conflict 3"])

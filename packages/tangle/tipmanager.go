@@ -247,7 +247,7 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
 	if err != nil {
-		panic("could not determine BranchIDs of tip.")
+		panic(err)
 	}
 
 	t.tipsBranchCountMutex.Lock()
