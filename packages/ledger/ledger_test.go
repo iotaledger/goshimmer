@@ -444,7 +444,7 @@ func TestLedger_SolidifyAndForkMultiThreaded(t *testing.T) {
 	// Create ad-hoc TX11 to mix and match branches propagated from the bottom layer.
 	{
 		testFramework.CreateTransaction("TX11", 10, "TX-99-0.0", "TX-99-1.0", "TX-99-2.0", "TX-99-3.0", "TX-99-4.0", "TX-99-5.0", "TX-99-6.0", "TX-99-7.0", "TX-99-8.0", "TX-99-9.0")
-		assert.ErrorIs(t, testFramework.IssueTransaction("TX11"), ErrTransactionUnsolid)
+		testFramework.IssueTransaction("TX11")
 	}
 
 	// Verify branches for all transactions in the layers.

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -17,6 +18,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		_ = tangle.Prune()
 		tangle.Shutdown()
 	}(tangle)
+	tangle.Setup()
 	tipManager := tangle.TipManager
 
 	// set up scenario (images/tipmanager-DataMessageTips-test.png)
@@ -771,6 +773,7 @@ func createAndStoreParentsDataMessageInMasterBranch(tangle *Tangle, strongParent
 		WeakParentType:   weakParents,
 	})
 	tangle.Storage.StoreMessage(message)
+	event.Loop.WaitUntilAllTasksProcessed()
 
 	return
 }
