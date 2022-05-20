@@ -292,7 +292,7 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	outputMetadata.SetGradeOfFinality(gof.High)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
-	outputMetadata.SetBranchIDs(set.NewAdvancedSet(utxo.EmptyTransactionID))
+	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
 	outputsMetadata.Add(outputMetadata)
 
 	m.outputsByAlias[alias] = output

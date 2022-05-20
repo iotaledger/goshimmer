@@ -7,7 +7,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
@@ -339,9 +338,12 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 		}
 
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
-		if strongParentBranchIDs.Equal(set.NewAdvancedSet(utxo.EmptyTransactionID)) {
-			fmt.Println(tangle.Booker.MessageBranchIDs(strongParent))
+
+		if strongParentBranchIDs.Size() == 0 {
+			references.AddStrong(strongParent)
+			continue
 		}
+
 		if err != nil {
 			return nil, referenceNotPossible, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
@@ -350,8 +352,7 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 
 		opinionCanBeExpressed := true
 		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
-			strongParentBranchID := it.Next()
-			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
+			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, it.Next(), issuingTime)
 			// Explicitly ignore error since we can't create a like/dislike reference to the message.
 			// This means this message can't be added as a strong parent.
 			if err != nil {
@@ -408,6 +409,9 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 			referencedTx := it.Next()
 			if !tangle.ConfirmationOracle.IsTransactionConfirmed(referencedTx) {
 				latestAttachment := tangle.MessageFactory.LatestAttachment(referencedTx)
+				if latestAttachment == nil {
+					continue
+				}
 				timeDifference := clock.SyncedTime().Sub(latestAttachment.IssuingTime())
 				// If the latest attachment of the transaction we are consuming is too old we are not
 				// able to add it is a weak parent.
@@ -425,10 +429,6 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 }
 
 func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	if strongParentBranchID == utxo.EmptyTransactionID {
-		return
-	}
-
 	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
 	if likedBranchID == strongParentBranchID {
 		return

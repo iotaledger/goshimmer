@@ -510,6 +510,9 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 }
 
 func (t *TipManager) getMarkerMessage(marker *markers.Marker) (markerMessageID MessageID, markerMessageIssuingTime time.Time) {
+	if marker.SequenceID() == 0 && marker.Index() == 0 {
+		return EmptyMessageID, time.Unix(DefaultGenesisTime, 0)
+	}
 	messageID := t.tangle.Booker.MarkersManager.MessageID(marker)
 	if messageID == EmptyMessageID {
 		panic(fmt.Errorf("failed to retrieve marker message for %s", marker.String()))

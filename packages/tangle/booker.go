@@ -67,19 +67,11 @@ func (b *Booker) Setup() {
 // MessageBranchIDs returns the BranchIDs of the given Message.
 func (b *Booker) MessageBranchIDs(messageID MessageID) (branchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	if messageID == EmptyMessageID {
-		return set.NewAdvancedSet(utxo.EmptyTransactionID), nil
+		return set.NewAdvancedSet[utxo.TransactionID](), nil
 	}
 
 	if _, _, branchIDs, err = b.messageBookingDetails(messageID); err != nil {
 		err = errors.Errorf("failed to retrieve booking details of Message with %s: %w", messageID, err)
-	}
-
-	if branchIDs.IsEmpty() {
-		return set.NewAdvancedSet(utxo.EmptyTransactionID), nil
-	}
-
-	if !branchIDs.IsEmpty() && !branchIDs.Is(utxo.EmptyTransactionID) {
-		branchIDs.Delete(utxo.EmptyTransactionID)
 	}
 
 	return
@@ -92,7 +84,6 @@ func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs *set.AdvancedS
 	b.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		transaction, isTransaction := message.Payload().(utxo.Transaction)
 		if !isTransaction {
-			branchIDs.Add(utxo.EmptyTransactionID)
 			return
 		}
 
@@ -253,11 +244,9 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 	addedBranchIDs := inheritedBranchIDs.Clone()
 	addedBranchIDs.DeleteAll(pastMarkersBranchIDs)
-	addedBranchIDs.Delete(utxo.EmptyTransactionID)
 
 	subtractedBranchIDs := pastMarkersBranchIDs.Clone()
 	subtractedBranchIDs.DeleteAll(inheritedBranchIDs)
-	subtractedBranchIDs.Delete(utxo.EmptyTransactionID)
 
 	if addedBranchIDs.Size()+subtractedBranchIDs.Size() == 0 {
 		return nil
@@ -502,8 +491,6 @@ func (b *Booker) collectWeakParentsBranchIDs(message *Message) (payloadBranchIDs
 func (b *Booker) PropagateForkedBranch(transactionID utxo.TransactionID, addedBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (err error) {
 	b.tangle.Utils.WalkMessageMetadata(func(messageMetadata *MessageMetadata, messageWalker *walker.Walker[MessageID]) {
 
-		// TODO: we need to actually figure out what to do with this. this is just a quick fix.
-		removedBranchIDs.Delete(utxo.EmptyTransactionID)
 		updated, forkErr := b.propagateForkedBranch(messageMetadata, addedBranchID, removedBranchIDs)
 		if forkErr != nil {
 			messageWalker.StopWalk()
