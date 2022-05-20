@@ -37,7 +37,7 @@ func TestManaPersistence(t *testing.T) {
 		StartSynced: true,
 		Activity:    true,
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -76,7 +76,7 @@ func TestManaPledgeFilter(t *testing.T) {
 		StartSynced: true,
 		Activity:    true,
 		PeerMaster:  false,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -151,7 +151,7 @@ func TestManaApis(t *testing.T) {
 		Autopeering: true, // we need to discover online peers
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -183,25 +183,6 @@ func TestManaApis(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 	log.Println("Request mana from faucet... done")
 
-	// Test /mana
-	t.Run("mana", func(t *testing.T) {
-		// the faucet should have consensus mana and access mana = 1
-		resp, err := faucet.GetManaFullNodeID(fullID(faucet.ID()))
-		require.NoError(t, err)
-		t.Logf("/mana %+v", resp)
-		require.Equal(t, fullID(faucet.ID()), resp.NodeID)
-		require.Greater(t, resp.Access, minAccessMana)
-
-		// on startup, the faucet pledges consensus mana to the emptyNodeID
-		require.Equal(t, resp.Consensus, minConsensusMana)
-		resp, err = faucet.GetManaFullNodeID(fullID(emptyNodeID))
-		require.NoError(t, err)
-		t.Logf("/mana %+v", resp)
-		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
-		require.Equal(t, 0.0, resp.Access)
-		require.Greater(t, resp.Consensus, minConsensusMana)
-	})
-
 	// Test /mana/all
 	t.Run("mana/all", func(t *testing.T) {
 		resp, err := faucet.GetAllMana()
@@ -225,13 +206,16 @@ func TestManaApis(t *testing.T) {
 			prevMana = aResp.Nodes[i].Mana
 		}
 
-		expectedConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID(), emptyNodeID}
-		cResp, err := faucet.GetNHighestConsensusMana(len(expectedConsensusOrder))
+		cResp, err := faucet.GetNHighestConsensusMana(len(n.Peers()))
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/nhighest %+v", cResp)
-		require.Len(t, cResp.Nodes, len(expectedConsensusOrder))
-		for i := range expectedConsensusOrder {
-			require.Equal(t, expectedConsensusOrder[i].String(), cResp.Nodes[i].ShortNodeID)
+		nodeIDs := make([]string, len(cResp.Nodes))
+		for i := range cResp.Nodes {
+			nodeIDs[i] = cResp.Nodes[i].NodeID
+		}
+		require.Len(t, nodeIDs, len(n.Peers()))
+		for _, peer := range n.Peers() {
+			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
 	})
 
@@ -243,10 +227,10 @@ func TestManaApis(t *testing.T) {
 		require.Equal(t, fullID(peers[0].ID()), resp.NodeID)
 		require.InDelta(t, 75.0, resp.Access, 0.01)
 
-		resp, err = faucet.GetManaPercentile(fullID(emptyNodeID))
+		resp, err = faucet.GetManaPercentile(faucet.ID().EncodeBase58())
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", resp)
-		require.Equal(t, fullID(emptyNodeID), resp.NodeID)
+		require.Equal(t, faucet.ID().EncodeBase58(), resp.NodeID)
 		require.InDelta(t, 20., resp.Consensus, 0.01)
 	})
 
@@ -263,14 +247,18 @@ func TestManaApis(t *testing.T) {
 		for j := range unorderedOnlineNodes {
 			assert.Contains(t, expectedOnlineAccessOrder[1:], unorderedOnlineNodes[j].ShortID)
 		}
-		// empty node is not online
-		expectedOnlineConsensusOrder := []identity.ID{peers[1].ID(), peers[2].ID(), peers[3].ID()}
+
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/online %+v", cResp)
-		require.Len(t, cResp.Online, len(expectedOnlineConsensusOrder))
-		for i := range expectedOnlineConsensusOrder {
-			require.Equal(t, expectedOnlineConsensusOrder[i].String(), cResp.Online[i].ShortID)
+		require.Len(t, cResp.Online, len(n.Peers()))
+		nodeIDs := make([]string, len(cResp.Online))
+		for i := range cResp.Online {
+			nodeIDs[i] = cResp.Online[i].ID
+		}
+		require.Len(t, nodeIDs, len(n.Peers()))
+		for _, peer := range n.Peers() {
+			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
 	})
 
