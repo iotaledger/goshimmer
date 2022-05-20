@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -140,7 +140,7 @@ func (t *TipManager) Setup() {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 
@@ -255,7 +255,7 @@ func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 
 	for it := messageBranchIDs.Iterator(); it.HasNext(); {
 		messageBranchID := it.Next()
-		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
 			continue
 		}
 
@@ -306,7 +306,7 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 	for it := messageBranchIDs.Iterator(); it.HasNext(); {
 		messageBranchID := it.Next()
 		// Lazily introduce a counter for Pending branches only.
-		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != branchdag.Pending {
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
 			continue
 		}
 		count, exists := t.tipsBranchCount[messageBranchID]

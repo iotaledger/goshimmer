@@ -13,7 +13,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -890,7 +890,7 @@ func (s *Scenario) BranchIDs(aliases ...string) *set.AdvancedSet[utxo.Transactio
 }
 
 // CreateBranches orders and creates the branches for the scenario.
-func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
+func (s *Scenario) CreateBranches(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]) {
 	type order struct {
 		order int
 		name  string
@@ -912,7 +912,7 @@ func (s *Scenario) CreateBranches(t *testing.T, branchDAG *branchdag.ConflictDAG
 }
 
 // creates a branch and registers a BranchIDAlias with the name specified in branchMeta.
-func createTestBranch(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
+func createTestBranch(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], alias string, branchMeta *BranchMeta) bool {
 	var newBranchCreated bool
 
 	if branchMeta.BranchID == utxo.EmptyTransactionID {
@@ -920,7 +920,7 @@ func createTestBranch(t *testing.T, branchDAG *branchdag.ConflictDAG[utxo.Transa
 	}
 	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
-	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()
 	})
 	branchMeta.BranchID.RegisterAlias(alias)

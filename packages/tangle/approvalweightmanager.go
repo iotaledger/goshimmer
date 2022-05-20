@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -193,7 +193,7 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSe
 			continue
 		}
 
-		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(currentBranchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
 			allParentsAdded = allParentsAdded && allParentsOfCurrentBranchAdded
 
@@ -228,7 +228,7 @@ func (a *ApprovalWeightManager) determineBranchesToRevoke(addedBranches, votedBr
 
 		revokedBranches.Add(currentVote.BranchID)
 
-		a.tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(currentVote.BranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(currentVote.BranchID).Consume(func(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) {
 			subTractionWalker.Push(childBranch.ChildBranchID())
 		})
 	}
@@ -371,7 +371,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) 
 func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forkedBranchID utxo.TransactionID) {
 	a.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(forkedBranchVoters *BranchVoters) {
-			a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+			a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 				if !a.addSupportToForkedBranchVoters(identity.NewID(message.IssuerPublicKey()), forkedBranchVoters, forkedBranch.Parents(), message.SequenceNumber()) {
 					return
 				}
@@ -386,7 +386,7 @@ func (a *ApprovalWeightManager) processForkedMessage(messageID MessageID, forked
 func (a *ApprovalWeightManager) processForkedMarker(marker *markers.Marker, forkedBranchID utxo.TransactionID) {
 	branchVotesUpdated := false
 	a.tangle.Storage.BranchVoters(forkedBranchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+		a.tangle.Ledger.ConflictDAG.Storage.CachedBranch(forkedBranchID).Consume(func(forkedBranch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 			// If we want to add the branchVoters to the newly-forker branch, we have to make sure the
 			// voters of the marker we are forking also voted for all parents of the branch the marker is
 			// being forked into.

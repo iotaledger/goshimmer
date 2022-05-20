@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -134,7 +134,7 @@ func runConflictLiveFeed() {
 	}
 }
 
-func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+func onBranchCreated(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 	branchID := event.BranchID
 	b := &branch{
 		BranchID:    branchID,
@@ -154,7 +154,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utx
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			_, exists := conflicts.conflict(conflictID)
@@ -169,7 +169,7 @@ func onBranchCreated(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utx
 			}
 
 			// update all existing branches with a possible new conflict membership
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
 			})
 		}

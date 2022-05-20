@@ -1,4 +1,4 @@
-package branchdag
+package conflictdag
 
 import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"

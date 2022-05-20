@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/syncutils"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -30,7 +30,7 @@ type Ledger struct {
 	Utils *Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this Ledger.
-	ConflictDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	ConflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
 	// dataFlow is a Ledger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -56,9 +56,9 @@ func New(options ...Option) (ledger *Ledger) {
 		mutex:   syncutils.NewDAGMutex[utxo.TransactionID](),
 	}
 
-	ledger.ConflictDAG = branchdag.New[utxo.TransactionID, utxo.OutputID](append([]branchdag.Option{
-		branchdag.WithStore(ledger.options.store),
-		branchdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
+	ledger.ConflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID](append([]conflictdag.Option{
+		conflictdag.WithStore(ledger.options.store),
+		conflictdag.WithCacheTimeProvider(ledger.options.cacheTimeProvider),
 	}, ledger.options.branchDAGOptions...)...)
 
 	ledger.Storage = newStorage(ledger)
@@ -67,11 +67,11 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.dataFlow = newDataFlow(ledger)
 	ledger.Utils = newUtils(ledger)
 
-	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID)
 	}))
 
-	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *branchdag.BranchRejectedEvent[utxo.TransactionID]) {
+	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
 		ledger.propagatedRejectionToTransactions(event.BranchID)
 	}))
 
@@ -136,7 +136,7 @@ func (l *Ledger) SetTransactionInclusionTime(txID utxo.TransactionID, inclusionT
 			PreviousInclusionTime: previousInclusionTime,
 		})
 
-		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == branchdag.Confirmed {
+		if previousInclusionTime.IsZero() && l.ConflictDAG.InclusionState(txMetadata.BranchIDs()) == conflictdag.Confirmed {
 			l.triggerConfirmedEvent(txMetadata, false)
 		}
 	})
@@ -239,7 +239,7 @@ func (l *Ledger) propagatedConfirmationToIncludedTransactions(txID utxo.Transact
 		}
 
 		l.Utils.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
-			if l.ConflictDAG.InclusionState(consumingTxMetadata.BranchIDs()) != branchdag.Confirmed {
+			if l.ConflictDAG.InclusionState(consumingTxMetadata.BranchIDs()) != conflictdag.Confirmed {
 				return
 			}
 

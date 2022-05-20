@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -16,12 +16,12 @@ import (
 // Nakamoto consensus for the parallel-reality-based ledger state where the heaviest branch according to approval weight
 // is liked by any given node.
 type OnTangleVoting struct {
-	branchDAG  *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	branchDAG  *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	weightFunc consensus.WeightFunc
 }
 
 // NewOnTangleVoting is the constructor for OnTangleVoting.
-func NewOnTangleVoting(branchDAG *branchdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc consensus.WeightFunc) *OnTangleVoting {
+func NewOnTangleVoting(branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID], weightFunc consensus.WeightFunc) *OnTangleVoting {
 	return &OnTangleVoting{
 		branchDAG:  branchDAG,
 		weightFunc: weightFunc,
@@ -65,12 +65,12 @@ func (o *OnTangleVoting) branchPreferred(branchID utxo.TransactionID, likeWalker
 		return
 	}
 
-	o.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	o.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.InclusionState() {
-		case branchdag.Rejected:
+		case conflictdag.Rejected:
 			preferred = false
 			return
-		case branchdag.Confirmed:
+		case conflictdag.Confirmed:
 			return
 		}
 
@@ -102,7 +102,7 @@ func (o *OnTangleVoting) dislikedConnectedConflictingBranches(currentBranchID ut
 
 			dislikedBranches.Add(rejectedBranchID)
 
-			o.branchDAG.Storage.CachedChildBranches(rejectedBranchID).Consume(func(childBranch *branchdag.ChildBranch[utxo.TransactionID]) {
+			o.branchDAG.Storage.CachedChildBranches(rejectedBranchID).Consume(func(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) {
 				rejectionWalker.Push(childBranch.ChildBranchID())
 			})
 		}

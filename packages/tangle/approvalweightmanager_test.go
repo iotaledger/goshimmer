@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -109,7 +109,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer tangle.Shutdown()
 	approvalWeightManager := tangle.ApprovalWeightManager
 
@@ -516,7 +516,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(branchdag.WithMergeToMaster(false)))
+	tangle := NewTestTangle(ApprovalWeights(weightProvider), WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
 
 	tangle.Setup()

@@ -8,7 +8,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -190,7 +190,7 @@ type Option func(*Options)
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
 	Store                          kvstore.KVStore
-	ConflictDAGOptions             []branchdag.Option
+	ConflictDAGOptions             []conflictdag.Option
 	Identity                       *identity.LocalIdentity
 	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
 	TangleWidth                    int
@@ -299,7 +299,7 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 }
 
 // WithConflictDAGOptions is an Option for the Tangle that allows to set the ConflictDAG options.
-func WithConflictDAGOptions(branchDAGOptions ...branchdag.Option) Option {
+func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) Option {
 	return func(o *Options) {
 		o.ConflictDAGOptions = branchDAGOptions
 	}

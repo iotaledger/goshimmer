@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 )
 
@@ -109,7 +109,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option Option) {
 // region WithConsumerCacheTime ////////////////////////////////////////////////////////////////////////////////////////
 
 // WithConflictDAGOptions is an Option for the Ledger that allows to configure the options for the ConflictDAG
-func WithConflictDAGOptions(branchDAGOptions ...branchdag.Option) (option Option) {
+func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) (option Option) {
 	return func(options *options) {
 		options.branchDAGOptions = branchDAGOptions
 	}
@@ -148,7 +148,7 @@ type options struct {
 	consumerCacheTime time.Duration
 
 	// branchDAGOptions contains the options for the ConflictDAG.
-	branchDAGOptions []branchdag.Option
+	branchDAGOptions []conflictdag.Option
 }
 
 // newOptions returns a new options object that corresponds to the handed in options and which is derived from the

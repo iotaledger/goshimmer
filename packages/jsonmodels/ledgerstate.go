@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
@@ -530,7 +530,7 @@ type Branch struct {
 }
 
 // NewBranch returns a Branch from the given ledger.Branch.
-func NewBranch(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
+func NewBranch(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
 		Parents: func() []string {
@@ -564,7 +564,7 @@ type ChildBranch struct {
 }
 
 // NewChildBranch returns a ChildBranch from the given ledger.ChildBranch.
-func NewChildBranch(childBranch *branchdag.ChildBranch[utxo.TransactionID]) *ChildBranch {
+func NewChildBranch(childBranch *conflictdag.ChildBranch[utxo.TransactionID]) *ChildBranch {
 	return &ChildBranch{
 		BranchID: childBranch.ChildBranchID().Base58(),
 	}

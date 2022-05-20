@@ -7,7 +7,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -64,7 +64,7 @@ func measureInitialBranchStats() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[utxo.TransactionID]types.Empty)
 	conflictsToRemove := make([]utxo.TransactionID, 0)
-	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachBranch(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachBranch(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
 		case utxo.EmptyTransactionID:
 			return

@@ -2,7 +2,7 @@ package jsonmodels
 
 import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -62,7 +62,7 @@ type GetBranchChildrenResponse struct {
 }
 
 // NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given details.
-func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*branchdag.ChildBranch[utxo.TransactionID]) *GetBranchChildrenResponse {
+func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*conflictdag.ChildBranch[utxo.TransactionID]) *GetBranchChildrenResponse {
 	return &GetBranchChildrenResponse{
 		BranchID: branchID.Base58(),
 		ChildBranches: func() (mappedChildBranches []*ChildBranch) {

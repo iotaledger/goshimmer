@@ -17,7 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -176,7 +176,7 @@ func registerUTXOEvents() {
 }
 
 func registerBranchEvents() {
-	createdClosure := event.NewClosure(func(event *branchdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	createdClosure := event.NewClosure(func(event *conflictdag.BranchCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
 			Data: newBranchVertex(event.BranchID),
@@ -185,7 +185,7 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	parentUpdateClosure := event.NewClosure(func(event *branchdag.BranchParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+	parentUpdateClosure := event.NewClosure(func(event *conflictdag.BranchParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
@@ -198,7 +198,7 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	branchConfirmedClosure := event.NewClosure(func(event *branchdag.BranchConfirmedEvent[utxo.TransactionID]) {
+	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchConfirmed,
 			Data: &branchConfirmed{
@@ -391,13 +391,13 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 }
 
 func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a branch
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
 			})
 		}

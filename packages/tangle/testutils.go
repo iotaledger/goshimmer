@@ -18,7 +18,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -247,8 +247,8 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.Tra
 // Branch returns the branch emerging from the transaction contained within the given message.
 // This function thus only works on the message creating ledger.Branch.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
-	m.tangle.Ledger.ConflictDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		b = branch
 	})
 	return

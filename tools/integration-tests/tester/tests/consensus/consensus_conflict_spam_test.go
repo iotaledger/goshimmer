@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -99,7 +99,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterBranch", msgID)
 	messageMetadata, err := peer1.GetMessageMetadata(msgID)
 	require.NoError(t, err)
-	require.Equal(t, []string{branchdag.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
+	require.Equal(t, []string{conflictdag.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.

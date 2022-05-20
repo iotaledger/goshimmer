@@ -14,7 +14,7 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -94,8 +94,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return res1.BranchIDs[0] != branchdag.MasterBranchID.Base58() &&
-			res2.BranchIDs[0] != branchdag.MasterBranchID.Base58()
+		return res1.BranchIDs[0] != conflictdag.MasterBranchID.Base58() &&
+			res2.BranchIDs[0] != conflictdag.MasterBranchID.Base58()
 	}, tests.Timeout, tests.Tick)
 
 	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their

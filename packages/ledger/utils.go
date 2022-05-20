@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledger/branchdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -33,7 +33,7 @@ func (u *Utils) BranchIDsInFutureCone(branchIDs *set.AdvancedSet[utxo.Transactio
 
 		branchIDsInFutureCone.Add(branchID)
 
-		if u.ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(branchID)) == branchdag.Confirmed {
+		if u.ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(branchID)) == conflictdag.Confirmed {
 			u.ledger.Storage.CachedTransactionMetadata(branchID).Consume(func(txMetadata *TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(txMetadata *TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					branchIDsInFutureCone.AddAll(txMetadata.BranchIDs())
@@ -136,9 +136,9 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedBranch(transactionID).Consume(func(branch *branchdag.Branch[utxo.TransactionID, utxo.OutputID]) {
+	u.ledger.ConflictDAG.Storage.CachedBranch(transactionID).Consume(func(branch *conflictdag.Branch[utxo.TransactionID, utxo.OutputID]) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
-			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *branchdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				if conflictMember.BranchID() == transactionID {
 					return
 				}
