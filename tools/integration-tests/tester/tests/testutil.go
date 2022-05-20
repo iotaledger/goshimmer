@@ -179,12 +179,15 @@ func AddressUnspentOutputs(t *testing.T, node *framework.Node, address devnetvm.
 // Balance returns the total balance of color at address.
 func Balance(t *testing.T, node *framework.Node, address devnetvm.Address, color devnetvm.Color) uint64 {
 	unspentOutputs := AddressUnspentOutputs(t, node, address, 1)
+	fmt.Println("Balance: ", node.ID(), node.Name())
 
 	var sum uint64
 	for _, output := range unspentOutputs {
 		out, err := output.Output.ToLedgerstateOutput()
+		fmt.Println("output: ", out.Address(), out.ID(), out.Balances())
 		require.NoError(t, err)
 		balance, _ := out.Balances().Get(color)
+		fmt.Println("balance: ", balance, color)
 		sum += balance
 	}
 	return sum

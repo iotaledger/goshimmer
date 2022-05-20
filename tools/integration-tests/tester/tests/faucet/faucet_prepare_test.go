@@ -21,7 +21,7 @@ func TestFaucetPrepare(t *testing.T) {
 		Faucet:      true,
 		Activity:    true,
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -37,19 +37,21 @@ func TestFaucetPrepare(t *testing.T) {
 		lastFundingOutputAddr   = supplyOutputsCount*splittingMultiplier + fundingOutputsAddrStart - 1
 	)
 
-	// check consensus mana
-	// faucet node has zero mana because it pledges its mana to `1111111` node
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
+
+	// check consensus mana: all nodes should have equal mana
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+		return tests.Mana(t, faucet).Consensus > 0
 	}, tests.Timeout, tests.Tick)
-	// the rest of the nodes should have mana as in snapshot
-	for i, p := range n.Peers()[1:] {
+	require.EqualValues(t, snapshotInfo.GenesisTokenAmount, tests.Mana(t, faucet).Consensus)
+
+	for i, peer := range nonFaucetPeers {
 		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
-				return tests.Mana(t, p).Consensus > 0
+				return tests.Mana(t, peer).Consensus > 0
 			}, tests.Timeout, tests.Tick)
 		}
-		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, p).Consensus)
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	// wait for the faucet to split the supply tx and prepare all outputs
