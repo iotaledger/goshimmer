@@ -35,6 +35,7 @@ type TimeManager struct {
 	lastConfirmedMessage LastConfirmedMessage
 	lastSyncedMutex      sync.RWMutex
 	lastSynced           bool
+	bootstrapped         bool
 
 	lastRCTTMutex sync.RWMutex
 	lastRCTT      time.Time
@@ -73,6 +74,7 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	}
 	// initialize the synced status
 	t.lastSynced = t.synced()
+	t.bootstrapped = t.lastSynced
 
 	return t
 }
@@ -118,25 +120,34 @@ func (t *TimeManager) CTT() time.Time {
 	return t.lastConfirmedMessage.MessageTime
 }
 
-// FinalizedTangleTime returns the CTT, it's just a stub for now.
-func (t *TimeManager) FinalizedTangleTime() time.Time {
+// FTT returns the finalized tangle time. For now, it's just a stub, it actually returns CTT.
+func (t *TimeManager) FTT() time.Time {
 	return t.CTT()
 }
 
-// Bootstrapped returns whether the node is in sync based on the difference between TangleTime and current wall time which can
+// Bootstrapped returns whether the node has bootstrapped based on the difference between FTT and the current wall time which can
 // be configured via SyncTimeWindow.
+// When the node becomes bootstrapped and this method returns true, it can't return false after that.
 func (t *TimeManager) Bootstrapped() bool {
+	t.lastSyncedMutex.RLock()
+	defer t.lastSyncedMutex.RUnlock()
+	return t.bootstrapped
+}
+
+// Synced returns whether the node is in sync based on the difference between FTT and the current wall time which can
+// be configured via SyncTimeWindow.
+func (t *TimeManager) Synced() bool {
 	t.lastSyncedMutex.RLock()
 	defer t.lastSyncedMutex.RUnlock()
 	return t.lastSynced
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.lastConfirmedMessage.MessageTime.Unix() == DefaultGenesisTime {
+	if t.startSynced && t.FTT().Unix() == DefaultGenesisTime {
 		return true
 	}
 
-	return clock.Since(t.lastConfirmedMessage.MessageTime) < t.tangle.Options.SyncTimeWindow
+	return clock.Since(t.FTT()) < t.tangle.Options.SyncTimeWindow
 }
 
 // checks whether the synced state needs to be updated and if so,
@@ -144,10 +155,13 @@ func (t *TimeManager) synced() bool {
 func (t *TimeManager) updateSyncedState() {
 	t.lastSyncedMutex.Lock()
 	defer t.lastSyncedMutex.Unlock()
-	if newSynced := t.synced(); newSynced && t.lastSynced != newSynced {
+	if newSynced := t.synced(); t.lastSynced != newSynced {
 		t.lastSynced = newSynced
 		// trigger the event inside the lock to assure that the status is still correct
 		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
+		if newSynced {
+			t.bootstrapped = true
+		}
 	}
 }
 
@@ -180,7 +194,7 @@ func (t *TimeManager) RCTT() time.Time {
 	return t.lastRCTT
 }
 
-// RFTT return relative finalized tangle time. For now it's the same as RCTT.
+// RFTT return relative finalized tangle time. For now, it's the same as RCTT.
 func (t *TimeManager) RFTT() time.Time {
 	return t.RCTT()
 }

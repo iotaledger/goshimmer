@@ -156,10 +156,15 @@ func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *
 	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
-// Bootstrapped returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
+// Bootstrapped returns a boolean value that indicates if the node has bootstrapped and the Tangle has solidified all messages
 // until the genesis.
-func (t *Tangle) Bootstrapped() (bootstrapped bool) {
+func (t *Tangle) Bootstrapped() bool {
 	return t.TimeManager.Bootstrapped()
+}
+
+// Synced returns a boolean value that indicates if the node is in sync at this moment.
+func (t *Tangle) Synced() bool {
+	return t.TimeManager.Synced()
 }
 
 // Prune resets the database and deletes all stored objects (good for testing or "node resets").

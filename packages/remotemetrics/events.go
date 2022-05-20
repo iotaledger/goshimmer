@@ -132,7 +132,7 @@ type BranchConfirmationMetrics struct {
 type SchedulerMetrics struct {
 	Type                         string             `json:"type" bson:"type"`
 	NodeID                       string             `json:"nodeID" bson:"nodeID"`
-	Bootstrapped                 bool               `json:"synced" bson:"synced"`
+	Synced                       bool               `json:"synced" bson:"synced"`
 	MetricsLevel                 uint8              `json:"metricsLevel" bson:"metricsLevel"`
 	QueueLengthPerNode           map[string]uint32  `json:"queueLengthPerNode" bson:"queueLengthPerNode"`
 	AManaNormalizedLengthPerNode map[string]float64 `json:"aManaNormalizedQueueLengthPerNode" bson:"aManaNormalizedQueueLengthPerNode"`

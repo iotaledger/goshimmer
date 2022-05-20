@@ -225,11 +225,11 @@ type nodestatus struct {
 }
 
 type tangleTime struct {
-	Bootstrapped bool  `json:"synced"`
-	CTT          int64 `json:"time"`
-	RCTT         int64 `json:"RCTT"`
-	FTT          int64 `json:"FTT"`
-	RFTT         int64 `json:"RFTT"`
+	Synced bool  `json:"synced"`
+	CTT    int64 `json:"time"`
+	RCTT   int64 `json:"RCTT"`
+	FTT    int64 `json:"FTT"`
+	RFTT   int64 `json:"RFTT"`
 
 	MessageID string `json:"messageID"`
 }
@@ -326,12 +326,12 @@ func currentNodeStatus() *nodestatus {
 	tm := deps.Tangle.TimeManager
 	lcm := tm.LastConfirmedMessage()
 	status.TangleTime = tangleTime{
-		Bootstrapped: tm.Bootstrapped(),
-		MessageID:    lcm.MessageID.Base58(),
-		CTT:          lcm.MessageTime.UnixNano(),
-		RCTT:         tm.RCTT().UnixNano(),
-		FTT:          tm.FinalizedTangleTime().UnixNano(),
-		RFTT:         tm.RFTT().UnixNano(),
+		Synced:    tm.Synced(),
+		MessageID: lcm.MessageID.Base58(),
+		CTT:       lcm.MessageTime.UnixNano(),
+		RCTT:      tm.RCTT().UnixNano(),
+		FTT:       tm.FTT().UnixNano(),
+		RFTT:      tm.RFTT().UnixNano(),
 	}
 	return status
 }
