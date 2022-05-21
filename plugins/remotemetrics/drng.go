@@ -7,6 +7,9 @@ import (
 )
 
 func onRandomnessReceived(state *drng.State) {
+	if !deps.Tangle.Synced() {
+		return
+	}
 
 	var nodeID string
 	if deps.Local != nil {

@@ -19,7 +19,6 @@ const maxIssuedAwaitTime = 5 * time.Second
 func SendMessage(c echo.Context) error {
 	if !deps.Tangle.Bootstrapped() {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotBootstrapped.Error()})
-
 	}
 	if c.Request().Body == nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "invalid message, error: request body is missing"})
