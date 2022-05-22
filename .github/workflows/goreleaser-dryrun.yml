@@ -1,0 +1,26 @@
+name: GoReleaser dryrun
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+
+  goreleaser:
+    name: GoReleaser dryrun
+    runs-on:
+      - ubuntu-latest
+    container:
+      image: gohornet/goreleaser-cgo-cross-compiler:1.18.1
+      volumes: [/repo]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Create fake config.json and snapshot.bin
+        run: touch config.json snapshot.bin
+
+      - name: Run GoReleaser
+        run: goreleaser --snapshot --rm-dist
+        shell: bash
