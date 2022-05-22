@@ -46,12 +46,14 @@ func (d *VM) executeTransaction(transaction *Transaction, inputs Outputs) (outpu
 		return nil, errors.Errorf("initial state of created alias output is invalid: %w", ErrTransactionInvalid)
 	}
 
+	outputs = make(Outputs, 0, len(transaction.Essence().Outputs()))
 	for i, output := range transaction.Essence().Outputs() {
 		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
-		output.UpdateMintingColor()
+		updatedOutput := output.UpdateMintingColor()
+		outputs = append(outputs, updatedOutput)
 	}
 
-	return transaction.Essence().Outputs(), nil
+	return outputs, nil
 }
 
 var _ vm.VM = new(VM)
