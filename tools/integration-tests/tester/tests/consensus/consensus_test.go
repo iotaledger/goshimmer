@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"context"
 	"testing"
 	"time"
 
