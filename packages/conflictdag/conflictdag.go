@@ -40,13 +40,13 @@ func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType s
 }
 
 // CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was new.
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentConflicts *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
 	b.RLock()
 	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
-		conflict = NewBranch(id, parentConflicts, set.NewAdvancedSet[ResourceIDType]())
+		conflict = NewBranch(id, parents, set.NewAdvancedSet[ResourceIDType]())
 
 		b.addConflictMembers(conflict, conflictingResources)
-		b.createChildBranchReferences(parentConflicts, id)
+		b.createChildBranchReferences(parents, id)
 
 		if b.anyParentRejected(conflict) || b.anyConflictingBranchConfirmed(conflict) {
 			conflict.setInclusionState(Rejected)
@@ -61,7 +61,7 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	if created {
 		b.Events.ConflictCreated.Trigger(&ConflictCreatedEvent[ConflictIDType, ResourceIDType]{
 			ID:                     id,
-			ParentConflictIDs:      parentConflicts,
+			ParentConflictIDs:      parents,
 			ConflictingResourceIDs: conflictingResources,
 		})
 	}
@@ -69,8 +69,8 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id Conflict
 	return created
 }
 
-// UpdateParentConflicts changes the parents of a Conflict after a fork (also updating the corresponding references).
-func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateParentConflicts(id ConflictIDType, removedBranchIDs *set.AdvancedSet[ConflictIDType], addedBranchID ConflictIDType) (updated bool) {
+// UpdateConflictParents changes the parents of a Conflict after a fork (also updating the corresponding references).
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id ConflictIDType, removedBranchIDs *set.AdvancedSet[ConflictIDType], addedBranchID ConflictIDType) (updated bool) {
 	b.RLock()
 
 	var parentBranchIDs *set.AdvancedSet[ConflictIDType]
@@ -120,12 +120,12 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources
 
 // UnconfirmedConflicts takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
 // rejected ones behind).
-func (b *ConflictDAG[ConflictID, ConflictingResourceID]) UnconfirmedConflicts(branchIDs *set.AdvancedSet[ConflictID]) (pendingBranchIDs *set.AdvancedSet[ConflictID]) {
+func (b *ConflictDAG[ConflictIDType, ConflictingResourceID]) UnconfirmedConflicts(branchIDs *set.AdvancedSet[ConflictIDType]) (pendingBranchIDs *set.AdvancedSet[ConflictIDType]) {
 	if !b.options.mergeToMaster {
 		return branchIDs.Clone()
 	}
 
-	pendingBranchIDs = set.NewAdvancedSet[ConflictID]()
+	pendingBranchIDs = set.NewAdvancedSet[ConflictIDType]()
 	for branchWalker := branchIDs.Iterator(); branchWalker.HasNext(); {
 		if currentBranchID := branchWalker.Next(); b.inclusionState(currentBranchID) != Confirmed {
 			pendingBranchIDs.Add(currentBranchID)

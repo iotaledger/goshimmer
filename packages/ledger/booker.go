@@ -168,7 +168,7 @@ func (b *booker) propagateForkedBranchToFutureCone(ctx context.Context, outputID
 // updateBranchesAfterFork updates the BranchIDs of a Transaction after a fork.
 func (b *booker) updateBranchesAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedBranchID utxo.TransactionID, previousParents *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
-		b.ledger.ConflictDAG.UpdateParentConflicts(txMetadata.ID(), previousParents, forkedBranchID)
+		b.ledger.ConflictDAG.UpdateConflictParents(txMetadata.ID(), previousParents, forkedBranchID)
 		return false
 	}
 
