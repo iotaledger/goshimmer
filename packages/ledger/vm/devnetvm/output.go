@@ -729,9 +729,10 @@ func (s *SigLockedColoredOutput) Address() Address {
 
 // Input returns an Input that references the Output.
 func (s *SigLockedColoredOutput) Input() Input {
-	if s.ID() == (utxo.OutputID{}) {
-		panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
-	}
+	// TODO:
+	// if s.ID() == (utxo.OutputID{}) {
+	// 	panic("Outputs that haven't been assigned an ID, yet cannot be converted to an Input")
+	// }
 
 	return NewUTXOInput(s.ID())
 }
