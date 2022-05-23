@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/set"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -15,7 +16,7 @@ import (
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Storage is a ConflictDAG component that bundles the storage related API.
-type Storage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type Storage[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
 	// branchStorage is an object storage used to persist Conflict objects.
 	branchStorage *objectstorage.ObjectStorage[*Conflict[ConflictID, ConflictSetID]]
 
@@ -30,7 +31,7 @@ type Storage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDT
 }
 
 // newStorage returns a new Storage instance configured with the given options.
-func newStorage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](options *options) (new *Storage[ConflictID, ConflictSetID]) {
+func newStorage[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](options *options) (new *Storage[ConflictID, ConflictSetID]) {
 	var conflictID ConflictID
 	var conflictSetID ConflictSetID
 
@@ -59,16 +60,16 @@ func newStorage[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSet
 	return new
 }
 
-// CachedBranch retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can be
+// CachedConflict retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Conflict.
-func (s *Storage[ConflictID, ConflictSetID]) CachedBranch(branchID ConflictID, computeIfAbsentCallback ...func(branchID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedBranch *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
+func (s *Storage[ConflictID, ConflictSetID]) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedBranch *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.branchStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
-			return computeIfAbsentCallback[0](branchID)
+		return s.branchStorage.ComputeIfAbsent(conflictID.Bytes(), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
+			return computeIfAbsentCallback[0](conflictID)
 		})
 	}
 
-	return s.branchStorage.Load(branchID.Bytes())
+	return s.branchStorage.Load(conflictID.Bytes())
 }
 
 // CachedChildBranch retrieves the CachedObject representing the named ChildBranch. The optional computeIfAbsentCallback

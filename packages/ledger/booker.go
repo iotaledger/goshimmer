@@ -75,7 +75,7 @@ func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMet
 
 // inheritedBranchIDs determines the BranchIDs that a Transaction should inherit when being booked.
 func (b *booker) inheritBranchIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	parentBranchIDs := b.ledger.ConflictDAG.FilterPendingBranches(inputsMetadata.BranchIDs())
+	parentBranchIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(inputsMetadata.BranchIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
@@ -134,7 +134,7 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		parentConflicts := txMetadata.BranchIDs()
 
 		if !b.ledger.ConflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs) {
-			b.ledger.ConflictDAG.AddConflictToConflictSets(txID, conflictingInputs)
+			b.ledger.ConflictDAG.UpdateConflictingResources(txID, conflictingInputs)
 			b.ledger.mutex.Unlock(txID)
 			return
 		}
@@ -168,7 +168,7 @@ func (b *booker) propagateForkedBranchToFutureCone(ctx context.Context, outputID
 // updateBranchesAfterFork updates the BranchIDs of a Transaction after a fork.
 func (b *booker) updateBranchesAfterFork(ctx context.Context, txMetadata *TransactionMetadata, forkedBranchID utxo.TransactionID, previousParents *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
-		b.ledger.ConflictDAG.UpdateConflictParents(txMetadata.ID(), forkedBranchID, previousParents)
+		b.ledger.ConflictDAG.UpdateParentConflicts(txMetadata.ID(), previousParents, forkedBranchID)
 		return false
 	}
 
@@ -179,7 +179,7 @@ func (b *booker) updateBranchesAfterFork(ctx context.Context, txMetadata *Transa
 	newBranchIDs := txMetadata.BranchIDs().Clone()
 	newBranchIDs.DeleteAll(previousParents)
 	newBranchIDs.Add(forkedBranchID)
-	newBranches := b.ledger.ConflictDAG.FilterPendingBranches(newBranchIDs)
+	newBranches := b.ledger.ConflictDAG.UnconfirmedConflicts(newBranchIDs)
 
 	b.ledger.Storage.CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *OutputMetadata) {
 		outputMetadata.SetBranchIDs(newBranches)

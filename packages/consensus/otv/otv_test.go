@@ -920,7 +920,7 @@ func createTestBranch(t *testing.T, branchDAG *conflictdag.ConflictDAG[utxo.Tran
 	}
 	newBranchCreated = branchDAG.CreateConflict(branchMeta.BranchID, branchMeta.ParentBranches, branchMeta.Conflicting)
 	require.True(t, newBranchCreated)
-	branchDAG.Storage.CachedBranch(branchMeta.BranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	branchDAG.Storage.CachedConflict(branchMeta.BranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		branchMeta.BranchID = branch.ID()
 	})
 	branchMeta.BranchID.RegisterAlias(alias)

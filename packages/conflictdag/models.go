@@ -14,7 +14,7 @@ import (
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
-type Conflict[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type Conflict[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
 	// id contains the identifier of the Conflict.
 	id ConflictID
 
@@ -41,7 +41,7 @@ type Conflict[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetID
 }
 
 // NewBranch returns a new Conflict from the given details.
-func NewBranch[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
+func NewBranch[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
 	new = &Conflict[ConflictID, ConflictSetID]{
 		id:          id,
 		parents:     parents.Clone(),
@@ -200,7 +200,7 @@ var _ objectstorage.StorableObject = new(Conflict[MockedConflictID, MockedConfli
 // region ChildBranch //////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ChildBranch represents the reference between a Conflict and its children.
-type ChildBranch[ConflictID ConflictIDType[ConflictID]] struct {
+type ChildBranch[ConflictID set.AdvancedSetElement[ConflictID]] struct {
 	// parentBranchID contains the identifier of the parent Conflict.
 	parentBranchID ConflictID
 
@@ -212,7 +212,7 @@ type ChildBranch[ConflictID ConflictIDType[ConflictID]] struct {
 }
 
 // NewChildBranch return a new ChildBranch reference from the named parent to the named child.
-func NewChildBranch[ConflictID ConflictIDType[ConflictID]](parentBranchID, childBranchID ConflictID) (new *ChildBranch[ConflictID]) {
+func NewChildBranch[ConflictID set.AdvancedSetElement[ConflictID]](parentBranchID, childBranchID ConflictID) (new *ChildBranch[ConflictID]) {
 	new = &ChildBranch[ConflictID]{
 		parentBranchID: parentBranchID,
 		childBranchID:  childBranchID,
@@ -298,7 +298,7 @@ var _ objectstorage.StorableObject = new(ChildBranch[MockedConflictSetID])
 // region ConflictMember ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictMember represents the reference between a Conflict and its contained Conflict.
-type ConflictMember[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type ConflictMember[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
 	// conflictID contains the identifier of the conflict.
 	conflictID ConflictSetID
 
@@ -310,7 +310,7 @@ type ConflictMember[ConflictID ConflictIDType[ConflictID], ConflictSetID Conflic
 }
 
 // NewConflictMember return a new ConflictMember reference from the named conflict to the named Conflict.
-func NewConflictMember[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](conflictID ConflictSetID, branchID ConflictID) (new *ConflictMember[ConflictID, ConflictSetID]) {
+func NewConflictMember[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](conflictID ConflictSetID, branchID ConflictID) (new *ConflictMember[ConflictID, ConflictSetID]) {
 	new = &ConflictMember[ConflictID, ConflictSetID]{
 		conflictID: conflictID,
 		branchID:   branchID,

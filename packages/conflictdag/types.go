@@ -8,24 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-type ConflictIDType[T any] interface {
-	comparable
-
-	Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflict T, err error)
-	Bytes() (serialized []byte)
-	Base58() (base58Encoded string)
-	String() (humanReadable string)
-}
-
-type ConflictSetIDType[T any] interface {
-	comparable
-
-	Unmarshal(marshalUtil *marshalutil.MarshalUtil) (conflictSet T, err error)
-	Bytes() (serialized []byte)
-	Base58() (base58Encoded string)
-	String() (humanReadable string)
-}
-
 // region InclusionState ///////////////////////////////////////////////////////////////////////////////////////////////
 
 // InclusionState represents the confirmation status of branches in the ConflictDAG.

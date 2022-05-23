@@ -88,7 +88,7 @@ func (b *Booker) PayloadBranchIDs(messageID MessageID) (branchIDs *set.AdvancedS
 		}
 
 		b.tangle.Ledger.Storage.CachedTransactionMetadata(transaction.ID()).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
-			resolvedBranchIDs := b.tangle.Ledger.ConflictDAG.FilterPendingBranches(transactionMetadata.BranchIDs())
+			resolvedBranchIDs := b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(transactionMetadata.BranchIDs())
 			branchIDs.AddAll(resolvedBranchIDs)
 		})
 	})
@@ -307,7 +307,7 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 
 	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
 
-	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.ConflictDAG.FilterPendingBranches(inheritedBranchIDs), nil
+	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedBranchIDs), nil
 }
 
 // messageBookingDetails returns the Branch and Marker related details of the given Message.
