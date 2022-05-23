@@ -449,16 +449,15 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.Transac
 
 	for it := conflictMembers.Iterator(); it.HasNext(); {
 		conflictMember := it.Next()
-		txID := likedBranchID
 
 		// Always point to another branch, to make sure the receiver forks the branch.
 		if conflictMember == strongParentBranchID {
 			continue
 		}
 
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember)
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember, err)
 		}
 
 		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {

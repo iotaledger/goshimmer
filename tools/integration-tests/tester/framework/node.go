@@ -42,7 +42,7 @@ func NewNode(conf config.GoShimmer, id *identity.Identity, dockerContainer *Dock
 	return &Node{
 		conf:            conf,
 		Identity:        id,
-		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(conf.Name), client.WithHTTPClient(http.Client{Timeout: 5 * time.Second})),
+		GoShimmerAPI:    client.NewGoShimmerAPI(getWebAPIBaseURL(conf.Name), client.WithHTTPClient(http.Client{Timeout: 15 * time.Second})),
 		DockerContainer: dockerContainer,
 		Seed:            seed,
 	}
