@@ -16,7 +16,6 @@ func newEvents() *CollectionEvents {
 		AnalysisOutboundBytes: events.NewEvent(uint64Caller),
 		CPUUsage:              events.NewEvent(float64Caller),
 		MemUsage:              events.NewEvent(uint64Caller),
-		TangleTimeSynced:      events.NewEvent(boolCaller),
 		ValueTips:             events.NewEvent(uint64Caller),
 		MessageTips:           events.NewEvent(uint64Caller),
 	}

@@ -787,7 +787,7 @@ type AllowedPledge struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	// return deps.Tangle.Synced() || debuggingEnabled\
+	// return deps.Tangle.Bootstrapped() || debuggingEnabled\
 
 	// query allowed only when base mana vectors have been initialized
 	return len(baseManaVectors) > 0

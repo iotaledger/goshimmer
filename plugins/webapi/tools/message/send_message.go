@@ -17,10 +17,9 @@ const maxIssuedAwaitTime = 5 * time.Second
 
 // SendMessage is the handler for tools/message endpoint.
 func SendMessage(c echo.Context) error {
-	if !deps.Tangle.Synced() {
-		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotSynced.Error()})
+	if !deps.Tangle.Bootstrapped() {
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: tangle.ErrNotBootstrapped.Error()})
 	}
-
 	if c.Request().Body == nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "invalid message, error: request body is missing"})
 	}

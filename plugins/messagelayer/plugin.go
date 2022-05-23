@@ -188,7 +188,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.Time, deps.Storage)
+	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RCTT, deps.Storage)
 	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)

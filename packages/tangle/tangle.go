@@ -153,17 +153,21 @@ func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
 
 // IssuePayload allows to attach a payload (i.e. a Transaction) to the Tangle.
 func (t *Tangle) IssuePayload(p payload.Payload, parentsCount ...int) (message *Message, err error) {
-	if !t.Synced() {
-		err = errors.Errorf("can't issue payload: %w", ErrNotSynced)
+	if !t.Bootstrapped() {
+		err = errors.Errorf("can't issue payload: %w", ErrNotBootstrapped)
 		return
 	}
-
 	return t.MessageFactory.IssuePayload(p, parentsCount...)
 }
 
-// Synced returns a boolean value that indicates if the node is fully synced and the Tangle has solidified all messages
+// Bootstrapped returns a boolean value that indicates if the node has bootstrapped and the Tangle has solidified all messages
 // until the genesis.
-func (t *Tangle) Synced() (synced bool) {
+func (t *Tangle) Bootstrapped() bool {
+	return t.TimeManager.Bootstrapped()
+}
+
+// Synced returns a boolean value that indicates if the node is in sync at this moment.
+func (t *Tangle) Synced() bool {
 	return t.TimeManager.Synced()
 }
 

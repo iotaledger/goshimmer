@@ -22,7 +22,6 @@ func sendMessageSchedulerRecord(messageID tangle.MessageID, recordType string) {
 	if !deps.Tangle.Synced() {
 		return
 	}
-
 	var nodeID string
 	if deps.Local != nil {
 		nodeID = deps.Local.Identity.ID().String()
