@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"log"
 	"testing"
 	"time"
 
@@ -10,7 +11,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
@@ -41,7 +41,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		StartSynced: true,
 		Activity:    false,
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -99,7 +99,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	t.Logf("Verifying that %s is on MasterBranch", msgID)
 	messageMetadata, err := peer1.GetMessageMetadata(msgID)
 	require.NoError(t, err)
-	require.Equal(t, []string{conflictdag.MasterBranchID.Base58()}, messageMetadata.BranchIDs)
+	require.Empty(t, messageMetadata.BranchIDs)
 }
 
 // determineOutputSlice will extract sub-slices from outputs of a certain size.
@@ -175,12 +175,12 @@ func sendTripleConflicts(t *testing.T, peers []*framework.Node, outputs devnetvm
 func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, attackName string, txs ...*devnetvm.Transaction) {
 	for i, tx := range txs {
 		newPeerIndex := (peerIndex + i) % len(peers)
+		log.Printf("%s: post tx %s on peer %s", attackName, tx.ID().Base58(), peers[newPeerIndex].Name())
 		resp, err := peers[newPeerIndex].PostTransaction(tx.Bytes())
-		t.Logf("%s: post tx %s on peer %s", attackName, tx.ID().Base58(), peers[peerIndex].Name())
 		require.NoError(t, err, "%s: There was an error posting transaction %s to peer %s",
-			attackName, tx.ID().Base58(), peers[peerIndex].Name())
+			attackName, tx.ID().Base58(), peers[newPeerIndex].Name())
 		require.Empty(t, resp.Error, "%s: There was an error in the response while posting transaction %s to peer %s",
-			attackName, tx.ID().Base58(), peers[peerIndex].Name())
+			attackName, tx.ID().Base58(), peers[newPeerIndex].Name())
 		time.Sleep(50 * time.Millisecond)
 	}
 }

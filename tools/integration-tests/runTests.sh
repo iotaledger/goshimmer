@@ -1,17 +1,17 @@
 #!/bin/bash
 
-DEFAULT_TEST_NAMES='faucet'
+DEFAULT_TEST_NAMES='autopeering common consensus value faucet mana'
 TEST_NAMES=${1:-$DEFAULT_TEST_NAMES}
 
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 echo "Build GoShimmer image"
-docker build --build-arg REMOTE_DEBUGGING=1 --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer ../../.
+docker build --build-arg REMOTE_DEBUGGING=0 --build-arg DOWNLOAD_SNAPSHOT=0 -t iotaledger/goshimmer ../../.
 
-#echo "Pull additional Docker images"
-#docker pull gaiaadm/pumba:0.7.2
-#docker pull gaiadocker/iproute2:latest
-#docker pull alpine/socat:1.7.4.3-r0
+echo "Pull additional Docker images"
+docker pull gaiaadm/pumba:0.7.2
+docker pull gaiadocker/iproute2:latest
+docker pull alpine/socat:1.7.4.3-r0
 
 echo "Run integration tests"
 

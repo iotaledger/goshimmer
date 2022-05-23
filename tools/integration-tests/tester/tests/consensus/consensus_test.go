@@ -14,7 +14,6 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sendoptions"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -44,7 +43,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 			Activity:    false,
 			Autopeering: false,
 			PeerMaster:  false,
-			Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+			Snapshot:    snapshotInfo,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			return conf
@@ -94,8 +93,7 @@ func TestSimpleDoubleSpend(t *testing.T) {
 		require.NoError(t, err)
 		res2, err := node2.GetTransactionMetadata(txs2[0].ID().Base58())
 		require.NoError(t, err)
-		return res1.BranchIDs[0] != conflictdag.MasterBranchID.Base58() &&
-			res2.BranchIDs[0] != conflictdag.MasterBranchID.Base58()
+		return len(res1.BranchIDs) > 0 && len(res2.BranchIDs) > 0
 	}, tests.Timeout, tests.Tick)
 
 	// we issue msgs on both nodes so the txs' GoF can change, given that they are dependent on their
@@ -119,78 +117,6 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	}, tests.Timeout, tests.Tick)
 }
 
-func TestConfirmBranch(t *testing.T) {
-	var (
-		peer1IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[0])
-			require.NoError(t, err)
-			return seedBytes
-		}()
-
-		peer2IdentSeed = func() []byte {
-			seedBytes, err := base58.Decode(tests.ConsensusSnapshotDetails.PeersSeedBase58[1])
-			require.NoError(t, err)
-			return seedBytes
-		}()
-	)
-
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetworkNoAutomaticManualPeering(ctx, "test_simple_double_spend", 2,
-		framework.CreateNetworkConfig{
-			StartSynced: true,
-			Faucet:      false,
-			Activity:    false,
-			Autopeering: false,
-		}, func(peerIndex int, isPeerMaster bool, cfg config.GoShimmer) config.GoShimmer {
-			cfg.MessageLayer.Snapshot.File = tests.ConsensusSnapshotDetails.FilePath
-			cfg.UseNodeSeedAsWalletSeed = true
-			switch peerIndex {
-			case 0:
-				cfg.Seed = peer1IdentSeed
-			case 1:
-				cfg.Seed = peer2IdentSeed
-			}
-			return cfg
-		})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-	var (
-		node1 = n.Peers()[0]
-		node2 = n.Peers()[1]
-
-		genesis1Wallet = createGenesisWallet(node1)
-		genesis2Wallet = createGenesisWallet(node2)
-	)
-
-	// issue a double spend
-	tx1 := sendConflictingTx(t, genesis1Wallet, genesis1Wallet.Seed().Address(uint64(1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node1, gof.Medium)
-	tx2 := sendConflictingTx(t, genesis2Wallet, genesis2Wallet.Seed().Address(uint64(1)), uint64(tests.ConsensusSnapshotDetails.GenesisTokenAmount), node2, gof.Low)
-	err = n.DoManualPeering(ctx)
-	require.NoError(t, err)
-
-	var branch1, branch2 string
-	// build AW on branch1.
-	tests.SendDataMessages(t, n.Peers(), 50)
-	// assert that branch1 gof is high and branch2 gof is none.
-	require.Eventually(t, func() bool {
-		res1, err := node1.GetTransactionMetadata(tx1.ID().Base58())
-		require.NoError(t, err)
-		res2, err := node2.GetTransactionMetadata(tx2.ID().Base58())
-		require.NoError(t, err)
-		branch1, branch2 = res1.BranchIDs[0], res2.BranchIDs[0]
-		return res1.GradeOfFinality == gof.High && res2.GradeOfFinality == gof.None
-	}, tests.Timeout, tests.Tick)
-
-	// now, force confirm branch2
-	tests.TryConfirmBranch(t, n, n.Peers(), branch2, tests.Timeout, tests.Tick)
-
-	// assert that branch1 gof is downgraded to low.
-	res1, err := node1.GetBranch(branch1)
-	require.NoError(t, err)
-	require.Equal(t, gof.Low, res1.GradeOfFinality)
-}
-
 func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.Address, actualGenesisTokenAmount uint64, node *framework.Node, expectedGoF gof.GradeOfFinality) *devnetvm.Transaction {
 	tx, err := wallet.SendFunds(
 		sendoptions.Destination(targetAddr, actualGenesisTokenAmount),
@@ -204,12 +130,6 @@ func sendConflictingTx(t *testing.T, wallet *wallet.Wallet, targetAddr address.A
 		return balance == actualGenesisTokenAmount
 	}, tests.Timeout, tests.Tick)
 
-	tests.RequireGradeOfFinalityEqual(t, []*framework.Node{node}, tests.ExpectedTxsStates{
-		tx.ID().Base58(): {
-			GradeOfFinality: tests.GoFPointer(expectedGoF),
-			Solid:           tests.True(),
-		},
-	}, time.Minute, tests.Tick)
 	return tx
 }
 

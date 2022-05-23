@@ -154,26 +154,28 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		for it := b.ConflictIDs.Iterator(); it.HasNext(); {
-			conflictID := it.Next()
-			_, exists := conflicts.conflict(conflictID)
-			// if this is the first conflict of this conflict set we add it to the map
-			if !exists {
-				c := &conflict{
-					ConflictID:  conflictID,
-					ArrivalTime: clock.SyncedTime(),
-					UpdatedTime: clock.SyncedTime(),
-				}
-				conflicts.addConflict(c)
-			}
-
-			// update all existing branches with a possible new conflict membership
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
-				conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
-			})
-		}
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		b.ConflictIDs = conflict.ConflictIDs()
 	})
+
+	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+		_, exists := conflicts.conflict(conflictID)
+		// if this is the first conflict of this conflict set we add it to the map
+		if !exists {
+			c := &conflict{
+				ConflictID:  conflictID,
+				ArrivalTime: clock.SyncedTime(),
+				UpdatedTime: clock.SyncedTime(),
+			}
+			conflicts.addConflict(c)
+		}
+
+		// update all existing branches with a possible new conflict membership
+		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
+			conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
+		})
+	}
 
 	conflicts.addBranch(b)
 }
