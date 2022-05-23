@@ -291,7 +291,7 @@ func (t *TestFramework) AllBooked(txAliases ...string) (allBooked bool) {
 
 // ConsumeBranch loads and consumes conflictdag.Conflict. Asserts that the loaded entity exists.
 func (t *TestFramework) ConsumeBranch(branchID utxo.TransactionID, consumer func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
-	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(consumer), "failed to load branch %s", branchID)
+	assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(consumer), "failed to load branch %s", branchID)
 }
 
 // ConsumeTransactionMetadata loads and consumes TransactionMetadata. Asserts that the loaded entity exists.

@@ -136,7 +136,7 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
 	conflictingTransactions = utxo.NewTransactionIDs()
 
-	u.ledger.ConflictDAG.Storage.CachedBranch(transactionID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	u.ledger.ConflictDAG.Storage.CachedConflict(transactionID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			u.ledger.ConflictDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
 				if conflictMember.BranchID() == transactionID {

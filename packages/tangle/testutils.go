@@ -248,7 +248,7 @@ func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.Tra
 // This function thus only works on the message creating ledger.Conflict.
 // Panics if the message's payload isn't a transaction.
 func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	m.tangle.Ledger.ConflictDAG.Storage.CachedBranch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b = branch
 	})
 	return

@@ -65,7 +65,7 @@ func (o *OnTangleVoting) branchPreferred(branchID utxo.TransactionID, likeWalker
 		return
 	}
 
-	o.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	o.branchDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.InclusionState() {
 		case conflictdag.Rejected:
 			preferred = false

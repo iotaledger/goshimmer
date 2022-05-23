@@ -7,13 +7,13 @@ import (
 )
 
 // Utils is a ConflictDAG component that bundles utility related API to simplify common interactions with the ConflictDAG.
-type Utils[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type Utils[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
 	// branchDAG contains a reference to the ConflictDAG that created the Utils.
 	branchDAG *ConflictDAG[ConflictID, ConflictSetID]
 }
 
 // newUtils returns a new Utils instance for the given ConflictDAG.
-func newUtils[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](branchDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
+func newUtils[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](branchDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
 	return &Utils[ConflictID, ConflictSetID]{
 		branchDAG: branchDAG,
 	}
@@ -38,7 +38,7 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachBranch(consumer func(branch *C
 
 // ForEachConflictingBranchID executes the callback for each Conflict that is conflicting with the named Conflict.
 func (u *Utils[ConflictID, ConflictSetID]) ForEachConflictingBranchID(branchID ConflictID, callback func(conflictingBranchID ConflictID) bool) {
-	u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+	u.branchDAG.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
 		u.forEachConflictingBranchID(branch, callback)
 	})
 }
@@ -54,7 +54,7 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 			return
 		}
 
-		u.branchDAG.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+		u.branchDAG.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
 			_ = branch.ConflictIDs().ForEach(func(conflictID ConflictSetID) (err error) {
 				conflictSetsWalker.Push(conflictID)
 				return nil

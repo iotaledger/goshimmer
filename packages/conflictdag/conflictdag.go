@@ -8,107 +8,88 @@ import (
 	"github.com/iotaledger/hive.go/generics/walker"
 )
 
-// ConflictDAG is a DAG that models the causal dependencies between conflicting entities.
-type ConflictDAG[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
-	// Events is a dictionary for ConflictDAG related events.
-	Events *Events[ConflictID, ConflictSetID]
+// ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
+// shared set of resources.
+type ConflictDAG[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]] struct {
+	// Events is a dictionary for events emitted by the ConflictDAG.
+	Events *Events[ConflictIDType, ResourceIDType]
 
 	// Storage is a dictionary for storage related API endpoints.
-	Storage *Storage[ConflictID, ConflictSetID]
+	Storage *Storage[ConflictIDType, ResourceIDType]
 
 	// Utils is a dictionary for utility methods that simplify the interaction with the ConflictDAG.
-	Utils *Utils[ConflictID, ConflictSetID]
+	Utils *Utils[ConflictIDType, ResourceIDType]
 
 	// options is a dictionary for configuration parameters of the ConflictDAG.
 	options *options
 
-	// inclusionStateMutex is a mutex that prevents that two processes simultaneously write the InclusionState.
-	inclusionStateMutex sync.RWMutex
+	// RWMutex is a mutex that prevents that two processes simultaneously update the InclusionState.
+	sync.RWMutex
 }
 
-// New returns a new ConflictDAG from the given options.
-func New[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]](options ...Option) (new *ConflictDAG[ConflictID, ConflictSetID]) {
-	new = &ConflictDAG[ConflictID, ConflictSetID]{
-		Events:  newEvents[ConflictID, ConflictSetID](),
+// New returns a new ConflictDAG with the given options.
+func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
+	new = &ConflictDAG[ConflictIDType, ResourceIDType]{
+		Events:  newEvents[ConflictIDType, ResourceIDType](),
 		options: newOptions(options...),
 	}
-	new.Storage = newStorage[ConflictID, ConflictSetID](new.options)
+	new.Storage = newStorage[ConflictIDType, ResourceIDType](new.options)
 	new.Utils = newUtils(new)
 
 	return
 }
 
-// CreateConflict tries to create a Conflict with the given details. It returns true if the Conflict could be created or false
-// if it already existed. It triggers a BranchCreated event if the branch was successfully created.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) CreateConflict(id ConflictID, parentConflicts *set.AdvancedSet[ConflictID], conflictSets *set.AdvancedSet[ConflictSetID]) (created bool) {
-	b.inclusionStateMutex.RLock()
-	b.Storage.CachedBranch(id, func(ConflictID) (branch *Conflict[ConflictID, ConflictSetID]) {
-		branch = NewBranch(id, parentConflicts, set.NewAdvancedSet[ConflictSetID]())
+// CreateConflict creates a new Conflict in the ConflictDAG and returns true if the Conflict was new.
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parentConflicts *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
+	b.RLock()
+	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
+		conflict = NewBranch(id, parentConflicts, set.NewAdvancedSet[ResourceIDType]())
 
-		b.addConflictMembers(branch, conflictSets)
+		b.addConflictMembers(conflict, conflictingResources)
 		b.createChildBranchReferences(parentConflicts, id)
 
-		if b.anyParentRejected(branch) || b.anyConflictingBranchConfirmed(branch) {
-			branch.setInclusionState(Rejected)
+		if b.anyParentRejected(conflict) || b.anyConflictingBranchConfirmed(conflict) {
+			conflict.setInclusionState(Rejected)
 		}
 
 		created = true
 
-		return branch
+		return conflict
 	}).Release()
-	b.inclusionStateMutex.RUnlock()
+	b.RUnlock()
 
 	if created {
-		b.Events.ConflictCreated.Trigger(&ConflictCreatedEvent[ConflictID, ConflictSetID]{
+		b.Events.ConflictCreated.Trigger(&ConflictCreatedEvent[ConflictIDType, ResourceIDType]{
 			ID:                     id,
 			ParentConflictIDs:      parentConflicts,
-			ConflictingResourceIDs: conflictSets,
+			ConflictingResourceIDs: conflictingResources,
 		})
 	}
 
 	return created
 }
 
-// AddConflictToConflictSets adds the Conflict to the named conflicts - it returns true if the conflict membership was modified
-// during this operation.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) AddConflictToConflictSets(branchID ConflictID, newConflictIDs *set.AdvancedSet[ConflictSetID]) (updated bool) {
-	b.inclusionStateMutex.RLock()
-	b.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
-		updated = b.addConflictMembers(branch, newConflictIDs)
-	})
-	b.inclusionStateMutex.RUnlock()
+// UpdateParentConflicts changes the parents of a Conflict after a fork (also updating the corresponding references).
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateParentConflicts(id ConflictIDType, removedBranchIDs *set.AdvancedSet[ConflictIDType], addedBranchID ConflictIDType) (updated bool) {
+	b.RLock()
 
-	if updated {
-		b.Events.BranchConflictsUpdated.Trigger(&BranchConflictsUpdatedEvent[ConflictID, ConflictSetID]{
-			BranchID:       branchID,
-			NewConflictIDs: newConflictIDs,
-		})
-	}
-
-	return updated
-}
-
-// UpdateConflictParents changes the parents of a Conflict after a fork (also updating the corresponding references).
-func (b *ConflictDAG[ConflictID, ConflictSetID]) UpdateConflictParents(branchID, addedBranchID ConflictID, removedBranchIDs *set.AdvancedSet[ConflictID]) (updated bool) {
-	b.inclusionStateMutex.RLock()
-
-	var parentBranchIDs *set.AdvancedSet[ConflictID]
-	b.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+	var parentBranchIDs *set.AdvancedSet[ConflictIDType]
+	b.Storage.CachedConflict(id).Consume(func(branch *Conflict[ConflictIDType, ResourceIDType]) {
 		parentBranchIDs = branch.Parents()
 		if !parentBranchIDs.Add(addedBranchID) {
 			return
 		}
 
-		b.removeChildBranchReferences(parentBranchIDs.DeleteAll(removedBranchIDs), branchID)
-		b.createChildBranchReferences(set.NewAdvancedSet(addedBranchID), branchID)
+		b.removeChildBranchReferences(parentBranchIDs.DeleteAll(removedBranchIDs), id)
+		b.createChildBranchReferences(set.NewAdvancedSet(addedBranchID), id)
 
 		updated = branch.SetParents(parentBranchIDs)
 	})
-	b.inclusionStateMutex.RUnlock()
+	b.RUnlock()
 
 	if updated {
-		b.Events.BranchParentsUpdated.Trigger(&BranchParentsUpdatedEvent[ConflictID, ConflictSetID]{
-			BranchID:         branchID,
+		b.Events.BranchParentsUpdated.Trigger(&BranchParentsUpdatedEvent[ConflictIDType, ResourceIDType]{
+			BranchID:         id,
 			AddedBranch:      addedBranchID,
 			RemovedBranches:  removedBranchIDs,
 			ParentsBranchIDs: parentBranchIDs,
@@ -118,9 +99,28 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) UpdateConflictParents(branchID,
 	return updated
 }
 
-// FilterPendingBranches takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
+// UpdateConflictingResources adds the Conflict to the named conflicts - it returns true if the conflict membership was modified
+// during this operation.
+func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictingResources(id ConflictIDType, conflictingResourceIDs *set.AdvancedSet[ResourceIDType]) (updated bool) {
+	b.RLock()
+	b.Storage.CachedConflict(id).Consume(func(branch *Conflict[ConflictIDType, ResourceIDType]) {
+		updated = b.addConflictMembers(branch, conflictingResourceIDs)
+	})
+	b.RUnlock()
+
+	if updated {
+		b.Events.BranchConflictsUpdated.Trigger(&BranchConflictsUpdatedEvent[ConflictIDType, ResourceIDType]{
+			BranchID:       id,
+			NewConflictIDs: conflictingResourceIDs,
+		})
+	}
+
+	return updated
+}
+
+// UnconfirmedConflicts takes a set of BranchIDs and removes all the Confirmed Branches (leaving only the pending or
 // rejected ones behind).
-func (b *ConflictDAG[ConflictID, ConflictSetID]) FilterPendingBranches(branchIDs *set.AdvancedSet[ConflictID]) (pendingBranchIDs *set.AdvancedSet[ConflictID]) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) UnconfirmedConflicts(branchIDs *set.AdvancedSet[ConflictID]) (pendingBranchIDs *set.AdvancedSet[ConflictID]) {
 	if !b.options.mergeToMaster {
 		return branchIDs.Clone()
 	}
@@ -137,13 +137,13 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) FilterPendingBranches(branchIDs
 
 // SetBranchConfirmed sets the InclusionState of the given Conflict to be Confirmed - it automatically sets also the
 // conflicting branches to be rejected.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) SetBranchConfirmed(branchID ConflictID) (modified bool) {
-	b.inclusionStateMutex.Lock()
-	defer b.inclusionStateMutex.Unlock()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(branchID ConflictID) (modified bool) {
+	b.Lock()
+	defer b.Unlock()
 
 	rejectionWalker := walker.New[ConflictID]()
 	for confirmationWalker := set.NewAdvancedSet(branchID).Iterator(); confirmationWalker.HasNext(); {
-		b.Storage.CachedBranch(confirmationWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+		b.Storage.CachedConflict(confirmationWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
 			if modified = branch.setInclusionState(Confirmed); !modified {
 				return
 			}
@@ -162,7 +162,7 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) SetBranchConfirmed(branchID Con
 	}
 
 	for rejectionWalker.HasNext() {
-		b.Storage.CachedBranch(rejectionWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+		b.Storage.CachedConflict(rejectionWalker.Next()).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
 			if modified = branch.setInclusionState(Rejected); !modified {
 				return
 			}
@@ -181,9 +181,9 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) SetBranchConfirmed(branchID Con
 }
 
 // InclusionState returns the InclusionState of the given BranchIDs.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) InclusionState(branchIDs *set.AdvancedSet[ConflictID]) (inclusionState InclusionState) {
-	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) InclusionState(branchIDs *set.AdvancedSet[ConflictID]) (inclusionState InclusionState) {
+	b.RLock()
+	defer b.RUnlock()
 
 	inclusionState = Confirmed
 	for it := branchIDs.Iterator(); it.HasNext(); {
@@ -199,12 +199,12 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) InclusionState(branchIDs *set.A
 }
 
 // Shutdown shuts down the stateful elements of the ConflictDAG (the Storage).
-func (b *ConflictDAG[ConflictID, ConflictSetID]) Shutdown() {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) Shutdown() {
 	b.Storage.Shutdown()
 }
 
 // addConflictMembers creates the named ConflictMember references.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) addConflictMembers(branch *Conflict[ConflictID, ConflictSetID], conflictIDs *set.AdvancedSet[ConflictSetID]) (added bool) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) addConflictMembers(branch *Conflict[ConflictID, ConflictingResourceID], conflictIDs *set.AdvancedSet[ConflictingResourceID]) (added bool) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -217,21 +217,21 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) addConflictMembers(branch *Conf
 }
 
 // createChildBranchReferences creates the named ChildBranch references.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) createChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
 		b.Storage.CachedChildBranch(it.Next(), childBranchID, NewChildBranch[ConflictID]).Release()
 	}
 }
 
 // removeChildBranchReferences removes the named ChildBranch references.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
 		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), childBranchID.Bytes()))
 	}
 }
 
 // anyParentRejected checks if any of a Branches parents is Rejected.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) anyParentRejected(branch *Conflict[ConflictID, ConflictSetID]) (rejected bool) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyParentRejected(branch *Conflict[ConflictID, ConflictingResourceID]) (rejected bool) {
 	for it := branch.Parents().Iterator(); it.HasNext(); {
 		if b.inclusionState(it.Next()) == Rejected {
 			return true
@@ -242,7 +242,7 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) anyParentRejected(branch *Confl
 }
 
 // anyConflictingBranchConfirmed checks if any conflicting Conflict is Confirmed.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) anyConflictingBranchConfirmed(branch *Conflict[ConflictID, ConflictSetID]) (anyConfirmed bool) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchConfirmed(branch *Conflict[ConflictID, ConflictingResourceID]) (anyConfirmed bool) {
 	b.Utils.forEachConflictingBranchID(branch, func(conflictingBranchID ConflictID) bool {
 		anyConfirmed = b.inclusionState(conflictingBranchID) == Confirmed
 		return !anyConfirmed
@@ -253,13 +253,13 @@ func (b *ConflictDAG[ConflictID, ConflictSetID]) anyConflictingBranchConfirmed(b
 
 // registerConflictMember registers a Conflict in a Conflict by creating the references (if necessary) and increasing the
 // corresponding member counter.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) registerConflictMember(conflictID ConflictSetID, branchID ConflictID) {
-	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictID, ConflictSetID]).Release()
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) registerConflictMember(conflictID ConflictingResourceID, branchID ConflictID) {
+	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictID, ConflictingResourceID]).Release()
 }
 
 // inclusionState returns the InclusionState of the Conflict with the given BranchID.
-func (b *ConflictDAG[ConflictID, ConflictSetID]) inclusionState(branchID ConflictID) (inclusionState InclusionState) {
-	b.Storage.CachedBranch(branchID).Consume(func(branch *Conflict[ConflictID, ConflictSetID]) {
+func (b *ConflictDAG[ConflictID, ConflictingResourceID]) inclusionState(branchID ConflictID) (inclusionState InclusionState) {
+	b.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
 		inclusionState = branch.InclusionState()
 	})
 

@@ -7,8 +7,8 @@ import (
 
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Events is a container that acts as a dictionary for the existing events of a ConflictDAG.
-type Events[ConflictID ConflictIDType[ConflictID], ConflictingResourceID ConflictSetIDType[ConflictingResourceID]] struct {
+// Events is a container that acts as a dictionary for the events of a ConflictDAG.
+type Events[ConflictID set.AdvancedSetElement[ConflictID], ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
 	// ConflictCreated is an event that gets triggered whenever a new Conflict is created.
 	ConflictCreated *event.Event[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]]
 
@@ -26,11 +26,11 @@ type Events[ConflictID ConflictIDType[ConflictID], ConflictingResourceID Conflic
 }
 
 // newEvents returns a new Events object.
-func newEvents[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]]() *Events[ConflictID, ConflictSetID] {
-	return &Events[ConflictID, ConflictSetID]{
-		ConflictCreated:        event.New[*ConflictCreatedEvent[ConflictID, ConflictSetID]](),
-		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent[ConflictID, ConflictSetID]](),
-		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent[ConflictID, ConflictSetID]](),
+func newEvents[ConflictID set.AdvancedSetElement[ConflictID], ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]]() *Events[ConflictID, ConflictingResourceID] {
+	return &Events[ConflictID, ConflictingResourceID]{
+		ConflictCreated:        event.New[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]](),
+		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent[ConflictID, ConflictingResourceID]](),
+		BranchParentsUpdated:   event.New[*BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID]](),
 		BranchConfirmed:        event.New[*BranchConfirmedEvent[ConflictID]](),
 		BranchRejected:         event.New[*BranchRejectedEvent[ConflictID]](),
 	}
@@ -41,7 +41,7 @@ func newEvents[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetI
 // region ConflictCreatedEvent /////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictCreatedEvent is an event that gets triggered when a new Conflict was created.
-type ConflictCreatedEvent[ConflictID ConflictIDType[ConflictID], ConflictingResourceID ConflictSetIDType[ConflictingResourceID]] struct {
+type ConflictCreatedEvent[ConflictID set.AdvancedSetElement[ConflictID], ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
 	// ID contains the identifier of the newly created Conflict.
 	ID ConflictID
 
@@ -58,12 +58,12 @@ type ConflictCreatedEvent[ConflictID ConflictIDType[ConflictID], ConflictingReso
 
 // BranchConflictsUpdatedEvent is a container that acts as a dictionary for the BranchConflictsUpdated event related
 // parameters.
-type BranchConflictsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type BranchConflictsUpdatedEvent[ConflictID set.AdvancedSetElement[ConflictID], ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
 	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 
 	// NewConflictIDs contains the set of conflicts that this Conflict was added to.
-	NewConflictIDs *set.AdvancedSet[ConflictSetID]
+	NewConflictIDs *set.AdvancedSet[ConflictingResourceID]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +72,7 @@ type BranchConflictsUpdatedEvent[ConflictID ConflictIDType[ConflictID], Conflict
 
 // BranchParentsUpdatedEvent is a container that acts as a dictionary for the BranchParentsUpdated event related
 // parameters.
-type BranchParentsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSetID ConflictSetIDType[ConflictSetID]] struct {
+type BranchParentsUpdatedEvent[ConflictID set.AdvancedSetElement[ConflictID], ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
 	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 
@@ -91,7 +91,7 @@ type BranchParentsUpdatedEvent[ConflictID ConflictIDType[ConflictID], ConflictSe
 // region BranchConfirmedEvent /////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related parameters.
-type BranchConfirmedEvent[ConflictID ConflictIDType[ConflictID]] struct {
+type BranchConfirmedEvent[ConflictID set.AdvancedSetElement[ConflictID]] struct {
 	// BranchID contains the identifier of the confirmed Conflict.
 	BranchID ConflictID
 }
@@ -101,7 +101,7 @@ type BranchConfirmedEvent[ConflictID ConflictIDType[ConflictID]] struct {
 // region BranchRejectedEvent //////////////////////////////////////////////////////////////////////////////////////////
 
 // BranchRejectedEvent is a container that acts as a dictionary for the BranchRejected event related parameters.
-type BranchRejectedEvent[ConflictID ConflictIDType[ConflictID]] struct {
+type BranchRejectedEvent[ConflictID set.AdvancedSetElement[ConflictID]] struct {
 	// BranchID contains the identifier of the rejected Conflict.
 	BranchID ConflictID
 }

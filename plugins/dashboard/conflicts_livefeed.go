@@ -154,8 +154,8 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 	mu.Lock()
 	defer mu.Unlock()
 
-	deps.Tangle.Ledger.ConflictDAG.Storage.CachedBranch(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		b.ConflictIDs = branch.ConflictIDs().Clone()
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		b.ConflictIDs = conflict.ConflictIDs()
 	})
 
 	for it := b.ConflictIDs.Iterator(); it.HasNext(); {
