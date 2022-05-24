@@ -176,8 +176,8 @@ func (t *TimeManager) updateTime(messageID MessageID) {
 			MessageTime:   message.IssuingTime(),
 			ConfirmedTime: time.Now(),
 		}
-		t.updateSyncedState()
 	})
+	t.updateSyncedState()
 }
 
 // RCTT return relative confirmed tangle time.
