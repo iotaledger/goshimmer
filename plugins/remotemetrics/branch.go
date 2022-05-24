@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
 
@@ -66,10 +67,11 @@ func onBranchConfirmed(branchID ledgerstate.BranchID) {
 		ConfirmedTimestamp: clock.SyncedTime(),
 		DeltaConfirmed:     clock.Since(oldestAttachmentTime).Nanoseconds(),
 	}
-
-	if err = deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
-	}
+	deps.Tangle.Storage.Message(oldestAttachmentMessageID).Consume(func(message *tangle.Message) {
+		issuerID := identity.NewID(message.IssuerPublicKey())
+		record.IssuerID = issuerID.String()
+	})
+	_ = deps.RemoteLogger.Send(record)
 	sendBranchMetrics()
 }
 
@@ -97,9 +99,7 @@ func sendBranchMetrics() {
 		InitialFinalizedBranchCount:    initialFinalizedBranchCountDB,
 		FinalizedBranchCountSinceStart: finalizedBranchCountDB.Load(),
 	}
-	if err := deps.RemoteLogger.Send(record); err != nil {
-		Plugin.Logger().Errorw("Failed to send BranchConfirmationMetrics record", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(record)
 }
 
 func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate.TransactionID) (time.Time, tangle.MessageID, error) {
@@ -107,11 +107,12 @@ func updateMetricCounts(branchID ledgerstate.BranchID, transactionID ledgerstate
 	if err != nil {
 		return time.Time{}, tangle.MessageID{}, err
 	}
-	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 		if conflictingBranchID != branchID {
 			finalizedBranchCountDB.Inc()
 			delete(activeBranches, conflictingBranchID)
 		}
+		return true
 	})
 	finalizedBranchCountDB.Inc()
 	confirmedBranchCount.Inc()
@@ -124,13 +125,9 @@ func measureInitialBranchCounts() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
-			return
-		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
 			return
 		default:
 			initialBranchTotalCountDB++
@@ -140,10 +137,11 @@ func measureInitialBranchCounts() {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
+					return true
 				})
 				initialFinalizedBranchCountDB++
 				initialConfirmedBranchCountDB++
@@ -154,10 +152,11 @@ func measureInitialBranchCounts() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}
+			return true
 		})
 		delete(activeBranches, branchID)
 	}

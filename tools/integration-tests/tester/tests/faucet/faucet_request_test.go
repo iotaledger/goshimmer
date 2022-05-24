@@ -20,17 +20,30 @@ func TestFaucetRequest(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
+	snapshotInfo := tests.EqualSnapshotDetails
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true,
-	}, tests.EqualDefaultConfigFunc(t, false))
+		PeerMaster:  true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
 	// check consensus mana
-	for i, peer := range n.Peers() {
-		require.EqualValues(t, tests.EqualSnapshotDetails.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
+	// faucet node has zero mana because it pledges its mana to `1111111` node
+	require.Eventually(t, func() bool {
+		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+	}, tests.Timeout, tests.Tick)
+	// the rest of the nodes should have mana as in snapshot
+	for i, peer := range n.Peers()[1:] {
+		if snapshotInfo.PeersAmountsPledged[i] > 0 {
+			require.Eventually(t, func() bool {
+				return tests.Mana(t, peer).Consensus > 0
+			}, tests.Timeout, tests.Tick)
+		}
+		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
 	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]

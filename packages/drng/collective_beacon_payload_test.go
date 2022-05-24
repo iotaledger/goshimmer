@@ -33,6 +33,6 @@ func TestParse(t *testing.T) {
 }
 
 func TestCollectiveBeaconPayloadString(t *testing.T) {
-	payload := dummyPayload()
+	payload := dummyCollectiveBeaconPayload()
 	_ = payload.String()
 }

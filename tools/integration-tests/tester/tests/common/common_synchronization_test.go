@@ -2,11 +2,13 @@ package common
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"testing"
 	"time"
 
 	"github.com/mr-tron/base58"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
@@ -23,12 +25,15 @@ func TestCommonSynchronization(t *testing.T) {
 		numMessages     = 100
 		numSyncMessages = 5 * initialPeers
 	)
+	snapshotInfo := tests.EqualSnapshotDetails
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-	}, tests.EqualDefaultConfigFunc(t, false))
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		PeerMaster:  true,
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
@@ -40,7 +45,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 2. spawn peer without knowledge of previous messages
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t)
+	cfg := createNewPeerConfig(t, snapshotInfo, 2)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -95,12 +100,72 @@ func TestCommonSynchronization(t *testing.T) {
 		"the peer %s did not sync again after restart", newPeer)
 }
 
-func createNewPeerConfig(t *testing.T) config.GoShimmer {
-	seedBytes, err := base58.Decode(tests.EqualSnapshotDetails.PeersSeedBase58[3])
+func TestFirewall(t *testing.T) {
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		StartSynced: true,
+	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
+		if peerIndex == 0 {
+			cfg.Gossip.MessagesRateLimit.Limit = 50
+		}
+		return cfg
+	})
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+	peer1, peer2 := n.Peers()[0], n.Peers()[1]
+	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got1)
+	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got2)
+
+	// Start spamming messages from peer2 to peer1.
+	for i := 0; i < 51; i++ {
+		tests.SendDataMessage(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
+		require.NoError(t, err)
+	}
+	assert.Eventually(t, func() bool {
+		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
+		require.NoError(t, err)
+		return got1 != 0
+	}, tests.Timeout, tests.Tick)
+	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
+	require.NoError(t, err)
+	assert.Equal(t, 0, got2)
+}
+
+func TestConfirmMessage(t *testing.T) {
+	snapshotInfo := tests.ConsensusSnapshotDetails
+
+	ctx, cancel := tests.Context(context.Background(), t)
+	defer cancel()
+	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
+		StartSynced: true,
+		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+		conf.UseNodeSeedAsWalletSeed = true
+		return conf
+	}))
+	require.NoError(t, err)
+	defer tests.ShutdownNetwork(ctx, t, n)
+
+	peers := n.Peers()
+	msgID, err := peers[0].Data([]byte("test"))
+	require.Nil(t, err)
+	metadata, err := peers[0].GetMessageMetadata(msgID)
+	require.Nil(t, err)
+	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
+	tests.TryConfirmMessage(t, n, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
+}
+
+func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.MessageLayer.Snapshot.File = tests.EqualSnapshotDetails.FilePath
+	conf.MessageLayer.Snapshot.File = snapshotInfo.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.MessageLayer.TangleTimeWindow = 30 * time.Second
 	return conf

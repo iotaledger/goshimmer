@@ -18,3 +18,9 @@ type MissingResponse struct {
 	IDs   []string `json:"ids,omitempty"`
 	Count int      `json:"count,omitempty"`
 }
+
+// MissingAvailableResponse is a map of messageIDs with the peers that have such message.
+type MissingAvailableResponse struct {
+	Availability map[string][]string `json:"msgavailability,omitempty"`
+	Count        int                 `json:"count"`
+}

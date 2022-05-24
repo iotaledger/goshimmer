@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/datastructure/set"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"go.uber.org/dig"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
@@ -35,8 +36,7 @@ var (
 	ManaPlugin         = node.NewPlugin(PluginName, nil, node.Enabled, configureManaPlugin, runManaPlugin)
 	manaLogger         *logger.Logger
 	baseManaVectors    map[mana.Type]mana.BaseManaVector
-	osFactory          *objectstorage.Factory
-	storages           map[mana.Type]*objectstorage.ObjectStorage
+	storages           map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana]
 	allowedPledgeNodes map[mana.Type]AllowedPledge
 	// consensusBaseManaPastVectorStorage         *objectstorage.ObjectStorage
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
@@ -49,8 +49,8 @@ var (
 )
 
 func init() {
-	ManaPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func() mana.ManaRetrievalFunc {
+	ManaPlugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {
 			Plugin.Panic(err)
@@ -71,14 +71,13 @@ func configureManaPlugin(*node.Plugin) {
 	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
 
 	// configure storage for each vector type
-	storages = make(map[mana.Type]*objectstorage.ObjectStorage)
+	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	osFactory = objectstorage.NewFactory(store, db_pkg.PrefixMana)
-	storages[mana.AccessMana] = osFactory.New(mana.PrefixAccess, mana.FromObjectStorage)
-	storages[mana.ConsensusMana] = osFactory.New(mana.PrefixConsensus, mana.FromObjectStorage)
+	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = osFactory.New(mana.PrefixAccessResearch, mana.FromObjectStorage)
-		storages[mana.ResearchConsensus] = osFactory.New(mana.PrefixConsensusResearch, mana.FromObjectStorage)
+		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -99,7 +98,7 @@ func configureManaPlugin(*node.Plugin) {
 func configureEvents() {
 	// until we have the proper event...
 	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
-	// mana.Events().Revoked.Attach(onRevokeEventClosure)
+	// mana.Events().Revoked.Hook(onRevokeEventClosure)
 }
 
 //func logPledgeEvent(ev *mana.PledgedEvent) {
@@ -241,12 +240,11 @@ func runManaPlugin(_ *node.Plugin) {
 
 func readStoredManaVectors() (read bool) {
 	for vectorType := range baseManaVectors {
-		storages[vectorType].ForEach(func(key []byte, cachedObject objectstorage.CachedObject) bool {
-			cachedPbm := &mana.CachedPersistableBaseMana{CachedObject: cachedObject}
-			cachedPbm.Consume(func(p *mana.PersistableBaseMana) {
+		storages[vectorType].ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*mana.PersistableBaseMana]) bool {
+			cachedObject.Consume(func(p *mana.PersistableBaseMana) {
 				err := baseManaVectors[vectorType].FromPersistable(p)
 				if err != nil {
-					manaLogger.Errorf("error while restoring %s mana vector: %w", vectorType.String(), err)
+					manaLogger.Errorf("error while restoring %s mana vector: %s", vectorType.String(), err.Error())
 				}
 				read = true
 			})
@@ -429,7 +427,7 @@ func verifyPledgeNodes() error {
 		IsFilterEnabled: ManaParameters.AllowedConsensusFilterEnabled,
 	}
 
-	access.Allowed = set.New(false)
+	access.Allowed = set.New[identity.ID](false)
 	// own ID is allowed by default
 	access.Allowed.Add(deps.Local.ID())
 	if access.IsFilterEnabled {
@@ -442,7 +440,7 @@ func verifyPledgeNodes() error {
 		}
 	}
 
-	consensus.Allowed = set.New(false)
+	consensus.Allowed = set.New[identity.ID](false)
 	// own ID is allowed by default
 	consensus.Allowed.Add(deps.Local.ID())
 	if consensus.IsFilterEnabled {
@@ -464,10 +462,10 @@ func verifyPledgeNodes() error {
 func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 	cachedOutputMetadata := deps.Tangle.LedgerState.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
-	outputMetadata := cachedOutputMetadata.Unwrap()
+	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if outputMetadata == nil || outputMetadata.ConsumerCount() > 0 {
+	if !exists || outputMetadata.ConsumerCount() > 0 {
 		return 0, time.Time{}
 	}
 
@@ -481,7 +479,7 @@ func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
 
 	cachedTx := deps.Tangle.LedgerState.Transaction(outputID.TransactionID())
 	defer cachedTx.Release()
-	tx := cachedTx.Unwrap()
+	tx, _ := cachedTx.Unwrap()
 	txTimestamp := tx.Essence().Timestamp()
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
 }
@@ -776,7 +774,7 @@ func cleanupManaVectors() {
 // AllowedPledge represents the nodes that mana is allowed to be pledged to.
 type AllowedPledge struct {
 	IsFilterEnabled bool
-	Allowed         set.Set
+	Allowed         set.Set[identity.ID]
 }
 
 //// EventsLogs represents the events logs.
@@ -789,8 +787,10 @@ type AllowedPledge struct {
 func QueryAllowed() (allowed bool) {
 	// if debugging enabled, reply to the query
 	// if debugging is not allowed, only reply when in sync
-	// return deps.Tangle.Synced() || debuggingEnabled
-	return true
+	// return deps.Tangle.Synced() || debuggingEnabled\
+
+	// query allowed only when base mana vectors have been initialized
+	return len(baseManaVectors) > 0
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.

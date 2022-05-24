@@ -1,0 +1,52 @@
+metrics:
+  hosts:
+    metrics-01.feature.shimmer.iota.cafe:
+
+supports:
+  hosts:
+    analysisentry-01.feature.shimmer.iota.cafe:
+      entryNodeSeed: "{{ ANALYSISSENTRY_01_ENTRYNODE_SEED }}"
+      manaDashboardHost: "http://bootstrap-01.feature.shimmer.iota.cafe:8081"
+      logLevel: "debug"
+
+goshimmers:
+  children:
+    internal_nodes:
+      hosts:
+        bootstrap-01.feature.shimmer.iota.cafe:
+          seed: "{{ BOOTSTRAP_01_SEED }}"
+          bootstrap: true
+        vanilla-01.feature.shimmer.iota.cafe:
+          seed: "{{ VANILLA_01_SEED }}"
+        drng-01.feature.shimmer.iota.cafe:
+          seed: "{{ DRNG_01_SEED }}"
+        drng-02.feature.shimmer.iota.cafe:
+          seed: "{{ DRNG_02_SEED }}"
+        drng-03.feature.shimmer.iota.cafe:
+          seed: "{{ DRNG_03_SEED }}"
+        drng-04.feature.shimmer.iota.cafe:
+          seed: "{{ DRNG_04_SEED }}"
+        drng-05.feature.shimmer.iota.cafe:
+          seed: "{{ DRNG_05_SEED }}"
+        faucet-01.feature.shimmer.iota.cafe:
+          seed: "{{ FAUCET_01_SEED }}"
+          faucet: true
+          faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
+
+  vars:
+    analysisServerHost: "analysisentry-01.feature.shimmer.iota.cafe"
+    entryNodeHost: "analysisentry-01.feature.shimmer.iota.cafe"
+    entryNodePubKey: "AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X"
+    bootstrapNodePubKey: "BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4"
+    remoteLoggerHost: "metrics-01.feature.shimmer.iota.cafe"
+    logLevel: "debug"
+    debugPorts: true
+    remoteDebugging: true
+    snapshotResetTime: true
+    spammer: true
+
+drands:
+  hosts:
+    drand-01.feature.shimmer.iota.cafe:
+  vars:
+    drngHostTemplate: "drng-0{drandNumber}.feature.shimmer.iota.cafe"

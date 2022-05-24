@@ -20,17 +20,19 @@ GoShimmer ships with a client Go library which communicates with the HTTP API. P
 # Use the API
 
 Simply `go get` the lib via:
-```
+```shell
 go get github.com/iotaledger/goshimmer/client
 ```
 
 Init the API by passing in the API URI of your GoShimmer node:
-```
+
+```go
 goshimAPI := client.NewGoShimmerAPI("http://mynode:8080")
 ```
 
 Optionally, define your own `http.Client` to use, in order for example to define custom timeouts:
-```
+
+```go
 goshimAPI := client.NewGoShimmerAPI("http://mynode:8080", client.WithHTTPClient{Timeout: 30 * time.Second})
 ```
 

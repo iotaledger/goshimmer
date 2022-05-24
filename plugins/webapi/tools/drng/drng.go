@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/echo"
@@ -35,7 +35,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 	}
 
 	var writeErr error
-	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker) {
+	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
 			if message.Payload().Type() == drng.PayloadType {
 				messageInfo := getDiagnosticDRNGMessageInfo(message)
@@ -52,7 +52,7 @@ func runDiagnosticDRNGMessages(c echo.Context) (err error) {
 		deps.Tangle.Storage.Approvers(messageID).Consume(func(approver *tangle.Approver) {
 			walker.Push(approver.ApproverMessageID())
 		})
-	}, tangle.MessageIDs{tangle.EmptyMessageID})
+	}, tangle.NewMessageIDs(tangle.EmptyMessageID))
 
 	if writeErr != nil {
 		return writeErr
@@ -108,7 +108,7 @@ func getDiagnosticDRNGMessageInfo(message *tangle.Message) *DiagnosticDRNGMessag
 		IssuerID:          identity.NewID(message.IssuerPublicKey()).String(),
 		IssuerPublicKey:   message.IssuerPublicKey().String(),
 	}
-	drngPayload := message.Payload().(*drng.Payload)
+	drngPayload := message.Payload().(*drng.CollectiveBeaconPayload)
 
 	// parse as CollectiveBeaconType
 	marshalUtil := marshalutil.New(drngPayload.Bytes())

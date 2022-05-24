@@ -31,17 +31,13 @@ jobs:
     runs-on:
       - ubuntu-latest
     container:
-      image: gohornet/goreleaser-cgo-cross-compiler:1.16.3
+      image: gohornet/goreleaser-cgo-cross-compiler:1.18.1
       volumes: [/repo]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16.3
 
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json
@@ -74,7 +70,7 @@ jobs:
           repository: iotaledger/goshimmer
           username: '${{ secrets.IOTALEDGER_HUB_DOCKER_LOGIN }}'
           password: '${{ secrets.IOTALEDGER_HUB_DOCKER_PASSWORD }}'
-          tags: latest
+          tags: latest,${{github.event.inputs.tagName}}
           tag_with_ref: true
 
       - name: Install SSH Key
@@ -103,6 +99,8 @@ jobs:
           SNAPSHOTTER_BUCKET: '${{ secrets.SNAPSHOTTER_BUCKET }}'
           SNAPSHOTTER_ACCESS_KEY: '${{ secrets.SNAPSHOTTER_ACCESS_KEY }}'
           SNAPSHOTTER_SECRET_KEY: '${{ secrets.SNAPSHOTTER_SECRET_KEY }}'
+          SLACK_NOTIFICATION_WEBHOOK: '${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}'
+          GOSHIMMER_DOCKER_IMAGE: 'iotaledger/goshimmer'
           GOSHIMMER_DOCKER_TAG: 'latest'
         run: |
           ./deploy/ansible/run.sh devnet.yml

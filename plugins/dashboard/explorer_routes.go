@@ -40,14 +40,19 @@ type ExplorerMessage struct {
 	StrongApprovers []string `json:"strongApprovers"`
 	// WeakApprovers are the weak approvers of the message.
 	WeakApprovers []string `json:"weakApprovers"`
+	// ShallowLikeApprovers are the shallow like approvers of the message.
+	ShallowLikeApprovers []string `json:"shallowLikeApprovers"`
+	// ShallowDislikeApprovers are the shallow dislike approvers of the message.
+	ShallowDislikeApprovers []string `json:"shallowDislikeApprovers"`
 	// Solid defines the solid status of the message.
 	Solid               bool                `json:"solid"`
-	BranchID            string              `json:"branchID"`
-	MetadataBranchID    string              `json:"metadataBranchID"`
+	BranchIDs           []string            `json:"branchIDs"`
+	AddedBranchIDs      []string            `json:"addedBranchIDs"`
+	SubtractedBranchIDs []string            `json:"subtractedBranchIDs"`
 	Scheduled           bool                `json:"scheduled"`
-	ScheduledBypass     bool                `json:"scheduledBypass"`
 	Booked              bool                `json:"booked"`
-	Invalid             bool                `json:"invalid"`
+	ObjectivelyInvalid  bool                `json:"objectivelyInvalid"`
+	SubjectivelyInvalid bool                `json:"subjectivelyInvalid"`
 	GradeOfFinality     gof.GradeOfFinality `json:"gradeOfFinality"`
 	GradeOfFinalityTime int64               `json:"gradeOfFinalityTime"`
 	// PayloadType defines the type of the payload.
@@ -57,7 +62,6 @@ type ExplorerMessage struct {
 
 	// Structure details
 	Rank          uint64 `json:"rank"`
-	SequenceID    uint64 `json:"sequenceID"`
 	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
@@ -68,12 +72,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageID := msg.ID()
 	cachedMessageMetadata := deps.Tangle.Storage.MessageMetadata(messageID)
 	defer cachedMessageMetadata.Release()
-	messageMetadata := cachedMessageMetadata.Unwrap()
+	messageMetadata, _ := cachedMessageMetadata.Unwrap()
 
-	branchID, err := deps.Tangle.Booker.MessageBranchID(messageID)
-	if err != nil {
-		branchID = ledgerstate.BranchID{}
-	}
+	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
 
 	t := &ExplorerMessage{
 		ID:                      messageID.Base58(),
@@ -84,15 +85,18 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		Signature:               msg.Signature().String(),
 		SequenceNumber:          msg.SequenceNumber(),
 		ParentsByType:           prepareParentReferences(msg),
-		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).ToStrings(),
-		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).ToStrings(),
+		StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.StrongApprover).Base58(),
+		WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.WeakApprover).Base58(),
+		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).Base58(),
+		ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover).Base58(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchID:                branchID.Base58(),
-		MetadataBranchID:        messageMetadata.BranchID().Base58(),
+		BranchIDs:               branchIDs.Base58(),
+		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
+		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
 		Scheduled:               messageMetadata.Scheduled(),
-		ScheduledBypass:         messageMetadata.ScheduledBypass(),
 		Booked:                  messageMetadata.IsBooked(),
-		Invalid:                 messageMetadata.IsInvalid(),
+		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
+		SubjectivelyInvalid:     messageMetadata.IsSubjectivelyInvalid(),
 		GradeOfFinality:         messageMetadata.GradeOfFinality(),
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
@@ -101,7 +105,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 
 	if d := messageMetadata.StructureDetails(); d != nil {
 		t.Rank = d.Rank
-		t.SequenceID = uint64(d.SequenceID)
 		t.PastMarkerGap = d.PastMarkerGap
 		t.IsPastMarker = d.IsPastMarker
 		t.PastMarkers = d.PastMarkers.String()
@@ -179,7 +182,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
-	routeGroup.GET("/branch/:branchID/supporters", ledgerstateAPI.GetBranchSupporters)
+	routeGroup.GET("/branch/:branchID/voters", ledgerstateAPI.GetBranchVoters)
 	routeGroup.POST("/chat", chat.SendChatMessage)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {

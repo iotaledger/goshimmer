@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
@@ -20,16 +20,14 @@ const (
 	syncInterval = 30 * time.Minute
 )
 
-var (
-	// Plugin is the plugin instance of the clock plugin.
-	Plugin *node.Plugin
-)
+// Plugin is the plugin instance of the clock plugin.
+var Plugin *node.Plugin
 
 func init() {
 	Plugin = node.NewPlugin("Clock", nil, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func() *node.Plugin {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+		if err := event.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("clock")); err != nil {
 			Plugin.Panic(err)

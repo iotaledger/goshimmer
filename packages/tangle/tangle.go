@@ -36,8 +36,8 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
+	Dispatcher            *Dispatcher
 	RateSetter            *RateSetter
-	Orderer               *Orderer
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -61,14 +61,17 @@ type ConfirmationOracle interface {
 	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
 	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
 	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
 }
 
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
-	MessageConfirmed     *events.Event
-	BranchConfirmed      *events.Event
-	TransactionConfirmed *events.Event
+	MessageConfirmed      *events.Event
+	BranchConfirmed       *events.Event
+	TransactionConfirmed  *events.Event
+	TransactionGoFChanged *events.Event
+	BranchGoFChanged      *events.Event
 }
 
 // New is the constructor for the Tangle.
@@ -93,9 +96,9 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareLikeReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
-	tangle.Orderer = NewOrderer(tangle)
+	tangle.Dispatcher = NewDispatcher(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -109,6 +112,7 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
+			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -124,8 +128,9 @@ func (t *Tangle) Setup() {
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.RateSetter.Setup()
-	t.Orderer.Setup()
+	t.Dispatcher.Setup()
 	t.Booker.Setup()
+	t.LedgerState.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
@@ -183,17 +188,17 @@ func (t *Tangle) Prune() (err error) {
 
 // Shutdown marks the tangle as stopped, so it will not accept any new messages (waits for all backgroundTasks to finish).
 func (t *Tangle) Shutdown() {
+	t.Requester.Shutdown()
 	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
-	t.Orderer.Shutdown()
+	t.Dispatcher.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
 	t.LedgerState.Shutdown()
 	t.TimeManager.Shutdown()
-	t.Options.Store.Shutdown()
 	t.TipManager.Shutdown()
 
 	if t.WeightProvider != nil {
@@ -245,17 +250,19 @@ type Option func(*Options)
 
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
-	Store                        kvstore.KVStore
-	Identity                     *identity.LocalIdentity
-	IncreaseMarkersIndexCallback markers.IncreaseIndexCallback
-	TangleWidth                  int
-	GenesisNode                  *ed25519.PublicKey
-	SchedulerParams              SchedulerParams
-	RateSetterParams             RateSetterParams
-	WeightProvider               WeightProvider
-	SyncTimeWindow               time.Duration
-	StartSynced                  bool
-	CacheTimeProvider            *database.CacheTimeProvider
+	Store                          kvstore.KVStore
+	Identity                       *identity.LocalIdentity
+	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
+	TangleWidth                    int
+	GenesisNode                    *ed25519.PublicKey
+	SchedulerParams                SchedulerParams
+	RateSetterParams               RateSetterParams
+	WeightProvider                 WeightProvider
+	SyncTimeWindow                 time.Duration
+	TimeSinceConfirmationThreshold time.Duration
+	StartSynced                    bool
+	CacheTimeProvider              *database.CacheTimeProvider
+	LedgerState                    struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -284,6 +291,13 @@ func IncreaseMarkersIndexCallback(callback markers.IncreaseIndexCallback) Option
 func Width(width int) Option {
 	return func(options *Options) {
 		options.TangleWidth = width
+	}
+}
+
+// TimeSinceConfirmationThreshold is an Option for the Tangle that allows to set threshold for Time Since Confirmation check.
+func TimeSinceConfirmationThreshold(tscThreshold time.Duration) Option {
+	return func(options *Options) {
+		options.TimeSinceConfirmationThreshold = tscThreshold
 	}
 }
 
@@ -345,6 +359,13 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
+// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
+func MergeBranches(mergeBranches bool) Option {
+	return func(o *Options) {
+		o.LedgerState.MergeBranches = mergeBranches
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region WeightProvider //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -358,8 +379,8 @@ type WeightProvider interface {
 	// Weight returns the weight and total weight for the given message.
 	Weight(message *Message) (weight, totalWeight float64)
 
-	// WeightsOfRelevantSupporters returns all relevant weights.
-	WeightsOfRelevantSupporters() (weights map[identity.ID]float64, totalWeight float64)
+	// WeightsOfRelevantVoters returns all relevant weights.
+	WeightsOfRelevantVoters() (weights map[identity.ID]float64, totalWeight float64)
 
 	// Shutdown shuts down the WeightProvider and persists its state.
 	Shutdown()

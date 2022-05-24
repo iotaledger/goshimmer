@@ -1,6 +1,0 @@
-{
-  label: "GoShimmer Node",
-  to: "goshimmer/welcome",
-  className: "icon-goshimmer",
-  activeBaseRegex: 'goshimmer/.*'
-},

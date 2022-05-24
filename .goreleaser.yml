@@ -13,7 +13,7 @@ builds:
   - id: goshimmer
     binary: goshimmer
     flags:
-      - -tags=rocksdb,builtin_static,netgo
+      - -tags=rocksdb
     ldflags:
       - -s -w -X github.com/iotaledger/goshimmer/plugins/banner.AppVersion={{.Version}}
     goos:
@@ -33,6 +33,20 @@ builds:
       - windows
     goarch:
       - amd64
+
+  # evil-spammer AMD64 all OS
+  - id: evil-spammer
+    dir: ./tools/evil-spammer
+    binary: evil-spammer
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+
 
 # Archives
 archives:
@@ -74,6 +88,25 @@ archives:
         format: zip
     files:
       - LICENSE
+
+  # evil-spammer
+  - id: evil-spammer
+    builds:
+      - evil-spammer
+    name_template: "evil-spammer-{{.Version}}_{{.Os}}_{{.Arch}}"
+    replacements:
+      amd64: x86_64
+      arm: ARM
+      arm64: ARM64
+      darwin: macOS
+      linux: Linux
+      windows: Windows
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+
 
 # Checksum
 checksum:

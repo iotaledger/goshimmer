@@ -160,7 +160,7 @@ func sendManaMapOnline() {
 		Data: accessPayload,
 	})
 
-	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantSupporters()
+	weights, totalWeight := deps.Tangle.WeightProvider.WeightsOfRelevantVoters()
 	consensusPayload := &ManaNetworkListMsgData{ManaType: mana.ConsensusMana.String()}
 	for nodeID, weight := range weights {
 		n := mana.Node{
@@ -207,16 +207,14 @@ func sendAllowedManaPledge(ws *websocket.Conn) error {
 
 	wsmsgData := &AllowedPledgeIDsMsgData{}
 	wsmsgData.Access.Enabled = allowedAccess.IsFilterEnabled
-	allowedAccess.Allowed.ForEach(func(element interface{}) {
-		ID := element.(identity.ID)
+	allowedAccess.Allowed.ForEach(func(ID identity.ID) {
 		wsmsgData.Access.AllowedNodeIDs = append(wsmsgData.Access.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),
 		})
 	})
 	wsmsgData.Consensus.Enabled = allowedConsensus.IsFilterEnabled
-	allowedConsensus.Allowed.ForEach(func(element interface{}) {
-		ID := element.(identity.ID)
+	allowedConsensus.Allowed.ForEach(func(ID identity.ID) {
 		wsmsgData.Consensus.AllowedNodeIDs = append(wsmsgData.Consensus.AllowedNodeIDs, AllowedNodeStr{
 			ShortID: ID.String(),
 			FullID:  base58.Encode(ID.Bytes()),

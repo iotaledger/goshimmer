@@ -10,7 +10,8 @@ import (
 type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
-
+	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed messages in its past cone will not be selected.
+	TimeSinceConfirmationThreshold time.Duration `default:"12m" usage:"Time Since Confirmation (TSC) threshold"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
@@ -63,10 +64,12 @@ type RateSetterParametersDefinition struct {
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
-	// MaxBufferSize defines the maximum buffer size (in bytes).
-	MaxBufferSize int `default:"100000000" usage:"maximum buffer size (in bytes)"` // 100 MB
-	// SchedulerRate defines the frequency to schedule a message.
+	// MaxBufferSize defines the maximum buffer size (in number of messages).
+	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 messages
+	// Rate defines the frequency to schedule a message. `default:"5ms" usage:"message scheduling interval [time duration string]"`
 	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
+	// ConfirmedMessageThreshold time threshold after which confirmed messages are not scheduled [time duration string]
+	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed messages are not scheduled [time duration string]"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.

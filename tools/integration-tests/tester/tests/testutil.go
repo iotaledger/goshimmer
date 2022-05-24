@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/hive.go/datastructure/walker"
+
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
@@ -18,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -36,82 +41,62 @@ const (
 	FaucetFundingOutputsAddrStart = 127
 )
 
-// SnapshotInfo stores the details about snapshots created for integration tests
-type SnapshotInfo struct {
-	FilePath            string
-	PeersSeedBase58     []string
-	PeersAmountsPledged []int
-	GenesisTokenAmount  int // pledged to peer master
-}
-
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
-var EqualSnapshotDetails = &SnapshotInfo{
-	FilePath: "/assets/equal_intgr_snapshot.bin",
-	// nodeIDs: dAnF7pQ6k7a, H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
+var EqualSnapshotDetails = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/equal_snapshot.bin",
+	// node ID: dAnF7pQ6k7a
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
+	GenesisTokenAmount: 2_500_000_000_000_000, // pledged to peer master
+	// peer IDs: H6jzPnLbjsh, JHxvcap7xhv, 7rRpyEGU7Sf
 	PeersSeedBase58: []string{
-		"3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E",
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL",
 		"CmFVE14Yh9rqn2FrXD8s7ybRoRN5mUnqQxLAuD5HF2em",
 		"DuJuWE3hisFrFK1HmrXkd9FSsNNWbw58JcQnKdBn6TdN",
 	},
-	PeersAmountsPledged: []int{2500000000000000, 2500000000000000, 2500000000000000, 2500000000000000},
-	GenesisTokenAmount:  2500000000000000,
+	PeersAmountsPledged: []uint64{2_500_000_000_000_000, 2_500_000_000_000_000, 2_500_000_000_000_000},
 }
 
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
-var ConsensusSnapshotDetails = &SnapshotInfo{
-	FilePath: "/assets/consensus_intgr_snapshot_aw75.bin",
-	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp, 4AeXyZ26e4G
+var ConsensusSnapshotDetails = framework.SnapshotInfo{
+	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
+	// node ID: 4AeXyZ26e4G
+	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
+	GenesisTokenAmount: 800_000, // pledged to peer master
+	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
 	PeersSeedBase58: []string{
 		"Bk69VaYsRuiAaKn8hK6KxUj45X5dED3ueRtxfYnsh4Q8",
 		"HUH4rmxUxMZBBtHJ4QM5Ts6s8DP3HnFpChejntnCxto2",
-		"EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	},
-	PeersAmountsPledged: []int{1600000, 800000, 800000},
-	GenesisTokenAmount:  800000, // pledged to peer master
-
+	PeersAmountsPledged: []uint64{1_600_000, 800_000},
 }
 
-// getIdentSeeds returns decoded seed bytes for equal integration tests snapshot
-func getIdentSeeds(t *testing.T) [][]byte {
-	peerSeeds := make([][]byte, 4)
-	peerSeeds[0] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[0])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[1] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[1])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[2] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[2])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	peerSeeds[3] = func() []byte {
-		seedBytes, err := base58.Decode(EqualSnapshotDetails.PeersSeedBase58[3])
-		require.NoError(t, err)
-		return seedBytes
-	}()
-	return peerSeeds
+// GetIdentSeed returns decoded seed bytes for the supplied SnapshotInfo and peer index
+func GetIdentSeed(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) []byte {
+	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+	require.NoError(t, err)
+	return seedBytes
 }
 
-// EqualDefaultConfigFunc returns configuration for network that uses equal integration test snapshot
-var EqualDefaultConfigFunc = func(t *testing.T, skipFirst bool) func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-	return func(peerIndex int, cfg config.GoShimmer) config.GoShimmer {
-		cfg.MessageLayer.Snapshot.File = EqualSnapshotDetails.FilePath
-		peerSeeds := getIdentSeeds(t)
-		offset := 0
-		if skipFirst {
-			offset += 1
+// CommonSnapshotConfigFunc returns a peer configuration altering function that uses the specified Snapshot information for all peers.
+// If a cfgFunc is provided, further manipulation of the base config for every peer is possible.
+func CommonSnapshotConfigFunc(t *testing.T, snaphotInfo framework.SnapshotInfo, cfgFunc ...framework.CfgAlterFunc) framework.CfgAlterFunc {
+	return func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
+		conf.MessageLayer.Snapshot.File = snaphotInfo.FilePath
+		if isPeerMaster {
+			seedBytes, err := base58.Decode(snaphotInfo.MasterSeed)
+			require.NoError(t, err)
+			conf.Seed = seedBytes
+			return conf
 		}
-		i := peerIndex + offset
-		require.Lessf(t, i, len(peerSeeds), "index=%d out of range for peerSeeds=%d", i, len(peerSeeds))
-		cfg.Seed = peerSeeds[i]
 
-		return cfg
+		require.Lessf(t, peerIndex, len(snaphotInfo.PeersSeedBase58), "index=%d out of range for peerSeeds=%d", peerIndex, len(snaphotInfo.PeersSeedBase58))
+		conf.Seed = GetIdentSeed(t, snaphotInfo, peerIndex)
+
+		if len(cfgFunc) > 0 {
+			conf = cfgFunc[0](peerIndex, isPeerMaster, conf)
+		}
+
+		return conf
 	}
 }
 
@@ -184,10 +169,10 @@ func AwaitInitialFaucetOutputsPrepared(t *testing.T, faucet *framework.Node, pee
 }
 
 // AddressUnspentOutputs returns the unspent outputs on address.
-func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address) []jsonmodels.WalletOutput {
+func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgerstate.Address, numOfExpectedOuts int) []jsonmodels.WalletOutput {
 	resp, err := node.PostAddressUnspentOutputs([]string{address.Base58()})
 	require.NoErrorf(t, err, "node=%s, address=%s, PostAddressUnspentOutputs failed", node, address.Base58())
-	require.Lenf(t, resp.UnspentOutputs, 1, "invalid response")
+	require.Lenf(t, resp.UnspentOutputs, numOfExpectedOuts, "invalid response")
 	require.Equalf(t, address.Base58(), resp.UnspentOutputs[0].Address.Base58, "invalid response")
 
 	return resp.UnspentOutputs[0].Outputs
@@ -195,7 +180,7 @@ func AddressUnspentOutputs(t *testing.T, node *framework.Node, address ledgersta
 
 // Balance returns the total balance of color at address.
 func Balance(t *testing.T, node *framework.Node, address ledgerstate.Address, color ledgerstate.Color) uint64 {
-	unspentOutputs := AddressUnspentOutputs(t, node, address)
+	unspentOutputs := AddressUnspentOutputs(t, node, address, 1)
 
 	var sum uint64
 	for _, output := range unspentOutputs {
@@ -225,11 +210,64 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr ledgerstate.Addr
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 
-	// Make sure the message is available on the peer itself and has gof.High.
-	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.High)
+	// Make sure the message is available on the peer itself and has gof.Low.
+	RequireMessagesAvailable(t, []*framework.Node{node}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.Low)
 
 	return resp.ID, sent
 }
+
+// region CreateTransaction from outputs //////////////////////////////
+
+// CreateTransactionFromOutputs takes the given utxos inputs and create a transaction that spreads the total input balance
+// across the targetAddresses. In order to correctly sign we have a keyPair map that maps a given address to its public key.
+// Access and Consensus Mana is pledged to the node we specify.
+func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, targetAddresses []ledgerstate.Address, keyPairs map[string]*ed25519.KeyPair, utxos ...ledgerstate.Output) *ledgerstate.Transaction {
+	// Create Inputs from utxos
+	inputs := ledgerstate.Inputs{}
+	balances := map[ledgerstate.Color]uint64{}
+	for _, output := range utxos {
+		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			balances[color] += balance
+			return true
+		})
+		inputs = append(inputs, output.Input())
+	}
+
+	// create outputs for each target address
+	numberOfOutputs := len(targetAddresses)
+	outputs := make(ledgerstate.Outputs, numberOfOutputs)
+	for i := 0; i < numberOfOutputs; i++ {
+		outBalances := map[ledgerstate.Color]uint64{}
+		for color, balance := range balances {
+			// divide by number of outputs to spread funds evenly
+			outBalances[color] = balance / uint64(numberOfOutputs)
+			if i == numberOfOutputs-1 {
+				// on the last iteration add the remainder so all funds are consumed
+				outBalances[color] += balance % uint64(numberOfOutputs)
+			}
+		}
+		outputs[i] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(outBalances), targetAddresses[i])
+	}
+
+	// create tx essence
+	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), manaPledgeID,
+		manaPledgeID, inputs, ledgerstate.NewOutputs(outputs...))
+
+	// create signatures
+	unlockBlocks := make([]ledgerstate.UnlockBlock, len(inputs))
+
+	for i := 0; i < len(inputs); i++ {
+		addressKey := utxos[i].Address().String()
+		keyPair := keyPairs[addressKey]
+		require.NotNilf(t, keyPair, "missing key pair for address %s", addressKey)
+		sig := ledgerstate.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
+		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(sig)
+	}
+
+	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
+}
+
+// endregion
 
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
@@ -265,13 +303,31 @@ func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, id
 	return result
 }
 
+// SendDataMessagesWithDelay sends a total of numMessages data messages, each after a delay interval, and saves the sent message to a map.
+// It chooses the peers to send the messages from in a round-robin fashion.
+func SendDataMessagesWithDelay(t *testing.T, peers []*framework.Node, numMessages int, delay time.Duration) (result map[string]DataMessageSent) {
+	result = make(map[string]DataMessageSent, numMessages)
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	for i := 0; i < numMessages; i++ {
+		data := []byte(fmt.Sprintf("Test: %d", i))
+
+		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
+		result[id] = sent
+		<-ticker.C
+	}
+
+	return
+}
+
 // SendTransaction sends a transaction of value and color. It returns the transactionID and the error return by PostTransaction.
 // If addrBalance is given the balance mutation are added to that map.
 func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, color ledgerstate.Color, value uint64, txConfig TransactionConfig, addrBalance ...map[string]map[ledgerstate.Color]uint64) (string, error) {
 	inputAddr := from.Seed.Address(txConfig.FromAddressIndex).Address()
 	outputAddr := to.Seed.Address(txConfig.ToAddressIndex).Address()
 
-	unspentOutputs := AddressUnspentOutputs(t, from, inputAddr)
+	unspentOutputs := AddressUnspentOutputs(t, from, inputAddr, 1)
 	require.NotEmptyf(t, unspentOutputs, "address=%s, no unspent outputs", inputAddr.Base58())
 
 	inputColor := color
@@ -421,7 +477,7 @@ func RequireBalancesEqual(t *testing.T, nodes []*framework.Node, balancesByAddre
 func RequireNoUnspentOutputs(t *testing.T, nodes []*framework.Node, addresses ...ledgerstate.Address) {
 	for _, node := range nodes {
 		for _, addr := range addresses {
-			unspent := AddressUnspentOutputs(t, node, addr)
+			unspent := AddressUnspentOutputs(t, node, addr, 1)
 			require.Empty(t, unspent, "address %s should not have any UTXOs", addr)
 		}
 	}
@@ -545,4 +601,185 @@ func txMetadataStateEqual(t *testing.T, node *framework.Node, txID string, expIn
 		return false, metadata.GradeOfFinality
 	}
 	return true, metadata.GradeOfFinality
+}
+
+// ConfirmedOnAllPeers checks if the msg is confirmed on all supplied peers.
+func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
+	for _, peer := range peers {
+		metadata, err := peer.GetMessageMetadata(msgID)
+		if err != nil {
+			return false
+		}
+		if metadata.GradeOfFinality != gof.High {
+			return false
+		}
+	}
+	return true
+}
+
+// TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
+func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
+	var peers []*framework.Node
+	for _, peer := range n.Peers() {
+		if _, err := peer.GetMessage(msgID); err == nil {
+			peers = append(peers, peer)
+		}
+	}
+	if len(peers) == 0 {
+		log.Println("msg ", msgID, "is not found on any node")
+		t.FailNow()
+	}
+
+	var i int
+	timer := time.NewTimer(waitFor)
+	defer timer.Stop()
+	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timer.C:
+			log.Println("timeout")
+			t.FailNow()
+		case <-ticker.C:
+			if ConfirmedOnAllPeers(msgID, requiredPeers) {
+				log.Println("msg is confirmed on all required peers")
+				return
+			}
+		default:
+			// sort nodes by cmana before issuing?
+			node := peers[i%len(peers)]
+			if _, err := node.Data([]byte("test")); err != nil {
+				log.Println("send message on node: ", node.ID().String())
+			}
+			i++
+		}
+	}
+}
+
+// IsBranchConfirmedOnAllPeers returns true if the branch is confirmed on all supplied nodes.
+func IsBranchConfirmedOnAllPeers(branchID string, peers []*framework.Node) bool {
+	for _, peer := range peers {
+		branch, err := peer.GetBranch(branchID)
+		if err != nil {
+			return false
+		}
+		if branch.GradeOfFinality != gof.High {
+			return false
+		}
+	}
+	return true
+}
+
+func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.Message, err error) {
+	branch, err := peer.GetBranch(branchID)
+	if err != nil {
+		return
+	}
+	attachments, err := peer.GetTransactionAttachments(branchID)
+	if err != nil {
+		return
+	}
+	approversWalker := walker.New(false)
+	for _, msgID := range attachments.MessageIDs {
+		approversWalker.Push(msgID)
+	}
+	for approversWalker.HasNext() {
+		tip, err = peer.GetMessage(approversWalker.Next().(string))
+		if err != nil {
+			return
+		}
+		for _, approverMsgID := range tip.StrongApprovers {
+			var (
+				approverMsg *jsonmodels.Message
+				metadata    *jsonmodels.MessageMetadata
+			)
+			if approverMsg, err = peer.GetMessage(approverMsgID); err == nil {
+				if metadata, err = peer.GetMessageMetadata(approverMsgID); err == nil {
+					if metadata.BranchIDs[0] == branch.ID {
+						approversWalker.Push(approverMsgID)
+						continue
+					}
+
+					approverLikes := false
+					for _, like := range approverMsg.ShallowLikeParents {
+						if like == tip.ID {
+							approverLikes = true
+							break
+						}
+					}
+					if approverLikes {
+						approversWalker.Push(approverMsgID)
+						continue
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
+// TryConfirmBranch tries to confirm the given branch in the duration specified.
+func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
+	if branchID == ledgerstate.MasterBranchID.Base58() {
+		return
+	}
+
+	// check that the branch exists in the network and fail fast if it does not
+	exists := false
+	for _, peer := range n.Peers() {
+		if _, err := peer.GetBranch(branchID); err == nil {
+			exists = true
+			break
+		}
+	}
+	require.True(t, exists, "branch does not exists on any node")
+
+	// get tip to attach
+	tip, err := findAttachmentMsg(requiredPeers[0], branchID)
+	require.NoError(t, err)
+
+	// issue messages on top of tip.
+	timer := time.NewTimer(waitFor)
+	defer timer.Stop()
+	ticker := time.NewTicker(tick)
+	defer ticker.Stop()
+	var i int
+	peers := n.Peers()
+
+	for {
+		select {
+		case <-timer.C:
+			require.FailNow(t, "timeout")
+		case <-ticker.C:
+			if IsBranchConfirmedOnAllPeers(branchID, requiredPeers) {
+				return
+			}
+		default:
+			var parentMessageIDs []jsonmodels.ParentMessageIDs
+			if ID, err := tangle.NewMessageID(tip.ID); err == nil {
+				if tip.PayloadType == ledgerstate.TransactionType.String() {
+					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+						Type:       uint8(tangle.ShallowLikeParentType),
+						MessageIDs: []string{ID.Base58()},
+					})
+				}
+				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
+					Type:       uint8(tangle.StrongParentType),
+					MessageIDs: []string{ID.Base58()},
+				})
+			}
+
+			require.NoError(t, err)
+			tipMsgID, err := peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
+				Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
+				ParentMessageIDs: parentMessageIDs,
+			})
+			require.NoError(t, err)
+			tip, err = peers[i%len(peers)].GetMessage(tipMsgID)
+			require.NoError(t, err)
+			time.Sleep(500 * time.Millisecond)
+			i++
+		}
+	}
 }

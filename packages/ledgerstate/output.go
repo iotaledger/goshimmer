@@ -2,6 +2,7 @@ package ledgerstate
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"sort"
@@ -10,20 +11,61 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serix"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/objectstorage"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(SigLockedSingleOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedSingleOutput).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedSingleOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(SigLockedColoredOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(SigLockedColoredOutput).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering SigLockedColoredOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(AliasOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(AliasOutput).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering AliasOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(ExtendedLockedOutput{}, serix.TypeSettings{}.WithObjectType(uint8(new(ExtendedLockedOutput).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering ExtendedLockedOutput type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	if err != nil {
+		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterValidators(OutputID{}, validateOutputIDBytes, validateOutputID)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
+	}
+}
+
+func validateOutputID(_ context.Context, outputID OutputID) (err error) {
+	if outputID.OutputIndex() >= MaxOutputCount {
+		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return nil
+}
+
+func validateOutputIDBytes(_ context.Context, _ []byte) (err error) {
+	return
+}
 
 // region Constraints for syntactical validation ///////////////////////////////////////////////////////////////////////
 
@@ -114,14 +156,12 @@ func NewOutputID(transactionID TransactionID, outputIndex uint16) (outputID Outp
 }
 
 // OutputIDFromBytes unmarshals an OutputID from a sequence of bytes.
-func OutputIDFromBytes(bytes []byte) (outputID OutputID, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputID, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID from MarshalUtil: %w", err)
+func OutputIDFromBytes(data []byte) (outputID OutputID, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &outputID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
 	return
 }
 
@@ -135,23 +175,6 @@ func OutputIDFromBase58(base58String string) (outputID OutputID, err error) {
 
 	if outputID, _, err = OutputIDFromBytes(decodedBytes); err != nil {
 		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return
-	}
-
-	return
-}
-
-// OutputIDFromMarshalUtil unmarshals an OutputID using a MarshalUtil (for easier unmarshaling).
-func OutputIDFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	outputIDBytes, err := marshalUtil.ReadBytes(OutputIDLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	copy(outputID[:], outputIDBytes)
-
-	if outputID.OutputIndex() >= MaxOutputCount {
-		err = errors.Errorf("output index exceeds threshold defined by MaxOutputCount (%d): %w", MaxOutputCount, cerrors.ErrParseBytesFailed)
 		return
 	}
 
@@ -240,44 +263,33 @@ type Output interface {
 	objectstorage.StorableObject
 }
 
-// OutputFromBytes unmarshals an Output from a sequence of bytes.
-func OutputFromBytes(bytes []byte) (output Output, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if output, err = OutputFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// OutputFromMarshalUtil unmarshals an Output using a MarshalUtil (for easier unmarshaling).
-func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output, err error) {
-	outputType, err := marshalUtil.ReadByte()
+// OutputFromBytes restores an Output that was stored in the ObjectStorage.
+func OutputFromBytes(data []byte) (output Output, err error) {
+	// could be refactored to not duplicate code with FromObjectStorage
+	var outputType OutputType
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputType)
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
-	marshalUtil.ReadSeek(-1)
-
-	switch OutputType(outputType) {
+	switch outputType {
 	case SigLockedSingleOutputType:
-		if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
+		if output, err = new(SigLockedSingleOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 			return
 		}
 	case SigLockedColoredOutputType:
-		if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
+		if output, err = new(SigLockedColoredOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 			return
 		}
 	case AliasOutputType:
-		if output, err = AliasOutputFromMarshalUtil(marshalUtil); err != nil {
+		if output, err = new(AliasOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse AliasOutput: %w", err)
 			return
 		}
 	case ExtendedLockedOutputType:
-		if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
+		if output, err = new(ExtendedLockedOutput).FromBytes(data); err != nil {
 			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
 			return
 		}
@@ -287,22 +299,44 @@ func OutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output Output,
 		return
 	}
 
-	return
+	return output, err
 }
 
 // OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
-	if output, _, err = OutputFromBytes(data); err != nil {
-		err = errors.Errorf("failed to parse Output from bytes: %w", err)
+func OutputFromObjectStorage(key, value []byte) (output objectstorage.StorableObject, err error) {
+	var outputType OutputType
+	_, err = serix.DefaultAPI.Decode(context.Background(), value, &outputType)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
 		return
 	}
 
-	outputID, _, err := OutputIDFromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+	switch outputType {
+	case SigLockedSingleOutputType:
+		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, value); err != nil {
+			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
+			return
+		}
+	case SigLockedColoredOutputType:
+		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, value); err != nil {
+			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+			return
+		}
+	case AliasOutputType:
+		if output, err = new(AliasOutput).FromObjectStorage(key, value); err != nil {
+			err = errors.Errorf("failed to parse AliasOutput: %w", err)
+			return
+		}
+	case ExtendedLockedOutputType:
+		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, value); err != nil {
+			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
+			return
+		}
+
+	default:
+		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 		return
 	}
-	output.(Output).SetID(outputID)
 
 	return
 }
@@ -339,6 +373,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 		}{output, marshaledOutput})
 	}
 
+	// TODO: does this need to be sorted?
 	// sort outputs
 	sort.Slice(sortedOutputs, func(i, j int) bool {
 		return bytes.Compare(sortedOutputs[i].outputSerialized, sortedOutputs[j].outputSerialized) < 0
@@ -356,54 +391,6 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	if len(outputs) > MaxOutputCount {
 		panic(fmt.Sprintf("amount of Outputs (%d) exceeds MaxOutputCount (%d)", len(outputs), MaxOutputCount))
 	}
-
-	return
-}
-
-// OutputsFromBytes unmarshals a collection of Outputs from a sequence of bytes.
-func OutputsFromBytes(outputBytes []byte) (outputs Outputs, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(outputBytes)
-	if outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// OutputsFromMarshalUtil unmarshals a collection of Outputs using a MarshalUtil (for easier unmarshaling).
-func OutputsFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputs Outputs, err error) {
-	outputsCount, err := marshalUtil.ReadUint16()
-	if err != nil {
-		err = errors.Errorf("failed to parse outputs count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputsCount < MinOutputCount {
-		err = errors.Errorf("amount of Outputs (%d) failed to reach MinOutputCount (%d): %w", outputsCount, MinOutputCount, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputsCount > MaxOutputCount {
-		err = errors.Errorf("amount of Outputs (%d) exceeds MaxOutputCount (%d): %w", outputsCount, MaxOutputCount, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	var previousOutput Output
-	parsedOutputs := make([]Output, outputsCount)
-	for i := uint16(0); i < outputsCount; i++ {
-		if parsedOutputs[i], err = OutputFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse Output from MarshalUtil: %w", err)
-			return
-		}
-
-		if previousOutput != nil && previousOutput.Compare(parsedOutputs[i]) != -1 {
-			err = errors.Errorf("order of Outputs is invalid: %w", cerrors.ErrParseBytesFailed)
-			return
-		}
-		previousOutput = parsedOutputs[i]
-	}
-
-	outputs = NewOutputs(parsedOutputs...)
 
 	return
 }
@@ -452,16 +439,15 @@ func (o Outputs) Filter(condition func(output Output) bool) (filteredOutputs Out
 
 // Bytes returns a marshaled version of the Outputs.
 func (o Outputs) Bytes() []byte {
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteUint16(uint16(len(o)))
-	for _, output := range o {
-		marshalUtil.WriteBytes(output.Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
-// String returns a human readable version of the Outputs.
+// String returns a human-readable version of the Outputs.
 func (o Outputs) String() string {
 	structBuilder := stringify.StructBuilder("Outputs")
 	for i, output := range o {
@@ -544,10 +530,14 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	id      OutputID
+	sigLockedSingleOutputInner `serix:"0"`
+}
+
+type sigLockedSingleOutputInner struct {
+	ID      OutputID
 	idMutex sync.RWMutex
-	balance uint64
-	address Address
+	Balance uint64  `serix:"0"`
+	Address Address `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -555,51 +545,41 @@ type SigLockedSingleOutput struct {
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
 	return &SigLockedSingleOutput{
-		balance: balance,
-		address: address,
+		sigLockedSingleOutputInner{
+			Balance: balance,
+			Address: address,
+		},
 	}
 }
 
-// SigLockedSingleOutputFromBytes unmarshals a SigLockedSingleOutput from a sequence of bytes.
-func SigLockedSingleOutputFromBytes(bytes []byte) (output *SigLockedSingleOutput, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if output, err = SigLockedSingleOutputFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SigLockedSingleOutput from MarshalUtil: %w", err)
+// FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
+func (s *SigLockedSingleOutput) FromObjectStorage(key, value []byte) (sigLockedSingleOutput objectstorage.StorableObject, err error) {
+	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
+		sigLockedSingleOutput = new(SigLockedSingleOutput)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), value, sigLockedSingleOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.sigLockedSingleOutputInner.ID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedSingleOutput.ID: %w", err)
+		return
+	}
 	return
 }
 
-// SigLockedSingleOutputFromMarshalUtil unmarshals a SigLockedSingleOutput using a MarshalUtil (for easier unmarshaling).
-func SigLockedSingleOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedSingleOutput, err error) {
-	outputType, err := marshalUtil.ReadByte()
+// FromBytes creates an SigLockedSingleOutput from sequence of bytes.
+func (s *SigLockedSingleOutput) FromBytes(data []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
+	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
+		sigLockedSingleOutput = new(SigLockedSingleOutput)
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedSingleOutput, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if OutputType(outputType) != SigLockedSingleOutputType {
-		err = errors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	output = &SigLockedSingleOutput{}
-	if output.balance, err = marshalUtil.ReadUint64(); err != nil {
-		err = errors.Errorf("failed to parse balance (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	if output.balance < MinOutputBalance {
-		err = errors.Errorf("balance (%d) is smaller than MinOutputBalance (%d): %w", output.balance, MinOutputBalance, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if output.balance > MaxOutputBalance {
-		err = errors.Errorf("balance (%d) is bigger than MaxOutputBalance (%d): %w", output.balance, MaxOutputBalance, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
 		return
 	}
 
@@ -611,7 +591,7 @@ func (s *SigLockedSingleOutput) ID() OutputID {
 	s.idMutex.RLock()
 	defer s.idMutex.RUnlock()
 
-	return s.id
+	return s.sigLockedSingleOutputInner.ID
 }
 
 // SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
@@ -622,7 +602,7 @@ func (s *SigLockedSingleOutput) SetID(outputID OutputID) Output {
 	s.idMutex.Lock()
 	defer s.idMutex.Unlock()
 
-	s.id = outputID
+	s.sigLockedSingleOutputInner.ID = outputID
 
 	return s
 }
@@ -635,7 +615,7 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
-		ColorIOTA: s.balance,
+		ColorIOTA: s.sigLockedSingleOutputInner.Balance,
 	})
 
 	return balances
@@ -646,20 +626,20 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.sigLockedSingleOutputInner.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		if s.sigLockedSingleOutputInner.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.sigLockedSingleOutputInner.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedSingleOutput: referenced input must be AliasOutput")
 		}
-		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.sigLockedSingleOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedSingleOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -673,7 +653,7 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
-	return s.address
+	return s.sigLockedSingleOutputInner.Address
 }
 
 // Input returns an Input that references the Output.
@@ -688,20 +668,17 @@ func (s *SigLockedSingleOutput) Input() Input {
 // Clone creates a copy of the Output.
 func (s *SigLockedSingleOutput) Clone() Output {
 	return &SigLockedSingleOutput{
-		id:      s.id,
-		balance: s.balance,
-		address: s.address.Clone(),
+		sigLockedSingleOutputInner{
+			ID:      s.sigLockedSingleOutputInner.ID,
+			Balance: s.sigLockedSingleOutputInner.Balance,
+			Address: s.sigLockedSingleOutputInner.Address.Clone(),
+		},
 	}
 }
 
 // Bytes returns a marshaled version of the Output.
 func (s *SigLockedSingleOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *SigLockedSingleOutput) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // UpdateMintingColor does nothing for SigLockedSingleOutput.
@@ -712,17 +689,23 @@ func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
-	return s.ID().Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteByte(byte(SigLockedSingleOutputType)).
-		WriteUint64(s.balance).
-		WriteBytes(s.address.Bytes()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
@@ -734,14 +717,14 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // String returns a human readable version of the Output.
 func (s *SigLockedSingleOutput) String() string {
 	return stringify.Struct("SigLockedSingleOutput",
-		stringify.StructField("id", s.ID()),
-		stringify.StructField("address", s.address),
-		stringify.StructField("balance", s.balance),
+		stringify.StructField("ID", s.ID()),
+		stringify.StructField("Address", s.sigLockedSingleOutputInner.Address),
+		stringify.StructField("Balance", s.sigLockedSingleOutputInner.Balance),
 	)
 }
 
 // code contract (make sure the type implements all required methods)
-var _ Output = &SigLockedSingleOutput{}
+var _ Output = new(SigLockedSingleOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -750,10 +733,13 @@ var _ Output = &SigLockedSingleOutput{}
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
+	sigLockedColoredOutputInner `serix:"0"`
+}
+type sigLockedColoredOutputInner struct {
 	id       OutputID
 	idMutex  sync.RWMutex
-	balances *ColoredBalances
-	address  Address
+	Balances *ColoredBalances `serix:"0"`
+	Address  Address          `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -761,45 +747,43 @@ type SigLockedColoredOutput struct {
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
 	return &SigLockedColoredOutput{
-		balances: balances,
-		address:  address,
+		sigLockedColoredOutputInner{
+			Balances: balances,
+			Address:  address,
+		},
 	}
 }
 
-// SigLockedColoredOutputFromBytes unmarshals a SigLockedColoredOutput from a sequence of bytes.
-func SigLockedColoredOutputFromBytes(bytes []byte) (output *SigLockedColoredOutput, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if output, err = SigLockedColoredOutputFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput from MarshalUtil: %w", err)
+// FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
+func (s *SigLockedColoredOutput) FromObjectStorage(key, value []byte) (sigLockedColoredOutput objectstorage.StorableObject, err error) {
+	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
+		sigLockedColoredOutput = new(SigLockedColoredOutput)
+	}
+	_, err = serix.DefaultAPI.Decode(context.Background(), value, sigLockedColoredOutput, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
+		return
+	}
 	return
 }
 
-// SigLockedColoredOutputFromMarshalUtil unmarshals a SigLockedColoredOutput using a MarshalUtil (for easier unmarshaling).
-func SigLockedColoredOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *SigLockedColoredOutput, err error) {
-	outputType, err := marshalUtil.ReadByte()
+// FromBytes creates an SigLockedColoredOutput from sequence of bytes.
+func (s *SigLockedColoredOutput) FromBytes(data []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
+	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
+		sigLockedColoredOutput = new(SigLockedColoredOutput)
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedColoredOutput, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
 		return
 	}
-	if OutputType(outputType) != SigLockedColoredOutputType {
-		err = errors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	output = &SigLockedColoredOutput{}
-	if output.balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ColoredBalances: %w", err)
-		return
-	}
-	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
 	return
 }
 
@@ -831,7 +815,7 @@ func (s *SigLockedColoredOutput) Type() OutputType {
 
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
-	return s.balances
+	return s.sigLockedColoredOutputInner.Balances
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
@@ -839,20 +823,20 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.sigLockedColoredOutputInner.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.address.Type().String())
+		if s.sigLockedColoredOutputInner.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.sigLockedColoredOutputInner.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedColoredOutput: referenced input must be AliasOutput")
 		}
-		if !s.address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.sigLockedColoredOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedColoredOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -866,7 +850,7 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
-	return s.address
+	return s.sigLockedColoredOutputInner.Address
 }
 
 // Input returns an Input that references the Output.
@@ -881,9 +865,11 @@ func (s *SigLockedColoredOutput) Input() Input {
 // Clone creates a copy of the Output.
 func (s *SigLockedColoredOutput) Clone() Output {
 	return &SigLockedColoredOutput{
-		id:       s.id,
-		balances: s.balances.Clone(),
-		address:  s.address.Clone(),
+		sigLockedColoredOutputInner{
+			id:       s.sigLockedColoredOutputInner.id,
+			Balances: s.sigLockedColoredOutputInner.Balances.Clone(),
+			Address:  s.sigLockedColoredOutputInner.Address.Clone(),
+		},
 	}
 }
 
@@ -906,25 +892,26 @@ func (s *SigLockedColoredOutput) Bytes() []byte {
 	return s.ObjectStorageValue()
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (s *SigLockedColoredOutput) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
-}
-
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
-	return s.id.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.id, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteByte(byte(SigLockedColoredOutputType)).
-		WriteBytes(s.balances.Bytes()).
-		WriteBytes(s.address.Bytes()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
@@ -937,13 +924,13 @@ func (s *SigLockedColoredOutput) Compare(other Output) int {
 func (s *SigLockedColoredOutput) String() string {
 	return stringify.Struct("SigLockedColoredOutput",
 		stringify.StructField("id", s.ID()),
-		stringify.StructField("address", s.address),
-		stringify.StructField("balances", s.balances),
+		stringify.StructField("Address", s.sigLockedColoredOutputInner.Address),
+		stringify.StructField("Balances", s.sigLockedColoredOutputInner.Balances),
 	)
 }
 
 // code contract (make sure the type implements all required methods)
-var _ Output = &SigLockedColoredOutput{}
+var _ Output = new(SigLockedColoredOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1059,9 +1046,39 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 	return a
 }
 
-// AliasOutputFromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
-func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOutput, error) {
-	var ret *AliasOutput
+// FromObjectStorage creates an AliasOutput from sequences of key and bytes.
+func (a *AliasOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	output, err := a.FromBytes(value)
+	if err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
+}
+
+// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
+func (a *AliasOutput) FromBytes(data []byte) (output *AliasOutput, err error) {
+	marshalUtil := marshalutil.New(data)
+	if output, err = a.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
+		return
+	}
+
+	return
+}
+
+// FromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func (a *AliasOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *AliasOutput, err error) {
+	if output = a; output == nil {
+		output = new(AliasOutput)
+	}
+
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1069,31 +1086,35 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 	if OutputType(outputType) != AliasOutputType {
 		return nil, errors.Errorf("aliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
 	}
-	ret = &AliasOutput{}
 	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
 	}
 	flags := bitmask.BitMask(flagsByte)
-	ret.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
-	ret.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
-	ret.isDelegated = flags.HasBit(flagAliasOutputDelegationConstraint)
+	output.isOrigin = flags.HasBit(flagAliasOutputIsOrigin)
+	output.isGovernanceUpdate = flags.HasBit(flagAliasOutputGovernanceUpdate)
+	output.isDelegated = flags.HasBit(flagAliasOutputDelegationConstraint)
 
-	addr, err2 := AliasAddressFromMarshalUtil(marshalUtil)
+	addr, bytesRead2, err2 := AliasAddressFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
 	if err2 != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse alias address (%v): %w", err2, cerrors.ErrParseBytesFailed)
 	}
-	ret.aliasAddress = *addr
-	cb, err3 := ColoredBalancesFromMarshalUtil(marshalUtil)
+	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead2)
+	output.aliasAddress = *addr
+	cb, bytesRead3, err3 := ColoredBalancesFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
 	if err3 != nil {
 		return nil, errors.Errorf("AliasOutput: failed to parse colored balances: %w", err3)
 	}
-	ret.balances = cb
-	ret.stateAddress, err = AddressFromMarshalUtil(marshalUtil)
-	if err != nil {
-		return nil, errors.Errorf("aliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
+	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead3)
+	output.balances = cb
+	stateAddress, bytesRead4, err4 := AddressFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
+	if err4 != nil {
+		return nil, errors.Errorf("aliasOutput: failed to parse state address (%v): %w", err4, cerrors.ErrParseBytesFailed)
 	}
-	ret.stateIndex, err = marshalUtil.ReadUint32()
+	output.stateAddress = stateAddress
+	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead4)
+
+	output.stateIndex, err = marshalUtil.ReadUint32()
 	if err != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse state address (%v): %w", err, cerrors.ErrParseBytesFailed)
 	}
@@ -1102,7 +1123,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		if err4 != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse state data size: %w", err4)
 		}
-		ret.stateData, err = marshalUtil.ReadBytes(int(size))
+		output.stateData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse state data: %w", err)
 		}
@@ -1112,7 +1133,7 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		if err5 != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse governance metadata size: %w", err5)
 		}
-		ret.governanceMetadata, err = marshalUtil.ReadBytes(int(size))
+		output.governanceMetadata, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse governance metadata data: %w", err)
 		}
@@ -1122,27 +1143,30 @@ func AliasOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*AliasOut
 		if err6 != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse immutable data size: %w", err6)
 		}
-		ret.immutableData, err = marshalUtil.ReadBytes(int(size))
+		output.immutableData, err = marshalUtil.ReadBytes(int(size))
 		if err != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse immutable data: %w", err)
 		}
 	}
 	if flags.HasBit(flagAliasOutputGovernanceSet) {
-		ret.governingAddress, err = AddressFromMarshalUtil(marshalUtil)
-		if err != nil {
-			return nil, errors.Errorf("aliasOutput: failed to parse governing address (%v): %w", err, cerrors.ErrParseBytesFailed)
+		governingAddress, bytesRead5, err5 := AddressFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
+
+		if err5 != nil {
+			return nil, errors.Errorf("aliasOutput: failed to parse governing address (%v): %w", err5, cerrors.ErrParseBytesFailed)
 		}
+		output.governingAddress = governingAddress
+		marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead5)
 	}
 	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
-		ret.delegationTimelock, err = marshalUtil.ReadTime()
+		output.delegationTimelock, err = marshalUtil.ReadTime()
 		if err != nil {
 			return nil, errors.Errorf("aliasOutput: failed to parse delegation timelock (%v): %w", err, cerrors.ErrParseBytesFailed)
 		}
 	}
-	if err7 := ret.checkBasicValidity(); err7 != nil {
+	if err7 := output.checkBasicValidity(); err7 != nil {
 		return nil, err7
 	}
-	return ret, nil
+	return output, nil
 }
 
 // SetBalances sets colored balances of the output.
@@ -1395,6 +1419,22 @@ func (a *AliasOutput) Bytes() []byte {
 	return a.ObjectStorageValue()
 }
 
+// Decode returns deserializes object from bytes.
+func (a *AliasOutput) Encode() ([]byte, error) {
+	return a.Bytes(), nil
+}
+
+// Decode returns bytes serialized form.
+func (a *AliasOutput) Decode(data []byte) (bytesRead int, err error) {
+	marshalUtil := marshalutil.New(data)
+	if _, err = a.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
+		return
+	}
+	bytesRead = marshalUtil.ReadOffset()
+	return
+}
+
 // String human readable form.
 func (a *AliasOutput) String() string {
 	ret := "AliasOutput:\n"
@@ -1412,18 +1452,20 @@ func (a *AliasOutput) Compare(other Output) int {
 	return bytes.Compare(a.Bytes(), other.Bytes())
 }
 
-// Update is disabled.
-func (a *AliasOutput) Update(other objectstorage.StorableObject) {
-	panic("AliasOutput: storage object updates disabled")
-}
-
-// ObjectStorageKey a key.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *AliasOutput) ObjectStorageKey() []byte {
-	return a.ID().Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
+	// This object has too complex structure for automatic serialization
 	flags := a.mustFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(AliasOutputType)).
@@ -1836,7 +1878,7 @@ func (a *AliasOutput) hasToBeUnlockedForGovernanceUpdate(tx *Transaction) bool {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ Output = &AliasOutput{}
+var _ Output = new(AliasOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1910,20 +1952,39 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	return nil
 }
 
-// ExtendedOutputFromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func ExtendedOutputFromBytes(data []byte) (output *ExtendedLockedOutput, consumedBytes int, err error) {
+// FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
+func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	output, err := o.FromBytes(value)
+	if err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
+		return nil, err
+	}
+	outputID, _, err := OutputIDFromBytes(key)
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return nil, err
+	}
+	output.SetID(outputID)
+	return output, nil
+}
+
+// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
+func (o *ExtendedLockedOutput) FromBytes(data []byte) (output *ExtendedLockedOutput, err error) {
 	marshalUtil := marshalutil.New(data)
-	if output, err = ExtendedOutputFromMarshalUtil(marshalUtil); err != nil {
+	if output, err = o.FromMarshalUtil(marshalUtil); err != nil {
 		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// ExtendedOutputFromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshaling).
-func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
+// FromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
+func (o *ExtendedLockedOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
+	if output = o; output == nil {
+		output = new(ExtendedLockedOutput)
+	}
+
 	outputType, err := marshalUtil.ReadByte()
 	if err != nil {
 		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1934,15 +1995,22 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 		return
 	}
 
-	output = &ExtendedLockedOutput{}
-	if output.balances, err = ColoredBalancesFromMarshalUtil(marshalUtil); err != nil {
+	balances, bytesRead, err := ColoredBalancesFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
+	if err != nil {
 		err = errors.Errorf("failed to parse ColoredBalances: %w", err)
 		return
 	}
-	if output.address, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Address (%v): %w", err, cerrors.ErrParseBytesFailed)
+	output.balances = balances
+	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead)
+
+	address, bytesRead1, err1 := AddressFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
+	if err1 != nil {
+		err = errors.Errorf("failed to parse Address (%v): %w", err1, cerrors.ErrParseBytesFailed)
 		return
 	}
+	output.address = address
+	marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead1)
+
 	var flagsByte byte
 	if flagsByte, err = marshalUtil.ReadByte(); err != nil {
 		err = errors.Errorf("failed to parse flags (%v): %w", err, cerrors.ErrParseBytesFailed)
@@ -1950,10 +2018,14 @@ func ExtendedOutputFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output
 	}
 	flags := bitmask.BitMask(flagsByte)
 	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
-		if output.fallbackAddress, err = AddressFromMarshalUtil(marshalUtil); err != nil {
-			err = errors.Errorf("failed to parse fallbackAddress (%v): %w", err, cerrors.ErrParseBytesFailed)
+		fallbackAddress, bytesRead2, err2 := AddressFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
+		if err2 != nil {
+			err = errors.Errorf("failed to parse fallbackAddress (%v): %w", err2, cerrors.ErrParseBytesFailed)
 			return
 		}
+		output.fallbackAddress = fallbackAddress
+		marshalUtil.ReadSeek(marshalUtil.ReadOffset() + bytesRead2)
+
 		if output.fallbackDeadline, err = marshalUtil.ReadTime(); err != nil {
 			err = errors.Errorf("failed to parse fallbackTimeout (%v): %w", err, cerrors.ErrParseBytesFailed)
 			return
@@ -2130,20 +2202,37 @@ func (o *ExtendedLockedOutput) Bytes() []byte {
 	return o.ObjectStorageValue()
 }
 
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *ExtendedLockedOutput) Update(objectstorage.StorableObject) {
-	panic("ExtendedLockedOutput: updates disabled")
+// Encode returns a binary-encoded version of the Output.
+func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
+	return o.Bytes(), nil
+}
+
+// Decode returns deserializes object from bytes.
+func (o *ExtendedLockedOutput) Decode(data []byte) (bytesRead int, err error) {
+	marshalUtil := marshalutil.New(data)
+	if _, err = o.FromMarshalUtil(marshalUtil); err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
+		return
+	}
+	bytesRead = marshalUtil.ReadOffset()
+	return
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
-	return o.id.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o.id, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
 // a key in the ObjectStorage.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
+	// too complex to use serix
 	flags := o.compressFlags()
 	ret := marshalutil.New().
 		WriteByte(byte(ExtendedLockedOutputType)).
@@ -2214,108 +2303,7 @@ func (o *ExtendedLockedOutput) UnlockAddressNow(nowis time.Time) Address {
 }
 
 // code contract (make sure the type implements all required methods).
-var _ Output = &ExtendedLockedOutput{}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutput /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutput is a wrapper for the generic CachedObject returned by the object storage that overrides the accessor
-// methods with a type-casted one.
-type CachedOutput struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedOutput) Retain() *CachedOutput {
-	return &CachedOutput{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedOutput) Unwrap() Output {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(Output)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutput) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(Output))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedOutput.
-func (c *CachedOutput) String() string {
-	return stringify.Struct("CachedOutput",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputs ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputs represents a collection of CachedOutput objects.
-type CachedOutputs []*CachedOutput
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedOutputs) Unwrap() (unwrappedOutputs Outputs) {
-	unwrappedOutputs = make(Outputs, len(c))
-	for i, cachedOutput := range c {
-		untypedObject := cachedOutput.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(Output)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedOutputs) Consume(consumer func(output Output), forceRelease ...bool) (consumed bool) {
-	for _, cachedOutput := range c {
-		consumed = cachedOutput.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedOutputs) Release(force ...bool) {
-	for _, cachedOutput := range c {
-		cachedOutput.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedOutputs.
-func (c CachedOutputs) String() string {
-	structBuilder := stringify.StructBuilder("CachedOutputs")
-	for i, cachedOutput := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutput))
-	}
-
-	return structBuilder.String()
-}
+var _ Output = new(ExtendedLockedOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2323,17 +2311,20 @@ func (c CachedOutputs) String() string {
 
 // OutputMetadata contains additional Output information that are derived from the local perception of the node.
 type OutputMetadata struct {
+	outputMetadataInner `serix:"0"`
+}
+type outputMetadataInner struct {
 	id                      OutputID
-	branchID                BranchID
-	branchIDMutex           sync.RWMutex
-	solid                   bool
+	BranchIDs               BranchIDs `serix:"0"`
+	branchIDsMutex          sync.RWMutex
+	Solid                   bool `serix:"1"`
 	solidMutex              sync.RWMutex
-	solidificationTime      time.Time
+	SolidificationTime      time.Time `serix:"2"`
 	solidificationTimeMutex sync.RWMutex
-	consumerCount           int
+	ConsumerCount           uint64 `serix:"3"`
 	consumerMutex           sync.RWMutex
-	gradeOfFinality         gof.GradeOfFinality
-	gradeOfFinalityTime     time.Time
+	GradeOfFinality         gof.GradeOfFinality `serix:"4"`
+	GradeOfFinalityTime     time.Time           `serix:"5"`
 	gradeOfFinalityMutex    sync.RWMutex
 
 	objectstorage.StorableObjectFlags
@@ -2342,67 +2333,42 @@ type OutputMetadata struct {
 // NewOutputMetadata creates a new empty OutputMetadata object.
 func NewOutputMetadata(outputID OutputID) *OutputMetadata {
 	return &OutputMetadata{
-		id: outputID,
+		outputMetadataInner: outputMetadataInner{
+			id:        outputID,
+			BranchIDs: NewBranchIDs(),
+		},
 	}
 }
 
-// OutputMetadataFromBytes unmarshals an OutputMetadata object from a sequence of bytes.
-func OutputMetadataFromBytes(bytes []byte) (outputMetadata *OutputMetadata, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if outputMetadata, err = OutputMetadataFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputMetadata from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// OutputMetadataFromMarshalUtil unmarshals an OutputMetadata object using a MarshalUtil (for easier unmarshaling).
-func OutputMetadataFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (outputMetadata *OutputMetadata, err error) {
-	outputMetadata = &OutputMetadata{}
-	if outputMetadata.id, err = OutputIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse OutputID: %w", err)
-		return
-	}
-	if outputMetadata.branchID, err = BranchIDFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse BranchID: %w", err)
-		return
-	}
-	if outputMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = errors.Errorf("failed to parse solid flag (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if outputMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse solidification time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	consumerCount, err := marshalUtil.ReadUint64()
+// FromObjectStorage creates an OutputMetadata from sequences of key and bytes.
+func (o *OutputMetadata) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	outputMetadata, err := o.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse consumer count (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	outputMetadata.consumerCount = int(consumerCount)
-	gradeOfFinality, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse grade of finality (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	outputMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if outputMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse gradeOfFinality time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	return
-}
-
-// OutputMetadataFromObjectStorage restores an OutputMetadata object that was stored in the ObjectStorage.
-func OutputMetadataFromObjectStorage(key []byte, data []byte) (outputMetadata objectstorage.StorableObject, err error) {
-	if outputMetadata, _, err = OutputMetadataFromBytes(byteutils.ConcatBytes(key, data)); err != nil {
 		err = errors.Errorf("failed to parse OutputMetadata from bytes: %w", err)
+	}
+	return outputMetadata, err
+}
+
+// FromBytes unmarshals a AddressOutputMapping from a sequence of bytes.
+func (o *OutputMetadata) FromBytes(data []byte) (outputMetadata *OutputMetadata, err error) {
+	if outputMetadata = o; outputMetadata == nil {
+		outputMetadata = new(OutputMetadata)
+	}
+
+	outputID := new(OutputID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, outputID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata.id: %w", err)
 		return
 	}
 
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], outputMetadata, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputMetadata: %w", err)
+		return
+	}
+
+	outputMetadata.id = *outputID
 	return
 }
 
@@ -2411,24 +2377,40 @@ func (o *OutputMetadata) ID() OutputID {
 	return o.id
 }
 
-// BranchID returns the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) BranchID() BranchID {
-	o.branchIDMutex.RLock()
-	defer o.branchIDMutex.RUnlock()
+// BranchIDs returns the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) BranchIDs() BranchIDs {
+	o.branchIDsMutex.RLock()
+	defer o.branchIDsMutex.RUnlock()
 
-	return o.branchID
+	return o.outputMetadataInner.BranchIDs.Clone()
 }
 
-// SetBranchID sets the identifier of the Branch that the Output was booked in.
-func (o *OutputMetadata) SetBranchID(branchID BranchID) (modified bool) {
-	o.branchIDMutex.Lock()
-	defer o.branchIDMutex.Unlock()
+// SetBranchIDs sets the identifiers of the Branches that the Output was booked in.
+func (o *OutputMetadata) SetBranchIDs(branchIDs BranchIDs) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
 
-	if o.branchID == branchID {
-		return
+	if o.outputMetadataInner.BranchIDs.Equals(branchIDs) {
+		return false
 	}
 
-	o.branchID = branchID
+	o.outputMetadataInner.BranchIDs = branchIDs.Clone()
+	o.SetModified()
+	return true
+}
+
+// AddBranchID adds an identifier of the Branch that the Output was booked in.
+func (o *OutputMetadata) AddBranchID(branchID BranchID) (modified bool) {
+	o.branchIDsMutex.Lock()
+	defer o.branchIDsMutex.Unlock()
+
+	if o.outputMetadataInner.BranchIDs.Contains(branchID) {
+		return false
+	}
+
+	delete(o.outputMetadataInner.BranchIDs, MasterBranchID)
+
+	o.outputMetadataInner.BranchIDs.Add(branchID)
 	o.SetModified()
 	modified = true
 
@@ -2440,7 +2422,7 @@ func (o *OutputMetadata) Solid() bool {
 	o.solidMutex.RLock()
 	defer o.solidMutex.RUnlock()
 
-	return o.solid
+	return o.outputMetadataInner.Solid
 }
 
 // SetSolid updates the solid flag of the Output. It returns true if the solid flag was modified and updates the
@@ -2449,17 +2431,17 @@ func (o *OutputMetadata) SetSolid(solid bool) (modified bool) {
 	o.solidMutex.Lock()
 	defer o.solidMutex.Unlock()
 
-	if o.solid == solid {
+	if o.outputMetadataInner.Solid == solid {
 		return
 	}
 
 	if solid {
 		o.solidificationTimeMutex.Lock()
-		o.solidificationTime = time.Now()
+		o.outputMetadataInner.SolidificationTime = time.Now()
 		o.solidificationTimeMutex.Unlock()
 	}
 
-	o.solid = solid
+	o.outputMetadataInner.Solid = solid
 	o.SetModified()
 	modified = true
 
@@ -2471,7 +2453,7 @@ func (o *OutputMetadata) SolidificationTime() time.Time {
 	o.solidificationTimeMutex.RLock()
 	defer o.solidificationTimeMutex.RUnlock()
 
-	return o.solidificationTime
+	return o.outputMetadataInner.SolidificationTime
 }
 
 // ConsumerCount returns the number of transactions that have spent the Output.
@@ -2479,7 +2461,7 @@ func (o *OutputMetadata) ConsumerCount() int {
 	o.consumerMutex.RLock()
 	defer o.consumerMutex.RUnlock()
 
-	return o.consumerCount
+	return int(o.outputMetadataInner.ConsumerCount)
 }
 
 // RegisterConsumer increases the consumer count of an Output and stores the first Consumer that was ever registered. It
@@ -2488,7 +2470,7 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 	o.consumerMutex.Lock()
 	defer o.consumerMutex.Unlock()
 
-	o.consumerCount++
+	o.outputMetadataInner.ConsumerCount++
 	o.SetModified()
 
 	return
@@ -2498,7 +2480,7 @@ func (o *OutputMetadata) RegisterConsumer(consumer TransactionID) (previousConsu
 func (o *OutputMetadata) GradeOfFinality() gof.GradeOfFinality {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinality
+	return o.outputMetadataInner.GradeOfFinality
 }
 
 // SetGradeOfFinality updates the grade of finality. It returns true if it was modified.
@@ -2506,12 +2488,12 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 	o.gradeOfFinalityMutex.Lock()
 	defer o.gradeOfFinalityMutex.Unlock()
 
-	if o.gradeOfFinality == gradeOfFinality {
+	if o.outputMetadataInner.GradeOfFinality == gradeOfFinality {
 		return
 	}
 
-	o.gradeOfFinality = gradeOfFinality
-	o.gradeOfFinalityTime = clock.SyncedTime()
+	o.outputMetadataInner.GradeOfFinality = gradeOfFinality
+	o.outputMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
 	o.SetModified()
 	modified = true
 	return
@@ -2521,7 +2503,7 @@ func (o *OutputMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality)
 func (o *OutputMetadata) GradeOfFinalityTime() time.Time {
 	o.gradeOfFinalityMutex.RLock()
 	defer o.gradeOfFinalityMutex.RUnlock()
-	return o.gradeOfFinalityTime
+	return o.outputMetadataInner.GradeOfFinalityTime
 }
 
 // Bytes marshals the OutputMetadata into a sequence of bytes.
@@ -2529,45 +2511,43 @@ func (o *OutputMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(o.ObjectStorageKey(), o.ObjectStorageValue())
 }
 
-// String returns a human readable version of the OutputMetadata.
+// String returns a human-readable version of the OutputMetadata.
 func (o *OutputMetadata) String() string {
 	return stringify.Struct("OutputMetadata",
 		stringify.StructField("id", o.ID()),
-		stringify.StructField("branchID", o.BranchID()),
-		stringify.StructField("solid", o.Solid()),
-		stringify.StructField("solidificationTime", o.SolidificationTime()),
-		stringify.StructField("consumerCount", o.ConsumerCount()),
-		stringify.StructField("gradeOfFinality", o.GradeOfFinality()),
-		stringify.StructField("gradeOfFinalityTime", o.GradeOfFinalityTime()),
+		stringify.StructField("BranchIDs", o.BranchIDs()),
+		stringify.StructField("Solid", o.Solid()),
+		stringify.StructField("SolidificationTime", o.SolidificationTime()),
+		stringify.StructField("ConsumerCount", o.ConsumerCount()),
+		stringify.StructField("GradeOfFinality", o.GradeOfFinality()),
+		stringify.StructField("GradeOfFinalityTime", o.GradeOfFinalityTime()),
 	)
-}
-
-// Update is disabled and panics if it ever gets called - it is required to match the StorableObject interface.
-func (o *OutputMetadata) Update(objectstorage.StorableObject) {
-	panic("updates disabled")
 }
 
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (o *OutputMetadata) ObjectStorageKey() []byte {
-	return o.id.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue marshals the OutputMetadata into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
+// ObjectStorageValue marshals the Branch into a sequence of bytes that are used as the value part in the
+// object storage.
 func (o *OutputMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		Write(o.BranchID()).
-		WriteBool(o.Solid()).
-		WriteTime(o.SolidificationTime()).
-		WriteUint64(uint64(o.ConsumerCount())).
-		WriteUint8(uint8(o.GradeOfFinality())).
-		WriteTime(o.GradeOfFinalityTime()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // code contract (make sure the type implements all required methods)
-var _ objectstorage.StorableObject = &OutputMetadata{}
+var _ objectstorage.StorableObject = new(OutputMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2607,7 +2587,19 @@ func (o OutputsMetadata) ByID() (outputsMetadataByID OutputsMetadataByID) {
 	return
 }
 
-// String returns a human readable version of the OutputsMetadata.
+// SpentOutputsMetadata returns the spent elements of the list of OutputsMetadata objects.
+func (o OutputsMetadata) SpentOutputsMetadata() (spentOutputsMetadata OutputsMetadata) {
+	spentOutputsMetadata = make(OutputsMetadata, 0)
+	for _, inputMetadata := range o {
+		if inputMetadata.ConsumerCount() >= 1 {
+			spentOutputsMetadata = append(spentOutputsMetadata, inputMetadata)
+		}
+	}
+
+	return spentOutputsMetadata
+}
+
+// String returns a human-readable version of the OutputsMetadata.
 func (o OutputsMetadata) String() string {
 	structBuilder := stringify.StructBuilder("OutputsMetadata")
 	for i, outputMetadata := range o {
@@ -2663,107 +2655,6 @@ func (o OutputsMetadataByID) String() string {
 	structBuilder := stringify.StructBuilder("OutputsMetadataByID")
 	for id, output := range o {
 		structBuilder.AddField(stringify.StructField(id.String(), output))
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputMetadata /////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputMetadata is a wrapper for the generic CachedObject returned by the object storage that overrides the
-// accessor methods with a type-casted one.
-type CachedOutputMetadata struct {
-	objectstorage.CachedObject
-}
-
-// Retain marks the CachedObject to still be in use by the program.
-func (c *CachedOutputMetadata) Retain() *CachedOutputMetadata {
-	return &CachedOutputMetadata{c.CachedObject.Retain()}
-}
-
-// Unwrap is the type-casted equivalent of Get. It returns nil if the object does not exist.
-func (c *CachedOutputMetadata) Unwrap() *OutputMetadata {
-	untypedObject := c.Get()
-	if untypedObject == nil {
-		return nil
-	}
-
-	typedObject := untypedObject.(*OutputMetadata)
-	if typedObject == nil || typedObject.IsDeleted() {
-		return nil
-	}
-
-	return typedObject
-}
-
-// Consume unwraps the CachedObject and passes a type-casted version to the consumer (if the object is not empty - it
-// exists). It automatically releases the object when the consumer finishes.
-func (c *CachedOutputMetadata) Consume(consumer func(outputMetadata *OutputMetadata), forceRelease ...bool) (consumed bool) {
-	return c.CachedObject.Consume(func(object objectstorage.StorableObject) {
-		consumer(object.(*OutputMetadata))
-	}, forceRelease...)
-}
-
-// String returns a human readable version of the CachedOutputMetadata.
-func (c *CachedOutputMetadata) String() string {
-	return stringify.Struct("CachedOutputMetadata",
-		stringify.StructField("CachedObject", c.Unwrap()),
-	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region CachedOutputsMetadata ////////////////////////////////////////////////////////////////////////////////////////
-
-// CachedOutputsMetadata represents a collection of CachedOutputMetadata objects.
-type CachedOutputsMetadata []*CachedOutputMetadata
-
-// Unwrap is the type-casted equivalent of Get. It returns a slice of unwrapped objects with the object being nil if it
-// does not exist.
-func (c CachedOutputsMetadata) Unwrap() (unwrappedOutputs []*OutputMetadata) {
-	unwrappedOutputs = make([]*OutputMetadata, len(c))
-	for i, cachedOutputMetadata := range c {
-		untypedObject := cachedOutputMetadata.Get()
-		if untypedObject == nil {
-			continue
-		}
-
-		typedObject := untypedObject.(*OutputMetadata)
-		if typedObject == nil || typedObject.IsDeleted() {
-			continue
-		}
-
-		unwrappedOutputs[i] = typedObject
-	}
-
-	return
-}
-
-// Consume iterates over the CachedObjects, unwraps them and passes a type-casted version to the consumer (if the object
-// is not empty - it exists). It automatically releases the object when the consumer finishes. It returns true, if at
-// least one object was consumed.
-func (c CachedOutputsMetadata) Consume(consumer func(consumer *OutputMetadata), forceRelease ...bool) (consumed bool) {
-	for _, cachedOutputMetadata := range c {
-		consumed = cachedOutputMetadata.Consume(consumer, forceRelease...) || consumed
-	}
-
-	return
-}
-
-// Release is a utility function that allows us to release all CachedObjects in the collection.
-func (c CachedOutputsMetadata) Release(force ...bool) {
-	for _, cachedOutputMetadata := range c {
-		cachedOutputMetadata.Release(force...)
-	}
-}
-
-// String returns a human readable version of the CachedOutputsMetadata.
-func (c CachedOutputsMetadata) String() string {
-	structBuilder := stringify.StructBuilder("CachedOutputsMetadata")
-	for i, cachedOutputMetadata := range c {
-		structBuilder.AddField(stringify.StructField(strconv.Itoa(i), cachedOutputMetadata))
 	}
 
 	return structBuilder.String()

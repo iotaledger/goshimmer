@@ -48,7 +48,7 @@ func PastconeHandler(c echo.Context) error {
 		}
 
 		// get parent1 and parent2
-		msg := msgObject.Unwrap()
+		msg, _ := msgObject.Unwrap()
 
 		onlyGenesis := true
 		msg.ForEachParent(func(parent tangle.Parent) {

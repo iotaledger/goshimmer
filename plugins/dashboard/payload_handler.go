@@ -108,11 +108,11 @@ func ProcessPayload(p payload.Payload) interface{} {
 		}
 	case ledgerstate.TransactionType:
 		return processTransactionPayload(p)
-	case faucet.Type:
+	case faucet.RequestType:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().Base58(),
+			Content:      p.(*faucet.Payload).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload
@@ -137,7 +137,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
+	drngPayload, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
 	case drng.TypeCollectiveBeacon:
@@ -165,11 +165,10 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 
 // processTransactionPayload handles Value payload
 func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
-	tx, _, err := ledgerstate.TransactionFromBytes(p.Bytes())
+	tx, err := new(ledgerstate.Transaction).FromBytes(p.Bytes())
 	if err != nil {
 		return
 	}
-
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs

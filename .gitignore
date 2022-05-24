@@ -12,6 +12,7 @@
 
 # cli-wallet config
 tools/cli-wallet/config.json
+tools/cli-wallet/cli-wallet
 
 # Test binary, build with `go test -c`
 *.test
@@ -26,6 +27,8 @@ testNodes/*
 
 # Project files
 .idea
+go.work
+go.work.sum
 
 # Database directory
 mainnetdb/

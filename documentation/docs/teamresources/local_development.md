@@ -26,7 +26,7 @@ golangci-lint is very flexible and customizable. Check the docs to see how confi
 
 ## Dealing With Errors
 Most of the errors that golangci-lint reports are errors from formatting linters like `gofmt`, `goimports` and etc. You can easily auto-fix them with:
-```
+```shell
 golangci-lint run --fix
 ```
 
@@ -54,7 +54,8 @@ Check this [article](https://docs.docker.com/develop/develop-images/build_enhanc
 
 If you already enabled the buildkit engine in the configuration json file as described above and docker version is `18.09` or higher,
 try to set the following env variables when building the docker image:
-```
+
+```shell
 DOCKER_BUILDKIT=1 COMPOSE_DOCKER_CLI_BUILD=1 docker build -t iotaledger/goshimmer .
 ```
 

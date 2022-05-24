@@ -15,8 +15,8 @@ services:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
-      - "./db:/tmp/mainnetdb:rw"
-      - "./peerdb:/tmp/peerdb:rw"
+      - "goshimmer-db-volume:/app/mainnetdb:rw"
+      - "goshimmer-peerdb-volume:/app/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # AutoPeering
@@ -40,11 +40,11 @@ services:
       - PROMETHEUS_BINDADDRESS=0.0.0.0:9311
     command: >
       --skip-config=true
-      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-devnet.tanglebay.com:14646
+      --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-0.devnet.tanglebay.com:14646,CAB87iQZR6BjBrCgEBupQJ4gpEBgvGKKv3uuGVRBKb4n@entry-1.devnet.tanglebay.com:14646
       --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --logger.level=info
       --logger.disableEvents=false
       --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213
@@ -67,7 +67,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./tools/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/data:/prometheus:rw
+      - prometheus-data-volume:/prometheus:rw
     depends_on:
       - goshimmer
     networks:
@@ -85,6 +85,14 @@ services:
       - "3000:3000/tcp"
     user: "472"
     volumes:
-      - ./tools/monitoring/grafana:/var/lib/grafana:rw
+      - grafana-data-volume:/var/lib/grafana
+      - ./tools/docker-network/grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./tools/docker-network/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - outside
+
+volumes:
+  goshimmer-db-volume:
+  goshimmer-peerdb-volume:
+  grafana-data-volume:
+  prometheus-data-volume:

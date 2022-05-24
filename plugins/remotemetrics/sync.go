@@ -31,8 +31,5 @@ func checkSynced() {
 }
 
 func sendSyncStatusChangedEvent(syncUpdate remotemetrics.SyncStatusChangedEvent) {
-	err := deps.RemoteLogger.Send(syncUpdate)
-	if err != nil {
-		Plugin.Logger().Errorw("Failed to send sync status changed record on sync change event.", "err", err)
-	}
+	_ = deps.RemoteLogger.Send(syncUpdate)
 }

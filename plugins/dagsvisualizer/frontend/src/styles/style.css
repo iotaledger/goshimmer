@@ -1,0 +1,243 @@
+html,
+body,
+#root {
+    --color-dark-blue: #131f37;
+    --color-sea: #0fc1b7;
+    --color-shade-blue: #123f51;
+    --color-white: #f7f9fd;
+    --color-light-grey: #a9b8d6;
+    --color-dark-grey: #777c87;
+    --color-darkest-blue: #0a1429;
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-darkest-blue);
+}
+
+.nav {
+    border-bottom: var(--color-shade-blue) solid 2px;
+    margin-bottom: 40px;
+    padding: 20px;
+}
+
+h2 {
+    color: var(--color-white);
+}
+
+h5 {
+    color: var(--color-light-grey);
+}
+
+.container {
+    max-width: 80vw;
+}
+
+.graphFrame {
+    position: relative;
+    background: var(--color-shade-blue);
+    margin: 2em 0;
+}
+
+#tangleVisualizer {
+    width: 100%;
+    height: 60vh;
+}
+
+#utxoVisualizer {
+    width: 100%;
+    height: 60vh;
+}
+
+#branchVisualizer {
+    width: 100%;
+    height: 60vh;
+    overflow-x: scroll;
+}
+
+.selectedInfo {
+    position: absolute;
+    width: 20%;
+    max-width: 500px;
+    height: 100%;
+    top: 10px;
+    right: 20px;
+    z-index: 1;
+    overflow: scroll;
+}
+
+.card {
+    background-color: var(--color-dark-blue);
+    /*border: 1px solid var(--color-sea);*/
+}
+
+.card div {
+    background-color: var(--color-dark-blue);
+}
+
+.card div a {
+    color: var(--color-sea);
+}
+
+.form-control {
+    max-width: 500px;
+}
+
+.link {
+    position: absolute;
+}
+
+.node {
+    position: absolute;
+}
+
+.button {
+    color: var(--color-sea);
+    border: 1px solid var(--color-sea);
+}
+
+.button:hover {
+    color: var(--color-white);
+    border: 1px solid var(--color-sea);
+    background-color: var(--color-shade-blue);
+}
+
+.button-wide {
+    width: 100%;
+}
+
+.tripleButton {
+    display: flex;
+    justify-content: space-evenly;
+    max-width: 500px;
+    padding-top: 5px;
+}
+
+.tripleButton .button-middle {
+    border-radius: 0;
+}
+
+.tripleButton .button-left {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+    border-right: none;
+}
+
+.tripleButton .button-left:hover {
+    border-right: none;
+}
+
+.tripleButton .button-right {
+    border-bottom-left-radius: 0;
+    border-top-left-radius: 0;
+    border-left: none;
+}
+
+.tripleButton .button-right:hover {
+    border-left: none;
+}
+
+.panel {
+    padding: 2em 0;
+    box-shadow: 0 2px 0 0 var(--color-shade-blue);
+    color: var(--color-white);
+}
+
+.panel input {
+    background-color: var(--color-dark-blue);
+    border: 1px solid var(--color-dark-grey);
+    color: var(--color-dark-grey);
+}
+
+.panel input:focus {
+    background-color: var(--color-shade-blue);
+    border: 1px solid var(--color-sea);
+    color: var(--color-dark-grey);
+}
+
+.panel span {
+    color: var(--color-dark-grey);
+    border: 1px solid var(--color-dark-grey);
+    background-color: var(--color-dark-blue);
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.panel .rdtPicker {
+    background-color: var(--color-shade-blue);
+    color: var(--color-sea);
+    border: none;
+}
+
+.panel .rdtPicker th {
+    border-color: var(--color-dark-blue);
+}
+
+.panel .rdtPicker .rdtCount {
+    height: auto;
+}
+
+.panel .rdtPicker .rdtDay:hover {
+    background-color: var(--color-dark-blue);
+}
+
+.panel .rdtPicker .rdtDay:hover,
+.panel .rdtPicker .rdtDay.rdtActive,
+.panel .rdtPicker .rdtMonth:hover,
+.panel .rdtPicker .rdtMonth.rdtActive,
+.panel .rdtPicker .rdtYear:hover,
+.panel .rdtPicker .rdtYear.rdtActive,
+.panel .rdtPicker .rdtTimeToggle:hover,
+.panel .rdtPicker .rdtSwitch:hover {
+    background-color: var(--color-dark-blue);
+}
+
+.panel .response-info {
+    border: var(--color-shade-blue) solid 1px;
+    padding: 10px;
+    color: var(--color-light-grey);
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    position: relative;
+    font-size: 0.8em;
+    margin: 10px 10%;
+    justify-content: center;
+}
+
+.legend-item {
+    align-items: center;
+    display: flex;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.legend .legend-item .legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.legend .legend-item .legend-label {
+    padding-left: 10px;
+}
+
+.legend .legend-item .link-type {
+    height: 0;
+    width: 30px;
+    align-content: flex-start;
+}
+
+.legend .legend-item .legend-marker {
+    width: 30%;
+    height: 30%;
+    background-color: #05445e;
+    border-radius: 50%;
+}
+
+.panel .checkbox {
+    color: var(--color-dark-grey);
+}

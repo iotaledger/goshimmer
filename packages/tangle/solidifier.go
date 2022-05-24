@@ -3,8 +3,8 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/datastructure/walker"
 	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/syncutils"
 )
 
@@ -21,7 +21,7 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	triggerMutex syncutils.MultiMutex
+	triggerMutex *syncutils.MultiMutex
 	tangle       *Tangle
 }
 
@@ -32,8 +32,8 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 			MessageSolid:   events.NewEvent(MessageIDCaller),
 			MessageMissing: events.NewEvent(MessageIDCaller),
 		},
-
-		tangle: tangle,
+		triggerMutex: syncutils.NewMultiMutex(),
+		tangle:       tangle,
 	}
 
 	return
@@ -46,17 +46,33 @@ func (s *Solidifier) Setup() {
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, MessageIDs{messageID}, true)
+	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, NewMessageIDs(messageID), true)
+}
+
+// RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
+func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMissing bool) {
+	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
+		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
+			cachedMissingMessage.Release()
+
+			messageWasMissing = true
+			s.Events.MessageMissing.Trigger(messageID)
+		}
+
+		return nil
+	}).Release()
+
+	return messageWasMissing
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker) {
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
 	if !s.isMessageSolid(message, messageMetadata) {
 		return
 	}
 
 	if !s.areParentMessagesValid(message) {
-		if !messageMetadata.SetInvalid(true) {
+		if !messageMetadata.SetObjectivelyInvalid(true) {
 			return
 		}
 		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
@@ -110,17 +126,11 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 		return true
 	}
 
-	s.tangle.Storage.MessageMetadata(messageID, func() *MessageMetadata {
-		if cachedMissingMessage, stored := s.tangle.Storage.StoreMissingMessage(NewMissingMessage(messageID)); stored {
-			cachedMissingMessage.Consume(func(missingMessage *MissingMessage) {
-				s.Events.MessageMissing.Trigger(messageID)
-			})
-		}
+	if s.RetrieveMissingMessage(messageID) {
+		return false
+	}
 
-		// do not initialize the metadata here, we execute this in the optional ComputeIfAbsent callback to be secure
-		// from race conditions
-		return nil
-	}).Consume(func(messageMetadata *MessageMetadata) {
+	s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 		solid = messageMetadata.IsSolid()
 	})
 
@@ -158,7 +168,7 @@ func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessag
 	})
 
 	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = valid && !messageMetadata.IsInvalid()
+		valid = valid && !messageMetadata.IsObjectivelyInvalid()
 	})
 
 	return

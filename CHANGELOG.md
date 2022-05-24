@@ -1,3 +1,194 @@
+# v0.8.14 - 2022-05-16
+
+> Minor revision introducing small docker changes.
+
+The snapshot has been taken at 2022-05-07 16:30 UTC.
+- Fix several Docker discrepancies (#2201, #2206)
+
+# v0.8.13 - 2022-05-06
+
+> This release introduces serix, a reflection-based serialization library that enables us to automatically serialize all models.
+
+The snapshot has been taken at 2022-05-04 15:05 UTC.
+- Avoid failing on duplicated unlock blocks with serix (#2197)
+- Use serix library  (#2187)
+- Buffer size calculation update for congestion control (#2166)
+- Feat/evil spammer improvements and fixes (#2191)
+- Fix bugs in evil spammer and tutorial (#2185)
+
+
+# v0.8.12 - 2022-04-25
+
+> This release introduces the evil wallet and a fix where nodes could not express their opinion on conflicts properly. 
+
+The snapshot has been taken at 2022-03-21 15:40 UTC.
+- Decrease activity message interval (#2182)
+- Fix issue where liked branch is not returned when LikedConflictMember is called with the liked branch of the conflict set (#2174)
+- Evil Wallet and Evil Spammer tool (#2172)
+- Build(deps): bump ansi-regex from 3.0.0 to 3.0.1 in /documentation (#2173)
+- Build(deps): bump async from 2.6.3 to 2.6.4 for all frontends (#2171)
+- Build(deps): bump minimist from 1.2.5 to 1.2.6 in /plugins/dashboard/frontend (#2152)
+- Build(deps): bump moment from 2.29.1 to 2.29.2 in dagsvisualizer and dashboard (#2150)
+
+# v0.8.11 - 2022-03-23
+
+> This release upgrades to Go 1.18 and fixes a bug that rendered tips unreferenceable.
+
+The snapshot has been taken at 2022-03-21 03:30 UTC.
+- Drop tips referencing unreferenceable branches #2132
+- Build(deps): bump lodash-es from 4.17.15 to 4.17.21 in /plugins/dashboard/frontend (#2125)
+- Switch to Go1.18 (#2131)
+- Use goreleaser supporting Go 1.18rc1 (#2122)
+
+# v0.8.10 - 2022-03-14
+
+> This release introduces generics, the time since confirmation check as well as several fixes to merge to master functionality.
+
+The snapshot has been taken at 2022-03-11 08:30 UTC.
+- Fix Docker network defaults and increase TSC threshold (#2117)
+- Feat: Validate TimeSinceCofirmation of a parent  (#1767)
+- Improve Integration tests experience (#2109)
+- Use generic data structures and object storage. (#2051)
+- TSA: prevent Branch censoring with dislike references (#2083)
+- Fix concurrent map read/write (#2098)
+- Remove empty section from wiki menu (#2089)
+- Remove MessageIDsSlice (#2088)
+- Remove aggregated branches (#2070)
+- Introduce specificialized Shallow Approvers (#2071)
+- Re-enable feature network debugger (#2072)
+
+# v0.8.9 - 2022-03-04
+
+> This release introduces a critical bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-03-02 20:30 UTC.
+- CRITICAL Fix: HandleMarker Confirmation (#2090)
+
+# v0.8.8 - 2022-03-01
+
+> This release introduces a major bug fix that could prevent nodes from running out of sync.
+
+The snapshot has been taken at 2022-02-26 19:30 CET.
+- Remove booker & issuance locks (#2084)
+- Build(deps): bump url-parse from 1.5.7 to 1.5.10 in /plugins/dashboard/frontend (#2081)
+- Add issuerID to remote metrics (#2042)
+
+# v0.8.7 - 2022-02-24
+
+> This release introduces several small bug fixes and improvements.
+
+The snapshot has been taken at 2022-02-21 17:30 CET.
+- Try to adjust rate limit better (#2053)
+- /healthz to reflect Synced status (#2075)
+- clean test cache (#2045)
+- expose port ES to outside (#2052)
+- Build(deps): bump url-parse from 1.5.3 to 1.5.7 in dashboards and DAGs visualizer (#2059)
+- DAGs Vis: Add legend (#2056)
+- Check vertex data before accessing it in graphs (#2054)
+- Build(deps): bump follow-redirects from 1.14.7 to 1.14.8 in /plugins/analysis/dashboard/frontend (#2041)
+- Build(deps): bump follow-redirects from 1.14.7 to 1.14.8 in /plugins/dashboard/frontend (#2040)
+- DAGs Vis: color dags on confirmation and hide aggr branches (#2037)
+- Fix output link to dashboard (#2044)
+
+# v0.8.6 - 2022-02-11
+
+> This release introduces the "Merge to Master" functionality to avoid propagation of Confirmed branches to the future cone and introduces an amazing new DAGs Visualizer tool! The new visualizer is exposed on port 8061 by default, check it out!
+
+The snapshot has been taken at 2022-02-11 10:30 CET.
+- Feat: Merge confirmed Branches with the MasterBranch (#1770)
+- Fix: disable REMOTE_DEBUGGING on feature network, hangs the entrynode (#2034)
+- Mark markers in DAGs visualizer (#2032)
+- Update go.mod to point to hive.go in master branch (#2028)
+- Remove node-sass package from analysis dashboard (#2027)
+- Build(deps): bump follow-redirects from 1.14.2 to 1.14.8 in /plugins/dagsvisualizer/frontend (#2026)
+- Build(deps-dev): bump node-sass in /plugins/analysis/dashboard/frontend (#2017)
+- Implement DAGs Visualizer (#2014)
+- Docs - Add Test Build Action (#1994)
+- Build(deps): bump simple-get from 3.1.0 to 3.1.1 in /plugins/dashboard/frontend (#2005)
+- Skip snapshot download when rebuilding images of old goshimmer version (#1959)
+- Spam protection  (#1990)
+- Do not hardcode parameters in Docker ENTRYPOINT (#1992)
+- Add json and shell annotations for better readability (#1983)
+- Fix browser not popping up the basic auth login modal  (#1986)
+- Build(deps): bump nanoid from 3.1.23 to 3.2.0 in /plugins/dashboard/frontend (#1980)
+- Do not increase the scheduling rate when node is out of sync. (#1961)
+- Update webAPI.md (#1981)
+- Added section on how to install goshimmer from source (#1935)
+- fix: lock scheduler metrics map when writing (#1974)
+- Documentation release.md: merge into master without squashing (#1972)
+
+# v0.8.5 - 2022-01-19
+
+> This release introduces minor bug fixes and improvements.
+
+The snapshot has been taken at 2022-01-13 22:30 CET.
+
+- Improve grafana dashboard (#1967)
+- Add recieved time remote metric (#1965)
+- Build(deps): bump follow-redirects from 1.13.0 to 1.14.7 in node and analysis dashboard (#1962)
+- Fix booker time metric (#1963)
+- Revert "Default to automated snapshot on Docker image creation (#1953)" (#1956)
+- Build(deps-dev): bump postcss from 8.2.10 to 8.2.13 in /plugins/dashboard/frontend (#1951)
+
+# v0.8.4 - 2022-01-12
+
+> This release introduces a complete Congestion Control overhaul and several bug fixes.
+
+The snapshot has been taken at 2022-01-12 17:31 CET.
+
+Changelog:
+- Build and push images tagged with version number (#1950)
+- New Scheduler buffer management & data flow (#1856)
+- Remove spam debug log about duplicate bytes (#1949)
+- Snapshot nil pointer dereference fix (#1943)
+- Devnet AnalysisServer should use LBed dashboards WS (#1942)
+- changes to spammer tool (#1854)
+- Fix/feature network port forwarding problem (#1940)
+- Fix node identity problem after restart (#1939)
+- Update aMana update formula to fix NaN problem (#1930)
+- Customize PoW difficulty on feature network (#1937)
+- Fix prometheus scrape ports (#1928)
+- Fix feature network deployment. (#1925)
+- Don't log errors on write to closed connection (#1915)
+- Fix mana integration test (#1909)
+- Improve integration tests (#1906)
+- Add missing prometheus.yml file and improve volumes in docker-compose files. (#1899)
+- Internal feature network support (#1895)
+
+# v0.8.3 - 2021-11-30
+
+> This release introduces a critical bug fix on the network read loop
+
+The snapshot has been taken at 2021-11-28 11:31am CET.
+
+Changelog:
+- Critical fix on the lib2p's stream readloop.
+
+# v0.8.2 - 2021-11-26
+
+> This release introduces a revamp of the network stack using libp2p, and some minor changes to the deployment logic
+
+The snapshot has been taken at 2021-11-19 11:37pm CET.
+
+Changelog:
+- Use libp2p as network stack.
+- Fix deployment logic to expose DRNGs' API ports.
+- Add community entry nodes.
+
+# v0.8.1 - 2021-11-11
+
+> This release introduces some minor changes to the message solidification and requesting mechanisms.
+
+The snapshot has been taken at 2021-11-05 12:18pm CET.
+
+Changelog:
+- There is now a 1% chance that an inbound request for a missing message gets relayed to neighbors to get resolved.
+- Messages requests are enqueued for retry with a random jitter.
+- Use of TimedExecutor for the message requester.
+- Better logging for message requester and filters.
+- Messages that could not be retrieved and get removed from the requester can be requested another time later.
+- Fixed analysis dashboard.
+
 # v0.8.0 - 2021-11-05
 
 > This release introduces changes to the consensus mechanism. Specifically, a first implementation of pure On Tangle Voting (OTV), like switch, and the Grades of Finality (GoF) is included. This release does not entail algorithmic optimizations of these components. Therefore, it is to be expected, that performance degrades over time.

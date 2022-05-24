@@ -25,7 +25,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
         this.props.explorerStore.getBranch(this.props.match.params.id);
         this.props.explorerStore.getBranchChildren(this.props.match.params.id);
         this.props.explorerStore.getBranchConflicts(this.props.match.params.id);
-        this.props.explorerStore.getBranchSupporters(this.props.match.params.id);
+        this.props.explorerStore.getBranchVoters(this.props.match.params.id);
     }
 
     componentWillUnmount() {
@@ -33,7 +33,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
     }
     render() {
         let {id} = this.props.match.params;
-        let { query_err, branch, branchChildren, branchConflicts, branchSupporters } = this.props.explorerStore;
+        let { query_err, branch, branchChildren, branchConflicts, branchVoters } = this.props.explorerStore;
 
         if (query_err) {
             return (
@@ -48,14 +48,12 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                 <h4>Branch</h4>
                 {branch && <ListGroup>
                     <ListGroup.Item>ID: {resolveBase58BranchID(branch.id)}</ListGroup.Item>
-                    <ListGroup.Item>Type: {branch.type}</ListGroup.Item>
                     <ListGroup.Item>Parents:
                         <ListGroup>
                         {branch.parents.map((p,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${p}`}>{resolveBase58BranchID(p)}</a></ListGroup.Item>)}
                         </ListGroup>
                     </ListGroup.Item>
-                    {branch.type !== "AggregatedBranchType" &&
-                    <ListGroup.Item>Conflicts:
+                    {<ListGroup.Item>Conflicts:
                         {branch.conflictIDs && <ListGroup>
                             {branch.conflictIDs.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/output/${c}`}>{c}</a></ListGroup.Item>)}
                         </ListGroup>}
@@ -66,8 +64,7 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                             {branchChildren.childBranches.map((c,i) => <ListGroup.Item key={i}><a href={`/explorer/branch/${c.branchID}`}>{resolveBase58BranchID(c.branchID)}</a></ListGroup.Item>)}
                         </ListGroup> }
                     </ListGroup.Item>
-                    {branch.type !== "AggregatedBranchType" &&
-                        <ListGroup.Item> Conflicts:
+                    {<ListGroup.Item> Conflicts:
                             {branchConflicts && <ListGroup>
                                 {branchConflicts.conflicts.map((c,i) => <div key={i}>
                                     OutputID: <a href={`/explorer/output/${c.outputID.base58}`}>{c.outputID.base58}</a>
@@ -79,9 +76,9 @@ export class ExplorerBranchQueryResult extends React.Component<Props, any> {
                                 </div>)}
                             </ListGroup> }
                         </ListGroup.Item>}
-                    <ListGroup.Item> Supporters:
-                        {branchSupporters && <ListGroup>
-                            {branchSupporters.supporters.map((s,i) => <ListGroup.Item key={s+i}>{s}</ListGroup.Item>)}
+                    <ListGroup.Item> Voters:
+                        {branchVoters && <ListGroup>
+                            {branchVoters.voters.map((s,i) => <ListGroup.Item key={s+i}>{s}</ListGroup.Item>)}
                         </ListGroup> }
                     </ListGroup.Item>
                 </ListGroup>}

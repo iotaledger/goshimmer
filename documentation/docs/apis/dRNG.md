@@ -73,9 +73,9 @@ if err != nil {
 
 ### Response example
 
-```shell
+```json
 {
-  "id": "messageID" 
+  "id": "messageID"
 }
 ```
 

@@ -54,7 +54,7 @@ func TestAliasOutputMarshal1(t *testing.T) {
 	require.NoError(t, err)
 
 	data := out.Bytes()
-	outBack, _, err := ledgerstate.OutputFromBytes(data)
+	outBack, err := ledgerstate.OutputFromBytes(data)
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
@@ -78,7 +78,7 @@ func TestAliasOutputMarshal2(t *testing.T) {
 	require.False(t, out.IsSelfGoverned())
 
 	data := out.Bytes()
-	outBack, _, err := ledgerstate.OutputFromBytes(data)
+	outBack, err := ledgerstate.OutputFromBytes(data)
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
@@ -99,7 +99,7 @@ func TestAliasOutputMarshal3(t *testing.T) {
 	require.NoError(t, err)
 
 	data := out.Bytes()
-	outBack, _, err := ledgerstate.OutputFromBytes(data)
+	outBack, err := ledgerstate.OutputFromBytes(data)
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
@@ -120,7 +120,7 @@ func TestAliasOutputMarshal4(t *testing.T) {
 	require.NoError(t, err)
 
 	data := out.Bytes()
-	outBack, _, err := ledgerstate.OutputFromBytes(data)
+	outBack, err := ledgerstate.OutputFromBytes(data)
 	require.NoError(t, err)
 
 	require.EqualValues(t, ledgerstate.AliasAddressType, outBack.Type())
@@ -144,7 +144,7 @@ func TestStateTransition1(t *testing.T) {
 	outNext := out.NewAliasOutputNext()
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
-	outNext1, _, err := ledgerstate.OutputFromBytes(outNext.Bytes())
+	outNext1, err := ledgerstate.OutputFromBytes(outNext.Bytes())
 	require.NoError(t, err)
 	require.Zero(t, outNext.Compare(outNext1))
 	require.Zero(t, bytes.Compare(outNext.Bytes(), outNext1.Bytes()))
@@ -164,7 +164,7 @@ func TestStateTransition2(t *testing.T) {
 	outNext := out.NewAliasOutputNext()
 
 	require.Zero(t, bytes.Compare(out.GetAliasAddress().Bytes(), outNext.GetAliasAddress().Bytes()))
-	outNext1, _, err := ledgerstate.OutputFromBytes(outNext.Bytes())
+	outNext1, err := ledgerstate.OutputFromBytes(outNext.Bytes())
 	require.NoError(t, err)
 	require.Zero(t, outNext.Compare(outNext1))
 	require.Zero(t, bytes.Compare(outNext.Bytes(), outNext1.Bytes()))
@@ -177,7 +177,7 @@ func TestExtendedOutput(t *testing.T) {
 	addr := ledgerstate.NewED25519Address(kp.PublicKey)
 
 	out := ledgerstate.NewExtendedLockedOutput(bals1, addr)
-	outBack, _, err := ledgerstate.OutputFromBytes(out.Bytes())
+	outBack, err := ledgerstate.OutputFromBytes(out.Bytes())
 	require.NoError(t, err)
 	require.Zero(t, outBack.Compare(out))
 }

@@ -111,15 +111,6 @@ module.exports = {
         label: 'Object storage',
         id: 'implementation_design/object_storage',
       },
-
-
-      {
-        type: 'category',
-        label: 'Components',
-        items: [
-
-        ],
-      },
     ],
   },
   {
@@ -310,6 +301,18 @@ module.exports = {
         type: 'doc',
         label: 'Integration Tests',
         id: 'tooling/integration_tests',
+      },
+
+      {
+        type: 'doc',
+        label: 'DAGs Visualizer',
+        id: 'tooling/dags_visualizer',
+      },
+
+      {
+        type: 'doc',
+        label: 'Evil Spammer',
+        id: 'tooling/evil_spammer',
       },
     ],
   },

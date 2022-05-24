@@ -76,13 +76,13 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
-		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
+		msg.messageInner.Payload = payload.NewGenericDataPayload([]byte("hello world"))
 		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
 	})
 
 	t.Run("reject on failed parse", func(t *testing.T) {
-		msg := &Message{payload: &testTxPayload{}}
+		msg := &Message{messageInner{Payload: &testTxPayload{}}}
 		m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return err != nil }), testPeer)
 		filter.Filter(msg, testPeer)
 	})
@@ -92,22 +92,22 @@ func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 	msg := &Message{}
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("equal tx and msg timestamp", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp()
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp()
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older message", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 }
@@ -147,41 +147,6 @@ func TestPowFilter_Filter(t *testing.T) {
 		m.On("Accept", msgPOWBytes, testPeer)
 		filter.Filter(msgPOWBytes, testPeer)
 	})
-
-	m.AssertExpectations(t)
-}
-
-func TestTimestampFilter(t *testing.T) {
-	filter := NewTimestampFilter()
-	// set callbacks
-	m := &messageCallbackMock{}
-	filter.OnAccept(m.Accept)
-	filter.OnReject(m.Reject)
-
-	t.Run("testing timestamps in the future", func(t *testing.T) {
-		msg := &Message{}
-		msg.issuingTime = time.Now().Add(1 * time.Second)
-		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
-		assert.Equal(t, 1, filter.queue.Size())
-	})
-
-	t.Run("testing current timestamp", func(t *testing.T) {
-		msg := &Message{}
-		msg.issuingTime = time.Now()
-		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
-	})
-
-	t.Run("testing timestamp in the past", func(t *testing.T) {
-		msg := &Message{}
-		msg.issuingTime = time.Now().Add(-1 * time.Second)
-		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
-	})
-
-	time.Sleep(2 * time.Second)
-	assert.Equal(t, 0, filter.queue.Size())
 
 	m.AssertExpectations(t)
 }

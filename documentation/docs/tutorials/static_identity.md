@@ -31,23 +31,23 @@ You can now copy one of that strings (together with the encoding type prefix) an
 ``` 
 
 Or if you are using docker and prefer to set this with a command, you can define the same by changing the GoShimmer docker-compose.yml:
-```yml
+```yaml
 goshimmer:
-    network_mode: host
-    image: iotaledger/goshimmer
-    build:
-      context: ./
-      dockerfile: Dockerfile
-    container_name: iota_goshimmer
-    command: >
-      --node.enablePlugins=prometheus
-      --node.seed="base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY="
+  network_mode: host
+  image: iotaledger/goshimmer
+  build:
+    context: ./
+    dockerfile: Dockerfile
+  container_name: iota_goshimmer
+  command: >
+    --node.enablePlugins=prometheus
+    --node.seed="base64:gP0uRLhwBG2yJJmnLySX4S4R5G250Z3dbN9yBR6VSyY="
     # Mount volumes:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
-      - ./mainnetdb/:/tmp/mainnetdb/:rw
-      - ./config.json:/config.json:ro
+      - ./mainnetdb/:/app/mainnetdb/:rw
+      - ./config.json:/app/config.json:ro
     # Expose ports:
     # gossip:       - "14666:14666/tcp"
     # autoPeering:  - "14626:14626/udp"

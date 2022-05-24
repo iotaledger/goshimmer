@@ -63,13 +63,9 @@ func measureInitialBranchStats() {
 	defer activeBranchesMutex.Unlock()
 	activeBranches = make(map[ledgerstate.BranchID]types.Empty)
 	conflictsToRemove := make([]ledgerstate.BranchID, 0)
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch ledgerstate.Branch) {
+	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
 		switch branch.ID() {
 		case ledgerstate.MasterBranchID:
-			return
-		case ledgerstate.InvalidBranchID:
-			return
-		case ledgerstate.LazyBookedConflictsBranchID:
 			return
 		default:
 			initialBranchTotalCountDB++
@@ -79,10 +75,11 @@ func measureInitialBranchStats() {
 				return
 			}
 			if branchGoF == gof.High {
-				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) {
+				deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branch.ID(), func(conflictingBranchID ledgerstate.BranchID) bool {
 					if conflictingBranchID != branch.ID() {
 						initialFinalizedBranchCountDB++
 					}
+					return true
 				})
 				initialFinalizedBranchCountDB++
 				initialConfirmedBranchCountDB++
@@ -93,10 +90,11 @@ func measureInitialBranchStats() {
 
 	// remove finalized branches from the map in separate loop when all conflicting branches are known
 	for _, branchID := range conflictsToRemove {
-		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) {
+		deps.Tangle.LedgerState.BranchDAG.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
 			if conflictingBranchID != branchID {
 				delete(activeBranches, conflictingBranchID)
 			}
+			return true
 		})
 		delete(activeBranches, branchID)
 	}

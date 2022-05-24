@@ -1,9 +1,0 @@
-[
-    "@docusaurus/plugin-content-docs",
-    {
-        id: "goshimmer",
-        path: "external/goshimmer/documentation/docs",
-        routeBasePath: "goshimmer",
-        sidebarPath: require.resolve("./external/goshimmer/documentation/sidebars.js"),
-    }
-],

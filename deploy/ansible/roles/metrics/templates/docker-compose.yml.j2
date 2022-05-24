@@ -23,6 +23,8 @@ services:
     environment:
       - GF_SERVER_HTTP_PORT=3000
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/admin_password
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
     ports:
       - "3000:3000"
     volumes:
@@ -48,8 +50,8 @@ services:
       - type: volume
         source: elasticsearch_data
         target: /usr/share/elasticsearch/data
-    expose:
-      - "9200"
+    ports:
+      - "9200:9200"
     environment:
       ES_JAVA_OPTS: "-Xmx2g -Xms2g"
       # Use single node discovery in order to disable production mode and avoid bootstrap checks

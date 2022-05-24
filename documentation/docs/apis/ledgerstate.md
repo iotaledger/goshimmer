@@ -20,7 +20,7 @@ keywords:
 * [/ledgerstate/branches/:branchID](#ledgerstatebranchesbranchid)
 * [/ledgerstate/branches/:branchID/children](#ledgerstatebranchesbranchidchildren)
 * [/ledgerstate/branches/:branchID/conflicts](#ledgerstatebranchesbranchidconflicts)
-* [/ledgerstate/branches/:branchID/supporters](#ledgerstatebranchesbranchidsupporters)
+* [/ledgerstate/branches/:branchID/voters](#ledgerstatebranchesbranchidvoters)
 * [/ledgerstate/outputs/:outputID](#ledgerstateoutputsoutputid)
 * [/ledgerstate/outputs/:outputID/consumers](#ledgerstateoutputsoutputidconsumers)
 * [/ledgerstate/outputs/:outputID/metadata](#ledgerstateoutputsoutputidmetadata)
@@ -38,7 +38,7 @@ keywords:
 * [GetBranch()](#client-lib---getbranch)
 * [GetBranchChildren()](#client-lib---getbranchchildren)
 * [GetBranchConflicts()](#client-lib---getbranchconflicts)
-* [GetBranchSupporters()](#client-lib---getbranchsupporters)
+* [GetBranchVoters()](#client-lib---getbranchvoters)
 * [GetOutput()](#client-lib---getoutput)
 * [GetOutputConsumers()](#client-lib---getoutputconsumers)
 * [GetOutputMetadata()](#client-lib---getoutputmetadata)
@@ -455,8 +455,8 @@ for _, branch := range resp.Conflicts {
 | `outputIndex`   | int | The index of an output.     |
 
 
-## `/ledgerstate/branches/:branchID/supporters`
-Get a list of supporters of a given branchID.
+## `/ledgerstate/branches/:branchID/voters`
+Get a list of voters of a given branchID.
 
 | **Parameter**            | `branchID`     |
 |--------------------------|----------------|
@@ -469,22 +469,22 @@ Get a list of supporters of a given branchID.
 ### cURL
 
 ```shell
-curl http://localhost:8080/ledgerstate/branches/:branchID/supporters \
+curl http://localhost:8080/ledgerstate/branches/:branchID/voters \
 -X GET \
 -H 'Content-Type: application/json'
 ```
 where `:branchID` is the ID of the branch, e.g. 2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ.
 
-#### Client lib - `GetBranchSupporters()`
+#### Client lib - `GetBranchVoters()`
 ```Go
-resp, err := goshimAPI.GetBranchSupporters("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
+resp, err := goshimAPI.GetBranchVoters("2e2EU6fhxRhrXVnYQ6US4zmUkE5YJip25ecafn8gZeoZ")
 if err != nil {
     // return error
 }
-fmt.Printf("All supporters for branch %s:\n", resp.BranchID)
-// iterate over all supporters
-for _, supporter := range resp.Supporters {
-    fmt.Println("ID: ", supporter)
+fmt.Printf("All voters for branch %s:\n", resp.BranchID)
+// iterate over all voters
+for _, voter := range resp.Voters {
+    fmt.Println("ID: ", voter)
 }
 ```
 
@@ -492,7 +492,7 @@ for _, supporter := range resp.Supporters {
 ```json
 {
   "branchID": "HuYUAwCeexmBePNXx5rNeJX1zUvUdUUs5LvmRmWe7HCV",
-  "supporters": ["b8QRhHerfg14cYQ4VFD7Fyh1HYTCbjt9aK1XJmdoXwq","41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK"]
+  "voters": ["b8QRhHerfg14cYQ4VFD7Fyh1HYTCbjt9aK1XJmdoXwq","41GvDSQnd12e4nWnd2WzmdLmffruXqsE46jgeUbnB8s1QnK"]
 }
 ```
 
@@ -500,7 +500,7 @@ for _, supporter := range resp.Supporters {
 |Return field | Type | Description|
 |:-----|:------|:------|
 | `branchID`   | string    | The branch identifier encoded with base58.   |
-| `supporters` | [] string | The list of branch supporter IDs  |
+| `voters` | [] string | The list of branch voter IDs  |
 
 
 ## `/ledgerstate/outputs/:outputID`

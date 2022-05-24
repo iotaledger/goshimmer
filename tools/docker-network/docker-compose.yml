@@ -16,58 +16,59 @@ services:
       --node.seed=base58:8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi
       --node.overwriteStoredSeed=true
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --mana.enableResearchVectors=false
       --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --webAPI.exportPath=/tmp/
+      --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     volumes:
-      - shimmerdb:/tmp/mainnetdb
-      - peerdb:/tmp/peerdb
+      - mainnetdb:/app/mainnetdb
+      - peerdb:/app/peerdb
     ports:
       - "8080:8080/tcp" # web API
       - "8081:8081/tcp" # dashboard
+      - "8061:8061/tcp" # dags visualizer
       - "9000:9000/tcp" # analysis dashboard
       - "6081:6061/tcp" # pprof
     expose:
       - 1888/tcp # analysis server
     networks:
-      - shimmer
+      - goshimmer
   peer_replica:
     build: *goshimmer_build
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
+      --messageLayer.startSynced=true
+      --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
       --webAPI.exportPath=/tmp/
     deploy:
       replicas: ${SHIMMER_PEER_REPLICAS:-1}
-      restart_policy:
-        condition: on-failure
-        max_attempts: 5
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   peer_master2:
@@ -75,12 +76,16 @@ services:
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.enablePlugins="webapi tools endpoint",activity,spammer
+      --database.directory=/app/mainnetdb
+      --node.enablePlugins="webapi tools endpoint",activity,spammer,prometheus
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
+      --messageLayer.startSynced=true
+      --node.disablePlugins=portcheck,clock,Firewall
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
       --mana.snapshotResetTime=true
+      --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -89,7 +94,7 @@ services:
       - "8071:8081/tcp" # dashboard
       - "6071:6061/tcp" # pprof
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   faucet:
@@ -97,17 +102,19 @@ services:
     stop_grace_period: 1m
     command: >
       --config=/run/secrets/goshimmer.config.json
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock
+      --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
       --webAPI.exportPath=/tmp/
     secrets:
@@ -115,10 +122,11 @@ services:
       - goshimmer.message.snapshot.bin
     ports:
       - "8090:8080/tcp" # web API
+      - "8051:8061/tcp" # dags visualizer
       - "8091:8081/tcp" # dashboard
       - "6091:6061/tcp" # pprof
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   prometheus:
@@ -126,31 +134,34 @@ services:
     profiles:
       - grafana
     ports:
-      - 9090:9090
+      - "9090:9090"
     command:
       - --config.file=/run/secrets/prometheus.yml
     secrets:
       - prometheus.yml
     networks:
-      - shimmer
+      - goshimmer
     depends_on:
       - peer_master
   grafana:
     image: grafana/grafana:latest
-    restart: unless-stopped
     profiles:
       - grafana
     environment:
       # path to provisioning definitions can only be defined as
       # environment variables for grafana within docker
       - GF_PATHS_PROVISIONING=/var/lib/grafana/provisioning
+      - GF_ALERTING_ENABLED=true
+      - GF_UNIFIED_ALERTING_ENABLED=false
     networks:
-      - shimmer
+      - goshimmer
     ports:
-      - 3000:3000
+      - "3000:3000"
     user: "104"
     volumes:
-      - ./grafana:/var/lib/grafana:rw
+      - grafana-data-volume:/var/lib/grafana
+      - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
   drand-leader:
     image: angelocapossele/drand:v1.1.4
     entrypoint: /data/client-script.sh
@@ -160,7 +171,7 @@ services:
       - "8000:8000/tcp"
       - "8800:8081/tcp"
     networks:
-      - shimmer
+      - goshimmer
     environment:
       LEADER: 1
       GOSHIMMER: http://peer_master:8080
@@ -175,25 +186,26 @@ services:
       - "8000/tcp"
       - "8081/tcp"
     deploy:
-      replicas: ${DRNG_REPLICAS:-2}
+      replicas: ${DRNG_REPLICAS:-4}
     external_links:
       # Manually set the container name for the leader to what the container expects
       - drand-leader:testdrng-drand_0
     networks:
-      - shimmer
+      - goshimmer
     environment:
       GOSHIMMER: http://peer_master:8080
     depends_on:
       - drand-leader
 # Create our own network
 networks:
-  shimmer:
+  goshimmer:
     driver: bridge
 # Named Docker volumes for data persistence
 # ./run.sh removes these on exit
 volumes:
-  shimmerdb:
+  mainnetdb:
   peerdb:
+  grafana-data-volume:
 # read only files to load in the containers that may be shared across containers
 secrets:
   goshimmer.message.snapshot.bin:

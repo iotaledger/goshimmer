@@ -139,7 +139,7 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 			return 0, fmt.Errorf("unable to read transactionID: %w", err)
 		}
 
-		txID, n, e := TransactionIDFromBytes(transactionIDBytes)
+		_, n, e := TransactionIDFromBytes(transactionIDBytes)
 		if e != nil {
 			return 0, fmt.Errorf("unable to parse transactionID at index %d: %w", i, e)
 		}
@@ -186,8 +186,8 @@ func (s *Snapshot) readTransactions(reader io.Reader) (int64, error) {
 		}
 
 		bytesRead += int64(unspentOutputsLength)
-
-		s.Transactions[txID] = Record{
+		id := NewTransaction(txEssence, unlockBlocks).ID()
+		s.Transactions[id] = Record{
 			Essence:        txEssence,
 			UnlockBlocks:   unlockBlocks,
 			UnspentOutputs: unspentOutputs,
