@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -40,9 +39,9 @@ type Payload struct {
 type requestInner struct {
 	PayloadType           payload.Type
 	Address               devnetvm.Address `serix:"1"`
-	AccessManaPledgeID    identity.ID         `serix:"2"`
-	ConsensusManaPledgeID identity.ID         `serix:"3"`
-	Nonce                 uint64              `serix:"4"`
+	AccessManaPledgeID    identity.ID      `serix:"2"`
+	ConsensusManaPledgeID identity.ID      `serix:"3"`
+	Nonce                 uint64           `serix:"4"`
 }
 
 // RequestType represents the identifier for the faucet Payload type.

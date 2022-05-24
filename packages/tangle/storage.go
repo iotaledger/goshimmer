@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/serix"
@@ -354,11 +352,11 @@ func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
 			messageMetadataInner{
-				AddedBranchIDs: utxo.NewTransactionIDs(),
+				AddedBranchIDs:      utxo.NewTransactionIDs(),
 				SubtractedBranchIDs: utxo.NewTransactionIDs(),
-				SolidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-				MessageID:          EmptyMessageID,
-				Solid:              true,
+				SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+				MessageID:           EmptyMessageID,
+				Solid:               true,
 				StructureDetails: &markers.StructureDetails{
 					Rank:          0,
 					IsPastMarker:  false,
@@ -661,7 +659,7 @@ type Attachment struct {
 }
 type attachmentInner struct {
 	TransactionID utxo.TransactionID `serix:"0"`
-	MessageID     MessageID                 `serix:"1"`
+	MessageID     MessageID          `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }

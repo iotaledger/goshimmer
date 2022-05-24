@@ -16,9 +16,8 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/plugins/webapi"
-	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -27,6 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -79,23 +79,23 @@ func Filter() *DoubleSpendFilter {
 }
 
 // FilterHasConflict checks if the outputs are conflicting if doubleSpendFilter is enabled.
-func FilterHasConflict(outputs ledgerstate.Inputs) (bool, ledgerstate.TransactionID) {
+func FilterHasConflict(outputs devnetvm.Inputs) (bool, utxo.TransactionID) {
 	if filterEnabled {
 		has, conflictingID := doubleSpendFilter.HasConflict(outputs)
 		return has, conflictingID
 	}
-	return false, ledgerstate.TransactionID{}
+	return false, utxo.TransactionID{}
 }
 
 // FilterAdd Adds transaction to the doubleSpendFilter if it is enabled.
-func FilterAdd(tx *ledgerstate.Transaction) {
+func FilterAdd(tx *devnetvm.Transaction) {
 	if filterEnabled {
 		doubleSpendFilter.Add(tx)
 	}
 }
 
 // FilterRemove Removes transaction id from the doubleSpendFilter if it is enabled.
-func FilterRemove(txID ledgerstate.TransactionID) {
+func FilterRemove(txID utxo.TransactionID) {
 	if filterEnabled {
 		doubleSpendFilter.Remove(txID)
 	}

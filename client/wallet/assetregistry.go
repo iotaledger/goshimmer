@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
@@ -25,7 +24,7 @@ type AssetRegistry struct {
 }
 
 type assetRegistryInner struct {
-	Network string                      `serix:"0,lengthPrefixType=uint32"`
+	Network string                   `serix:"0,lengthPrefixType=uint32"`
 	Assets  map[devnetvm.Color]Asset `serix:"1,lengthPrefixType=uint32"`
 	// client communicates with the central registry
 	client *registryclient.HTTPClient

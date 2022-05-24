@@ -10,23 +10,22 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
-	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -487,11 +486,12 @@ func (m *Message) FromBytes(data []byte) (*Message, error) {
 		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
 	}
 
+	// TODO: this seems a bit out of place here.
 	msgPayload := msg.Payload()
-	if msgPayload != nil && msgPayload.Type() == ledgerstate.TransactionType {
-		transaction := msgPayload.(*ledgerstate.Transaction)
+	if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
+		tx := msgPayload.(*devnetvm.Transaction)
 
-		ledgerstate.SetOutputID(transaction.Essence(), transaction.ID())
+		devnetvm.SetOutputID(tx.Essence(), tx.ID())
 	}
 
 	return msg, err
@@ -544,7 +544,7 @@ func (m *Message) Version() uint8 {
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	if parents, ok := m.Parents[parentType]; ok {
+	if parents, ok := m.messageInner.Parents[parentType]; ok {
 		return parents
 	}
 	return NewMessageIDs()
@@ -552,7 +552,7 @@ func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for parentType, parents := range m.Parents {
+	for parentType, parents := range m.messageInner.Parents {
 		for parentID := range parents {
 			consumer(Parent{
 				Type: parentType,
@@ -791,8 +791,8 @@ type messageMetadataInner struct {
 	SolidificationTime  time.Time                 `serix:"2"`
 	Solid               bool                      `serix:"3"`
 	StructureDetails    *markers.StructureDetails `serix:"4,optional"`
-	AddedBranchIDs      utxo.TransactionIDs     `serix:"5"`
-	SubtractedBranchIDs utxo.TransactionIDs     `serix:"6"`
+	AddedBranchIDs      utxo.TransactionIDs       `serix:"5"`
+	SubtractedBranchIDs utxo.TransactionIDs       `serix:"6"`
 	Scheduled           bool                      `serix:"7"`
 	ScheduledTime       time.Time                 `serix:"8"`
 	Booked              bool                      `serix:"9"`

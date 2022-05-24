@@ -19,24 +19,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-// region OutputID Tests
-
-func TestOutputID(t *testing.T) {
-	t.Run("CASE: Index within limit", func(t *testing.T) {
-		outputID := NewOutputID(TransactionID{}, 1)
-		outputIDdecoded, _, err := OutputIDFromBytes(outputID.Bytes())
-		assert.NoError(t, err)
-		assert.Equal(t, outputID, outputIDdecoded)
-	})
-
-	t.Run("CASE: Index out of bounds", func(t *testing.T) {
-		outputID := NewOutputID(TransactionID{}, 1)
-		outputID[33] = byte(10)
-		_, _, err := OutputIDFromBytes(outputID.Bytes())
-		assert.Error(t, err)
-	})
-}
-
 // region AliasOutput Tests
 func TestAliasOutput_NewAliasOutputMint(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {

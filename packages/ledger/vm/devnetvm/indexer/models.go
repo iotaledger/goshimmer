@@ -50,7 +50,7 @@ func (a *AddressOutputMapping) FromObjectStorage(key, _ []byte) (addressOutputMa
 
 // FromMarshalUtil un-serializes an AddressOutputMapping using a MarshalUtil.
 func (a *AddressOutputMapping) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if a.address, err = devnetvm.AddressFromMarshalUtil(marshalUtil); err != nil {
+	if a.address, _, err = devnetvm.AddressFromBytes(marshalUtil.Bytes()); err != nil {
 		return errors.Errorf("failed to parse consumed Address from MarshalUtil: %w", err)
 	}
 	if err = a.outputID.FromMarshalUtil(marshalUtil); err != nil {

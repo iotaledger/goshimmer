@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -103,23 +104,21 @@ func registerTangleEvents() {
 		})
 	})
 
-	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		var msgID tangle.MessageID
-		deps.Tangle.Storage.Attachments(txID).Consume(func(a *tangle.Attachment) {
+		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
 			msgID = a.MessageID()
 		})
 
-		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-			wsMsg := &wsMessage{
-				Type: MsgTypeTangleTxGoF,
-				Data: &tangleTxGoFChanged{
-					ID:          msgID.Base58(),
-					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
-				},
-			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
-		})
+		wsMsg := &wsMessage{
+			Type: MsgTypeTangleTxGoF,
+			Data: &tangleTxGoFChanged{
+				ID:          msgID.Base58(),
+				IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(event.TransactionID),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
 	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
@@ -138,7 +137,7 @@ func registerTangleEvents() {
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
-	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
@@ -193,7 +192,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Ledger.Events.TransactionGoFChanged.Attach(txGoFChangedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
@@ -224,8 +223,8 @@ func registerBranchEvents() {
 			Type: MsgTypeBranchGoFChanged,
 			Data: &branchGoFChanged{
 				ID:          event.BranchID.Base58(),
-				GoF:         newGoF.String(),
-				IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+				GoF:         gof.High.String(),
+				IsConfirmed: true,
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -247,7 +246,7 @@ func registerBranchEvents() {
 	})
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchGoFChanged.Attach(branchGoFChangedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }

@@ -2,7 +2,8 @@ package evilwallet
 
 import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -13,15 +14,15 @@ func SplitBalanceEqually(splitNumber int, balance uint64) []uint64 {
 	// input is divided equally among outputs
 	for i := 0; i < splitNumber-1; i++ {
 		outputBalances = append(outputBalances, balance/uint64(splitNumber))
-		totalBalance, _ = ledgerstate.SafeAddUint64(totalBalance, outputBalances[i])
+		totalBalance, _ = devnetvm.SafeAddUint64(totalBalance, outputBalances[i])
 	}
-	lastBalance, _ := ledgerstate.SafeSubUint64(balance, totalBalance)
+	lastBalance, _ := devnetvm.SafeSubUint64(balance, totalBalance)
 	outputBalances = append(outputBalances, lastBalance)
 
 	return outputBalances
 }
 
-func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.OutputID) {
+func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []utxo.OutputID) {
 	for _, jsonOutput := range outputs {
 		output, err := jsonOutput.ToLedgerstateOutput()
 		if err != nil {
@@ -32,7 +33,7 @@ func getOutputIDsByJSON(outputs []*jsonmodels.Output) (outputIDs []ledgerstate.O
 	return outputIDs
 }
 
-func getOutputByJSON(jsonOutput *jsonmodels.Output) (output ledgerstate.Output) {
+func getOutputByJSON(jsonOutput *jsonmodels.Output) (output devnetvm.Output) {
 	output, err := jsonOutput.ToLedgerstateOutput()
 	if err != nil {
 		return
@@ -41,10 +42,10 @@ func getOutputByJSON(jsonOutput *jsonmodels.Output) (output ledgerstate.Output) 
 	return output
 }
 
-func getIotaColorAmount(balance *ledgerstate.ColoredBalances) uint64 {
+func getIotaColorAmount(balance *devnetvm.ColoredBalances) uint64 {
 	outBalance := uint64(0)
-	balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
-		if color == ledgerstate.ColorIOTA {
+	balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
+		if color == devnetvm.ColorIOTA {
 			outBalance += balance
 		}
 		return true

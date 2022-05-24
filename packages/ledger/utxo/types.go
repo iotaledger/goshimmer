@@ -95,6 +95,18 @@ func (o *OutputID) FromRandomness() (err error) {
 	return nil
 }
 
+// FromMarshalUtil un-serializes an OutputID from a MarshalUtil.
+func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
+	if err = o.TransactionID.FromMarshalUtil(marshalUtil); err != nil {
+		return errors.Errorf("failed to parse TransactionID: %w", err)
+	}
+	if o.Index, err = marshalUtil.ReadUint16(); err != nil {
+		return errors.Errorf("failed to parse Index: %w", err)
+	}
+
+	return nil
+}
+
 // FromBytes unmarshals an OutputID from a sequence of bytes.
 func (o *OutputID) FromBytes(data []byte) (consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())

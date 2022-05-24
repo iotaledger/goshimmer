@@ -414,17 +414,17 @@ func TestSchedulerFlow(t *testing.T) {
 	// set C to have a timestamp in the future
 	msgC := newMessage(selfNode.PublicKey())
 
-	msgC.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgC.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
 
 	msgC.messageInner.IssuingTime = time.Now().Add(5 * time.Second)
 	messages["C"] = msgC
 
 	msgD := newMessage(peerNode.PublicKey())
-	msgD.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgD.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
-	msgE.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgE.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
 	msgE.messageInner.IssuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
 

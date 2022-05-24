@@ -7,5 +7,5 @@ import (
 )
 
 func OutputFactory(marshalUtil *marshalutil.MarshalUtil) (output utxo.Output, err error) {
-	return OutputFromMarshalUtil(marshalUtil)
+	return OutputFromBytes(marshalUtil.Bytes())
 }
