@@ -1,6 +1,7 @@
 package utxo
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
@@ -17,7 +19,7 @@ import (
 
 // TransactionID is a unique identifier for a Transaction.
 type TransactionID struct {
-	types.Identifier
+	types.Identifier `serix:"0"`
 }
 
 // NewTransactionID returns a new TransactionID for the given data.
@@ -62,8 +64,8 @@ func NewTransactionIDs(ids ...TransactionID) (new TransactionIDs) {
 
 // OutputID is a unique identifier for an Output.
 type OutputID struct {
-	TransactionID TransactionID
-	Index         uint16
+	TransactionID TransactionID `serix:"0"`
+	Index         uint16        `serix:"1"`
 }
 
 // NewOutputID returns a new OutputID for the given details.
@@ -80,8 +82,8 @@ func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
 	if err != nil {
 		return errors.Errorf("could not decode base58 encoded string: %w", err)
 	}
-
-	return o.FromMarshalUtil(marshalutil.New(decodedBytes))
+	_, err = o.FromBytes(decodedBytes)
+	return err
 }
 
 // FromRandomness generates a random OutputID.
@@ -93,21 +95,19 @@ func (o *OutputID) FromRandomness() (err error) {
 	return nil
 }
 
-// FromMarshalUtil un-serializes an OutputID from a MarshalUtil.
-func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if err = o.TransactionID.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse TransactionID: %w", err)
+// FromBytes unmarshals an OutputID from a sequence of bytes.
+func (o *OutputID) FromBytes(data []byte) (consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse OutputID: %w", err)
+		return
 	}
-	if o.Index, err = marshalUtil.ReadUint16(); err != nil {
-		return errors.Errorf("failed to parse Index: %w", err)
-	}
-
-	return nil
+	return
 }
 
 // Unmarshal un-serializes a OutputID using a MarshalUtil (additional unmarshal signature required for AdvancedSet).
 func (o OutputID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	err = outputID.FromMarshalUtil(marshalUtil)
+	_, err = outputID.FromBytes(marshalUtil.Bytes())
 	return outputID, err
 }
 
@@ -216,7 +216,7 @@ func (o *Outputs) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, outputFa
 
 	for i := uint64(0); i < outputCount; i++ {
 		var outputID OutputID
-		if err = outputID.FromMarshalUtil(marshalUtil); err != nil {
+		if _, err = outputID.FromBytes(marshalUtil.Bytes()); err != nil {
 			return errors.Errorf("unable to read output ID: %w", err)
 		}
 

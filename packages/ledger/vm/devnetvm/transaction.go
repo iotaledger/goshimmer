@@ -1,6 +1,7 @@
 package devnetvm
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -8,14 +9,14 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/iotaledger/hive.go/typeutils"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -24,22 +25,88 @@ import (
 
 // region TransactionType //////////////////////////////////////////////////////////////////////////////////////////////
 
-// TransactionType represents the payload type of Transactions.
+// TransactionType represents the payload Type of Transaction.
 var TransactionType payload.Type
 
-// init defers the initialization of the TransactionType to not have an initialization loop.
 func init() {
-	TransactionType = payload.NewType(1337, "TransactionType", func(data []byte) (payload.Payload, error) {
-		marshalUtil := marshalutil.New(data)
-		tx, err := (&Transaction{}).FromMarshalUtil(marshalUtil)
-		if err != nil {
-			return nil, err
+	TransactionType = payload.NewType(1337, "TransactionType")
+
+	err := serix.DefaultAPI.RegisterTypeSettings(Transaction{}, serix.TypeSettings{}.WithObjectType(uint32(new(Transaction).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Transaction))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterValidators(TransactionEssenceVersion(byte(0)), validateTransactionEssenceVersionBytes, validateTransactionEssenceVersion)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssenceVersion validators: %w", err))
+	}
+
+	InputsArrayRules := &serix.ArrayRules{
+		Min:            MinInputCount,
+		Max:            MaxInputCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Inputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(InputsArrayRules))
+	if err != nil {
+		panic(fmt.Errorf("error registering Inputs type settings: %w", err))
+	}
+
+	OutputsArrayRules := &serix.ArrayRules{
+		Min:            MinOutputCount,
+		Max:            MaxOutputCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates | serializer.ArrayValidationModeLexicalOrdering,
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(make(Outputs, 0), serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint16).WithLexicalOrdering(true).WithArrayRules(OutputsArrayRules))
+	if err != nil {
+		panic(fmt.Errorf("error registering Outputs type settings: %w", err))
+	}
+
+	err = serix.DefaultAPI.RegisterValidators(Transaction{}, validateTransactionBytes, validateTransaction)
+	if err != nil {
+		panic(fmt.Errorf("error registering TransactionEssence validators: %w", err))
+	}
+}
+
+func validateTransactionEssenceVersion(_ context.Context, version TransactionEssenceVersion) (err error) {
+	if version != 0 {
+		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
+		return
+	}
+	return nil
+}
+
+func validateTransactionEssenceVersionBytes(_ context.Context, _ []byte) (err error) {
+	return
+}
+
+func validateTransaction(_ context.Context, tx Transaction) (err error) {
+	maxReferencedUnlockIndex := len(tx.Essence().Inputs()) - 1
+	for i, unlockBlock := range tx.UnlockBlocks() {
+		switch unlockBlock.Type() {
+		case SignatureUnlockBlockType:
+			continue
+		case ReferenceUnlockBlockType:
+			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
+				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
+				return
+			}
+		case AliasUnlockBlockType:
+			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
+				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
+				return
+			}
 		}
-		if marshalUtil.ReadOffset() != len(data) {
-			return nil, errors.New("not all payload bytes were consumed")
-		}
-		return tx, nil
-	})
+	}
+
+	return nil
+}
+
+func validateTransactionBytes(_ context.Context, _ []byte) (err error) {
+	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -80,17 +147,20 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
+	transactionInner `serix:"0"`
+}
+type transactionInner struct {
 	id           *utxo.TransactionID
 	idMutex      sync.RWMutex
-	essence      *TransactionEssence
-	unlockBlocks UnlockBlocks
+	Essence      *TransactionEssence `serix:"1"`
+	UnlockBlocks UnlockBlocks        `serix:"2,lengthPrefixType=uint16"`
 
 	objectstorage.StorableObjectFlags
 }
 
 func (t *Transaction) Inputs() (inputs []utxo.Input) {
 	inputs = make([]utxo.Input, 0)
-	for _, input := range t.essence.Inputs() {
+	for _, input := range t.transactionInner.Essence.Inputs() {
 		inputs = append(inputs, input)
 	}
 
@@ -100,148 +170,59 @@ func (t *Transaction) Inputs() (inputs []utxo.Input) {
 // NewTransaction creates a new Transaction from the given details.
 func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (transaction *Transaction) {
 	if len(unlockBlocks) != len(essence.Inputs()) {
-		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.inputs)))
+		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.Inputs())))
 	}
 
 	transaction = &Transaction{
-		essence:      essence,
-		unlockBlocks: unlockBlocks,
+		transactionInner{
+			Essence:      essence,
+			UnlockBlocks: unlockBlocks,
+		},
 	}
 
-	for i, output := range essence.Outputs() {
-		// the first call of transaction.ID() will also create a transaction id
-		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
-
-		// check if an alias output is deadlocked to itself
-		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
-		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
-		// address set as the latter determined alias address. Hence, this check here.
-		if output.Type() == AliasOutputType {
-			alias := output.(*AliasOutput)
-			aliasAddress := alias.GetAliasAddress()
-			if alias.GetStateAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID()))
-			}
-			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID()))
-			}
-		}
-	}
+	SetOutputID(essence, transaction.ID())
 
 	return
 }
 
-// FromObjectStorage creates a Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	transaction, err := t.FromBytes(bytes)
+// FromObjectStorage creates an Transaction from sequences of key and bytes.
+func (t *Transaction) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	tx := new(Transaction)
+	if t != nil {
+		tx = t
+	}
+	_, err := serix.DefaultAPI.Decode(context.Background(), value, tx, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Transaction from bytes: %w", err)
-		return transaction, err
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return tx, err
 	}
+	transactionID := new(utxo.TransactionID)
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, transactionID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Transaction.id: %w", err)
+		return tx, err
+	}
+	tx.transactionInner.id = transactionID
 
-	var transactionID utxo.TransactionID
-	if _, err = transactionID.FromBytes(key); err != nil {
-		err = errors.Errorf("failed to parse TransactionID from bytes: %w", err)
-		return transaction, err
-	}
-	transaction.id = &transactionID
-	return transaction, err
+	SetOutputID(tx.Essence(), tx.ID())
+
+	return tx, err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytes(bytes []byte) (transaction *Transaction, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if transaction, err = t.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Transaction from MarshalUtil: %w", err)
-		return
+func (t *Transaction) FromBytes(data []byte) (*Transaction, error) {
+	tx := new(Transaction)
+	if t != nil {
+		tx = t
 	}
-	return
-}
-
-// FromMarshalUtil unmarshals a Transaction using a MarshalUtil (for easier unmarshalling).
-func (t *Transaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transaction *Transaction, err error) {
-	if transaction = t; transaction == nil {
-		transaction = new(Transaction)
-	}
-
-	readStartOffset := marshalUtil.ReadOffset()
-
-	payloadSize, err := marshalUtil.ReadUint32()
+	_, err := serix.DefaultAPI.Decode(context.Background(), data, tx)
 	if err != nil {
-		err = errors.Errorf("failed to parse payload size from MarshalUtil (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+		err = errors.Errorf("failed to parse Transaction: %w", err)
+		return tx, err
 	}
-	// a payloadSize of 0 indicates the payload is omitted and the payload is nil
-	if payloadSize == 0 {
-		return
-	}
-	payloadType, err := payload.TypeFromMarshalUtil(marshalUtil)
-	if err != nil {
-		err = errors.Errorf("failed to parse payload Type from MarshalUtil: %w", err)
-		return
-	}
-	if payloadType != TransactionType {
-		err = errors.Errorf("payload type '%s' does not match expected '%s': %w", payloadType, TransactionType, cerrors.ErrParseBytesFailed)
-		return
-	}
+	SetOutputID(tx.Essence(), tx.ID())
 
-	if transaction.essence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
-		return
-	}
-	if transaction.unlockBlocks, err = UnlockBlocksFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse UnlockBlocks from MarshalUtil: %w", err)
-		return
-	}
-
-	parsedBytes := marshalUtil.ReadOffset() - readStartOffset
-	if parsedBytes != int(payloadSize)+marshalutil.Uint32Size {
-		err = errors.Errorf("parsed bytes (%d) did not match expected size (%d): %w", parsedBytes, payloadSize, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	if len(transaction.unlockBlocks) != len(transaction.essence.Inputs()) {
-		err = errors.Errorf("In TransactionFromMarshalUtil: amount of UnlockBlocks (%d) does not match amount of Inputs (%d): %w", len(transaction.unlockBlocks), len(transaction.essence.inputs), cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	maxReferencedUnlockIndex := len(transaction.essence.Inputs()) - 1
-	for i, unlockBlock := range transaction.unlockBlocks {
-		switch unlockBlock.Type() {
-		case SignatureUnlockBlockType:
-			continue
-		case ReferenceUnlockBlockType:
-			if unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex() > uint16(maxReferencedUnlockIndex) {
-				err = errors.Errorf("unlock block %d references non-existent unlock block at index %d", i, unlockBlock.(*ReferenceUnlockBlock).ReferencedIndex())
-				return
-			}
-		case AliasUnlockBlockType:
-			if unlockBlock.(*AliasUnlockBlock).AliasInputIndex() > uint16(maxReferencedUnlockIndex) {
-				err = errors.Errorf("unlock block %d references non-existent chain input at index %d", i, unlockBlock.(*AliasUnlockBlock).AliasInputIndex())
-				return
-			}
-		}
-	}
-
-	for i, output := range transaction.essence.Outputs() {
-		output.SetID(utxo.NewOutputID(transaction.ID(), uint16(i)))
-		// check if an alias output is deadlocked to itself
-		// for origin alias outputs, alias address is only known once the ID of the output is set
-		if output.Type() == AliasOutputType {
-			alias := output.(*AliasOutput)
-			aliasAddress := alias.GetAliasAddress()
-			if alias.GetStateAddress().Equals(aliasAddress) {
-				err = errors.Errorf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID())
-				return
-			}
-			if alias.GetGoverningAddress().Equals(aliasAddress) {
-				err = errors.Errorf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID())
-				return
-			}
-		}
-	}
-
-	return
+	return tx, nil
 }
 
 // ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
@@ -279,28 +260,22 @@ func (t *Transaction) Type() payload.Type {
 
 // Essence returns the TransactionEssence of the Transaction.
 func (t *Transaction) Essence() *TransactionEssence {
-	return t.essence
+	return t.transactionInner.Essence
 }
 
 // UnlockBlocks returns the UnlockBlocks of the Transaction.
 func (t *Transaction) UnlockBlocks() UnlockBlocks {
-	return t.unlockBlocks
+	return t.transactionInner.UnlockBlocks
 }
 
 // Bytes returns a marshaled version of the Transaction.
 func (t *Transaction) Bytes() []byte {
-	if t == nil {
-		// if the payload is nil (i.e. when used as an optional payload) we encode that by setting the length to 0.
-		return marshalutil.New(marshalutil.Uint32Size).WriteUint32(0).Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	payloadBytes := byteutils.ConcatBytes(TransactionType.Bytes(), t.essence.Bytes(), t.unlockBlocks.Bytes())
-	payloadBytesLength := len(payloadBytes)
-
-	return marshalutil.New(marshalutil.Uint32Size + payloadBytesLength).
-		WriteUint32(uint32(payloadBytesLength)).
-		WriteBytes(payloadBytes).
-		Bytes()
+	return objBytes
 }
 
 // String returns a human-readable version of the Transaction.
@@ -324,6 +299,28 @@ func (t *Transaction) ObjectStorageValue() []byte {
 	return t.Bytes()
 }
 
+// SetOutputID assigns TransactionID to all outputs in TransactionEssence
+func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
+	for i, output := range essence.Outputs() {
+		// the first call of transaction.ID() will also create a transaction id
+		output.SetID(utxo.NewOutputID(transactionID, uint16(i)))
+		// check if an alias output is deadlocked to itself
+		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
+		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
+		// address set as the later determined alias address. Hence this check here.
+		if output.Type() == AliasOutputType {
+			alias := output.(*AliasOutput)
+			aliasAddress := alias.GetAliasAddress()
+			if alias.GetStateAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("state address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+			if alias.GetGoverningAddress().Equals(aliasAddress) {
+				panic(fmt.Sprintf("governing address of alias output at index %d (id: %s) cannot be its own alias address", i, alias.ID().Base58()))
+			}
+		}
+	}
+}
+
 // code contract (make sure the struct implements all required methods)
 var _ payload.Payload = new(Transaction)
 
@@ -338,16 +335,19 @@ var _ objectstorage.StorableObject = new(Transaction)
 
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
-	version TransactionEssenceVersion
+	transactionEssenceInner `serix:"0"`
+}
+type transactionEssenceInner struct {
+	Version TransactionEssenceVersion `serix:"0"`
 	// timestamp is the timestamp of the transaction.
-	timestamp time.Time
+	Timestamp time.Time `serix:"1"`
 	// accessPledgeID is the nodeID to which access mana of the transaction is pledged.
-	accessPledgeID identity.ID
+	AccessPledgeID identity.ID `serix:"2"`
 	// consensusPledgeID is the nodeID to which consensus mana of the transaction is pledged.
-	consensusPledgeID identity.ID
-	inputs            Inputs
-	outputs           Outputs
-	payload           payload.Payload
+	ConsensusPledgeID identity.ID     `serix:"3"`
+	Inputs            Inputs          `serix:"4,lengthPrefixType=uint16"`
+	Outputs           Outputs         `serix:"5,lengthPrefixType=uint16"`
+	Payload           payload.Payload `serix:"6,optional"`
 }
 
 // NewTransactionEssence creates a new TransactionEssence from the given details.
@@ -360,140 +360,88 @@ func NewTransactionEssence(
 	outputs Outputs,
 ) *TransactionEssence {
 	return &TransactionEssence{
-		version:           version,
-		timestamp:         timestamp,
-		accessPledgeID:    accessPledgeID,
-		consensusPledgeID: consensusPledgeID,
-		inputs:            inputs,
-		outputs:           outputs,
+		transactionEssenceInner{
+			Version:           version,
+			Timestamp:         timestamp,
+			AccessPledgeID:    accessPledgeID,
+			ConsensusPledgeID: consensusPledgeID,
+			Inputs:            inputs,
+			Outputs:           outputs,
+		},
 	}
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
-func TransactionEssenceFromBytes(bytes []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if transactionEssence, err = TransactionEssenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssence from MarshalUtil: %w", err)
+func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEssence, consumedBytes int, err error) {
+	transactionEssence = new(TransactionEssence)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, transactionEssence, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse TransactionEssence: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// TransactionEssenceFromMarshalUtil unmarshals a TransactionEssence using a MarshalUtil (for easier unmarshalling).
-func TransactionEssenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (transactionEssence *TransactionEssence, err error) {
-	transactionEssence = &TransactionEssence{}
-	if transactionEssence.version, err = TransactionEssenceVersionFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse TransactionEssenceVersion from MarshalUtil: %w", err)
-		return
-	}
-	// unmarshal timestamp
-	if transactionEssence.timestamp, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse Transaction timestamp from MarshalUtil: %w", err)
-		return
-	}
-	// unmarshal accessPledgeID
-	var accessPledgeIDBytes []byte
-	if accessPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = errors.Errorf("failed to parse accessPledgeID from MarshalUtil: %w", err)
-		return
-	}
-	copy(transactionEssence.accessPledgeID[:], accessPledgeIDBytes)
-
-	// unmarshal consensusPledgeIDBytes
-	var consensusPledgeIDBytes []byte
-	if consensusPledgeIDBytes, err = marshalUtil.ReadBytes(len(identity.ID{})); err != nil {
-		err = errors.Errorf("failed to parse consensusPledgeID from MarshalUtil: %w", err)
-		return
-	}
-	copy(transactionEssence.consensusPledgeID[:], consensusPledgeIDBytes)
-
-	if transactionEssence.inputs, err = InputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Inputs from MarshalUtil: %w", err)
-		return
-	}
-	if transactionEssence.outputs, err = OutputsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Outputs from MarshalUtil: %w", err)
-		return
-	}
-	if transactionEssence.payload, err = payload.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse Payload from MarshalUtil: %w", err)
-		return
-	}
-
 	return
 }
 
 // SetPayload set the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) SetPayload(p payload.Payload) {
-	t.payload = p
+	t.transactionEssenceInner.Payload = p
 }
 
 // Version returns the Version of the TransactionEssence.
 func (t *TransactionEssence) Version() TransactionEssenceVersion {
-	return t.version
+	return t.transactionEssenceInner.Version
 }
 
 // Timestamp returns the timestamp of the TransactionEssence.
 func (t *TransactionEssence) Timestamp() time.Time {
-	return t.timestamp
+	return t.transactionEssenceInner.Timestamp
 }
 
 // AccessPledgeID returns the access mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) AccessPledgeID() identity.ID {
-	return t.accessPledgeID
+	return t.transactionEssenceInner.AccessPledgeID
 }
 
 // ConsensusPledgeID returns the consensus mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) ConsensusPledgeID() identity.ID {
-	return t.consensusPledgeID
+	return t.transactionEssenceInner.ConsensusPledgeID
 }
 
 // Inputs returns the Inputs of the TransactionEssence.
 func (t *TransactionEssence) Inputs() Inputs {
-	return t.inputs
+	return t.transactionEssenceInner.Inputs
 }
 
 // Outputs returns the Outputs of the TransactionEssence.
 func (t *TransactionEssence) Outputs() Outputs {
-	return t.outputs
+	return t.transactionEssenceInner.Outputs
 }
 
 // Payload returns the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) Payload() payload.Payload {
-	return t.payload
+	return t.transactionEssenceInner.Payload
 }
 
 // Bytes returns a marshaled version of the TransactionEssence.
 func (t *TransactionEssence) Bytes() []byte {
-	marshalUtil := marshalutil.New().
-		Write(t.version).
-		WriteTime(t.timestamp).
-		Write(t.accessPledgeID).
-		Write(t.consensusPledgeID).
-		Write(t.inputs).
-		Write(t.outputs)
-
-	if !typeutils.IsInterfaceNil(t.payload) {
-		marshalUtil.Write(t.payload)
-	} else {
-		marshalUtil.WriteUint32(0)
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
 // String returns a human-readable version of the TransactionEssence.
 func (t *TransactionEssence) String() string {
 	return stringify.Struct("TransactionEssence",
-		stringify.StructField("version", t.version),
-		stringify.StructField("timestamp", t.timestamp),
-		stringify.StructField("accessPledgeID", t.accessPledgeID),
-		stringify.StructField("consensusPledgeID", t.consensusPledgeID),
-		stringify.StructField("inputs", t.inputs),
-		stringify.StructField("outputs", t.outputs),
-		stringify.StructField("payload", t.payload),
+		stringify.StructField("Version", t.transactionEssenceInner.Version),
+		stringify.StructField("Timestamp", t.transactionEssenceInner.Timestamp),
+		stringify.StructField("AccessPledgeID", t.transactionEssenceInner.AccessPledgeID),
+		stringify.StructField("ConsensusPledgeID", t.transactionEssenceInner.ConsensusPledgeID),
+		stringify.StructField("Inputs", t.transactionEssenceInner.Inputs),
+		stringify.StructField("Outputs", t.transactionEssenceInner.Outputs),
+		stringify.StructField("Payload", t.transactionEssenceInner.Payload),
 	)
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
 	"github.com/iotaledger/hive.go/network/tcp"

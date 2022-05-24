@@ -2,7 +2,6 @@ package devnetvm
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
@@ -11,11 +10,11 @@ import (
 type VM struct{}
 
 func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
-	return new(Transaction).FromMarshalUtil(marshalutil.New(transactionBytes))
+	return new(Transaction).FromBytes(transactionBytes)
 }
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
-	if output, err = OutputFromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
+	if _, err = output.FromBytes(outputBytes); err != nil {
 		err = errors.Errorf("failed to parse Output: %w", err)
 	}
 
