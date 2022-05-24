@@ -492,7 +492,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
-		//check for repeating message across weak and dislike block
+		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
 		dislikeParents := randomParents(4).Slice()
 		// create duplicate
@@ -697,7 +697,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
 		assert.Equal(t, msg.ParentsByType(WeakParentType), result.ParentsByType(WeakParentType))
-		assert.Equal(t, msg.Parents, result.Parents)
+		assert.ElementsMatch(t, msg.Parents(), result.Parents())
 		assert.Equal(t, msg.IssuerPublicKey(), result.IssuerPublicKey())
 		// time is in different representation but it denotes the same time
 		assert.True(t, msg.IssuingTime().Equal(result.IssuingTime()))

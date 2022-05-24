@@ -28,16 +28,15 @@ func NewOnTangleVoting(branchDAG *conflictdag.ConflictDAG[utxo.TransactionID, ut
 	}
 }
 
-// LikedConflictMember returns the liked BranchID across the members of its conflict sets.
-func (o *OnTangleVoting) LikedConflictMember(branchID utxo.TransactionID) (likedBranchID utxo.TransactionID, conflictMembers *set.AdvancedSet[utxo.TransactionID]) {
-	conflictMembers = set.NewAdvancedSet[utxo.TransactionID](branchID)
-	if o.BranchLiked(branchID) {
-		likedBranchID = branchID
+// LikedConflictMember returns the liked ConflictID across the members of its conflict sets.
+func (o *OnTangleVoting) LikedConflictMember(conflictID utxo.TransactionID) (likedConflictID utxo.TransactionID, conflictMembers *set.AdvancedSet[utxo.TransactionID]) {
+	conflictMembers = set.NewAdvancedSet(conflictID)
+	if o.BranchLiked(conflictID) {
+		likedConflictID = conflictID
 	}
-
-	o.branchDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
-		if likedBranchID == utxo.EmptyTransactionID && o.BranchLiked(conflictingBranchID) {
-			likedBranchID = conflictingBranchID
+	o.branchDAG.Utils.ForEachConflictingBranchID(conflictID, func(conflictingBranchID utxo.TransactionID) bool {
+		if likedConflictID == utxo.EmptyTransactionID && o.BranchLiked(conflictingBranchID) {
+			likedConflictID = conflictingBranchID
 		}
 		conflictMembers.Add(conflictingBranchID)
 
