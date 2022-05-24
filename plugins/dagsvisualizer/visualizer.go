@@ -103,6 +103,25 @@ func registerTangleEvents() {
 		})
 	})
 
+	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+		var msgID tangle.MessageID
+		deps.Tangle.Storage.Attachments(txID).Consume(func(a *tangle.Attachment) {
+			msgID = a.MessageID()
+		})
+
+		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+			wsMsg := &wsMessage{
+				Type: MsgTypeTangleTxGoF,
+				Data: &tangleTxGoFChanged{
+					ID:          msgID.Base58(),
+					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
+				},
+			}
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
+		})
+	})
+
 	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
@@ -119,6 +138,7 @@ func registerTangleEvents() {
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
+	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
@@ -154,15 +174,16 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		txID := event.TransactionID
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			wsMsg := &wsMessage{
-				Type: MsgTypeUTXOConfirmed,
-				Data: &utxoConfirmed{
-					ID:            txID.Base58(),
-					GoF:           txMetadata.GradeOfFinality().String(),
-					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
+				Type: MsgTypeUTXOGoFChanged,
+				Data: &utxoGoFChanged{
+					ID:          txID.Base58(),
+					GoF:         txMetadata.GradeOfFinality().String(),
+					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
+					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -172,7 +193,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionGoFChanged.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
@@ -200,9 +221,11 @@ func registerBranchEvents() {
 
 	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
-			Type: MsgTypeBranchConfirmed,
-			Data: &branchConfirmed{
-				ID: event.BranchID.Base58(),
+			Type: MsgTypeBranchGoFChanged,
+			Data: &branchGoFChanged{
+				ID:          event.BranchID.Base58(),
+				GoF:         newGoF.String(),
+				IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -224,7 +247,7 @@ func registerBranchEvents() {
 	})
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
-	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchGoFChanged.Attach(branchGoFChangedClosure)
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
@@ -377,14 +400,14 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	})
 
 	ret = &utxoVertex{
-		MsgID:         msgID.Base58(),
-		ID:            tx.ID().Base58(),
-		Inputs:        inputs,
-		Outputs:       outputs,
-		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
-		BranchIDs:     branchIDs,
-		GoF:           gof,
-		ConfirmedTime: confirmedTime,
+		MsgID:       msgID.Base58(),
+		ID:          tx.ID().Base58(),
+		Inputs:      inputs,
+		Outputs:     outputs,
+		IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
+		BranchIDs:   branchIDs,
+		GoF:         gof,
+		GoFTime:     confirmedTime,
 	}
 
 	return ret

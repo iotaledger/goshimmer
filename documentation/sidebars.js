@@ -302,6 +302,18 @@ module.exports = {
         label: 'Integration Tests',
         id: 'tooling/integration_tests',
       },
+
+      {
+        type: 'doc',
+        label: 'DAGs Visualizer',
+        id: 'tooling/dags_visualizer',
+      },
+
+      {
+        type: 'doc',
+        label: 'Evil Spammer',
+        id: 'tooling/evil_spammer',
+      },
     ],
   },
   {

@@ -2,18 +2,26 @@ package tangle
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(NodesActivityLog{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsUint32))
+
+	if err != nil {
+		panic(fmt.Errorf("error registering GenericDataPayload type settings: %w", err))
+	}
+}
 
 const (
 	activeTimeThreshold  = 30 * time.Minute
@@ -23,12 +31,14 @@ const (
 
 // region CManaWeightProvider //////////////////////////////////////////////////////////////////////////////////////////
 
+type NodesActivityLog map[identity.ID]*ActivityLog
+
 // CManaWeightProvider is a WeightProvider for consensus mana. It keeps track of active nodes based on their time-based
 // activity in relation to activeTimeThreshold.
 type CManaWeightProvider struct {
 	store             kvstore.KVStore
 	mutex             sync.RWMutex
-	activeNodes       map[identity.ID]*ActivityLog
+	activeNodes       NodesActivityLog
 	manaRetrieverFunc ManaRetrieverFunc
 	timeRetrieverFunc TimeRetrieverFunc
 }
@@ -36,7 +46,7 @@ type CManaWeightProvider struct {
 // NewCManaWeightProvider is the constructor for CManaWeightProvider.
 func NewCManaWeightProvider(manaRetrieverFunc ManaRetrieverFunc, timeRetrieverFunc TimeRetrieverFunc, store ...kvstore.KVStore) (cManaWeightProvider *CManaWeightProvider) {
 	cManaWeightProvider = &CManaWeightProvider{
-		activeNodes:       make(map[identity.ID]*ActivityLog),
+		activeNodes:       make(NodesActivityLog),
 		manaRetrieverFunc: manaRetrieverFunc,
 		timeRetrieverFunc: timeRetrieverFunc,
 	}
@@ -131,8 +141,8 @@ func (c *CManaWeightProvider) Shutdown() {
 }
 
 // ActiveNodes returns the map of the active nodes.
-func (c *CManaWeightProvider) ActiveNodes() (activeNodes map[identity.ID]*ActivityLog) {
-	activeNodes = make(map[identity.ID]*ActivityLog)
+func (c *CManaWeightProvider) ActiveNodes() (activeNodes NodesActivityLog) {
+	activeNodes = make(NodesActivityLog)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -154,45 +164,22 @@ type TimeRetrieverFunc func() time.Time
 
 // region activeNodes //////////////////////////////////////////////////////////////////////////////////////////////////
 
-func activeNodesFromBytes(bytes []byte) (activeNodes map[identity.ID]*ActivityLog, err error) {
-	activeNodes = make(map[identity.ID]*ActivityLog)
-
-	marshalUtil := marshalutil.New(bytes)
-	count, err := marshalUtil.ReadUint32()
+func activeNodesFromBytes(data []byte) (activeNodes NodesActivityLog, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &activeNodes, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse weight (%v): %w", err, cerrors.ErrParseBytesFailed)
+		err = errors.Errorf("failed to parse activeNodes: %w", err)
 		return
 	}
-
-	for i := uint32(0); i < count; i++ {
-		nodeID, idErr := identity.IDFromMarshalUtil(marshalUtil)
-		if idErr != nil {
-			err = errors.Errorf("failed to parse ID from MarshalUtil: %w", idErr)
-			return
-		}
-
-		a, aErr := activityLogFromMarshalUtil(marshalUtil)
-		if aErr != nil {
-			err = errors.Errorf("failed to parse ActivityLog from MarshalUtil: %w", aErr)
-			return
-		}
-
-		activeNodes[nodeID] = a
-	}
-
 	return
 }
 
-func activeNodesToBytes(activeNodes map[identity.ID]*ActivityLog) []byte {
-	marshalUtil := marshalutil.New()
-
-	marshalUtil.WriteUint32(uint32(len(activeNodes)))
-	for nodeID, al := range activeNodes {
-		marshalUtil.Write(nodeID)
-		marshalUtil.Write(al)
+func activeNodesToBytes(activeNodes NodesActivityLog) []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), activeNodes, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -210,7 +197,7 @@ func timeToUnixGranularity(t time.Time) int64 {
 // ActivityLog is a time-based log of node activity. It stores information when a node was active and provides
 // functionality to query for certain timeframes.
 type ActivityLog struct {
-	setTimes set.Set[int64]
+	setTimes set.Set[int64] `serix:"0,lengthPrefixType=uint32"`
 	times    *minHeap
 }
 
@@ -301,39 +288,30 @@ func (a *ActivityLog) Clone() *ActivityLog {
 	return clone
 }
 
-// Bytes returns a marshaled version of the ActivityLog.
-func (a *ActivityLog) Bytes() (marshaledBranchWeight []byte) {
-	marshalUtil := marshalutil.New(marshalutil.Uint32Size + a.times.Len()*marshalutil.Int64Size)
-
-	marshalUtil.WriteUint32(uint32(a.times.Len()))
-	for _, u := range *a.times {
-		marshalUtil.WriteInt64(u)
+// Encode ActivityLog a serialized byte slice of the object.
+func (a *ActivityLog) Encode() ([]byte, error) {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a.setTimes, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	return marshalUtil.Bytes()
+	return objBytes, nil
 }
 
-// activityLogFromMarshalUtil unmarshals an ActivityLog object using a MarshalUtil (for easier unmarshaling).
-func activityLogFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (a *ActivityLog, err error) {
-	a = NewActivityLog()
+// Decode deserializes bytes into a valid object.
+func (a *ActivityLog) Decode(data []byte) (bytesRead int, err error) {
+	var mh minHeap
 
-	var length uint32
-	if length, err = marshalUtil.ReadUint32(); err != nil {
-		err = errors.Errorf("failed to parse activity log length (%v): %w", err, cerrors.ErrParseBytesFailed)
+	a.setTimes = set.New[int64]()
+	a.times = &mh
+	bytesRead, err = serix.DefaultAPI.Decode(context.Background(), data, &a.setTimes, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ActivityLog: %w", err)
 		return
 	}
-
-	// Iterate from top element to avoid reshuffling the heap.
-	for i := length; i > 0; i-- {
-		var unixTime int64
-		if unixTime, err = marshalUtil.ReadInt64(); err != nil {
-			err = errors.Errorf("failed to parse activity log unix time (%v): %w", err, cerrors.ErrParseBytesFailed)
-			return
-		}
-		a.setTimes.Add(unixTime)
-		heap.Push(a.times, unixTime)
-	}
-
+	a.setTimes.ForEach(func(time int64) {
+		heap.Push(a.times, time)
+	})
 	return
 }
 

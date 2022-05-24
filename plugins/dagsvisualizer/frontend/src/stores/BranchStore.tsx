@@ -10,8 +10,13 @@ import {
     removeConfirmationStyle,
     updateConfirmedBranch
 } from 'graph/cytoscape';
-import {branchConfirmed, branchParentUpdate, branchVertex, branchWeightChanged} from 'models/branch';
-import {BRANCH} from '../styles/cytoscapeStyles';
+import {
+    branchGoFChanged,
+    branchParentUpdate,
+    branchVertex,
+    branchWeightChanged
+} from 'models/branch';
+import { BRANCH } from '../styles/cytoscapeStyles';
 
 export class BranchStore {
     @observable maxBranchVertices = MAX_VERTICES;
@@ -36,7 +41,7 @@ export class BranchStore {
         makeObservable(this);
         registerHandler(WSMsgType.Branch, this.addBranch);
         registerHandler(WSMsgType.BranchParentsUpdate, this.updateParents);
-        registerHandler(WSMsgType.BranchConfirmed, this.branchConfirmed);
+        registerHandler(WSMsgType.BranchGoFChanged, this.branchGoFChanged);
         registerHandler(
             WSMsgType.BranchWeightChanged,
             this.branchWeightChanged
@@ -46,7 +51,7 @@ export class BranchStore {
     unregisterHandlers() {
         unregisterHandler(WSMsgType.Branch);
         unregisterHandler(WSMsgType.BranchParentsUpdate);
-        unregisterHandler(WSMsgType.BranchConfirmed);
+        unregisterHandler(WSMsgType.BranchGoFChanged);
         unregisterHandler(WSMsgType.BranchWeightChanged);
     }
 
@@ -98,14 +103,20 @@ export class BranchStore {
     };
 
     @action
-    branchConfirmed = (confirmedBranch: branchConfirmed) => {
-        const b = this.branches.get(confirmedBranch.ID);
+    branchGoFChanged = (branch: branchGoFChanged) => {
+        const b = this.branches.get(branch.ID);
         if (!b) {
             return;
         }
 
-        b.isConfirmed = true;
-        this.branches.set(confirmedBranch.ID, b);
+        if (branch.isConfirmed) {
+            b.isConfirmed = true;
+        } else {
+            b.isConfirmed = false;
+        }
+
+        b.gof = branch.gof;
+        this.branches.set(branch.ID, b);
         updateConfirmedBranch(b, this.graph);
     };
 

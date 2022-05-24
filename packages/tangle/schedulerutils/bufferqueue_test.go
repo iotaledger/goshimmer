@@ -17,7 +17,7 @@ import (
 
 const (
 	numMessages = 100
-	maxBuffer   = 44 * numMessages
+	maxBuffer   = numMessages
 	maxQueue    = 2 * maxBuffer / numMessages
 )
 
@@ -35,7 +35,7 @@ func TestBufferQueue_Submit(t *testing.T) {
 	var size int
 	for i := 0; i < numMessages; i++ {
 		msg := newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		size += len(msg.Bytes())
+		size++
 		elements, err := b.Submit(msg, mockAccessManaRetriever)
 		assert.Empty(t, elements)
 		assert.NoError(t, err)
@@ -94,9 +94,8 @@ func TestBufferQueue_SubmitWithDrop_Unready(t *testing.T) {
 	// dropping two unready messages to fit the new one
 	droppedMessages, err = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
 	assert.NoError(t, err)
-	assert.Len(t, droppedMessages, 2)
+	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[1].IDBytes(), droppedMessages[0][:])
-	assert.Equal(t, preparedMessages[2].IDBytes(), droppedMessages[1][:])
 	assert.EqualValues(t, maxBuffer, b.Size())
 }
 
@@ -155,9 +154,8 @@ func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 	// drop two ready messages to fit the newly submitted one
 	droppedMessages, err = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
 	assert.NoError(t, err)
-	assert.Len(t, droppedMessages, 2)
+	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[1].IDBytes(), droppedMessages[0][:])
-	assert.Equal(t, preparedMessages[2].IDBytes(), droppedMessages[1][:])
 	assert.EqualValues(t, maxBuffer, b.Size())
 }
 

@@ -1,17 +1,17 @@
 package tangle
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/set"
-
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -198,7 +198,7 @@ func (s *Storage) StoreMissingMessage(missingMessage *MissingMessage) (cachedMis
 func (s *Storage) MissingMessages() (ids []MessageID) {
 	s.missingMessageStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*MissingMessage]) bool {
 		cachedObject.Consume(func(object *MissingMessage) {
-			ids = append(ids, object.messageID)
+			ids = append(ids, object.MessageID())
 		})
 
 		return true
@@ -353,19 +353,21 @@ func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallb
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
-			addedBranchIDs:      set.NewAdvancedSet[utxo.TransactionID](),
-			subtractedBranchIDs: set.NewAdvancedSet[utxo.TransactionID](),
-			solidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-			messageID:           EmptyMessageID,
-			solid:               true,
-			structureDetails: &markers.StructureDetails{
-				Rank:          0,
-				IsPastMarker:  false,
-				PastMarkers:   markers.NewMarkers(),
-				FutureMarkers: markers.NewMarkers(),
+			messageMetadataInner{
+				AddedBranchIDs: utxo.NewTransactionIDs(),
+				SubtractedBranchIDs: utxo.NewTransactionIDs(),
+				SolidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+				MessageID:          EmptyMessageID,
+				Solid:              true,
+				StructureDetails: &markers.StructureDetails{
+					Rank:          0,
+					IsPastMarker:  false,
+					PastMarkers:   markers.NewMarkers(),
+					FutureMarkers: markers.NewMarkers(),
+				},
+				Scheduled: true,
+				Booked:    true,
 			},
-			scheduled: true,
-			booked:    true,
 		}
 
 		genesisMetadata.Persist()
@@ -446,16 +448,16 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 			received := msgMetaData.ReceivedTime()
 			if msgMetaData.IsSolid() {
 				res.SolidCount++
-				res.SumSolidificationReceivedTime += msgMetaData.solidificationTime.Sub(received)
+				res.SumSolidificationReceivedTime += msgMetaData.SolidificationTime().Sub(received)
 			}
 			if msgMetaData.IsBooked() {
 				res.BookedCount++
-				res.SumBookedReceivedTime += msgMetaData.bookedTime.Sub(received)
+				res.SumBookedReceivedTime += msgMetaData.BookedTime().Sub(received)
 			}
 			if msgMetaData.Scheduled() {
 				res.ScheduledCount++
-				res.SumSchedulerReceivedTime += msgMetaData.scheduledTime.Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.scheduledTime.Sub(msgMetaData.bookedTime)
+				res.SumSchedulerReceivedTime += msgMetaData.ScheduledTime().Sub(received)
+				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.messageMetadataInner.BookedTime)
 			}
 		})
 		return true
@@ -477,9 +479,9 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := s.Approvers(messageMetadata.messageID)
+				cachedApprovers := s.Approvers(messageMetadata.messageMetadataInner.MessageID)
 				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.messageID)
+					tips = append(tips, messageMetadata.messageMetadataInner.MessageID)
 				}
 				cachedApprovers.Release()
 			}
@@ -522,33 +524,6 @@ var ParentTypeToApproverType = map[ParentsType]ApproverType{
 	ShallowDislikeParentType: ShallowDislikeApprover,
 }
 
-// ApproverTypeFromBytes unmarshals an ApproverType from a sequence of bytes.
-func ApproverTypeFromBytes(bytes []byte) (approverType ApproverType, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// ApproverTypeFromMarshalUtil unmarshals an ApproverType using a MarshalUtil (for easier unmarshaling).
-func ApproverTypeFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approverType ApproverType, err error) {
-	untypedApproverType, err := marshalUtil.ReadUint8()
-	if err != nil {
-		err = errors.Errorf("failed to parse ApproverType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if approverType = ApproverType(untypedApproverType); approverType < StrongApprover || approverType > ShallowDislikeApprover {
-		err = errors.Errorf("invalid ApproverType(%X): %w", approverType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
-}
-
 // Bytes returns a marshaled version of the ApproverType.
 func (a ApproverType) Bytes() []byte {
 	return []byte{byte(a)}
@@ -576,14 +551,18 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	// approverType defines if the reference was create by a strong, weak, shallowlike or shallowdislike parent reference.
-	approverType ApproverType
+	approverInner `serix:"0"`
+}
 
+type approverInner struct {
 	// the message which got referenced by the approver message.
-	referencedMessageID MessageID
+	ReferencedMessageID MessageID `serix:"0"`
+
+	// ApproverType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
+	ApproverType ApproverType `serix:"1"`
 
 	// the message which approved/referenced the given referenced message.
-	approverMessageID MessageID
+	ApproverMessageID MessageID `serix:"2"`
 
 	objectstorage.StorableObjectFlags
 }
@@ -591,9 +570,11 @@ type Approver struct {
 // NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
 	approver := &Approver{
-		approverType:        approverType,
-		referencedMessageID: referencedMessageID,
-		approverMessageID:   approverMessageID,
+		approverInner{
+			ApproverType:        approverType,
+			ReferencedMessageID: referencedMessageID,
+			ApproverMessageID:   approverMessageID,
+		},
 	}
 	return approver
 }
@@ -608,44 +589,33 @@ func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObjec
 }
 
 // FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytes(bytes []byte) (result *Approver, err error) {
-	return a.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil parses a new approver from the given marshal util.
-func (a *Approver) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (approver *Approver, err error) {
-	if approver = a; approver == nil {
-		approver = new(Approver)
-	}
-	if approver.referencedMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse referenced MessageID from MarshalUtil: %w", err)
-		return
-	}
-	if approver.approverType, err = ApproverTypeFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ApproverType from MarshalUtil: %w", err)
-		return
-	}
-	if approver.approverMessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse approver MessageID from MarshalUtil: %w", err)
-		return
+func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
+	approver := new(Approver)
+	if a != nil {
+		approver = a
 	}
 
-	return
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, approver, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Approver: %w", err)
+		return approver, err
+	}
+	return approver, err
 }
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	return a.approverType
+	return a.approverInner.ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	return a.referencedMessageID
+	return a.approverInner.ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	return a.approverMessageID
+	return a.approverInner.ApproverMessageID
 }
 
 // Bytes returns the bytes of the approver.
@@ -661,14 +631,15 @@ func (a *Approver) String() string {
 	)
 }
 
-// ObjectStorageKey marshals the keys of the stored approver into a byte array.
-// This includes the referencedMessageID and the approverMessageID.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *Approver) ObjectStorageKey() []byte {
-	return marshalutil.New().
-		Write(a.referencedMessageID).
-		Write(a.approverType).
-		Write(a.approverMessageID).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue returns the value of the stored approver object.
@@ -686,17 +657,22 @@ var _ objectstorage.StorableObject = new(Approver)
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	objectstorage.StorableObjectFlags
+	attachmentInner `serix:"0"`
+}
+type attachmentInner struct {
+	TransactionID utxo.TransactionID `serix:"0"`
+	MessageID     MessageID                 `serix:"1"`
 
-	transactionID utxo.TransactionID
-	messageID     MessageID
+	objectstorage.StorableObjectFlags
 }
 
 // NewAttachment creates an attachment object with the given information.
 func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
 	return &Attachment{
-		transactionID: transactionID,
-		messageID:     messageID,
+		attachmentInner{
+			TransactionID: transactionID,
+			MessageID:     messageID,
+		},
 	}
 }
 
@@ -711,35 +687,28 @@ func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObj
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
-func (a *Attachment) FromBytes(bytes []byte) (result *Attachment, err error) {
-	return a.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil is a wrapper for simplified unmarshaling of Attachments from a byte stream using the marshalUtil
-// package.
-func (a *Attachment) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (attachment *Attachment, err error) {
-	if attachment = a; attachment == nil {
-		attachment = new(Attachment)
-	}
-	if err = attachment.transactionID.FromMarshalUtil(marshalUtil); err != nil {
-		return nil, errors.Errorf("failed to parse transaction ID in attachment: %w", err)
-	}
-	if attachment.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse message ID in attachment: %w", err)
-		return
+func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
+	attachment := new(Attachment)
+	if a != nil {
+		attachment = a
 	}
 
-	return
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, attachment, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Attachment: %w", err)
+		return attachment, err
+	}
+	return attachment, err
 }
 
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() utxo.TransactionID {
-	return a.transactionID
+	return a.attachmentInner.TransactionID
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	return a.messageID
+	return a.attachmentInner.MessageID
 }
 
 // Bytes marshals the Attachment into a sequence of bytes.
@@ -755,9 +724,15 @@ func (a *Attachment) String() string {
 	)
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (a *Attachment) ObjectStorageKey() []byte {
-	return byteutils.ConcatBytes(a.transactionID.Bytes(), a.MessageID().Bytes())
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
@@ -778,23 +753,29 @@ const AttachmentLength = utxo.TransactionIDLength + MessageIDLength
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	objectstorage.StorableObjectFlags
+	missingMessageInner `serix:"0"`
+}
 
-	messageID    MessageID
-	missingSince time.Time
+type missingMessageInner struct {
+	MessageID    MessageID
+	MissingSince time.Time `serix:"0"`
+
+	objectstorage.StorableObjectFlags
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
 	return &MissingMessage{
-		messageID:    messageID,
-		missingSince: time.Now(),
+		missingMessageInner{
+			MessageID:    messageID,
+			MissingSince: time.Now(),
+		},
 	}
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MissingMessage) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
+	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
 		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
 	}
@@ -802,37 +783,33 @@ func (m *MissingMessage) FromObjectStorage(key, bytes []byte) (objectstorage.Sto
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytes(bytes []byte) (result *MissingMessage, err error) {
-	return m.FromMarshalUtil(marshalutil.New(bytes))
-}
-
-// FromMarshalUtil parses a MissingMessage from the given MarshalUtil.
-func (m *MissingMessage) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (result *MissingMessage, err error) {
-	result = m
-	if m == nil {
-		result = new(MissingMessage)
+func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
+	missingMsg := new(MissingMessage)
+	if m != nil {
+		missingMsg = m
+	}
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
+		return missingMsg, err
 	}
 
-	if result.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID of missing message: %w", err)
-		return
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], missingMsg, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MissingMessage: %w", err)
+		return missingMsg, err
 	}
-	if result.missingSince, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse missingSince of missing message: %w", err)
-		return
-	}
-
-	return
+	return missingMsg, err
 }
 
 // MessageID returns the id of the message.
 func (m *MissingMessage) MessageID() MessageID {
-	return m.messageID
+	return m.missingMessageInner.MessageID
 }
 
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
-	return m.missingSince
+	return m.missingMessageInner.MissingSince
 }
 
 // Bytes returns a marshaled version of this MissingMessage.
@@ -840,20 +817,26 @@ func (m *MissingMessage) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
-// ObjectStorageKey returns the key of the stored missing message.
-// This returns the bytes of the messageID of the missing message.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (m *MissingMessage) ObjectStorageKey() []byte {
-	return m.messageID[:]
-}
-
-// ObjectStorageValue returns the value of the stored missing message.
-func (m *MissingMessage) ObjectStorageValue() (result []byte) {
-	result, err := m.missingSince.MarshalBinary()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.missingMessageInner.MessageID, serix.WithValidation())
 	if err != nil {
+		// TODO: what do?
 		panic(err)
 	}
+	return objBytes
+}
 
-	return
+// ObjectStorageValue marshals the MissingMessage into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (m *MissingMessage) ObjectStorageValue() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // Interface contract: make compiler warn if the interface is not implemented correctly.

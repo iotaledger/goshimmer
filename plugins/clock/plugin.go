@@ -27,7 +27,7 @@ var Plugin *node.Plugin
 func init() {
 	Plugin = node.NewPlugin("Clock", nil, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("clock")); err != nil {

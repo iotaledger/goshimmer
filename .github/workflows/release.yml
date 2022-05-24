@@ -31,17 +31,13 @@ jobs:
     runs-on:
       - ubuntu-latest
     container:
-      image: gohornet/goreleaser-cgo-cross-compiler:1.18
+      image: gohornet/goreleaser-cgo-cross-compiler:1.18.1
       volumes: [/repo]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
 
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json

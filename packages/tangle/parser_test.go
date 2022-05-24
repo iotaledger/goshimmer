@@ -76,7 +76,7 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
-		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
+		msg.messageInner.Payload = payload.NewGenericDataPayload([]byte("hello world"))
 		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
 	})
@@ -86,22 +86,22 @@ func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 	msg := &Message{}
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("equal tx and msg timestamp", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp()
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp()
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older message", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 }

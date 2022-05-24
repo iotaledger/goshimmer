@@ -38,7 +38,7 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 	inbox = make(chan tangle.MessageID, inboxSize)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(configureDRNG); err != nil {
 			Plugin.Panic(err)
 		}
@@ -66,7 +66,7 @@ func run(plugin *node.Plugin) {
 						return
 					}
 					marshalUtil := marshalutil.New(msg.Payload().Bytes())
-					parsedPayload, err := drng.PayloadFromMarshalUtil(marshalUtil)
+					parsedPayload, err := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 					if err != nil {
 						// TODO: handle error
 						plugin.LogDebug(err)

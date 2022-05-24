@@ -30,14 +30,11 @@ var (
 
 // Init triggers the Init event.
 func Init(container *dig.Container) {
-	Plugin.Events.Init.Trigger(&node.InitEvent{
-		Plugin:    Plugin,
-		Container: container,
-	})
+	Plugin.Events.Init.Trigger(&node.InitEvent{Plugin, container})
 }
 
 func init() {
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := fetch(false); err != nil {
 			if !*skipConfigAvailable {
 				// we wanted a config file but it was not present

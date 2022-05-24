@@ -110,7 +110,7 @@ func configure(plugin *node.Plugin) {
 
 	fundingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
 		msg := task.Param(0).(*tangle.Message)
-		addr := msg.Payload().(*faucet.Request).Address()
+		addr := msg.Payload().(*faucet.Payload).Address()
 		msg, txID, err := _faucet.FulFillFundingRequest(msg)
 		if err != nil {
 			plugin.LogWarnf("couldn't fulfill funding request to %s: %s", addr.Base58(), err)
@@ -227,7 +227,7 @@ func configureEvents() {
 			if !faucet.IsFaucetReq(message) {
 				return
 			}
-			fundingRequest := message.Payload().(*faucet.Request)
+			fundingRequest := message.Payload().(*faucet.Payload)
 			addr := fundingRequest.Address()
 
 			// verify PoW

@@ -46,8 +46,8 @@ goshimmer:
     # make sure to give read/write access to the folder ./mainnetdb (e.g., chmod -R 777 ./mainnetdb)
     # optionally, you can mount a config.json into the container
     volumes:
-      - ./mainnetdb/:/tmp/mainnetdb/:rw
-      - ./config.json:/config.json:ro
+      - ./mainnetdb/:/app/mainnetdb/:rw
+      - ./config.json:/app/config.json:ro
     # Expose ports:
     # gossip:       - "14666:14666/tcp"
     # autoPeering:  - "14626:14626/udp"
