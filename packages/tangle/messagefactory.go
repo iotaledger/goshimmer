@@ -429,11 +429,11 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 }
 
 func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	if tangle.OTVConsensusManager.BranchLiked(strongParentBranchID) {
+	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
+	if likedBranchID == strongParentBranchID {
 		return
 	}
 
-	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
 	if likedBranchID != utxo.EmptyTransactionID {
 		txID := likedBranchID
 		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
