@@ -119,7 +119,7 @@ func (o *OutputID) FromBytes(data []byte) (consumedBytes int, err error) {
 
 // Unmarshal un-serializes a OutputID using a MarshalUtil (additional unmarshal signature required for AdvancedSet).
 func (o OutputID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	_, err = outputID.FromBytes(marshalUtil.Bytes())
+	err = outputID.FromMarshalUtil(marshalUtil)
 	return outputID, err
 }
 
