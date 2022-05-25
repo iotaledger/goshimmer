@@ -36,7 +36,7 @@ func newStorage[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set
 	var conflictSetID ConflictSetID
 
 	new = &Storage[ConflictID, ConflictSetID]{
-		branchStorage: objectstorage.New[*Conflict[ConflictID, ConflictSetID]](
+		branchStorage: objectstorage.NewStructStorage[Conflict[ConflictID, ConflictSetID], *Conflict[ConflictID, ConflictSetID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixBranchStorage),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),

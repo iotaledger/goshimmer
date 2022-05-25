@@ -1,10 +1,9 @@
 package conflictdag
 
 import (
-	"sync"
-
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -15,162 +14,72 @@ import (
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Conflict[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
-	// id contains the identifier of the Conflict.
-	id ConflictID
-
-	// parents contains the parent BranchIDs that this Conflict depends on.
-	parents *set.AdvancedSet[ConflictID]
-
-	// parentsMutex contains a mutex that is used to synchronize parallel access to the parents.
-	parentsMutex sync.RWMutex
-
-	// conflictIDs contains the identifiers of the conflicts that this Conflict is part of.
-	conflictIDs *set.AdvancedSet[ConflictSetID]
-
-	// conflictIDsMutex contains a mutex that is used to synchronize parallel access to the conflictIDs.
-	conflictIDsMutex sync.RWMutex
-
-	// inclusionState contains the InclusionState of the Conflict.
-	inclusionState InclusionState
-
-	// inclusionStateMutex contains a mutex that is used to synchronize parallel access to the inclusionState.
-	inclusionStateMutex sync.RWMutex
-
-	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
-	objectstorage.StorableObjectFlags
+	model.Model[ConflictID, conflict[ConflictID, ConflictSetID]]
 }
 
-// NewBranch returns a new Conflict from the given details.
-func NewBranch[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
-	new = &Conflict[ConflictID, ConflictSetID]{
-		id:          id,
-		parents:     parents.Clone(),
-		conflictIDs: conflicts.Clone(),
-	}
-	new.SetModified()
-	new.Persist()
+type conflict[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
+	// parents contains the parent BranchIDs that this Conflict depends on.
+	Parents *set.AdvancedSet[ConflictID]
+
+	// conflictIDs contains the identifiers of the conflicts that this Conflict is part of.
+	ConflictIDs *set.AdvancedSet[ConflictSetID]
+
+	// inclusionState contains the InclusionState of the Conflict.
+	InclusionState InclusionState
+}
+
+func NewConflict[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
+	new = &Conflict[ConflictID, ConflictSetID]{model.NewModel[ConflictID](conflict[ConflictID, ConflictSetID]{
+		Parents:        parents,
+		ConflictIDs:    conflicts,
+		InclusionState: Pending,
+	})}
+	new.SetID(id)
 
 	return new
 }
 
-// FromObjectStorage un-serializes a Conflict from an object storage.
-func (b *Conflict[ConflictID, ConflictSetID]) FromObjectStorage(key, bytes []byte) (branch objectstorage.StorableObject, err error) {
-	result := new(Conflict[ConflictID, ConflictSetID])
-	if err = result.FromBytes(byteutils.ConcatBytes(key, bytes)); err != nil {
-		return nil, errors.Errorf("failed to parse Conflict from bytes: %w", err)
-	}
-
-	return result, nil
-}
-
-// FromBytes un-serializes a Conflict from a sequence of bytes.
-func (b *Conflict[ConflictID, ConflictSetID]) FromBytes(bytes []byte) (err error) {
-	if err = b.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
-		return errors.Errorf("failed to parse Conflict from MarshalUtil: %w", err)
-	}
-
-	return nil
-}
-
-// FromMarshalUtil un-serializes a Conflict using a MarshalUtil.
-func (b *Conflict[ConflictID, ConflictSetID]) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	b.parents = set.NewAdvancedSet[ConflictID]()
-	b.conflictIDs = set.NewAdvancedSet[ConflictSetID]()
-
-	if b.id, err = b.id.Unmarshal(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse id: %w", err)
-	}
-	if err = b.parents.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse Conflict parents: %w", err)
-	}
-	if err = b.conflictIDs.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse conflicts: %w", err)
-	}
-	if err = b.inclusionState.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse inclusionState: %w", err)
-	}
-
-	return nil
-}
-
-// ID returns the identifier of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) ID() (id ConflictID) {
-	return b.id
-}
-
 // Parents returns the parent BranchIDs that this Conflict depends on.
 func (b *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
-	b.parentsMutex.RLock()
-	defer b.parentsMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	return b.parents.Clone()
+	return b.M.Parents.Clone()
 }
 
 // SetParents updates the parent BranchIDs that this Conflict depends on. It returns true if the Conflict was modified.
-func (b *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) (modified bool) {
-	b.parentsMutex.Lock()
-	defer b.parentsMutex.Unlock()
+func (b *Conflict[ConflictID, ConflictSetID]) SetParents(parents *set.AdvancedSet[ConflictID]) {
+	b.Lock()
+	defer b.Unlock()
 
-	b.parents = parents
+	b.M.Parents = parents
 	b.SetModified()
-	modified = true
 
 	return
 }
 
 // ConflictIDs returns the identifiers of the conflicts that this Conflict is part of.
 func (b *Conflict[ConflictID, ConflictSetID]) ConflictIDs() (conflictIDs *set.AdvancedSet[ConflictSetID]) {
-	b.conflictIDsMutex.RLock()
-	defer b.conflictIDsMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	conflictIDs = b.conflictIDs.Clone()
-
-	return
+	return b.M.ConflictIDs.Clone()
 }
 
 // InclusionState returns the InclusionState of the Conflict.
 func (b *Conflict[ConflictID, ConflictSetID]) InclusionState() (inclusionState InclusionState) {
-	b.inclusionStateMutex.RLock()
-	defer b.inclusionStateMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	return b.inclusionState
-}
-
-// Bytes returns a serialized version of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) Bytes() (serialized []byte) {
-	return b.ObjectStorageValue()
-}
-
-// String returns a human-readable version of the Conflict.
-func (b *Conflict[ConflictID, ConflictSetID]) String() (humanReadable string) {
-	return stringify.Struct("Conflict",
-		stringify.StructField("id", b.ID()),
-		stringify.StructField("parents", b.Parents()),
-		stringify.StructField("conflictIDs", b.ConflictIDs()),
-		stringify.StructField("inclusionState", b.InclusionState()),
-	)
-}
-
-// ObjectStorageKey serializes the part of the object that is stored in the key part of the object storage.
-func (b *Conflict[ConflictID, ConflictSetID]) ObjectStorageKey() (key []byte) {
-	return b.ID().Bytes()
-}
-
-// ObjectStorageValue serializes the part of the object that is stored in the value part of the object storage.
-func (b *Conflict[ConflictID, ConflictSetID]) ObjectStorageValue() (value []byte) {
-	return marshalutil.New().
-		Write(b.Parents()).
-		Write(b.ConflictIDs()).
-		Write(b.InclusionState()).
-		Bytes()
+	return b.M.InclusionState
 }
 
 // addConflict registers the membership of the Conflict in the given Conflict.
 func (b *Conflict[ConflictID, ConflictSetID]) addConflict(conflictID ConflictSetID) (added bool) {
-	b.conflictIDsMutex.Lock()
-	defer b.conflictIDsMutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 
-	if added = b.conflictIDs.Add(conflictID); added {
+	if added = b.M.ConflictIDs.Add(conflictID); added {
 		b.SetModified()
 	}
 
@@ -179,21 +88,18 @@ func (b *Conflict[ConflictID, ConflictSetID]) addConflict(conflictID ConflictSet
 
 // setInclusionState sets the InclusionState of the Conflict.
 func (b *Conflict[ConflictID, ConflictSetID]) setInclusionState(inclusionState InclusionState) (modified bool) {
-	b.inclusionStateMutex.Lock()
-	defer b.inclusionStateMutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 
-	if modified = b.inclusionState != inclusionState; !modified {
+	if modified = b.M.InclusionState != inclusionState; !modified {
 		return
 	}
 
-	b.inclusionState = inclusionState
+	b.M.InclusionState = inclusionState
 	b.SetModified()
 
 	return
 }
-
-// code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = new(Conflict[MockedConflictID, MockedConflictSetID])
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

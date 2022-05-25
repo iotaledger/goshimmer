@@ -43,7 +43,7 @@ func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType s
 func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
 	b.RLock()
 	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
-		conflict = NewBranch(id, parents, set.NewAdvancedSet[ResourceIDType]())
+		conflict = NewConflict(id, parents, set.NewAdvancedSet[ResourceIDType]())
 
 		b.addConflictMembers(conflict, conflictingResources)
 		b.createChildBranchReferences(parents, id)
@@ -83,7 +83,8 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 		b.removeChildBranchReferences(parentBranchIDs.DeleteAll(removedBranchIDs), id)
 		b.createChildBranchReferences(set.NewAdvancedSet(addedBranchID), id)
 
-		updated = branch.SetParents(parentBranchIDs)
+		branch.SetParents(parentBranchIDs)
+		updated = true
 	})
 	b.RUnlock()
 
