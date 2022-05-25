@@ -1,16 +1,17 @@
 package ledger
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -46,35 +47,35 @@ type Storage struct {
 // newStorage returns a new storage instance for the given Ledger.
 func newStorage(ledger *Ledger) (new *Storage) {
 	new = &Storage{
-		transactionStorage: objectstorage.New[utxo.Transaction](
+		transactionStorage: objectstorage.NewInterfaceStorage[utxo.Transaction](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionStorage),
+			transactionFactory(ledger.options.vm),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
-			objectstorage.WithObjectFactory(transactionFactory(ledger.options.vm)),
 		),
-		transactionMetadataStorage: objectstorage.New[*TransactionMetadata](
+		transactionMetadataStorage: objectstorage.NewStructStorage[TransactionMetadata](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		outputStorage: objectstorage.New[utxo.Output](
+		outputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputStorage),
+			outputFactory(ledger.options.vm),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
-			objectstorage.WithObjectFactory(outputFactory(ledger.options.vm)),
 		),
-		outputMetadataStorage: objectstorage.New[*OutputMetadata](
+		outputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		consumerStorage: objectstorage.New[*Consumer](
+		consumerStorage: objectstorage.NewStructStorage[Consumer](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixConsumerStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
-			consumerPartitionKeys,
+			objectstorage.PartitionKey(Consumer{}.KeyPartitions()...),
 		),
 		ledger: ledger,
 	}
@@ -86,36 +87,36 @@ func newStorage(ledger *Ledger) (new *Storage) {
 // can be used to dynamically initialize a non-existing Transaction.
 func (s *Storage) CachedTransaction(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) utxo.Transaction) (cachedTransaction *objectstorage.CachedObject[utxo.Transaction]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) utxo.Transaction {
+		return s.transactionStorage.ComputeIfAbsent(serix.Encode(transactionID), func(key []byte) utxo.Transaction {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
 
-	return s.transactionStorage.Load(transactionID.Bytes())
+	return s.transactionStorage.Load(serix.Encode(transactionID))
 }
 
 // CachedTransactionMetadata retrieves the CachedObject representing the named TransactionMetadata. The optional
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing TransactionMetadata.
 func (s *Storage) CachedTransactionMetadata(transactionID utxo.TransactionID, computeIfAbsentCallback ...func(transactionID utxo.TransactionID) *TransactionMetadata) (cachedTransactionMetadata *objectstorage.CachedObject[*TransactionMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.transactionMetadataStorage.ComputeIfAbsent(transactionID.Bytes(), func(key []byte) *TransactionMetadata {
+		return s.transactionMetadataStorage.ComputeIfAbsent(serix.Encode(transactionID), func(key []byte) *TransactionMetadata {
 			return computeIfAbsentCallback[0](transactionID)
 		})
 	}
 
-	return s.transactionMetadataStorage.Load(transactionID.Bytes())
+	return s.transactionMetadataStorage.Load(serix.Encode(transactionID))
 }
 
 // CachedOutput retrieves the CachedObject representing the named Output. The optional computeIfAbsentCallback can be
 // used to dynamically initialize a non-existing Output.
 func (s *Storage) CachedOutput(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) utxo.Output) (cachedOutput *objectstorage.CachedObject[utxo.Output]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) utxo.Output {
+		return s.outputStorage.ComputeIfAbsent(serix.Encode(outputID), func(key []byte) utxo.Output {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputStorage.Load(outputID.Bytes())
+	return s.outputStorage.Load(serix.Encode(outputID))
 }
 
 // CachedOutputs retrieves the CachedObjects containing the named Outputs.
@@ -132,12 +133,12 @@ func (s *Storage) CachedOutputs(outputIDs utxo.OutputIDs) (cachedOutputs objects
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing OutputMetadata.
 func (s *Storage) CachedOutputMetadata(outputID utxo.OutputID, computeIfAbsentCallback ...func(outputID utxo.OutputID) *OutputMetadata) (cachedOutputMetadata *objectstorage.CachedObject[*OutputMetadata]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.outputMetadataStorage.ComputeIfAbsent(outputID.Bytes(), func(key []byte) *OutputMetadata {
+		return s.outputMetadataStorage.ComputeIfAbsent(serix.Encode(outputID), func(key []byte) *OutputMetadata {
 			return computeIfAbsentCallback[0](outputID)
 		})
 	}
 
-	return s.outputMetadataStorage.Load(outputID.Bytes())
+	return s.outputMetadataStorage.Load(serix.Encode(outputID))
 }
 
 // CachedOutputsMetadata retrieves the CachedObjects containing the named OutputMetadata.
@@ -154,12 +155,12 @@ func (s *Storage) CachedOutputsMetadata(outputIDs utxo.OutputIDs) (cachedOutputs
 // be used to dynamically initialize a non-existing Consumer.
 func (s *Storage) CachedConsumer(outputID utxo.OutputID, txID utxo.TransactionID, computeIfAbsentCallback ...func(outputID utxo.OutputID, txID utxo.TransactionID) *Consumer) (cachedConsumer *objectstorage.CachedObject[*Consumer]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()), func(key []byte) *Consumer {
+		return s.consumerStorage.ComputeIfAbsent(byteutils.ConcatBytes(serix.Encode(outputID), serix.Encode(txID)), func(key []byte) *Consumer {
 			return computeIfAbsentCallback[0](outputID, txID)
 		})
 	}
 
-	return s.consumerStorage.Load(byteutils.ConcatBytes(outputID.Bytes(), txID.Bytes()))
+	return s.consumerStorage.Load(byteutils.ConcatBytes(serix.Encode(outputID), serix.Encode(txID)))
 }
 
 // CachedConsumers retrieves the CachedObjects containing the named Consumers.
@@ -168,7 +169,7 @@ func (s *Storage) CachedConsumers(outputID utxo.OutputID) (cachedConsumers objec
 	s.consumerStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Consumer]) bool {
 		cachedConsumers = append(cachedConsumers, cachedObject)
 		return true
-	}, objectstorage.WithIteratorPrefix(outputID.Bytes()))
+	}, objectstorage.WithIteratorPrefix(serix.Encode(outputID)))
 
 	return
 }
@@ -253,7 +254,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 		s.CachedTransactionMetadata(currentTxID).Consume(func(txMetadata *TransactionMetadata) {
 			s.CachedTransaction(currentTxID).Consume(func(tx utxo.Transaction) {
 				for it := s.ledger.Utils.ResolveInputs(tx.Inputs()).Iterator(); it.HasNext(); {
-					s.consumerStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), currentTxID.Bytes()))
+					s.consumerStorage.Delete(byteutils.ConcatBytes(serix.Encode(it.Next()), serix.Encode(currentTxID)))
 				}
 
 				tx.Delete()
@@ -261,7 +262,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 
 			createdOutputIDs := txMetadata.OutputIDs()
 			for it := createdOutputIDs.Iterator(); it.HasNext(); {
-				outputIDBytes := it.Next().Bytes()
+				outputIDBytes := serix.Encode(it.Next())
 
 				s.outputStorage.Delete(outputIDBytes)
 				s.outputMetadataStorage.Delete(outputIDBytes)
@@ -283,7 +284,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var txID utxo.TransactionID
-		if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		if _, err = txID.Decode(key); err != nil {
 			panic(err)
 		}
 
@@ -302,7 +303,7 @@ func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectst
 func outputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var outputID utxo.OutputID
-		if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
 			return nil, err
 		}
 

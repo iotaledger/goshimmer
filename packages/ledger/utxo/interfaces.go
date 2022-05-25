@@ -24,9 +24,6 @@ type Transaction interface {
 	// Inputs returns the inputs of the Transaction.
 	Inputs() (inputs []Input)
 
-	// Bytes returns a serialized version of the Transaction.
-	Bytes() (serialized []byte)
-
 	// String returns a human-readable version of the Transaction.
 	String() (humanReadable string)
 
@@ -54,9 +51,6 @@ type Output interface {
 
 	// SetID sets the identifier of the Output.
 	SetID(id OutputID)
-
-	// Bytes returns a serialized version of the Output.
-	Bytes() (serialized []byte)
 
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)

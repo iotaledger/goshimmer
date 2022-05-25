@@ -4,6 +4,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/serix"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -27,7 +28,7 @@ func (o *OutputStateProof) Validate(output Output) (err error) {
 		return errors.Errorf("invalid output commitment proof: %w", err)
 	}
 
-	provenTxID := blake2b.Sum256(byteutils.ConcatBytes(o.TransactionCommitment[:], o.OutputCommitmentProof.OutputCommitment.Bytes()))
+	provenTxID := blake2b.Sum256(byteutils.ConcatBytes(o.TransactionCommitment[:], serix.Encode(o.OutputCommitmentProof.OutputCommitment)))
 	if provenTxID != o.OutputID.TransactionID.Identifier {
 		return errors.Errorf("invalid transaction ID: %w", cerrors.ErrFatal)
 	}

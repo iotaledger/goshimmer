@@ -8,7 +8,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -29,10 +28,9 @@ func NewTransactionID(txData []byte) (new TransactionID) {
 	}
 }
 
-// Unmarshal un-serializes a TransactionID using a MarshalUtil.
-func (t TransactionID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (txID TransactionID, err error) {
-	err = txID.Identifier.FromMarshalUtil(marshalUtil)
-	return
+// Length returns the byte length of a serialized TransactionID.
+func (t TransactionID) Length() int {
+	return types.IdentifierLength
 }
 
 // String returns a human-readable version of the TransactionID.
@@ -42,9 +40,6 @@ func (t TransactionID) String() (humanReadable string) {
 
 // EmptyTransactionID contains the null-value of the TransactionID type.
 var EmptyTransactionID TransactionID
-
-// TransactionIDLength contains the byte length of a serialized TransactionID.
-const TransactionIDLength = types.IdentifierLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -82,8 +77,11 @@ func (o *OutputID) FromBase58(base58EncodedString string) (err error) {
 	if err != nil {
 		return errors.Errorf("could not decode base58 encoded string: %w", err)
 	}
-	_, err = o.FromBytes(decodedBytes)
-	return err
+	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, o, serix.WithValidation()); err != nil {
+		return errors.Errorf("failed to decode OutputID: %w", err)
+	}
+
+	return nil
 }
 
 // FromRandomness generates a random OutputID.
@@ -93,34 +91,6 @@ func (o *OutputID) FromRandomness() (err error) {
 	}
 
 	return nil
-}
-
-// FromMarshalUtil un-serializes an OutputID from a MarshalUtil.
-func (o *OutputID) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if err = o.TransactionID.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to parse TransactionID: %w", err)
-	}
-	if o.Index, err = marshalUtil.ReadUint16(); err != nil {
-		return errors.Errorf("failed to parse Index: %w", err)
-	}
-
-	return nil
-}
-
-// FromBytes unmarshals an OutputID from a sequence of bytes.
-func (o *OutputID) FromBytes(data []byte) (consumedBytes int, err error) {
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputID: %w", err)
-		return
-	}
-	return
-}
-
-// Unmarshal un-serializes a OutputID using a MarshalUtil (additional unmarshal signature required for AdvancedSet).
-func (o OutputID) Unmarshal(marshalUtil *marshalutil.MarshalUtil) (outputID OutputID, err error) {
-	err = outputID.FromMarshalUtil(marshalUtil)
-	return outputID, err
 }
 
 // RegisterAlias allows to register a human-readable alias for the OutputID which will be used as a replacement for the
@@ -154,15 +124,11 @@ func (o OutputID) UnregisterAlias() {
 
 // Base58 returns a base58 encoded version of the OutputID.
 func (o OutputID) Base58() (base58Encoded string) {
-	return base58.Encode(o.Bytes())
+	return base58.Encode(serix.Encode(o))
 }
 
-// Bytes returns the serialized version of the OutputID.
-func (o OutputID) Bytes() (serialized []byte) {
-	return marshalutil.New().
-		Write(o.TransactionID).
-		WriteUint16(o.Index).
-		Bytes()
+func (o OutputID) Length() int {
+	return o.TransactionID.Length() + 2
 }
 
 // String returns a human-readable version of the OutputID.
@@ -172,9 +138,6 @@ func (o OutputID) String() (humanReadable string) {
 
 // EmptyOutputID contains the null-value of the OutputID type.
 var EmptyOutputID OutputID
-
-// OutputIDLength contains the byte length of a serialized OutputID.
-const OutputIDLength = TransactionIDLength + 2
 
 var (
 	// _outputIDAliases contains a dictionary of OutputIDs associated to their human-readable alias.
@@ -203,12 +166,12 @@ func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
 // Outputs represents a collection of Output objects indexed by their OutputID.
 type Outputs struct {
 	// OrderedMap is the underlying data structure that holds the Outputs.
-	*orderedmap.OrderedMap[OutputID, Output]
+	orderedmap.OrderedMap[OutputID, Output]
 }
 
 // NewOutputs returns a new Output collection with the given elements.
-func NewOutputs(outputs ...Output) (new Outputs) {
-	new = Outputs{orderedmap.New[OutputID, Output]()}
+func NewOutputs(outputs ...Output) (new *Outputs) {
+	new = &Outputs{*orderedmap.New[OutputID, Output]()}
 	for _, output := range outputs {
 		new.Set(output.ID(), output)
 	}
@@ -216,41 +179,13 @@ func NewOutputs(outputs ...Output) (new Outputs) {
 	return new
 }
 
-func (o *Outputs) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil, outputFactory OutputFactory) (err error) {
-	if o.OrderedMap == nil {
-		o.OrderedMap = orderedmap.New[OutputID, Output]()
-	}
-
-	outputCount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return errors.Errorf("unable to read output count: %w", err)
-	}
-
-	for i := uint64(0); i < outputCount; i++ {
-		var outputID OutputID
-		if _, err = outputID.FromBytes(marshalUtil.Bytes()); err != nil {
-			return errors.Errorf("unable to read output ID: %w", err)
-		}
-
-		output, outputErr := outputFactory(marshalUtil)
-		if outputErr != nil {
-			return errors.Errorf("unable to read output: %w", outputErr)
-		}
-		output.SetID(outputID)
-
-		o.Add(output)
-	}
-
-	return nil
-}
-
 // Add adds the given Output to the collection.
-func (o Outputs) Add(output Output) {
+func (o *Outputs) Add(output Output) {
 	o.Set(output.ID(), output)
 }
 
 // IDs returns the identifiers of the stored Outputs.
-func (o Outputs) IDs() (ids OutputIDs) {
+func (o *Outputs) IDs() (ids OutputIDs) {
 	outputIDs := make([]OutputID, 0)
 	o.OrderedMap.ForEach(func(id OutputID, _ Output) bool {
 		outputIDs = append(outputIDs, id)
@@ -261,7 +196,7 @@ func (o Outputs) IDs() (ids OutputIDs) {
 }
 
 // ForEach executes the callback for each element in the collection (it aborts if the callback returns an error).
-func (o Outputs) ForEach(callback func(output Output) error) (err error) {
+func (o *Outputs) ForEach(callback func(output Output) error) (err error) {
 	o.OrderedMap.ForEach(func(_ OutputID, output Output) bool {
 		if err = callback(output); err != nil {
 			return false
@@ -273,22 +208,8 @@ func (o Outputs) ForEach(callback func(output Output) error) (err error) {
 	return err
 }
 
-// Bytes returns a serialized version of the Outputs.
-func (o Outputs) Bytes() (serialized []byte) {
-	marshalUtil := marshalutil.New()
-
-	marshalUtil.WriteUint64(uint64(o.Size()))
-	_ = o.ForEach(func(output Output) error {
-		marshalUtil.Write(output.ID())
-		marshalUtil.Write(output)
-		return nil
-	})
-
-	return marshalUtil.Bytes()
-}
-
 // Strings returns a human-readable version of the Outputs.
-func (o Outputs) String() (humanReadable string) {
+func (o *Outputs) String() (humanReadable string) {
 	structBuilder := stringify.StructBuilder("Outputs")
 	_ = o.ForEach(func(output Output) error {
 		structBuilder.AddField(stringify.StructField(output.ID().String(), output))

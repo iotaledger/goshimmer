@@ -3,7 +3,7 @@ package utxo
 import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/types"
 	"gitlab.com/NebulousLabs/merkletree/merkletree-blake"
 	"golang.org/x/crypto/blake2b"
@@ -25,7 +25,7 @@ func (o *OutputCommitment) FromOutputs(outputs ...Output) {
 	o.merkleTree = merkletree.New()
 
 	for _, output := range outputs {
-		o.merkleTree.Push(output.Bytes())
+		o.merkleTree.Push(serix.Encode(output))
 	}
 	o.StateRoot = o.merkleTree.Root()
 }
@@ -48,14 +48,6 @@ func (o *OutputCommitment) Proof(outputIndex uint64) (proof *OutputCommitmentPro
 	return proof, nil
 }
 
-// Bytes returns a serialized version of the OutputCommitment.
-func (o *OutputCommitment) Bytes() (serialized []byte) {
-	return marshalutil.New().
-		Write(o.StateRoot).
-		WriteUint64(o.NumberOfOutputs).
-		Bytes()
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputCommitmentProof ////////////////////////////////////////////////////////////////////////////////////////
@@ -70,7 +62,7 @@ type OutputCommitmentProof struct {
 // Validate validates the proof and checks if the given Output is indeed part of the OutputCommitment that is referenced
 // in the proof.
 func (o *OutputCommitmentProof) Validate(output Output) (err error) {
-	outputHash := blake2b.Sum256(output.Bytes())
+	outputHash := blake2b.Sum256(serix.Encode(output))
 	if o.ProofSet[0] != outputHash {
 		return errors.Errorf("invalid proof: output hash %x does not match expected value of %x: %w", outputHash, o.ProofSet[0], cerrors.ErrFatal)
 	}

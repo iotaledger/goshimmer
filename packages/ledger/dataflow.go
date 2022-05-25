@@ -88,16 +88,16 @@ type dataFlowParams struct {
 	InputIDs utxo.OutputIDs
 
 	// Inputs contains the Outputs that were referenced as Inputs in the Transaction.
-	Inputs utxo.Outputs
+	Inputs *utxo.Outputs
 
 	// InputsMetadata contains the metadata of the Outputs that were referenced as Inputs in the Transaction.
-	InputsMetadata OutputsMetadata
+	InputsMetadata *OutputsMetadata
 
 	// Consumers contains the Consumers (references from the spent Outputs) that were created by the Transaction.
 	Consumers []*Consumer
 
 	// Outputs contains the Outputs that were created by the Transaction.
-	Outputs utxo.Outputs
+	Outputs *utxo.Outputs
 }
 
 // newDataFlowParams returns a new dataFlowParams instance for the given Transaction.

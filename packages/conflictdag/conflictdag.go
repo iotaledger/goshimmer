@@ -1,11 +1,9 @@
 package conflictdag
 
 import (
-	"context"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/serix"
@@ -230,10 +228,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildBranchRefere
 // removeChildBranchReferences removes the named ChildBranch references.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
-		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(
-			lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), it.Next(), serix.WithValidation())),
-			lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), childBranchID, serix.WithValidation())),
-		))
+		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(serix.Encode(it.Next()), serix.Encode(childBranchID)))
 	}
 }
 

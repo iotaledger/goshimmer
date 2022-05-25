@@ -77,7 +77,7 @@ type TransactionBookedEvent struct {
 	TransactionID utxo.TransactionID
 
 	// Outputs contains the set of Outputs that this Transaction created.
-	Outputs utxo.Outputs
+	Outputs *utxo.Outputs
 
 	// Context contains a Context provided by the caller that triggered this event.
 	Context context.Context

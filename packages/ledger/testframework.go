@@ -8,12 +8,10 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/stretchr/testify/assert"
 
@@ -223,7 +221,7 @@ func (t *TestFramework) AssertConflicts(expectedConflictsAliases map[string][]st
 
 		// Verify that all named branches are stored as conflict members (conflictID -> branchIDs).
 		for _, branchID := range expectedConflictMembers.Slice() {
-			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
+			assert.Truef(t.t, t.ledger.ConflictDAG.Storage.CachedConflictMember(conflictID, branchID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {}), "could not load ConflictMember %s,%s", conflictID, branchID)
 
 			if _, exists := branchConflicts[branchID]; !exists {
 				branchConflicts[branchID] = set.NewAdvancedSet[utxo.OutputID]()
@@ -312,7 +310,7 @@ func (t *TestFramework) ConsumeOutput(outputID utxo.OutputID, consumer func(outp
 // ConsumeTransactionOutputs loads and consumes all OutputMetadata of the given Transaction. Asserts that the loaded entities exists.
 func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, consumer func(outputMetadata *OutputMetadata)) {
 	t.ConsumeTransactionMetadata(mockTx.ID(), func(txMetadata *TransactionMetadata) {
-		assert.EqualValuesf(t.t, mockTx.outputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
+		assert.EqualValuesf(t.t, mockTx.M.OutputCount, txMetadata.OutputIDs().Size(), "Output count in %s do not match", mockTx.ID())
 
 		for _, outputID := range txMetadata.OutputIDs().Slice() {
 			t.ConsumeOutputMetadata(outputID, consumer)
@@ -327,36 +325,18 @@ func (t *TestFramework) ConsumeTransactionOutputs(mockTx *MockedTransaction, con
 // MockedInput is a mocked entity that allows to "address" which Outputs are supposed to be used by a Transaction.
 type MockedInput struct {
 	// outputID contains the referenced OutputID.
-	outputID utxo.OutputID
+	OutputID utxo.OutputID `serix:"0"`
 }
 
 // NewMockedInput creates a new MockedInput from an utxo.OutputID.
 func NewMockedInput(outputID utxo.OutputID) (new *MockedInput) {
-	return &MockedInput{outputID: outputID}
-}
-
-// FromMarshalUtil un-serializes a MockedInput using a MarshalUtil.
-func (m *MockedInput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if m == nil {
-		*m = *new(MockedInput)
-	}
-
-	if err = m.outputID.FromMarshalUtil(marshalUtil); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Bytes returns a serialized version of the MockedInput.
-func (m *MockedInput) Bytes() (serialized []byte) {
-	return m.outputID.Bytes()
+	return &MockedInput{OutputID: outputID}
 }
 
 // String returns a human-readable version of the MockedInput.
 func (m *MockedInput) String() (humanReadable string) {
 	return stringify.Struct("MockedInput",
-		stringify.StructField("outputID", m.outputID),
+		stringify.StructField("OutputID", m.OutputID),
 	)
 }
 
@@ -374,107 +354,24 @@ var _ utxo.Input = new(MockedInput)
 
 // MockedOutput is the container for the data produced by executing a MockedTransaction.
 type MockedOutput struct {
-	// id contains the identifier of the Output.
-	id *utxo.OutputID
+	model.Model[utxo.OutputID, mockedOutput]
+}
 
-	// idMutex contains a mutex that is used to synchronize parallel access to the id.
-	idMutex sync.Mutex
+type mockedOutput struct {
+	// TxID contains the identifier of the Transaction that created this MockedOutput.
+	TxID utxo.TransactionID `serix:"0"`
 
-	// txID contains the identifier of the Transaction that created this MockedOutput.
-	txID utxo.TransactionID
-
-	// index contains the index of the Output in respect to it's creating Transaction (the nth Output will have the
-	// index n).
-	index uint16
-
-	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
-	objectstorage.StorableObjectFlags
+	// Index contains the Index of the Output in respect to it's creating Transaction (the nth Output will have the
+	// Index n).
+	Index uint16 `serix:"1"`
 }
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
 func NewMockedOutput(txID utxo.TransactionID, index uint16) (new *MockedOutput) {
-	return &MockedOutput{
-		txID:  txID,
-		index: index,
-	}
-}
-
-// FromMarshalUtil un-serializes a MockedOutput using a MarshalUtil.
-func (m *MockedOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if m == nil {
-		*m = MockedOutput{}
-	}
-
-	if err = m.txID.FromMarshalUtil(marshalUtil); err != nil {
-		return err
-	}
-	if m.index, err = marshalUtil.ReadUint16(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ID returns the identifier of the Output.
-func (m *MockedOutput) ID() (id utxo.OutputID) {
-	m.idMutex.Lock()
-	defer m.idMutex.Unlock()
-
-	if m.id == nil {
-		derivedID := utxo.NewOutputID(m.txID, m.index)
-		m.id = &derivedID
-	}
-
-	return *m.id
-}
-
-// SetID sets the identifier of the Output.
-func (m *MockedOutput) SetID(id utxo.OutputID) {
-	m.idMutex.Lock()
-	defer m.idMutex.Unlock()
-
-	m.id = &id
-}
-
-// Bytes returns a serialized version of the MockedOutput.
-func (m *MockedOutput) Bytes() (serialized []byte) {
-	return marshalutil.New().
-		Write(m.txID).
-		WriteUint16(m.index).
-		Bytes()
-}
-
-// FromObjectStorage unmarshals a MockedOutput from an ObjectStorage.
-func (m *MockedOutput) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	var outputID utxo.OutputID
-	if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {
-		return nil, errors.Errorf("failed to unmarshal OutputID: %v", err)
-	}
-
-	newObject := new(MockedOutput)
-	if err = newObject.FromMarshalUtil(marshalutil.New(data)); err != nil {
-		return nil, errors.Errorf("failed to unmarshal MockedOutput: %v", err)
-	}
-	newObject.SetID(outputID)
-
-	return newObject, nil
-}
-
-// ObjectStorageKey returns the key to be used when storing the MockedOutput in the object storage.
-func (m *MockedOutput) ObjectStorageKey() []byte {
-	return m.ID().Bytes()
-}
-
-// ObjectStorageValue returns the value to be stored in the object storage for the MockedOutput.
-func (m *MockedOutput) ObjectStorageValue() []byte {
-	return m.Bytes()
-}
-
-// String returns a human-readable version of the MockedOutput.
-func (m *MockedOutput) String() (humanReadable string) {
-	return stringify.Struct("MockedOutput",
-		stringify.StructField("id", m.ID()),
-	)
+	return &MockedOutput{model.NewModel[utxo.OutputID](mockedOutput{
+		TxID:  txID,
+		Index: index,
+	})}
 }
 
 // code contract (make sure the struct implements all required methods).
@@ -486,148 +383,33 @@ var _ utxo.Output = new(MockedOutput)
 
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
-	// id contains the identifier of the MockedTransaction.
-	id *utxo.TransactionID
-
-	// idMutex contains a mutex that is used to synchronize parallel access to the id.
-	idMutex sync.Mutex
-
-	// inputs contains the list of MockedInput objects that address the consumed Outputs.
-	inputs []*MockedInput
-
-	// outputCount contains the number of Outputs that this MockedTransaction creates.
-	outputCount uint16
-
-	// uniqueEssence contains a unique value for each created MockedTransaction to ensure a unique TransactionID.
-	uniqueEssence uint64
-
-	// StorableObjectFlags embeds the properties and methods required to manage the object storage related flags.
-	objectstorage.StorableObjectFlags
+	model.Model[utxo.TransactionID, mockedTransaction]
 }
 
-// FromObjectStorage unmarshals a MockedTransaction from an ObjectStorage.
-func (m *MockedTransaction) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-	var txID utxo.TransactionID
-	if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
-		return nil, errors.Errorf("failed to unmarshal TransactionID: %v", err)
-	}
+type mockedTransaction struct {
+	// Inputs contains the list of MockedInput objects that address the consumed Outputs.
+	Inputs []*MockedInput `serix:"0,lengthPrefixType=uint16""`
 
-	newObject := new(MockedTransaction)
-	if err = newObject.FromMarshalUtil(marshalutil.New(data)); err != nil {
-		return nil, errors.Errorf("failed to unmarshal MockedTransaction: %v", err)
-	}
-	newObject.SetID(txID)
+	// OutputCount contains the number of Outputs that this MockedTransaction creates.
+	OutputCount uint16 `serix:"1"`
 
-	return newObject, nil
-}
-
-// ObjectStorageKey returns the key to be used when storing the MockedTransaction in the object storage.
-func (m *MockedTransaction) ObjectStorageKey() []byte {
-	return m.ID().Bytes()
-}
-
-// ObjectStorageValue returns the value to be stored in the object storage for the MockedTransaction.
-func (m *MockedTransaction) ObjectStorageValue() []byte {
-	return m.Bytes()
+	// UniqueEssence contains a unique value for each created MockedTransaction to ensure a unique TransactionID.
+	UniqueEssence uint64 `serix:"2"`
 }
 
 // NewMockedTransaction creates a new MockedTransaction with the given inputs and specified outputCount.
 // A unique essence is simulated by an atomic counter, incremented globally for each MockedTransaction created.
 func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (new *MockedTransaction) {
-	return &MockedTransaction{
-		inputs:        inputs,
-		outputCount:   outputCount,
-		uniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
-	}
-}
-
-// FromMarshalUtil un-serializes a MockedTransaction using a MarshalUtil.
-func (m *MockedTransaction) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	if m == nil {
-		*m = MockedTransaction{}
-	}
-
-	inputCount, err := marshalUtil.ReadUint16()
-	if err != nil {
-		return err
-	}
-	m.inputs = make([]*MockedInput, int(inputCount))
-	for i := 0; i < int(inputCount); i++ {
-		m.inputs[i] = new(MockedInput)
-		if err = m.inputs[i].FromMarshalUtil(marshalUtil); err != nil {
-			return err
-		}
-	}
-
-	if m.outputCount, err = marshalUtil.ReadUint16(); err != nil {
-		return err
-	}
-
-	if m.uniqueEssence, err = marshalUtil.ReadUint64(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ID returns the identifier of the Transaction.
-func (m *MockedTransaction) ID() (txID utxo.TransactionID) {
-	m.idMutex.Lock()
-	defer m.idMutex.Unlock()
-
-	if m.id == nil {
-		copy(txID.Identifier[:], marshalutil.New().WriteUint64(m.uniqueEssence).Bytes())
-		m.id = &txID
-	}
-
-	return *m.id
-}
-
-// SetID sets the identifier of the Transaction.
-func (m *MockedTransaction) SetID(id utxo.TransactionID) {
-	m.idMutex.Lock()
-	defer m.idMutex.Unlock()
-
-	m.id = &id
+	return &MockedTransaction{model.NewModel[utxo.TransactionID](mockedTransaction{
+		Inputs:        inputs,
+		OutputCount:   outputCount,
+		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
+	})}
 }
 
 // Inputs returns the inputs of the Transaction.
 func (m *MockedTransaction) Inputs() (inputs []utxo.Input) {
-	return lo.Map(m.inputs, (*MockedInput).utxoInput)
-}
-
-// Bytes returns a serialized version of the MockedTransaction.
-func (m *MockedTransaction) Bytes() (serialized []byte) {
-	marshalUtil := marshalutil.New().
-		WriteUint16(uint16(len(m.inputs)))
-
-	for i := 0; i < len(m.inputs); i++ {
-		marshalUtil.Write(m.inputs[i])
-	}
-
-	return marshalUtil.
-		WriteUint16(m.outputCount).
-		WriteUint64(m.uniqueEssence).
-		Bytes()
-}
-
-// String returns a human-readable version of the MockedTransaction.
-func (m *MockedTransaction) String() (humanReadable string) {
-	inputIDs := utxo.NewOutputIDs()
-	for _, input := range m.Inputs() {
-		inputIDs.Add(input.(*MockedInput).outputID)
-	}
-
-	outputIDs := utxo.NewOutputIDs()
-	for i := uint16(0); i < m.outputCount; i++ {
-		outputIDs.Add(utxo.NewOutputID(m.ID(), i))
-	}
-
-	return stringify.Struct("MockedTransaction",
-		stringify.StructField("id", m.ID()),
-		stringify.StructField("inputs", inputIDs),
-		stringify.StructField("outputs", outputIDs),
-	)
+	return lo.Map(m.M.Inputs, (*MockedInput).utxoInput)
 }
 
 // code contract (make sure the struct implements all required methods).
@@ -651,7 +433,7 @@ func NewMockedVM() *MockedVM {
 // ParseTransaction un-serializes a Transaction from the given sequence of bytes.
 func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
 	mockedTx := new(MockedTransaction)
-	if err = mockedTx.FromMarshalUtil(marshalutil.New(transactionBytes)); err != nil {
+	if _, err = mockedTx.Decode(transactionBytes); err != nil {
 		return nil, err
 	}
 
@@ -660,26 +442,26 @@ func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.T
 
 // ParseOutput un-serializes an Output from the given sequence of bytes.
 func (m *MockedVM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
-	mockedOutput := new(MockedOutput)
-	if err = mockedOutput.FromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
+	newOutput := new(MockedOutput)
+	if _, err = newOutput.Decode(outputBytes); err != nil {
 		return nil, err
 	}
 
-	return mockedOutput, nil
+	return newOutput, nil
 }
 
 // ResolveInput translates the Input into an OutputID.
 func (m *MockedVM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
-	return input.(*MockedInput).outputID
+	return input.(*MockedInput).OutputID
 }
 
 // ExecuteTransaction executes the Transaction and determines the Outputs from the given Inputs. It returns an error
 // if the execution fails.
-func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
+func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	mockedTransaction := transaction.(*MockedTransaction)
 
-	outputs = make([]utxo.Output, mockedTransaction.outputCount)
-	for i := uint16(0); i < mockedTransaction.outputCount; i++ {
+	outputs = make([]utxo.Output, mockedTransaction.M.OutputCount)
+	for i := uint16(0); i < mockedTransaction.M.OutputCount; i++ {
 		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i)
 	}
 
