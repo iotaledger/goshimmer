@@ -157,9 +157,8 @@ func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 
 		if parent.ID == EmptyMessageID {
 			if s.tangle.Options.GenesisNode != nil {
-				if valid = *s.tangle.Options.GenesisNode == message.IssuerPublicKey(); !valid {
-					return
-				}
+				valid = *s.tangle.Options.GenesisNode == message.IssuerPublicKey()
+				return
 			}
 
 			s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
