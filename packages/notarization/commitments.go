@@ -13,9 +13,7 @@ import (
 )
 
 var (
-	prevTangleRootKey        = []byte("previousTangleRoot")
-	prevStateMutationRootKey = []byte("prevStateMutationRootKey")
-	prevECR                  = []byte("previousEpochCommitmentRoot")
+	prevECR = []byte("previousEpochCommitmentRoot")
 )
 
 // EpochCommitment contains the ECR and prevECR of an epoch.
@@ -34,7 +32,7 @@ type Commitment struct {
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR, prevMessageRoot, prevTransactionRoot []byte) *Commitment {
+func NewCommitment(ei EI, prevECR []byte) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -52,8 +50,6 @@ func NewCommitment(ei EI, prevECR, prevMessageRoot, prevTransactionRoot []byte) 
 		prevECR:           prevECR,
 	}
 
-	commitment.tangleRoot.Update(prevTangleRootKey, prevMessageRoot)
-	commitment.stateMutationRoot.Update(prevStateMutationRootKey, prevTransactionRoot)
 	return commitment
 }
 
@@ -170,17 +166,14 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 	commitment, ok := f.commitments[ei]
 	f.commitmentsMutex.RUnlock()
 	if !ok {
-		var previousMessageRoot []byte
-		var previousTransactionRoot, previousECR []byte
+		var previousECR []byte
 
 		if ei > 0 {
 			if previousCommitment := f.GetCommitment(ei - 1); previousCommitment != nil {
-				previousMessageRoot = previousCommitment.TangleRoot()
-				previousTransactionRoot = previousCommitment.StateMutationRoot()
 				previousECR = previousCommitment.ECR()
 			}
 		}
-		commitment = NewCommitment(ei, previousECR, previousMessageRoot, previousTransactionRoot)
+		commitment = NewCommitment(ei, previousECR)
 		f.commitmentsMutex.Lock()
 		f.commitments[ei] = commitment
 		f.commitmentsMutex.Unlock()
@@ -195,7 +188,6 @@ func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
 	if !ok {
 		return
 	}
-	forwardCommitment.tangleRoot.Update(prevTangleRootKey, commitment.TangleRoot())
 	forwardCommitment.prevECR = commitment.ECR()
 }
 
@@ -206,7 +198,6 @@ func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitme
 	if !ok {
 		return
 	}
-	forwardCommitment.stateMutationRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
 	forwardCommitment.prevECR = commitment.ECR()
 }
 
@@ -217,6 +208,5 @@ func (f *EpochCommitmentFactory) onStateRootChanged(commitment *Commitment) {
 	if !ok {
 		return
 	}
-	forwardCommitment.stateRoot.Update(prevStateMutationRootKey, commitment.StateMutationRoot())
 	forwardCommitment.prevECR = commitment.ECR()
 }
