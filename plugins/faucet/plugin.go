@@ -51,6 +51,7 @@ var (
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
 	initDone atomic.Bool
+	synced   chan (bool)
 
 	waitForManaWindow = 5 * time.Second
 	deps              = new(dependencies)
@@ -122,6 +123,8 @@ func configure(plugin *node.Plugin) {
 	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
 		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
 
+	synced = make(chan bool, 1)
+
 	configureEvents()
 }
 
@@ -164,19 +167,6 @@ func run(plugin *node.Plugin) {
 }
 
 func waitUntilSynced(ctx context.Context) bool {
-	synced := make(chan struct{}, 1)
-	closure := event.NewClosure(func(e *tangle.SyncChangedEvent) {
-		if e.Synced {
-			// use non-blocking send to prevent deadlocks in rare cases when the SyncedChanged events is spammed
-			select {
-			case synced <- struct{}{}:
-			default:
-			}
-		}
-	})
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(closure)
-	defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(closure)
-
 	// if we are already synced, there is no need to wait for the event
 	if deps.Tangle.TimeManager.Synced() {
 		return true
@@ -216,47 +206,57 @@ func waitForMana(ctx context.Context) error {
 
 func configureEvents() {
 	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
-		// Do not start picking up request while waiting for initialization.
-		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
-		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
-		// sync and initialized.
-		if !initDone.Load() {
+		onMessageProcessed(event.MessageID)
+	}))
+
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
+		if event.Synced {
+			synced <- true
+		}
+	}))
+}
+
+func onMessageProcessed(messageID tangle.MessageID) {
+	// Do not start picking up request while waiting for initialization.
+	// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
+	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
+	// sync and initialized.
+	if !initDone.Load() {
+		return
+	}
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		if !faucet.IsFaucetReq(message) {
 			return
 		}
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			if !faucet.IsFaucetReq(message) {
-				return
-			}
-			fundingRequest := message.Payload().(*faucet.Request)
-			addr := fundingRequest.Address()
+		fundingRequest := message.Payload().(*faucet.Request)
+		addr := fundingRequest.Address()
 
-			// verify PoW
-			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
-			if err != nil {
-				Plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
-				return
-			}
+		// verify PoW
+		leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
+		if err != nil {
+			Plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
+			return
+		}
 
-			if leadingZeroes < targetPoWDifficulty {
-				Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-				return
-			}
+		if leadingZeroes < targetPoWDifficulty {
+			Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+			return
+		}
 
-			if IsAddressBlackListed(addr) {
-				Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-				return
-			}
+		if IsAddressBlackListed(addr) {
+			Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
+			return
+		}
 
-			// finally add it to the faucet to be processed
-			_, added := fundingWorkerPool.TrySubmit(message)
-			if !added {
-				RemoveAddressFromBlacklist(addr)
-				Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-				return
-			}
-			Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
-		})
-	}))
+		// finally add it to the faucet to be processed
+		_, added := fundingWorkerPool.TrySubmit(message)
+		if !added {
+			RemoveAddressFromBlacklist(addr)
+			Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
+			return
+		}
+		Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+	})
 }
 
 // IsAddressBlackListed returns if an address is blacklisted.
