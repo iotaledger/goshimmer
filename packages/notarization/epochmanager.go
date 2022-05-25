@@ -19,7 +19,7 @@ const (
 
 // region EpochManager ////////////////////////////////////////////////////////////////////////////////////
 
-// EpochManager is responsible for time/ECI conversions.
+// EpochManager is responsible for time/EI conversions.
 type EpochManager struct {
 	options *EpochManagerOptions
 }
@@ -41,44 +41,44 @@ func NewEpochManager(opts ...EpochManagerOption) *EpochManager {
 	}
 }
 
-// TimeToECI calculates the ECI for the given time.
-func (m *EpochManager) TimeToECI(t time.Time) (eci ECI) {
+// TimeToEI calculates the EI for the given time.
+func (m *EpochManager) TimeToEI(t time.Time) (ei EI) {
 	elapsedSeconds := t.Unix() - m.options.GenesisTime
 	if elapsedSeconds <= 0 {
 		return 0
 	}
 
-	return ECI(elapsedSeconds / m.options.Interval)
+	return EI(elapsedSeconds / m.options.Interval)
 }
 
-// TimeToOracleECI calculates the oracle ECI for the given time.
-func (m *EpochManager) TimeToOracleECI(t time.Time) (oracleECI ECI) {
-	eci := m.TimeToECI(t)
-	oracleECI = eci - m.options.OracleEpochShift
+// TimeToOracleEI calculates the oracle EI for the given time.
+func (m *EpochManager) TimeToOracleEI(t time.Time) (oracleEI EI) {
+	ei := m.TimeToEI(t)
+	oracleEI = ei - m.options.OracleEpochShift
 
-	// default to ECI 0 if oracle epoch < shift as it is not defined
-	if eci < m.options.OracleEpochShift || oracleECI < m.options.OracleEpochShift {
+	// default to EI 0 if oracle epoch < shift as it is not defined
+	if ei < m.options.OracleEpochShift || oracleEI < m.options.OracleEpochShift {
 		return 0
 	}
 
 	return
 }
 
-// ECIToStartTime calculates the start time of the given epoch.
-func (m *EpochManager) ECIToStartTime(eci ECI) time.Time {
-	startUnix := m.options.GenesisTime + int64(eci)*m.options.Interval
+// EIToStartTime calculates the start time of the given epoch.
+func (m *EpochManager) EIToStartTime(ei EI) time.Time {
+	startUnix := m.options.GenesisTime + int64(ei)*m.options.Interval
 	return time.Unix(startUnix, 0)
 }
 
-// ECIToEndTime calculates the end time of the given epoch.
-func (m *EpochManager) ECIToEndTime(eci ECI) time.Time {
-	endUnix := m.options.GenesisTime + int64(eci)*m.options.Interval + m.options.Interval - 1
+// EIToEndTime calculates the end time of the given epoch.
+func (m *EpochManager) EIToEndTime(ei EI) time.Time {
+	endUnix := m.options.GenesisTime + int64(ei)*m.options.Interval + m.options.Interval - 1
 	return time.Unix(endUnix, 0)
 }
 
-// CurrentECI returns the ECI at the current synced time.
-func (m *EpochManager) CurrentECI() ECI {
-	return m.TimeToECI(clock.SyncedTime())
+// CurrentEI returns the EI at the current synced time.
+func (m *EpochManager) CurrentEI() EI {
+	return m.TimeToEI(clock.SyncedTime())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,7 +93,7 @@ type EpochManagerOption func(options *EpochManagerOptions)
 type EpochManagerOptions struct {
 	GenesisTime      int64
 	Interval         int64
-	OracleEpochShift ECI
+	OracleEpochShift EI
 }
 
 // GenesisTime is a EpochManagerOption that allows to define the time of the genesis, i.e., the start of the epochs,
@@ -115,7 +115,7 @@ func Interval(interval int64) EpochManagerOption {
 // OracleEpochShift is a EpochManagerOption that allows to define the shift of the oracle epoch.
 func OracleEpochShift(shift int) EpochManagerOption {
 	return func(options *EpochManagerOptions) {
-		options.OracleEpochShift = ECI(shift)
+		options.OracleEpochShift = EI(shift)
 	}
 }
 

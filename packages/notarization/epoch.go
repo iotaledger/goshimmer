@@ -7,12 +7,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
-// ECI is the index of an epoch commitment.
-type ECI uint64
+// EI is the ID of an epoch.
+type EI uint64
 
 // Epoch is a time range used to define a bucket of messages.
 type Epoch struct {
-	eci ECI
+	ei EI
 
 	confirmed     bool
 	confirmedTime time.Time
@@ -28,18 +28,18 @@ type Epoch struct {
 }
 
 // NewEpoch is the constructor for an Epoch.
-func NewEpoch(eci ECI) (epoch *Epoch) {
+func NewEpoch(ei EI) (epoch *Epoch) {
 	epoch = &Epoch{
-		eci:        eci,
+		ei:         ei,
 		commitment: &EpochCommitment{},
 	}
 
 	return
 }
 
-// ECI returns the Epoch's ECI.
-func (e *Epoch) ECI() ECI {
-	return e.eci
+// EI returns the Epoch's EI.
+func (e *Epoch) EI() EI {
+	return e.ei
 }
 
 // Finalized returns true if the epoch is finalized.

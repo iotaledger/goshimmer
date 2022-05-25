@@ -12,67 +12,67 @@ func TestEpochManager(t *testing.T) {
 	manager := NewEpochManager(GenesisTime(genesisTime.Unix()), Interval(int64(10)))
 
 	{
-		// eci = 0
+		// ei = 0
 		testTime := genesisTime.Add(5 * time.Second)
-		eci := manager.TimeToECI(testTime)
-		assert.Equal(t, eci, ECI(0))
+		ei := manager.TimeToEI(testTime)
+		assert.Equal(t, ei, EI(0))
 
-		oracleEci := manager.TimeToOracleECI(testTime)
-		assert.Equal(t, oracleEci, ECI(0))
+		oracleEci := manager.TimeToOracleEI(testTime)
+		assert.Equal(t, oracleEci, EI(0))
 
-		startTime := manager.ECIToStartTime(eci)
+		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Unix(), 0))
-		endTime := manager.ECIToEndTime(eci)
+		endTime := manager.EIToEndTime(ei)
 		assert.Equal(t, endTime, time.Unix(genesisTime.Add(9*time.Second).Unix(), 0))
 	}
 
 	{
-		// eci = 1
+		// ei = 1
 		testTime := genesisTime.Add(10 * time.Second)
-		eci := manager.TimeToECI(testTime)
-		assert.Equal(t, eci, ECI(1))
+		ei := manager.TimeToEI(testTime)
+		assert.Equal(t, ei, EI(1))
 
-		oracleEci := manager.TimeToOracleECI(testTime)
-		assert.Equal(t, oracleEci, ECI(0))
+		oracleEci := manager.TimeToOracleEI(testTime)
+		assert.Equal(t, oracleEci, EI(0))
 
-		startTime := manager.ECIToStartTime(eci)
+		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(10*time.Second).Unix(), 0))
-		endTime := manager.ECIToEndTime(eci)
+		endTime := manager.EIToEndTime(ei)
 		assert.Equal(t, endTime, time.Unix(genesisTime.Add(19*time.Second).Unix(), 0))
 	}
 
 	{
-		// eci = 3
+		// ei = 3
 		testTime := genesisTime.Add(35 * time.Second)
-		eci := manager.TimeToECI(testTime)
-		assert.Equal(t, eci, ECI(3))
+		ei := manager.TimeToEI(testTime)
+		assert.Equal(t, ei, EI(3))
 
-		oracleEci := manager.TimeToOracleECI(testTime)
-		assert.Equal(t, oracleEci, ECI(0))
+		oracleEci := manager.TimeToOracleEI(testTime)
+		assert.Equal(t, oracleEci, EI(0))
 
-		startTime := manager.ECIToStartTime(eci)
+		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(30*time.Second).Unix(), 0))
-		endTime := manager.ECIToEndTime(eci)
+		endTime := manager.EIToEndTime(ei)
 		assert.Equal(t, endTime, time.Unix(genesisTime.Add(39*time.Second).Unix(), 0))
 	}
 
 	{
-		// eci = 4
+		// ei = 4
 		testTime := genesisTime.Add(49 * time.Second)
-		eci := manager.TimeToECI(testTime)
-		assert.Equal(t, eci, ECI(4))
+		ei := manager.TimeToEI(testTime)
+		assert.Equal(t, ei, EI(4))
 
-		oracleEci := manager.TimeToOracleECI(testTime)
-		assert.Equal(t, oracleEci, ECI(2))
+		oracleEci := manager.TimeToOracleEI(testTime)
+		assert.Equal(t, oracleEci, EI(2))
 	}
 
 	{
-		// a time before genesis time, eci = 0
+		// a time before genesis time, ei = 0
 		testTime := genesisTime.Add(-10 * time.Second)
-		eci := manager.TimeToECI(testTime)
-		assert.Equal(t, eci, ECI(0))
+		ei := manager.TimeToEI(testTime)
+		assert.Equal(t, ei, EI(0))
 
-		oracleEci := manager.TimeToOracleECI(testTime)
-		assert.Equal(t, oracleEci, ECI(0))
+		oracleEci := manager.TimeToOracleEI(testTime)
+		assert.Equal(t, oracleEci, EI(0))
 	}
 }

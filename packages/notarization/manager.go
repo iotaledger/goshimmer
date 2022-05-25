@@ -18,8 +18,8 @@ type Manager struct {
 	epochManager           *EpochManager
 	epochCommitmentFactory *EpochCommitmentFactory
 	options                *ManagerOptions
-	pendingBranchesCount   map[ECI]uint64
-	pbcMutex               sync.RWMutex
+	pendingConflictsCount  map[EI]uint64
+	pccMutex               sync.RWMutex
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -34,92 +34,92 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		tangle:                 tangle,
 		epochManager:           epochManager,
 		epochCommitmentFactory: epochCommitmentFactory,
-		pendingBranchesCount:   make(map[ECI]uint64),
+		pendingConflictsCount:  make(map[EI]uint64),
 		options:                options,
 	}
 }
 
-// PendingBranchesCount returns the current value of pendingBranchesCount.
-func (m *Manager) PendingBranchesCount(eci ECI) uint64 {
-	m.pbcMutex.RLock()
-	defer m.pbcMutex.RUnlock()
-	return m.pendingBranchesCount[eci]
+// PendingConflictsCount returns the current value of pendingConflictsCount.
+func (m *Manager) PendingConflictsCount(ei EI) uint64 {
+	m.pccMutex.RLock()
+	defer m.pccMutex.RUnlock()
+	return m.pendingConflictsCount[ei]
 }
 
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) IsCommittable(eci ECI) bool {
-	t := m.epochManager.ECIToStartTime(eci)
+func (m *Manager) IsCommittable(ei EI) bool {
+	t := m.epochManager.EIToStartTime(ei)
 	diff := time.Since(t)
-	return m.PendingBranchesCount(eci) == 0 && diff >= m.options.MinCommitableEpochAge
+	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommitableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() *EpochCommitment {
-	eci := m.epochManager.CurrentECI()
-	for eci >= 0 {
-		if m.IsCommittable(eci) {
+	ei := m.epochManager.CurrentEI()
+	for ei >= 0 {
+		if m.IsCommittable(ei) {
 			break
 		}
-		eci -= 1
+		ei -= 1
 	}
-	return m.epochCommitmentFactory.GetEpochCommitment(eci)
+	return m.epochCommitmentFactory.GetEpochCommitment(ei)
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
-	eci := m.epochManager.TimeToECI(message.IssuingTime())
-	m.epochCommitmentFactory.InsertTangleLeaf(eci, message.ID())
+	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	m.epochCommitmentFactory.InsertTangleLeaf(ei, message.ID())
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
 func (m *Manager) OnTransactionConfirmed(tx *ledgerstate.Transaction) {
-	eci := m.epochManager.TimeToECI(tx.Essence().Timestamp())
-	m.epochCommitmentFactory.InsertStateMutationLeaf(eci, tx.ID())
-	m.updateStateSMT(eci, tx)
+	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
+	m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
+	m.updateStateSMT(ei, tx)
 }
 
-func (m *Manager) updateStateSMT(eci ECI, tx *ledgerstate.Transaction) {
+func (m *Manager) updateStateSMT(ei EI, tx *ledgerstate.Transaction) {
 	for _, o := range tx.Essence().Outputs() {
-		m.epochCommitmentFactory.InsertStateLeaf(eci, o.ID())
+		m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
 	}
 	// remove spent outputs
 	for _, i := range tx.Essence().Inputs() {
 		out, _ := ledgerstate.OutputIDFromBase58(i.Base58())
-		m.epochCommitmentFactory.RemoveStateLeaf(eci, out)
+		m.epochCommitmentFactory.RemoveStateLeaf(ei, out)
 	}
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
-	m.pbcMutex.Lock()
-	defer m.pbcMutex.Unlock()
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 
-	eci := m.getBranchECI(branchID)
-	m.pendingBranchesCount[eci] -= 1
+	ei := m.getBranchEI(branchID)
+	m.pendingConflictsCount[ei] -= 1
 }
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
-	m.pbcMutex.Lock()
-	defer m.pbcMutex.Unlock()
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 
-	eci := m.getBranchECI(branchID)
-	m.pendingBranchesCount[eci] += 1
+	ei := m.getBranchEI(branchID)
+	m.pendingConflictsCount[ei] += 1
 }
 
 // OnBranchRejected is the handler for branch created event.
 func (m *Manager) OnBranchRejected(branchID ledgerstate.BranchID) {
-	m.pbcMutex.Lock()
-	defer m.pbcMutex.Unlock()
+	m.pccMutex.Lock()
+	defer m.pccMutex.Unlock()
 
-	eci := m.getBranchECI(branchID)
-	m.pendingBranchesCount[eci] -= 1
+	ei := m.getBranchEI(branchID)
+	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) getBranchECI(branchID ledgerstate.BranchID) ECI {
+func (m *Manager) getBranchEI(branchID ledgerstate.BranchID) EI {
 	tx := m.tangle.LedgerState.Ledgerstate.Transaction(branchID.TransactionID())
-	eci := m.epochManager.TimeToECI(tx.Essence().Timestamp())
-	return eci
+	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
+	return ei
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.

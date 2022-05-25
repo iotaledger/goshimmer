@@ -14,49 +14,49 @@ func TestNewManager(t *testing.T) {
 	assert.NotNil(t, m)
 }
 
-func TestManager_PendingBranchesCount(t *testing.T) {
+func TestManager_PendingConflictsCount(t *testing.T) {
 	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(), tangle.NewTestTangle())
-	m.pendingBranchesCount[3] = 3
-	assert.Equal(t, uint64(3), m.PendingBranchesCount(3))
+	m.pendingConflictsCount[3] = 3
+	assert.Equal(t, uint64(3), m.PendingConflictsCount(3))
 }
 
 func TestManager_IsCommittable(t *testing.T) {
 	m := testNotarizationManager()
-	eci := ECI(5)
-	m.pendingBranchesCount[eci] = 0
+	ei := EI(5)
+	m.pendingConflictsCount[ei] = 0
 	// not old enough
-	assert.False(t, m.IsCommittable(eci))
+	assert.False(t, m.IsCommittable(ei))
 
-	eci = ECI(1)
-	m.pendingBranchesCount[eci] = 1
+	ei = EI(1)
+	m.pendingConflictsCount[ei] = 1
 	// old enough but pbc > 0
-	assert.False(t, m.IsCommittable(eci))
-	m.pendingBranchesCount[eci] = 0
+	assert.False(t, m.IsCommittable(ei))
+	m.pendingConflictsCount[ei] = 0
 	// old enough and pbc > 0
-	assert.True(t, m.IsCommittable(eci))
+	assert.True(t, m.IsCommittable(ei))
 }
 
 func TestManager_GetLatestEC(t *testing.T) {
 	m := testNotarizationManager()
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
 	for i := 0; i <= 5; i++ {
-		m.pendingBranchesCount[ECI(i)] = uint64(i)
-		m.epochCommitmentFactory.InsertTangleLeaf(ECI(i), tangle.EmptyMessageID)
+		m.pendingConflictsCount[EI(i)] = uint64(i)
+		m.epochCommitmentFactory.InsertTangleLeaf(EI(i), tangle.EmptyMessageID)
 	}
 
 	commitment := m.GetLatestEC()
 	// only epoch 0 has pbc = 0
-	assert.Equal(t, ECI(0), commitment.ECI)
+	assert.Equal(t, EI(0), commitment.EI)
 
-	m.pendingBranchesCount[4] = 0
+	m.pendingConflictsCount[4] = 0
 	commitment = m.GetLatestEC()
 	// epoch 4 has pbc = 0 but is not old enough
-	assert.Equal(t, ECI(0), commitment.ECI)
+	assert.Equal(t, EI(0), commitment.EI)
 
-	m.pendingBranchesCount[2] = 0
+	m.pendingConflictsCount[2] = 0
 	commitment = m.GetLatestEC()
 	// epoch 2 has pbc=0 and is old enough
-	assert.Equal(t, ECI(2), commitment.ECI)
+	assert.Equal(t, EI(2), commitment.EI)
 }
 
 func testNotarizationManager() *Manager {
