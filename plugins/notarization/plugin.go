@@ -74,7 +74,9 @@ func configure(plugin *node.Plugin) {
 	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
 		deps.NotarizationManager.OnBranchCreated(branchID)
 	}))
-	// TODO Branch Rejected
+	deps.Tangle.ConfirmationOracle.Events().BranchRejected.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+		deps.NotarizationManager.OnBranchRejected(branchID)
+	}))
 }
 
 func run(*node.Plugin) {
