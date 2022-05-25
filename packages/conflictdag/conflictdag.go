@@ -255,10 +255,10 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchCon
 // registerConflictMember registers a Conflict in a Conflict by creating the references (if necessary) and increasing the
 // corresponding member counter.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) registerConflictMember(conflictID ConflictingResourceID, branchID ConflictID) {
-	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictID, ConflictingResourceID]).Release()
+	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictingResourceID, ConflictID]).Release()
 }
 
-// inclusionState returns the InclusionState of the Conflict with the given BranchID.
+// inclusionState returns the InclusionState of the Conflict with the given ConflictID.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) inclusionState(branchID ConflictID) (inclusionState InclusionState) {
 	b.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
 		inclusionState = branch.InclusionState()

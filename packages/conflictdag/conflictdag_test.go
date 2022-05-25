@@ -97,8 +97,8 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {},
 	}
 	actualConflictMembers := map[MockedConflictID]struct{}{}
-	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[MockedConflictID, MockedConflictSetID]) {
-		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[MockedConflictSetID, MockedConflictID]) {
+		actualConflictMembers[conflictMember.ConflictID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 
@@ -114,8 +114,8 @@ func TestConflictDAG_ConflictMembers(t *testing.T) {
 		branch2.ID(): {}, branch3.ID(): {}, branch4.ID(): {},
 	}
 	actualConflictMembers = map[MockedConflictID]struct{}{}
-	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[MockedConflictID, MockedConflictSetID]) {
-		actualConflictMembers[conflictMember.BranchID()] = struct{}{}
+	branchDAG.Storage.CachedConflictMembers(conflictID0).Consume(func(conflictMember *ConflictMember[MockedConflictSetID, MockedConflictID]) {
+		actualConflictMembers[conflictMember.ConflictID()] = struct{}{}
 	})
 	assert.Equal(t, expectedConflictMembers, actualConflictMembers)
 }

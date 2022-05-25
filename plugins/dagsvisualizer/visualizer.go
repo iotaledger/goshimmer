@@ -419,8 +419,8 @@ func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
-				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.ConflictID())
 			})
 		}
 

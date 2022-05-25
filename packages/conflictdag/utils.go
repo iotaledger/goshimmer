@@ -7,13 +7,13 @@ import (
 )
 
 // Utils is a ConflictDAG component that bundles utility related API to simplify common interactions with the ConflictDAG.
-type Utils[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]] struct {
+type Utils[ConflictID comparable, ConflictSetID comparable] struct {
 	// branchDAG contains a reference to the ConflictDAG that created the Utils.
 	branchDAG *ConflictDAG[ConflictID, ConflictSetID]
 }
 
 // newUtils returns a new Utils instance for the given ConflictDAG.
-func newUtils[ConflictID set.AdvancedSetElement[ConflictID], ConflictSetID set.AdvancedSetElement[ConflictSetID]](branchDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
+func newUtils[ConflictID comparable, ConflictSetID comparable](branchDAG *ConflictDAG[ConflictID, ConflictSetID]) (new *Utils[ConflictID, ConflictSetID]) {
 	return &Utils[ConflictID, ConflictSetID]{
 		branchDAG: branchDAG,
 	}
@@ -65,8 +65,8 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 	processBranchAndQueueConflictSets(branchID)
 
 	for conflictSetsWalker.HasNext() {
-		u.branchDAG.Storage.CachedConflictMembers(conflictSetsWalker.Next()).Consume(func(conflictMember *ConflictMember[ConflictID, ConflictSetID]) {
-			processBranchAndQueueConflictSets(conflictMember.BranchID())
+		u.branchDAG.Storage.CachedConflictMembers(conflictSetsWalker.Next()).Consume(func(conflictMember *ConflictMember[ConflictSetID, ConflictID]) {
+			processBranchAndQueueConflictSets(conflictMember.ConflictID())
 		})
 	}
 
@@ -77,12 +77,12 @@ func (u *Utils[ConflictID, ConflictSetID]) ForEachConnectedConflictingBranchID(b
 func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingBranchID(branch *Conflict[ConflictID, ConflictSetID], callback func(conflictingBranchID ConflictID) bool) {
 	for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 		abort := false
-		u.branchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember[ConflictID, ConflictSetID]) {
-			if abort || conflictMember.BranchID() == branch.ID() {
+		u.branchDAG.Storage.CachedConflictMembers(it.Next()).Consume(func(conflictMember *ConflictMember[ConflictSetID, ConflictID]) {
+			if abort || conflictMember.ConflictID() == branch.ID() {
 				return
 			}
 
-			if abort = !callback(conflictMember.BranchID()); abort {
+			if abort = !callback(conflictMember.ConflictID()); abort {
 				it.StopWalk()
 			}
 		})

@@ -172,8 +172,8 @@ func onBranchCreated(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID,
 		}
 
 		// update all existing branches with a possible new conflict membership
-		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
-			conflicts.addConflictMember(conflictMember.BranchID(), conflictID)
+		deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+			conflicts.addConflictMember(conflictMember.ConflictID(), conflictID)
 		})
 	}
 
