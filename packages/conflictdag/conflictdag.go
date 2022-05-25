@@ -1,16 +1,19 @@
 package conflictdag
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
 // shared set of resources.
-type ConflictDAG[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]] struct {
+type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// Events is a dictionary for events emitted by the ConflictDAG.
 	Events *Events[ConflictIDType, ResourceIDType]
 
@@ -28,7 +31,7 @@ type ConflictDAG[ConflictIDType set.AdvancedSetElement[ConflictIDType], Resource
 }
 
 // New returns a new ConflictDAG with the given options.
-func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
+func New[ConflictIDType, ResourceIDType comparable](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	new = &ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:  newEvents[ConflictIDType, ResourceIDType](),
 		options: newOptions(options...),
@@ -227,7 +230,10 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildBranchRefere
 // removeChildBranchReferences removes the named ChildBranch references.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
-		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), childBranchID.Bytes()))
+		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(
+			lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), it.Next(), serix.WithValidation())),
+			lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), childBranchID, serix.WithValidation())),
+		))
 	}
 }
 

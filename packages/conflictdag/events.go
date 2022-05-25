@@ -8,7 +8,7 @@ import (
 // region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Events is a container that acts as a dictionary for the events of a ConflictDAG.
-type Events[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
+type Events[ConflictID, ConflictingResourceID comparable] struct {
 	// ConflictCreated is an event that gets triggered whenever a new Conflict is created.
 	ConflictCreated *event.Event[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]]
 
@@ -26,7 +26,7 @@ type Events[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[
 }
 
 // newEvents returns a new Events object.
-func newEvents[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]]() *Events[ConflictID, ConflictingResourceID] {
+func newEvents[ConflictID, ConflictingResourceID comparable]() *Events[ConflictID, ConflictingResourceID] {
 	return &Events[ConflictID, ConflictingResourceID]{
 		ConflictCreated:        event.New[*ConflictCreatedEvent[ConflictID, ConflictingResourceID]](),
 		BranchConflictsUpdated: event.New[*BranchConflictsUpdatedEvent[ConflictID, ConflictingResourceID]](),
@@ -41,7 +41,7 @@ func newEvents[ConflictID comparable, ConflictingResourceID set.AdvancedSetEleme
 // region ConflictCreatedEvent /////////////////////////////////////////////////////////////////////////////////////////
 
 // ConflictCreatedEvent is an event that gets triggered when a new Conflict was created.
-type ConflictCreatedEvent[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
+type ConflictCreatedEvent[ConflictID, ConflictingResourceID comparable] struct {
 	// ID contains the identifier of the newly created Conflict.
 	ID ConflictID
 
@@ -58,7 +58,7 @@ type ConflictCreatedEvent[ConflictID comparable, ConflictingResourceID set.Advan
 
 // BranchConflictsUpdatedEvent is a container that acts as a dictionary for the BranchConflictsUpdated event related
 // parameters.
-type BranchConflictsUpdatedEvent[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
+type BranchConflictsUpdatedEvent[ConflictID, ConflictingResourceID comparable] struct {
 	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 
@@ -72,7 +72,7 @@ type BranchConflictsUpdatedEvent[ConflictID comparable, ConflictingResourceID se
 
 // BranchParentsUpdatedEvent is a container that acts as a dictionary for the BranchParentsUpdated event related
 // parameters.
-type BranchParentsUpdatedEvent[ConflictID comparable, ConflictingResourceID set.AdvancedSetElement[ConflictingResourceID]] struct {
+type BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID comparable] struct {
 	// BranchID contains the identifier of the updated Conflict.
 	BranchID ConflictID
 

@@ -8,11 +8,11 @@ import (
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
-type Conflict[ConflictID comparable, ConflictSetID comparable] struct {
+type Conflict[ConflictID, ConflictSetID comparable] struct {
 	model.Model[ConflictID, conflict[ConflictID, ConflictSetID]]
 }
 
-type conflict[ConflictID comparable, ConflictSetID comparable] struct {
+type conflict[ConflictID, ConflictSetID comparable] struct {
 	// parents contains the parent BranchIDs that this Conflict depends on.
 	Parents *set.AdvancedSet[ConflictID] `serix:"0"`
 

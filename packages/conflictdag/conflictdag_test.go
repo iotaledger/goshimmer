@@ -207,7 +207,7 @@ func TestConflictDAG_SetBranchConfirmed(t *testing.T) {
 	})
 }
 
-func assertInclusionStates[ConflictT set.AdvancedSetElement[ConflictT], ConflictSetT set.AdvancedSetElement[ConflictSetT]](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
+func assertInclusionStates[ConflictT, ConflictSetT comparable](t *testing.T, branchDAG *ConflictDAG[ConflictT, ConflictSetT], branchIDsMapping map[string]ConflictT, expectedInclusionStates map[string]InclusionState) {
 	for branchIDStrings, expectedInclusionState := range expectedInclusionStates {
 		branchIDs := set.NewAdvancedSet[ConflictT]()
 		for _, branchString := range strings.Split(branchIDStrings, "+") {
