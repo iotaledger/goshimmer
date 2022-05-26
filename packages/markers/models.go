@@ -1008,12 +1008,12 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
 }
 
 // FromObjectStorage creates a Sequence from sequences of key and bytes.
-func (s *Sequence) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	sequence, err := s.FromBytes(byteutils.ConcatBytes(key, value))
+func (s *Sequence) FromObjectStorage(key, value []byte) error {
+	_, err := s.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse Sequence from bytes: %w", err)
+		return errors.Errorf("failed to parse Sequence from bytes: %w", err)
 	}
-	return sequence, err
+	return nil
 }
 
 // FromBytes unmarshals a Sequence from a sequence of bytes.

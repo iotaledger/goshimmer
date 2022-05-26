@@ -451,7 +451,7 @@ func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time
 }
 
 // FromObjectStorage creates a Message from sequences of key and bytes.
-func (m *Message) FromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromObjectStorage(key, value []byte) (err error) {
 	// parse the message
 	message, err := m.FromBytes(value)
 	if err != nil {
@@ -465,17 +465,16 @@ func (m *Message) FromObjectStorage(key, value []byte) (result objectstorage.Sto
 		return
 	}
 	message.messageInner.id = messageID
-	result = message
 
 	return
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytes(data []byte) (*Message, error) {
-	msg := new(Message)
-	if m != nil {
-		msg = m
+func (m *Message) FromBytes(data []byte) (msg *Message, err error) {
+	if msg = m; msg == nil {
+		msg = new(Message)
 	}
+
 	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, msg, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Message: %w", err)
@@ -834,34 +833,32 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MessageMetadata) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+		return fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
 func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
-	msgMetadata := new(MessageMetadata)
-	if m != nil {
-		msgMetadata = m
+	if result = m; result == nil {
+		result = new(MessageMetadata)
 	}
 	messageID := new(MessageID)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, messageID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
-		return msgMetadata, err
+		return nil, errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], msgMetadata, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MessageMetadata: %w", err)
-		return msgMetadata, err
+		return nil, errors.Errorf("failed to parse MessageMetadata: %w", err)
 	}
-	msgMetadata.messageMetadataInner.MessageID = *messageID
-	return msgMetadata, err
+
+	result.messageMetadataInner.MessageID = *messageID
+	return result, nil
 }
 
 // ID returns the MessageID of the Message that this MessageMetadata object belongs to.

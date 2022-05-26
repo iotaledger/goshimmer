@@ -222,7 +222,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 
 // initObjectStorage sets up the object storage for the Sequences.
 func (m *Manager) initObjectStorage() (self *Manager) {
-	m.sequenceStore = objectstorage.New[*Sequence](objectstorage.NewStoreWithRealm(m.Options.Store, database.PrefixMarkers, 0), objectstorage.CacheTime(m.Options.CacheTime))
+	m.sequenceStore = objectstorage.NewStructStorage[Sequence](objectstorage.NewStoreWithRealm(m.Options.Store, database.PrefixMarkers, 0), objectstorage.CacheTime(m.Options.CacheTime))
 
 	if cachedSequence, stored := m.sequenceStore.StoreIfAbsent(NewSequence(0, NewMarkers())); stored {
 		cachedSequence.Release()

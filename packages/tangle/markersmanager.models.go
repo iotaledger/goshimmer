@@ -71,35 +71,33 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
-func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
+		return errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 	}
 
-	return markerIndexBranchIDMapping, err
+	return nil
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
-	mapping := new(MarkerIndexBranchIDMapping)
-	if m != nil {
-		mapping = m
+func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (result *MarkerIndexBranchIDMapping, err error) {
+	if result = m; result == nil {
+		result = new(MarkerIndexBranchIDMapping)
 	}
 	sequenceID := new(markers.SequenceID)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
 	}
-	mapping.markerIndexBranchIDInner.SequenceID = *sequenceID
-	return mapping, err
+
+	result.markerIndexBranchIDInner.SequenceID = *sequenceID
+	return result, err
 }
 
 // SequenceID returns the SequenceID that this MarkerIndexBranchIDMapping represents.

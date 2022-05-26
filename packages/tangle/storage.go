@@ -90,17 +90,17 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    objectstorage.New[*Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		messageMetadataStorage:            objectstorage.New[*MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   objectstorage.New[*Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingMessageStorage:             objectstorage.New[*MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.New[*Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(utxo.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		markerIndexBranchIDMappingStorage: objectstorage.New[*MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchVotersStorage:               objectstorage.New[*BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestBranchVotesStorage:          objectstorage.New[*LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestMarkerVotesStorage:          objectstorage.New[*LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               objectstorage.New[*BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       objectstorage.New[*MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		messageStorage:                    objectstorage.NewStructStorage[Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            objectstorage.NewStructStorage[MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   objectstorage.NewStructStorage[Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             objectstorage.NewStructStorage[MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(utxo.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:          objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               objectstorage.NewStructStorage[BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       objectstorage.NewStructStorage[MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
 		Events: newStorageEvents(),
 	}
@@ -578,27 +578,26 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 }
 
 // FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
+func (a *Approver) FromObjectStorage(key, _ []byte) error {
+	_, err := a.FromBytes(key)
 	if err != nil {
-		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
+		return errors.Errorf("failed to parse Approver from bytes: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes parses the given bytes into an approver.
 func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
-	approver := new(Approver)
-	if a != nil {
-		approver = a
+	if result = a; result == nil {
+		result = new(Approver)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, approver, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Approver: %w", err)
-		return approver, err
+		return nil, errors.Errorf("failed to parse Approver: %w", err)
 	}
-	return approver, err
+
+	return result, nil
 }
 
 // Type returns the type of the Approver reference.
@@ -675,28 +674,26 @@ func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attac
 }
 
 // FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
+func (a *Attachment) FromObjectStorage(key, _ []byte) error {
+	_, err := a.FromBytes(key)
 	if err != nil {
-		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
+		return errors.Errorf("failed to parse attachment from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
-	attachment := new(Attachment)
-	if a != nil {
-		attachment = a
+	if result = a; result == nil {
+		result = new(Attachment)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, attachment, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Attachment: %w", err)
-		return attachment, err
+		return nil, errors.Errorf("failed to parse Attachment: %w", err)
 	}
-	return attachment, err
+	return result, nil
 }
 
 // TransactionID returns the transactionID of this Attachment.
@@ -743,7 +740,7 @@ func (a *Attachment) ObjectStorageValue() (data []byte) {
 var _ objectstorage.StorableObject = new(Attachment)
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = utxo.TransactionIDLength + MessageIDLength
+var AttachmentLength = utxo.TransactionID{}.Length() + MessageIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -772,32 +769,29 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MissingMessage) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
+		return fmt.Errorf("failed to parse missing message from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
 func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
-	missingMsg := new(MissingMessage)
-	if m != nil {
-		missingMsg = m
+	if result = m; result == nil {
+		result = new(MissingMessage)
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &result.missingMessageInner.MessageID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
-		return missingMsg, err
+		return nil, errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], missingMsg, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage: %w", err)
-		return missingMsg, err
+		return nil, errors.Errorf("failed to parse MissingMessage: %w", err)
 	}
-	return missingMsg, err
+	return result, nil
 }
 
 // MessageID returns the id of the message.
