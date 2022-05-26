@@ -265,35 +265,32 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
-func (m *MarkerMessageMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MarkerMessageMapping) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+		return errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (m *MarkerMessageMapping) FromBytes(data []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
-	mapping := new(MarkerMessageMapping)
-	if m != nil {
-		mapping = m
+func (m *MarkerMessageMapping) FromBytes(data []byte) (result *MarkerMessageMapping, err error) {
+	if result = m; result == nil {
+		result = new(MarkerMessageMapping)
 	}
 	decodedMarker := new(markers.Marker)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, decodedMarker, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
 	}
-	mapping.markerMessageMappingInner.Marker = decodedMarker
+	result.markerMessageMappingInner.Marker = decodedMarker
 
-	return mapping, err
+	return result, nil
 }
 
 // Marker returns the Marker that is mapped to a MessageID.

@@ -287,7 +287,7 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs utxo.Outputs, outputsMetadata ledger.OutputsMetadata) {
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet

@@ -265,7 +265,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 				msg.ObjectStorageValue()
 			})
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "max count of elements within the array exceeded")
 	})
 
@@ -285,7 +285,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 				msg.ObjectStorageValue()
 			})
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
@@ -307,7 +307,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
@@ -334,7 +334,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		msgBytes[2] = byte(WeakParentType)
 		msgBytes[36] = byte(StrongParentType)
 
-		_, err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
 
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 	})
@@ -363,7 +363,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		msgBytes[2] = byte(WeakParentType)
 
-		_, err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
 
 		assert.ErrorContains(t, err, "array elements must be unique")
 	})
@@ -394,7 +394,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
 	})
 
@@ -418,7 +418,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		copy(msgBytes[4:36], msgBytes[36:36+32])
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
 		assert.ErrorContains(t, err, "array elements must be unique")
 
 		_, err = newMessageWithValidation(
@@ -437,7 +437,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		// replace parents in byte structure
 		copy(msgBytes[4:36], msgBytes[36+32:36+64])
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 		// if the duplicates are not consecutive a lexicographically order error is returned
 	})
@@ -465,7 +465,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
 
 		parentBlocks = NewParentMessageIDs()
@@ -489,7 +489,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
 		// check for repeating message across weak and dislike block
@@ -520,7 +520,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks)
 	})
 }

@@ -58,8 +58,9 @@ func parseMetadata(marshalUtil *marshalutil.MarshalUtil) (result *ConsensusBaseP
 }
 
 // FromObjectStorage creates an ConsensusBasePastManaVectorMetadata from sequences of key and bytes.
-func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(_, value []byte) (objectstorage.StorableObject, error) {
-	return c.FromBytes(value)
+func (c *ConsensusBasePastManaVectorMetadata) FromObjectStorage(_, value []byte) error {
+	_, err := c.FromBytes(value)
+	return err
 }
 
 // FromBytes unmarshalls bytes into a metadata.

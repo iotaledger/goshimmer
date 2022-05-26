@@ -41,7 +41,7 @@ func (s *Snapshot) FromFile(fileName string) (err error) {
 
 func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
 	s.LedgerSnapshot = ledger.NewSnapshot(utxo.NewOutputs(), ledger.NewOutputsMetadata())
-	if err = s.LedgerSnapshot.FromMarshalUtil(marshalUtil, devnetvm.OutputFactory); err != nil {
+	if err = s.LedgerSnapshot.FromMarshalUtil(marshalUtil, devnetvm.OutputFromBytes); err != nil {
 		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
 
