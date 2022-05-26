@@ -59,7 +59,9 @@ type ManaParametersDefinition struct {
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
 type RateSetterParametersDefinition struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"20" usage:"the initial rate of rate setting"`
+	// Initial defines for how long to pause updates after decrease of rate.
+	RateSettingPause time.Duration `default:"2s" usage:"for how long to pause updates after decrease of rate"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.

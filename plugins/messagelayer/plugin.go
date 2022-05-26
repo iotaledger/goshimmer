@@ -180,7 +180,8 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 			TotalAccessManaRetrieveFunc:       totalAccessManaRetriever,
 		}),
 		tangle.RateSetterConfig(tangle.RateSetterParams{
-			Initial: &RateSetterParameters.Initial,
+			Initial:          RateSetterParameters.Initial,
+			RateSettingPause: RateSetterParameters.RateSettingPause,
 		}),
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),

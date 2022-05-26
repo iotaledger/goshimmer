@@ -135,13 +135,6 @@ func (t *Tangle) Setup() {
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
 
-	// increase scheduler rate if the node is not synced at start
-	if !t.Synced() {
-		rate := t.Scheduler.Rate()
-		rate -= rate / 2 // 50% increase
-		t.Scheduler.SetRate(rate)
-	}
-
 	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))

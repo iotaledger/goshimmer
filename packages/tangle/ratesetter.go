@@ -15,15 +15,11 @@ import (
 
 const (
 	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes.
-	MaxLocalQueueSize = 20 * MaxMessageSize
-	// Backoff is the local threshold for rate setting; < MaxQueueWeight.
-	Backoff = 25.0
+	MaxLocalQueueSize = 20
 	// RateSettingIncrease is the global additive increase parameter.
 	RateSettingIncrease = 1.0
 	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
 	RateSettingDecrease = 1.5
-	// RateSettingPause is the time to wait before next rate's update after a backoff.
-	RateSettingPause = 2
 )
 
 var (
@@ -33,14 +29,21 @@ var (
 	ErrStopped = errors.New("rate setter stopped")
 )
 
-// Initial is the rate in bytes per second.
-var Initial = 20000.0
+var (
+	// Initial is the rate in bytes per second.
+	Initial float64
+	// RateSettingPause is the amount of scheduler ticks to pause updating own rate.
+	RateSettingPause uint
+	// MaxRate is the maximum rate at which node can ever issue (scheduler rate).
+	MaxRate float64
+)
 
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
 
 // RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
-	Initial *float64
+	Initial          float64
+	RateSettingPause time.Duration
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,9 +65,9 @@ type RateSetter struct {
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
-	if tangle.Options.RateSetterParams.Initial != nil {
-		Initial = *tangle.Options.RateSetterParams.Initial
-	}
+	Initial = tangle.Options.RateSetterParams.Initial
+	RateSettingPause = uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate())
+	MaxRate = float64(time.Second / tangle.Scheduler.Rate())
 
 	rateSetter := &RateSetter{
 		tangle: tangle,
@@ -99,7 +102,7 @@ func (r *RateSetter) Setup() {
 			r.pauseUpdates--
 			return
 		}
-		if r.issuingQueue.Size() > 0 {
+		if r.issuingQueue.Size()+r.tangle.Scheduler.NodeQueueSize(selfLocalIdentity.ID()) > 0 {
 			r.rateSetting()
 		}
 	}))
@@ -141,7 +144,7 @@ func (r *RateSetter) Estimate() time.Duration {
 	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
 
 	// dummy estimate
-	return time.Duration(math.Ceil(float64(r.Size()) / r.ownRate.Load() * float64(time.Second)))
+	return time.Duration(math.Ceil(float64(r.Size()+1) / r.ownRate.Load() * float64(time.Second)))
 }
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
@@ -150,13 +153,14 @@ func (r *RateSetter) rateSetting() {
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 
 	ownRate := r.ownRate.Load()
-	if float64(r.tangle.Scheduler.NodeQueueSize(r.self))/ownMana > Backoff {
+	// TODO: is this condition correct? what was used in simulations?
+	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)+r.Size()) > float64(r.tangle.Scheduler.MaxBufferSize()/10.0) {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = RateSettingPause
 	} else {
 		ownRate += RateSettingIncrease * ownMana / totalMana
 	}
-	r.ownRate.Store(ownRate)
+	r.ownRate.Store(math.Min(MaxRate, ownRate))
 }
 
 func (r *RateSetter) issuerLoop() {
@@ -188,7 +192,7 @@ loop:
 
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
-			if r.issuingQueue.Size()+msg.Size() > MaxLocalQueueSize {
+			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
 				r.Events.MessageDiscarded.Trigger(msg.ID())
 				continue
 			}
@@ -218,7 +222,8 @@ loop:
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(msg.Size()) / r.ownRate.Load() * float64(time.Second)))
+	// TODO: can this be counted as 1 or do we want to use bytes as work func?
+	wait := time.Duration(math.Ceil(float64(1) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
