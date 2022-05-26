@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"golang.org/x/crypto/blake2b"
+
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -186,27 +186,28 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 }
 
 // FromObjectStorage creates an Transaction from sequences of key and bytes.
-func (t *Transaction) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	tx := new(Transaction)
-	if t != nil {
-		tx = t
+func (t *Transaction) FromObjectStorage(key, value []byte) error {
+	tx := t
+	if tx == nil {
+		tx = new(Transaction)
 	}
+
 	_, err := serix.DefaultAPI.Decode(context.Background(), value, tx, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction: %w", err)
-		return tx, err
+		return err
 	}
 	transactionID := new(utxo.TransactionID)
 	_, err = serix.DefaultAPI.Decode(context.Background(), key, transactionID, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Transaction.id: %w", err)
-		return tx, err
+		return err
 	}
 	tx.transactionInner.id = transactionID
 
 	SetOutputID(tx.Essence(), tx.ID())
 
-	return tx, err
+	return err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
@@ -290,7 +291,7 @@ func (t *Transaction) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *Transaction) ObjectStorageKey() []byte {
-	return t.ID().Bytes()
+	return serix.Encode(t.ID())
 }
 
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
@@ -452,23 +453,6 @@ func (t *TransactionEssence) String() string {
 // TransactionEssenceVersion represents a version number for the TransactionEssence which can be used to ensure backward
 // compatibility if the structure ever needs to get changed.
 type TransactionEssenceVersion uint8
-
-// TransactionEssenceVersionFromMarshalUtil unmarshals a TransactionEssenceVersion using a MarshalUtil (for easier
-// unmarshalling).
-func TransactionEssenceVersionFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (version TransactionEssenceVersion, err error) {
-	readByte, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse TransactionEssenceVersion (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	if readByte != 0 {
-		err = errors.Errorf("invalid TransactionVersion (%d): %w", readByte, cerrors.ErrParseBytesFailed)
-		return
-	}
-	version = TransactionEssenceVersion(readByte)
-
-	return
-}
 
 // Bytes returns a marshaled version of the TransactionEssenceVersion.
 func (t TransactionEssenceVersion) Bytes() []byte {

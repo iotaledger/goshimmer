@@ -25,7 +25,7 @@ func (d *VM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 	return input.(*UTXOInput).ReferencedOutputID()
 }
 
-func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
+func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	typedOutputs, err := d.executeTransaction(transaction.(*Transaction), OutputsFromUTXOOutputs(inputs))
 	if err != nil {
 		return nil, errors.Errorf("failed to execute transaction: %w", err)

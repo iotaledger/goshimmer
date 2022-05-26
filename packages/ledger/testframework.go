@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 
@@ -440,7 +441,7 @@ func NewMockedVM() *MockedVM {
 // ParseTransaction un-serializes a Transaction from the given sequence of bytes.
 func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
 	mockedTx := new(MockedTransaction)
-	if _, err = mockedTx.Decode(transactionBytes); err != nil {
+	if _, err = serix.DefaultAPI.Decode(context.Background(), transactionBytes, mockedTx, serix.WithValidation()); err != nil {
 		return nil, err
 	}
 
@@ -450,7 +451,7 @@ func (m *MockedVM) ParseTransaction(transactionBytes []byte) (transaction utxo.T
 // ParseOutput un-serializes an Output from the given sequence of bytes.
 func (m *MockedVM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
 	newOutput := new(MockedOutput)
-	if _, err = newOutput.Decode(outputBytes); err != nil {
+	if _, err = serix.DefaultAPI.Decode(context.Background(), outputBytes, newOutput, serix.WithValidation()); err != nil {
 		return nil, err
 	}
 

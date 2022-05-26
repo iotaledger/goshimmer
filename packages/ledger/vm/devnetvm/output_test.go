@@ -12,6 +12,8 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
@@ -85,7 +87,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(serix.Encode(nextAlias.ID()), serix.Encode(originAlias.ID())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -100,7 +102,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(serix.Encode(nextAlias.ID()), serix.Encode(originAlias.ID())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -120,7 +122,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(serix.Encode(nextAlias.ID()), serix.Encode(originAlias.ID())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex()+1, nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -139,7 +141,7 @@ func TestAliasOutput_NewAliasOutputNext(t *testing.T) {
 		assert.True(t, originAlias.GetStateAddress().Equals(nextAlias.GetStateAddress()))
 		assert.True(t, originAlias.GetGoverningAddress().Equals(nextAlias.GetGoverningAddress()))
 		// OutputID is actually irrelevant here
-		assert.True(t, bytes.Equal(nextAlias.ID().Bytes(), originAlias.ID().Bytes()))
+		assert.True(t, bytes.Equal(serix.Encode(nextAlias.ID()), serix.Encode(originAlias.ID())))
 		assert.Equal(t, originAlias.Balances().Bytes(), nextAlias.Balances().Bytes())
 		assert.Equal(t, originAlias.GetStateIndex(), nextAlias.GetStateIndex())
 		assert.Equal(t, originAlias.GetStateData(), nextAlias.GetStateData())
@@ -153,7 +155,7 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		originAlias := dummyAliasOutput().WithDelegationAndTimelock(time.Now())
 		marshaledAlias, err := OutputFromBytes(originAlias.Bytes())
 		assert.NoError(t, err)
-		assert.Equal(t, marshaledAlias.Bytes(), originAlias.Bytes())
+		assert.Equal(t, serix.Encode(marshaledAlias), originAlias.Bytes())
 	})
 
 	t.Run("CASE: Wrong type", func(t *testing.T) {
@@ -579,7 +581,7 @@ func TestAliasOutput_IsSelfGoverned(t *testing.T) {
 func TestAliasOutput_ObjectStorageKey(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
-		assert.Equal(t, alias.outputID.Bytes(), alias.ObjectStorageKey())
+		assert.Equal(t, serix.Encode(alias.outputID), alias.ObjectStorageKey())
 	})
 }
 
@@ -655,7 +657,7 @@ func TestAliasOutput_SetID(t *testing.T) {
 		alias := dummyAliasOutput()
 		newID := randOutputID()
 		alias.SetID(newID)
-		assert.Equal(t, alias.ID().Bytes(), newID.Bytes())
+		assert.Equal(t, serix.Encode(alias.ID()), serix.Encode(newID))
 	})
 }
 
@@ -773,7 +775,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorMint: 500,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(serix.Encode(alias.ID())))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(500), balance)
 		assert.True(t, updated.Address().Equals(alias.GetAliasAddress()))
@@ -785,7 +787,7 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorIOTA: DustThresholdAliasOutputIOTA,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(serix.Encode(alias.ID())))
 		assert.False(t, ok)
 		assert.Equal(t, uint64(0), balance)
 		balance, ok = updated.Balances().Get(ColorIOTA)
@@ -802,10 +804,10 @@ func TestAliasOutput_UpdateMintingColor(t *testing.T) {
 			ColorMint: 500,
 		})
 		updated := alias.UpdateMintingColor()
-		balance, ok := updated.Balances().Get(blake2b.Sum256(alias.ID().Bytes()))
+		balance, ok := updated.Balances().Get(blake2b.Sum256(serix.Encode(alias.ID())))
 		assert.True(t, ok)
 		assert.Equal(t, uint64(500), balance)
-		assert.True(t, updated.Address().Equals(NewAliasAddress(alias.ID().Bytes())))
+		assert.True(t, updated.Address().Equals(NewAliasAddress(serix.Encode(alias.ID()))))
 	})
 }
 
@@ -1632,7 +1634,7 @@ func TestAliasOutput_Clone(t *testing.T) {
 	assert.True(t, out.governingAddress != outBackT.governingAddress)
 	assert.True(t, notSameMemory(out.immutableData, outBackT.immutableData))
 	assert.True(t, notSameMemory(out.stateData, outBackT.stateData))
-	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
+	assert.EqualValues(t, out.Bytes(), serix.Encode(outBack))
 }
 
 // endregion
@@ -1676,7 +1678,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, serix.Encode(o.id), serix.Encode(castedRestored.id))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
 		assert.True(t, o.timelock.Equal(castedRestored.timelock))
@@ -1692,7 +1694,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, serix.Encode(o.id), serix.Encode(castedRestored.id))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1710,7 +1712,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, serix.Encode(o.id), serix.Encode(castedRestored.id))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1728,7 +1730,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, serix.Encode(o.id), serix.Encode(castedRestored.id))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.True(t, o.fallbackAddress.Equals(castedRestored.fallbackAddress))
 		assert.True(t, o.timelock.Equal(castedRestored.timelock))
@@ -1747,7 +1749,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, o.balances.Bytes(), castedRestored.balances.Bytes())
 		assert.True(t, o.address.Equals(castedRestored.address))
-		assert.Equal(t, o.id.Bytes(), castedRestored.id.Bytes())
+		assert.Equal(t, serix.Encode(o.id), serix.Encode(castedRestored.id))
 		assert.True(t, o.fallbackDeadline.Equal(castedRestored.fallbackDeadline))
 		assert.Nil(t, o.fallbackAddress)
 		assert.Nil(t, castedRestored.fallbackAddress)
@@ -1812,7 +1814,7 @@ func TestExtendedLockedOutput_ID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		id := output.ID()
-		assert.Equal(t, output.id.Bytes(), id.Bytes())
+		assert.Equal(t, serix.Encode(output.id), serix.Encode(id))
 	})
 }
 
@@ -1821,7 +1823,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		input, ok := output.Input().(*UTXOInput)
 		assert.True(t, ok)
-		assert.Equal(t, input.utxoInputInner.ReferencedOutputID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, serix.Encode(input.utxoInputInner.ReferencedOutputID), serix.Encode(output.ID()))
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {
@@ -1841,7 +1843,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 func TestExtendedLockedOutput_ObjectStorageKey(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
-		assert.Equal(t, output.ID().Bytes(), output.ObjectStorageKey())
+		assert.Equal(t, serix.Encode(output.ID()), output.ObjectStorageKey())
 	})
 }
 
@@ -1857,7 +1859,7 @@ func TestExtendedLockedOutput_SetID(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		newID := randOutputID()
 		output.SetID(newID)
-		assert.Equal(t, newID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, serix.Encode(newID), serix.Encode(output.ID()))
 	})
 }
 
@@ -1927,7 +1929,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, ColorMint: 100})
 		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
 		assert.True(t, ok)
-		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.Equal(t, serix.Encode(output.id), serix.Encode(updated.id))
 		assert.True(t, updated.address.Equals(output.address))
 		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
 		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))
@@ -1935,7 +1937,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		assert.Equal(t, output.payload, updated.payload)
 		mintBalance, valid := output.Balances().Get(ColorMint)
 		assert.True(t, valid)
-		coloredBalance, uValid := updated.Balances().Get(blake2b.Sum256(output.ID().Bytes()))
+		coloredBalance, uValid := updated.Balances().Get(blake2b.Sum256(serix.Encode(output.ID())))
 		assert.True(t, uValid)
 		assert.Equal(t, mintBalance, coloredBalance)
 	})
@@ -1945,7 +1947,7 @@ func TestExtendedLockedOutput_UpdateMintingColor(t *testing.T) {
 		output.balances = NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA, {8}: 100})
 		updated, ok := output.UpdateMintingColor().(*ExtendedLockedOutput)
 		assert.True(t, ok)
-		assert.Equal(t, output.id.Bytes(), updated.id.Bytes())
+		assert.Equal(t, serix.Encode(output.id), serix.Encode(updated.id))
 		assert.True(t, updated.address.Equals(output.address))
 		assert.True(t, updated.fallbackAddress.Equals(output.fallbackAddress))
 		assert.True(t, updated.fallbackDeadline.Equal(output.fallbackDeadline))
@@ -2300,7 +2302,7 @@ func TestExtendedLockedOutput_Clone(t *testing.T) {
 	assert.True(t, notSameMemory(out.payload, outBackT.payload))
 	assert.True(t, out.address != outBackT.address)
 	assert.True(t, out.fallbackAddress != outBackT.fallbackAddress)
-	assert.EqualValues(t, out.Bytes(), outBack.Bytes())
+	assert.EqualValues(t, out.Bytes(), serix.Encode(outBack))
 }
 
 // endregion

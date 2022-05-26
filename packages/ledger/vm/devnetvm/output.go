@@ -11,8 +11,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
@@ -115,9 +116,6 @@ type Output interface {
 	// Clone creates a copy of the Output.
 	Clone() Output
 
-	// Bytes returns a marshaled version of the Output.
-	Bytes() []byte
-
 	// String returns a human-readable version of the Output for debug purposes.
 	String() string
 
@@ -127,84 +125,6 @@ type Output interface {
 
 	// StorableObject makes Outputs storable in the ObjectStorage.
 	objectstorage.StorableObject
-}
-
-// OutputFromBytes restores an Output that was stored in the ObjectStorage.
-func OutputFromBytes(data []byte) (output Output, err error) {
-	// could be refactored to not duplicate code with FromObjectStorage
-	var outputType OutputType
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &outputType)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	switch outputType {
-	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
-			return
-		}
-	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
-			return
-		}
-	case AliasOutputType:
-		if output, err = new(AliasOutput).FromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse AliasOutput: %w", err)
-			return
-		}
-	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromBytes(data); err != nil {
-			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
-			return
-		}
-
-	default:
-		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return output, err
-}
-
-// OutputFromObjectStorage restores an Output that was stored in the ObjectStorage.
-func OutputFromObjectStorage(key, value []byte) (output objectstorage.StorableObject, err error) {
-	var outputType OutputType
-	_, err = serix.DefaultAPI.Decode(context.Background(), value, &outputType)
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	switch outputType {
-	case SigLockedSingleOutputType:
-		if output, err = new(SigLockedSingleOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
-			return
-		}
-	case SigLockedColoredOutputType:
-		if output, err = new(SigLockedColoredOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
-			return
-		}
-	case AliasOutputType:
-		if output, err = new(AliasOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse AliasOutput: %w", err)
-			return
-		}
-	case ExtendedLockedOutputType:
-		if output, err = new(ExtendedLockedOutput).FromObjectStorage(key, value); err != nil {
-			err = errors.Errorf("failed to parse ExtendedOutput: %w", err)
-			return
-		}
-
-	default:
-		err = errors.Errorf("unsupported OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
-	}
-
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -225,7 +145,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, output := range optionalOutputs {
-		marshaledOutput := output.Bytes()
+		marshaledOutput := serix.Encode(output)
 		marshaledOutputAsString := typeutils.BytesToString(marshaledOutput)
 
 		if _, seenAlready := seenOutputs[marshaledOutputAsString]; seenAlready {
@@ -260,7 +180,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 	return
 }
 
-func OutputsFromUTXOOutputs(utxoOutputs utxo.Outputs) (outputs Outputs) {
+func OutputsFromUTXOOutputs(utxoOutputs *utxo.Outputs) (outputs Outputs) {
 	outputs = make(Outputs, 0)
 	_ = utxoOutputs.ForEach(func(output utxo.Output) error {
 		outputs = append(outputs, output.(Output))
@@ -404,79 +324,21 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	sigLockedSingleOutputInner `serix:"0"`
+	model.Model[utxo.OutputID, sigLockedSingleOutput]
 }
 
-type sigLockedSingleOutputInner struct {
-	ID      utxo.OutputID
-	idMutex sync.RWMutex
+type sigLockedSingleOutput struct {
 	Balance uint64  `serix:"0"`
 	Address Address `serix:"1"`
-
-	objectstorage.StorableObjectFlags
 }
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return &SigLockedSingleOutput{
-		sigLockedSingleOutputInner{
+	return &SigLockedSingleOutput{model.NewModel[utxo.OutputID](
+		sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
-		},
-	}
-}
-
-// FromObjectStorage creates an SigLockedSingleOutput from sequences of key and bytes.
-func (s *SigLockedSingleOutput) FromObjectStorage(key, value []byte) (sigLockedSingleOutput objectstorage.StorableObject, err error) {
-	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
-		sigLockedSingleOutput = new(SigLockedSingleOutput)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), value, sigLockedSingleOutput, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.sigLockedSingleOutputInner.ID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedSingleOutput.ID: %w", err)
-		return
-	}
-	return
-}
-
-// FromBytes creates an SigLockedSingleOutput from sequence of bytes.
-func (s *SigLockedSingleOutput) FromBytes(data []byte) (sigLockedSingleOutput *SigLockedSingleOutput, err error) {
-	if sigLockedSingleOutput = s; sigLockedSingleOutput == nil {
-		sigLockedSingleOutput = new(SigLockedSingleOutput)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedSingleOutput, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedSingleOutput: %w", err)
-		return
-	}
-
-	return
-}
-
-// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedSingleOutput) ID() utxo.OutputID {
-	s.idMutex.RLock()
-	defer s.idMutex.RUnlock()
-
-	return s.sigLockedSingleOutputInner.ID
-}
-
-// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
-// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
-// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-// only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedSingleOutput) SetID(outputID utxo.OutputID) {
-	s.idMutex.Lock()
-	defer s.idMutex.Unlock()
-
-	s.sigLockedSingleOutputInner.ID = outputID
+		})}
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -487,7 +349,7 @@ func (s *SigLockedSingleOutput) Type() OutputType {
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedSingleOutput) Balances() *ColoredBalances {
 	balances := NewColoredBalances(map[Color]uint64{
-		ColorIOTA: s.sigLockedSingleOutputInner.Balance,
+		ColorIOTA: s.M.Balance,
 	})
 
 	return balances
@@ -498,20 +360,20 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.sigLockedSingleOutputInner.Address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.sigLockedSingleOutputInner.Address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.sigLockedSingleOutputInner.Address.Type().String())
+		if s.M.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedSingleOutput: %s address can't be unlocked by alias reference", s.M.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedSingleOutput: referenced input must be AliasOutput")
 		}
-		if !s.sigLockedSingleOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.M.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedSingleOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -525,7 +387,7 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedSingleOutput) Address() Address {
-	return s.sigLockedSingleOutputInner.Address
+	return s.M.Address
 }
 
 // Input returns an Input that references the Output.
@@ -539,18 +401,9 @@ func (s *SigLockedSingleOutput) Input() Input {
 
 // Clone creates a copy of the Output.
 func (s *SigLockedSingleOutput) Clone() Output {
-	return &SigLockedSingleOutput{
-		sigLockedSingleOutputInner{
-			ID:      s.sigLockedSingleOutputInner.ID,
-			Balance: s.sigLockedSingleOutputInner.Balance,
-			Address: s.sigLockedSingleOutputInner.Address.Clone(),
-		},
-	}
-}
-
-// Bytes returns a marshaled version of the Output.
-func (s *SigLockedSingleOutput) Bytes() []byte {
-	return s.ObjectStorageValue()
+	cloned := NewSigLockedSingleOutput(s.M.Balance, s.M.Address)
+	cloned.SetID(s.ID())
+	return cloned
 }
 
 // UpdateMintingColor does nothing for SigLockedSingleOutput.
@@ -583,20 +436,8 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (s *SigLockedSingleOutput) Compare(other Output) int {
-	return bytes.Compare(s.Bytes(), other.Bytes())
+	return bytes.Compare(serix.Encode(s), serix.Encode(other))
 }
-
-// String returns a human readable version of the Output.
-func (s *SigLockedSingleOutput) String() string {
-	return stringify.Struct("SigLockedSingleOutput",
-		stringify.StructField("ID", s.ID()),
-		stringify.StructField("Address", s.sigLockedSingleOutputInner.Address),
-		stringify.StructField("Balance", s.sigLockedSingleOutputInner.Balance),
-	)
-}
-
-// code contract (make sure the type implements all required methods)
-var _ Output = new(SigLockedSingleOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -605,77 +446,20 @@ var _ Output = new(SigLockedSingleOutput)
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	sigLockedColoredOutputInner `serix:"0"`
+	model.Model[utxo.OutputID, sigLockedColoredOutput]
 }
-type sigLockedColoredOutputInner struct {
-	id       utxo.OutputID
-	idMutex  sync.RWMutex
+type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
 	Address  Address          `serix:"1"`
-
-	objectstorage.StorableObjectFlags
 }
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return &SigLockedColoredOutput{
-		sigLockedColoredOutputInner{
+	return &SigLockedColoredOutput{model.NewModel[utxo.OutputID](
+		sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,
-		},
-	}
-}
-
-// FromObjectStorage creates an SigLockedColoredOutput from sequences of key and bytes.
-func (s *SigLockedColoredOutput) FromObjectStorage(key, value []byte) (sigLockedColoredOutput objectstorage.StorableObject, err error) {
-	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
-		sigLockedColoredOutput = new(SigLockedColoredOutput)
-	}
-	_, err = serix.DefaultAPI.Decode(context.Background(), value, sigLockedColoredOutput, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, &s.id, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput.id: %w", err)
-		return
-	}
-	return
-}
-
-// FromBytes creates an SigLockedColoredOutput from sequence of bytes.
-func (s *SigLockedColoredOutput) FromBytes(data []byte) (sigLockedColoredOutput *SigLockedColoredOutput, err error) {
-	if sigLockedColoredOutput = s; sigLockedColoredOutput == nil {
-		sigLockedColoredOutput = new(SigLockedColoredOutput)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, sigLockedColoredOutput, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
-		return
-	}
-	return
-}
-
-// ID returns the identifier of the Output that is used to address the Output in the UTXODAG.
-func (s *SigLockedColoredOutput) ID() utxo.OutputID {
-	s.idMutex.RLock()
-	defer s.idMutex.RUnlock()
-
-	return s.id
-}
-
-// SetID allows to set the identifier of the Output. We offer a setter for the property since Outputs that are
-// created to become part of a transaction usually do not have an identifier, yet as their identifier depends on
-// the TransactionID that is only determinable after the Transaction has been fully constructed. The ID is therefore
-// only accessed when the Output is supposed to be persisted by the node.
-func (s *SigLockedColoredOutput) SetID(outputID utxo.OutputID) {
-	s.idMutex.Lock()
-	defer s.idMutex.Unlock()
-
-	s.id = outputID
+		})}
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -685,7 +469,7 @@ func (s *SigLockedColoredOutput) Type() OutputType {
 
 // Balances returns the funds that are associated with the Output.
 func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
-	return s.sigLockedColoredOutputInner.Balances
+	return s.M.Balances
 }
 
 // UnlockValid determines if the given Transaction and the corresponding UnlockBlock are allowed to spend the Output.
@@ -693,20 +477,20 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.sigLockedColoredOutputInner.Address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
 		// - referenced alias output has same alias address
 		// - it is not unlocked for governance
-		if s.sigLockedColoredOutputInner.Address.Type() != AliasAddressType {
-			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.sigLockedColoredOutputInner.Address.Type().String())
+		if s.M.Address.Type() != AliasAddressType {
+			return false, errors.Errorf("SigLockedColoredOutput: %s address can't be unlocked by alias reference", s.M.Address.Type().String())
 		}
 		refAliasOutput, isAlias := inputs[blk.AliasInputIndex()].(*AliasOutput)
 		if !isAlias {
 			return false, errors.New("sigLockedColoredOutput: referenced input must be AliasOutput")
 		}
-		if !s.sigLockedColoredOutputInner.Address.Equals(refAliasOutput.GetAliasAddress()) {
+		if !s.M.Address.Equals(refAliasOutput.GetAliasAddress()) {
 			return false, errors.New("sigLockedColoredOutput: wrong alias referenced")
 		}
 		unlockValid = !refAliasOutput.hasToBeUnlockedForGovernanceUpdate(tx)
@@ -720,7 +504,7 @@ func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock Unlock
 
 // Address returns the Address that the Output is associated to.
 func (s *SigLockedColoredOutput) Address() Address {
-	return s.sigLockedColoredOutputInner.Address
+	return s.M.Address
 }
 
 // Input returns an Input that references the Output.
@@ -735,13 +519,9 @@ func (s *SigLockedColoredOutput) Input() Input {
 
 // Clone creates a copy of the Output.
 func (s *SigLockedColoredOutput) Clone() Output {
-	return &SigLockedColoredOutput{
-		sigLockedColoredOutputInner{
-			id:       s.sigLockedColoredOutputInner.id,
-			Balances: s.sigLockedColoredOutputInner.Balances.Clone(),
-			Address:  s.sigLockedColoredOutputInner.Address.Clone(),
-		},
-	}
+	cloned := NewSigLockedColoredOutput(s.Balances(), s.M.Address)
+	cloned.SetID(s.ID())
+	return cloned
 }
 
 // UpdateMintingColor replaces the ColorMint in the balances of the Output with the hash of the OutputID. It returns a
@@ -750,7 +530,7 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	coloredBalances := s.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(s.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(serix.Encode(s.ID())))] = mintedCoins
 	}
 	updatedOutput = NewSigLockedColoredOutput(NewColoredBalances(coloredBalances), s.Address())
 	updatedOutput.SetID(s.ID())
@@ -758,50 +538,11 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	return
 }
 
-// Bytes returns a marshaled version of the Output.
-func (s *SigLockedColoredOutput) Bytes() []byte {
-	return s.ObjectStorageValue()
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *SigLockedColoredOutput) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.id, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (s *SigLockedColoredOutput) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (s *SigLockedColoredOutput) Compare(other Output) int {
-	return bytes.Compare(s.Bytes(), other.Bytes())
+	return bytes.Compare(serix.Encode(s), serix.Encode(other))
 }
-
-// String returns a human readable version of the Output.
-func (s *SigLockedColoredOutput) String() string {
-	return stringify.Struct("SigLockedColoredOutput",
-		stringify.StructField("id", s.ID()),
-		stringify.StructField("Address", s.sigLockedColoredOutputInner.Address),
-		stringify.StructField("Balances", s.sigLockedColoredOutputInner.Balances),
-	)
-}
-
-// code contract (make sure the type implements all required methods)
-var _ Output = new(SigLockedColoredOutput)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -917,20 +658,71 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 	return a
 }
 
-// FromObjectStorage creates an AliasOutput from sequences of key and bytes.
-func (a *AliasOutput) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	return a.FromBytes(byteutils.ConcatBytes(key, bytes))
-}
-
-// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func (a *AliasOutput) FromBytes(data []byte) (output *AliasOutput, err error) {
-	marshalUtil := marshalutil.New(data)
-	if output, err = a.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
-		return
+func (a *AliasOutput) Decode(b []byte) (int, error) {
+	marshalUtil := marshalutil.New(b)
+	if _, err := a.FromMarshalUtil(marshalUtil); err != nil {
+		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
 	}
 
-	return
+	return marshalUtil.ReadOffset(), nil
+}
+
+func (a *AliasOutput) Encode() ([]byte, error) {
+	flags := a.mustFlags()
+	ret := marshalutil.New().
+		WriteByte(byte(AliasOutputType)).
+		WriteByte(byte(flags)).
+		WriteBytes(a.aliasAddress.Bytes()).
+		WriteBytes(a.balances.Bytes()).
+		WriteBytes(a.stateAddress.Bytes()).
+		WriteUint32(a.stateIndex)
+	if flags.HasBit(flagAliasOutputStateDataPresent) {
+		ret.WriteUint16(uint16(len(a.stateData))).
+			WriteBytes(a.stateData)
+	}
+	if flags.HasBit(flagAliasOutputGovernanceMetadataPresent) {
+		ret.WriteUint16(uint16(len(a.governanceMetadata))).
+			WriteBytes(a.governanceMetadata)
+	}
+	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
+		ret.WriteUint16(uint16(len(a.immutableData))).
+			WriteBytes(a.immutableData)
+	}
+	if flags.HasBit(flagAliasOutputGovernanceSet) {
+		ret.WriteBytes(a.governingAddress.Bytes())
+	}
+	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
+		ret.WriteTime(a.delegationTimelock)
+	}
+	return ret.Bytes(), nil
+}
+
+// FromObjectStorage creates an AliasOutput from sequences of key and bytes.
+func (a *AliasOutput) FromObjectStorage(key, bytes []byte) error {
+	_, err := a.Decode(bytes)
+	if err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
+		return err
+	}
+
+	var outputID utxo.OutputID
+	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
+		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
+		return err
+	}
+	a.SetID(outputID)
+
+	return nil
+}
+
+// ObjectStorageKey a key.
+func (a *AliasOutput) ObjectStorageKey() []byte {
+	return serix.Encode(a.ID())
+}
+
+// ObjectStorageValue binary form.
+func (a *AliasOutput) ObjectStorageValue() []byte {
+	return lo.PanicOnErr(a.Encode())
 }
 
 // FromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
@@ -1041,7 +833,7 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	if a.aliasAddress.IsNil() {
-		return NewAliasAddress(a.ID().Bytes())
+		return NewAliasAddress(serix.Encode(a.ID()))
 	}
 	return &a.aliasAddress
 }
@@ -1292,43 +1084,7 @@ func (a *AliasOutput) String() string {
 
 // Compare the two outputs.
 func (a *AliasOutput) Compare(other Output) int {
-	return bytes.Compare(a.Bytes(), other.Bytes())
-}
-
-// ObjectStorageKey a key.
-func (a *AliasOutput) ObjectStorageKey() []byte {
-	return a.ID().Bytes()
-}
-
-// ObjectStorageValue binary form.
-func (a *AliasOutput) ObjectStorageValue() []byte {
-	flags := a.mustFlags()
-	ret := marshalutil.New().
-		WriteByte(byte(AliasOutputType)).
-		WriteByte(byte(flags)).
-		WriteBytes(a.aliasAddress.Bytes()).
-		WriteBytes(a.balances.Bytes()).
-		WriteBytes(a.stateAddress.Bytes()).
-		WriteUint32(a.stateIndex)
-	if flags.HasBit(flagAliasOutputStateDataPresent) {
-		ret.WriteUint16(uint16(len(a.stateData))).
-			WriteBytes(a.stateData)
-	}
-	if flags.HasBit(flagAliasOutputGovernanceMetadataPresent) {
-		ret.WriteUint16(uint16(len(a.governanceMetadata))).
-			WriteBytes(a.governanceMetadata)
-	}
-	if flags.HasBit(flagAliasOutputImmutableDataPresent) {
-		ret.WriteUint16(uint16(len(a.immutableData))).
-			WriteBytes(a.immutableData)
-	}
-	if flags.HasBit(flagAliasOutputGovernanceSet) {
-		ret.WriteBytes(a.governingAddress.Bytes())
-	}
-	if flags.HasBit(flagAliasOutputDelegationTimelockPresent) {
-		ret.WriteTime(a.delegationTimelock)
-	}
-	return ret.Bytes()
+	return bytes.Compare(serix.Encode(a), serix.Encode(other))
 }
 
 // UnlockValid check unlock and validates chain.
@@ -1414,14 +1170,14 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(a.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(serix.Encode(a.ID())))] = mintedCoins
 	}
 	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
 
 	if a.IsOrigin() {
-		updatedOutput.SetAliasAddress(NewAliasAddress(a.ID().Bytes()))
+		updatedOutput.SetAliasAddress(NewAliasAddress(serix.Encode(a.ID())))
 	}
 
 	return updatedOutput
@@ -1788,32 +1544,62 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 	return nil
 }
 
+func (o *ExtendedLockedOutput) Decode(b []byte) (int, error) {
+	marshalUtil := marshalutil.New(b)
+	if _, err := o.FromMarshalUtil(marshalUtil); err != nil {
+		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
+	}
+
+	return marshalUtil.ReadOffset(), nil
+}
+
+func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
+	flags := o.compressFlags()
+	ret := marshalutil.New().
+		WriteByte(byte(ExtendedLockedOutputType)).
+		WriteBytes(o.balances.Bytes()).
+		WriteBytes(o.address.Bytes()).
+		WriteByte(byte(flags))
+	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
+		ret.WriteBytes(o.fallbackAddress.Bytes()).
+			WriteTime(o.fallbackDeadline)
+	}
+	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
+		ret.WriteTime(o.timelock)
+	}
+	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
+		ret.WriteUint16(uint16(len(o.payload))).
+			WriteBytes(o.payload)
+	}
+	return ret.Bytes(), nil
+}
+
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
-func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	output, err := o.FromBytes(value)
+func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) error {
+	_, err := o.Decode(value)
 	if err != nil {
 		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
-		return nil, err
+		return err
 	}
 
 	var outputID utxo.OutputID
-	if _, err = outputID.FromBytes(key); err != nil {
+	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
 		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return nil, err
+		return err
 	}
-	output.SetID(outputID)
-	return output, nil
+	o.SetID(outputID)
+
+	return nil
 }
 
-// FromBytes unmarshals a ExtendedLockedOutput from a sequence of bytes.
-func (o *ExtendedLockedOutput) FromBytes(data []byte) (output *ExtendedLockedOutput, err error) {
-	marshalUtil := marshalutil.New(data)
-	if output, err = o.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
-		return
-	}
+// ObjectStorageKey a key.
+func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
+	return serix.Encode(o.ID())
+}
 
-	return
+// ObjectStorageValue binary form.
+func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
+	return lo.PanicOnErr(o.Encode())
 }
 
 // FromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
@@ -2019,7 +1805,7 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	coloredBalances := o.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(o.ID().Bytes()))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(serix.Encode(o.ID())))] = mintedCoins
 	}
 	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address()).
 		WithFallbackOptions(o.fallbackAddress, o.fallbackDeadline).
@@ -2037,39 +1823,10 @@ func (o *ExtendedLockedOutput) Bytes() []byte {
 	return o.ObjectStorageValue()
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
-	return o.id.Bytes()
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
-	flags := o.compressFlags()
-	ret := marshalutil.New().
-		WriteByte(byte(ExtendedLockedOutputType)).
-		WriteBytes(o.balances.Bytes()).
-		WriteBytes(o.address.Bytes()).
-		WriteByte(byte(flags))
-	if flags.HasBit(flagExtendedLockedOutputFallbackPresent) {
-		ret.WriteBytes(o.fallbackAddress.Bytes()).
-			WriteTime(o.fallbackDeadline)
-	}
-	if flags.HasBit(flagExtendedLockedOutputTimeLockPresent) {
-		ret.WriteTime(o.timelock)
-	}
-	if flags.HasBit(flagExtendedLockedOutputPayloadPresent) {
-		ret.WriteUint16(uint16(len(o.payload))).
-			WriteBytes(o.payload)
-	}
-	return ret.Bytes()
-}
-
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (o *ExtendedLockedOutput) Compare(other Output) int {
-	return bytes.Compare(o.Bytes(), other.Bytes())
+	return bytes.Compare(serix.Encode(o), serix.Encode(other))
 }
 
 // String returns a human readable version of the Output.
