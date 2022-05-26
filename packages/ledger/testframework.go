@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
@@ -388,7 +389,7 @@ type MockedTransaction struct {
 
 type mockedTransaction struct {
 	// Inputs contains the list of MockedInput objects that address the consumed Outputs.
-	Inputs []*MockedInput `serix:"0,lengthPrefixType=uint16""`
+	Inputs []*MockedInput `serix:"0,lengthPrefixType=uint16"`
 
 	// OutputCount contains the number of Outputs that this MockedTransaction creates.
 	OutputCount uint16 `serix:"1"`
@@ -404,6 +405,8 @@ func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (new *Mocke
 		Inputs:        inputs,
 		OutputCount:   outputCount,
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
+	}, func(tx *mockedTransaction) utxo.TransactionID {
+		return utxo.TransactionID{types.Identifier{byte(tx.UniqueEssence + 1)}}
 	})}
 }
 
@@ -463,6 +466,7 @@ func (m *MockedVM) ExecuteTransaction(transaction utxo.Transaction, _ *utxo.Outp
 	outputs = make([]utxo.Output, mockedTransaction.M.OutputCount)
 	for i := uint16(0); i < mockedTransaction.M.OutputCount; i++ {
 		outputs[i] = NewMockedOutput(mockedTransaction.ID(), i)
+		outputs[i].SetID(utxo.NewOutputID(mockedTransaction.ID(), i))
 	}
 
 	return
