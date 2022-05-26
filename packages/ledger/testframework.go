@@ -2,11 +2,14 @@ package ledger
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
@@ -14,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -406,7 +408,9 @@ func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (new *Mocke
 		OutputCount:   outputCount,
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
 	}, func(tx *mockedTransaction) utxo.TransactionID {
-		return utxo.TransactionID{types.Identifier{byte(tx.UniqueEssence + 1)}}
+		b := types.Identifier{}
+		binary.BigEndian.PutUint64(b[:], tx.UniqueEssence)
+		return utxo.TransactionID{Identifier: b}
 	})}
 }
 
