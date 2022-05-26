@@ -324,7 +324,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Model[utxo.OutputID, sigLockedSingleOutput]
+	model.Model[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -446,7 +446,7 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Model[utxo.OutputID, sigLockedColoredOutput]
+	model.Model[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`

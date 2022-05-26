@@ -18,7 +18,7 @@ import (
 
 // TransactionMetadata represents a container for additional information about a Transaction.
 type TransactionMetadata struct {
-	model.Model[utxo.TransactionID, transactionMetadata]
+	model.Model[utxo.TransactionID, transactionMetadata] `serix:"0"`
 }
 
 type transactionMetadata struct {
@@ -203,7 +203,7 @@ func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
 
 // OutputMetadata represents a container for additional information about an Output.
 type OutputMetadata struct {
-	model.Model[utxo.OutputID, outputMetadata]
+	model.Model[utxo.OutputID, outputMetadata] `serix:"0"`
 }
 
 type outputMetadata struct {

@@ -358,7 +358,7 @@ var _ utxo.Input = new(MockedInput)
 
 // MockedOutput is the container for the data produced by executing a MockedTransaction.
 type MockedOutput struct {
-	model.Model[utxo.OutputID, mockedOutput]
+	model.Model[utxo.OutputID, mockedOutput] `serix:"0"`
 }
 
 type mockedOutput struct {
@@ -387,7 +387,7 @@ var _ utxo.Output = new(MockedOutput)
 
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
-	model.Model[utxo.TransactionID, mockedTransaction]
+	model.Model[utxo.TransactionID, mockedTransaction] `serix:"0"`
 }
 
 type mockedTransaction struct {
