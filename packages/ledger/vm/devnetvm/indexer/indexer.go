@@ -34,12 +34,12 @@ func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 		options: newOptions(options...),
 	}
 
-	new.addressOutputMappingStorage = objectstorage.New[*AddressOutputMapping](
+	new.addressOutputMappingStorage = objectstorage.NewStructStorage[AddressOutputMapping](
 		objectstorage.NewStoreWithRealm(new.options.store, database.PrefixIndexer, PrefixAddressOutputMappingStorage),
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
-		addressOutputMappingPartitionKeys,
+		objectstorage.PartitionKey(AddressOutputMapping{}.KeyPartitions()...),
 	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
