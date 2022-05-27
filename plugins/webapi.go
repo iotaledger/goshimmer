@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana"
 	"github.com/iotaledger/goshimmer/plugins/webapi/message"
+	"github.com/iotaledger/goshimmer/plugins/webapi/ratesetter"
 	"github.com/iotaledger/goshimmer/plugins/webapi/snapshot"
 	drngTools "github.com/iotaledger/goshimmer/plugins/webapi/tools/drng"
 	msgTools "github.com/iotaledger/goshimmer/plugins/webapi/tools/message"
@@ -35,4 +36,5 @@ var WebAPI = node.Plugins(
 	ledgerstate.Plugin,
 	snapshot.Plugin,
 	weightprovider.Plugin,
+	ratesetter.Plugin,
 )

@@ -154,7 +154,7 @@ func (r *RateSetter) rateSetting() {
 
 	ownRate := r.ownRate.Load()
 	// TODO: is this condition correct? what was used in simulations?
-	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)+r.Size()) > float64(r.tangle.Scheduler.MaxBufferSize()/10.0) {
+	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)+r.Size()) > 10 {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = RateSettingPause
 	} else {

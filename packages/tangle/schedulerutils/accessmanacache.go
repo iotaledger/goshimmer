@@ -28,14 +28,13 @@ func NewAccessManaCache(accessManaMapRetrieverFunc func() map[identity.ID]float6
 		minMana:                    minMana,
 		accessManaMapRetrieverFunc: accessManaMapRetrieverFunc,
 	}
-	accessManaCache.refreshCacheIfNecessary()
+	accessManaCache.RefreshCacheIfNecessary()
 	return accessManaCache
 }
 
 // GetCachedMana returns cached access mana value for a given node and refreshes mana vectors if they expired
 // currently returns at least MinMana.
 func (a *AccessManaCache) GetCachedMana(id identity.ID) float64 {
-	a.refreshCacheIfNecessary()
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	if mana, ok := a.rawAccessManaVector[id]; ok && mana >= a.minMana {
@@ -52,7 +51,8 @@ func (a *AccessManaCache) RawAccessManaVector() map[identity.ID]float64 {
 	return a.rawAccessManaVector
 }
 
-func (a *AccessManaCache) refreshCacheIfNecessary() {
+// RefreshCacheIfNecessary refreshes mana cache after it has expired.
+func (a *AccessManaCache) RefreshCacheIfNecessary() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	if time.Since(a.cacheRefreshTime) > manaCacheLifeTime {

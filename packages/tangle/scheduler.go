@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -285,7 +286,7 @@ func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
 
 // GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.
 func (s *Scheduler) GetManaFromCache(nodeID identity.ID) float64 {
-	return s.accessManaCache.GetCachedMana(nodeID)
+	return s.AccessManaCache().GetCachedMana(nodeID)
 }
 
 // Clear removes all submitted messages (ready or not) from the scheduler.
@@ -357,7 +358,7 @@ func (s *Scheduler) submit(message *Message) error {
 		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
 	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedMessageIDs := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	droppedMessageIDs := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
 	for _, droppedMsgID := range droppedMessageIDs {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetDiscardedTime(clock.SyncedTime())
@@ -375,11 +376,17 @@ func (s *Scheduler) ready(message *Message) {
 	s.buffer.Ready(message)
 }
 
+func (s *Scheduler) Quanta(nodeID identity.ID) float64 {
+	return s.GetManaFromCache(nodeID) / s.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+}
+
 func (s *Scheduler) schedule() *Message {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	s.updateActiveNodesList(s.accessManaCache.RawAccessManaVector())
+	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
+	// updated in the middle of the execution, as it could result in negative deficit values.
+	s.AccessManaCache().RefreshCacheIfNecessary()
+	s.updateActiveNodesList(s.AccessManaCache().RawAccessManaVector())
 
 	start := s.buffer.Current()
 	// no messages submitted
@@ -408,9 +415,8 @@ func (s *Scheduler) schedule() *Message {
 			} else {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
 				remainingDeficit := math.Dim(float64(msg.Size()), s.GetDeficit(q.NodeID()))
-				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
 				// find the first node that will be allowed to schedule a message
-				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
+				if r := int(math.Ceil(remainingDeficit / s.Quanta(q.NodeID()))); r < rounds {
 					rounds = r
 					schedulingNode = q
 				}
@@ -432,7 +438,7 @@ func (s *Scheduler) schedule() *Message {
 	if rounds > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*s.accessManaCache.GetCachedMana(q.NodeID()))
+			s.updateDeficit(q.NodeID(), float64(rounds)*s.Quanta(q.NodeID()))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -443,7 +449,7 @@ func (s *Scheduler) schedule() *Message {
 
 	// increment the deficit for all nodes before schedulingNode one more time
 	for q := start; q != schedulingNode; q = s.buffer.Next() {
-		s.updateDeficit(q.NodeID(), s.accessManaCache.GetCachedMana(q.NodeID()))
+		s.updateDeficit(q.NodeID(), s.Quanta(q.NodeID()))
 	}
 
 	// remove the message from the buffer and adjust node's deficit
@@ -519,6 +525,8 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 	deficit := s.deficits[nodeID] + d
 	if deficit < 0 {
 		// this will never happen and is just here for debugging purposes
+		// TODO: remove print
+		fmt.Println("negative deficit", deficit)
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
