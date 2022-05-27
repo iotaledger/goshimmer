@@ -1,13 +1,16 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledger"
@@ -32,21 +35,30 @@ func (s *Snapshot) FromFile(fileName string) (err error) {
 		return errors.Errorf("failed to read file %s: %w", fileName, err)
 	}
 
-	if err = s.FromMarshalUtil(marshalutil.New(bytes)); err != nil {
+	if err = s.FromBytes(bytes); err != nil {
 		return errors.Errorf("failed to unmarshal Snapshot: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Snapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err error) {
-	s.LedgerSnapshot = ledger.NewSnapshot(utxo.NewOutputs(), ledger.NewOutputsMetadata())
-	if err = s.LedgerSnapshot.FromMarshalUtil(marshalUtil, devnetvm.OutputFromBytes); err != nil {
+func (s *Snapshot) FromBytes(bytes []byte) (err error) {
+	s.LedgerSnapshot = new(ledger.Snapshot)
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), bytes, s.LedgerSnapshot)
+	if err != nil {
 		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
+	_ = s.LedgerSnapshot.Outputs.OrderedMap.ForEach(func(outputID utxo.OutputID, output utxo.Output) bool {
+		output.SetID(outputID)
+		return true
+	})
+	_ = s.LedgerSnapshot.OutputsMetadata.OrderedMap.ForEach(func(outputID utxo.OutputID, outputMetadata *ledger.OutputMetadata) bool {
+		outputMetadata.SetID(outputID)
+		return true
+	})
 
 	s.ManaSnapshot = mana.NewSnapshot()
-	if err = s.ManaSnapshot.FromMarshalUtil(marshalUtil); err != nil {
+	if err = s.ManaSnapshot.FromMarshalUtil(marshalutil.New(bytes[consumedBytes:])); err != nil {
 		return errors.Errorf("failed to read ManaSnapshot: %w", err)
 	}
 
@@ -64,7 +76,7 @@ func (s *Snapshot) WriteFile(fileName string) (err error) {
 // Bytes returns a serialized version of the Snapshot.
 func (s *Snapshot) Bytes() (serialized []byte) {
 	return marshalutil.New().
-		Write(s.LedgerSnapshot).
+		WriteBytes(lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot))).
 		Write(s.ManaSnapshot).
 		Bytes()
 }

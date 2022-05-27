@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
 
 	"github.com/mr-tron/base58"
@@ -103,7 +104,15 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(createdSnapshot)
+	fmt.Println("created", createdSnapshot)
+
+	u := new(snapshot.Snapshot)
+	err = u.FromBytes(createdSnapshot.Bytes())
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("unmarshalled", u.LedgerSnapshot)
 }
 
 func createManaDistribution(totalTokensToPledge uint64) (manaDistribution map[identity.ID]uint64) {
