@@ -407,7 +407,7 @@ func (s *Scheduler) schedule() *Message {
 				msg = q.Front()
 			} else {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
-				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
+				remainingDeficit := math.Dim(float64(msg.Size()), s.GetDeficit(q.NodeID()))
 				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
 				// find the first node that will be allowed to schedule a message
 				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
@@ -511,7 +511,7 @@ loop:
 	s.Clear()
 }
 
-func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {
+func (s *Scheduler) GetDeficit(nodeID identity.ID) float64 {
 	return s.deficits[nodeID]
 }
 

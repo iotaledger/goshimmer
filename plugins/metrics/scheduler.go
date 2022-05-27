@@ -22,6 +22,8 @@ var (
 	// bufferSize number of bytes waiting to be scheduled.
 	bufferSize int
 
+	// schedulerDeficit deficit value
+	schedulerDeficit float64
 	// maxBufferSize maximum number of messages can be stored in the buffer.
 	maxBufferSize int
 
@@ -45,6 +47,7 @@ func measureSchedulerMetrics() {
 	}
 	bufferSize = deps.Tangle.Scheduler.BufferSize()
 	maxBufferSize = deps.Tangle.Options.SchedulerParams.MaxBufferSize
+	schedulerDeficit = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID())
 	schedulerRate = deps.Tangle.Scheduler.Rate()
 	readyMessagesCount = deps.Tangle.Scheduler.ReadyMessagesCount()
 	totalMessagesCount = deps.Tangle.Scheduler.TotalMessagesCount()
@@ -91,6 +94,11 @@ func SchedulerReadyMessagesCount() int {
 // SchedulerMaxBufferSize returns the maximum buffer size.
 func SchedulerMaxBufferSize() int {
 	return maxBufferSize
+}
+
+// SchedulerDeficit local node's deficit value.
+func SchedulerDeficit() float64 {
+	return schedulerDeficit
 }
 
 // SchedulerBufferSize number of bytes waiting to be scheduled.

@@ -404,15 +404,6 @@ func measureReceivedMPS() {
 	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
 }
 
-func measureRateSetter() {
-	rateSetter := deps.Tangle.RateSetter
-	Events.RateSetterUpdated.Trigger(RateSetterMetric{
-		Size:     rateSetter.Size(),
-		Estimate: rateSetter.Estimate(),
-		Rate:     rateSetter.Rate(),
-	})
-}
-
 func measureRequestQueueSize() {
 	size := int64(deps.Tangle.Requester.RequestQueueSize())
 	requestQueueSize.Store(size)
