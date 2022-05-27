@@ -120,7 +120,7 @@ func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, seedBytes []byt
 	}, nil
 }
 
-var outputCounter uint16
+var outputCounter uint16 = 1
 
 func createOutput(address devnetvm.Address, tokenAmount uint64, pledgeID identity.ID, creationTime time.Time) (output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {
 	output = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{

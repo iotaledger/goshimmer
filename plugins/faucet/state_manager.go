@@ -3,6 +3,7 @@ package faucet
 import (
 	"container/list"
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -333,18 +334,25 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 
 	// remainder output should sit on address 0
 	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
+		fmt.Println("++", mapping, "on", remainderAddress)
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
-					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+				fmt.Println("--", outputMetadata)
+				if !outputMetadata.IsSpent() && deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+					fmt.Println("_____")
 					outputEssence := output.(devnetvm.Output)
+					fmt.Println(outputEssence)
+					fmt.Println("_____")
+					fmt.Println(output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
 					if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
+						fmt.Println("SMALLER")
 						return
 					}
 					if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
 						// when multiple "big" unspent outputs sit on this address, take the biggest one
+						fmt.Println("OTHER SMALLER")
 						return
 					}
 					foundRemainderOutput = &FaucetOutput{

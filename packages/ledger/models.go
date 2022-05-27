@@ -476,7 +476,7 @@ type Consumer struct {
 
 type consumer struct {
 	// Booked contains a boolean flag that indicates whether the Consumer was completely Booked.
-	Booked bool
+	Booked bool `serix:"0"`
 }
 
 // NewConsumer return a new Consumer reference from the named Output to the named Transaction.

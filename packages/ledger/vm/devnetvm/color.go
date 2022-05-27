@@ -92,7 +92,7 @@ type ColoredBalances struct {
 }
 
 type coloredBalancesInner struct {
-	Balances *orderedmap.OrderedMap[Color, uint64] `serix:"0,lengthPrefixType=uint32"`
+	Balances *orderedmap.OrderedMap[Color, uint64] `serix:"0"`
 }
 
 // NewColoredBalances returns a new deterministically ordered collection of ColoredBalances.
