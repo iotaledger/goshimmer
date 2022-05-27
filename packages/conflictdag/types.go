@@ -11,7 +11,7 @@ import (
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Conflict[ConflictID, ConflictSetID comparable] struct {
-	model.Model[ConflictID, conflict[ConflictID, ConflictSetID]] `serix:"0"`
+	model.Storable[ConflictID, conflict[ConflictID, ConflictSetID]] `serix:"0"`
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
@@ -26,7 +26,7 @@ type conflict[ConflictID, ConflictSetID comparable] struct {
 }
 
 func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
-	new = &Conflict[ConflictID, ConflictSetID]{model.NewModel[ConflictID](conflict[ConflictID, ConflictSetID]{
+	new = &Conflict[ConflictID, ConflictSetID]{model.NewStorable[ConflictID](conflict[ConflictID, ConflictSetID]{
 		Parents:        parents,
 		ConflictIDs:    conflicts,
 		InclusionState: Pending,
@@ -104,12 +104,12 @@ func (b *Conflict[ConflictID, ConflictSetID]) setInclusionState(inclusionState I
 
 // ChildBranch represents the reference between a Conflict and its children.
 type ChildBranch[ConflictID comparable] struct {
-	model.ReferenceModel[ConflictID, ConflictID]
+	model.StorableReference[ConflictID, ConflictID]
 }
 
 // NewChildBranch return a new ChildBranch reference from the named parent to the named child.
 func NewChildBranch[ConflictID comparable](parentBranchID, childBranchID ConflictID) (new *ChildBranch[ConflictID]) {
-	return &ChildBranch[ConflictID]{model.NewReferenceModel(parentBranchID, childBranchID)}
+	return &ChildBranch[ConflictID]{model.NewStorableReference(parentBranchID, childBranchID)}
 }
 
 // ParentBranchID returns the identifier of the parent Conflict.
@@ -128,12 +128,12 @@ func (c *ChildBranch[ConflictID]) ChildBranchID() (childBranchID ConflictID) {
 
 // ConflictMember represents the reference between a Conflict and its contained Conflict.
 type ConflictMember[ConflictSetID comparable, ConflictID comparable] struct {
-	model.ReferenceModel[ConflictSetID, ConflictID]
+	model.StorableReference[ConflictSetID, ConflictID]
 }
 
 // NewConflictMember return a new ConflictMember reference from the named conflict to the named Conflict.
 func NewConflictMember[ConflictSetID comparable, ConflictID comparable](conflictSetID ConflictSetID, conflictID ConflictID) (new *ConflictMember[ConflictSetID, ConflictID]) {
-	return &ConflictMember[ConflictSetID, ConflictID]{model.NewReferenceModel(conflictSetID, conflictID)}
+	return &ConflictMember[ConflictSetID, ConflictID]{model.NewStorableReference(conflictSetID, conflictID)}
 }
 
 // ConflictSetID returns the identifier of the Conflict.

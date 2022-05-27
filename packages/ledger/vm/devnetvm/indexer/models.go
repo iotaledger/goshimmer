@@ -11,12 +11,12 @@ import (
 
 // AddressOutputMapping is a mapping from an Address to an OutputID than enables lookups of stored Outputs.
 type AddressOutputMapping struct {
-	model.ReferenceModel[devnetvm.Address, utxo.OutputID]
+	model.StorableReference[devnetvm.Address, utxo.OutputID]
 }
 
 // NewAddressOutputMapping creates a new AddressOutputMapping.
 func NewAddressOutputMapping(address devnetvm.Address, outputID utxo.OutputID) *AddressOutputMapping {
-	return &AddressOutputMapping{model.NewReferenceModel(address, outputID)}
+	return &AddressOutputMapping{model.NewStorableReference(address, outputID)}
 }
 
 // Address returns the Address of the AddressOutputMapping.
