@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
@@ -93,9 +94,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).Base58(),
 		ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover).Base58(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchIDs:               branchIDs.Base58(),
-		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
-		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
+		BranchIDs:               lo.Map(lo.Map(branchIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		AddedBranchIDs:          lo.Map(lo.Map(messageMetadata.AddedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		SubtractedBranchIDs:     lo.Map(lo.Map(messageMetadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),

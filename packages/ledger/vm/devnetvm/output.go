@@ -46,6 +46,10 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("error registering Output interface implementations: %w", err))
 	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*utxo.Output)(nil), new(SigLockedSingleOutput), new(SigLockedColoredOutput), new(AliasOutput), new(ExtendedLockedOutput))
+	if err != nil {
+		panic(fmt.Errorf("error registering utxo.Output interface implementations: %w", err))
+	}
 
 	// err = serix.DefaultAPI.RegisterValidators(OutputID{}, validateOutputIDBytes, validateOutputID)
 	// if err != nil {

@@ -39,7 +39,7 @@ func New(ledger *ledger.Ledger, options ...Option) (new *Indexer) {
 		new.options.cacheTimeProvider.CacheTime(new.options.addressOutputMappingCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
-		objectstorage.PartitionKey(AddressOutputMapping{}.KeyPartitions()...),
+		objectstorage.PartitionKey(devnetvm.AddressLength, utxo.OutputID{}.Length()),
 	)
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(new.onTransactionBooked))
