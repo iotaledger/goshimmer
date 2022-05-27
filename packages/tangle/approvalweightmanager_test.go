@@ -897,7 +897,7 @@ func increaseIndexCallback(markers.SequenceID, markers.Index) bool {
 
 func getSingleBranch(branches map[string]*set.AdvancedSet[utxo.TransactionID], alias string) utxo.TransactionID {
 	if branches[alias].Size() != 1 {
-		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %s", alias, branches[alias]))
+		panic(fmt.Sprintf("Branches with alias %s are multiple branches, not a single one: %+v", alias, branches[alias]))
 	}
 
 	for it := branches[alias].Iterator(); it.HasNext(); {

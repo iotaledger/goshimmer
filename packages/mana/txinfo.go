@@ -133,9 +133,9 @@ func (t *TxSnapshot) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (err 
 	if t.Value, err = marshalUtil.ReadFloat64(); err != nil {
 		return errors.Errorf("failed to read Value: %w", err)
 	}
-	if err = t.TxID.FromMarshalUtil(marshalUtil); err != nil {
-		return errors.Errorf("failed to read TxID: %w", err)
-	}
+	// if err = t.TxID.FromMarshalUtil(marshalUtil); err != nil {
+	// 	return errors.Errorf("failed to read TxID: %w", err)
+	// }
 	if t.Timestamp, err = marshalUtil.ReadTime(); err != nil {
 		return errors.Errorf("failed to read Timestamp: %w", err)
 	}

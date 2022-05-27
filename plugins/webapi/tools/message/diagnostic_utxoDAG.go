@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
@@ -111,7 +112,7 @@ func getDiagnosticUTXODAGInfo(transactionID utxo.TransactionID, messageID tangle
 
 	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		txInfo.BookingTime = transactionMetadata.BookingTime()
-		txInfo.BranchIDs = transactionMetadata.BranchIDs().Base58()
+		txInfo.BranchIDs = lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode)
 
 		txInfo.Conflicting = transactionMetadata.IsConflicting()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()

@@ -9,7 +9,7 @@ import (
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Conflict[ConflictID, ConflictSetID comparable] struct {
-	model.Model[ConflictID, conflict[ConflictID, ConflictSetID]]
+	model.Model[ConflictID, conflict[ConflictID, ConflictSetID]] `serix:"0"`
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {

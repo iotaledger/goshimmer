@@ -38,6 +38,7 @@ func TestTransaction_Bytes(t *testing.T) {
 	_tx, err := new(Transaction).FromBytes(transaction.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, transaction.ID(), _tx.ID())
+	assert.Equal(t, transaction.Essence().Outputs()[0].Balances(), _tx.Essence().Outputs()[0].Balances())
 }
 
 func TestTransaction_Complex(t *testing.T) {
@@ -106,10 +107,10 @@ func TestTransaction_Complex(t *testing.T) {
 	// both parties sign the transaction
 	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party2KeyChain)
 	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party1KeyChain)
-	//transaction := NewTransaction(completedEssence, unlockBlocks)
+	// transaction := NewTransaction(completedEssence, unlockBlocks)
 
 	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
-	//assert.True(t, utxoDAG.TransactionValid(transaction))
+	// assert.True(t, utxoDAG.TransactionValid(transaction))
 }
 
 // setupKeyChainAndAddresses generates keys and addresses that are used by the test case.

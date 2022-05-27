@@ -18,7 +18,7 @@ import (
 
 // TransactionMetadata represents a container for additional information about a Transaction.
 type TransactionMetadata struct {
-	model.Model[utxo.TransactionID, transactionMetadata]
+	model.Model[utxo.TransactionID, transactionMetadata] `serix:"0"`
 }
 
 type transactionMetadata struct {
