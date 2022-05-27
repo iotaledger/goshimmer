@@ -331,7 +331,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Model[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -341,7 +341,7 @@ type sigLockedSingleOutput struct {
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return &SigLockedSingleOutput{model.NewModel[utxo.OutputID](
+	return &SigLockedSingleOutput{model.NewStorable[utxo.OutputID](
 		sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
@@ -453,7 +453,7 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Model[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -462,7 +462,7 @@ type sigLockedColoredOutput struct {
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return &SigLockedColoredOutput{model.NewModel[utxo.OutputID](
+	return &SigLockedColoredOutput{model.NewStorable[utxo.OutputID](
 		sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,
