@@ -104,7 +104,7 @@ func (b *Conflict[ConflictID, ConflictSetID]) setInclusionState(inclusionState I
 
 // ChildBranch represents the reference between a Conflict and its children.
 type ChildBranch[ConflictID comparable] struct {
-	model.StorableReference[ConflictID, ConflictID]
+	model.StorableReference[ConflictID, ConflictID] `serix:"0"`
 }
 
 // NewChildBranch return a new ChildBranch reference from the named parent to the named child.
@@ -128,7 +128,7 @@ func (c *ChildBranch[ConflictID]) ChildBranchID() (childBranchID ConflictID) {
 
 // ConflictMember represents the reference between a Conflict and its contained Conflict.
 type ConflictMember[ConflictSetID comparable, ConflictID comparable] struct {
-	model.StorableReference[ConflictSetID, ConflictID]
+	model.StorableReference[ConflictSetID, ConflictID] `serix:"0"`
 }
 
 // NewConflictMember return a new ConflictMember reference from the named conflict to the named Conflict.

@@ -11,7 +11,7 @@ import (
 
 // AddressOutputMapping is a mapping from an Address to an OutputID than enables lookups of stored Outputs.
 type AddressOutputMapping struct {
-	model.StorableReference[devnetvm.Address, utxo.OutputID]
+	model.StorableReference[devnetvm.Address, utxo.OutputID] `serix:"0"`
 }
 
 // NewAddressOutputMapping creates a new AddressOutputMapping.
