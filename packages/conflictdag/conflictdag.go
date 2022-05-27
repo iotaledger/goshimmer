@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/serix"
 )
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
@@ -228,7 +227,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildBranchRefere
 // removeChildBranchReferences removes the named ChildBranch references.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
-		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(serix.Encode(it.Next()), serix.Encode(childBranchID)))
+		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(bytes(it.Next()), bytes(childBranchID)))
 	}
 }
 

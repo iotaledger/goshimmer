@@ -7,10 +7,15 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 )
+
+type IdentifierType interface {
+	comparable
+
+	Bytes() []byte
+}
 
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,24 +65,24 @@ func newStorage[ConflictID comparable, ConflictSetID comparable](options *option
 // used to dynamically initialize a non-existing Conflict.
 func (s *Storage[ConflictID, ConflictSetID]) CachedConflict(conflictID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictID) *Conflict[ConflictID, ConflictSetID]) (cachedBranch *objectstorage.CachedObject[*Conflict[ConflictID, ConflictSetID]]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.branchStorage.ComputeIfAbsent(serix.Encode(conflictID), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
+		return s.branchStorage.ComputeIfAbsent(bytes(conflictID), func(key []byte) *Conflict[ConflictID, ConflictSetID] {
 			return computeIfAbsentCallback[0](conflictID)
 		})
 	}
 
-	return s.branchStorage.Load(serix.Encode(conflictID))
+	return s.branchStorage.Load(bytes(conflictID))
 }
 
 // CachedChildBranch retrieves the CachedObject representing the named ChildBranch. The optional computeIfAbsentCallback
 // can be used to dynamically initialize a non-existing ChildBranch.
 func (s *Storage[ConflictID, ConflictSetID]) CachedChildBranch(parentBranchID, childBranchID ConflictID, computeIfAbsentCallback ...func(parentBranchID, childBranchID ConflictID) *ChildBranch[ConflictID]) *objectstorage.CachedObject[*ChildBranch[ConflictID]] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.childBranchStorage.ComputeIfAbsent(byteutils.ConcatBytes(serix.Encode(parentBranchID), serix.Encode(childBranchID)), func(key []byte) *ChildBranch[ConflictID] {
+		return s.childBranchStorage.ComputeIfAbsent(byteutils.ConcatBytes(bytes(parentBranchID), bytes(childBranchID)), func(key []byte) *ChildBranch[ConflictID] {
 			return computeIfAbsentCallback[0](parentBranchID, childBranchID)
 		})
 	}
 
-	return s.childBranchStorage.Load(byteutils.ConcatBytes(serix.Encode(parentBranchID), serix.Encode(childBranchID)))
+	return s.childBranchStorage.Load(byteutils.ConcatBytes(bytes(parentBranchID), bytes(childBranchID)))
 }
 
 // CachedChildBranches retrieves the CachedObjects containing the ChildBranch references approving the named Conflict.
@@ -86,7 +91,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedChildBranches(branchID Confli
 	s.childBranchStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*ChildBranch[ConflictID]]) bool {
 		cachedChildBranches = append(cachedChildBranches, cachedObject)
 		return true
-	}, objectstorage.WithIteratorPrefix(serix.Encode(branchID)))
+	}, objectstorage.WithIteratorPrefix(bytes(branchID)))
 
 	return
 }
@@ -95,12 +100,12 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedChildBranches(branchID Confli
 // computeIfAbsentCallback can be used to dynamically initialize a non-existing ConflictMember.
 func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMember(conflictID ConflictSetID, branchID ConflictID, computeIfAbsentCallback ...func(conflictID ConflictSetID, branchID ConflictID) *ConflictMember[ConflictSetID, ConflictID]) *objectstorage.CachedObject[*ConflictMember[ConflictSetID, ConflictID]] {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(serix.Encode(conflictID), serix.Encode(branchID)), func(key []byte) *ConflictMember[ConflictSetID, ConflictID] {
+		return s.conflictMemberStorage.ComputeIfAbsent(byteutils.ConcatBytes(bytes(conflictID), bytes(branchID)), func(key []byte) *ConflictMember[ConflictSetID, ConflictID] {
 			return computeIfAbsentCallback[0](conflictID, branchID)
 		})
 	}
 
-	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(serix.Encode(conflictID), serix.Encode(branchID)))
+	return s.conflictMemberStorage.Load(byteutils.ConcatBytes(bytes(conflictID), bytes(branchID)))
 }
 
 // CachedConflictMembers retrieves the CachedObjects containing the ConflictMember references related to the named
@@ -111,7 +116,7 @@ func (s *Storage[ConflictID, ConflictSetID]) CachedConflictMembers(conflictID Co
 		cachedConflictMembers = append(cachedConflictMembers, cachedObject)
 
 		return true
-	}, objectstorage.WithIteratorPrefix(serix.Encode(conflictID)))
+	}, objectstorage.WithIteratorPrefix(bytes(conflictID)))
 
 	return
 }

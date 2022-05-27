@@ -203,7 +203,7 @@ func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
 
 // OutputMetadata represents a container for additional information about an Output.
 type OutputMetadata struct {
-	model.Model[utxo.OutputID, outputMetadata]
+	model.Model[utxo.OutputID, outputMetadata] `serix:"0"`
 }
 
 type outputMetadata struct {
@@ -383,7 +383,7 @@ func (o *OutputMetadata) IsSpent() (isSpent bool) {
 // OutputsMetadata represents a collection of OutputMetadata objects indexed by their OutputID.
 type OutputsMetadata struct {
 	// OrderedMap is the underlying data structure that holds the OutputMetadata objects.
-	orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata]
+	orderedmap.OrderedMap[utxo.OutputID, *OutputMetadata] `serix:"0"`
 }
 
 // NewOutputsMetadata returns a new OutputMetadata collection with the given elements.
@@ -471,7 +471,7 @@ func (o *OutputsMetadata) String() (humanReadable string) {
 
 // Consumer represents the reference between an Output and its spending Transaction.
 type Consumer struct {
-	model.ReferenceModelWithMetadata[utxo.OutputID, utxo.TransactionID, consumer]
+	model.ReferenceModelWithMetadata[utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
 }
 
 type consumer struct {

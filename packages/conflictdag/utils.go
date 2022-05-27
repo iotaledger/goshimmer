@@ -1,9 +1,13 @@
 package conflictdag
 
 import (
+	"context"
+
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/serix"
 )
 
 // Utils is a ConflictDAG component that bundles utility related API to simplify common interactions with the ConflictDAG.
@@ -87,4 +91,9 @@ func (u *Utils[ConflictID, ConflictSetID]) forEachConflictingBranchID(branch *Co
 			}
 		})
 	}
+}
+
+// bytes is an internal utility function that simplifies the serialization of the identifier types.
+func bytes(obj interface{}) (bytes []byte) {
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), obj))
 }

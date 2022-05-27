@@ -1,11 +1,14 @@
 package ledger
 
 import (
+	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -174,4 +177,9 @@ func (u *Utils) BranchGradeOfFinality(branchID utxo.TransactionID) (gradeOfFinal
 	}
 
 	return branchGof, nil
+}
+
+// bytes is an internal utility function that simplifies the serialization of the identifier types.
+func bytes(obj interface{}) (bytes []byte) {
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), obj))
 }

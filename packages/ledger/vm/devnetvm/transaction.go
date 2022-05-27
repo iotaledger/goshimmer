@@ -291,7 +291,7 @@ func (t *Transaction) String() string {
 // ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
 // StorableObject interface.
 func (t *Transaction) ObjectStorageKey() []byte {
-	return serix.Encode(t.ID())
+	return t.ID().Bytes()
 }
 
 // ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only

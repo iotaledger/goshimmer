@@ -51,6 +51,9 @@ type Output interface {
 	// SetID sets the identifier of the Output.
 	SetID(id OutputID)
 
+	// Bytes returns a serialized version of the Output.
+	Bytes() (serialized []byte, err error)
+
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)
 

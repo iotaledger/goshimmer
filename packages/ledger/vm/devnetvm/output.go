@@ -116,6 +116,9 @@ type Output interface {
 	// Clone creates a copy of the Output.
 	Clone() Output
 
+	// Bytes returns a serialized version of the Output.
+	Bytes() (serialized []byte, err error)
+
 	// String returns a human-readable version of the Output for debug purposes.
 	String() string
 
@@ -145,7 +148,7 @@ func NewOutputs(optionalOutputs ...Output) (outputs Outputs) {
 
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, output := range optionalOutputs {
-		marshaledOutput := serix.Encode(output)
+		marshaledOutput := lo.PanicOnErr(output.Bytes())
 		marshaledOutputAsString := typeutils.BytesToString(marshaledOutput)
 
 		if _, seenAlready := seenOutputs[marshaledOutputAsString]; seenAlready {
@@ -324,7 +327,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Model[utxo.OutputID, sigLockedSingleOutput]
+	model.Model[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -436,7 +439,7 @@ func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (s *SigLockedSingleOutput) Compare(other Output) int {
-	return bytes.Compare(serix.Encode(s), serix.Encode(other))
+	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -446,7 +449,7 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Model[utxo.OutputID, sigLockedColoredOutput]
+	model.Model[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -530,7 +533,7 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 	coloredBalances := s.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(serix.Encode(s.ID())))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(s.ID().Bytes()))] = mintedCoins
 	}
 	updatedOutput = NewSigLockedColoredOutput(NewColoredBalances(coloredBalances), s.Address())
 	updatedOutput.SetID(s.ID())
@@ -541,7 +544,7 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (s *SigLockedColoredOutput) Compare(other Output) int {
-	return bytes.Compare(serix.Encode(s), serix.Encode(other))
+	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -717,7 +720,7 @@ func (a *AliasOutput) FromObjectStorage(key, bytes []byte) error {
 
 // ObjectStorageKey a key.
 func (a *AliasOutput) ObjectStorageKey() []byte {
-	return serix.Encode(a.ID())
+	return a.ID().Bytes()
 }
 
 // ObjectStorageValue binary form.
@@ -833,7 +836,7 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 	if a.aliasAddress.IsNil() {
-		return NewAliasAddress(serix.Encode(a.ID()))
+		return NewAliasAddress(a.ID().Bytes())
 	}
 	return &a.aliasAddress
 }
@@ -1066,8 +1069,8 @@ func (a *AliasOutput) Input() Input {
 }
 
 // Bytes serialized form.
-func (a *AliasOutput) Bytes() []byte {
-	return a.ObjectStorageValue()
+func (a *AliasOutput) Bytes() ([]byte, error) {
+	return a.ObjectStorageValue(), nil
 }
 
 // String human readable form.
@@ -1084,7 +1087,7 @@ func (a *AliasOutput) String() string {
 
 // Compare the two outputs.
 func (a *AliasOutput) Compare(other Output) int {
-	return bytes.Compare(serix.Encode(a), serix.Encode(other))
+	return bytes.Compare(lo.PanicOnErr(a.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // UnlockValid check unlock and validates chain.
@@ -1170,14 +1173,14 @@ func (a *AliasOutput) UpdateMintingColor() Output {
 	coloredBalances := a.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(serix.Encode(a.ID())))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(a.ID().Bytes()))] = mintedCoins
 	}
 	updatedOutput := a.clone()
 	_ = updatedOutput.SetBalances(coloredBalances)
 	updatedOutput.SetID(a.ID())
 
 	if a.IsOrigin() {
-		updatedOutput.SetAliasAddress(NewAliasAddress(serix.Encode(a.ID())))
+		updatedOutput.SetAliasAddress(NewAliasAddress(a.ID().Bytes()))
 	}
 
 	return updatedOutput
@@ -1594,7 +1597,7 @@ func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) error {
 
 // ObjectStorageKey a key.
 func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
-	return serix.Encode(o.ID())
+	return o.ID().Bytes()
 }
 
 // ObjectStorageValue binary form.
@@ -1805,7 +1808,7 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	coloredBalances := o.Balances().Map()
 	if mintedCoins, mintedCoinsExist := coloredBalances[ColorMint]; mintedCoinsExist {
 		delete(coloredBalances, ColorMint)
-		coloredBalances[Color(blake2b.Sum256(serix.Encode(o.ID())))] = mintedCoins
+		coloredBalances[Color(blake2b.Sum256(o.ID().Bytes()))] = mintedCoins
 	}
 	updatedOutput := NewExtendedLockedOutput(coloredBalances, o.Address()).
 		WithFallbackOptions(o.fallbackAddress, o.fallbackDeadline).
@@ -1819,14 +1822,14 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 }
 
 // Bytes returns a marshaled version of the Output.
-func (o *ExtendedLockedOutput) Bytes() []byte {
-	return o.ObjectStorageValue()
+func (o *ExtendedLockedOutput) Bytes() ([]byte, error) {
+	return o.ObjectStorageValue(), nil
 }
 
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (o *ExtendedLockedOutput) Compare(other Output) int {
-	return bytes.Compare(serix.Encode(o), serix.Encode(other))
+	return bytes.Compare(lo.PanicOnErr(o.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // String returns a human readable version of the Output.

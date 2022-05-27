@@ -2,10 +2,12 @@ package utxo
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/serix"
@@ -124,11 +126,21 @@ func (o OutputID) UnregisterAlias() {
 
 // Base58 returns a base58 encoded version of the OutputID.
 func (o OutputID) Base58() (base58Encoded string) {
-	return base58.Encode(serix.Encode(o))
+	return base58.Encode(o.Bytes())
 }
 
 func (o OutputID) Length() int {
 	return o.TransactionID.Length() + 2
+}
+
+// Bytes returns a serialized version of the OutputID.
+func (o OutputID) Bytes() (serialized []byte) {
+	serialized = o.TransactionID.Bytes()
+
+	b := make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, o.Index)
+
+	return byteutils.ConcatBytes(serialized, b)
 }
 
 // String returns a human-readable version of the OutputID.
@@ -166,7 +178,7 @@ func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
 // Outputs represents a collection of Output objects indexed by their OutputID.
 type Outputs struct {
 	// OrderedMap is the underlying data structure that holds the Outputs.
-	orderedmap.OrderedMap[OutputID, Output]
+	orderedmap.OrderedMap[OutputID, Output] `serix:"0"`
 }
 
 // NewOutputs returns a new Output collection with the given elements.
