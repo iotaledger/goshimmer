@@ -72,6 +72,12 @@ type SchedulerParametersDefinition struct {
 	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed messages are not scheduled [time duration string]"`
 }
 
+// NotarizationParameterDefinition contains the definition of the parameters used by the notarization plugin.
+type NotarizationParameterDefinition struct {
+	// MinEpochCommitableDuration defines the min age of a commitable epoch.
+	MinEpochCommitableDuration time.Duration `default:"24m" usage:"min age of a commitable epoch"`
+}
+
 // Parameters contains the general configuration used by the messagelayer plugin.
 var Parameters = &ParametersDefinition{}
 
@@ -84,9 +90,13 @@ var RateSetterParameters = &RateSetterParametersDefinition{}
 // SchedulerParameters contains the scheduler configuration used by the messagelayer plugin.
 var SchedulerParameters = &SchedulerParametersDefinition{}
 
+// NotarizationParameters contains the configuration used by the notarization plugin.
+var NotarizationParameters = &NotarizationParameterDefinition{}
+
 func init() {
 	configuration.BindParameters(Parameters, "messageLayer")
 	configuration.BindParameters(ManaParameters, "mana")
 	configuration.BindParameters(RateSetterParameters, "rateSetter")
 	configuration.BindParameters(SchedulerParameters, "scheduler")
+	configuration.BindParameters(NotarizationParameters, "notarization")
 }

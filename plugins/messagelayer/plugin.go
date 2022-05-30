@@ -20,6 +20,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
@@ -184,6 +185,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),
+		tangle.CommitmentFunc(commitmentRetriever),
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
@@ -233,6 +235,14 @@ func totalAccessManaRetriever() float64 {
 		return 0
 	}
 	return totalMana
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Notarization ///////////////////////////////////////////////////////////////////////////////////////////
+
+func commitmentRetriever() *notarization.EpochCommitment {
+	return GetLatestEC()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
