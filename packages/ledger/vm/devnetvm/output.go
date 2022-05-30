@@ -418,32 +418,43 @@ func (s *SigLockedSingleOutput) UpdateMintingColor() Output {
 	return s
 }
 
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *SigLockedSingleOutput) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.ID(), serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (s *SigLockedSingleOutput) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
 // they are the same.
 func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
+}
+
+func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (err error) {
+	s.Lock()
+	defer s.Unlock()
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
+	return
+}
+
+func (s *SigLockedSingleOutput) FromObjectStorage(key, data []byte) (err error) {
+	if err = s.IDFromBytes(key); err != nil {
+		return errors.Errorf("failed to decode ID: %w", err)
+	}
+
+	if err = s.FromBytes(data); err != nil {
+		return errors.Errorf("failed to decode Model: %w", err)
+	}
+
+	return nil
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (s *SigLockedSingleOutput) ObjectStorageValue() (value []byte) {
+	return lo.PanicOnErr(s.Bytes())
+}
+
+func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -549,6 +560,39 @@ func (s *SigLockedColoredOutput) UpdateMintingColor() (updatedOutput Output) {
 // they are the same.
 func (s *SigLockedColoredOutput) Compare(other Output) int {
 	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
+}
+
+func (s *SigLockedColoredOutput) FromBytes(bytes []byte) (err error) {
+	s.Lock()
+	defer s.Unlock()
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
+	return
+}
+
+func (s *SigLockedColoredOutput) FromObjectStorage(key, data []byte) (err error) {
+	if err = s.IDFromBytes(key); err != nil {
+		return errors.Errorf("failed to decode ID: %w", err)
+	}
+
+	if err = s.FromBytes(data); err != nil {
+		return errors.Errorf("failed to decode Model: %w", err)
+	}
+
+	return nil
+}
+
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
+func (s *SigLockedColoredOutput) ObjectStorageValue() (value []byte) {
+	return lo.PanicOnErr(s.Bytes())
+}
+
+func (s *SigLockedColoredOutput) Bytes() (bytes []byte, err error) {
+	s.RLock()
+	defer s.RUnlock()
+
+	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

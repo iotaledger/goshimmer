@@ -1670,7 +1670,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		err := o.SetPayload([]byte("some metadata"))
 		assert.NoError(t, err)
 		oBytes := lo.PanicOnErr(o.Bytes())
-		var restored Output
+		var restored utxo.Output
 		restored, err = OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
@@ -1741,7 +1741,7 @@ func TestExtendedLockedOutput_Bytes(t *testing.T) {
 		err := o.SetPayload([]byte("some metadata"))
 		assert.NoError(t, err)
 		oBytes := lo.PanicOnErr(o.Bytes())
-		var restored Output
+		var restored utxo.Output
 		restored, err = OutputFromBytes(oBytes)
 		assert.NoError(t, err)
 		castedRestored, ok := restored.(*ExtendedLockedOutput)
@@ -1830,11 +1830,11 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output, err := OutputFromBytes(lo.PanicOnErr(dummyExtendedLockedOutput().Bytes()))
 		assert.NoError(t, err)
 		assert.Panics(t, func() {
-			_, _ = output.Input().(*UTXOInput)
+			_, _ = output.(Output).Input().(*UTXOInput)
 		})
 		output.SetID(randOutputID())
 		assert.NotPanics(t, func() {
-			_, _ = output.Input().(*UTXOInput)
+			_, _ = output.(Output).Input().(*UTXOInput)
 		})
 	})
 }

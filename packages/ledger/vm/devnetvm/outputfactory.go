@@ -6,10 +6,12 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/serix"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // OutputFromBytes is the factory function for Outputs.
-func OutputFromBytes(data []byte) (output Output, err error) {
+func OutputFromBytes(data []byte) (output utxo.Output, err error) {
 	_, err = serix.DefaultAPI.Decode(context.Background(), data, &output, serix.WithValidation())
 	if err != nil {
 		return nil, errors.Errorf("failed to parse Output (%v): %w", err, cerrors.ErrParseBytesFailed)
