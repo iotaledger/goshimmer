@@ -93,7 +93,8 @@ func newNotarizationManager() *notarization.Manager {
 		deps.EpochManager,
 		deps.EpochCommitmentFactory,
 		deps.Tangle,
-		notarization.MinCommitableEpochAge(Parameters.MinEpochCommitableDuration))
+		notarization.MinCommitableEpochAge(Parameters.MinEpochCommitableDuration),
+		notarization.Log(Plugin.Logger()))
 }
 
 func newEpochManager() *notarization.EpochManager {
