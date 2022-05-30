@@ -9,17 +9,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/marshalutil"
 )
 
-var (
-	prevECR = []byte("previousEpochCommitmentRoot")
-)
-
-// EpochCommitment contains the ECR and prevECR of an epoch.
+// EpochCommitment contains the ECR and PreviousECR of an epoch.
 type EpochCommitment struct {
-	EI EI
-	EC []byte
+	EI          EI
+	ECI         EI
+	ECR         []byte
+	PreviousECR []byte
 }
 
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -146,16 +143,11 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *EpochCommitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	if commitment, ok := f.commitments[ei]; ok {
-		marshalUtil := marshalutil.New()
-
-		marshalUtil.WriteBytes(commitment.prevECR)
-		marshalUtil.WriteBytes(commitment.ECR())
-		marshalUtil.WriteInt64(int64(ei))
-		ec := blake2b.Sum256(marshalUtil.Bytes())
-
 		return &EpochCommitment{
-			EI: ei,
-			EC: ec[:],
+			EI:          ei,
+			ECR:         commitment.ECR(),
+			ECI:         0,
+			PreviousECR: commitment.prevECR,
 		}
 	}
 	return nil
