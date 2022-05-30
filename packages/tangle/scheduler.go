@@ -395,7 +395,7 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
-	rounds := math.MaxInt32
+	rounds := math.MaxUint64
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
