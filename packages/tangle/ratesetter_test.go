@@ -15,7 +15,9 @@ import (
 var (
 	testInitial          = 5.0
 	testRateSetterParams = RateSetterParams{
-		Initial: testInitial,
+		Initial:          testInitial,
+		RateSettingPause: time.Second,
+		Enabled:          true,
 	}
 )
 

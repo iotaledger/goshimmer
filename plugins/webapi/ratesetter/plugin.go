@@ -3,7 +3,6 @@ package ratesetter
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
@@ -19,7 +18,6 @@ type dependencies struct {
 	dig.In
 
 	Server *echo.Echo
-	Local  *peer.Local
 	Tangle *tangle.Tangle
 }
 

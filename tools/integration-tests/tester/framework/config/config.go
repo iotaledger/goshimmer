@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"reflect"
+
+	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -54,6 +55,7 @@ type GoShimmer struct {
 	Profiling
 	Dashboard
 	Dagsvisualizer
+	RateSetter
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -141,6 +143,11 @@ type DRNG struct {
 	Enabled bool
 
 	drng.ParametersDefinition
+}
+
+// RateSetter defines the parameters of the RateSetter plugin.
+type RateSetter struct {
+	messagelayer.RateSetterParametersDefinition
 }
 
 // Prometheus defines the parameters of the Prometheus plugin.

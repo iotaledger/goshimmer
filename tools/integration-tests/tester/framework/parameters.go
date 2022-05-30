@@ -87,6 +87,8 @@ func PeerConfig() config.GoShimmer {
 	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeedBytes))
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
+	c.RateSetter.Enabled = false
+
 	c.Faucet.Enabled = false
 	c.Faucet.Seed = base58.Encode(GenesisSeedBytes)
 	c.Faucet.PowDifficulty = 1

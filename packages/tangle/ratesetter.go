@@ -30,6 +30,8 @@ var (
 )
 
 var (
+	// Enabled is the flag that enables the rate setting mechanism on node startup.
+	Enabled bool
 	// Initial is the rate in bytes per second.
 	Initial float64
 	// RateSettingPause is the amount of scheduler ticks to pause updating own rate.
@@ -42,6 +44,7 @@ var (
 
 // RateSetterParams represents the parameters for RateSetter.
 type RateSetterParams struct {
+	Enabled          bool
 	Initial          float64
 	RateSettingPause time.Duration
 }
@@ -68,7 +71,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 	Initial = tangle.Options.RateSetterParams.Initial
 	RateSettingPause = uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate())
 	MaxRate = float64(time.Second / tangle.Scheduler.Rate())
-
+	Enabled = tangle.Options.RateSetterParams.Enabled
 	rateSetter := &RateSetter{
 		tangle: tangle,
 		Events: &RateSetterEvents{
@@ -91,6 +94,12 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
+	if !Enabled {
+		r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
+			r.Events.MessageIssued.Trigger(msg)
+		}))
+		return
+	}
 	r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
 		if err := r.Issue(msg); err != nil {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
