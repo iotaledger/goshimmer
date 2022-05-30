@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -271,7 +272,7 @@ func TestValueAliasDelegation(t *testing.T) {
 			delegatedAliasOutput = alias
 		default:
 			require.Equal(t, delegatedAliasOutputID.Base58(), alias.ID().Base58())
-			require.Equal(t, delegatedAliasOutput.Bytes(), alias.Bytes())
+			require.Equal(t, lo.PanicOnErr(delegatedAliasOutput.Bytes()), lo.PanicOnErr(alias.Bytes()))
 		}
 	}
 
