@@ -105,8 +105,7 @@ func main() {
 			// issue the tx
 			resp, err2 := clients[i].PostTransaction(tx.Bytes())
 			if err2 != nil {
-				fmt.Println(err2)
-				return
+				panic(err2)
 			}
 			fmt.Println(resp.TransactionID)
 
