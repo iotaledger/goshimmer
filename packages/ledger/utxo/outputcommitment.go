@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/types"
 	"gitlab.com/NebulousLabs/merkletree/merkletree-blake"
-	"golang.org/x/crypto/blake2b"
 )
 
 // region OutputCommitment /////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,41 +18,57 @@ type OutputCommitment struct {
 	StateRoot       types.Identifier `serix:"0"`
 	NumberOfOutputs uint64           `serix:"1"`
 
-	merkleTree *merkletree.Tree
+	outputs *Outputs
 }
 
 // FromOutputs creates a new OutputCommitment from the given Outputs.
 func (o *OutputCommitment) FromOutputs(outputs ...Output) (err error) {
 	o.NumberOfOutputs = uint64(len(outputs))
-	o.merkleTree = merkletree.New()
 
+	merkleTree := merkletree.New()
 	for _, output := range outputs {
 		serializedOutput, serializationErr := output.Bytes()
 		if serializationErr != nil {
 			return errors.Errorf("failed to serialize Output: %w", serializationErr)
 		}
 
-		o.merkleTree.Push(serializedOutput)
+		merkleTree.Push(serializedOutput)
 	}
-	o.StateRoot = o.merkleTree.Root()
+	o.StateRoot = merkleTree.Root()
+
+	o.outputs = NewOutputs(outputs...)
 
 	return nil
 }
 
 // Proof generates a proof that the Output at the given index is included in the OutputCommitment.
 func (o *OutputCommitment) Proof(outputIndex uint64) (proof *OutputCommitmentProof, err error) {
-	if o.merkleTree == nil {
+	if o.outputs == nil {
 		return nil, errors.Errorf("proofs can only be created when initialized with outputs: %w", cerrors.ErrFatal)
 	}
 
-	if err = o.merkleTree.SetIndex(outputIndex); err != nil {
+	merkleTree := merkletree.New()
+	if err = merkleTree.SetIndex(outputIndex); err != nil {
 		return nil, errors.Errorf("unable to set index: %w", err)
+	}
+
+	if err = o.outputs.ForEach(func(output Output) error {
+		serializedOutput, serializationErr := output.Bytes()
+		if serializationErr != nil {
+			return errors.Errorf("failed to serialize Output: %w", serializationErr)
+		}
+
+		merkleTree.Push(serializedOutput)
+
+		return nil
+	}); err != nil {
+		return nil, errors.Errorf("failed to add Outputs to merkle tree: %w", err)
 	}
 
 	proof = &OutputCommitmentProof{
 		OutputCommitment: new(OutputCommitment),
 	}
-	proof.OutputCommitment.StateRoot, _, proof.ProofSet, proof.ProofIndex, proof.OutputCommitment.NumberOfOutputs = o.merkleTree.Prove()
+	proof.OutputCommitment.StateRoot, _, proof.ProofSet, proof.ProofIndex, proof.OutputCommitment.NumberOfOutputs = merkleTree.Prove()
 
 	return proof, nil
 }
@@ -82,7 +97,7 @@ func (o *OutputCommitmentProof) Validate(output Output) (err error) {
 		return errors.Errorf("failed to serialize Output: %w", err)
 	}
 
-	outputHash := blake2b.Sum256(outputBytes)
+	outputHash := merkletree.LeafSum(outputBytes)
 	if o.ProofSet[0] != outputHash {
 		return errors.Errorf("invalid proof: output hash %x does not match expected value of %x: %w", outputHash, o.ProofSet[0], cerrors.ErrFatal)
 	}
