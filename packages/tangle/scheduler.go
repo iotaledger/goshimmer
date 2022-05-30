@@ -395,7 +395,7 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
-	rounds := math.MaxUint64
+	var rounds uint64 = math.MaxUint64
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
@@ -416,7 +416,7 @@ func (s *Scheduler) schedule() *Message {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
 				remainingDeficit := math.Dim(float64(msg.Size()), s.GetDeficit(q.NodeID()))
 				// find the first node that will be allowed to schedule a message
-				if r := int(math.Ceil(remainingDeficit / s.Quanta(q.NodeID()))); r < rounds {
+				if r := uint64(math.Ceil(remainingDeficit / s.Quanta(q.NodeID()))); r < rounds {
 					rounds = r
 					schedulingNode = q
 				}
