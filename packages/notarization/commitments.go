@@ -17,11 +17,11 @@ type Commitment struct {
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
-	prevECR           []byte
+	prevECR           [32]byte
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR []byte) *Commitment {
+func NewCommitment(ei EI, prevECR [32]byte) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -58,15 +58,14 @@ func (e *Commitment) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (e *Commitment) ECR() []byte {
-	branch1 := blake2b.Sum256(append(e.prevECR, e.TangleRoot()...))
+func (e *Commitment) ECR() [32]byte {
+	branch1 := blake2b.Sum256(append(e.prevECR[:], e.TangleRoot()...))
 	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
 	var root []byte
 	root = append(root, branch1[:]...)
 	root = append(root, branch2[:]...)
-	ecr := blake2b.Sum256(root)
+	return blake2b.Sum256(root)
 
-	return ecr[:]
 }
 
 // EpochCommitmentFactory manages epoch commitments.
@@ -149,7 +148,7 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 	commitment, ok := f.commitments[ei]
 	f.commitmentsMutex.RUnlock()
 	if !ok {
-		var previousECR []byte
+		var previousECR [32]byte
 
 		if ei > 0 {
 			if previousCommitment := f.GetCommitment(ei - 1); previousCommitment != nil {

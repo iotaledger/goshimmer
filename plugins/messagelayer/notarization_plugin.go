@@ -76,6 +76,6 @@ func newNotarizationManager() *notarization.Manager {
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() *notarization.EpochCommitment {
+func GetLatestEC() *tangle.EpochCommitment {
 	return notarizationManager.GetLatestEC()
 }
