@@ -31,7 +31,7 @@ const (
 	MessageVersion uint8 = 1
 
 	// MaxMessageSize defines the maximum size of a message.
-	MaxMessageSize = 64 * 1024
+	MaxMessageSize = 64*1024 + 80
 
 	// MessageIDLength defines the length of an MessageID.
 	MessageIDLength = 32
@@ -281,6 +281,13 @@ const (
 	LastValidBlockType = ShallowDislikeParentType
 )
 
+// EpochCommitment contains the ECR and PreviousECR of an epoch.
+type EpochCommitment struct {
+	EI          uint64
+	ECR         [32]byte
+	PreviousECR [32]byte
+}
+
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	// base functionality of StorableObject
@@ -296,6 +303,10 @@ type Message struct {
 	nonce           uint64
 	signature       ed25519.Signature
 
+	// commitments
+	epochCommitment      *EpochCommitment
+	latestConfirmedEpoch uint64
+
 	// derived properties
 	id         *MessageID
 	idMutex    sync.RWMutex
@@ -305,7 +316,7 @@ type Message struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch uint64, epochCommitment *EpochCommitment) (*Message, error) {
 	// remove duplicates, sort in ASC
 	sortedStrongParents := sortParents(references[StrongParentType])
 	sortedWeakParents := sortParents(references[WeakParentType])
@@ -344,7 +355,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 		})
 	}
 
-	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber)
+	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber, latestConfirmedEpoch, epochCommitment)
 }
 
 // newMessageWithValidation creates a new message while performing ths following syntactical checks:
@@ -357,7 +368,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 7. Blocks should be ordered by type in ascending order.
 func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
 	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
-	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
+	signature ed25519.Signature, sequenceNumber uint64, latestConfirmedEpoch uint64, epochCommitment *EpochCommitment) (result *Message, err error) {
 	// Validate strong parent block
 	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
 		len(parentsBlocks[0].References) < MinStrongParentsCount {
@@ -401,14 +412,16 @@ func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issui
 	}
 
 	return &Message{
-		version:         version,
-		parentsBlocks:   parentsBlocks,
-		issuerPublicKey: issuerPublicKey,
-		issuingTime:     issuingTime,
-		sequenceNumber:  sequenceNumber,
-		payload:         msgPayload,
-		nonce:           nonce,
-		signature:       signature,
+		version:              version,
+		parentsBlocks:        parentsBlocks,
+		epochCommitment:      epochCommitment,
+		latestConfirmedEpoch: latestConfirmedEpoch,
+		issuerPublicKey:      issuerPublicKey,
+		issuingTime:          issuingTime,
+		sequenceNumber:       sequenceNumber,
+		payload:              msgPayload,
+		nonce:                nonce,
+		signature:            signature,
 	}, nil
 }
 
@@ -531,6 +544,15 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 		}
 	}
 
+	epochCommitment, err := epochCommitmentFromMarshalUtil(marshalUtil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse epoch commitment of message: %w", err)
+	}
+	latestConfirmedEpoch, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the latest confirmed epoch of the message: %w", err)
+	}
+
 	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse issuer public key of the message: %w", err)
@@ -567,7 +589,7 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
 	}
 
-	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
+	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber, latestConfirmedEpoch, epochCommitment)
 	if err != nil {
 		return nil, err
 	}
@@ -575,6 +597,30 @@ func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Messag
 	msg.bytes = msgBytes
 
 	return msg, nil
+}
+
+func epochCommitmentFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*EpochCommitment, error) {
+	ei, err := marshalUtil.ReadUint64()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse epoch index of the message: %w", err)
+	}
+	data, err := marshalUtil.ReadBytes(blake2b.Size256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse epoch commitment root the message: %w", err)
+	}
+	var ECR [32]byte
+	copy(ECR[:], data)
+	data, err = marshalUtil.ReadBytes(blake2b.Size256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse epoch index of the message: %w", err)
+	}
+	var previousECR [32]byte
+	copy(previousECR[:], data)
+	return &EpochCommitment{
+		EI:          ei,
+		ECR:         ECR,
+		PreviousECR: previousECR,
+	}, nil
 }
 
 // VerifySignature verifies the signature of the message.
@@ -693,6 +739,11 @@ func (m *Message) calculateID() MessageID {
 	return blake2b.Sum256(m.Bytes())
 }
 
+// EpochCommitment returns the epoch that this node committed to.
+func (m *Message) EpochCommitment() *EpochCommitment {
+	return m.epochCommitment
+}
+
 // Bytes returns the message in serialized byte form.
 func (m *Message) Bytes() []byte {
 	m.bytesMutex.Lock()
@@ -715,6 +766,14 @@ func (m *Message) Bytes() []byte {
 			marshalUtil.Write(parent)
 		}
 	}
+
+	if m.epochCommitment == nil {
+		m.epochCommitment = &EpochCommitment{}
+	}
+	marshalUtil.WriteUint64(m.epochCommitment.EI)
+	marshalUtil.WriteBytes(m.epochCommitment.ECR[:])
+	marshalUtil.WriteBytes(m.epochCommitment.PreviousECR[:])
+	marshalUtil.WriteUint64(m.latestConfirmedEpoch)
 
 	marshalUtil.Write(m.issuerPublicKey)
 	marshalUtil.WriteTime(m.issuingTime)

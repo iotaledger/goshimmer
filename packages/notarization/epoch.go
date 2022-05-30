@@ -19,9 +19,6 @@ type Epoch struct {
 	finalized     bool
 	finalizedTime time.Time
 
-	commitment           *EpochCommitment
-	commitmentUpdateTime time.Time
-
 	confirmedMutex  sync.RWMutex
 	finalizedMutex  sync.RWMutex
 	commitmentMutex sync.RWMutex
@@ -30,8 +27,7 @@ type Epoch struct {
 // NewEpoch is the constructor for an Epoch.
 func NewEpoch(ei EI) (epoch *Epoch) {
 	epoch = &Epoch{
-		ei:         ei,
-		commitment: &EpochCommitment{},
+		ei: ei,
 	}
 
 	return
@@ -50,11 +46,6 @@ func (e *Epoch) Finalized() bool {
 // Confirmed returns true if the epoch is confirmed.
 func (e *Epoch) Confirmed() bool {
 	return e.confirmed
-}
-
-// EC returns the epoch commitment of the epoch.
-func (e *Epoch) EC() *EpochCommitment {
-	return e.commitment
 }
 
 // SetFinalized sets the finalized flag with the given value.
@@ -99,15 +90,6 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	}
 
 	return
-}
-
-// SetCommitment sets commitment of the epoch.
-func (e *Epoch) SetCommitment(commitment *EpochCommitment) {
-	e.commitmentMutex.Lock()
-	defer e.commitmentMutex.Unlock()
-
-	e.commitment = commitment
-	e.commitmentUpdateTime = clock.SyncedTime()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

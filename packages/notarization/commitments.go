@@ -11,14 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// EpochCommitment contains the ECR and PreviousECR of an epoch.
-type EpochCommitment struct {
-	EI          EI
-	ECI         EI
-	ECR         []byte
-	PreviousECR []byte
-}
-
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
 	EI                EI
@@ -139,14 +131,13 @@ func (f *EpochCommitmentFactory) GetCommitment(ei EI) *Commitment {
 }
 
 // GetEpochCommitment returns the epoch commitment with the given ei.
-func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *EpochCommitment {
+func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	if commitment, ok := f.commitments[ei]; ok {
-		return &EpochCommitment{
-			EI:          ei,
+		return &tangle.EpochCommitment{
+			EI:          uint64(ei),
 			ECR:         commitment.ECR(),
-			ECI:         0,
 			PreviousECR: commitment.prevECR,
 		}
 	}

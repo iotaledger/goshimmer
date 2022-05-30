@@ -177,13 +177,13 @@ func TestMessage_VerifySignature(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
 	pl := payload.NewGenericDataPayload([]byte("test"))
 
-	unsigned, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{})
+	unsigned, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, ed25519.Signature{}, 0, nil)
 	assert.False(t, unsigned.VerifySignature())
 
 	unsignedBytes := unsigned.Bytes()
 	signature := keyPair.PrivateKey.Sign(unsignedBytes[:len(unsignedBytes)-ed25519.SignatureSize])
 
-	signed, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, signature)
+	signed, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID), time.Time{}, keyPair.PublicKey, 0, pl, 0, signature, 0, nil)
 	assert.True(t, signed.VerifySignature())
 }
 
@@ -202,7 +202,7 @@ func TestMessage_UnmarshalTransaction(t *testing.T) {
 		0,
 		randomTransaction(),
 		0,
-		ed25519.Signature{})
+		ed25519.Signature{}, 0, nil)
 	assert.NoError(t, err)
 
 	restoredMessage, err := new(Message).FromBytes(testMessage.Bytes())
@@ -253,7 +253,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrParentsOutOfRange)
 	})
@@ -267,7 +267,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
@@ -283,7 +283,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
@@ -316,7 +316,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		// Since no strong parents in first block the validator will assume they are missing
 		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
@@ -329,7 +329,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
 
@@ -341,7 +341,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
 
@@ -353,7 +353,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before like block")
 	})
@@ -386,7 +386,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 
 		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
@@ -399,7 +399,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 
 		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
@@ -429,7 +429,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 
 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
@@ -452,7 +452,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
 
@@ -469,7 +469,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		// if the duplicates are not consecutive a lexicographically order error is returned
 		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
@@ -495,7 +495,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 
 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
@@ -513,7 +513,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0,
+			0, 0, nil,
 		)
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
@@ -542,7 +542,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0)
+			0, 0, nil)
 		fmt.Println(err)
 		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "message repeated across weak and dislike blocks")
 	})
@@ -557,7 +557,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.ErrorIs(t, err, ErrNoStrongParents)
 	})
@@ -570,7 +570,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		// should pass since EmptyMessageId is a valid MessageId
 		assert.NoError(t, err)
@@ -586,7 +586,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 	})
@@ -604,7 +604,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 	})
@@ -620,7 +620,7 @@ func TestMessage_NewMessage(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 	})
@@ -638,7 +638,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 
@@ -668,7 +668,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload(data),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 
@@ -687,7 +687,7 @@ func TestMessage_Bytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload(nil),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 
@@ -710,7 +710,7 @@ func TestMessageFromBytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("This is a test message.")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err)
 
@@ -743,7 +743,7 @@ func TestMessageFromBytes(t *testing.T) {
 			0,
 			payload.NewGenericDataPayload([]byte("This is a test message.")),
 			0,
-			ed25519.Signature{},
+			ed25519.Signature{}, 0, nil,
 		)
 		assert.NoError(t, err, "Syntactically invalid message created")
 		msgBytes := msg.Bytes()
@@ -766,7 +766,7 @@ func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
 		0,
 		payload.NewGenericDataPayload([]byte("This is a test message.")),
 		0,
-		ed25519.Signature{},
+		ed25519.Signature{}, 0, nil,
 	)
 
 	return msg.Bytes()

@@ -62,6 +62,8 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
 		0,
 		ed25519.Signature{},
+		0,
+		nil,
 	)
 	assert.NoError(t, rateSetter.Issue(msg))
 

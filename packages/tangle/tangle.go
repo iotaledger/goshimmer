@@ -16,7 +16,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -250,7 +249,7 @@ type Options struct {
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
 	LedgerState                    struct{ MergeBranches bool }
-	CommitmentFunc                 func() *notarization.EpochCommitment
+	CommitmentFunc                 func() *EpochCommitment
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -355,7 +354,7 @@ func MergeBranches(mergeBranches bool) Option {
 }
 
 // CommitmentFunc is an Option for the Tangle that retrieves epoch commitments for blocks.
-func CommitmentFunc(commitmentRetrieverFunc func() *notarization.EpochCommitment) Option {
+func CommitmentFunc(commitmentRetrieverFunc func() *EpochCommitment) Option {
 	return func(o *Options) {
 		o.CommitmentFunc = commitmentRetrieverFunc
 	}

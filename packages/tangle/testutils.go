@@ -619,24 +619,24 @@ func nextSequenceNumber() uint64 {
 
 func newTestNonceMessage(nonce uint64) *Message {
 	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
+		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, nil)
 	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
 	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
 	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
-		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	return message
 }
 
 func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
-	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	return
 }
 
@@ -648,15 +648,15 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	} else {
-		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{})
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	}
 	return
 }
 
 func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
-	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 	return
 }
 
@@ -668,15 +668,15 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	} else {
-		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	}
 	return
 }
 
 func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
-	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{})
+	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
 	return message
 }
 
@@ -807,6 +807,9 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
+	options = append(options, CommitmentFunc(func() *EpochCommitment {
+		return nil
+	}))
 
 	t := New(options...)
 	t.ConfirmationOracle = &MockConfirmationOracle{}
