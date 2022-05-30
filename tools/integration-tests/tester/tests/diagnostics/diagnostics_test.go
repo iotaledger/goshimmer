@@ -105,6 +105,7 @@ func TestSendMessageAPI(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 1, framework.CreateNetworkConfig{
 		StartSynced: true,
+		PeerMaster:  true,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

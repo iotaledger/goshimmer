@@ -153,7 +153,7 @@ func (r *RateSetter) Estimate() time.Duration {
 	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
 
 	// dummy estimate
-	return time.Duration(math.Ceil(float64(r.Size()+1) / r.ownRate.Load() * float64(time.Second)))
+	return time.Duration(math.Ceil(float64(r.Size()) / r.ownRate.Load() * float64(time.Second)))
 }
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.

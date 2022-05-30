@@ -147,6 +147,8 @@ type DRNG struct {
 
 // RateSetter defines the parameters of the RateSetter plugin.
 type RateSetter struct {
+	Enabled bool
+
 	messagelayer.RateSetterParametersDefinition
 }
 
