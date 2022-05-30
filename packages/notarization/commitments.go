@@ -161,6 +161,33 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *EpochCommitment {
 	return nil
 }
 
+func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputID) (*CommitmentProof, error) {
+	key := outID.Bytes()
+	proof, err := f.commitments[ei].stateRoot.Prove(key)
+	if err != nil {
+		return nil, errors.Newf("could not generate the state root proof: %w", err)
+	}
+	return &CommitmentProof{ei, proof}, nil
+}
+
+func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID ledgerstate.TransactionID) (*CommitmentProof, error) {
+	key := txID.Bytes()
+	proof, err := f.commitments[ei].stateRoot.Prove(key)
+	if err != nil {
+		return nil, errors.Newf("could not generate the state mutation root proof: %w", err)
+	}
+	return &CommitmentProof{ei, proof}, nil
+}
+
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID) (*CommitmentProof, error) {
+	key := blockID.Bytes()
+	proof, err := f.commitments[ei].tangleRoot.Prove(key)
+	if err != nil {
+		return nil, errors.Newf("could not generate the tangle root proof: %w", err)
+	}
+	return &CommitmentProof{ei, proof}, nil
+}
+
 func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 	f.commitmentsMutex.RLock()
 	commitment, ok := f.commitments[ei]
