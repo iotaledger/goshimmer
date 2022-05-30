@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -103,6 +104,23 @@ func registerTangleEvents() {
 		})
 	})
 
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		var msgID tangle.MessageID
+		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
+			msgID = a.MessageID()
+		})
+
+		wsMsg := &wsMessage{
+			Type: MsgTypeTangleTxGoF,
+			Data: &tangleTxGoFChanged{
+				ID:          msgID.Base58(),
+				IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(event.TransactionID),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
+	})
+
 	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
@@ -119,6 +137,7 @@ func registerTangleEvents() {
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
@@ -154,15 +173,16 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txConfirmedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		txID := event.TransactionID
 		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			wsMsg := &wsMessage{
-				Type: MsgTypeUTXOConfirmed,
-				Data: &utxoConfirmed{
-					ID:            txID.Base58(),
-					GoF:           txMetadata.GradeOfFinality().String(),
-					ConfirmedTime: txMetadata.GradeOfFinalityTime().UnixNano(),
+				Type: MsgTypeUTXOGoFChanged,
+				Data: &utxoGoFChanged{
+					ID:          txID.Base58(),
+					GoF:         txMetadata.GradeOfFinality().String(),
+					GoFTime:     txMetadata.GradeOfFinalityTime().UnixNano(),
+					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -172,7 +192,7 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
@@ -200,9 +220,11 @@ func registerBranchEvents() {
 
 	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
-			Type: MsgTypeBranchConfirmed,
-			Data: &branchConfirmed{
-				ID: event.BranchID.Base58(),
+			Type: MsgTypeBranchGoFChanged,
+			Data: &branchGoFChanged{
+				ID:          event.BranchID.Base58(),
+				GoF:         gof.High.String(),
+				IsConfirmed: true,
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -377,14 +399,14 @@ func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoV
 	})
 
 	ret = &utxoVertex{
-		MsgID:         msgID.Base58(),
-		ID:            tx.ID().Base58(),
-		Inputs:        inputs,
-		Outputs:       outputs,
-		IsConfirmed:   deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
-		BranchIDs:     branchIDs,
-		GoF:           gof,
-		ConfirmedTime: confirmedTime,
+		MsgID:       msgID.Base58(),
+		ID:          tx.ID().Base58(),
+		Inputs:      inputs,
+		Outputs:     outputs,
+		IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(tx.ID()),
+		BranchIDs:   branchIDs,
+		GoF:         gof,
+		GoFTime:     confirmedTime,
 	}
 
 	return ret
@@ -397,8 +419,8 @@ func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			conflicts[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
-				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.ConflictID())
 			})
 		}
 

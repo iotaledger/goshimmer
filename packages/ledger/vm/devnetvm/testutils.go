@@ -43,8 +43,8 @@ func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {
 	unlockBlock := NewSignatureUnlockBlock(w.sign(txEssence))
-	unlockBlocks := make([]UnlockBlock, len(txEssence.inputs))
-	for i := range txEssence.inputs {
+	unlockBlocks := make([]UnlockBlock, len(txEssence.Inputs()))
+	for i := range txEssence.Inputs() {
 		unlockBlocks[i] = unlockBlock
 	}
 	return unlockBlocks

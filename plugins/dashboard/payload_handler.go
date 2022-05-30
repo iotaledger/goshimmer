@@ -109,11 +109,11 @@ func ProcessPayload(p payload.Payload) interface{} {
 		}
 	case devnetvm.TransactionType:
 		return processTransactionPayload(p)
-	case faucet.Type:
+	case faucet.RequestType:
 		// faucet payload
 		return BasicStringPayload{
 			ContentTitle: "address",
-			Content:      p.(*faucet.Request).Address().Base58(),
+			Content:      p.(*faucet.Payload).Address().Base58(),
 		}
 	case drng.PayloadType:
 		// drng payload
@@ -138,7 +138,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 	var subpayload interface{}
 	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drng.PayloadFromMarshalUtil(marshalUtil)
+	drngPayload, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
 
 	switch drngPayload.Header.PayloadType {
 	case drng.TypeCollectiveBeacon:

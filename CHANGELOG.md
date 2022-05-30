@@ -1,3 +1,35 @@
+# v0.8.14 - 2022-05-16
+
+> Minor revision introducing small docker changes.
+
+The snapshot has been taken at 2022-05-07 16:30 UTC.
+- Fix several Docker discrepancies (#2201, #2206)
+
+# v0.8.13 - 2022-05-06
+
+> This release introduces serix, a reflection-based serialization library that enables us to automatically serialize all models.
+
+The snapshot has been taken at 2022-05-04 15:05 UTC.
+- Avoid failing on duplicated unlock blocks with serix (#2197)
+- Use serix library  (#2187)
+- Buffer size calculation update for congestion control (#2166)
+- Feat/evil spammer improvements and fixes (#2191)
+- Fix bugs in evil spammer and tutorial (#2185)
+
+
+# v0.8.12 - 2022-04-25
+
+> This release introduces the evil wallet and a fix where nodes could not express their opinion on conflicts properly. 
+
+The snapshot has been taken at 2022-03-21 15:40 UTC.
+- Decrease activity message interval (#2182)
+- Fix issue where liked branch is not returned when LikedConflictMember is called with the liked branch of the conflict set (#2174)
+- Evil Wallet and Evil Spammer tool (#2172)
+- Build(deps): bump ansi-regex from 3.0.0 to 3.0.1 in /documentation (#2173)
+- Build(deps): bump async from 2.6.3 to 2.6.4 for all frontends (#2171)
+- Build(deps): bump minimist from 1.2.5 to 1.2.6 in /plugins/dashboard/frontend (#2152)
+- Build(deps): bump moment from 2.29.1 to 2.29.2 in dagsvisualizer and dashboard (#2150)
+
 # v0.8.11 - 2022-03-23
 
 > This release upgrades to Go 1.18 and fixes a bug that rendered tips unreferenceable.

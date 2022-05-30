@@ -352,7 +352,7 @@ func (a *ApprovalWeightManager) updateBranchWeight(branchID utxo.TransactionID) 
 	activeWeights, totalWeight := a.tangle.WeightProvider.WeightsOfRelevantVoters()
 
 	var voterWeight float64
-	a.VotersOfBranch(branchID).ForEach(func(voter Voter) {
+	a.VotersOfBranch(branchID).Set.ForEach(func(voter Voter) {
 		voterWeight += activeWeights[voter]
 	})
 

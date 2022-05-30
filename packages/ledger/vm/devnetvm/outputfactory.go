@@ -1,11 +1,21 @@
 package devnetvm
 
 import (
-	"github.com/iotaledger/hive.go/marshalutil"
+	"context"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/cerrors"
+	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
-func OutputFactory(marshalUtil *marshalutil.MarshalUtil) (output utxo.Output, err error) {
-	return OutputFromMarshalUtil(marshalUtil)
+// OutputFromBytes is the factory function for Outputs.
+func OutputFromBytes(data []byte) (output utxo.Output, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &output, serix.WithValidation())
+	if err != nil {
+		return nil, errors.Errorf("failed to parse Output (%v): %w", err, cerrors.ErrParseBytesFailed)
+	}
+
+	return output, nil
 }

@@ -89,13 +89,13 @@ func New(options ...Option) (ledger *Ledger) {
 // LoadSnapshot loads a snapshot of the Ledger from the given snapshot.
 func (l *Ledger) LoadSnapshot(snapshot *Snapshot) {
 	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		outputMetadata, exists := snapshot.OutputsMetadata.Get(output.ID())
+		meta, exists := snapshot.OutputsMetadata.Get(output.ID())
 		if !exists {
 			panic(fmt.Sprintf("missing OutputMetadata for Output with %s", output.ID()))
 		}
 
 		l.Storage.outputStorage.Store(output).Release()
-		l.Storage.outputMetadataStorage.Store(outputMetadata).Release()
+		l.Storage.outputMetadataStorage.Store(meta).Release()
 
 		return nil
 	})

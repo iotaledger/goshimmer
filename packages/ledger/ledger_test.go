@@ -574,7 +574,4 @@ func TestLedger_Aliases(t *testing.T) {
 
 	transactionID.RegisterAlias("TX1")
 	branchID.RegisterAlias("Branch1")
-
-	fmt.Println(transactionID)
-	fmt.Println(branchID)
 }

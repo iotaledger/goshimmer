@@ -178,7 +178,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
 func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangle.Message, string, error) {
-	faucetReq := requestMsg.Payload().(*faucet.Request)
+	faucetReq := requestMsg.Payload().(*faucet.Payload)
 
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared
@@ -335,8 +335,7 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
 		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
-					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+				if !outputMetadata.IsSpent() && deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
 					outputEssence := output.(devnetvm.Output)
 
 					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)

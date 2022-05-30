@@ -10,7 +10,7 @@ import (
 
 // ConflictDAG represents a generic DAG that is able to model causal dependencies between conflicts that try to access a
 // shared set of resources.
-type ConflictDAG[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]] struct {
+type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// Events is a dictionary for events emitted by the ConflictDAG.
 	Events *Events[ConflictIDType, ResourceIDType]
 
@@ -28,7 +28,7 @@ type ConflictDAG[ConflictIDType set.AdvancedSetElement[ConflictIDType], Resource
 }
 
 // New returns a new ConflictDAG with the given options.
-func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType set.AdvancedSetElement[ResourceIDType]](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
+func New[ConflictIDType, ResourceIDType comparable](options ...Option) (new *ConflictDAG[ConflictIDType, ResourceIDType]) {
 	new = &ConflictDAG[ConflictIDType, ResourceIDType]{
 		Events:  newEvents[ConflictIDType, ResourceIDType](),
 		options: newOptions(options...),
@@ -43,7 +43,7 @@ func New[ConflictIDType set.AdvancedSetElement[ConflictIDType], ResourceIDType s
 func (b *ConflictDAG[ConflictIDType, ResourceIDType]) CreateConflict(id ConflictIDType, parents *set.AdvancedSet[ConflictIDType], conflictingResources *set.AdvancedSet[ResourceIDType]) (created bool) {
 	b.RLock()
 	b.Storage.CachedConflict(id, func(ConflictIDType) (conflict *Conflict[ConflictIDType, ResourceIDType]) {
-		conflict = NewBranch(id, parents, set.NewAdvancedSet[ResourceIDType]())
+		conflict = NewConflict(id, parents, set.NewAdvancedSet[ResourceIDType]())
 
 		b.addConflictMembers(conflict, conflictingResources)
 		b.createChildBranchReferences(parents, id)
@@ -83,7 +83,8 @@ func (b *ConflictDAG[ConflictIDType, ResourceIDType]) UpdateConflictParents(id C
 		b.removeChildBranchReferences(parentBranchIDs.DeleteAll(removedBranchIDs), id)
 		b.createChildBranchReferences(set.NewAdvancedSet(addedBranchID), id)
 
-		updated = branch.SetParents(parentBranchIDs)
+		branch.SetParents(parentBranchIDs)
+		updated = true
 	})
 	b.RUnlock()
 
@@ -226,7 +227,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) createChildBranchRefere
 // removeChildBranchReferences removes the named ChildBranch references.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) removeChildBranchReferences(parentBranchIDs *set.AdvancedSet[ConflictID], childBranchID ConflictID) {
 	for it := parentBranchIDs.Iterator(); it.HasNext(); {
-		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(it.Next().Bytes(), childBranchID.Bytes()))
+		b.Storage.childBranchStorage.Delete(byteutils.ConcatBytes(bytes(it.Next()), bytes(childBranchID)))
 	}
 }
 
@@ -254,10 +255,10 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) anyConflictingBranchCon
 // registerConflictMember registers a Conflict in a Conflict by creating the references (if necessary) and increasing the
 // corresponding member counter.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) registerConflictMember(conflictID ConflictingResourceID, branchID ConflictID) {
-	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictID, ConflictingResourceID]).Release()
+	b.Storage.CachedConflictMember(conflictID, branchID, NewConflictMember[ConflictingResourceID, ConflictID]).Release()
 }
 
-// inclusionState returns the InclusionState of the Conflict with the given BranchID.
+// inclusionState returns the InclusionState of the Conflict with the given ConflictID.
 func (b *ConflictDAG[ConflictID, ConflictingResourceID]) inclusionState(branchID ConflictID) (inclusionState InclusionState) {
 	b.Storage.CachedConflict(branchID).Consume(func(branch *Conflict[ConflictID, ConflictingResourceID]) {
 		inclusionState = branch.InclusionState()

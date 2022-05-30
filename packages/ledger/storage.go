@@ -1,16 +1,17 @@
 package ledger
 
 import (
+	"context"
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/dataflow"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -46,35 +47,35 @@ type Storage struct {
 // newStorage returns a new storage instance for the given Ledger.
 func newStorage(ledger *Ledger) (new *Storage) {
 	new = &Storage{
-		transactionStorage: objectstorage.New[utxo.Transaction](
+		transactionStorage: objectstorage.NewInterfaceStorage[utxo.Transaction](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionStorage),
+			transactionFactory(ledger.options.vm),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
-			objectstorage.WithObjectFactory(transactionFactory(ledger.options.vm)),
 		),
-		transactionMetadataStorage: objectstorage.New[*TransactionMetadata](
+		transactionMetadataStorage: objectstorage.NewStructStorage[TransactionMetadata](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.transactionMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		outputStorage: objectstorage.New[utxo.Output](
+		outputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputStorage),
+			outputFactory(ledger.options.vm),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
-			objectstorage.WithObjectFactory(outputFactory(ledger.options.vm)),
 		),
-		outputMetadataStorage: objectstorage.New[*OutputMetadata](
+		outputMetadataStorage: objectstorage.NewStructStorage[OutputMetadata](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputMetadataStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputMetadataCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 		),
-		consumerStorage: objectstorage.New[*Consumer](
+		consumerStorage: objectstorage.NewStructStorage[Consumer](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixConsumerStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
-			consumerPartitionKeys,
+			objectstorage.PartitionKey(Consumer{}.KeyPartitions()...),
 		),
 		ledger: ledger,
 	}
@@ -283,7 +284,7 @@ func (s *Storage) pruneTransaction(txID utxo.TransactionID, pruneFutureCone bool
 func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var txID utxo.TransactionID
-		if err = txID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		if _, err = txID.Decode(key); err != nil {
 			panic(err)
 		}
 
@@ -302,7 +303,7 @@ func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectst
 func outputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var outputID utxo.OutputID
-		if err = outputID.FromMarshalUtil(marshalutil.New(key)); err != nil {
+		if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
 			return nil, err
 		}
 

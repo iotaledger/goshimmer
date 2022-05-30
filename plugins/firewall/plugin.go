@@ -44,7 +44,7 @@ type firewallDeps struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
 		if err := event.Container.Provide(createFirewall); err != nil {
 			Plugin.Panic(err)
 		}

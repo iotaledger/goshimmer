@@ -4,6 +4,7 @@ import { MAX_VERTICES } from 'utils/constants';
 import {
     tangleBooked,
     tangleConfirmed,
+    tangleTxGoFChanged,
     tangleFutureMarkerUpdated,
     tangleVertex
 } from 'models/tangle';
@@ -44,6 +45,7 @@ export class TangleStore {
             WSMsgType.MessageConfirmed,
             this.setMessageConfirmedTime
         );
+        registerHandler(WSMsgType.MessageTxGoFChanged, this.updateMessageTxGoF);
         registerHandler(WSMsgType.FutureMarkerUpdated, this.updateFutureMarker);
     }
 
@@ -51,6 +53,7 @@ export class TangleStore {
         unregisterHandler(WSMsgType.Message);
         unregisterHandler(WSMsgType.MessageBooked);
         unregisterHandler(WSMsgType.MessageConfirmed);
+        unregisterHandler(WSMsgType.MessageTxGoFChanged);
         unregisterHandler(WSMsgType.FutureMarkerUpdated);
     }
 
@@ -106,6 +109,25 @@ export class TangleStore {
 
         msg.branchIDs = branch.branchIDs;
         msg.isMarker = branch.isMarker;
+
+        this.messages.set(msg.ID, msg);
+        if (this.draw) {
+            this.updateIfNotPaused(msg);
+        }
+    };
+
+    @action
+    updateMessageTxGoF = (txGoF: tangleTxGoFChanged) => {
+        const msg = this.messages.get(txGoF.ID);
+        if (!msg) {
+            return;
+        }
+
+        if (txGoF.isConfirmed) {
+            msg.isTxConfirmed = true;
+        } else {
+            msg.isTxConfirmed = false;
+        }
 
         this.messages.set(msg.ID, msg);
         if (this.draw) {

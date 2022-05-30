@@ -38,6 +38,7 @@ func TestTransaction_Bytes(t *testing.T) {
 	_tx, err := new(Transaction).FromBytes(transaction.Bytes())
 	assert.NoError(t, err)
 	assert.Equal(t, transaction.ID(), _tx.ID())
+	assert.Equal(t, transaction.Essence().Outputs()[0].Balances(), _tx.Essence().Outputs()[0].Balances())
 }
 
 func TestTransaction_Complex(t *testing.T) {
@@ -103,11 +104,10 @@ func TestTransaction_Complex(t *testing.T) {
 	for i := range completedEssence.Inputs() {
 		unlockBlocks[i] = NewSignatureUnlockBlock(NewED25519Signature(ed25519.PublicKey{}, ed25519.Signature{}))
 	}
-	transaction := NewTransaction(completedEssence, unlockBlocks)
-
 	// both parties sign the transaction
-	signTransaction(transaction, unspentOutputsDB, party2KeyChain)
-	signTransaction(transaction, unspentOutputsDB, party1KeyChain)
+	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party2KeyChain)
+	signTransaction(completedEssence, unlockBlocks, unspentOutputsDB, party1KeyChain)
+	// transaction := NewTransaction(completedEssence, unlockBlocks)
 
 	// TODO: ADD VALIDITY CHECKS ONCE WE ADDED THE UTXO DAG.
 	// assert.True(t, utxoDAG.TransactionValid(transaction))
@@ -180,12 +180,12 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 
 // signTransaction is a utility function that iterates through a transactions inputs and signs the addresses that are
 // part of the signers key chain.
-func signTransaction(transaction *Transaction, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
-	essenceBytesToSign := transaction.Essence().Bytes()
+func signTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
+	essenceBytesToSign := essence.Bytes()
 
-	for i, input := range transaction.Essence().Inputs() {
+	for i, input := range essence.Inputs() {
 		if keyPair, keyPairExists := keyChain[addressFromInput(input, unspentOutputsDB)]; keyPairExists {
-			transaction.UnlockBlocks()[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
+			unlockBlocks[i] = NewSignatureUnlockBlock(NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essenceBytesToSign)))
 		}
 	}
 }

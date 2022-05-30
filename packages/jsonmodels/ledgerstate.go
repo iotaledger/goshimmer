@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/typeutils"
 	"github.com/mr-tron/base58"
 
@@ -490,7 +491,7 @@ type OutputMetadata struct {
 func NewOutputMetadata(outputMetadata *ledger.OutputMetadata, confirmedConsumerID utxo.TransactionID) *OutputMetadata {
 	return &OutputMetadata{
 		OutputID:            NewOutputID(outputMetadata.ID()),
-		BranchIDs:           outputMetadata.BranchIDs().Base58(),
+		BranchIDs:           lo.Map(lo.Map(outputMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		FirstConsumer:       outputMetadata.FirstConsumer().Base58(),
 		ConfirmedConsumer:   confirmedConsumerID.Base58(),
 		GradeOfFinality:     outputMetadata.GradeOfFinality(),
@@ -738,7 +739,7 @@ type TransactionMetadata struct {
 func NewTransactionMetadata(transactionMetadata *ledger.TransactionMetadata) *TransactionMetadata {
 	return &TransactionMetadata{
 		TransactionID:       transactionMetadata.ID().Base58(),
-		BranchIDs:           transactionMetadata.BranchIDs().Base58(),
+		BranchIDs:           lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		Booked:              transactionMetadata.IsBooked(),
 		BookedTime:          transactionMetadata.BookingTime().Unix(),
 		GradeOfFinality:     transactionMetadata.GradeOfFinality(),

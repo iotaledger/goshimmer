@@ -1,25 +1,25 @@
 package mana
 
 import (
-	"crypto/sha256"
+	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
+	"github.com/pkg/errors"
 )
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
 	objectstorage.StorableObjectFlags
-	ManaType        Type
-	BaseValues      []float64
-	EffectiveValues []float64
-	LastUpdated     time.Time
-	NodeID          identity.ID
+	ManaType        Type        `serix:"0"`
+	BaseValues      []float64   `serix:"1,lengthPrefixType=uint16"`
+	EffectiveValues []float64   `serix:"2,lengthPrefixType=uint16"`
+	LastUpdated     time.Time   `serix:"3"`
+	NodeID          identity.ID `serix:"4"`
 
 	bytes []byte
 }
@@ -37,109 +37,53 @@ func (p *PersistableBaseMana) String() string {
 
 var _ objectstorage.StorableObject = new(PersistableBaseMana)
 
-// Bytes  marshals the persistable mana into a sequence of bytes.
+// Bytes returns a marshaled version of the PersistableBaseMana.
 func (p *PersistableBaseMana) Bytes() []byte {
-	if bytes := p.bytes; bytes != nil {
-		return bytes
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-	// create marshal helper
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(byte(p.ManaType))
-	marshalUtil.WriteUint16(uint16(len(p.BaseValues)))
-	for _, baseValue := range p.BaseValues {
-		marshalUtil.WriteUint64(math.Float64bits(baseValue))
-	}
-	marshalUtil.WriteUint16(uint16(len(p.EffectiveValues)))
-	for _, effectiveValue := range p.EffectiveValues {
-		marshalUtil.WriteUint64(math.Float64bits(effectiveValue))
-	}
-	marshalUtil.WriteTime(p.LastUpdated)
-	marshalUtil.WriteBytes(p.NodeID.Bytes())
-
-	p.bytes = marshalUtil.Bytes()
-	return p.bytes
+	return objBytes
 }
 
-// ObjectStorageKey returns the key of the persistable mana.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (p *PersistableBaseMana) ObjectStorageKey() []byte {
-	return p.NodeID.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p.NodeID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue returns the bytes of the persistable mana.
+// ObjectStorageValue marshals the PersistableBaseMana into a sequence of bytes that are used as the value part in the
+// object storage.
 func (p *PersistableBaseMana) ObjectStorageValue() []byte {
-	return p.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // FromObjectStorage creates an PersistableBaseMana from sequences of key and bytes.
-func (p *PersistableBaseMana) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	res, err := p.FromBytes(bytes)
-	copy(res.NodeID[:], key)
-	return res, err
-
+func (p *PersistableBaseMana) FromObjectStorage(key, value []byte) error {
+	_, err := p.FromBytes(value)
+	copy(p.NodeID[:], key)
+	return err
 }
 
-// FromBytes unmarshals a Persistable Base Mana from a sequence of bytes.
-func (p *PersistableBaseMana) FromBytes(bytes []byte) (result *PersistableBaseMana, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = p.FromMarshalUtil(marshalUtil)
-	return
-}
-
-// FromMarshalUtil unmarshals a PersistableBaseMana using the given marshalUtil (for easier marshaling/unmarshalling).
-func (p *PersistableBaseMana) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (persistableBaseMana *PersistableBaseMana, err error) {
-	if persistableBaseMana = p; persistableBaseMana == nil {
-		persistableBaseMana = new(PersistableBaseMana)
+// FromBytes unmarshals a PersistableBaseMana from a sequence of bytes.
+func (p *PersistableBaseMana) FromBytes(data []byte) (manaVector *PersistableBaseMana, err error) {
+	if manaVector = p; manaVector == nil {
+		manaVector = p
 	}
-	manaType, err := marshalUtil.ReadByte()
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, manaVector, serix.WithValidation())
 	if err != nil {
-		return
+		return nil, errors.Wrap(err, "failed to parse PersistableBaseMana")
 	}
-	persistableBaseMana.ManaType = Type(manaType)
-
-	baseValuesLength, err := marshalUtil.ReadUint16()
-	if err != nil {
-		return
-	}
-	persistableBaseMana.BaseValues = make([]float64, 0, baseValuesLength)
-	for i := 0; i < int(baseValuesLength); i++ {
-		var baseMana uint64
-		baseMana, err = marshalUtil.ReadUint64()
-		if err != nil {
-			return persistableBaseMana, err
-		}
-		persistableBaseMana.BaseValues = append(persistableBaseMana.BaseValues, math.Float64frombits(baseMana))
-	}
-
-	effectiveValuesLength, err := marshalUtil.ReadUint16()
-	if err != nil {
-		return persistableBaseMana, err
-	}
-	persistableBaseMana.EffectiveValues = make([]float64, 0, effectiveValuesLength)
-	for i := 0; i < int(effectiveValuesLength); i++ {
-		var effBaseMana uint64
-		effBaseMana, err = marshalUtil.ReadUint64()
-		if err != nil {
-			return persistableBaseMana, err
-		}
-		persistableBaseMana.EffectiveValues = append(persistableBaseMana.EffectiveValues, math.Float64frombits(effBaseMana))
-	}
-
-	lastUpdated, err := marshalUtil.ReadTime()
-	if err != nil {
-		return
-	}
-	persistableBaseMana.LastUpdated = lastUpdated
-
-	nodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
-	if err != nil {
-		return
-	}
-	var nodeID identity.ID
-	copy(nodeID[:], nodeIDBytes)
-	persistableBaseMana.NodeID = nodeID
-
-	consumedBytes := marshalUtil.ReadOffset()
-	persistableBaseMana.bytes = make([]byte, consumedBytes)
-	copy(persistableBaseMana.bytes, marshalUtil.Bytes())
-	return
+	return manaVector, nil
 }

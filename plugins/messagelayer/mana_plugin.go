@@ -75,11 +75,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
-	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
+	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
-		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
+		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())

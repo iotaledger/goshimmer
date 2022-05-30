@@ -26,6 +26,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
+	"github.com/iotaledger/goshimmer/plugins/webapi"
 )
 
 // region Plugin ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,6 +50,9 @@ var (
 	Plugin *node.Plugin
 
 	deps = new(dependencies)
+
+	// filterEnabled whether doubleSpendFilter is enabled.
+	filterEnabled bool
 
 	// doubleSpendFilter helps to filter out double spends locally.
 	doubleSpendFilter *DoubleSpendFilter
@@ -74,18 +78,46 @@ func Filter() *DoubleSpendFilter {
 	return doubleSpendFilter
 }
 
+// FilterHasConflict checks if the outputs are conflicting if doubleSpendFilter is enabled.
+func FilterHasConflict(outputs devnetvm.Inputs) (bool, utxo.TransactionID) {
+	if filterEnabled {
+		has, conflictingID := doubleSpendFilter.HasConflict(outputs)
+		return has, conflictingID
+	}
+	return false, utxo.TransactionID{}
+}
+
+// FilterAdd Adds transaction to the doubleSpendFilter if it is enabled.
+func FilterAdd(tx *devnetvm.Transaction) {
+	if filterEnabled {
+		doubleSpendFilter.Add(tx)
+	}
+}
+
+// FilterRemove Removes transaction id from the doubleSpendFilter if it is enabled.
+func FilterRemove(txID utxo.TransactionID) {
+	if filterEnabled {
+		doubleSpendFilter.Remove(txID)
+	}
+}
+
 func configure(_ *node.Plugin) {
-	doubleSpendFilter = Filter()
-	onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
-		doubleSpendFilter.Remove(event.TransactionID)
-	})
+	filterEnabled = webapi.Parameters.EnableDSFilter
+	if filterEnabled {
+		doubleSpendFilter = Filter()
+		onTransactionConfirmed = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+			doubleSpendFilter.Remove(event.TransactionID)
+		})
+	}
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmed)
 	log = logger.NewLogger(PluginName)
 }
 
 func run(*node.Plugin) {
-	if err := daemon.BackgroundWorker("WebAPIDoubleSpendFilter", worker, shutdown.PriorityWebAPI); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
+	if filterEnabled {
+		if err := daemon.BackgroundWorker("WebAPIDoubleSpendFilter", worker, shutdown.PriorityWebAPI); err != nil {
+			log.Panicf("Failed to start as daemon: %s", err)
+		}
 	}
 
 	// register endpoints
@@ -97,6 +129,7 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/branches/:branchID/conflicts", GetBranchConflicts)
 	deps.Server.GET("ledgerstate/branches/:branchID/voters", GetBranchVoters)
 	deps.Server.GET("ledgerstate/branches/:branchID/sequenceids", GetBranchSequenceIDs)
+	deps.Server.GET("ledgerstate/outputs/:outputID", GetOutput)
 	deps.Server.GET("ledgerstate/outputs/:outputID/consumers", GetOutputConsumers)
 	deps.Server.GET("ledgerstate/outputs/:outputID/metadata", GetOutputMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID", GetTransaction)
@@ -285,8 +318,8 @@ func GetBranchConflicts(c echo.Context) (err error) {
 		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
 			conflictID := it.Next()
 			branchIDsPerConflictID[conflictID] = make([]utxo.TransactionID, 0)
-			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.TransactionID, utxo.OutputID]) {
-				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.BranchID())
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+				branchIDsPerConflictID[conflictID] = append(branchIDsPerConflictID[conflictID], conflictMember.ConflictID())
 			})
 		}
 
@@ -500,8 +533,8 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
-	// check if it would introduce a double spend known to the node locally
-	has, conflictingID := doubleSpendFilter.HasConflict(tx.Essence().Inputs())
+	// if filter is enabled check if it would introduce a double spend known to the node locally
+	has, conflictingID := FilterHasConflict(tx.Essence().Inputs())
 	if has {
 		err = errors.Errorf("transaction is conflicting with previously submitted transaction %s", conflictingID.Base58())
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
@@ -548,10 +581,10 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// add tx to double spend doubleSpendFilter
-	doubleSpendFilter.Add(tx)
+	FilterAdd(tx)
 	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
 		// if we failed to issue the transaction, we remove it
-		doubleSpendFilter.Remove(tx.ID())
+		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 	return c.JSON(http.StatusOK, &jsonmodels.PostTransactionResponse{TransactionID: tx.ID().Base58()})

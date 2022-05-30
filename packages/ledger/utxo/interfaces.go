@@ -2,7 +2,6 @@ package utxo
 
 import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
 )
 
 // region Transaction //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -23,9 +22,6 @@ type Transaction interface {
 
 	// Inputs returns the inputs of the Transaction.
 	Inputs() (inputs []Input)
-
-	// Bytes returns a serialized version of the Transaction.
-	Bytes() (serialized []byte)
 
 	// String returns a human-readable version of the Transaction.
 	String() (humanReadable string)
@@ -56,7 +52,7 @@ type Output interface {
 	SetID(id OutputID)
 
 	// Bytes returns a serialized version of the Output.
-	Bytes() (serialized []byte)
+	Bytes() (serialized []byte, err error)
 
 	// String returns a human-readable version of the Output.
 	String() (humanReadable string)
@@ -64,7 +60,7 @@ type Output interface {
 	objectstorage.StorableObject
 }
 
-type OutputFactory func(*marshalutil.MarshalUtil) (output Output, err error)
+type OutputFactory func([]byte) (output Output, err error)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

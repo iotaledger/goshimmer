@@ -14,19 +14,19 @@ type Asset struct {
 	Color devnetvm.Color
 
 	// Name of the asset
-	Name string
+	Name string `serix:"1,lengthPrefixType=uint32"`
 
 	// currency symbol of the asset (optional)
-	Symbol string
+	Symbol string `serix:"2,lengthPrefixType=uint32"`
 
 	// Precision defines how many decimal places are shown when showing this asset in wallets
-	Precision int
+	Precision uint32 `serix:"3"`
 
 	// Supply is the amount of tokens that we want to create
-	Supply uint64
+	Supply uint64 `serix:"4"`
 
 	// TransactionID that created the asset
-	TransactionID utxo.TransactionID
+	TransactionID utxo.TransactionID `serix:"5"`
 }
 
 // ToRegistry creates a registry asset from a wallet asset.

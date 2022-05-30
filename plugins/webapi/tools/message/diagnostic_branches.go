@@ -6,7 +6,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -80,7 +82,7 @@ func getDiagnosticConflictsInfo(branchID utxo.TransactionID) DiagnosticBranchInf
 
 		transactionID := branchID
 
-		conflictInfo.ConflictSet = branch.ConflictIDs().Base58()
+		conflictInfo.ConflictSet = lo.Map(lo.Map(branch.ConflictIDs().Slice(), utxo.OutputID.Bytes), base58.Encode)
 
 		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 			conflictInfo.IssuanceTimestamp = transaction.(*devnetvm.Transaction).Essence().Timestamp()

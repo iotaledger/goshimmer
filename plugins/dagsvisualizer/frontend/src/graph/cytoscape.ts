@@ -141,6 +141,7 @@ export function drawTransaction(
         })
     );
 
+    updateConfirmedTransaction(tx, graph);
     graph.layoutApi.placeNewNodes(collection);
 }
 
@@ -162,6 +163,7 @@ const drawSingleBranch = function (
         // already drawn
     }
     branchMap.set(branch.ID, branch);
+    updateConfirmedBranch(branch, graph);
 
     if (v) {
         graph.layoutApi.placeNewNodes(v);
@@ -237,6 +239,8 @@ export function updateConfirmedTransaction(
     if (!node) return;
     if (tx.isConfirmed) {
         node.addClass('confirmed');
+    } else if (node.hasClass('confirmed')) {
+        node.removeClass('confirmed');
     }
 }
 
@@ -250,6 +254,8 @@ export function updateConfirmedBranch(
     if (!node) return;
     if (branch.isConfirmed) {
         node.addClass('confirmed');
+    } else if (node.hasClass('confirmed')) {
+        node.removeClass('confirmed');
     }
 }
 
@@ -319,15 +325,15 @@ export function initUTXODAG() {
                 }
             },
             {
-                selector: '.invisible',
+                selector: '.confirmed',
                 style: {
-                    visibility: 'hidden'
+                    'background-color': UTXO.COLOR_CONFIRMED,
                 }
             },
             {
-                selector: '.confirmed',
+                selector: '.invisible',
                 style: {
-                    'background-color': UTXO.COLOR_CONFIRMED
+                    visibility: 'hidden'
                 }
             }
         ],

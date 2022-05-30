@@ -54,7 +54,7 @@ func (b *booker) bookTransactionCommand(params *dataFlowParams, next dataflow.Ne
 }
 
 // bookTransaction books a Transaction in the Ledger and creates its Outputs.
-func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata OutputsMetadata, consumers []*Consumer, outputs utxo.Outputs) {
+func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMetadata, inputsMetadata *OutputsMetadata, consumers []*Consumer, outputs *utxo.Outputs) {
 	branchIDs := b.inheritBranchIDs(ctx, txMetadata.ID(), inputsMetadata)
 
 	txMetadata.SetBranchIDs(branchIDs)
@@ -74,7 +74,7 @@ func (b *booker) bookTransaction(ctx context.Context, txMetadata *TransactionMet
 }
 
 // inheritedBranchIDs determines the BranchIDs that a Transaction should inherit when being booked.
-func (b *booker) inheritBranchIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata OutputsMetadata) (inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (b *booker) inheritBranchIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	parentBranchIDs := b.ledger.ConflictDAG.UnconfirmedConflicts(inputsMetadata.BranchIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
@@ -92,7 +92,7 @@ func (b *booker) inheritBranchIDs(ctx context.Context, txID utxo.TransactionID, 
 }
 
 // storeOutputs stores the Outputs in the Ledger.
-func (b *booker) storeOutputs(outputs utxo.Outputs, branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (b *booker) storeOutputs(outputs *utxo.Outputs, branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
@@ -105,7 +105,7 @@ func (b *booker) storeOutputs(outputs utxo.Outputs, branchIDs *set.AdvancedSet[u
 }
 
 // determineConflictDetails determines whether a Transaction is conflicting and returns the conflict details.
-func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadata OutputsMetadata) (conflictingInputIDs utxo.OutputIDs, consumersToFork utxo.TransactionIDs) {
+func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadata *OutputsMetadata) (conflictingInputIDs utxo.OutputIDs, consumersToFork utxo.TransactionIDs) {
 	conflictingInputIDs = utxo.NewOutputIDs()
 	consumersToFork = utxo.NewTransactionIDs()
 

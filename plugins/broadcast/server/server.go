@@ -106,9 +106,8 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 		defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
 
 		connectionDataReceivedClosure := event.NewClosure(func(event *buffconn.ReceiveMessageEvent) {
-			data := event.Data
-			d := make([]byte, len(data))
-			copy(d, data)
+			d := make([]byte, len(event.Data))
+			copy(d, event.Data)
 			bufferedConnDataReceived <- d
 		})
 

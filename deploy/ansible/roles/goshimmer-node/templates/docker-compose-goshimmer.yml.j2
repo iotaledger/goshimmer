@@ -56,7 +56,7 @@ services:
       --node.disablePlugins=portcheck
       --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsDRNGEndpoint,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
       --prometheus.bindAddress=0.0.0.0:9311
-      --messageLayer.snapshot.file=/snapshot.bin
+      --activity.broadcastInterval=1s
      {% if faucet|default(false) %}
       --faucet.seed={{ faucetSeed }}
       --faucet.tokensPerRequest=1000000

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	flag "github.com/spf13/pflag"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
@@ -26,21 +25,21 @@ func init() {
 	Plugin = node.NewPlugin(PluginName, nil, node.Enabled)
 
 	for name, plugin := range node.GetPlugins() {
-		onAddPlugin(name, plugin.Status)
+		onAddPlugin(&node.AddEvent{Name: name, Status: plugin.Status})
 	}
 
-	node.Events.AddPlugin.Attach(event.NewClosure(func(event *node.AddEvent) { onAddPlugin(event.Name, event.Status) }))
+	node.Events.AddPlugin.Hook(event.NewClosure(onAddPlugin))
 
 	flag.Usage = printUsage
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) { onInit(event.Plugin, event.Container) }))
+	Plugin.Events.Init.Hook(event.NewClosure(onInit))
 }
 
-func onAddPlugin(name string, status int) {
-	AddPluginStatus(node.GetPluginIdentifier(name), status)
+func onAddPlugin(addEvent *node.AddEvent) {
+	AddPluginStatus(node.GetPluginIdentifier(addEvent.Name), addEvent.Status)
 }
 
-func onInit(_ *node.Plugin, _ *dig.Container) {
+func onInit(_ *node.InitEvent) {
 	if *version {
 		fmt.Println(banner.AppName + " " + banner.AppVersion)
 		os.Exit(0)

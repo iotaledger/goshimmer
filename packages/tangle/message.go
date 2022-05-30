@@ -10,28 +10,105 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/mr-tron/base58"
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serializer"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
+func init() {
+	messageIDsArrayRules := &serix.ArrayRules{
+		Min:            MinParentsCount,
+		Max:            MaxParentsCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates,
+	}
+	err := serix.DefaultAPI.RegisterTypeSettings(MessageIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsByte).WithArrayRules(messageIDsArrayRules))
+
+	if err != nil {
+		panic(fmt.Errorf("error registering MessageIDs type settings: %w", err))
+	}
+	parentsMessageIDsArrayRules := &serix.ArrayRules{
+		Min:            MinParentsBlocksCount,
+		Max:            MaxParentsBlocksCount,
+		ValidationMode: serializer.ArrayValidationModeNoDuplicates,
+		UniquenessSliceFunc: func(next []byte) []byte {
+			// return first byte which indicates the parent type
+			return next[:1]
+		},
+	}
+	err = serix.DefaultAPI.RegisterTypeSettings(ParentMessageIDs{}, serix.TypeSettings{}.WithLengthPrefixType(serix.LengthPrefixTypeAsByte).WithArrayRules(parentsMessageIDsArrayRules))
+	if err != nil {
+		panic(fmt.Errorf("error registering ParentMessageIDs type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterValidators(ParentMessageIDs{}, validateParentMessageIDsBytes, validateParentMessageIDs)
+
+	if err != nil {
+		panic(fmt.Errorf("error registering ParentMessageIDs validators: %w", err))
+	}
+}
+
+func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err error) {
+	// Validate strong parent block
+	if strongParents, strongParentsExist := parents[StrongParentType]; len(parents) == 0 || !strongParentsExist ||
+		len(strongParents) < MinStrongParentsCount {
+		return ErrNoStrongParents
+	}
+	for parentsType, _ := range parents {
+		if parentsType > LastValidBlockType {
+			return ErrBlockTypeIsUnknown
+		}
+	}
+	if areReferencesConflictingAcrossBlocks(parents) {
+		return ErrConflictingReferenceAcrossBlocks
+	}
+	return nil
+}
+
+// validate messagesIDs are unique across blocks
+// there may be repetition across strong and like parents.
+func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
+	additiveParents := NewMessageIDs()
+	subtractiveParents := NewMessageIDs()
+
+	for parentsType, parentBlockReferences := range parentsBlocks {
+		for _, parent := range parentBlockReferences.Slice() {
+			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
+				additiveParents.Add(parent)
+			} else if parentsType == ShallowDislikeParentType {
+				subtractiveParents.Add(parent)
+			}
+		}
+	}
+
+	for parent := range subtractiveParents {
+		if _, exists := additiveParents[parent]; exists {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateParentMessageIDsBytes(_ context.Context, _ []byte) (err error) {
+	return
+}
+
 const (
-	// MessageVersion defines the version of the message structure.
+	// MessageVersion defines the Version of the message structure.
 	MessageVersion uint8 = 1
 
 	// MaxMessageSize defines the maximum size of a message.
@@ -85,19 +162,13 @@ func NewMessageID(base58EncodedString string) (result MessageID, err error) {
 }
 
 // MessageIDFromBytes unmarshals a message id from a sequence of bytes.
-func MessageIDFromBytes(bytes []byte) (result MessageID, consumedBytes int, err error) {
+func MessageIDFromBytes(data []byte) (result MessageID, consumedBytes int, err error) {
 	// check arguments
-	if len(bytes) < MessageIDLength {
-		err = fmt.Errorf("bytes not long enough to encode a valid message id")
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &result, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse MessageID: %w", err)
 		return
 	}
-
-	// calculate result
-	copy(result[:], bytes)
-
-	// return the number of bytes we processed
-	consumedBytes = MessageIDLength
-
 	return
 }
 
@@ -132,7 +203,7 @@ func (id MessageID) Bytes() []byte {
 	return id[:]
 }
 
-// Base58 returns a base58 encoded version of the MessageID.
+// Base58 returns a base58 encoded Version of the MessageID.
 func (id MessageID) Base58() string {
 	return base58.Encode(id[:])
 }
@@ -171,7 +242,7 @@ var messageIDAliasMutex sync.RWMutex
 var messageIDAliases = make(map[MessageID]string)
 
 // RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
-// readable string instead of the base58 encoded version of itself.
+// readable string instead of the base58 encoded Version of itself.
 func RegisterMessageIDAlias(messageID MessageID, alias string) {
 	messageIDAliasMutex.Lock()
 	defer messageIDAliasMutex.Unlock()
@@ -289,7 +360,7 @@ func (m MessageIDs) Base58() (result []string) {
 	return
 }
 
-// String returns a human-readable version of the MessageIDs.
+// String returns a human-readable Version of the MessageIDs.
 func (m MessageIDs) String() string {
 	if len(m) == 0 {
 		return "MessageIDs{}"
@@ -315,18 +386,21 @@ const (
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
+	messageInner `serix:"0"`
+}
+type messageInner struct {
 	// base functionality of StorableObject
 	objectstorage.StorableObjectFlags
 
 	// core properties (get sent over the wire)
-	version         uint8
-	parentsBlocks   []ParentsBlock
-	issuerPublicKey ed25519.PublicKey
-	issuingTime     time.Time
-	sequenceNumber  uint64
-	payload         payload.Payload
-	nonce           uint64
-	signature       ed25519.Signature
+	Version         uint8             `serix:"0"`
+	Parents         ParentMessageIDs  `serix:"1"`
+	IssuerPublicKey ed25519.PublicKey `serix:"2"`
+	IssuingTime     time.Time         `serix:"3"`
+	SequenceNumber  uint64            `serix:"4"`
+	Payload         payload.Payload   `serix:"5,optional"`
+	Nonce           uint64            `serix:"6"`
+	Signature       ed25519.Signature `serix:"7"`
 
 	// derived properties
 	id         *MessageID
@@ -337,46 +411,23 @@ type Message struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature) (*Message, error) {
-	// remove duplicates, sort in ASC
-	sortedStrongParents := sortParents(references[StrongParentType])
-	sortedWeakParents := sortParents(references[WeakParentType])
-	sortedShallowDislikeParents := sortParents(references[ShallowDislikeParentType])
-	sortedShallowLikeParents := sortParents(references[ShallowLikeParentType])
-
-	weakParentsCount := len(sortedWeakParents)
-	shallowDislikeParentsCount := len(sortedShallowDislikeParents)
-	shallowLikeParentsCount := len(sortedShallowLikeParents)
-
-	var parentsBlocks []ParentsBlock
-
-	parentsBlocks = append(parentsBlocks, ParentsBlock{
-		ParentsType: StrongParentType,
-		References:  sortedStrongParents,
-	})
-
-	if weakParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  sortedWeakParents,
-		})
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) (*Message, error) {
+	version := MessageVersion
+	if len(versionOpt) == 1 {
+		version = versionOpt[0]
 	}
+	msg := &Message{messageInner{
+		Version:         version,
+		Parents:         references,
+		IssuerPublicKey: issuerPublicKey,
+		IssuingTime:     issuingTime,
+		SequenceNumber:  sequenceNumber,
+		Payload:         msgPayload,
+		Nonce:           nonce,
+		Signature:       signature,
+	}}
 
-	if shallowLikeParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  sortedShallowLikeParents,
-		})
-	}
-
-	if shallowDislikeParentsCount > 0 {
-		parentsBlocks = append(parentsBlocks, ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  sortedShallowDislikeParents,
-		})
-	}
-
-	return newMessageWithValidation(MessageVersion, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, sequenceNumber)
+	return msg, nil
 }
 
 // newMessageWithValidation creates a new message while performing ths following syntactical checks:
@@ -385,231 +436,67 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 3. Parent count per block 1 <= x <= 8.
 // 4. Parents unique within block.
 // 5. Parents lexicographically sorted within block.
-// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 // 7. Blocks should be ordered by type in ascending order.
-func newMessageWithValidation(version uint8, parentsBlocks []ParentsBlock, issuingTime time.Time,
-	issuerPublicKey ed25519.PublicKey, msgPayload payload.Payload, nonce uint64,
-	signature ed25519.Signature, sequenceNumber uint64) (result *Message, err error) {
-	// Validate strong parent block
-	if len(parentsBlocks) == 0 || parentsBlocks[0].ParentsType != StrongParentType ||
-		len(parentsBlocks[0].References) < MinStrongParentsCount {
-		return nil, ErrNoStrongParents
-	}
 
-	// Block types must be ordered in ASC order and not repeat
-	for i := 0; i < len(parentsBlocks)-1; i++ {
-		if parentsBlocks[i].ParentsType == parentsBlocks[i+1].ParentsType {
-			return nil, ErrRepeatingBlockTypes
-		}
-		if parentsBlocks[i].ParentsType > parentsBlocks[i+1].ParentsType {
-			return nil, ErrBlocksNotOrderedByType
-		}
-		// we can skip the first block because we already ascertained it is of StrongParentType
-		if parentsBlocks[i+1].ParentsType > LastValidBlockType {
-			return nil, ErrBlockTypeIsUnknown
-		}
-	}
+// 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
+func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, version ...uint8) (result *Message, err error) {
+	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
 
-	// 1. Parent Count is correct for each block
-	// 2. Number of parents in eac block is in range
-	// 3. Parents are lexicographically ordered with no repetitions
-	for _, block := range parentsBlocks {
-		if len(block.References) > MaxParentsCount || len(block.References) < MinParentsCount {
-			return nil, ErrParentsOutOfRange
-		}
-		// The lexicographical order check also makes sure there are no duplicates
-		for i := 0; i < len(block.References)-1; i++ {
-			switch block.References[i].CompareTo(block.References[i+1]) {
-			case 0:
-				return nil, ErrRepeatingReferencesInBlock
-			case 1:
-				return nil, ErrParentsNotLexicographicallyOrdered
-			}
-		}
+	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
+	if err != nil {
+		return nil, err
 	}
-
-	if areReferencesConflictingAcrossBlocks(parentsBlocks) {
-		return nil, ErrConflictingReferenceAcrossBlocks
-	}
-
-	return &Message{
-		version:         version,
-		parentsBlocks:   parentsBlocks,
-		issuerPublicKey: issuerPublicKey,
-		issuingTime:     issuingTime,
-		sequenceNumber:  sequenceNumber,
-		payload:         msgPayload,
-		nonce:           nonce,
-		signature:       signature,
-	}, nil
+	return msg, nil
 }
 
-// validate messagesIDs are unique across blocks
-// there may be repetition across strong and like parents.
-func areReferencesConflictingAcrossBlocks(parentsBlocks []ParentsBlock) bool {
-	additiveParents := MessageIDs{}
-	subtractiveParents := MessageIDs{}
-
-	for _, parentBlock := range parentsBlocks {
-		for _, parent := range parentBlock.References {
-			if parentBlock.ParentsType == WeakParentType || parentBlock.ParentsType == ShallowLikeParentType {
-				additiveParents[parent] = types.Void
-			} else if parentBlock.ParentsType == ShallowDislikeParentType {
-				subtractiveParents[parent] = types.Void
-			}
-		}
-	}
-
-	for parent := range subtractiveParents {
-		if _, exists := additiveParents[parent]; exists {
-			return true
-		}
-	}
-
-	return false
-}
-
-// filters and sorts given parents and returns a new slice with sorted parents
-func sortParents(parents MessageIDs) (sorted []MessageID) {
-	sorted = parents.Slice()
-
-	// sort parents
-	sort.Slice(sorted, func(i, j int) bool {
-		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
-	})
-
-	return
-}
-
-// FromObjectStorage parses the given key and bytes into a message.
-func (m *Message) FromObjectStorage(key, data []byte) (result objectstorage.StorableObject, err error) {
-
+// FromObjectStorage creates a Message from sequences of key and bytes.
+func (m *Message) FromObjectStorage(key, value []byte) (err error) {
 	// parse the message
-	message, err := m.FromBytes(data)
+	message, err := m.FromBytes(value)
 	if err != nil {
 		err = fmt.Errorf("failed to parse message from object storage: %w", err)
 		return
 	}
-
-	// parse the ID from they key
-	id, err := ReferenceFromMarshalUtil(marshalutil.New(key))
+	messageID := new(MessageID)
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, messageID, serix.WithValidation())
 	if err != nil {
-		err = fmt.Errorf("failed to parse message ID from object storage: %w", err)
+		err = errors.Errorf("failed to parse Message.id: %w", err)
 		return
 	}
-	message.id = &id
-
-	// assign result
-	result = message
+	message.messageInner.id = messageID
 
 	return
 }
 
-// FromBytes parses the given bytes into a message.
-func (m *Message) FromBytes(bytes []byte) (message *Message, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	message, err = m.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return
+// FromBytes unmarshals a Transaction from a sequence of bytes.
+func (m *Message) FromBytes(data []byte) (msg *Message, err error) {
+	if msg = m; msg == nil {
+		msg = new(Message)
 	}
-	consumedBytes := marshalUtil.ReadOffset()
 
-	if len(bytes) != consumedBytes {
-		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(bytes), cerrors.ErrParseBytesFailed)
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, msg, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Message: %w", err)
+		return msg, err
 	}
-	return
+
+	if len(data) != consumedBytes {
+		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
+	}
+
+	// TODO: this seems a bit out of place here.
+	msgPayload := msg.Payload()
+	if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
+		tx := msgPayload.(*devnetvm.Transaction)
+
+		devnetvm.SetOutputID(tx.Essence(), tx.ID())
+	}
+
+	return msg, err
 }
 
-// FromMarshalUtil parses a message from the given marshal util.
-func (m *Message) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (*Message, error) {
-	// determine read offset before starting to parse
-	readOffsetStart := marshalUtil.ReadOffset()
-
-	// parse information
-	version, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, errors.Errorf("failed to parse message version from MarshalUtil: %w", err)
-	}
-
-	var parentsBlocksCount uint8
-	if parentsBlocksCount, err = marshalUtil.ReadByte(); err != nil {
-		return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-	}
-	if parentsBlocksCount < MinParentsCount || parentsBlocksCount > MaxParentsCount {
-		return nil, errors.Errorf("parents count %d not allowed: %w", parentsBlocksCount, cerrors.ErrParseBytesFailed)
-	}
-
-	parentsBlocks := make([]ParentsBlock, parentsBlocksCount)
-
-	for i := 0; i < int(parentsBlocksCount); i++ {
-		var parentType uint8
-		if parentType, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parent types from MarshalUtil: %w", err)
-		}
-
-		var parentsCount uint8
-		if parentsCount, err = marshalUtil.ReadByte(); err != nil {
-			return nil, errors.Errorf("failed to parse parents count from MarshalUtil: %w", err)
-		}
-		references := make([]MessageID, parentsCount)
-		for j := 0; j < int(parentsCount); j++ {
-			if references[j], err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-				return nil, errors.Errorf("failed to parse parent %d-%d from MarshalUtil: %w", i, j, err)
-			}
-		}
-		parentsBlocks[i] = ParentsBlock{
-			ParentsType: ParentsType(parentType),
-			References:  references,
-		}
-	}
-
-	issuerPublicKey, err := ed25519.ParsePublicKey(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuer public key of the message: %w", err)
-	}
-	issuingTime, err := marshalUtil.ReadTime()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse issuing time of the message: %w", err)
-	}
-	msgSequenceNumber, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse sequence number of the message: %w", err)
-	}
-
-	msgPayload, err := payload.FromMarshalUtil(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse payload of the message: %w", err)
-	}
-
-	nonce, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse nonce of the message: %w", err)
-	}
-	signature, err := ed25519.ParseSignature(marshalUtil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse signature of the message: %w", err)
-	}
-
-	// retrieve the number of bytes we processed
-	readOffsetEnd := marshalUtil.ReadOffset()
-
-	// store marshaled version as a copy
-	msgBytes, err := marshalUtil.ReadBytes(readOffsetEnd-readOffsetStart, readOffsetStart)
-	if err != nil {
-		return nil, fmt.Errorf("error trying to copy raw source bytes: %w", err)
-	}
-
-	msg, err := newMessageWithValidation(version, parentsBlocks, issuingTime, issuerPublicKey, msgPayload, nonce, signature, msgSequenceNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	msg.bytes = msgBytes
-
-	return msg, nil
-}
-
-// VerifySignature verifies the signature of the message.
+// VerifySignature verifies the Signature of the message.
 func (m *Message) VerifySignature() bool {
 	msgBytes := m.Bytes()
 	signature := m.Signature()
@@ -617,7 +504,7 @@ func (m *Message) VerifySignature() bool {
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return m.issuerPublicKey.VerifySignature(content, signature)
+	return m.messageInner.IssuerPublicKey.VerifySignature(content, signature)
 }
 
 // ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
@@ -649,27 +536,25 @@ func (m *Message) IDBytes() []byte {
 	return m.ID().Bytes()
 }
 
-// Version returns the message version.
+// Version returns the message Version.
 func (m *Message) Version() uint8 {
-	return m.version
+	return m.messageInner.Version
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	for _, parentBlock := range m.parentsBlocks {
-		if parentBlock.ParentsType == parentType {
-			return NewMessageIDs(parentBlock.References...)
-		}
+	if parents, ok := m.messageInner.Parents[parentType]; ok {
+		return parents
 	}
 	return NewMessageIDs()
 }
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for _, parentBlock := range m.parentsBlocks {
-		for _, parentID := range parentBlock.References {
+	for parentType, parents := range m.messageInner.Parents {
+		for parentID := range parents {
 			consumer(Parent{
-				Type: parentBlock.ParentsType,
+				Type: parentType,
 				ID:   parentID,
 			})
 		}
@@ -699,32 +584,32 @@ func (m *Message) ParentsCountByType(parentType ParentsType) uint8 {
 
 // IssuerPublicKey returns the public key of the message issuer.
 func (m *Message) IssuerPublicKey() ed25519.PublicKey {
-	return m.issuerPublicKey
+	return m.messageInner.IssuerPublicKey
 }
 
 // IssuingTime returns the time when this message was created.
 func (m *Message) IssuingTime() time.Time {
-	return m.issuingTime
+	return m.messageInner.IssuingTime
 }
 
 // SequenceNumber returns the sequence number of this message.
 func (m *Message) SequenceNumber() uint64 {
-	return m.sequenceNumber
+	return m.messageInner.SequenceNumber
 }
 
-// Payload returns the payload of the message.
+// Payload returns the Payload of the message.
 func (m *Message) Payload() payload.Payload {
-	return m.payload
+	return m.messageInner.Payload
 }
 
-// Nonce returns the nonce of the message.
+// Nonce returns the Nonce of the message.
 func (m *Message) Nonce() uint64 {
-	return m.nonce
+	return m.messageInner.Nonce
 }
 
-// Signature returns the signature of the message.
+// Signature returns the Signature of the message.
 func (m *Message) Signature() ed25519.Signature {
-	return m.signature
+	return m.messageInner.Signature
 }
 
 // calculates the message's MessageID.
@@ -732,39 +617,16 @@ func (m *Message) calculateID() MessageID {
 	return blake2b.Sum256(m.Bytes())
 }
 
-// Bytes returns the message in serialized byte form.
+// Bytes returns a marshaled version of the Transaction.
 func (m *Message) Bytes() []byte {
 	m.bytesMutex.Lock()
 	defer m.bytesMutex.Unlock()
-	if m.bytes != nil {
-		return m.bytes
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m)
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-
-	// marshal result
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(m.version)
-	marshalUtil.WriteByte(byte(len(m.parentsBlocks)))
-
-	for x := 0; x < len(m.parentsBlocks); x++ {
-		parentBlock := m.parentsBlocks[x]
-		marshalUtil.WriteByte(byte(parentBlock.ParentsType))
-		marshalUtil.WriteByte(byte(len(parentBlock.References)))
-		sortedParents := sortParents(NewMessageIDs(parentBlock.References...))
-		for _, parent := range sortedParents {
-			marshalUtil.Write(parent)
-		}
-	}
-
-	marshalUtil.Write(m.issuerPublicKey)
-	marshalUtil.WriteTime(m.issuingTime)
-	marshalUtil.WriteUint64(m.sequenceNumber)
-	marshalUtil.Write(m.payload)
-	marshalUtil.WriteUint64(m.nonce)
-	marshalUtil.Write(m.signature)
-
-	m.bytes = marshalUtil.Bytes()
-
-	return m.bytes
+	return objBytes
 }
 
 // Size returns the message size in bytes.
@@ -772,51 +634,65 @@ func (m *Message) Size() int {
 	return len(m.Bytes())
 }
 
-// ObjectStorageKey returns the key of the stored message object.
-// This returns the bytes of the message ID.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (m *Message) ObjectStorageKey() []byte {
-	return m.ID().Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.ID(), serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue returns the value stored in object storage.
-// This returns the bytes of message.
+// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
 func (m *Message) ObjectStorageValue() []byte {
-	return m.Bytes()
+	m.bytesMutex.Lock()
+	defer m.bytesMutex.Unlock()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 func (m *Message) String() string {
 	builder := stringify.StructBuilder("Message", stringify.StructField("id", m.ID()))
-	parents := sortParents(m.ParentsByType(StrongParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
-		}
+
+	for index, parent := range sortParents(m.ParentsByType(StrongParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("strongParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(WeakParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(ShallowDislikeParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(ShallowDislikeParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 	}
-	parents = sortParents(m.ParentsByType(ShallowLikeParentType))
-	if len(parents) > 0 {
-		for index, parent := range parents {
-			builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
-		}
+	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
+		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
-	builder.AddField(stringify.StructField("issuer", m.IssuerPublicKey()))
-	builder.AddField(stringify.StructField("issuingTime", m.IssuingTime()))
-	builder.AddField(stringify.StructField("sequenceNumber", m.SequenceNumber()))
-	builder.AddField(stringify.StructField("payload", m.Payload()))
-	builder.AddField(stringify.StructField("nonce", m.Nonce()))
-	builder.AddField(stringify.StructField("signature", m.Signature()))
+
+	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
+	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
+	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.StructField("Payload", m.Payload()))
+	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
+	builder.AddField(stringify.StructField("Signature", m.Signature()))
 	return builder.String()
+}
+
+// sorts given parents and returns a new slice with sorted parents
+func sortParents(parents MessageIDs) (sorted []MessageID) {
+	sorted = parents.Slice()
+
+	// sort parents
+	sort.Slice(sorted, func(i, j int) bool {
+		return bytes.Compare(sorted[i].Bytes(), sorted[j].Bytes()) < 0
+	})
+
+	return
 }
 
 var _ objectstorage.StorableObject = new(Message)
@@ -852,38 +728,37 @@ type Parent struct {
 	Type ParentsType
 }
 
-// ParentsBlock is the container for parents in a Message.
-type ParentsBlock struct {
-	ParentsType
-	References []MessageID
-}
-
 // ParentMessageIDs is a map of ParentType to MessageIDs.
 type ParentMessageIDs map[ParentsType]MessageIDs
 
 // NewParentMessageIDs constructs a new ParentMessageIDs.
 func NewParentMessageIDs() ParentMessageIDs {
 	p := make(ParentMessageIDs)
-	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
-		p[parentType] = NewMessageIDs()
-	}
-
 	return p
 }
 
 // AddStrong adds a strong parent to the map.
 func (p ParentMessageIDs) AddStrong(messageID MessageID) ParentMessageIDs {
+	if _, exists := p[StrongParentType]; !exists {
+		p[StrongParentType] = NewMessageIDs()
+	}
 	return p.Add(StrongParentType, messageID)
 }
 
 // Add adds a parent to the map.
 func (p ParentMessageIDs) Add(parentType ParentsType, messageID MessageID) ParentMessageIDs {
+	if _, exists := p[parentType]; !exists {
+		p[parentType] = NewMessageIDs()
+	}
 	p[parentType].Add(messageID)
 	return p
 }
 
 // AddAll adds a collection of parents to the map.
 func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) ParentMessageIDs {
+	if _, exists := p[parentType]; !exists {
+		p[parentType] = NewMessageIDs()
+	}
 	p[parentType].AddAll(messageIDs)
 	return p
 }
@@ -892,6 +767,9 @@ func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) 
 func (p ParentMessageIDs) Clone() ParentMessageIDs {
 	pCloned := NewParentMessageIDs()
 	for parentType, messageIDs := range p {
+		if _, exists := p[parentType]; !exists {
+			p[parentType] = NewMessageIDs()
+		}
 		pCloned.AddAll(parentType, messageIDs)
 	}
 	return pCloned
@@ -903,25 +781,27 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	objectstorage.StorableObjectFlags
+	messageMetadataInner `serix:"0"`
+}
 
-	messageID           MessageID
-	receivedTime        time.Time
-	solid               bool
-	solidificationTime  time.Time
-	structureDetails    *markers.StructureDetails
-	addedBranchIDs      *set.AdvancedSet[utxo.TransactionID]
-	subtractedBranchIDs *set.AdvancedSet[utxo.TransactionID]
-	scheduled           bool
-	scheduledTime       time.Time
-	discardedTime       time.Time
-	queuedTime          time.Time
-	booked              bool
-	bookedTime          time.Time
-	objectivelyInvalid  bool
-	subjectivelyInvalid bool
-	gradeOfFinality     gof.GradeOfFinality
-	gradeOfFinalityTime time.Time
+type messageMetadataInner struct {
+	MessageID           MessageID
+	ReceivedTime        time.Time                 `serix:"1"`
+	SolidificationTime  time.Time                 `serix:"2"`
+	Solid               bool                      `serix:"3"`
+	StructureDetails    *markers.StructureDetails `serix:"4,optional"`
+	AddedBranchIDs      utxo.TransactionIDs       `serix:"5"`
+	SubtractedBranchIDs utxo.TransactionIDs       `serix:"6"`
+	Scheduled           bool                      `serix:"7"`
+	ScheduledTime       time.Time                 `serix:"8"`
+	Booked              bool                      `serix:"9"`
+	BookedTime          time.Time                 `serix:"10"`
+	ObjectivelyInvalid  bool                      `serix:"11"`
+	GradeOfFinality     gof.GradeOfFinality       `serix:"12"`
+	GradeOfFinalityTime time.Time                 `serix:"13"`
+	DiscardedTime       time.Time                 `serix:"14"`
+	QueuedTime          time.Time                 `serix:"15"`
+	SubjectivelyInvalid bool                      `serix:"16"`
 
 	solidMutex               sync.RWMutex
 	solidificationTimeMutex  sync.RWMutex
@@ -936,120 +816,66 @@ type MessageMetadata struct {
 	bookedTimeMutex          sync.RWMutex
 	invalidMutex             sync.RWMutex
 	gradeOfFinalityMutex     sync.RWMutex
+
+	objectstorage.StorableObjectFlags
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 	return &MessageMetadata{
-		messageID:           messageID,
-		receivedTime:        clock.SyncedTime(),
-		addedBranchIDs:      set.NewAdvancedSet[utxo.TransactionID](),
-		subtractedBranchIDs: set.NewAdvancedSet[utxo.TransactionID](),
+		messageMetadataInner{
+			MessageID:           messageID,
+			ReceivedTime:        clock.SyncedTime(),
+			AddedBranchIDs:      utxo.NewTransactionIDs(),
+			SubtractedBranchIDs: utxo.NewTransactionIDs(),
+		},
 	}
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, bytes []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, bytes))
+func (m *MessageMetadata) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+		return fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytes(bytes []byte) (result *MessageMetadata, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	result, err = m.FromMarshalUtil(marshalUtil)
-
-	return
-}
-
-// FromMarshalUtil parses a Message from the given MarshalUtil.
-func (m *MessageMetadata) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (messageMetadata *MessageMetadata, err error) {
-	if messageMetadata = m; messageMetadata == nil {
-		messageMetadata = new(MessageMetadata)
-		messageMetadata.addedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-		messageMetadata.subtractedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
+	if result = m; result == nil {
+		result = new(MessageMetadata)
 	}
-
-	if messageMetadata.messageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = fmt.Errorf("failed to parse message ID of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.receivedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse received time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.solidificationTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse solidification time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.solid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse solid flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.structureDetails, err = markers.StructureDetailsFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse StructureDetails from MarshalUtil: %w", err)
-		return
-	}
-	if err = messageMetadata.addedBranchIDs.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse added BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	if err = messageMetadata.subtractedBranchIDs.FromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse subtracted BranchIDs from MarshalUtil: %w", err)
-		return
-	}
-	if messageMetadata.scheduled, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse scheduled flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.scheduledTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse scheduled time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.booked, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse booked flag of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.bookedTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse booked time of message metadata: %w", err)
-		return
-	}
-	if messageMetadata.objectivelyInvalid, err = marshalUtil.ReadBool(); err != nil {
-		err = fmt.Errorf("failed to parse invalid flag of message metadata: %w", err)
-		return
-	}
-	gradeOfFinality, err := marshalUtil.ReadUint8()
+	messageID := new(MessageID)
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, messageID, serix.WithValidation())
 	if err != nil {
-		err = fmt.Errorf("failed to parse grade of finality of message metadata: %w", err)
-		return
-	}
-	messageMetadata.gradeOfFinality = gof.GradeOfFinality(gradeOfFinality)
-	if messageMetadata.gradeOfFinalityTime, err = marshalUtil.ReadTime(); err != nil {
-		err = fmt.Errorf("failed to parse gradeOfFinality time of message metadata: %w", err)
-		return
+		return nil, errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
 	}
 
-	return
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
+	if err != nil {
+		return nil, errors.Errorf("failed to parse MessageMetadata: %w", err)
+	}
+
+	result.messageMetadataInner.MessageID = *messageID
+	return result, nil
 }
 
 // ID returns the MessageID of the Message that this MessageMetadata object belongs to.
 func (m *MessageMetadata) ID() MessageID {
-	return m.messageID
+	return m.messageMetadataInner.MessageID
 }
 
 // ReceivedTime returns the time when the message was received.
 func (m *MessageMetadata) ReceivedTime() time.Time {
-	return m.receivedTime
+	return m.messageMetadataInner.ReceivedTime
 }
 
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
 	m.solidMutex.RLock()
 	defer m.solidMutex.RUnlock()
-	result = m.solid
+	result = m.messageMetadataInner.Solid
 
 	return
 }
@@ -1058,15 +884,15 @@ func (m *MessageMetadata) IsSolid() (result bool) {
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
 	m.solidMutex.RLock()
-	if m.solid != solid {
+	if m.messageMetadataInner.Solid != solid {
 		m.solidMutex.RUnlock()
 
 		m.solidMutex.Lock()
-		if m.solid != solid {
-			m.solid = solid
+		if m.messageMetadataInner.Solid != solid {
+			m.messageMetadataInner.Solid = solid
 			if solid {
 				m.solidificationTimeMutex.Lock()
-				m.solidificationTime = clock.SyncedTime()
+				m.messageMetadataInner.SolidificationTime = clock.SyncedTime()
 				m.solidificationTimeMutex.Unlock()
 			}
 
@@ -1087,7 +913,7 @@ func (m *MessageMetadata) SolidificationTime() time.Time {
 	m.solidificationTimeMutex.RLock()
 	defer m.solidificationTimeMutex.RUnlock()
 
-	return m.solidificationTime
+	return m.messageMetadataInner.SolidificationTime
 }
 
 // SetStructureDetails sets the structureDetails of the message.
@@ -1095,11 +921,11 @@ func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.Structur
 	m.structureDetailsMutex.Lock()
 	defer m.structureDetailsMutex.Unlock()
 
-	if m.structureDetails != nil {
+	if m.messageMetadataInner.StructureDetails != nil {
 		return false
 	}
 
-	m.structureDetails = structureDetails
+	m.messageMetadataInner.StructureDetails = structureDetails
 
 	m.SetModified()
 	return true
@@ -1110,19 +936,19 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 	m.structureDetailsMutex.RLock()
 	defer m.structureDetailsMutex.RUnlock()
 
-	return m.structureDetails
+	return m.messageMetadataInner.StructureDetails
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs utxo.TransactionIDs) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Equal(addedBranchIDs) {
+	if m.messageMetadataInner.AddedBranchIDs.Equal(addedBranchIDs) {
 		return false
 	}
 
-	m.addedBranchIDs = addedBranchIDs.Clone()
+	m.messageMetadataInner.AddedBranchIDs = addedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 
@@ -1134,33 +960,33 @@ func (m *MessageMetadata) AddBranchID(branchID utxo.TransactionID) (modified boo
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.addedBranchIDs.Has(branchID) {
+	if m.messageMetadataInner.AddedBranchIDs.Has(branchID) {
 		return
 	}
 
-	m.addedBranchIDs.Add(branchID)
+	m.messageMetadataInner.AddedBranchIDs.Add(branchID)
 	m.SetModified(true)
 	return true
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
-func (m *MessageMetadata) AddedBranchIDs() *set.AdvancedSet[utxo.TransactionID] {
+func (m *MessageMetadata) AddedBranchIDs() utxo.TransactionIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
-	return m.addedBranchIDs.Clone()
+	return m.messageMetadataInner.AddedBranchIDs.Clone()
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
-func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs *set.AdvancedSet[utxo.TransactionID]) (modified bool) {
+func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs utxo.TransactionIDs) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.subtractedBranchIDs.Equal(subtractedBranchIDs) {
+	if m.messageMetadataInner.SubtractedBranchIDs.Equal(subtractedBranchIDs) {
 		return false
 	}
 
-	m.subtractedBranchIDs = subtractedBranchIDs.Clone()
+	m.messageMetadataInner.SubtractedBranchIDs = subtractedBranchIDs.Clone()
 	m.SetModified(true)
 	modified = true
 
@@ -1168,11 +994,11 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs *set.Advanc
 }
 
 // SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
-func (m *MessageMetadata) SubtractedBranchIDs() *set.AdvancedSet[utxo.TransactionID] {
+func (m *MessageMetadata) SubtractedBranchIDs() utxo.TransactionIDs {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 
-	return m.subtractedBranchIDs.Clone()
+	return m.messageMetadataInner.SubtractedBranchIDs.Clone()
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
@@ -1183,12 +1009,12 @@ func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
 	m.scheduledTimeMutex.Lock()
 	defer m.scheduledTimeMutex.Unlock()
 
-	if m.scheduled == scheduled {
+	if m.messageMetadataInner.Scheduled == scheduled {
 		return false
 	}
 
-	m.scheduled = scheduled
-	m.scheduledTime = clock.SyncedTime()
+	m.messageMetadataInner.Scheduled = scheduled
+	m.messageMetadataInner.ScheduledTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1200,7 +1026,7 @@ func (m *MessageMetadata) Scheduled() (result bool) {
 	m.scheduledMutex.RLock()
 	defer m.scheduledMutex.RUnlock()
 
-	return m.scheduled
+	return m.messageMetadataInner.Scheduled
 }
 
 // ScheduledTime returns the time when the message represented by this metadata was scheduled.
@@ -1208,7 +1034,7 @@ func (m *MessageMetadata) ScheduledTime() time.Time {
 	m.scheduledTimeMutex.RLock()
 	defer m.scheduledTimeMutex.RUnlock()
 
-	return m.scheduledTime
+	return m.messageMetadataInner.ScheduledTime
 }
 
 // SetDiscardedTime add the discarded time of a message to the metadata.
@@ -1216,7 +1042,7 @@ func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
 	m.discardedTimeMutex.Lock()
 	defer m.discardedTimeMutex.Unlock()
 
-	m.discardedTime = discardedTime
+	m.messageMetadataInner.DiscardedTime = discardedTime
 }
 
 // DiscardedTime returns when the message was discarded.
@@ -1224,7 +1050,7 @@ func (m *MessageMetadata) DiscardedTime() time.Time {
 	m.discardedTimeMutex.RLock()
 	defer m.discardedTimeMutex.RUnlock()
 
-	return m.discardedTime
+	return m.messageMetadataInner.DiscardedTime
 }
 
 // QueuedTime returns the time a message entered the scheduling queue.
@@ -1232,7 +1058,7 @@ func (m *MessageMetadata) QueuedTime() time.Time {
 	m.queuedTimeMutex.RLock()
 	defer m.queuedTimeMutex.RUnlock()
 
-	return m.queuedTime
+	return m.messageMetadataInner.QueuedTime
 }
 
 // SetQueuedTime records the time the message entered the scheduler queue.
@@ -1240,7 +1066,7 @@ func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
 	m.queuedTimeMutex.Lock()
 	defer m.queuedTimeMutex.Unlock()
 
-	m.queuedTime = queuedTime
+	m.messageMetadataInner.QueuedTime = queuedTime
 }
 
 // SetBooked sets the message associated with this metadata as booked.
@@ -1251,12 +1077,12 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 	m.bookedTimeMutex.Lock()
 	defer m.bookedTimeMutex.Unlock()
 
-	if m.booked == booked {
+	if m.messageMetadataInner.Booked == booked {
 		return false
 	}
 
-	m.booked = booked
-	m.bookedTime = clock.SyncedTime()
+	m.messageMetadataInner.Booked = booked
+	m.messageMetadataInner.BookedTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1267,7 +1093,7 @@ func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
 func (m *MessageMetadata) IsBooked() (result bool) {
 	m.bookedMutex.RLock()
 	defer m.bookedMutex.RUnlock()
-	result = m.booked
+	result = m.messageMetadataInner.Booked
 
 	return
 }
@@ -1277,14 +1103,14 @@ func (m *MessageMetadata) BookedTime() time.Time {
 	m.bookedTimeMutex.RLock()
 	defer m.bookedTimeMutex.RUnlock()
 
-	return m.bookedTime
+	return m.messageMetadataInner.BookedTime
 }
 
 // IsObjectivelyInvalid returns true if the message represented by this metadata is objectively invalid.
 func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.objectivelyInvalid
+	result = m.messageMetadataInner.ObjectivelyInvalid
 
 	return
 }
@@ -1295,11 +1121,11 @@ func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.objectivelyInvalid == invalid {
+	if m.messageMetadataInner.ObjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.objectivelyInvalid = invalid
+	m.messageMetadataInner.ObjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 
@@ -1310,7 +1136,7 @@ func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
 func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
 	m.invalidMutex.RLock()
 	defer m.invalidMutex.RUnlock()
-	result = m.subjectivelyInvalid
+	result = m.messageMetadataInner.SubjectivelyInvalid
 
 	return
 }
@@ -1321,11 +1147,11 @@ func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
 	m.invalidMutex.Lock()
 	defer m.invalidMutex.Unlock()
 
-	if m.subjectivelyInvalid == invalid {
+	if m.messageMetadataInner.SubjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.subjectivelyInvalid = invalid
+	m.messageMetadataInner.SubjectivelyInvalid = invalid
 	m.SetModified()
 	modified = true
 
@@ -1338,12 +1164,12 @@ func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality
 	m.gradeOfFinalityMutex.Lock()
 	defer m.gradeOfFinalityMutex.Unlock()
 
-	if m.gradeOfFinality == gradeOfFinality {
+	if m.messageMetadataInner.GradeOfFinality == gradeOfFinality {
 		return false
 	}
 
-	m.gradeOfFinality = gradeOfFinality
-	m.gradeOfFinalityTime = clock.SyncedTime()
+	m.messageMetadataInner.GradeOfFinality = gradeOfFinality
+	m.messageMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
 	m.SetModified()
 	modified = true
 
@@ -1355,7 +1181,7 @@ func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
 	m.gradeOfFinalityMutex.RLock()
 	defer m.gradeOfFinalityMutex.RUnlock()
 
-	return m.gradeOfFinality
+	return m.messageMetadataInner.GradeOfFinality
 }
 
 // GradeOfFinalityTime returns the time the grade of finality was set.
@@ -1363,44 +1189,40 @@ func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
 	m.gradeOfFinalityMutex.RLock()
 	defer m.gradeOfFinalityMutex.RUnlock()
 
-	return m.gradeOfFinalityTime
+	return m.messageMetadataInner.GradeOfFinalityTime
 }
 
-// Bytes returns a marshaled version of the whole MessageMetadata object.
+// Bytes returns a marshaled Version of the whole MessageMetadata object.
 func (m *MessageMetadata) Bytes() []byte {
 	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
 }
 
-// ObjectStorageKey returns the key of the stored message metadata object.
-// This returns the bytes of the messageID.
+// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
+// StorableObject interface.
 func (m *MessageMetadata) ObjectStorageKey() []byte {
-	return m.messageID.Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.MessageID, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// ObjectStorageValue returns the value of the stored message metadata object.
-// This includes the receivedTime, solidificationTime and solid status.
+// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes. The ID is not serialized here as it is only used as
+// a key in the ObjectStorage.
 func (m *MessageMetadata) ObjectStorageValue() []byte {
-	return marshalutil.New().
-		WriteTime(m.ReceivedTime()).
-		WriteTime(m.SolidificationTime()).
-		WriteBool(m.IsSolid()).
-		Write(m.StructureDetails()).
-		Write(m.AddedBranchIDs()).
-		Write(m.SubtractedBranchIDs()).
-		WriteBool(m.Scheduled()).
-		WriteTime(m.ScheduledTime()).
-		WriteBool(m.IsBooked()).
-		WriteTime(m.BookedTime()).
-		WriteBool(m.IsObjectivelyInvalid()).
-		WriteUint8(uint8(m.GradeOfFinality())).
-		WriteTime(m.GradeOfFinalityTime()).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// String returns a human readable version of the MessageMetadata.
+// String returns a human-readable Version of the MessageMetadata.
 func (m *MessageMetadata) String() string {
 	return stringify.Struct("MessageMetadata",
-		stringify.StructField("ID", m.messageID),
+		stringify.StructField("ID", m.MessageID),
 		stringify.StructField("receivedTime", m.ReceivedTime()),
 		stringify.StructField("solid", m.IsSolid()),
 		stringify.StructField("solidificationTime", m.SolidificationTime()),
@@ -1429,18 +1251,8 @@ var _ objectstorage.StorableObject = new(MessageMetadata)
 var (
 	// ErrNoStrongParents is triggered if there no strong parents.
 	ErrNoStrongParents = errors.New("missing strong messages in first parent block")
-	// ErrBlocksNotOrderedByType is triggered when the blocks are not ordered by their type.
-	ErrBlocksNotOrderedByType = errors.New("blocks should be ordered in ascending order according to their type")
 	// ErrBlockTypeIsUnknown is triggered when the block type is unknown.
-	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType-1)
-	// ErrParentsOutOfRange is triggered when a block is out of range.
-	ErrParentsOutOfRange = errors.Errorf("a block must have at least %d-%d parents", MinParentsCount, MaxParentsCount)
-	// ErrParentsNotLexicographicallyOrdered is triggred when parents are not lexicographically ordered.
-	ErrParentsNotLexicographicallyOrdered = errors.New("messages within blocks must be lexicographically ordered")
-	// ErrRepeatingBlockTypes is triggered if there are repeating block types in the message.
-	ErrRepeatingBlockTypes = errors.New("block types within a message must not repeat")
-	// ErrRepeatingReferencesInBlock is triggered if there are duplicate parents in a message block.
-	ErrRepeatingReferencesInBlock = errors.New("duplicate parents in a message block")
+	ErrBlockTypeIsUnknown = errors.Errorf("block types must range from %d-%d", 1, LastValidBlockType)
 	// ErrConflictingReferenceAcrossBlocks is triggered if there conflicting references across blocks.
 	ErrConflictingReferenceAcrossBlocks = errors.New("different blocks have conflicting references")
 )

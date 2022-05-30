@@ -3,7 +3,7 @@ module rand-seed
 go 1.18
 
 require (
-	github.com/iotaledger/hive.go v0.0.0-20220518131712-64fdfe80dac8
+	github.com/iotaledger/hive.go v0.0.0-20220527141128-bda8026651d1
 	github.com/mr-tron/base58 v1.2.0
 )
 

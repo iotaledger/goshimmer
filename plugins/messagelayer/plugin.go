@@ -75,20 +75,19 @@ func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
 	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		container := event.Container
-		if err := container.Provide(newTangle); err != nil {
+		if err := event.Container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(FinalityGadget); err != nil {
+		if err := event.Container.Provide(FinalityGadget); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(newIndexer); err != nil {
+		if err := event.Container.Provide(newIndexer); err != nil {
 			Plugin.Panic(err)
 		}
 
-		if err := container.Provide(func() *node.Plugin {
+		if err := event.Container.Provide(func() *node.Plugin {
 			return Plugin
 		}, dig.Name("messagelayer")); err != nil {
 			Plugin.Panic(err)

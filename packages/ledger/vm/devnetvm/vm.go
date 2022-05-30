@@ -2,7 +2,6 @@ package devnetvm
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/marshalutil"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
@@ -11,11 +10,11 @@ import (
 type VM struct{}
 
 func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
-	return new(Transaction).FromMarshalUtil(marshalutil.New(transactionBytes))
+	return new(Transaction).FromBytes(transactionBytes)
 }
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {
-	if output, err = OutputFromMarshalUtil(marshalutil.New(outputBytes)); err != nil {
+	if output, err = OutputFromBytes(outputBytes); err != nil {
 		err = errors.Errorf("failed to parse Output: %w", err)
 	}
 
@@ -26,7 +25,7 @@ func (d *VM) ResolveInput(input utxo.Input) (outputID utxo.OutputID) {
 	return input.(*UTXOInput).ReferencedOutputID()
 }
 
-func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
+func (d *VM) ExecuteTransaction(transaction utxo.Transaction, inputs *utxo.Outputs, _ ...uint64) (outputs []utxo.Output, err error) {
 	typedOutputs, err := d.executeTransaction(transaction.(*Transaction), OutputsFromUTXOOutputs(inputs))
 	if err != nil {
 		return nil, errors.Errorf("failed to execute transaction: %w", err)

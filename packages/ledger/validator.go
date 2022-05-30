@@ -59,7 +59,7 @@ func (v *validator) checkOutputsCausallyRelatedCommand(params *dataFlowParams, n
 func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, next dataflow.Next[*dataFlowParams]) (err error) {
 	utxoOutputs, err := v.ledger.options.vm.ExecuteTransaction(params.Transaction, params.Inputs)
 	if err != nil {
-		return errors.Errorf("failed to execute transaction with %s: %w", params.Transaction.ID(), ErrTransactionInvalid)
+		return errors.Errorf("failed to execute transaction with %s: %w: %w", params.Transaction.ID(), ErrTransactionInvalid, err)
 	}
 
 	params.Outputs = utxo.NewOutputs(utxoOutputs...)
@@ -68,7 +68,7 @@ func (v *validator) checkTransactionExecutionCommand(params *dataFlowParams, nex
 }
 
 // outputsCausallyRelated returns true if the Outputs denoted by the given OutputsMetadata reference each other.
-func (v *validator) outputsCausallyRelated(outputsMetadata OutputsMetadata) (related bool) {
+func (v *validator) outputsCausallyRelated(outputsMetadata *OutputsMetadata) (related bool) {
 	spentOutputIDs := outputsMetadata.Filter((*OutputMetadata).IsSpent).IDs()
 	if spentOutputIDs.Size() == 0 {
 		return false
