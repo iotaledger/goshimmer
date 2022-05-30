@@ -217,7 +217,7 @@ loop:
 
 	// discard all remaining messages at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.MessageDiscarded.Trigger(id)
+		r.Events.MessageDiscarded.Trigger(MessageIDFromBytes(id[:]))
 	}
 }
 

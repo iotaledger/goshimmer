@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	testInitial          = 20000.0
+	testInitial          = 5.0
 	testRateSetterParams = RateSetterParams{
-		Initial: &testInitial,
+		Initial: testInitial,
 	}
 )
 
@@ -60,25 +60,26 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
-	messageDiscarded := make(chan MessageID, 1)
+	messageDiscarded := make(chan MessageID, MaxLocalQueueSize*2)
 	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
 	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
-
-	msg, _ := NewMessage(
-		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
-		time.Now(),
-		localNode.PublicKey(),
-		0,
-		payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
-		0,
-		ed25519.Signature{},
-	)
-	assert.NoError(t, rateSetter.Issue(msg))
+	for i := 0; i < MaxLocalQueueSize*2; i++ {
+		msg, _ := NewMessage(
+			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+			time.Now(),
+			localNode.PublicKey(),
+			0,
+			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
+			0,
+			ed25519.Signature{},
+		)
+		assert.NoError(t, rateSetter.Issue(msg))
+	}
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageDiscarded:
-			return assert.Equal(t, msg.ID(), id)
+		case <-messageDiscarded:
+			return true
 		default:
 			return false
 		}
