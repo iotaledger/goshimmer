@@ -2,14 +2,17 @@ package messagelayer
 
 import (
 	"context"
+
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -38,24 +41,25 @@ func init() {
 
 func configureNotarizationPlugin(_ *node.Plugin) {
 	notarizationManager = newNotarizationManager()
-	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		notarizationDeps.Tangle.Storage.Message(messageID).Consume(func(m *tangle.Message) {
+	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		notarizationDeps.Tangle.Storage.Message(event.Message.ID()).Consume(func(m *tangle.Message) {
 			notarizationManager.OnMessageConfirmed(m)
 		})
 	}))
-	notarizationDeps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		notarizationDeps.Tangle.LedgerState.Transaction(transactionID).Consume(func(t *utxo.Transaction) {
-			notarizationManager.OnTransactionConfirmed(t)
+	notarizationDeps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		notarizationDeps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
+			notarizationManager.OnTransactionConfirmed(t.(*devnetvm.Transaction))
 		})
 	}))
-	notarizationDeps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		notarizationManager.OnBranchConfirmed(branchID)
+	// TODO: attach to TransactionInclusionUpdatedEvent
+	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		notarizationManager.OnBranchConfirmed(event.BranchID)
 	}))
-	notarizationDeps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		notarizationManager.OnBranchCreated(branchID)
+	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		notarizationManager.OnBranchCreated(event.BranchID)
 	}))
-	notarizationDeps.Tangle.ConfirmationOracle.Events().BranchRejected.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
-		notarizationManager.OnBranchRejected(branchID)
+	notarizationDeps.Tangle.ConfirmationOracle.Events().BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+		notarizationManager.OnBranchRejected(event.BranchID)
 	}))
 }
 

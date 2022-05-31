@@ -1,14 +1,13 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/hive.go/logger"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/logger"
+
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -110,7 +109,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(tx *utxo.Transaction) {
+func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
 	err := m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
 	if err != nil && m.log != nil {
@@ -119,7 +118,7 @@ func (m *Manager) OnTransactionConfirmed(tx *utxo.Transaction) {
 	m.updateStateSMT(ei, tx)
 }
 
-func (m *Manager) updateStateSMT(ei EI, tx *utxo.Transaction) {
+func (m *Manager) updateStateSMT(ei EI, tx *devnetvm.Transaction) {
 	for _, o := range tx.Essence().Outputs() {
 		err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
 		if err != nil && m.log != nil {
@@ -128,7 +127,7 @@ func (m *Manager) updateStateSMT(ei EI, tx *utxo.Transaction) {
 	}
 	// remove spent outputs
 	for _, i := range tx.Essence().Inputs() {
-		out, _ := ledgerstate.OutputIDFromBase58(i.Base58())
+		out, _ := m.tangle.Ledger.Utils.ResolveInputs(i)
 		err := m.epochCommitmentFactory.RemoveStateLeaf(ei, out)
 		if err != nil && m.log != nil {
 			m.log.Error(err)
@@ -137,7 +136,7 @@ func (m *Manager) updateStateSMT(ei EI, tx *utxo.Transaction) {
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
-func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
+func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -146,7 +145,7 @@ func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
 }
 
 // OnBranchCreated is the handler for branch created event.
-func (m *Manager) OnBranchCreated(branchID conflictdag.) {
+func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -155,7 +154,7 @@ func (m *Manager) OnBranchCreated(branchID conflictdag.) {
 }
 
 // OnBranchRejected is the handler for branch created event.
-func (m *Manager) OnBranchRejected(branchID conflictdag.ConflictID) {
+func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -163,8 +162,9 @@ func (m *Manager) OnBranchRejected(branchID conflictdag.ConflictID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) getBranchEI(branchID ledgerstate.BranchID) EI {
-	tx := m.tangle.LedgerState.Ledgerstate.Transaction(branchID.TransactionID())
+func (m *Manager) getBranchEI(branchID utxo.TransactionID) EI {
+	tx := m.tangle.Ledger.CachedTransaction(branchID).Consume()
+	// TODO: use timestamp of earliest attachment
 	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
 	return ei
 }
