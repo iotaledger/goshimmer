@@ -10,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -27,7 +28,7 @@ const IndexLength = marshalutil.Uint64Size
 type Index uint64
 
 // String returns a human-readable version of the Index.
-func (i Index) String() (humanReadableIndex string) {
+func (i Index) String() (humanReadable string) {
 	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
 }
 
@@ -41,81 +42,41 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
-
-// IndexComparator is a generic comparator for Index types.
-func IndexComparator(a, b interface{}) int {
-	aCasted := a.(Index)
-	bCasted := b.(Index)
-	switch {
-	case aCasted < bCasted:
-		return -1
-	case aCasted > bCasted:
-		return 1
-	default:
-		return 0
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// MarkerLength represents the amount of bytes of a marshaled Marker.
-const MarkerLength = SequenceIDLength + IndexLength
 
 // Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
-	markerInner `serix:"0"`
+	model.Model[markerModel] `serix:"0"`
 }
 
-type markerInner struct {
+// markerModel contains the data of a Marker.
+type markerModel struct {
 	SequenceID SequenceID `serix:"0"`
 	Index      Index      `serix:"1"`
 }
 
 // NewMarker returns a new marker.
 func NewMarker(sequenceID SequenceID, index Index) *Marker {
-	return &Marker{markerInner{sequenceID, index}}
-}
-
-// MarkerFromBytes unmarshals Marker from a sequence of bytes.
-func MarkerFromBytes(data []byte) (marker *Marker, consumedBytes int, err error) {
-	marker = new(Marker)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, marker, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Marker: %w", err)
-		return
-	}
-	return
+	return &Marker{model.New(markerModel{
+		SequenceID: sequenceID,
+		Index:      index,
+	})}
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
 func (m *Marker) SequenceID() (sequenceID SequenceID) {
-	return m.markerInner.SequenceID
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.SequenceID
 }
 
 // Index returns the coordinate of the Marker in a Sequence.
 func (m *Marker) Index() (index Index) {
-	return m.markerInner.Index
-}
+	m.RLock()
+	defer m.RUnlock()
 
-// Bytes returns a marshaled version of the Marker.
-func (m Marker) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable version of the Marker.
-func (m *Marker) String() (humanReadableMarker string) {
-	return stringify.Struct("Marker",
-		stringify.StructField("sequenceID", m.SequenceID()),
-		stringify.StructField("index", m.Index()),
-	)
+	return m.M.Index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -124,40 +85,24 @@ func (m *Marker) String() (humanReadableMarker string) {
 
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
 type Markers struct {
-	markersInner `serix:"0"`
+	model.Model[markersModel] `serix:"0"`
 }
 
-type markersInner struct {
+type markersModel struct {
 	Markers      map[SequenceID]Index `serix:"0,lengthPrefixType=uint32"`
-	HighestIndex Index
-	LowestIndex  Index
-	markersMutex sync.RWMutex
-}
-
-// FromBytes unmarshals a collection of Markers from a sequence of bytes.
-func FromBytes(data []byte) (markers *Markers, consumedBytes int, err error) {
-	markersDecoded := new(Markers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, markersDecoded, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Markers: %w", err)
-		return
-	}
-	markers = NewMarkers()
-	for sequenceID, index := range markersDecoded.Markers {
-		markers.Set(sequenceID, index)
-	}
-	return
+	HighestIndex Index                `serix:"1"`
+	LowestIndex  Index                `serix:"2"`
 }
 
 // NewMarkers creates a new collection of Markers.
-func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
-	markers = &Markers{
-		markersInner{
+func NewMarkers(markers ...*Marker) (new *Markers) {
+	new = &Markers{
+		model.New(markersModel{
 			Markers: make(map[SequenceID]Index),
-		},
+		}),
 	}
-	for _, marker := range optionalMarkers {
-		markers.Set(marker.markerInner.SequenceID, marker.markerInner.Index)
+	for _, marker := range markers {
+		new.Set(marker.SequenceID(), marker.Index())
 	}
 
 	return
@@ -165,11 +110,11 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 
 // SequenceIDs returns the SequenceIDs that are having Markers in this collection.
 func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	sequenceIDsSlice := make([]SequenceID, 0, len(m.markersInner.Markers))
-	for sequenceID := range m.markersInner.Markers {
+	sequenceIDsSlice := make([]SequenceID, 0, len(m.M.Markers))
+	for sequenceID := range m.M.Markers {
 		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
 	}
 
@@ -178,15 +123,15 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
 func (m *Markers) Marker() (marker *Marker) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	switch len(m.markersInner.Markers) {
+	switch len(m.M.Markers) {
 	case 0:
 		panic("converting empty Markers into a single Marker is not supported")
 	case 1:
-		for sequenceID, index := range m.markersInner.Markers {
-			return &Marker{markerInner{SequenceID: sequenceID, Index: index}}
+		for sequenceID, index := range m.M.Markers {
+			return NewMarker(sequenceID, index)
 		}
 	default:
 		panic("converting multiple Markers into a single Marker is not supported")
@@ -197,34 +142,34 @@ func (m *Markers) Marker() (marker *Marker) {
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
 func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	index, exists = m.markersInner.Markers[sequenceID]
+	index, exists = m.M.Markers[sequenceID]
 	return
 }
 
 // Set adds a new Marker to the collection and updates the Index of an existing entry if it is higher than a possible
 // previously stored one. The method returns two boolean flags that indicate if an entry was updated and/or added.
 func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) {
-	m.markersMutex.Lock()
-	defer m.markersMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if index > m.markersInner.HighestIndex {
-		m.markersInner.HighestIndex = index
+	if index > m.M.HighestIndex {
+		m.M.HighestIndex = index
 	}
 
 	// if the sequence already exists in the set and the new index is higher than the old one then update
-	if existingIndex, indexAlreadyStored := m.markersInner.Markers[sequenceID]; indexAlreadyStored {
+	if existingIndex, indexAlreadyStored := m.M.Markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
-			m.markersInner.Markers[sequenceID] = index
+			m.M.Markers[sequenceID] = index
 
 			// find new lowest index
-			if existingIndex == m.markersInner.LowestIndex {
-				m.markersInner.LowestIndex = 0
-				for _, scannedIndex := range m.markersInner.Markers {
-					if scannedIndex < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-						m.markersInner.LowestIndex = scannedIndex
+			if existingIndex == m.M.LowestIndex {
+				m.M.LowestIndex = 0
+				for _, scannedIndex := range m.M.Markers {
+					if scannedIndex < m.M.LowestIndex || m.M.LowestIndex == 0 {
+						m.M.LowestIndex = scannedIndex
 					}
 				}
 			}
@@ -234,11 +179,11 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 	}
 
 	// if this is a new sequence update lowestIndex
-	if index < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-		m.markersInner.LowestIndex = index
+	if index < m.M.LowestIndex || m.M.LowestIndex == 0 {
+		m.M.LowestIndex = index
 	}
 
-	m.markersInner.Markers[sequenceID] = index
+	m.M.Markers[sequenceID] = index
 
 	return true, true
 }
@@ -246,28 +191,28 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 // Delete removes the Marker with the given SequenceID from the collection and returns a boolean flag that indicates if
 // the element existed.
 func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
-	m.markersMutex.Lock()
-	defer m.markersMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	existingIndex, existed := m.markersInner.Markers[sequenceID]
-	delete(m.markersInner.Markers, sequenceID)
+	existingIndex, existed := m.M.Markers[sequenceID]
+	delete(m.M.Markers, sequenceID)
 	if existed {
-		lowestIndexDeleted := existingIndex == m.markersInner.LowestIndex
+		lowestIndexDeleted := existingIndex == m.M.LowestIndex
 		if lowestIndexDeleted {
-			m.markersInner.LowestIndex = 0
+			m.M.LowestIndex = 0
 		}
-		highestIndexDeleted := existingIndex == m.markersInner.HighestIndex
+		highestIndexDeleted := existingIndex == m.M.HighestIndex
 		if highestIndexDeleted {
-			m.markersInner.HighestIndex = 0
+			m.M.HighestIndex = 0
 		}
 
 		if lowestIndexDeleted || highestIndexDeleted {
-			for _, scannedIndex := range m.markersInner.Markers {
-				if scannedIndex < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-					m.markersInner.LowestIndex = scannedIndex
+			for _, scannedIndex := range m.M.Markers {
+				if scannedIndex < m.M.LowestIndex || m.M.LowestIndex == 0 {
+					m.M.LowestIndex = scannedIndex
 				}
-				if scannedIndex > m.markersInner.HighestIndex {
-					m.markersInner.HighestIndex = scannedIndex
+				if scannedIndex > m.M.HighestIndex {
+					m.M.HighestIndex = scannedIndex
 				}
 			}
 		}
@@ -282,12 +227,12 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	if m == nil {
 		return true
 	}
-	m.markersMutex.RLock()
+	m.RLock()
 	markersCopy := make(map[SequenceID]Index)
-	for sequenceID, index := range m.markersInner.Markers {
+	for sequenceID, index := range m.M.Markers {
 		markersCopy[sequenceID] = index
 	}
-	m.markersMutex.RUnlock()
+	m.RUnlock()
 
 	success = true
 	for sequenceID, index := range markersCopy {
@@ -302,7 +247,7 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	clonedMarkers := m.Clone().markersInner.Markers
+	clonedMarkers := m.Clone().M.Markers
 
 	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
 	for sequenceID := range clonedMarkers {
@@ -324,10 +269,10 @@ func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index
 
 // Size returns the amount of Markers in the collection.
 func (m *Markers) Size() (size int) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return len(m.markersInner.Markers)
+	return len(m.M.Markers)
 }
 
 // Merge takes the given Markers and adds them to the collection (overwriting Markers with a lower Index if there are
@@ -342,20 +287,20 @@ func (m *Markers) Merge(markers *Markers) {
 
 // LowestIndex returns the lowest Index of all Markers in the collection.
 func (m *Markers) LowestIndex() (lowestIndex Index) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	lowestIndex = m.markersInner.LowestIndex
+	lowestIndex = m.M.LowestIndex
 
 	return
 }
 
 // HighestIndex returns the highest Index of all Markers in the collection.
 func (m *Markers) HighestIndex() (highestIndex Index) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	highestIndex = m.markersInner.HighestIndex
+	highestIndex = m.M.HighestIndex
 
 	return
 }
@@ -370,11 +315,11 @@ func (m *Markers) Clone() (clonedMarkers *Markers) {
 	})
 
 	clonedMarkers = &Markers{
-		markersInner{
+		model.New(markersModel{
 			Markers:      clonedMap,
-			LowestIndex:  m.markersInner.LowestIndex,
-			HighestIndex: m.markersInner.HighestIndex,
-		},
+			LowestIndex:  m.M.LowestIndex,
+			HighestIndex: m.M.HighestIndex,
+		}),
 	}
 
 	return
@@ -382,15 +327,15 @@ func (m *Markers) Clone() (clonedMarkers *Markers) {
 
 // Equals is a comparator for two Markers.
 func (m *Markers) Equals(other *Markers) (equals bool) {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	if len(m.markersInner.Markers) != len(other.markersInner.Markers) {
+	if len(m.M.Markers) != len(other.M.Markers) {
 		return false
 	}
 
-	for sequenceID, index := range m.markersInner.Markers {
-		otherIndex, exists := other.markersInner.Markers[sequenceID]
+	for sequenceID, index := range m.M.Markers {
+		otherIndex, exists := other.M.Markers[sequenceID]
 		if !exists {
 			return false
 		}
@@ -405,8 +350,8 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 
 // Bytes returns a marshaled version of the Markers.
 func (m *Markers) Bytes() []byte {
-	m.markersMutex.RLock()
-	defer m.markersMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?

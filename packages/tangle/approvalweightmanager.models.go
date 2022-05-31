@@ -249,7 +249,7 @@ type latestMarkerVotesMap struct {
 }
 
 func newLatestMarkerVotesMap() *latestMarkerVotesMap {
-	return &latestMarkerVotesMap{thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)}
+	return &latestMarkerVotesMap{thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode)}
 }
 
 // Encode returns a serialized byte slice of the object.
@@ -259,7 +259,7 @@ func (l *latestMarkerVotesMap) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (l *latestMarkerVotesMap) Decode(b []byte) (bytesRead int, err error) {
-	l.ThresholdMap = thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode, markers.IndexComparator)
+	l.ThresholdMap = thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode)
 	return l.ThresholdMap.Decode(b)
 }
 
