@@ -11,12 +11,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 )
 
-type IdentifierType interface {
-	comparable
-
-	Bytes() []byte
-}
-
 // region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Storage is a ConflictDAG component that bundles the storage related API.
