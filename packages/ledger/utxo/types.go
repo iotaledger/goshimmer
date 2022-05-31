@@ -24,7 +24,7 @@ type TransactionID struct {
 }
 
 // NewTransactionID returns a new TransactionID for the given data.
-func NewTransactionID(txData []byte) (new TransactionID) {
+func NewTransactionID(txData []byte) TransactionID {
 	return TransactionID{
 		types.NewIdentifier(txData),
 	}
@@ -51,13 +51,15 @@ var EmptyTransactionID TransactionID
 type TransactionIDs = *set.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
-func NewTransactionIDs(ids ...TransactionID) (new TransactionIDs) {
+func NewTransactionIDs(ids ...TransactionID) TransactionIDs {
 	return set.NewAdvancedSet[TransactionID](ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+const OutputIDSuffixLength = 2
 
 // OutputID is a unique identifier for an Output.
 type OutputID struct {
@@ -129,15 +131,16 @@ func (o OutputID) Base58() (base58Encoded string) {
 	return base58.Encode(o.Bytes())
 }
 
+// Length returns number of bytes of OutputID
 func (o OutputID) Length() int {
-	return o.TransactionID.Length() + 2
+	return o.TransactionID.Length() + OutputIDSuffixLength
 }
 
 // Bytes returns a serialized version of the OutputID.
 func (o OutputID) Bytes() (serialized []byte) {
 	serialized = o.TransactionID.Bytes()
 
-	b := make([]byte, 2)
+	b := make([]byte, OutputIDSuffixLength)
 	binary.LittleEndian.PutUint16(b, o.Index)
 
 	return byteutils.ConcatBytes(serialized, b)
@@ -167,7 +170,7 @@ var (
 type OutputIDs = *set.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
-func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
+func NewOutputIDs(ids ...OutputID) OutputIDs {
 	return set.NewAdvancedSet[OutputID](ids...)
 }
 
@@ -182,13 +185,13 @@ type Outputs struct {
 }
 
 // NewOutputs returns a new Output collection with the given elements.
-func NewOutputs(outputs ...Output) (new *Outputs) {
-	new = &Outputs{*orderedmap.New[OutputID, Output]()}
+func NewOutputs(outputs ...Output) (newOutputs *Outputs) {
+	newOutputs = &Outputs{*orderedmap.New[OutputID, Output]()}
 	for _, output := range outputs {
-		new.Set(output.ID(), output)
+		newOutputs.Set(output.ID(), output)
 	}
 
-	return new
+	return newOutputs
 }
 
 // Add adds the given Output to the collection.

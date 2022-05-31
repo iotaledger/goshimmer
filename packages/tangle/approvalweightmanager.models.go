@@ -267,7 +267,7 @@ func (l *latestMarkerVotesMap) Decode(b []byte) (bytesRead int, err error) {
 
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
-// VotePower is used to establish an absolute order of votes, regarldless of their arrival order.
+// VotePower is used to establish an absolute order of votes, regardless of their arrival order.
 // Currently, the used VotePower is the SequenceNumber embedded in the Message Layout, so that, regardless
 // of the order in which votes are received, the same conclusion is computed.
 // Alternatively, the objective timestamp of a Message could be used.
@@ -429,8 +429,24 @@ type branchVoteModel struct {
 	VotePower VotePower          `serix:"3"`
 }
 
+// NewBranchVote derives a vote for th.
+func NewBranchVote(voter Voter, votePower VotePower, branchID utxo.TransactionID, opinion Opinion) (voteWithOpinion *BranchVote) {
+	return &BranchVote{
+		model.New[branchVoteModel](
+			branchVoteModel{
+				Voter:     voter,
+				VotePower: votePower,
+				BranchID:  branchID,
+				Opinion:   opinion,
+			},
+		),
+	}
+}
+
 // WithOpinion derives a vote for the given Opinion.
 func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
+	v.RLock()
+	defer v.RUnlock()
 	return &BranchVote{
 		model.New[branchVoteModel](
 			branchVoteModel{
@@ -445,6 +461,8 @@ func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) 
 
 // WithBranchID derives a vote for the given BranchID.
 func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
+	v.RLock()
+	defer v.RUnlock()
 	return &BranchVote{
 		model.New[branchVoteModel](
 			branchVoteModel{
@@ -455,6 +473,30 @@ func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *Br
 			},
 		),
 	}
+}
+
+func (v *BranchVote) Voter() Voter {
+	v.RLock()
+	defer v.RUnlock()
+	return v.M.Voter
+}
+
+func (v *BranchVote) BranchID() utxo.TransactionID {
+	v.RLock()
+	defer v.RUnlock()
+	return v.M.BranchID
+}
+
+func (v *BranchVote) Opinion() Opinion {
+	v.RLock()
+	defer v.RUnlock()
+	return v.M.Opinion
+}
+
+func (v *BranchVote) VotePower() VotePower {
+	v.RLock()
+	defer v.RUnlock()
+	return v.M.VotePower
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
