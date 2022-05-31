@@ -104,7 +104,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID)
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.tangleRoot.Update(msgID.Bytes(), msgID.Bytes())
 	if err != nil {
-		return errors.Newf("could not insert leaf to the tangle tree: %w", err)
+		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
 	f.onTangleRootChanged(commitment)
 	return nil
@@ -115,7 +115,7 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID ledgerstate.Out
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
-		return errors.Newf("could not insert leaf to the state tree: %w", err)
+		return errors.Wrap(err, "could not insert leaf to the state tree")
 	}
 	f.onStateRootChanged(commitment)
 	return nil
@@ -126,7 +126,7 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID ledgerstate
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
 	if err != nil {
-		return errors.Newf("could not insert leaf to the state mutation tree: %w", err)
+		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
 	}
 	f.onStateMutationRootChanged(commitment)
 	return nil
@@ -139,7 +139,7 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID)
 	if exists {
 		_, err := commitment.tangleRoot.Delete(msgID.Bytes())
 		if err != nil {
-			return errors.Newf("could not delete leaf from the tangle tree: %w", err)
+			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
 		f.onTangleRootChanged(commitment)
 	}
@@ -153,7 +153,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID ledgerstate.Output
 	if exists {
 		_, err := commitment.stateRoot.Delete(outID.Bytes())
 		if err != nil {
-			return errors.Newf("could not delete leaf from the state tree: %w", err)
+			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
 		f.onStateRootChanged(commitment)
 	}
@@ -192,7 +192,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputI
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
 	if err != nil {
-		return nil, errors.Newf("could not generate the state root proof: %w", err)
+		return nil, errors.Wrap(err, "could not generate the state root proof")
 	}
 	return &CommitmentProof{ei, proof, root}, nil
 }
@@ -202,7 +202,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID ledgerstate.
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
 	if err != nil {
-		return nil, errors.Newf("could not generate the state mutation root proof: %w", err)
+		return nil, errors.Wrap(err, "could not generate the state mutation root proof")
 	}
 	return &CommitmentProof{ei, proof, root}, nil
 }
@@ -212,7 +212,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].tangleRoot.ProveForRoot(key, root)
 	if err != nil {
-		return nil, errors.Newf("could not generate the tangle root proof: %w", err)
+		return nil, errors.Wrap(err, "could not generate the tangle root proof")
 	}
 	return &CommitmentProof{ei, proof, root}, nil
 }
