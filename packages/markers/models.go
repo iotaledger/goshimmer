@@ -85,10 +85,10 @@ func (m *Marker) Index() (index Index) {
 
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
 type Markers struct {
-	markersInner `serix:"0"`
+	markersModel `serix:"0"`
 }
 
-type markersInner struct {
+type markersModel struct {
 	Markers      map[SequenceID]Index `serix:"0,lengthPrefixType=uint32"`
 	HighestIndex Index
 	LowestIndex  Index
@@ -113,7 +113,7 @@ func FromBytes(data []byte) (markers *Markers, consumedBytes int, err error) {
 // NewMarkers creates a new collection of Markers.
 func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 	markers = &Markers{
-		markersInner{
+		markersModel{
 			Markers: make(map[SequenceID]Index),
 		},
 	}
@@ -129,8 +129,8 @@ func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	sequenceIDsSlice := make([]SequenceID, 0, len(m.markersInner.Markers))
-	for sequenceID := range m.markersInner.Markers {
+	sequenceIDsSlice := make([]SequenceID, 0, len(m.markersModel.Markers))
+	for sequenceID := range m.markersModel.Markers {
 		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
 	}
 
@@ -142,11 +142,11 @@ func (m *Markers) Marker() (marker *Marker) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	switch len(m.markersInner.Markers) {
+	switch len(m.markersModel.Markers) {
 	case 0:
 		panic("converting empty Markers into a single Marker is not supported")
 	case 1:
-		for sequenceID, index := range m.markersInner.Markers {
+		for sequenceID, index := range m.markersModel.Markers {
 			return NewMarker(sequenceID, index)
 		}
 	default:
@@ -161,7 +161,7 @@ func (m *Markers) Get(sequenceID SequenceID) (index Index, exists bool) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	index, exists = m.markersInner.Markers[sequenceID]
+	index, exists = m.markersModel.Markers[sequenceID]
 	return
 }
 
@@ -171,21 +171,21 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
-	if index > m.markersInner.HighestIndex {
-		m.markersInner.HighestIndex = index
+	if index > m.markersModel.HighestIndex {
+		m.markersModel.HighestIndex = index
 	}
 
 	// if the sequence already exists in the set and the new index is higher than the old one then update
-	if existingIndex, indexAlreadyStored := m.markersInner.Markers[sequenceID]; indexAlreadyStored {
+	if existingIndex, indexAlreadyStored := m.markersModel.Markers[sequenceID]; indexAlreadyStored {
 		if updated = index > existingIndex; updated {
-			m.markersInner.Markers[sequenceID] = index
+			m.markersModel.Markers[sequenceID] = index
 
 			// find new lowest index
-			if existingIndex == m.markersInner.LowestIndex {
-				m.markersInner.LowestIndex = 0
-				for _, scannedIndex := range m.markersInner.Markers {
-					if scannedIndex < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-						m.markersInner.LowestIndex = scannedIndex
+			if existingIndex == m.markersModel.LowestIndex {
+				m.markersModel.LowestIndex = 0
+				for _, scannedIndex := range m.markersModel.Markers {
+					if scannedIndex < m.markersModel.LowestIndex || m.markersModel.LowestIndex == 0 {
+						m.markersModel.LowestIndex = scannedIndex
 					}
 				}
 			}
@@ -195,11 +195,11 @@ func (m *Markers) Set(sequenceID SequenceID, index Index) (updated, added bool) 
 	}
 
 	// if this is a new sequence update lowestIndex
-	if index < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-		m.markersInner.LowestIndex = index
+	if index < m.markersModel.LowestIndex || m.markersModel.LowestIndex == 0 {
+		m.markersModel.LowestIndex = index
 	}
 
-	m.markersInner.Markers[sequenceID] = index
+	m.markersModel.Markers[sequenceID] = index
 
 	return true, true
 }
@@ -210,25 +210,25 @@ func (m *Markers) Delete(sequenceID SequenceID) (existed bool) {
 	m.markersMutex.Lock()
 	defer m.markersMutex.Unlock()
 
-	existingIndex, existed := m.markersInner.Markers[sequenceID]
-	delete(m.markersInner.Markers, sequenceID)
+	existingIndex, existed := m.markersModel.Markers[sequenceID]
+	delete(m.markersModel.Markers, sequenceID)
 	if existed {
-		lowestIndexDeleted := existingIndex == m.markersInner.LowestIndex
+		lowestIndexDeleted := existingIndex == m.markersModel.LowestIndex
 		if lowestIndexDeleted {
-			m.markersInner.LowestIndex = 0
+			m.markersModel.LowestIndex = 0
 		}
-		highestIndexDeleted := existingIndex == m.markersInner.HighestIndex
+		highestIndexDeleted := existingIndex == m.markersModel.HighestIndex
 		if highestIndexDeleted {
-			m.markersInner.HighestIndex = 0
+			m.markersModel.HighestIndex = 0
 		}
 
 		if lowestIndexDeleted || highestIndexDeleted {
-			for _, scannedIndex := range m.markersInner.Markers {
-				if scannedIndex < m.markersInner.LowestIndex || m.markersInner.LowestIndex == 0 {
-					m.markersInner.LowestIndex = scannedIndex
+			for _, scannedIndex := range m.markersModel.Markers {
+				if scannedIndex < m.markersModel.LowestIndex || m.markersModel.LowestIndex == 0 {
+					m.markersModel.LowestIndex = scannedIndex
 				}
-				if scannedIndex > m.markersInner.HighestIndex {
-					m.markersInner.HighestIndex = scannedIndex
+				if scannedIndex > m.markersModel.HighestIndex {
+					m.markersModel.HighestIndex = scannedIndex
 				}
 			}
 		}
@@ -245,7 +245,7 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	}
 	m.markersMutex.RLock()
 	markersCopy := make(map[SequenceID]Index)
-	for sequenceID, index := range m.markersInner.Markers {
+	for sequenceID, index := range m.markersModel.Markers {
 		markersCopy[sequenceID] = index
 	}
 	m.markersMutex.RUnlock()
@@ -263,7 +263,7 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	clonedMarkers := m.Clone().markersInner.Markers
+	clonedMarkers := m.Clone().markersModel.Markers
 
 	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
 	for sequenceID := range clonedMarkers {
@@ -288,7 +288,7 @@ func (m *Markers) Size() (size int) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	return len(m.markersInner.Markers)
+	return len(m.markersModel.Markers)
 }
 
 // Merge takes the given Markers and adds them to the collection (overwriting Markers with a lower Index if there are
@@ -306,7 +306,7 @@ func (m *Markers) LowestIndex() (lowestIndex Index) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	lowestIndex = m.markersInner.LowestIndex
+	lowestIndex = m.markersModel.LowestIndex
 
 	return
 }
@@ -316,7 +316,7 @@ func (m *Markers) HighestIndex() (highestIndex Index) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	highestIndex = m.markersInner.HighestIndex
+	highestIndex = m.markersModel.HighestIndex
 
 	return
 }
@@ -331,10 +331,10 @@ func (m *Markers) Clone() (clonedMarkers *Markers) {
 	})
 
 	clonedMarkers = &Markers{
-		markersInner{
+		markersModel{
 			Markers:      clonedMap,
-			LowestIndex:  m.markersInner.LowestIndex,
-			HighestIndex: m.markersInner.HighestIndex,
+			LowestIndex:  m.markersModel.LowestIndex,
+			HighestIndex: m.markersModel.HighestIndex,
 		},
 	}
 
@@ -346,12 +346,12 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 	m.markersMutex.RLock()
 	defer m.markersMutex.RUnlock()
 
-	if len(m.markersInner.Markers) != len(other.markersInner.Markers) {
+	if len(m.markersModel.Markers) != len(other.markersModel.Markers) {
 		return false
 	}
 
-	for sequenceID, index := range m.markersInner.Markers {
-		otherIndex, exists := other.markersInner.Markers[sequenceID]
+	for sequenceID, index := range m.markersModel.Markers {
+		otherIndex, exists := other.markersModel.Markers[sequenceID]
 		if !exists {
 			return false
 		}
