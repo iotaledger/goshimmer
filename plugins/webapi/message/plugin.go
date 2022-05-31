@@ -217,7 +217,7 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 	case "EmptyMessageID":
 		messageID = tangle.EmptyMessageID
 	default:
-		messageID, err = tangle.NewMessageID(messageIDString)
+		err = messageID.FromBase58(messageIDString)
 	}
 
 	return

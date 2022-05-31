@@ -130,7 +130,7 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 		}
 	}
 
-	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
+	m.messagesByAlias[messageAlias].ID().RegisterAlias(messageAlias)
 
 	return m.messagesByAlias[messageAlias]
 }

@@ -3,8 +3,6 @@ package tangle
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/binary"
-	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -14,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/assert"
@@ -35,15 +32,12 @@ func randomBytes(size uint) []byte {
 }
 
 func randomMessageID() MessageID {
-	msgBytes := randomBytes(MessageIDLength)
-	result, _, _ := MessageIDFromBytes(msgBytes)
+	var result MessageID
+	err := result.FromRandomness()
+	if err != nil {
+		panic(err)
+	}
 	return result
-}
-
-func numberMessageID(id uint32) MessageID {
-	var msgBytes [32]byte
-	binary.LittleEndian.PutUint32(msgBytes[28:], id)
-	return msgBytes
 }
 
 func randomParents(count int) MessageIDs {
@@ -66,106 +60,48 @@ func TestNewMessageID(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		randID := randomMessageID()
 		randIDString := randID.Base58()
-
-		result, err := NewMessageID(randIDString)
+		var msgID MessageID
+		err := msgID.FromBase58(randIDString)
 		assert.NoError(t, err)
-		assert.Equal(t, randID, result)
+		assert.Equal(t, randID, msgID)
 	})
 
 	t.Run("CASE: Not base58 encoded", func(t *testing.T) {
-		result, err := NewMessageID("O0l")
+		var msgID MessageID
+		err := msgID.FromBase58("O0l")
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "failed to decode base58 encoded string"))
-		assert.Equal(t, EmptyMessageID, result)
-	})
-
-	t.Run("CASE: Too long string", func(t *testing.T) {
-		result, err := NewMessageID(base58.Encode(randomBytes(MessageIDLength + 1)))
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "length of base58 formatted message id is wrong"))
-		assert.Equal(t, EmptyMessageID, result)
+		assert.Equal(t, EmptyMessageID, msgID)
 	})
 }
 
 func TestMessageIDFromBytes(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength)
-		result, consumed, err := MessageIDFromBytes(buffer)
+		var msgID MessageID
+		consumed, err := msgID.Decode(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, MessageIDLength, consumed)
-		assert.Equal(t, result.Bytes(), buffer)
+		assert.Equal(t, msgID.Bytes(), buffer)
 	})
 
 	t.Run("CASE: Too few bytes", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength - 1)
-		result, consumed, err := MessageIDFromBytes(buffer)
+		var result MessageID
+		consumed, err := result.Decode(buffer)
 		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "not enough data for deserialization"))
+		assert.True(t, strings.Contains(err.Error(), "not enough data to decode Identifier"))
 		assert.Equal(t, 0, consumed)
 		assert.Equal(t, EmptyMessageID, result)
 	})
 
 	t.Run("CASE: More bytes", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength + 1)
-		result, consumed, err := MessageIDFromBytes(buffer)
+		var result MessageID
+		consumed, err := result.Decode(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, MessageIDLength, consumed)
 		assert.Equal(t, buffer[:32], result.Bytes())
-	})
-}
-
-func TestMessageIDFromMarshalUtil(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		randID := randomMessageID()
-		marshalUtil := marshalutil.New(randID.Bytes())
-		result, err := ReferenceFromMarshalUtil(marshalUtil)
-		assert.NoError(t, err)
-		assert.Equal(t, randID, result)
-	})
-
-	t.Run("CASE: Wrong bytes in MarshalUtil", func(t *testing.T) {
-		marshalUtil := marshalutil.New(randomBytes(MessageIDLength - 1))
-		result, err := ReferenceFromMarshalUtil(marshalUtil)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse message ID"))
-		assert.Equal(t, EmptyMessageID, result)
-	})
-}
-
-func TestMessageID_MarshalBinary(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		randID := randomMessageID()
-		result, err := randID.MarshalBinary()
-		assert.NoError(t, err)
-		assert.Equal(t, randID.Bytes(), result)
-	})
-}
-
-func TestMessageID_UnmarshalBinary(t *testing.T) {
-	t.Run("CASE: Happy path", func(t *testing.T) {
-		randID1 := randomMessageID()
-		randID2 := randomMessageID()
-		err := randID1.UnmarshalBinary(randID2.Bytes())
-		assert.NoError(t, err)
-		assert.Equal(t, randID1, randID2)
-	})
-
-	t.Run("CASE: Wrong length (less)", func(t *testing.T) {
-		randID := randomMessageID()
-		originalBytes := randID.Bytes()
-		err := randID.UnmarshalBinary(randomBytes(MessageIDLength - 1))
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("data must be exactly %d long to encode a valid message id", MessageIDLength)))
-		assert.Equal(t, originalBytes, randID.Bytes())
-	})
-
-	t.Run("CASE: Wrong length (more)", func(t *testing.T) {
-		randID := randomMessageID()
-		originalBytes := randID.Bytes()
-		err := randID.UnmarshalBinary(randomBytes(MessageIDLength + 1))
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), fmt.Sprintf("data must be exactly %d long to encode a valid message id", MessageIDLength)))
-		assert.Equal(t, originalBytes, randID.Bytes())
 	})
 }
 

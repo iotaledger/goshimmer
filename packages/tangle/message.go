@@ -14,12 +14,10 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
-	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -115,7 +113,7 @@ const (
 	MaxMessageSize = 64 * 1024
 
 	// MessageIDLength defines the length of an MessageID.
-	MessageIDLength = 32
+	MessageIDLength = types.IdentifierLength
 
 	// MinParentsCount defines the minimum number of parents each parents block must have.
 	MinParentsCount = 1
@@ -136,126 +134,33 @@ const (
 // region MessageID ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
-type MessageID [MessageIDLength]byte
+type MessageID struct {
+	types.Identifier `serix:"0"`
+}
 
 // EmptyMessageID is an empty id.
-var EmptyMessageID = MessageID{}
+var EmptyMessageID MessageID
 
-// NewMessageID creates a new message id.
-func NewMessageID(base58EncodedString string) (result MessageID, err error) {
-	msgIDBytes, err := base58.Decode(base58EncodedString)
-	if err != nil {
-		err = fmt.Errorf("failed to decode base58 encoded string '%s': %w", base58EncodedString, err)
-
-		return
-	}
-
-	if len(msgIDBytes) != MessageIDLength {
-		err = fmt.Errorf("length of base58 formatted message id is wrong")
-
-		return
-	}
-
-	copy(result[:], msgIDBytes)
-
-	return
+// NewMessageID returns a new MessageID for the given data.
+func NewMessageID(bytes [32]byte) (new MessageID) {
+	return MessageID{Identifier: bytes}
 }
 
-// MessageIDFromBytes unmarshals a message id from a sequence of bytes.
-func MessageIDFromBytes(data []byte) (result MessageID, consumedBytes int, err error) {
-	// check arguments
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &result, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MessageID: %w", err)
-		return
-	}
-	return
+// Length returns the byte length of a serialized TransactionID.
+func (m MessageID) Length() int {
+	return types.IdentifierLength
 }
 
-// ReferenceFromMarshalUtil is a wrapper for simplified unmarshaling in a byte stream using the marshalUtil package.
-func ReferenceFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (MessageID, error) {
-	id, err := marshalUtil.Parse(func(data []byte) (interface{}, int, error) { return MessageIDFromBytes(data) })
-	if err != nil {
-		err = fmt.Errorf("failed to parse message ID: %w", err)
-		return MessageID{}, err
-	}
-	return id.(MessageID), nil
-}
-
-// MarshalBinary marshals the MessageID into bytes.
-func (id *MessageID) MarshalBinary() (result []byte, err error) {
-	return id.Bytes(), nil
-}
-
-// UnmarshalBinary unmarshals the bytes into an MessageID.
-func (id *MessageID) UnmarshalBinary(data []byte) (err error) {
-	if len(data) != MessageIDLength {
-		err = fmt.Errorf("data must be exactly %d long to encode a valid message id", MessageIDLength)
-		return
-	}
-	copy(id[:], data)
-
-	return
-}
-
-// Bytes returns the bytes of the MessageID.
-func (id MessageID) Bytes() []byte {
-	return id[:]
-}
-
-// Base58 returns a base58 encoded Version of the MessageID.
-func (id MessageID) Base58() string {
-	return base58.Encode(id[:])
+// String returns a human-readable version of the MessageID.
+func (m MessageID) String() (humanReadable string) {
+	return "MessageID(" + m.Alias() + ")"
 }
 
 // CompareTo does a lexicographical comparison to another messageID.
 // Returns 0 if equal, -1 if smaller, or 1 if larger than other.
 // Passing nil as other will result in a panic.
-func (id MessageID) CompareTo(other MessageID) int {
-	return bytes.Compare(id.Bytes(), other.Bytes())
-}
-
-// String returns a human readable representation of the MessageID.
-func (id MessageID) String() string {
-	if id == EmptyMessageID {
-		return "MessageID(EmptyMessageID)"
-	}
-
-	if messageIDAlias, exists := getMessageAlias(id); exists {
-		return "MessageID(" + messageIDAlias + ")"
-	}
-
-	return "MessageID(" + base58.Encode(id[:]) + ")"
-}
-
-func getMessageAlias(id MessageID) (string, bool) {
-	messageIDAliasMutex.RLock()
-	defer messageIDAliasMutex.RUnlock()
-
-	alias, exists := messageIDAliases[id]
-	return alias, exists
-}
-
-var messageIDAliasMutex sync.RWMutex
-
-// messageIDAliases contains a list of aliases registered for a set of MessageIDs.
-var messageIDAliases = make(map[MessageID]string)
-
-// RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
-// readable string instead of the base58 encoded Version of itself.
-func RegisterMessageIDAlias(messageID MessageID, alias string) {
-	messageIDAliasMutex.Lock()
-	defer messageIDAliasMutex.Unlock()
-
-	messageIDAliases[messageID] = alias
-}
-
-// UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
-func UnregisterMessageIDAliases() {
-	messageIDAliasMutex.Lock()
-	defer messageIDAliasMutex.Unlock()
-
-	messageIDAliases = make(map[MessageID]string)
+func (m MessageID) CompareTo(other MessageID) int {
+	return bytes.Compare(m.Bytes(), other.Bytes())
 }
 
 func MessageIDFromContext(ctx context.Context) MessageID {
@@ -614,7 +519,9 @@ func (m *Message) Signature() ed25519.Signature {
 
 // calculates the message's MessageID.
 func (m *Message) calculateID() MessageID {
-	return blake2b.Sum256(m.Bytes())
+	return MessageID{
+		Identifier: blake2b.Sum256(m.Bytes()),
+	}
 }
 
 // Bytes returns a marshaled version of the Transaction.

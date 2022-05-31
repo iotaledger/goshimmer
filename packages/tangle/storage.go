@@ -148,7 +148,7 @@ func (s *Storage) StoreMessage(message *Message) {
 
 // Message retrieves a message from the message store.
 func (s *Storage) Message(messageID MessageID) *objectstorage.CachedObject[*Message] {
-	return s.messageStorage.Load(messageID[:])
+	return s.messageStorage.Load(messageID.Bytes())
 }
 
 // MessageMetadata retrieves the MessageMetadata with the given MessageID.
@@ -159,7 +159,7 @@ func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback .
 		})
 	}
 
-	return s.messageMetadataStorage.Load(messageID[:])
+	return s.messageMetadataStorage.Load(messageID.Bytes())
 }
 
 // Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
@@ -237,8 +237,8 @@ func (s *Storage) DeleteMessage(messageID MessageID) {
 			s.deleteApprover(parent, messageID)
 		})
 
-		s.messageMetadataStorage.Delete(messageID[:])
-		s.messageStorage.Delete(messageID[:])
+		s.messageMetadataStorage.Delete(messageID.Bytes())
+		s.messageStorage.Delete(messageID.Bytes())
 
 		s.Events.MessageRemoved.Trigger(&MessageRemovedEvent{messageID})
 	})
@@ -246,7 +246,7 @@ func (s *Storage) DeleteMessage(messageID MessageID) {
 
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
 func (s *Storage) DeleteMissingMessage(messageID MessageID) {
-	s.missingMessageStorage.Delete(messageID[:])
+	s.missingMessageStorage.Delete(messageID.Bytes())
 }
 
 // MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional

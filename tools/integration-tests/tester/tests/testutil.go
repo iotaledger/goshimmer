@@ -754,16 +754,17 @@ func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*frame
 			}
 		default:
 			var parentMessageIDs []jsonmodels.ParentMessageIDs
-			if ID, err := tangle.NewMessageID(tip.ID); err == nil {
+			var msgID tangle.MessageID
+			if err = msgID.FromBase58(tip.ID); err == nil {
 				if tip.PayloadType == devnetvm.TransactionType.String() {
 					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
 						Type:       uint8(tangle.ShallowLikeParentType),
-						MessageIDs: []string{ID.Base58()},
+						MessageIDs: []string{msgID.Base58()},
 					})
 				}
 				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
 					Type:       uint8(tangle.StrongParentType),
-					MessageIDs: []string{ID.Base58()},
+					MessageIDs: []string{msgID.Base58()},
 				})
 			}
 

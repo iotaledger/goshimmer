@@ -161,7 +161,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	{
 		message := message2
 		tangle.Storage.StoreMessage(message)
-		RegisterMessageIDAlias(message.ID(), "Statement2")
+		message.ID().RegisterAlias("Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
@@ -193,7 +193,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	{
 		message := message1
 		tangle.Storage.StoreMessage(message)
-		RegisterMessageIDAlias(message.ID(), "Statement1")
+		message.ID().RegisterAlias("Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{
@@ -225,7 +225,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 	{
 		message := newTestDataMessagePublicKey("test", keyPair.PublicKey)
 		tangle.Storage.StoreMessage(message)
-		RegisterMessageIDAlias(message.ID(), "Statement3")
+		message.ID().RegisterAlias("Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
 			messageMetadata.SetStructureDetails(&markers.StructureDetails{

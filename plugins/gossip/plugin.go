@@ -93,6 +93,6 @@ func configureMessageLayer() {
 		id := event.MessageID
 		Plugin.LogDebugf("requesting missing Message with %s", id)
 
-		deps.GossipMgr.RequestMessage(id[:])
+		deps.GossipMgr.RequestMessage(id.Bytes())
 	}))
 }
