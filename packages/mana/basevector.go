@@ -49,11 +49,11 @@ func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 	switch vectorType {
 	case AccessMana:
 		return &AccessBaseManaVector{
-			model.New[accessBaseManaVectorModel](accessBaseManaVectorModel{Vector: make(map[identity.ID]*AccessBaseMana)}),
+			model.New(accessBaseManaVectorModel{Vector: make(map[identity.ID]*AccessBaseMana)}),
 		}, nil
 	case ConsensusMana:
 		return &ConsensusBaseManaVector{
-			model.New[consensusBaseManaVectorModel](consensusBaseManaVectorModel{Vector: make(map[identity.ID]*ConsensusBaseMana)}),
+			model.New(consensusBaseManaVectorModel{Vector: make(map[identity.ID]*ConsensusBaseMana)}),
 		}, nil
 	default:
 		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)

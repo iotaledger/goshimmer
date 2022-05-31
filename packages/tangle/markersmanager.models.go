@@ -33,7 +33,7 @@ type MarkerIndexBranchIDMapping struct {
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
 	markerBranchMapping = &MarkerIndexBranchIDMapping{
-		model.NewStorable[markers.SequenceID, *markerIndexBranchIDMap](
+		model.NewStorable[markers.SequenceID](
 			newMarkerIndexBranchIDMap(),
 		),
 	}
@@ -113,29 +113,32 @@ var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.Seque
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
-	model.Storable[markers.Marker, MessageID] `serix:"0"`
+	model.StorableReference[markers.Marker, MessageID] `serix:"0"`
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
 func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
 	markerMessageMapping := &MarkerMessageMapping{
-		model.NewStorable[markers.Marker, MessageID](messageID),
+		model.NewStorableReference(*marker, messageID),
 	}
-	markerMessageMapping.SetID(*marker)
+
 	return markerMessageMapping
 }
 
 // Marker returns the Marker that is mapped to a MessageID.
 func (m *MarkerMessageMapping) Marker() *markers.Marker {
-	marker := m.ID()
-	return &marker
+	m.RLock()
+	defer m.RUnlock()
+
+	return &m.SourceID
 }
 
 // MessageID returns the MessageID of the Marker.
 func (m *MarkerMessageMapping) MessageID() MessageID {
 	m.RLock()
 	defer m.RUnlock()
-	return m.M
+
+	return m.TargetID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

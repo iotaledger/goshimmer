@@ -120,7 +120,7 @@ func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*Snapsho
 		}
 
 		c.M.Vector[nodeID] = &ConsensusBaseMana{
-			model.New[consensusBaseManaModel](consensusBaseManaModel{BaseMana1: value}),
+			model.New(consensusBaseManaModel{BaseMana1: value}),
 		}
 	}
 }
@@ -355,7 +355,7 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 	c.Lock()
 	defer c.Unlock()
 	c.M.Vector[p.NodeID()] = &ConsensusBaseMana{
-		model.New[consensusBaseManaModel](consensusBaseManaModel{BaseMana1: p.BaseValues()[0]}),
+		model.New(consensusBaseManaModel{BaseMana1: p.BaseValues()[0]}),
 	}
 	return
 }
