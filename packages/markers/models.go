@@ -10,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
@@ -27,7 +28,7 @@ const IndexLength = marshalutil.Uint64Size
 type Index uint64
 
 // String returns a human-readable version of the Index.
-func (i Index) String() (humanReadableIndex string) {
+func (i Index) String() (humanReadable string) {
 	return "Index(" + strconv.FormatUint(uint64(i), 10) + ")"
 }
 
@@ -41,81 +42,41 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region IndexComparator //////////////////////////////////////////////////////////////////////////////////////////////
-
-// IndexComparator is a generic comparator for Index types.
-func IndexComparator(a, b interface{}) int {
-	aCasted := a.(Index)
-	bCasted := b.(Index)
-	switch {
-	case aCasted < bCasted:
-		return -1
-	case aCasted > bCasted:
-		return 1
-	default:
-		return 0
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region Marker ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// MarkerLength represents the amount of bytes of a marshaled Marker.
-const MarkerLength = SequenceIDLength + IndexLength
 
 // Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
-	markerInner `serix:"0"`
+	model.Model[markerModel] `serix:"0"`
 }
 
-type markerInner struct {
+// markerModel contains the data of a Marker.
+type markerModel struct {
 	SequenceID SequenceID `serix:"0"`
 	Index      Index      `serix:"1"`
 }
 
 // NewMarker returns a new marker.
 func NewMarker(sequenceID SequenceID, index Index) *Marker {
-	return &Marker{markerInner{sequenceID, index}}
-}
-
-// MarkerFromBytes unmarshals Marker from a sequence of bytes.
-func MarkerFromBytes(data []byte) (marker *Marker, consumedBytes int, err error) {
-	marker = new(Marker)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, marker, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Marker: %w", err)
-		return
-	}
-	return
+	return &Marker{model.New(markerModel{
+		SequenceID: sequenceID,
+		Index:      index,
+	})}
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
 func (m *Marker) SequenceID() (sequenceID SequenceID) {
-	return m.markerInner.SequenceID
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.SequenceID
 }
 
 // Index returns the coordinate of the Marker in a Sequence.
 func (m *Marker) Index() (index Index) {
-	return m.markerInner.Index
-}
+	m.RLock()
+	defer m.RUnlock()
 
-// Bytes returns a marshaled version of the Marker.
-func (m Marker) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable version of the Marker.
-func (m *Marker) String() (humanReadableMarker string) {
-	return stringify.Struct("Marker",
-		stringify.StructField("sequenceID", m.SequenceID()),
-		stringify.StructField("index", m.Index()),
-	)
+	return m.M.Index
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -157,7 +118,7 @@ func NewMarkers(optionalMarkers ...*Marker) (markers *Markers) {
 		},
 	}
 	for _, marker := range optionalMarkers {
-		markers.Set(marker.markerInner.SequenceID, marker.markerInner.Index)
+		markers.Set(marker.SequenceID(), marker.Index())
 	}
 
 	return
@@ -186,7 +147,7 @@ func (m *Markers) Marker() (marker *Marker) {
 		panic("converting empty Markers into a single Marker is not supported")
 	case 1:
 		for sequenceID, index := range m.markersInner.Markers {
-			return &Marker{markerInner{SequenceID: sequenceID, Index: index}}
+			return NewMarker(sequenceID, index)
 		}
 	default:
 		panic("converting multiple Markers into a single Marker is not supported")
