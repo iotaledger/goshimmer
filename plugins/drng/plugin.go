@@ -3,12 +3,12 @@ package drng
 import (
 	"context"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/node"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -94,9 +94,9 @@ func configureEvents() {
 		return
 	}
 
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
 		select {
-		case inbox <- messageID:
+		case inbox <- event.MessageID:
 		default:
 		}
 	}))

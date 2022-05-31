@@ -7,14 +7,14 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -62,7 +62,7 @@ const (
 	approvalWeightCacheTime = 20 * time.Second
 )
 
-// region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Storage represents the storage of messages.
 type Storage struct {
@@ -90,23 +90,19 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    objectstorage.New[*Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		messageMetadataStorage:            objectstorage.New[*MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   objectstorage.New[*Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingMessageStorage:             objectstorage.New[*MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.New[*Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		markerIndexBranchIDMappingStorage: objectstorage.New[*MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchVotersStorage:               objectstorage.New[*BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestBranchVotesStorage:          objectstorage.New[*LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestMarkerVotesStorage:          objectstorage.New[*LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               objectstorage.New[*BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       objectstorage.New[*MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		messageStorage:                    objectstorage.NewStructStorage[Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            objectstorage.NewStructStorage[MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   objectstorage.NewStructStorage[Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             objectstorage.NewStructStorage[MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(utxo.TransactionID{}.Length(), MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:          objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               objectstorage.NewStructStorage[BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       objectstorage.NewStructStorage[MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
-		Events: &StorageEvents{
-			MessageStored:        events.NewEvent(MessageIDCaller),
-			MessageRemoved:       events.NewEvent(MessageIDCaller),
-			MissingMessageStored: events.NewEvent(MessageIDCaller),
-		},
+		Events: newStorageEvents(),
 	}
 
 	storage.storeGenesis()
@@ -116,8 +112,9 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
-	s.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		s.tangle.Storage.StoreMessage(msgParsedEvent.Message)
+	s.tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(event *MessageParsedEvent) {
+		fmt.Println("msg parsed", event.Message.ID())
+		s.tangle.Storage.StoreMessage(event.Message)
 	}))
 }
 
@@ -146,11 +143,11 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// trigger events
 	if s.missingMessageStorage.DeleteIfPresent(messageID.Bytes()) {
-		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
+		s.tangle.Storage.Events.MissingMessageStored.Trigger(&MissingMessageStoredEvent{messageID})
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
-	s.Events.MessageStored.Trigger(message.ID())
+	s.Events.MessageStored.Trigger(&MessageStoredEvent{message})
 }
 
 // Message retrieves a message from the message store.
@@ -209,16 +206,12 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
-	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
-	if !stored {
-		return
-	}
-	return
+func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
+	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
-func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
+func (s *Storage) Attachments(transactionID utxo.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Attachment]) bool {
 		cachedAttachments = append(cachedAttachments, cachedObject)
 		return true
@@ -227,7 +220,7 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+func (s *Storage) AttachmentMessageIDs(transactionID utxo.TransactionID) (messageIDs MessageIDs) {
 	messageIDs = NewMessageIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		messageIDs.Add(attachment.MessageID())
@@ -236,7 +229,7 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 }
 
 // IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
-func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+func (s *Storage) IsTransactionAttachedByMessage(transactionID utxo.TransactionID, messageID MessageID) (attached bool) {
 	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
 }
 
@@ -251,7 +244,7 @@ func (s *Storage) DeleteMessage(messageID MessageID) {
 		s.messageMetadataStorage.Delete(messageID[:])
 		s.messageStorage.Delete(messageID[:])
 
-		s.Events.MessageRemoved.Trigger(messageID)
+		s.Events.MessageRemoved.Trigger(&MessageRemovedEvent{messageID})
 	})
 }
 
@@ -279,7 +272,7 @@ func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageM
 }
 
 // DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, messageID MessageID) {
+func (s *Storage) DeleteMarkerMessageMapping(branchID utxo.TransactionID, messageID MessageID) {
 	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
 }
 
@@ -297,8 +290,8 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 	return
 }
 
-// BranchVoters retrieves the BranchVoters with the given ledgerstate.BranchID.
-func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
+// BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
+func (s *Storage) BranchVoters(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
 			return computeIfAbsentCallback[0](branchID)
@@ -346,7 +339,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 }
 
 // BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
+func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
 			return computeIfAbsentCallback[0](branchID)
@@ -360,9 +353,11 @@ func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
 		genesisMetadata := &MessageMetadata{
 			messageMetadataInner{
-				SolidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-				MessageID:          EmptyMessageID,
-				Solid:              true,
+				AddedBranchIDs:      utxo.NewTransactionIDs(),
+				SubtractedBranchIDs: utxo.NewTransactionIDs(),
+				SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+				MessageID:           EmptyMessageID,
+				Solid:               true,
 				StructureDetails: &markers.StructureDetails{
 					Rank:          0,
 					IsPastMarker:  false,
@@ -497,22 +492,6 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region StorageEvents ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// StorageEvents represents events happening on the message store.
-type StorageEvents struct {
-	// Fired when a message has been stored.
-	MessageStored *events.Event
-
-	// Fired when a message was removed from storage.
-	MessageRemoved *events.Event
-
-	// Fired when a message which was previously marked as missing was received.
-	MissingMessageStored *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region ApproverType /////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
@@ -600,27 +579,26 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 }
 
 // FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
+func (a *Approver) FromObjectStorage(key, _ []byte) error {
+	_, err := a.FromBytes(key)
 	if err != nil {
-		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
+		return errors.Errorf("failed to parse Approver from bytes: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes parses the given bytes into an approver.
 func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
-	approver := new(Approver)
-	if a != nil {
-		approver = a
+	if result = a; result == nil {
+		result = new(Approver)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, approver, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Approver: %w", err)
-		return approver, err
+		return nil, errors.Errorf("failed to parse Approver: %w", err)
 	}
-	return approver, err
+
+	return result, nil
 }
 
 // Type returns the type of the Approver reference.
@@ -680,14 +658,14 @@ type Attachment struct {
 	attachmentInner `serix:"0"`
 }
 type attachmentInner struct {
-	TransactionID ledgerstate.TransactionID `serix:"0"`
-	MessageID     MessageID                 `serix:"1"`
+	TransactionID utxo.TransactionID `serix:"0"`
+	MessageID     MessageID          `serix:"1"`
 
 	objectstorage.StorableObjectFlags
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
+func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
 	return &Attachment{
 		attachmentInner{
 			TransactionID: transactionID,
@@ -697,32 +675,30 @@ func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID)
 }
 
 // FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
+func (a *Attachment) FromObjectStorage(key, _ []byte) error {
+	_, err := a.FromBytes(key)
 	if err != nil {
-		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
+		return errors.Errorf("failed to parse attachment from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
 // optionally provided one with the parsed information.
 func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
-	attachment := new(Attachment)
-	if a != nil {
-		attachment = a
+	if result = a; result == nil {
+		result = new(Attachment)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, attachment, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Attachment: %w", err)
-		return attachment, err
+		return nil, errors.Errorf("failed to parse Attachment: %w", err)
 	}
-	return attachment, err
+	return result, nil
 }
 
 // TransactionID returns the transactionID of this Attachment.
-func (a *Attachment) TransactionID() ledgerstate.TransactionID {
+func (a *Attachment) TransactionID() utxo.TransactionID {
 	return a.attachmentInner.TransactionID
 }
 
@@ -765,7 +741,7 @@ func (a *Attachment) ObjectStorageValue() (data []byte) {
 var _ objectstorage.StorableObject = new(Attachment)
 
 // AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
+var AttachmentLength = utxo.TransactionID{}.Length() + MessageIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -794,32 +770,29 @@ func NewMissingMessage(messageID MessageID) *MissingMessage {
 }
 
 // FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MissingMessage) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
+		return fmt.Errorf("failed to parse missing message from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes parses the given bytes into a MissingMessage.
 func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
-	missingMsg := new(MissingMessage)
-	if m != nil {
-		missingMsg = m
+	if result = m; result == nil {
+		result = new(MissingMessage)
 	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
+	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &result.missingMessageInner.MessageID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
-		return missingMsg, err
+		return nil, errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], missingMsg, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage: %w", err)
-		return missingMsg, err
+		return nil, errors.Errorf("failed to parse MissingMessage: %w", err)
 	}
-	return missingMsg, err
+	return result, nil
 }
 
 // MessageID returns the id of the message.

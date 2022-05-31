@@ -89,8 +89,6 @@ export class ExplorerOutputQueryResult extends React.Component<Props, any> {
                                 })
                             }
                         </ListGroup>
-                        <ListGroup.Item>Solid: {outputMetadata.solid.toString()}</ListGroup.Item>
-                        <ListGroup.Item>Solidification Time: {new Date(outputMetadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                         <ListGroup.Item>Consumer Count: {outputMetadata.consumerCount}</ListGroup.Item>
                         <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${outputMetadata.confirmedConsumer}`}>{outputMetadata.confirmedConsumer}</a> </ListGroup.Item>
                         <ListGroup.Item>Grade of Finality: {outputMetadata.gradeOfFinality}</ListGroup.Item>

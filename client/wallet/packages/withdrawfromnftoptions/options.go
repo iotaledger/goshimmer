@@ -3,7 +3,7 @@ package withdrawfromnftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // WithdrawFundsFromNFTOption is a function that provides an option.
@@ -18,7 +18,7 @@ func WaitForConfirmation(wait bool) WithdrawFundsFromNFTOption {
 }
 
 // Amount sets how much funds should be withdrew.
-func Amount(amount map[ledgerstate.Color]uint64) WithdrawFundsFromNFTOption {
+func Amount(amount map[devnetvm.Color]uint64) WithdrawFundsFromNFTOption {
 	return func(options *WithdrawFundsFromNFTOptions) error {
 		options.Amount = amount
 		return nil
@@ -28,7 +28,7 @@ func Amount(amount map[ledgerstate.Color]uint64) WithdrawFundsFromNFTOption {
 // Alias specifies which alias to transfer.
 func Alias(aliasID string) WithdrawFundsFromNFTOption {
 	return func(options *WithdrawFundsFromNFTOptions) error {
-		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
+		parsed, err := devnetvm.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
 		}
@@ -40,7 +40,7 @@ func Alias(aliasID string) WithdrawFundsFromNFTOption {
 // ToAddress specifies the new governor of the alias.
 func ToAddress(address string) WithdrawFundsFromNFTOption {
 	return func(options *WithdrawFundsFromNFTOptions) error {
-		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
+		parsed, err := devnetvm.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
 		}
@@ -67,9 +67,9 @@ func ConsensusManaPledgeID(nodeID string) WithdrawFundsFromNFTOption {
 
 // WithdrawFundsFromNFTOptions is a struct that is used to aggregate the optional parameters in the CreateNFT call.
 type WithdrawFundsFromNFTOptions struct {
-	Amount                map[ledgerstate.Color]uint64
-	Alias                 *ledgerstate.AliasAddress
-	ToAddress             ledgerstate.Address
+	Amount                map[devnetvm.Color]uint64
+	Alias                 *devnetvm.AliasAddress
+	ToAddress             devnetvm.Address
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
 	WaitForConfirmation   bool

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -69,7 +69,7 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 
 // ProcessMessageScenario the approval weight and voter adjustments.
 //nolint:gomnd
-func ProcessMessageScenario(t *testing.T) *TestScenario {
+func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -91,7 +91,9 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Setup()
 
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
@@ -424,7 +426,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 
 // ProcessMessageScenario2 creates a scenario useful to validate strong / weak propagation paths.
 //nolint:gomnd
-func ProcessMessageScenario2(t *testing.T) *TestScenario {
+func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -446,7 +448,9 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
 	s.Tangle.Setup()
 
@@ -519,20 +523,20 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
-	testFramework.IssueMessages(messageAlias).WaitApprovalWeightProcessed()
+	testFramework.IssueMessages(messageAlias).WaitUntilAllTasksProcessed()
 
 	for branchAlias, expectedWeight := range expectedBranchWeights {
 		branchID := testFramework.BranchID(branchAlias)
 		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfBranch(branchID)
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
 		}
 	}
 
 	for marker, expectedWeight := range expectedMarkerWeights {
 		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(&marker, testFramework.Message(messageAlias).IssuingTime())
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
 		}
 	}
 

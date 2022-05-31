@@ -5,13 +5,16 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 )
 
 // DelegationReceiver checks for delegation outputs on the wallet address and keeps the most recent delegated balance.
 type DelegationReceiver struct {
 	*wallet
-	delegatedFunds map[ledgerstate.Color]uint64
+	delegatedFunds map[devnetvm.Color]uint64
 	delFundsMutex  sync.RWMutex
 	sync.RWMutex
 
@@ -20,30 +23,37 @@ type DelegationReceiver struct {
 }
 
 // Scan scans for unspent delegation outputs on the delegation receiver address.
-func (d *DelegationReceiver) Scan() []*ledgerstate.AliasOutput {
+func (d *DelegationReceiver) Scan() []*devnetvm.AliasOutput {
 	d.Lock()
 	defer d.Unlock()
-	cachedOutputs := deps.Tangle.LedgerState.CachedOutputsOnAddress(d.address)
-	defer cachedOutputs.Release()
+
+	var outputs devnetvm.Outputs
+	deps.Indexer.CachedAddressOutputMappings(d.Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
+				outputs = append(outputs, typedOutput)
+			}
+		})
+	})
 	// filterDelegationOutputs will use this time for condition checking
 	d.localTimeNow = clock.SyncedTime()
-	filtered := ledgerstate.Outputs(cachedOutputs.Unwrap()).Filter(d.filterDelegationOutputs)
+	filtered := outputs.Filter(d.filterDelegationOutputs)
 
-	scanResult := make([]*ledgerstate.AliasOutput, len(filtered))
+	scanResult := make([]*devnetvm.AliasOutput, len(filtered))
 	for i, output := range filtered {
-		scanResult[i] = output.Clone().(*ledgerstate.AliasOutput)
+		scanResult[i] = output.Clone().(*devnetvm.AliasOutput)
 	}
 	d.updateDelegatedFunds(scanResult)
 	return scanResult
 }
 
 // updateDelegatedFunds updates the internal store of the delegated amount.
-func (d *DelegationReceiver) updateDelegatedFunds(delegatedOutputs []*ledgerstate.AliasOutput) {
+func (d *DelegationReceiver) updateDelegatedFunds(delegatedOutputs []*devnetvm.AliasOutput) {
 	d.delFundsMutex.Lock()
 	defer d.delFundsMutex.Unlock()
-	current := map[ledgerstate.Color]uint64{}
+	current := map[devnetvm.Color]uint64{}
 	for _, alias := range delegatedOutputs {
-		alias.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		alias.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			current[color] += balance
 			return true
 		})
@@ -63,7 +73,7 @@ func (d *DelegationReceiver) TotalDelegatedFunds() uint64 {
 }
 
 // Address returns the receive address of the delegation receiver.
-func (d *DelegationReceiver) Address() ledgerstate.Address {
+func (d *DelegationReceiver) Address() devnetvm.Address {
 	return d.address
 }
 
@@ -75,23 +85,23 @@ func (d *DelegationReceiver) Address() ledgerstate.Address {
 // 		- its state address is the same as DelegationReceiver's address
 //		- output is delegated
 // 		- if delegation time lock is present, it doesn't expire within 1 minute
-func (d *DelegationReceiver) filterDelegationOutputs(output ledgerstate.Output) bool {
+func (d *DelegationReceiver) filterDelegationOutputs(output devnetvm.Output) bool {
 	// it has to be an alias
-	if output.Type() != ledgerstate.AliasOutputType {
+	if output.Type() != devnetvm.AliasOutputType {
 		return false
 	}
 	// it has to be unspent
 	isUnspent := false
 	isConfirmed := false
-	deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		isUnspent = outputMetadata.ConsumerCount() == 0
+	deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		isUnspent = !outputMetadata.IsSpent()
 		isConfirmed = deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID())
 	})
 	if !isUnspent || !isConfirmed {
 		return false
 	}
 	// has to be a delegation alias that the delegation address owns for at least 1 min into the future
-	alias := output.(*ledgerstate.AliasOutput)
+	alias := output.(*devnetvm.AliasOutput)
 	if !alias.GetStateAddress().Equals(d.address) {
 		return false
 	}

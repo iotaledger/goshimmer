@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
@@ -24,6 +24,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/banner"
@@ -56,6 +57,7 @@ type dependencies struct {
 	GossipMgr    *gossip.Manager     `optional:"true"`
 	DRNGInstance *drng.DRNG          `optional:"true"`
 	Chat         *chat.Chat          `optional:"true"`
+	Indexer      *indexer.Indexer
 }
 
 func init() {
@@ -127,7 +129,7 @@ func worker(ctx context.Context) {
 	defer wsSendWorkerPool.Stop()
 
 	// submit the mps to the worker pool when triggered
-	notifyStatus := events.NewClosure(func(mps uint64) { wsSendWorkerPool.TrySubmit(mps) })
+	notifyStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) { wsSendWorkerPool.TrySubmit(event.MPS) })
 	metrics.Events.ReceivedMPSUpdated.Attach(notifyStatus)
 	defer metrics.Events.ReceivedMPSUpdated.Detach(notifyStatus)
 

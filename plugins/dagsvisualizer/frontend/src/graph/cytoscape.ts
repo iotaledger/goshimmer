@@ -1,10 +1,10 @@
-import { IGraph } from './graph';
+import {IGraph} from './graph';
 import cytoscape from 'cytoscape';
-import { branchDagreOptions, dagreOptions } from 'styles/graphStyle';
-import { utxoVertex } from 'models/utxo';
-import { branchVertex } from 'models/branch';
-import { ObservableMap } from 'mobx';
-import { BRANCH, LINE, UTXO } from './../styles/cytoscapeStyles';
+import {branchDagreOptions, dagreOptions} from 'styles/graphStyle';
+import {utxoVertex} from 'models/utxo';
+import {branchVertex} from 'models/branch';
+import {ObservableMap} from 'mobx';
+import {BRANCH, LINE, UTXO} from './../styles/cytoscapeStyles';
 
 export class cytoscapeLib implements IGraph {
     cy;
@@ -352,7 +352,7 @@ export function initUTXODAG() {
     return [cy, layout, layoutApi];
 }
 
-export function initBranchDAG() {
+export function initConflictDAG() {
     const cy = cytoscape({
         container: document.getElementById('branchVisualizer'), // container to render in
         style: [

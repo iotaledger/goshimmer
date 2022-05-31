@@ -5,8 +5,9 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func DataSpammingFunction(s *Spammer) {
@@ -41,7 +42,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 		wg := sync.WaitGroup{}
 		for i, tx := range txs {
 			wg.Add(1)
-			go func(clt evilwallet.Client, tx *ledgerstate.Transaction) {
+			go func(clt evilwallet.Client, tx *devnetvm.Transaction) {
 				defer wg.Done()
 				s.PostTransaction(tx, clt)
 			}(clients[i], tx)

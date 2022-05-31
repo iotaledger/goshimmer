@@ -1,21 +1,23 @@
 package tangle
 
 import (
-	"sync"
 	"time"
-
-	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -31,12 +33,13 @@ const (
 
 // Tangle is the central data structure of the IOTA protocol.
 type Tangle struct {
+	dagMutex *syncutils.DAGMutex[MessageID]
+
 	Options               *Options
 	Parser                *Parser
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
-	Dispatcher            *Dispatcher
 	RateSetter            *RateSetter
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
@@ -45,49 +48,36 @@ type Tangle struct {
 	TipManager            *TipManager
 	Requester             *Requester
 	MessageFactory        *MessageFactory
-	LedgerState           *LedgerState
+	Ledger                *ledger.Ledger
 	Utils                 *Utils
 	WeightProvider        WeightProvider
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
-
-	setupParserOnce sync.Once
 }
 
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
 	IsMarkerConfirmed(marker *markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
-	IsBranchConfirmed(branchID ledgerstate.BranchID) bool
-	IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool
-	IsOutputConfirmed(outputID ledgerstate.OutputID) bool
+	IsBranchConfirmed(branchID utxo.TransactionID) bool
+	IsTransactionConfirmed(transactionID utxo.TransactionID) bool
+	IsOutputConfirmed(outputID utxo.OutputID) bool
 	FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index)
 	Events() *ConfirmationEvents
-}
-
-// ConfirmationEvents are events entailing confirmation.
-type ConfirmationEvents struct {
-	MessageConfirmed      *events.Event
-	BranchConfirmed       *events.Event
-	TransactionConfirmed  *events.Event
-	TransactionGoFChanged *events.Event
-	BranchGoFChanged      *events.Event
 }
 
 // New is the constructor for the Tangle.
 func New(options ...Option) (tangle *Tangle) {
 	tangle = &Tangle{
-		Events: &Events{
-			MessageInvalid: events.NewEvent(MessageInvalidCaller),
-			Error:          events.NewEvent(events.ErrorCaller),
-		},
+		dagMutex: syncutils.NewDAGMutex[MessageID](),
+		Events:   newEvents(),
 	}
 
 	tangle.Configure(options...)
 
 	tangle.Parser = NewParser()
 	tangle.Storage = NewStorage(tangle)
-	tangle.LedgerState = NewLedgerState(tangle)
+	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithConflictDAGOptions(tangle.Options.ConflictDAGOptions...))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.RateSetter = NewRateSetter(tangle)
@@ -98,7 +88,6 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.TipManager = NewTipManager(tangle)
 	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
 	tangle.Utils = NewUtils(tangle)
-	tangle.Dispatcher = NewDispatcher(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
 
@@ -112,7 +101,6 @@ func (t *Tangle) Configure(options ...Option) {
 			Store:                        mapdb.NewMapDB(),
 			Identity:                     identity.GenerateLocalIdentity(),
 			IncreaseMarkersIndexCallback: increaseMarkersIndexCallbackStrategy,
-			LedgerState:                  struct{ MergeBranches bool }{MergeBranches: true},
 		}
 	}
 
@@ -123,38 +111,36 @@ func (t *Tangle) Configure(options ...Option) {
 
 // Setup sets up the data flow by connecting the different components (by calling their corresponding Setup method).
 func (t *Tangle) Setup() {
+	t.Parser.Setup()
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Scheduler.Setup()
 	t.RateSetter.Setup()
-	t.Dispatcher.Setup()
 	t.Booker.Setup()
-	t.LedgerState.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.TimeManager.Setup()
 	t.TipManager.Setup()
 
-	t.MessageFactory.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.MessageFactory.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
 
-	t.Booker.Events.Error.Attach(events.NewClosure(func(err error) {
-		t.Events.Error.Trigger(errors.Errorf("error in Booker: %w", err))
+	t.Booker.Events.Error.Attach(event.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in booker: %w", err))
 	}))
 
-	t.Scheduler.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.Scheduler.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
 	}))
 
-	t.RateSetter.Events.Error.Attach(events.NewClosure(func(err error) {
+	t.RateSetter.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
 	}))
 }
 
 // ProcessGossipMessage is used to feed new Messages from the gossip layer into the Tangle.
 func (t *Tangle) ProcessGossipMessage(messageBytes []byte, peer *peer.Peer) {
-	t.setupParserOnce.Do(t.Parser.Setup)
 	t.Parser.Parse(messageBytes, peer)
 }
 
@@ -186,51 +172,16 @@ func (t *Tangle) Shutdown() {
 	t.MessageFactory.Shutdown()
 	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
-	t.Dispatcher.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()
 	t.Storage.Shutdown()
-	t.LedgerState.Shutdown()
+	t.Ledger.Shutdown()
 	t.TimeManager.Shutdown()
 	t.TipManager.Shutdown()
 
 	if t.WeightProvider != nil {
 		t.WeightProvider.Shutdown()
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Events ///////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Events represents events happening in the Tangle.
-type Events struct {
-	// MessageInvalid is triggered when a Message is detected to be objectively invalid.
-	MessageInvalid *events.Event
-
-	// Error is triggered when the Tangle faces an error from which it can not recover.
-	Error *events.Event
-}
-
-// MessageIDCaller is the caller function for events that hand over a MessageID.
-func MessageIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(MessageID))(params[0].(MessageID))
-}
-
-// MessageCaller is the caller function for events that hand over a Message.
-func MessageCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*Message))(params[0].(*Message))
-}
-
-// MessageInvalidCaller is the caller function for events that had over an invalid message.
-func MessageInvalidCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *MessageInvalidEvent))(params[0].(*MessageInvalidEvent))
-}
-
-// MessageInvalidEvent is struct that is passed along with triggering a messageInvalidEvent.
-type MessageInvalidEvent struct {
-	MessageID MessageID
-	Error     error
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -244,6 +195,7 @@ type Option func(*Options)
 // Options is a container for all configurable parameters of the Tangle.
 type Options struct {
 	Store                          kvstore.KVStore
+	ConflictDAGOptions             []conflictdag.Option
 	Identity                       *identity.LocalIdentity
 	IncreaseMarkersIndexCallback   markers.IncreaseIndexCallback
 	TangleWidth                    int
@@ -255,7 +207,6 @@ type Options struct {
 	TimeSinceConfirmationThreshold time.Duration
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
-	LedgerState                    struct{ MergeBranches bool }
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -352,10 +303,10 @@ func CacheTimeProvider(cacheTimeProvider *database.CacheTimeProvider) Option {
 	}
 }
 
-// MergeBranches is an Option for the Tangle that prevents the LedgerState from merging Branches.
-func MergeBranches(mergeBranches bool) Option {
+// WithConflictDAGOptions is an Option for the Tangle that allows to set the ConflictDAG options.
+func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) Option {
 	return func(o *Options) {
-		o.LedgerState.MergeBranches = mergeBranches
+		o.ConflictDAGOptions = branchDAGOptions
 	}
 }
 

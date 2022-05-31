@@ -10,7 +10,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 type walletID int
@@ -321,7 +322,7 @@ func (w *Wallet) AddrIndexMap(outIndex string) uint64 {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outputID ledgerstate.OutputID, balance *ledgerstate.ColoredBalances) *Output {
+func (w *Wallet) AddUnspentOutput(addr devnetvm.Address, addrIdx uint64, outputID utxo.OutputID, balance *devnetvm.ColoredBalances) *Output {
 	w.Lock()
 	defer w.Unlock()
 
@@ -336,14 +337,14 @@ func (w *Wallet) AddUnspentOutput(addr ledgerstate.Address, addrIdx uint64, outp
 }
 
 // UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
-func (w *Wallet) UnspentOutputBalance(addr string) *ledgerstate.ColoredBalances {
+func (w *Wallet) UnspentOutputBalance(addr string) *devnetvm.ColoredBalances {
 	w.RLock()
 	defer w.RUnlock()
 
 	if out, ok := w.unspentOutputs[addr]; ok {
 		return out.Balance
 	}
-	return &ledgerstate.ColoredBalances{}
+	return &devnetvm.ColoredBalances{}
 }
 
 // IsEmpty returns true if the wallet is empty.
@@ -412,16 +413,16 @@ func (w *Wallet) GetUnspentOutput() *Output {
 }
 
 // Sign signs the tx essence.
-func (w *Wallet) Sign(addr ledgerstate.Address, txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
+func (w *Wallet) Sign(addr devnetvm.Address, txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
 	w.RLock()
 	defer w.RUnlock()
 	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
-	return ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
 }
 
 // UpdateUnspentOutputID updates the unspent output on the address specified.
-func (w *Wallet) UpdateUnspentOutputID(addr string, outputID ledgerstate.OutputID) error {
+func (w *Wallet) UpdateUnspentOutputID(addr string, outputID utxo.OutputID) error {
 	w.RLock()
 	walletOutput, ok := w.unspentOutputs[addr]
 	w.RUnlock()

@@ -1,12 +1,13 @@
 package tangle
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/typeutils"
 	"go.uber.org/atomic"
@@ -21,7 +22,7 @@ const (
 	MaxDeficit = MaxMessageSize
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
-	MinMana float64 = 100.0
+	MinMana float64 = 1.0
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
@@ -30,6 +31,7 @@ var ErrNotRunning = errors.New("scheduler stopped")
 // SchedulerParams defines the scheduler config parameters.
 type SchedulerParams struct {
 	MaxBufferSize                     int
+	TotalSupply                       int
 	Rate                              time.Duration
 	AccessManaRetrieveFunc            func(identity.ID) float64
 	TotalAccessManaRetrieveFunc       func() float64
@@ -64,22 +66,19 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// maximum buffer size (in bytes)
 	maxBuffer := tangle.Options.SchedulerParams.MaxBufferSize
 
+	// total supply of mana
+	totalSupply := tangle.Options.SchedulerParams.TotalSupply
+
 	// threshold after which confirmed messages are not scheduled
 	confirmedMessageScheduleThreshold := tangle.Options.SchedulerParams.ConfirmedMessageScheduleThreshold
 
 	// maximum access mana-scaled inbox length
-	maxQueue := float64(maxBuffer) / float64(tangle.LedgerState.TotalSupply())
+	maxQueue := float64(maxBuffer) / float64(totalSupply)
 
 	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
 
 	return &Scheduler{
-		Events: &SchedulerEvents{
-			MessageScheduled: events.NewEvent(MessageIDCaller),
-			MessageDiscarded: events.NewEvent(MessageIDCaller),
-			MessageSkipped:   events.NewEvent(MessageIDCaller),
-			NodeBlacklisted:  events.NewEvent(NodeIDCaller),
-			Error:            events.NewEvent(events.ErrorCaller),
-		},
+		Events:                NewSchedulerEvents(),
 		tangle:                tangle,
 		accessManaCache:       accessManaCache,
 		rate:                  atomic.NewDuration(tangle.Options.SchedulerParams.Rate),
@@ -117,21 +116,26 @@ func (s *Scheduler) Shutdown() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
+	fmt.Println("setup scheduler")
 	// pass booked messages to the scheduler
-	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID MessageID) {
-		if err := s.Submit(messageID); err != nil {
+	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *MessageProcessedEvent) {
+		fmt.Println("message processed", event.MessageID)
+		if err := s.Submit(event.MessageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
 			}
 		}
-		s.tryReady(messageID)
+		s.tryReady(event.MessageID)
 	}))
 
-	s.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(s.updateApprovers))
+	s.tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
+		s.updateApprovers(event.MessageID)
+	}))
 
-	onMessageConfirmed := func(messageID MessageID) {
+	onMessageConfirmed := func(message *Message) {
+		messageID := message.ID()
 		var scheduled bool
-		s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			scheduled = messageMetadata.Scheduled()
 		})
 		if scheduled {
@@ -143,12 +147,14 @@ func (s *Scheduler) Setup() {
 				if err != nil {
 					s.Events.Error.Trigger(errors.Errorf("failed to unsubmit confirmed message from scheduler: %w", err))
 				}
-				s.Events.MessageSkipped.Trigger(messageID)
+				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{messageID})
 			}
 		})
 		s.updateApprovers(messageID)
 	}
-	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageConfirmed))
+	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		onMessageConfirmed(event.Message)
+	}))
 
 	s.Start()
 }
@@ -268,19 +274,17 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 }
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
-func (s *Scheduler) SubmitAndReady(messageID MessageID) (err error) {
-	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-		err = s.submit(message)
-		if err == nil {
-			s.ready(message)
-		}
-	}) {
-		err = errors.Errorf("failed to get message '%x' from storage", messageID)
+	if err = s.submit(message); err != nil {
+		return err
 	}
-	return err
+
+	s.ready(message)
+
+	return nil
 }
 
 // GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.
@@ -301,7 +305,7 @@ func (s *Scheduler) Clear() {
 			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				messageMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
-			s.Events.MessageDiscarded.Trigger(messageID)
+			s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{messageID})
 		}
 	}
 }
@@ -356,13 +360,17 @@ func (s *Scheduler) submit(message *Message) error {
 		// shortly before submitting we set the queued time
 		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
+	fmt.Println("Submitting", message.ID())
 	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedMessageIDs := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
+	droppedMessageIDs, err := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
+	if err != nil {
+		panic(errors.Errorf("failed to submit %s: %w", message.ID(), err))
+	}
 	for _, droppedMsgID := range droppedMessageIDs {
 		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
-		s.Events.MessageDiscarded.Trigger(MessageID(droppedMsgID))
+		s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{MessageID(droppedMsgID)})
 	}
 	return nil
 }
@@ -408,7 +416,7 @@ func (s *Scheduler) schedule() *Message {
 			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
 				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
-				s.Events.MessageSkipped.Trigger(msgID)
+				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{msgID})
 				s.buffer.PopFront()
 				msg = q.Front()
 			} else {
@@ -508,7 +516,7 @@ loop:
 			if msg := s.schedule(); msg != nil {
 				s.tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.SetScheduled(true) {
-						s.Events.MessageScheduled.Trigger(msg.ID())
+						s.Events.MessageScheduled.Trigger(&MessageScheduledEvent{msg.ID()})
 					}
 				})
 			}
@@ -535,27 +543,6 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SchedulerEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SchedulerEvents represents events happening in the Scheduler.
-type SchedulerEvents struct {
-	// MessageScheduled is triggered when a message is ready to be scheduled.
-	MessageScheduled *events.Event
-	// MessageDiscarded is triggered when a message is removed from the longest mana-scaled queue when the buffer is full.
-	MessageDiscarded *events.Event
-	// MessageSkipped is triggered when a message is confirmed before it's scheduled, and is skipped by the scheduler.
-	MessageSkipped  *events.Event
-	NodeBlacklisted *events.Event
-	Error           *events.Event
-}
-
-// NodeIDCaller is the caller function for events that hand over a NodeID.
-func NodeIDCaller(handler interface{}, params ...interface{}) {
-	handler.(func(identity.ID))(params[0].(identity.ID))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

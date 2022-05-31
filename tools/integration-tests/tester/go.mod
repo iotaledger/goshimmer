@@ -8,7 +8,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/drand/drand v1.1.1
 	github.com/iotaledger/goshimmer v0.1.3
-	github.com/iotaledger/hive.go v0.0.0-20220506070823-a4b3702dcf42
+	github.com/iotaledger/hive.go v0.0.0-20220530091800-fd2c8ba749cf
 	github.com/mr-tron/base58 v1.2.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
@@ -58,7 +58,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/gorilla/mux v1.7.4 // indirect
+	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
@@ -67,7 +67,6 @@ require (
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.5-0.20210104140557-80c98217689d // indirect
 	github.com/huin/goupnp v1.0.2 // indirect
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-20220429043012-1f37deae4664 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
@@ -189,13 +188,14 @@ require (
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
+	gitlab.com/NebulousLabs/merkletree v0.0.0-20200118113624-07fbf710afc4 // indirect
 	go.dedis.ch/fixbuf v1.0.3 // indirect
 	go.dedis.ch/kyber/v3 v3.0.13 // indirect
 	go.dedis.ch/protobuf v1.0.11 // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.mongodb.org/mongo-driver v1.5.1 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/dig v1.13.0 // indirect
+	go.uber.org/dig v1.14.1 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect

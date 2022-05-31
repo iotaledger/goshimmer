@@ -3,27 +3,38 @@ package metrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 // Events defines the events of the plugin.
-var Events = pluginEvents{
-	// ReceivedMPSUpdated triggers upon reception of a MPS update.
-	ReceivedMPSUpdated:      events.NewEvent(uint64EventCaller),
-	ReceivedTPSUpdated:      events.NewEvent(uint64EventCaller),
-	ComponentCounterUpdated: events.NewEvent(componentTypeUint64EventCaller),
-	RateSetterUpdated:       events.NewEvent(rateSetterMetricEventCaller),
+var Events *EventsStruct
+
+type EventsStruct struct {
+	// Fired when the messages per second metric is updated.
+	ReceivedMPSUpdated *event.Event[*ReceivedMPSUpdatedEvent]
+	// Fired when the transactions per second metric is updated.
+	ReceivedTPSUpdated *event.Event[*ReceivedTPSUpdatedEvent]
+	// Fired when the component counter per second metric is updated.
+	ComponentCounterUpdated *event.Event[*ComponentCounterUpdatedEvent]
+	// RateSetterUpdated is fired when the rate setter metric is updated.
+	RateSetterUpdated *event.Event[*RateSetterMetric]
 }
 
-type pluginEvents struct {
-	// Fired when the messages per second metric is updated.
-	ReceivedMPSUpdated *events.Event
-	// Fired when the transactions per second metric is updated.
-	ReceivedTPSUpdated *events.Event
-	// Fired when the component counter per second metric is updated.
-	ComponentCounterUpdated *events.Event
-	// RateSetterUpdated is fired when the rate setter metric is updated.
-	RateSetterUpdated *events.Event
+func newEvents() (new *EventsStruct) {
+	return &EventsStruct{
+		ReceivedMPSUpdated:      event.New[*ReceivedMPSUpdatedEvent](),
+		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),
+		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
+		RateSetterUpdated:       event.New[*RateSetterMetric](),
+	}
+}
+
+func init() {
+	Events = newEvents()
+}
+
+type ReceivedMPSUpdatedEvent struct {
+	MPS uint64
 }
 
 // RateSetterMetric is the metric for the rate setter.
@@ -33,12 +44,12 @@ type RateSetterMetric struct {
 	Rate     float64
 }
 
-func uint64EventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(uint64))(params[0].(uint64))
+type ReceivedTPSUpdatedEvent struct {
+	TPS uint64
 }
 
-func componentTypeUint64EventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(map[ComponentType]uint64))(params[0].(map[ComponentType]uint64))
+type ComponentCounterUpdatedEvent struct {
+	ComponentStatus map[ComponentType]uint64
 }
 
 func rateSetterMetricEventCaller(handler interface{}, params ...interface{}) {

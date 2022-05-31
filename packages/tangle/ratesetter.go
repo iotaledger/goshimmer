@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 
@@ -73,12 +73,8 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 	MaxRate = float64(time.Second / tangle.Scheduler.Rate())
 	Enabled = tangle.Options.RateSetterParams.Enabled
 	rateSetter := &RateSetter{
-		tangle: tangle,
-		Events: &RateSetterEvents{
-			MessageDiscarded: events.NewEvent(MessageIDCaller),
-			MessageIssued:    events.NewEvent(MessageCaller),
-			Error:            events.NewEvent(events.ErrorCaller),
-		},
+		tangle:         tangle,
+		Events:         newRateSetterEvents(),
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:      make(chan *Message),
@@ -95,18 +91,18 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
 	if !Enabled {
-		r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
-			r.Events.MessageIssued.Trigger(msg)
+		r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
+			r.Events.MessageIssued.Trigger(event)
 		}))
 		return
 	}
-	r.tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(msg *Message) {
-		if err := r.Issue(msg); err != nil {
+	r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
+		if err := r.Issue(event.Message); err != nil {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
 		}
 	}))
 	// update own rate setting
-	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(messageID MessageID) {
+	r.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
@@ -191,7 +187,7 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
-			r.Events.MessageIssued.Trigger(msg)
+			r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
@@ -202,7 +198,7 @@ loop:
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
 			if r.issuingQueue.Size()+1 > MaxLocalQueueSize {
-				r.Events.MessageDiscarded.Trigger(msg.ID())
+				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
 				continue
 			}
 			// add to queue
@@ -226,7 +222,7 @@ loop:
 
 	// discard all remaining messages at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.MessageDiscarded.Trigger(MessageIDFromBytes(id[:]))
+		r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{MessageID(id)})
 	}
 }
 
@@ -242,9 +238,17 @@ func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
-	MessageDiscarded *events.Event
-	MessageIssued    *events.Event
-	Error            *events.Event
+	MessageDiscarded *event.Event[*MessageDiscardedEvent]
+	MessageIssued    *event.Event[*MessageConstructedEvent]
+	Error            *event.Event[error]
+}
+
+func newRateSetterEvents() (new *RateSetterEvents) {
+	return &RateSetterEvents{
+		MessageDiscarded: event.New[*MessageDiscardedEvent](),
+		MessageIssued:    event.New[*MessageConstructedEvent](),
+		Error:            event.New[error](),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

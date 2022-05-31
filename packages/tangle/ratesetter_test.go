@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )
@@ -39,7 +39,7 @@ func TestRateSetter_Submit(t *testing.T) {
 	defer rateSetter.Shutdown()
 
 	messageIssued := make(chan *Message, 1)
-	rateSetter.Events.MessageIssued.Attach(events.NewClosure(func(msg *Message) { messageIssued <- msg }))
+	rateSetter.Events.MessageIssued.Attach(event.NewClosure(func(event *MessageConstructedEvent) { messageIssued <- event.Message }))
 
 	msg := newMessage(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(msg))
@@ -63,8 +63,8 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	defer rateSetter.Shutdown()
 
 	messageDiscarded := make(chan MessageID, MaxLocalQueueSize*2)
-	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
-	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
+	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
+	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
 	for i := 0; i < MaxLocalQueueSize*2; i++ {
 		msg, _ := NewMessage(
 			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),

@@ -7,12 +7,11 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -44,12 +43,7 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc Refe
 	}
 
 	return &MessageFactory{
-		Events: &MessageFactoryEvents{
-			MessageConstructed:         events.NewEvent(messageEventHandler),
-			MessageReferenceImpossible: events.NewEvent(MessageIDCaller),
-			Error:                      events.NewEvent(events.ErrorCaller),
-		},
-
+		Events:         NewMessageFactoryEvents(),
 		tangle:         tangle,
 		sequence:       sequence,
 		localIdentity:  tangle.Options.Identity,
@@ -115,7 +109,8 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	}
 
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		if len(references) == 0 && (len(strongParents) == 0 || p.Type() != ledgerstate.TransactionType) {
+		_, txOk := p.(utxo.Transaction)
+		if len(references) == 0 && (len(strongParents) == 0 || !txOk) {
 			if strongParents, err = f.tips(p, countParents); err != nil {
 				err = errors.Errorf("tips could not be selected: %w", err)
 				f.Events.Error.Trigger(err)
@@ -125,10 +120,10 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		issuingTime = f.getIssuingTime(strongParents)
 		if len(references) == 0 {
 			var referenceNotPossible MessageIDs
-			references, referenceNotPossible, err = f.referencesFunc(strongParents, issuingTime, f.tangle)
+			references, referenceNotPossible, err = f.referencesFunc(p, strongParents, issuingTime, f.tangle)
 			for m := range referenceNotPossible {
 				f.Events.Error.Trigger(errors.Errorf("References for %s could not be determined", m))
-				f.Events.MessageReferenceImpossible.Trigger(m)
+				f.Events.MessageReferenceImpossible.Trigger(&MessageReferenceImpossibleEvent{m})
 			}
 			if err != nil {
 				err = errors.Errorf("references could not be prepared: %w", err)
@@ -168,7 +163,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	f.Events.MessageConstructed.Trigger(msg)
+	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
 	return msg, nil
 }
 
@@ -191,10 +186,11 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
-	if p.Type() == ledgerstate.TransactionType {
-		conflictingTransactions := f.tangle.LedgerState.UTXODAG.ConflictingTransactions(p.(*ledgerstate.Transaction))
-		if len(conflictingTransactions) != 0 {
-			switch earliestAttachment := f.earliestAttachment(conflictingTransactions); earliestAttachment {
+	tx, ok := p.(utxo.Transaction)
+	if ok {
+		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID())
+		if !conflictingTransactions.IsEmpty() {
+			switch earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment {
 			case nil:
 				return
 			default:
@@ -206,14 +202,15 @@ func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents Mess
 	return
 }
 
-func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.TransactionIDs) (earliestAttachment *Message) {
+func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
 	earliestIssuingTime := time.Now()
-	for transactionID := range transactionIDs {
-		f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+	for it := transactionIDs.Iterator(); it.HasNext(); {
+		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
 			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
 				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
 					if messageMetadata.IsBooked() && message.IssuingTime().Before(earliestIssuingTime) {
 						earliestAttachment = message
+						earliestIssuingTime = message.IssuingTime()
 					}
 				})
 			})
@@ -221,6 +218,22 @@ func (f *MessageFactory) earliestAttachment(transactionIDs ledgerstate.Transacti
 	}
 
 	return earliestAttachment
+}
+
+func (f *MessageFactory) LatestAttachment(transactionID utxo.TransactionID) (latestAttachment *Message) {
+	var latestIssuingTime time.Time
+	f.tangle.Storage.Attachments(transactionID).Consume(func(attachment *Attachment) {
+		f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
+			f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
+				if messageMetadata.IsBooked() && message.IssuingTime().After(latestIssuingTime) {
+					latestAttachment = message
+					latestIssuingTime = message.IssuingTime()
+				}
+			})
+		})
+	})
+
+	return latestAttachment
 }
 
 // Shutdown closes the MessageFactory and persists the sequence number.
@@ -255,26 +268,6 @@ func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
 	return f.localIdentity.Sign(dummyBytes[:contentLength]), nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MessageFactoryEvents /////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageFactoryEvents represents events happening on a message factory.
-type MessageFactoryEvents struct {
-	// Fired when a message is built including tips, sequence number and other metadata.
-	MessageConstructed *events.Event
-
-	// MessageReferenceImpossible is fired when references for a message can't be constructed and the message can never become a parent.
-	MessageReferenceImpossible *events.Event
-
-	// Fired when an error occurred.
-	Error *events.Event
-}
-
-func messageEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*Message))(params[0].(*Message))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,10 +324,10 @@ var ZeroWorker = WorkerFunc(func([]byte) (uint64, error) { return 0, nil })
 // region PrepareLikeReferences ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ReferencesFunc is a function type that returns like references a given set of parents of a Message.
-type ReferencesFunc func(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error)
+type ReferencesFunc func(payload payload.Payload, strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error)
 
 // PrepareReferences is an implementation of ReferencesFunc.
-func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
+func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuingTime time.Time, tangle *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	references = NewParentMessageIDs()
 	referenceNotPossible = NewMessageIDs()
 
@@ -345,6 +338,12 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		}
 
 		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
+
+		if strongParentBranchIDs.Size() == 0 {
+			references.AddStrong(strongParent)
+			continue
+		}
+
 		if err != nil {
 			return nil, referenceNotPossible, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
 		}
@@ -352,8 +351,8 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		referencesCopy := references.Clone()
 
 		opinionCanBeExpressed := true
-		for strongParentBranchID := range strongParentBranchIDs {
-			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, strongParentBranchID, issuingTime)
+		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
+			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, it.Next(), issuingTime)
 			// Explicitly ignore error since we can't create a like/dislike reference to the message.
 			// This means this message can't be added as a strong parent.
 			if err != nil {
@@ -396,40 +395,69 @@ func PrepareReferences(strongParents MessageIDs, issuingTime time.Time, tangle *
 		return nil, referenceNotPossible, errors.Errorf("none of the provided strong parents can be referenced")
 	}
 
+	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
+		if len(references[parentType]) > MaxParentsCount {
+			return nil, referenceNotPossible, errors.Errorf("parent overflow while creating references for message with strong Parents %s", strongParents)
+		}
+
+	}
+
+	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
+	if tx, isTx := payload.(utxo.Transaction); isTx {
+		referencedTxs := tangle.Ledger.Utils.ReferencedTransactions(tx)
+		for it := referencedTxs.Iterator(); it.HasNext(); {
+			referencedTx := it.Next()
+			if !tangle.ConfirmationOracle.IsTransactionConfirmed(referencedTx) {
+				latestAttachment := tangle.MessageFactory.LatestAttachment(referencedTx)
+				if latestAttachment == nil {
+					continue
+				}
+				timeDifference := clock.SyncedTime().Sub(latestAttachment.IssuingTime())
+				// If the latest attachment of the transaction we are consuming is too old we are not
+				// able to add it is a weak parent.
+				if timeDifference <= maxParentsTimeDifference {
+					if len(references[WeakParentType]) == MaxParentsCount {
+						return references, referenceNotPossible, nil
+					}
+					references.Add(WeakParentType, latestAttachment.ID())
+				}
+			}
+		}
+	}
+
 	return references, referenceNotPossible, nil
 }
 
-func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.BranchID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	if strongParentBranchID == ledgerstate.MasterBranchID {
-		return
-	}
-
+func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
 	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
 	if likedBranchID == strongParentBranchID {
 		return
 	}
 
-	if likedBranchID != ledgerstate.UndefinedBranchID {
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(likedBranchID.TransactionID())
+	if likedBranchID != utxo.EmptyTransactionID {
+		txID := likedBranchID
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", likedBranchID.TransactionID(), err)
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
 		}
 		if issuingTime.Sub(oldestAttachmentTime) >= maxParentsTimeDifference {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", likedBranchID.TransactionID())
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", txID)
 		}
 
 		return ShallowLikeParentType, oldestAttachmentMessageID, nil
 	}
 
-	for conflictMember := range conflictMembers {
+	for it := conflictMembers.Iterator(); it.HasNext(); {
+		conflictMember := it.Next()
+
 		// Always point to another branch, to make sure the receiver forks the branch.
 		if conflictMember == strongParentBranchID {
 			continue
 		}
 
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember.TransactionID())
+		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember)
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember.TransactionID(), err)
+			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember, err)
 		}
 
 		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
@@ -437,7 +465,7 @@ func referenceFromStrongParent(tangle *Tangle, strongParentBranchID ledgerstate.
 		}
 	}
 
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID.TransactionID())
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

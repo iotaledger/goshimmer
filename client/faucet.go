@@ -10,7 +10,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
@@ -39,7 +39,7 @@ func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget i
 		}
 	}
 
-	address, err := ledgerstate.AddressFromBase58EncodedString(base58EncodedAddr)
+	address, err := devnetvm.AddressFromBase58EncodedString(base58EncodedAddr)
 	if err != nil {
 		return nil, errors.Errorf("could not decode address from string: %w", err)
 	}
@@ -63,7 +63,7 @@ func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget i
 	return res, nil
 }
 
-func computeFaucetPoW(address ledgerstate.Address, aManaPledgeID, cManaPledgeID identity.ID, powTarget int) (nonce uint64, err error) {
+func computeFaucetPoW(address devnetvm.Address, aManaPledgeID, cManaPledgeID identity.ID, powTarget int) (nonce uint64, err error) {
 	if powTarget < 0 {
 		powTarget = defaultPOWTarget
 	}

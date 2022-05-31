@@ -6,12 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -34,7 +37,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 	}
 
 	deps.Tangle.Utils.WalkMessageID(func(messageID tangle.MessageID, walker *walker.Walker[tangle.MessageID]) {
-		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
+		deps.Tangle.Utils.ComputeIfTransaction(messageID, func(transactionID utxo.TransactionID) {
 			transactionInfo := getDiagnosticUTXODAGInfo(transactionID, messageID)
 			_, err = fmt.Fprintln(c.Response(), transactionInfo.toCSV())
 			if err != nil {
@@ -55,7 +58,7 @@ func runDiagnosticUTXODAG(c echo.Context) {
 var DiagnosticUTXODAGTableDescription = []string{
 	"ID",
 	"IssuanceTime",
-	"SolidTime",
+	"BookingTime",
 	"AccessManaPledgeID",
 	"ConsensusManaPledgeID",
 	"Inputs",
@@ -73,11 +76,11 @@ type DiagnosticUTXODAGInfo struct {
 	// transaction essence
 	ID                    string
 	IssuanceTimestamp     time.Time
-	SolidTime             time.Time
+	BookingTime           time.Time
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
-	Inputs                ledgerstate.Inputs
-	Outputs               ledgerstate.Outputs
+	Inputs                devnetvm.Inputs
+	Outputs               devnetvm.Outputs
 	// attachments
 	Attachments []string
 	// transaction metadata
@@ -88,29 +91,30 @@ type DiagnosticUTXODAGInfo struct {
 	GradeOfFinalityTime time.Time
 }
 
-func getDiagnosticUTXODAGInfo(transactionID ledgerstate.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
+func getDiagnosticUTXODAGInfo(transactionID utxo.TransactionID, messageID tangle.MessageID) DiagnosticUTXODAGInfo {
 	txInfo := DiagnosticUTXODAGInfo{
 		ID: transactionID.Base58(),
 	}
 
-	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-		txInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
-		txInfo.AccessManaPledgeID = base58.Encode(transaction.Essence().AccessPledgeID().Bytes())
-		txInfo.ConsensusManaPledgeID = base58.Encode(transaction.Essence().ConsensusPledgeID().Bytes())
-		txInfo.Inputs = transaction.Essence().Inputs()
-		txInfo.Outputs = transaction.Essence().Outputs()
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		transactionEssence := transaction.(*devnetvm.Transaction).Essence()
+
+		txInfo.IssuanceTimestamp = transactionEssence.Timestamp()
+		txInfo.AccessManaPledgeID = base58.Encode(transactionEssence.AccessPledgeID().Bytes())
+		txInfo.ConsensusManaPledgeID = base58.Encode(transactionEssence.ConsensusPledgeID().Bytes())
+		txInfo.Inputs = transactionEssence.Inputs()
+		txInfo.Outputs = transactionEssence.Outputs()
 	})
 
 	for messageID := range deps.Tangle.Storage.AttachmentMessageIDs(transactionID) {
 		txInfo.Attachments = append(txInfo.Attachments, messageID.Base58())
 	}
 
-	deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		txInfo.SolidTime = transactionMetadata.SolidificationTime()
-		txInfo.BranchIDs = transactionMetadata.BranchIDs().Base58()
+	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+		txInfo.BookingTime = transactionMetadata.BookingTime()
+		txInfo.BranchIDs = lo.Map(lo.Map(transactionMetadata.BranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode)
 
-		txInfo.Conflicting = deps.Tangle.LedgerState.TransactionConflicting(transactionID)
-		txInfo.LazyBooked = transactionMetadata.LazyBooked()
+		txInfo.Conflicting = transactionMetadata.IsConflicting()
 		txInfo.GradeOfFinality = transactionMetadata.GradeOfFinality()
 		txInfo.GradeOfFinalityTime = transactionMetadata.GradeOfFinalityTime()
 	})
@@ -122,7 +126,7 @@ func (d DiagnosticUTXODAGInfo) toCSV() (result string) {
 	row := []string{
 		d.ID,
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
-		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.BookingTime.UnixNano()),
 		d.AccessManaPledgeID,
 		d.ConsensusManaPledgeID,
 		strings.Join(d.Inputs.Strings(), ";"),

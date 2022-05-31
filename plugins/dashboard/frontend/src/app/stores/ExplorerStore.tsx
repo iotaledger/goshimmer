@@ -80,8 +80,6 @@ class OutputID {
 export class OutputMetadata {
     outputID: OutputID;
     branchIDs: Array<string>;
-    solid: boolean;
-    solidificationTime: number;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
     gradeOfFinality: number

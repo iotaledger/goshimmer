@@ -8,7 +8,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
@@ -64,10 +64,11 @@ func configureWebSocketWorkerPool() {
 }
 
 func runWebSocketStreams() {
-	updateStatus := events.NewClosure(func(mps uint64) {
-		wsSendWorkerPool.TrySubmit(mps)
+	updateStatus := event.NewClosure(func(event *metrics.ReceivedMPSUpdatedEvent) {
+		wsSendWorkerPool.TrySubmit(event.MPS)
 	})
-	updateComponentCounterStatus := events.NewClosure(func(componentStatus map[metrics.ComponentType]uint64) {
+	updateComponentCounterStatus := event.NewClosure(func(event *metrics.ComponentCounterUpdatedEvent) {
+		componentStatus := event.ComponentStatus
 		updateStatus := &componentsmetric{
 			Store:      componentStatus[metrics.Store],
 			Solidifier: componentStatus[metrics.Solidifier],
@@ -76,7 +77,7 @@ func runWebSocketStreams() {
 		}
 		wsSendWorkerPool.TrySubmit(updateStatus)
 	})
-	updateRateSetterMetrics := events.NewClosure(func(metric metrics.RateSetterMetric) {
+	updateRateSetterMetrics := event.NewClosure(func(metric *metrics.RateSetterMetric) {
 		wsSendWorkerPool.TrySubmit(&rateSetterMetric{
 			Size:     metric.Size,
 			Estimate: metric.Estimate.String(),

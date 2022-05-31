@@ -64,7 +64,7 @@ func (c ComponentType) String() string {
 	case SchedulerSkipped:
 		return "SchedulerSkipped"
 	case Booker:
-		return "Booker"
+		return "booker"
 	default:
 		return "Unknown"
 	}
@@ -144,7 +144,7 @@ var (
 	mpsReceivedSinceLastMeasurement atomic.Uint64
 )
 
-////// Exported functions to obtain metrics from outside //////
+// //// Exported functions to obtain metrics from outside //////
 
 // MessageCountSinceStartPerPayload returns a map of message payload types and their count since the start of the node.
 func MessageCountSinceStartPerPayload() map[payload.Type]uint64 {
@@ -341,7 +341,7 @@ func ParentCountPerType() map[tangle.ParentsType]uint64 {
 	return clone
 }
 
-////// Handling data updates and measuring.
+// //// Handling data updates and measuring.
 func increasePerPayloadCounter(p payload.Type) {
 	messageCountPerPayloadMutex.Lock()
 	defer messageCountPerPayloadMutex.Unlock()
@@ -380,7 +380,7 @@ func measurePerComponentCounter() {
 	messageCountPerComponentMutex.Unlock()
 
 	// trigger events for outside listeners
-	Events.ComponentCounterUpdated.Trigger(componentCounters)
+	Events.ComponentCounterUpdated.Trigger(&ComponentCounterUpdatedEvent{ComponentStatus: componentCounters})
 }
 
 func measureMessageTips() {
@@ -401,7 +401,7 @@ func measureReceivedMPS() {
 	mpsReceivedSinceLastMeasurement.Store(0)
 
 	// trigger events for outside listeners
-	Events.ReceivedMPSUpdated.Trigger(sampledMPS)
+	Events.ReceivedMPSUpdated.Trigger(&ReceivedMPSUpdatedEvent{MPS: sampledMPS})
 }
 
 func measureRequestQueueSize() {

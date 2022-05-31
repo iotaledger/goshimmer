@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -38,10 +38,10 @@ type Payload struct {
 
 type requestInner struct {
 	PayloadType           payload.Type
-	Address               ledgerstate.Address `serix:"1"`
-	AccessManaPledgeID    identity.ID         `serix:"2"`
-	ConsensusManaPledgeID identity.ID         `serix:"3"`
-	Nonce                 uint64              `serix:"4"`
+	Address               devnetvm.Address `serix:"1"`
+	AccessManaPledgeID    identity.ID      `serix:"2"`
+	ConsensusManaPledgeID identity.ID      `serix:"3"`
+	Nonce                 uint64           `serix:"4"`
 }
 
 // RequestType represents the identifier for the faucet Payload type.
@@ -50,7 +50,7 @@ var (
 )
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
-func NewRequest(addr ledgerstate.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Payload {
+func NewRequest(addr devnetvm.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Payload {
 	p := &Payload{
 		requestInner{
 			PayloadType:           RequestType,
@@ -84,7 +84,7 @@ func (p *Payload) Type() payload.Type {
 }
 
 // Address returns the address of the faucet Payload.
-func (p *Payload) Address() ledgerstate.Address {
+func (p *Payload) Address() devnetvm.Address {
 	return p.requestInner.Address
 }
 

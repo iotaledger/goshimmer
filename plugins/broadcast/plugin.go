@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -54,12 +54,8 @@ func run(_ *node.Plugin) {
 	}
 
 	// Get Messages from node.
-	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			go func() {
-				server.Broadcast([]byte(message.String()))
-			}()
-		})
+	notifyNewMsg := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		server.Broadcast([]byte(event.Message.String()))
 	})
 
 	if err := daemon.BackgroundWorker("Broadcast[MsgUpdater]", func(ctx context.Context) {

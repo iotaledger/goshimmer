@@ -11,7 +11,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/network"
@@ -42,7 +41,10 @@ type dependencies struct {
 	Config *configuration.Configuration
 }
 
+var Events *EventsStruct
+
 func init() {
+	Events = newEvents()
 	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 	flag.String(CfgAnalysisServerBindAddress, "0.0.0.0:16178", "the bind address of the analysis server")
 }
@@ -64,7 +66,7 @@ func configure(plugin *node.Plugin) {
 	server.Events.Error.Hook(event.NewClosure(func(err error) {
 		log.Errorf("error in server: %s", err.Error())
 	}))
-	Events.Error.Attach(events.NewClosure(func(err error) {
+	Events.Error.Hook(event.NewClosure(func(err error) {
 		log.Errorf("error in analysis server: %s", err.Error())
 	}))
 }
@@ -158,5 +160,5 @@ func processMetricHeartbeatPacket(data []byte) {
 		}
 		return
 	}
-	Events.MetricHeartbeat.Trigger(hb)
+	Events.MetricHeartbeat.Trigger(&MetricHeartbeatEvent{hb})
 }

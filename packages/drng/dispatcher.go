@@ -37,7 +37,7 @@ func (d *DRNG) Dispatch(issuer ed25519.PublicKey, timestamp time.Time, payload *
 		}
 
 		// trigger RandomnessEvent
-		d.Events.Randomness.Trigger(d.State[cbEvent.InstanceID])
+		d.Events.Randomness.Trigger(&RandomnessEvent{d.State[cbEvent.InstanceID]})
 
 		return nil
 
