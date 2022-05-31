@@ -337,45 +337,29 @@ func (m *Markers) Bytes() []byte {
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
-	referencingMarkersInner `serix:"0"`
+	model.Model[referencingMarkersModel] `serix:"0"`
 }
 
-type referencingMarkersInner struct {
+type referencingMarkersModel struct {
 	ReferencingIndexesBySequence map[SequenceID]*referencingMarkersMap `serix:"0,lengthPrefixType=uint32"`
-	mutex                        sync.RWMutex
 }
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
-	referencingMarkers = &ReferencingMarkers{
-		referencingMarkersInner{
-			ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
-		},
-	}
-
-	return
-}
-
-// ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
-func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
-	referencingMarkers = new(ReferencingMarkers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), referencingMarkersBytes, referencingMarkers, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ReferencingMarkers: %w", err)
-		return
-	}
-	return
+	return &ReferencingMarkers{model.New(referencingMarkersModel{
+		ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
+	})}
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.
 func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	thresholdMap, thresholdMapExists := r.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
+	thresholdMap, thresholdMapExists := r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
 	if !thresholdMapExists {
 		thresholdMap = newReferencingMarkersMap()
-		r.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
+		r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
 	thresholdMap.Set(uint64(index), referencingMarker.Index())
@@ -383,11 +367,11 @@ func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 
 // Get returns the Markers of child Sequences that reference the given Index.
 func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencingMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencingIndexesBySequence {
 		if referencingIndex, exists := thresholdMap.Get(uint64(index)); exists {
 			referencingMarkers.Set(sequenceID, referencingIndex)
 		}
@@ -396,27 +380,14 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	return
 }
 
-// Bytes returns a marshaled version of the PersistableBaseMana.
-func (r *ReferencingMarkers) Bytes() []byte {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r)
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
 // String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	indexes := make([]Index, 0)
 	referencingMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencingIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			index := Index(node.Key())
 			referencingIndex := node.Value()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -196,10 +197,9 @@ func TestReferencingMarkers(t *testing.T) {
 
 	assert.Equal(t, NewMarkers(), referencingMarkers.Get(13))
 
-	marshaledReferencingMarkers := referencingMarkers.Bytes()
-	unmarshalledReferencingMarkers, consumedBytes, err := ReferencingMarkersFromBytes(marshaledReferencingMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledReferencingMarkers), consumedBytes)
+	marshaledReferencingMarkers := lo.PanicOnErr(referencingMarkers.Bytes())
+	unmarshalledReferencingMarkers := new(ReferencingMarkers)
+	require.NoError(t, unmarshalledReferencingMarkers.FromBytes(marshaledReferencingMarkers))
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 5),
