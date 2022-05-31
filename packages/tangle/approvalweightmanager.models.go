@@ -281,13 +281,13 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
-	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap] `serix:"0"`
+	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap] `serix:"0"`
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
-	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap](
-		sequenceID, voter, newLatestMarkerVotesMap(),
+	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap](
+		sequenceID, voter, *newLatestMarkerVotesMap(),
 	)}
 
 	return
