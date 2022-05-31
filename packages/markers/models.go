@@ -2,10 +2,8 @@ package markers
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -22,11 +20,13 @@ import (
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// IndexLength represents the amount of bytes of a marshaled Index.
-const IndexLength = marshalutil.Uint64Size
-
 // Index represents the ever-increasing number of the Markers in a Sequence.
 type Index uint64
+
+// Length returns the amount of bytes of a serialized Index.
+func (i Index) Length() int {
+	return marshalutil.Uint64Size
+}
 
 // String returns a human-readable version of the Index.
 func (i Index) String() (humanReadable string) {
@@ -105,29 +105,15 @@ type markersModel struct {
 
 // NewMarkers creates a new collection of Markers.
 func NewMarkers(markers ...*Marker) (new *Markers) {
-	new = &Markers{
-		model.New(markersModel{
-			Markers: make(map[SequenceID]Index),
-		}),
-	}
+	new = &Markers{model.New(markersModel{
+		Markers: make(map[SequenceID]Index),
+	})}
+
 	for _, marker := range markers {
 		new.Set(marker.SequenceID(), marker.Index())
 	}
 
 	return
-}
-
-// SequenceIDs returns the SequenceIDs that are having Markers in this collection.
-func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
-	m.RLock()
-	defer m.RUnlock()
-
-	sequenceIDsSlice := make([]SequenceID, 0, len(m.M.Markers))
-	for sequenceID := range m.M.Markers {
-		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
-	}
-
-	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
@@ -236,15 +222,9 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	if m == nil {
 		return true
 	}
-	m.RLock()
-	markersCopy := make(map[SequenceID]Index)
-	for sequenceID, index := range m.M.Markers {
-		markersCopy[sequenceID] = index
-	}
-	m.RUnlock()
 
 	success = true
-	for sequenceID, index := range markersCopy {
+	for sequenceID, index := range m.Clone().M.Markers {
 		if success = iterator(sequenceID, index); !success {
 			return
 		}
@@ -256,10 +236,9 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	clonedMarkers := m.Clone().M.Markers
-
-	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
-	for sequenceID := range clonedMarkers {
+	cloned := m.Clone()
+	sequenceIDs := make([]SequenceID, 0, len(cloned.M.Markers))
+	for sequenceID := range cloned.M.Markers {
 		sequenceIDs = append(sequenceIDs, sequenceID)
 	}
 	sort.Slice(sequenceIDs, func(i, j int) bool {
@@ -268,7 +247,7 @@ func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index
 
 	success = true
 	for _, sequenceID := range sequenceIDs {
-		if success = iterator(sequenceID, clonedMarkers[sequenceID]); !success {
+		if success = iterator(sequenceID, cloned.M.Markers[sequenceID]); !success {
 			return
 		}
 	}
@@ -299,9 +278,7 @@ func (m *Markers) LowestIndex() (lowestIndex Index) {
 	m.RLock()
 	defer m.RUnlock()
 
-	lowestIndex = m.M.LowestIndex
-
-	return
+	return m.M.LowestIndex
 }
 
 // HighestIndex returns the highest Index of all Markers in the collection.
@@ -309,42 +286,30 @@ func (m *Markers) HighestIndex() (highestIndex Index) {
 	m.RLock()
 	defer m.RUnlock()
 
-	highestIndex = m.M.HighestIndex
-
-	return
+	return m.M.HighestIndex
 }
 
 // Clone creates a deep copy of the Markers.
-func (m *Markers) Clone() (clonedMarkers *Markers) {
-	clonedMap := make(map[SequenceID]Index)
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		clonedMap[sequenceID] = index
+func (m *Markers) Clone() (cloned *Markers) {
+	m.RLock()
+	defer m.RUnlock()
 
-		return true
-	})
-
-	clonedMarkers = &Markers{
-		model.New(markersModel{
-			Markers:      clonedMap,
-			LowestIndex:  m.M.LowestIndex,
-			HighestIndex: m.M.HighestIndex,
-		}),
+	cloned = NewMarkers()
+	for sequenceID, index := range m.M.Markers {
+		cloned.Set(sequenceID, index)
 	}
 
-	return
+	return cloned
 }
 
 // Equals is a comparator for two Markers.
 func (m *Markers) Equals(other *Markers) (equals bool) {
-	m.RLock()
-	defer m.RUnlock()
-
-	if len(m.M.Markers) != len(other.M.Markers) {
+	if m.Size() != other.Size() {
 		return false
 	}
 
 	for sequenceID, index := range m.M.Markers {
-		otherIndex, exists := other.M.Markers[sequenceID]
+		otherIndex, exists := other.Get(sequenceID)
 		if !exists {
 			return false
 		}
@@ -361,37 +326,8 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 func (m *Markers) Bytes() []byte {
 	m.RLock()
 	defer m.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
 
-// String returns a human-readable version of the Markers.
-func (m *Markers) String() (humanReadableMarkers string) {
-	structBuilder := stringify.StructBuilder("Markers")
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		structBuilder.AddField(stringify.StructField(sequenceID.String(), index))
-
-		return true
-	})
-	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
-	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
-
-	return structBuilder.String()
-}
-
-// SequenceToString returns a string in the form sequenceID:index;.
-func (m *Markers) SequenceToString() (s string) {
-	parts := make([]string, 0, m.Size())
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		parts = append(parts, fmt.Sprintf("%d:%d", sequenceID, index))
-		return true
-	})
-	s = strings.Join(parts, ";")
-	return s
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
