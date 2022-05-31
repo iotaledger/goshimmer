@@ -2,10 +2,10 @@ package mana
 
 import (
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -13,8 +13,11 @@ import (
 
 // AccessBaseManaVector represents a base mana vector.
 type AccessBaseManaVector struct {
+	model.Model[accessBaseManaVectorModel]
+}
+
+type accessBaseManaVectorModel struct {
 	vector map[identity.ID]*AccessBaseMana
-	sync.RWMutex
 }
 
 // Type returns the type of this mana vector.
@@ -26,14 +29,14 @@ func (a *AccessBaseManaVector) Type() Type {
 func (a *AccessBaseManaVector) Size() int {
 	a.RLock()
 	defer a.RUnlock()
-	return len(a.vector)
+	return len(a.M.vector)
 }
 
 // Has returns if the given node has mana defined in the vector.
 func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 	a.RLock()
 	defer a.RUnlock()
-	_, exists := a.vector[nodeID]
+	_, exists := a.M.vector[nodeID]
 	return exists
 }
 
@@ -44,11 +47,8 @@ func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNo
 
 	// pledging aMana to nodes present in the snapshot as if all was pledged at Timestamp
 	for nodeID, record := range snapshot {
-		a.vector[nodeID] = &AccessBaseMana{
-			BaseMana2:          record.AccessMana.Value,
-			EffectiveBaseMana2: record.AccessMana.Value,
-			LastUpdated:        record.AccessMana.Timestamp,
-		}
+		a.M.vector[nodeID] = NewAccessBaseMana(record.AccessMana.Value, record.AccessMana.Value, record.AccessMana.Timestamp)
+
 		// trigger events
 		Events.Pledged.Trigger(&PledgedEvent{
 			NodeID:   nodeID,
@@ -67,14 +67,14 @@ func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 		a.Lock()
 		defer a.Unlock()
 		pledgeNodeID := txInfo.PledgeID[a.Type()]
-		if _, exist := a.vector[pledgeNodeID]; !exist {
+		if _, exist := a.M.vector[pledgeNodeID]; !exist {
 			// first time we see this node
-			a.vector[pledgeNodeID] = &AccessBaseMana{}
+			a.M.vector[pledgeNodeID] = &AccessBaseMana{}
 		}
 		// save it for proper event trigger
-		oldMana := *a.vector[pledgeNodeID]
+		oldMana := *a.M.vector[pledgeNodeID]
 		// actually pledge and update
-		pledged := a.vector[pledgeNodeID].pledge(txInfo)
+		pledged := a.M.vector[pledgeNodeID].pledge(txInfo)
 		pledgeEvent = &PledgedEvent{
 			NodeID:        pledgeNodeID,
 			Amount:        pledged,
@@ -85,7 +85,7 @@ func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 		updateEvent = &UpdatedEvent{
 			NodeID:   pledgeNodeID,
 			OldMana:  &oldMana,
-			NewMana:  a.vector[pledgeNodeID],
+			NewMana:  a.M.vector[pledgeNodeID],
 			ManaType: a.Type(),
 		}
 	}()
@@ -105,7 +105,7 @@ func (a *AccessBaseManaVector) Update(nodeID identity.ID, t time.Time) error {
 func (a *AccessBaseManaVector) UpdateAll(t time.Time) error {
 	a.Lock()
 	defer a.Unlock()
-	for nodeID := range a.vector {
+	for nodeID := range a.M.vector {
 		if err := a.update(nodeID, t); err != nil {
 			return err
 		}
@@ -129,7 +129,7 @@ func (a *AccessBaseManaVector) GetManaMap(optionalUpdateTime ...time.Time) (res 
 		t = optionalUpdateTime[0]
 	}
 	res = make(map[identity.ID]float64)
-	for ID := range a.vector {
+	for ID := range a.M.vector {
 		var mana float64
 		mana, _, err = a.getMana(ID, t)
 		if err != nil {
@@ -149,7 +149,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodes(n uint) (res []Node, t time.T
 		a.Lock()
 		defer a.Unlock()
 		t = time.Now()
-		for ID := range a.vector {
+		for ID := range a.M.vector {
 			var mana float64
 			mana, _, err = a.getMana(ID, t)
 			if err != nil {
@@ -187,7 +187,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Nod
 		a.Lock()
 		defer a.Unlock()
 		t = time.Now()
-		for ID := range a.vector {
+		for ID := range a.M.vector {
 			var mana float64
 			mana, _, err = a.getMana(ID, t)
 			if err != nil {
@@ -228,7 +228,7 @@ func (a *AccessBaseManaVector) GetHighestManaNodesFraction(p float64) (res []Nod
 func (a *AccessBaseManaVector) SetMana(nodeID identity.ID, bm BaseMana) {
 	a.Lock()
 	defer a.Unlock()
-	a.vector[nodeID] = bm.(*AccessBaseMana)
+	a.M.vector[nodeID] = bm.(*AccessBaseMana)
 }
 
 // ForEach iterates over the vector and calls the provided callback.
@@ -236,7 +236,7 @@ func (a *AccessBaseManaVector) ForEach(callback func(ID identity.ID, bm BaseMana
 	// lock to be on the safe side, although callback might just read
 	a.Lock()
 	defer a.Unlock()
-	for nodeID, baseMana := range a.vector {
+	for nodeID, baseMana := range a.M.vector {
 		if !callback(nodeID, baseMana) {
 			return
 		}
@@ -248,14 +248,8 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 	a.RLock()
 	defer a.RUnlock()
 	var result []*PersistableBaseMana
-	for nodeID, bm := range a.vector {
-		pbm := &PersistableBaseMana{
-			ManaType:        a.Type(),
-			BaseValues:      []float64{bm.BaseValue()},
-			EffectiveValues: []float64{bm.EffectiveValue()},
-			LastUpdated:     bm.LastUpdated,
-			NodeID:          nodeID,
-		}
+	for nodeID, bm := range a.M.vector {
+		pbm := NewPersistableBaseMana(nodeID, a.Type(), []float64{bm.EffectiveValue()}, []float64{bm.EffectiveValue()}, bm.LastUpdate())
 		result = append(result, pbm)
 	}
 	return result
@@ -263,25 +257,21 @@ func (a *AccessBaseManaVector) ToPersistables() []*PersistableBaseMana {
 
 // FromPersistable fills the AccessBaseManaVector from persistable mana objects.
 func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err error) {
-	if p.ManaType != AccessMana {
-		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType.String(), AccessMana.String())
+	if p.ManaType() != AccessMana {
+		err = errors.Errorf("persistable mana object has type %s instead of %s", p.ManaType().String(), AccessMana.String())
 		return
 	}
-	if len(p.BaseValues) != 1 {
-		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues))
+	if len(p.BaseValues()) != 1 {
+		err = errors.Errorf("persistable mana object has %d base values instead of 1", len(p.BaseValues()))
 		return
 	}
-	if len(p.EffectiveValues) != 1 {
-		err = errors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues))
+	if len(p.EffectiveValues()) != 1 {
+		err = errors.Errorf("persistable mana object has %d effective values instead of 1", len(p.EffectiveValues()))
 		return
 	}
 	a.Lock()
 	defer a.Unlock()
-	a.vector[p.NodeID] = &AccessBaseMana{
-		BaseMana2:          p.BaseValues[0],
-		EffectiveBaseMana2: p.EffectiveValues[0],
-		LastUpdated:        p.LastUpdated,
-	}
+	a.M.vector[p.NodeID()] = NewAccessBaseMana(p.BaseValues()[0], p.EffectiveValues()[0], p.LastUpdated())
 	return
 }
 
@@ -289,9 +279,9 @@ func (a *AccessBaseManaVector) FromPersistable(p *PersistableBaseMana) (err erro
 func (a *AccessBaseManaVector) RemoveZeroNodes() {
 	a.Lock()
 	defer a.Unlock()
-	for nodeID, baseMana := range a.vector {
-		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.BaseValue() < MinBaseMana {
-			delete(a.vector, nodeID)
+	for nodeID, baseMana := range a.M.vector {
+		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.EffectiveValue() < MinBaseMana {
+			delete(a.M.vector, nodeID)
 		}
 	}
 }
@@ -302,21 +292,21 @@ var _ BaseManaVector = &AccessBaseManaVector{}
 
 // update updates the mana entries for a particular node wrt time. Not concurrency safe.
 func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
-	if _, exist := a.vector[nodeID]; !exist {
+	if _, exist := a.M.vector[nodeID]; !exist {
 		return ErrNodeNotFoundInBaseManaVector
 	}
-	oldMana := *a.vector[nodeID]
-	if err := a.vector[nodeID].update(t); err != nil {
+	oldMana := *a.M.vector[nodeID]
+	if err := a.M.vector[nodeID].update(t); err != nil {
 		return err
 	}
-	Events.Updated.Trigger(&UpdatedEvent{nodeID, &oldMana, a.vector[nodeID], a.Type()})
+	Events.Updated.Trigger(&UpdatedEvent{nodeID, &oldMana, a.M.vector[nodeID], a.Type()})
 	return nil
 }
 
 // getMana returns the current effective mana value. Not concurrency safe.
 func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64, time.Time, error) {
 	t := time.Now()
-	if _, exist := a.vector[nodeID]; !exist {
+	if _, exist := a.M.vector[nodeID]; !exist {
 		return 0, t, nil
 	}
 	if len(optionalUpdateTime) > 0 {
@@ -324,7 +314,7 @@ func (a *AccessBaseManaVector) getMana(nodeID identity.ID, optionalUpdateTime ..
 	}
 	_ = a.update(nodeID, t)
 
-	baseMana := a.vector[nodeID]
+	baseMana := a.M.vector[nodeID]
 	effectiveValue := baseMana.EffectiveValue()
 	if effectiveValue < tangle.MinMana {
 		effectiveValue = 0
