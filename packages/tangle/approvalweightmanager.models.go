@@ -22,7 +22,7 @@ import (
 
 // BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
-	model.Storable[utxo.TransactionID, float64]
+	model.Storable[utxo.TransactionID, float64] `serix:"0"`
 }
 
 // NewBranchWeight creates a new BranchWeight.
