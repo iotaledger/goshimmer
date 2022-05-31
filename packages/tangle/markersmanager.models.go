@@ -14,22 +14,11 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	*thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
+	thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
-}
-
-// Encode returns a serialized byte slice of the object.
-func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
-	return m.ThresholdMap.Encode()
-}
-
-// Decode deserializes bytes into a valid object.
-func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
-	m.ThresholdMap = thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)
-	return m.ThresholdMap.Decode(b)
+	return &markerIndexBranchIDMap{*thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
