@@ -41,7 +41,6 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
 	s.tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
-		fmt.Println("msg stored", event.Message.ID())
 		s.solidify(event.Message)
 	}))
 

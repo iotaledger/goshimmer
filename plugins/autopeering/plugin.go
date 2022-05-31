@@ -111,7 +111,7 @@ func configureGossipIntegration() {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
-		if err := mgr.AddInbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.AddInbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding inbound", "id", ev.Peer.ID(), "err", err)
 		}
@@ -121,7 +121,7 @@ func configureGossipIntegration() {
 		if !ev.Status {
 			return // ignore rejected peering
 		}
-		if err := mgr.AddOutbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
+			if err := mgr.AddOutbound(context.Background(), ev.Peer, gossip.NeighborsGroupAuto); err != nil {
 			deps.Selection.RemoveNeighbor(ev.Peer.ID())
 			Plugin.Logger().Debugw("error adding outbound", "id", ev.Peer.ID(), "err", err)
 		}

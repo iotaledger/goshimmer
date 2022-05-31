@@ -40,7 +40,6 @@ func NewApprovalWeightManager(tangle *Tangle) (approvalWeightManager *ApprovalWe
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (a *ApprovalWeightManager) Setup() {
 	a.tangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *MessageBookedEvent) {
-		fmt.Println("message booked", event.MessageID)
 		a.processBookedMessage(event.MessageID)
 	}))
 	a.tangle.Booker.Events.MessageBranchUpdated.Hook(event.NewClosure(func(event *MessageBranchUpdatedEvent) {

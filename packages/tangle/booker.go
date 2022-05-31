@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
@@ -47,7 +46,6 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (b *Booker) Setup() {
 	b.tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
-		fmt.Println("message solid", event.Message.ID())
 		b.book(event.Message)
 	}))
 

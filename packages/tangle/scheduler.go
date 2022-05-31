@@ -119,7 +119,6 @@ func (s *Scheduler) Setup() {
 	fmt.Println("setup scheduler")
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *MessageProcessedEvent) {
-		fmt.Println("message processed", event.MessageID)
 		if err := s.Submit(event.MessageID); err != nil {
 			if !errors.Is(err, schedulerutils.ErrInsufficientMana) {
 				s.Events.Error.Trigger(errors.Errorf("failed to submit to scheduler: %w", err))
