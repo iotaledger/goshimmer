@@ -13,11 +13,11 @@ import (
 
 // AccessBaseManaVector represents a base mana vector.
 type AccessBaseManaVector struct {
-	model.Model[accessBaseManaVectorModel]
+	model.Model[accessBaseManaVectorModel] `serix:"0"`
 }
 
 type accessBaseManaVectorModel struct {
-	vector map[identity.ID]*AccessBaseMana
+	vector map[identity.ID]*AccessBaseMana `serix:"0"`
 }
 
 // Type returns the type of this mana vector.

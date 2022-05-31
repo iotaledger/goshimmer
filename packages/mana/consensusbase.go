@@ -8,11 +8,11 @@ import (
 
 // ConsensusBaseMana holds information about the consensus base mana values of a single node.
 type ConsensusBaseMana struct {
-	model.Model[consensusBaseManaModel]
+	model.Model[consensusBaseManaModel] `serix:"0"`
 }
 
 type consensusBaseManaModel struct {
-	BaseMana1 float64
+	BaseMana1 float64 `serix:"0"`
 }
 
 func NewConsensusBaseMana(baseMana float64) *ConsensusBaseMana {

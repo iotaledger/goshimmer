@@ -113,7 +113,7 @@ var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.Seque
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
-	model.StorableReference[*markers.Marker, MessageID]
+	model.StorableReference[*markers.Marker, MessageID] `serix:"0"`
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.

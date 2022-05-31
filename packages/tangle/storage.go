@@ -591,7 +591,7 @@ func (a *Approver) ApproverMessageID() MessageID {
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	model.StorableReference[utxo.TransactionID, MessageID]
+	model.StorableReference[utxo.TransactionID, MessageID] `serix:"0"`
 }
 
 // NewAttachment creates an attachment object with the given information.
@@ -621,7 +621,7 @@ func (a *Attachment) MessageID() MessageID {
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	model.Storable[MessageID, time.Time]
+	model.Storable[MessageID, time.Time] `serix:"0"`
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.

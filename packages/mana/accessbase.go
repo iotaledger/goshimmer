@@ -9,13 +9,13 @@ import (
 
 // AccessBaseMana holds information about the access base mana values of a single node.
 type AccessBaseMana struct {
-	model.Model[accessBaseManaModel]
+	model.Model[accessBaseManaModel] `serix:"0"`
 }
 
 type accessBaseManaModel struct {
-	BaseMana2          float64
-	EffectiveBaseMana2 float64
-	LastUpdated        time.Time
+	BaseMana2          float64   `serix:"0"`
+	EffectiveBaseMana2 float64   `serix:"1"`
+	LastUpdated        time.Time `serix:"2"`
 }
 
 // NewAccessBaseMana returns new base access mana vector.

@@ -148,7 +148,7 @@ func (v *Voters) String() string {
 
 // BranchVoters is a data structure that tracks which nodes support a branch.
 type BranchVoters struct {
-	model.Storable[utxo.TransactionID, *Voters]
+	model.Storable[utxo.TransactionID, *Voters] `serix:"0"`
 }
 
 // NewBranchVoters is the constructor for the BranchVoters object.
@@ -408,7 +408,7 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 
 // BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
 type BranchVote struct {
-	model.Model[branchVoteModel]
+	model.Model[branchVoteModel] `serix:"0"`
 }
 
 type branchVoteModel struct {

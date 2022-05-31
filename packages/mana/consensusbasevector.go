@@ -13,11 +13,11 @@ import (
 
 // ConsensusBaseManaVector represents a base mana vector.
 type ConsensusBaseManaVector struct {
-	model.Model[consensusBaseManaVectorModel]
+	model.Model[consensusBaseManaVectorModel] `serix:"0"`
 }
 
 type consensusBaseManaVectorModel struct {
-	vector map[identity.ID]*ConsensusBaseMana
+	vector map[identity.ID]*ConsensusBaseMana `serix:"0"`
 }
 
 // Type returns the type of this mana vector.
