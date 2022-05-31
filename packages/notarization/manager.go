@@ -58,7 +58,7 @@ func (m *Manager) IsCommittable(ei EI) bool {
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func (m *Manager) GetLatestEC() *EpochCommitment {
+func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 	ei := m.epochManager.CurrentEI()
 	for ei >= 0 {
 		if m.IsCommittable(ei) {

@@ -533,6 +533,8 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		payload.NewGenericDataPayload([]byte("")),
 		0,
 		ed25519.Signature{},
+		0,
+		nil,
 	)
 	return message
 }
@@ -550,6 +552,8 @@ func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.T
 		payload.NewGenericDataPayload([]byte("")),
 		0,
 		ed25519.Signature{},
+		0,
+		nil,
 	)
 	return message
 }

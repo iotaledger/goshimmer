@@ -184,6 +184,7 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
 		tangle.CacheTimeProvider(database.CacheTimeProvider()),
+		tangle.CommitmentFunc(commitmentRetriever),
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
@@ -233,6 +234,14 @@ func totalAccessManaRetriever() float64 {
 		return 0
 	}
 	return totalMana
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region Notarization ///////////////////////////////////////////////////////////////////////////////////////////
+
+func commitmentRetriever() *tangle.EpochCommitment {
+	return GetLatestEC()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

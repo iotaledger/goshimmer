@@ -11,18 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/marshalutil"
 )
-
-var (
-	prevECR = []byte("previousEpochCommitmentRoot")
-)
-
-// EpochCommitment contains the ECR and prevECR of an epoch.
-type EpochCommitment struct {
-	EI EI
-	EC []byte
-}
 
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
@@ -30,11 +19,11 @@ type Commitment struct {
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
-	prevECR           []byte
+	prevECR           [32]byte
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR []byte, hasher hash.Hash) *Commitment {
+func NewCommitment(ei EI, prevECR [32]byte, hasher hash.Hash) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -70,15 +59,14 @@ func (e *Commitment) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (e *Commitment) ECR() []byte {
-	branch1 := blake2b.Sum256(append(e.prevECR, e.TangleRoot()...))
+func (e *Commitment) ECR() [32]byte {
+	branch1 := blake2b.Sum256(append(e.prevECR[:], e.TangleRoot()...))
 	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
 	var root []byte
 	root = append(root, branch1[:]...)
 	root = append(root, branch2[:]...)
-	ecr := blake2b.Sum256(root)
+	return blake2b.Sum256(root)
 
-	return ecr[:]
 }
 
 // EpochCommitmentFactory manages epoch commitments.
@@ -168,20 +156,14 @@ func (f *EpochCommitmentFactory) GetCommitment(ei EI) *Commitment {
 }
 
 // GetEpochCommitment returns the epoch commitment with the given ei.
-func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *EpochCommitment {
+func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	if commitment, ok := f.commitments[ei]; ok {
-		marshalUtil := marshalutil.New()
-
-		marshalUtil.WriteBytes(commitment.prevECR)
-		marshalUtil.WriteBytes(commitment.ECR())
-		marshalUtil.WriteInt64(int64(ei))
-		ec := blake2b.Sum256(marshalUtil.Bytes())
-
-		return &EpochCommitment{
-			EI: ei,
-			EC: ec[:],
+		return &tangle.EpochCommitment{
+			EI:          uint64(ei),
+			ECR:         commitment.ECR(),
+			PreviousECR: commitment.prevECR,
 		}
 	}
 	return nil
@@ -222,7 +204,7 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 	commitment, ok := f.commitments[ei]
 	f.commitmentsMutex.RUnlock()
 	if !ok {
-		var previousECR []byte
+		var previousECR [32]byte
 
 		if ei > 0 {
 			if previousCommitment := f.GetCommitment(ei - 1); previousCommitment != nil {
