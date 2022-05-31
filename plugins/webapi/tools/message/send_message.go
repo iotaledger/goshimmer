@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/generics/event"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
