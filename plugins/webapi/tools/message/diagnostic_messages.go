@@ -238,12 +238,12 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		msgInfo.Booked = metadata.IsBooked()
 		msgInfo.ObjectivelyInvalid = metadata.IsObjectivelyInvalid()
 		if metadata.StructureDetails() != nil {
-			msgInfo.Rank = metadata.StructureDetails().Rank
-			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
-			msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
-			msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
-			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
-			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
+			msgInfo.Rank = metadata.StructureDetails().Rank()
+			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker()
+			msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers().HighestIndex())
+			msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers().LowestIndex())
+			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers().HighestIndex())
+			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers().LowestIndex())
 		}
 	}, false)
 

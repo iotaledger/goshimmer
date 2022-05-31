@@ -22,11 +22,11 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 	}
 
 	return &StructureDetails{
-		Rank:          structureDetails.Rank,
-		IsPastMarker:  structureDetails.IsPastMarker,
-		PastMarkerGap: structureDetails.PastMarkerGap,
-		PastMarkers:   NewMarkers(structureDetails.PastMarkers),
-		FutureMarkers: NewMarkers(structureDetails.FutureMarkers),
+		Rank:          structureDetails.Rank(),
+		IsPastMarker:  structureDetails.IsPastMarker(),
+		PastMarkerGap: structureDetails.PastMarkerGap(),
+		PastMarkers:   NewMarkers(structureDetails.PastMarkers()),
+		FutureMarkers: NewMarkers(structureDetails.FutureMarkers()),
 	}
 }
 

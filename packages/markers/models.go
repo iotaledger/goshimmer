@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strconv"
-	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
@@ -758,55 +757,104 @@ func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 // StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
 // to interact with the public API of this package.
 type StructureDetails struct {
-	Rank                     uint64   `serix:"0"`
-	PastMarkerGap            uint64   `serix:"1"`
-	IsPastMarker             bool     `serix:"2"`
-	PastMarkers              *Markers `serix:"3"`
-	FutureMarkers            *Markers `serix:"4"`
-	futureMarkersUpdateMutex sync.Mutex
+	model.Model[structureDetailsModel] `serix:"0"`
 }
 
-// StructureDetailsFromBytes unmarshals a StructureDetails from a sequence of bytes.
-func StructureDetailsFromBytes(structureDetailBytes []byte) (marker *StructureDetails, consumedBytes int, err error) {
-	marker = new(StructureDetails)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), structureDetailBytes, marker, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse StructureDetails: %w", err)
-		return
-	}
-	return
+type structureDetailsModel struct {
+	Rank          uint64   `serix:"0"`
+	PastMarkerGap uint64   `serix:"1"`
+	IsPastMarker  bool     `serix:"2"`
+	PastMarkers   *Markers `serix:"3"`
+	FutureMarkers *Markers `serix:"4"`
+}
+
+// NewStructureDetails creates an empty StructureDetails object.
+func NewStructureDetails() (newStructureDetails *StructureDetails) {
+	return &StructureDetails{model.New(structureDetailsModel{
+		PastMarkers:   NewMarkers(),
+		FutureMarkers: NewMarkers(),
+	})}
+}
+
+func (m *StructureDetails) Rank() (rank uint64) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.Rank
+}
+
+func (m *StructureDetails) SetRank(rank uint64) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M.Rank = rank
+}
+
+func (m *StructureDetails) PastMarkerGap() (pastMarkerGap uint64) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.PastMarkerGap
+}
+
+func (m *StructureDetails) SetPastMarkerGap(pastMarkerGap uint64) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M.PastMarkerGap = pastMarkerGap
+}
+
+func (m *StructureDetails) IsPastMarker() (isPastMarker bool) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.IsPastMarker
+}
+
+func (m *StructureDetails) SetIsPastMarker(isPastMarker bool) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M.IsPastMarker = isPastMarker
+}
+
+func (m *StructureDetails) PastMarkers() (pastMarkers *Markers) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.PastMarkers
+}
+
+func (m *StructureDetails) SetPastMarkers(pastMarkers *Markers) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M.PastMarkers = pastMarkers
+}
+
+func (m *StructureDetails) FutureMarkers() (futureMarkers *Markers) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.FutureMarkers
+}
+
+func (m *StructureDetails) SetFutureMarkers(futureMarkers *Markers) {
+	m.Lock()
+	defer m.Unlock()
+
+	m.M.FutureMarkers = futureMarkers
 }
 
 // Clone creates a deep copy of the StructureDetails.
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
-	return &StructureDetails{
-		Rank:          m.Rank,
-		PastMarkerGap: m.PastMarkerGap,
-		IsPastMarker:  m.IsPastMarker,
-		PastMarkers:   m.PastMarkers.Clone(),
-		FutureMarkers: m.FutureMarkers.Clone(),
-	}
-}
-
-// Bytes returns a marshaled version of the StructureDetails.
-func (m *StructureDetails) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable version of the StructureDetails.
-func (m *StructureDetails) String() (humanReadableStructureDetails string) {
-	return stringify.Struct("StructureDetails",
-		stringify.StructField("Rank", m.Rank),
-		stringify.StructField("PastMarkerGap", m.PastMarkerGap),
-		stringify.StructField("IsPastMarker", m.IsPastMarker),
-		stringify.StructField("PastMarkers", m.PastMarkers),
-		stringify.StructField("FutureMarkers", m.FutureMarkers),
-	)
+	return &StructureDetails{model.New(structureDetailsModel{
+		Rank:          m.Rank(),
+		PastMarkerGap: m.PastMarkerGap(),
+		IsPastMarker:  m.IsPastMarker(),
+		PastMarkers:   m.PastMarkers().Clone(),
+		FutureMarkers: m.FutureMarkers().Clone(),
+	})}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

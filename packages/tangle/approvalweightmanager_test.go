@@ -164,12 +164,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		message.ID().RegisterAlias("Statement2")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 4.1.2"])
-			messageMetadata.SetStructureDetails(&markers.StructureDetails{
-				Rank:          0,
-				IsPastMarker:  false,
-				PastMarkers:   markers.NewMarkers(),
-				FutureMarkers: markers.NewMarkers(),
-			})
+			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateBranchVoters(message)
 
@@ -196,12 +191,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		message.ID().RegisterAlias("Statement1")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 1.1 + Conflict 4.1.1"])
-			messageMetadata.SetStructureDetails(&markers.StructureDetails{
-				Rank:          0,
-				IsPastMarker:  false,
-				PastMarkers:   markers.NewMarkers(),
-				FutureMarkers: markers.NewMarkers(),
-			})
+			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateBranchVoters(message)
 
@@ -228,12 +218,7 @@ func TestApprovalWeightManager_updateBranchVoters(t *testing.T) {
 		message.ID().RegisterAlias("Statement3")
 		tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetAddedBranchIDs(branchIDs["Conflict 2"])
-			messageMetadata.SetStructureDetails(&markers.StructureDetails{
-				Rank:          0,
-				IsPastMarker:  false,
-				PastMarkers:   markers.NewMarkers(),
-				FutureMarkers: markers.NewMarkers(),
-			})
+			messageMetadata.SetStructureDetails(markers.NewStructureDetails())
 		})
 		approvalWeightManager.updateBranchVoters(message)
 
@@ -285,22 +270,22 @@ func TestApprovalWeightManager_updateSequenceVoters(t *testing.T) {
 		markersMap["0,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,2"]}, increaseIndexCallback)
 		markersMap["0,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"]}, increaseIndexCallback)
 
-		markersMap["0,1"].PastMarkerGap = 50
+		markersMap["0,1"].SetPastMarkerGap(50)
 		markersMap["1,2"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,1"]}, increaseIndexCallback)
 		markersMap["1,3"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,2"]}, increaseIndexCallback)
 		markersMap["1,4"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,3"]}, increaseIndexCallback)
 		markersMap["1,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["1,4"]}, increaseIndexCallback)
 
-		markersMap["0,3"].PastMarkerGap = 50
-		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["0,3"].SetPastMarkerGap(50)
+		markersMap["1,4"].SetPastMarkerGap(50)
 		markersMap["2,5"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,3"], markersMap["1,4"]}, increaseIndexCallback)
 		markersMap["2,6"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["0,4"], markersMap["2,5"]}, increaseIndexCallback)
 		markersMap["2,7"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,6"]}, increaseIndexCallback)
 		markersMap["2,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
 
-		markersMap["2,7"].PastMarkerGap = 50
+		markersMap["2,7"].SetPastMarkerGap(50)
 		markersMap["3,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"]}, increaseIndexCallback)
-		markersMap["1,4"].PastMarkerGap = 50
+		markersMap["1,4"].SetPastMarkerGap(50)
 		markersMap["4,8"], _ = tangle.Booker.MarkersManager.Manager.InheritStructureDetails([]*markers.StructureDetails{markersMap["2,7"], markersMap["1,4"]}, increaseIndexCallback)
 	}
 
@@ -863,9 +848,9 @@ func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedV
 func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightManager, markersMap map[string]*markers.StructureDetails, expectedVoters map[string][]*identity.Identity) {
 	for markerAlias, expectedVotersOfMarker := range expectedVoters {
 		// sanity check
-		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers.Marker().SequenceID(), markersMap[markerAlias].PastMarkers.Marker().Index()))
+		assert.Equal(t, markerAlias, fmt.Sprintf("%d,%d", markersMap[markerAlias].PastMarkers().Marker().SequenceID(), markersMap[markerAlias].PastMarkers().Marker().Index()))
 
-		voters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers.Marker())
+		voters := approvalWeightManager.markerVotes(markersMap[markerAlias].PastMarkers().Marker())
 
 		assert.Equal(t, len(expectedVotersOfMarker), len(voters), "size of voters for Marker("+markerAlias+") does not match")
 		for _, voter := range expectedVotersOfMarker {
@@ -879,12 +864,11 @@ func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identit
 	message = newTestDataMessagePublicKey("test", voter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
-		messageMetadata.SetStructureDetails(&markers.StructureDetails{
-			Rank:          0,
-			IsPastMarker:  true,
-			PastMarkers:   markers.NewMarkers(markersToApprove...),
-			FutureMarkers: markers.NewMarkers(),
-		})
+		newStructureDetails := markers.NewStructureDetails()
+		newStructureDetails.SetIsPastMarker(true)
+		newStructureDetails.SetPastMarkers(markers.NewMarkers(markersToApprove...))
+
+		messageMetadata.SetStructureDetails(newStructureDetails)
 	})
 
 	return

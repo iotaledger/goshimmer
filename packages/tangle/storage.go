@@ -354,14 +354,9 @@ func (s *Storage) storeGenesis() {
 					SubtractedBranchIDs: utxo.NewTransactionIDs(),
 					SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
 					Solid:               true,
-					StructureDetails: &markers.StructureDetails{
-						Rank:          0,
-						IsPastMarker:  false,
-						PastMarkers:   markers.NewMarkers(),
-						FutureMarkers: markers.NewMarkers(),
-					},
-					Scheduled: true,
-					Booked:    true,
+					StructureDetails:    markers.NewStructureDetails(),
+					Scheduled:           true,
+					Booked:              true,
 				})}
 		genesisMetadata.SetID(EmptyMessageID)
 		return genesisMetadata

@@ -52,9 +52,9 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 	// })
 
 	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
-	if newStructureDetails.IsPastMarker {
-		b.SetMessageID(newStructureDetails.PastMarkers.Marker(), message.ID())
-		b.tangle.Utils.WalkMessageMetadata(b.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
+	if newStructureDetails.IsPastMarker() {
+		b.SetMessageID(newStructureDetails.PastMarkers().Marker(), message.ID())
+		b.tangle.Utils.WalkMessageMetadata(b.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers().Marker()), message.ParentsByType(StrongParentType))
 	}
 
 	return

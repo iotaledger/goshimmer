@@ -283,7 +283,7 @@ func (a *ApprovalWeightManager) updateSequenceVoters(message *Message) {
 		// which results in endless walks.
 		supportWalker := walker.New[markers.Marker](false)
 
-		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		messageMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 			supportWalker.Push(*markers.NewMarker(sequenceID, index))
 
 			return true

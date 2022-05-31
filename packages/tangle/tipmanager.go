@@ -397,12 +397,12 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 
 func (t *TipManager) processMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker]) {
 	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
-		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers.Size() == 0 {
+		if messageMetadata.StructureDetails() == nil || messageMetadata.StructureDetails().PastMarkers().Size() == 0 {
 			// need to walk messages
 			messageWalker.Push(messageID)
 			return
 		}
-		messageMetadata.StructureDetails().PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+		messageMetadata.StructureDetails().PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 			if sequenceID == 0 && index == 0 {
 				// need to walk messages
 				messageWalker.Push(messageID)

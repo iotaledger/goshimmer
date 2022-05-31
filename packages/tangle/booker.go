@@ -232,7 +232,7 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 	messageMetadata.SetStructureDetails(inheritedStructureDetails)
 
 	if newSequenceCreated {
-		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranchIDs)
+		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedBranchIDs)
 		return nil
 	}
 
@@ -252,8 +252,8 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 		return nil
 	}
 
-	if inheritedStructureDetails.IsPastMarker {
-		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers.Marker(), inheritedBranchIDs)
+	if inheritedStructureDetails.IsPastMarker() {
+		b.MarkersManager.SetBranchIDs(inheritedStructureDetails.PastMarkers().Marker(), inheritedBranchIDs)
 		return nil
 	}
 
@@ -345,7 +345,7 @@ func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.Structu
 
 	structureDetailsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 	// obtain all the Markers
-	structureDetails.PastMarkers.ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
+	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
 		branchIDs := b.MarkersManager.PendingBranchIDs(markers.NewMarker(sequenceID, index))
 		structureDetailsBranchIDs.AddAll(branchIDs)
 		return true
@@ -522,9 +522,9 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 		return false, nil
 	}
 
-	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker {
-		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers.Marker(), addedBranchID, removedBranchIDs); err != nil {
-			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers.Marker(), err)
+	if structureDetails := messageMetadata.StructureDetails(); structureDetails.IsPastMarker() {
+		if err = b.propagateForkedTransactionToMarkerFutureCone(structureDetails.PastMarkers().Marker(), addedBranchID, removedBranchIDs); err != nil {
+			return false, errors.Errorf("failed to propagate conflict%s to future cone of %s: %w", addedBranchID, structureDetails.PastMarkers().Marker(), err)
 		}
 		return true, nil
 	}

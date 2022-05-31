@@ -108,11 +108,11 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	}
 
 	if d := messageMetadata.StructureDetails(); d != nil {
-		t.Rank = d.Rank
-		t.PastMarkerGap = d.PastMarkerGap
-		t.IsPastMarker = d.IsPastMarker
-		t.PastMarkers = d.PastMarkers.String()
-		t.FutureMarkers = d.FutureMarkers.String()
+		t.Rank = d.Rank()
+		t.PastMarkerGap = d.PastMarkerGap()
+		t.IsPastMarker = d.IsPastMarker()
+		t.PastMarkers = d.PastMarkers().String()
+		t.FutureMarkers = d.FutureMarkers().String()
 	}
 
 	return t
