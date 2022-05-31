@@ -10,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
@@ -77,6 +78,14 @@ func (m *Marker) Index() (index Index) {
 	defer m.RUnlock()
 
 	return m.M.Index
+}
+
+// Bytes returns a serialized version of the Marker.
+func (m *Marker) Bytes() (serialized []byte) {
+	m.RLock()
+	defer m.RUnlock()
+
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m.M))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
