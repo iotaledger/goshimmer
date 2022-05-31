@@ -72,7 +72,8 @@ func newNotarizationManager() *notarization.Manager {
 		notarization.NewEpochManager(),
 		notarization.NewEpochCommitmentFactory(),
 		notarizationDeps.Tangle,
-		notarization.MinCommitableEpochAge(NotarizationParameters.MinEpochCommitableDuration))
+		notarization.MinCommitableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
+		notarization.Log(Plugin.Logger()))
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
