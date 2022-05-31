@@ -22,7 +22,7 @@ import (
 
 // BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
-	model.Storable[utxo.TransactionID, float64]
+	model.Storable[utxo.TransactionID, float64] `serix:"0"`
 }
 
 // NewBranchWeight creates a new BranchWeight.
@@ -281,13 +281,13 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
-	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap] `serix:"0"`
+	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap] `serix:"0"`
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
-	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap](
-		sequenceID, voter, newLatestMarkerVotesMap(),
+	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap](
+		sequenceID, voter, *newLatestMarkerVotesMap(),
 	)}
 
 	return
@@ -385,10 +385,6 @@ func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
 		),
 	}
 	latestBranchVotes.SetID(voter)
-
-	latestBranchVotes.Persist()
-	latestBranchVotes.SetModified()
-
 	return
 }
 
@@ -407,11 +403,11 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
-	if currentVote, exists := l.M.LatestBranchVotes[vote.BranchID]; exists && currentVote.VotePower >= vote.VotePower {
+	if currentVote, exists := l.M.LatestBranchVotes[vote.M.BranchID]; exists && currentVote.M.VotePower >= vote.M.VotePower {
 		return false
 	}
 
-	l.M.LatestBranchVotes[vote.BranchID] = vote
+	l.M.LatestBranchVotes[vote.M.BranchID] = vote
 	l.SetModified()
 
 	return true
@@ -423,6 +419,10 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 
 // BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
 type BranchVote struct {
+	model.Model[branchVoteModel]
+}
+
+type branchVoteModel struct {
 	Voter     Voter              `serix:"0"`
 	BranchID  utxo.TransactionID `serix:"1"`
 	Opinion   Opinion            `serix:"2"`
@@ -432,31 +432,29 @@ type BranchVote struct {
 // WithOpinion derives a vote for the given Opinion.
 func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
 	return &BranchVote{
-		Voter:     v.Voter,
-		BranchID:  v.BranchID,
-		Opinion:   opinion,
-		VotePower: v.VotePower,
+		model.New[branchVoteModel](
+			branchVoteModel{
+				Voter:     v.M.Voter,
+				BranchID:  v.M.BranchID,
+				Opinion:   opinion,
+				VotePower: v.M.VotePower,
+			},
+		),
 	}
 }
 
 // WithBranchID derives a vote for the given BranchID.
 func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
 	return &BranchVote{
-		Voter:     v.Voter,
-		BranchID:  branchID,
-		Opinion:   v.Opinion,
-		VotePower: v.VotePower,
+		model.New[branchVoteModel](
+			branchVoteModel{
+				Voter:     v.M.Voter,
+				BranchID:  branchID,
+				Opinion:   v.M.Opinion,
+				VotePower: v.M.VotePower,
+			},
+		),
 	}
-}
-
-// String returns a human-readable version of the Vote.
-func (v *BranchVote) String() string {
-	return stringify.Struct("Vote",
-		stringify.StructField("Voter", v.Voter),
-		stringify.StructField("BranchID", v.BranchID),
-		stringify.StructField("Opinion", int(v.Opinion)),
-		stringify.StructField("VotePower", v.VotePower),
-	)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
