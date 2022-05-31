@@ -121,10 +121,9 @@ func TestReferencedMarkers(t *testing.T) {
 		NewMarker(4, 9),
 	), referencedMarkers.Get(12))
 
-	marshaledReferencedMarkers := referencedMarkers.Bytes()
-	unmarshalledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
+	marshaledReferencedMarkers := lo.PanicOnErr(referencedMarkers.Bytes())
+	unmarshalledReferencedMarkers := new(ReferencedMarkers)
+	require.NoError(t, unmarshalledReferencedMarkers.FromBytes(marshaledReferencedMarkers))
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 3),
