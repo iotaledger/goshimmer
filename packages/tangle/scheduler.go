@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -22,7 +21,7 @@ const (
 	MaxDeficit = MaxMessageSize
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
-	MinMana float64 = 1.0
+	MinMana float64 = 100.0
 )
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
@@ -395,7 +394,7 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
-	var rounds uint64 = math.MaxUint64
+	rounds := math.MaxFloat64
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
@@ -415,8 +414,15 @@ func (s *Scheduler) schedule() *Message {
 			} else {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
 				remainingDeficit := math.Dim(float64(msg.Size()), s.GetDeficit(q.NodeID()))
+				// calculate how many rounds we need to skip to accumulate enough deficit.
+				// Use for loop to account for float imprecision.
+				r := math.Ceil(remainingDeficit / s.Quanta(q.NodeID()))
+				if remainingDeficit-r*s.Quanta(q.NodeID()) > 0 {
+					r += math.Ceil(math.Dim(remainingDeficit, r*s.Quanta(q.NodeID()))) / s.Quanta(q.NodeID())
+				}
+
 				// find the first node that will be allowed to schedule a message
-				if r := uint64(math.Ceil(remainingDeficit / s.Quanta(q.NodeID()))); r < rounds {
+				if r < rounds {
 					rounds = r
 					schedulingNode = q
 				}
@@ -438,7 +444,7 @@ func (s *Scheduler) schedule() *Message {
 	if rounds > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*s.Quanta(q.NodeID()))
+			s.updateDeficit(q.NodeID(), rounds*s.Quanta(q.NodeID()))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -526,7 +532,6 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
 	if deficit < 0 {
 		// this will never happen and is just here for debugging purposes
 		// TODO: remove print
-		fmt.Println("negative deficit", deficit)
 		panic("scheduler: deficit is less than 0")
 	}
 	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
