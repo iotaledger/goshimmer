@@ -27,7 +27,7 @@ func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
 
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
-	model.Storable[markers.SequenceID, *markerIndexBranchIDMap]
+	model.Storable[markers.SequenceID, *markerIndexBranchIDMap] `serix:"0"`
 }
 
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
