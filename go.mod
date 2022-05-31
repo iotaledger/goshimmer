@@ -7,6 +7,7 @@ require (
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/beevik/ntp v0.3.0
 	github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8
+	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884
 	github.com/cockroachdb/errors v1.8.4
 	github.com/drand/drand v1.1.1
 	github.com/drand/kyber v1.1.2
@@ -16,7 +17,6 @@ require (
 	github.com/iotaledger/hive.go v0.0.0-20220530091800-fd2c8ba749cf
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
-	github.com/lazyledger/smt v0.2.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/libp2p/go-yamux/v2 v2.2.0
@@ -48,7 +48,6 @@ require (
 	github.com/aws/aws-sdk-go v1.34.28 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
-	github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect

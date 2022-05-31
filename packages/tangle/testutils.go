@@ -671,9 +671,9 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message, err = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, err = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	} else {
-		message, err = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{})
+		message, err = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	}
 	if err != nil {
 		panic(err)

@@ -36,6 +36,8 @@ func ExampleRequest() {
 		faucetRequest,
 		0,
 		ed25519.EmptySignature,
+		0,
+		nil,
 	)
 	fmt.Println(tx.String())
 }
@@ -84,6 +86,8 @@ func TestIsFaucetReq(t *testing.T) {
 		faucetRequest,
 		0,
 		ed25519.EmptySignature,
+		0,
+		nil,
 	)
 
 	dataMsg, _ := tangle.NewMessage(
@@ -98,6 +102,8 @@ func TestIsFaucetReq(t *testing.T) {
 		payload.NewGenericDataPayload([]byte("data")),
 		0,
 		ed25519.EmptySignature,
+		0,
+		nil,
 	)
 
 	assert.Equal(t, true, IsFaucetReq(faucetMsg))
