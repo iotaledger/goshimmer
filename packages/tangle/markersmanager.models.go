@@ -28,7 +28,7 @@ func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
-	m.ThresholdMap = thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
+	m.ThresholdMap = thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)
 	return m.ThresholdMap.Decode(b)
 }
 
