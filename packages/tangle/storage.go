@@ -1,17 +1,13 @@
 package tangle
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
@@ -546,103 +542,47 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	approverInner `serix:"0"`
+	model.StorableReference[approverSourceModel, MessageID] `serix:"0"`
 }
 
-type approverInner struct {
+type approverSourceModel struct {
 	// the message which got referenced by the approver message.
 	ReferencedMessageID MessageID `serix:"0"`
 
 	// ApproverType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
 	ApproverType ApproverType `serix:"1"`
-
-	// the message which approved/referenced the given referenced message.
-	ApproverMessageID MessageID `serix:"2"`
-
-	objectstorage.StorableObjectFlags
 }
 
 // NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
-	approver := &Approver{
-		approverInner{
-			ApproverType:        approverType,
+	return &Approver{
+		model.NewStorableReference[approverSourceModel, MessageID](approverSourceModel{
 			ReferencedMessageID: referencedMessageID,
-			ApproverMessageID:   approverMessageID,
-		},
+			ApproverType:        approverType,
+		}, approverMessageID),
 	}
-	return approver
-}
-
-// FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, _ []byte) error {
-	_, err := a.FromBytes(key)
-	if err != nil {
-		return errors.Errorf("failed to parse Approver from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
-	if result = a; result == nil {
-		result = new(Approver)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse Approver: %w", err)
-	}
-
-	return result, nil
 }
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	return a.approverInner.ApproverType
+	a.RLock()
+	defer a.RUnlock()
+	return a.SourceID.ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	return a.approverInner.ReferencedMessageID
+	a.RLock()
+	defer a.RUnlock()
+	return a.SourceID.ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	return a.approverInner.ApproverMessageID
+	a.RLock()
+	defer a.RUnlock()
+	return a.TargetID
 }
-
-// Bytes returns the bytes of the approver.
-func (a *Approver) Bytes() []byte {
-	return a.ObjectStorageKey()
-}
-
-// String returns the string representation of the approver.
-func (a *Approver) String() string {
-	return stringify.Struct("Approver",
-		stringify.StructField("referencedMessageID", a.ReferencedMessageID()),
-		stringify.StructField("approverMessageID", a.ApproverMessageID()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *Approver) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue returns the value of the stored approver object.
-func (a *Approver) ObjectStorageValue() (result []byte) {
-	return
-}
-
-// interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ objectstorage.StorableObject = new(Approver)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -681,90 +621,30 @@ func (a *Attachment) MessageID() MessageID {
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	missingMessageInner `serix:"0"`
-}
-
-type missingMessageInner struct {
-	MessageID    MessageID
-	MissingSince time.Time `serix:"0"`
-
-	objectstorage.StorableObjectFlags
+	model.Storable[MessageID, time.Time]
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
-	return &MissingMessage{
-		missingMessageInner{
-			MessageID:    messageID,
-			MissingSince: time.Now(),
-		},
+	missingMessage := &MissingMessage{
+		model.NewStorable[MessageID, time.Time](
+			time.Now(),
+		),
 	}
-}
-
-// FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, value []byte) error {
-	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return fmt.Errorf("failed to parse missing message from object storage: %w", err)
-	}
-	return nil
-}
-
-// FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
-	if result = m; result == nil {
-		result = new(MissingMessage)
-	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &result.missingMessageInner.MessageID, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse MissingMessage: %w", err)
-	}
-	return result, nil
+	missingMessage.SetID(messageID)
+	return missingMessage
 }
 
 // MessageID returns the id of the message.
 func (m *MissingMessage) MessageID() MessageID {
-	return m.missingMessageInner.MessageID
+	return m.ID()
 }
 
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
-	return m.missingMessageInner.MissingSince
+	m.RLock()
+	defer m.RUnlock()
+	return m.M
 }
-
-// Bytes returns a marshaled version of this MissingMessage.
-func (m *MissingMessage) Bytes() []byte {
-	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *MissingMessage) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.missingMessageInner.MessageID, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the MissingMessage into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (m *MissingMessage) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = new(MissingMessage)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

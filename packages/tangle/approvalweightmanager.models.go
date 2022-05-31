@@ -290,9 +290,6 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 		sequenceID, voter, newLatestMarkerVotesMap(),
 	)}
 
-	newLatestMarkerVotes.SetModified()
-	newLatestMarkerVotes.Persist()
-
 	return
 }
 
