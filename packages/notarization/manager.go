@@ -1,6 +1,9 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/logger"
 	"sync"
 	"time"
@@ -84,10 +87,10 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 }
 
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
-func (m *Manager) GetTransactionInclusionProof(transactionID ledgerstate.TransactionID) (*CommitmentProof, error) {
+func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
 	var ei EI
-	m.tangle.LedgerState.Transaction(transactionID).Consume(func(tx *ledgerstate.Transaction) {
-		t := tx.Essence().Timestamp()
+	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
+		t := tx.(devnetvm.Transaction).Essence().Timestamp()
 		ei = m.epochManager.TimeToEI(t)
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
@@ -107,7 +110,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(tx *ledgerstate.Transaction) {
+func (m *Manager) OnTransactionConfirmed(tx *utxo.Transaction) {
 	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
 	err := m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
 	if err != nil && m.log != nil {
@@ -116,7 +119,7 @@ func (m *Manager) OnTransactionConfirmed(tx *ledgerstate.Transaction) {
 	m.updateStateSMT(ei, tx)
 }
 
-func (m *Manager) updateStateSMT(ei EI, tx *ledgerstate.Transaction) {
+func (m *Manager) updateStateSMT(ei EI, tx *utxo.Transaction) {
 	for _, o := range tx.Essence().Outputs() {
 		err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
 		if err != nil && m.log != nil {
@@ -143,7 +146,7 @@ func (m *Manager) OnBranchConfirmed(branchID ledgerstate.BranchID) {
 }
 
 // OnBranchCreated is the handler for branch created event.
-func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
+func (m *Manager) OnBranchCreated(branchID conflictdag.) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -152,7 +155,7 @@ func (m *Manager) OnBranchCreated(branchID ledgerstate.BranchID) {
 }
 
 // OnBranchRejected is the handler for branch created event.
-func (m *Manager) OnBranchRejected(branchID ledgerstate.BranchID) {
+func (m *Manager) OnBranchRejected(branchID conflictdag.ConflictID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 

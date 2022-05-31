@@ -2,6 +2,7 @@ package messagelayer
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/events"
@@ -43,7 +44,7 @@ func configureNotarizationPlugin(_ *node.Plugin) {
 		})
 	}))
 	notarizationDeps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		notarizationDeps.Tangle.LedgerState.Transaction(transactionID).Consume(func(t *ledgerstate.Transaction) {
+		notarizationDeps.Tangle.LedgerState.Transaction(transactionID).Consume(func(t *utxo.Transaction) {
 			notarizationManager.OnTransactionConfirmed(t)
 		})
 	}))

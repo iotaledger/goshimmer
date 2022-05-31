@@ -2,6 +2,7 @@ package notarization
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"hash"
 	"sync"
 
@@ -9,7 +10,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -99,7 +99,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID)
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID ledgerstate.OutputID) error {
+func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
@@ -110,7 +110,7 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID ledgerstate.Out
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID ledgerstate.TransactionID) error {
+func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID utxo.TransactionID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
 	if err != nil {
@@ -134,8 +134,8 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID)
 	return nil
 }
 
-// RemoveStateLeaf removes the output ID from the ledgerstate sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID ledgerstate.OutputID) error {
+// RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
+func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	exists, _ := commitment.stateRoot.Has(outID.Bytes())
 	if exists {
@@ -169,7 +169,7 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitme
 	return nil
 }
 
-func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
@@ -179,7 +179,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputI
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID ledgerstate.TransactionID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.TransactionID) (*CommitmentProof, error) {
 	key := txID.Bytes()
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
@@ -224,7 +224,7 @@ func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID
 	return f.verifyRoot(proof, key, key)
 }
 
-func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID ledgerstate.TransactionID) bool {
+func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
 	key := transactionID.Bytes()
 	return f.verifyRoot(proof, key, key)
 }
