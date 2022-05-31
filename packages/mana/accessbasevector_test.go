@@ -82,7 +82,7 @@ func TestNewBaseManaVector_Access(t *testing.T) {
 	bmvAccess, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
 	assert.Equal(t, AccessMana, bmvAccess.Type())
-	assert.Equal(t, map[identity.ID]*AccessBaseMana{}, bmvAccess.(*AccessBaseManaVector).M.vector)
+	assert.Equal(t, map[identity.ID]*AccessBaseMana{}, bmvAccess.(*AccessBaseManaVector).M.Vector)
 }
 
 func TestAccessBaseManaVector_Type(t *testing.T) {
@@ -361,7 +361,7 @@ func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
 	err = bmv.UpdateAll(updateTime)
 	assert.NoError(t, err)
 
-	for _, mana := range bmv.(*AccessBaseManaVector).M.vector {
+	for _, mana := range bmv.(*AccessBaseManaVector).M.Vector {
 		assert.Equal(t, updateTime, mana.LastUpdate())
 	}
 
@@ -550,7 +550,7 @@ func TestAccessBaseManaVector_SetMana(t *testing.T) {
 		bmv.SetMana(nodeIDs[i], NewAccessBaseMana(float64(i), float64(i), baseTime))
 	}
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, NewAccessBaseMana(float64(i), float64(i), baseTime), bmv.(*AccessBaseManaVector).M.vector[nodeIDs[i]])
+		assert.Equal(t, NewAccessBaseMana(float64(i), float64(i), baseTime), bmv.(*AccessBaseManaVector).M.Vector[nodeIDs[i]])
 	}
 }
 
@@ -593,7 +593,7 @@ func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, bmv.Has(id))
 		assert.Equal(t, 1, bmv.Size())
-		bmValue := bmv.(*AccessBaseManaVector).M.vector[id]
+		bmValue := bmv.(*AccessBaseManaVector).M.Vector[id]
 		assert.Equal(t, 10.0, bmValue.BaseValue())
 		assert.Equal(t, 100.0, bmValue.EffectiveValue())
 		assert.Equal(t, baseTime, bmValue.LastUpdate())
@@ -657,5 +657,5 @@ func TestAccessBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		err = restoredBmv.FromPersistable(p)
 		assert.NoError(t, err)
 	}
-	assert.Equal(t, bmv.(*AccessBaseManaVector).M.vector, restoredBmv.(*AccessBaseManaVector).M.vector)
+	assert.Equal(t, bmv.(*AccessBaseManaVector).M.Vector, restoredBmv.(*AccessBaseManaVector).M.Vector)
 }
