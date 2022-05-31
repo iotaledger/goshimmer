@@ -212,7 +212,7 @@ func (m *Manager) initSequenceIDCounter() (self *Manager) {
 	}
 
 	if storedSequenceIDCounter != nil {
-		if m.sequenceIDCounter, _, err = SequenceIDFromBytes(storedSequenceIDCounter); err != nil {
+		if err = m.sequenceIDCounter.FromBytes(storedSequenceIDCounter); err != nil {
 			panic(err)
 		}
 	}
@@ -338,7 +338,7 @@ func (m *Manager) createSequenceIfNecessary(structureDetails *StructureDetails) 
 
 	m.sequenceStore.Store(newSequence).Release()
 
-	firstMarker = NewMarker(newSequence.id, newSequence.sequenceInner.LowestIndex)
+	firstMarker = NewMarker(newSequence.ID(), newSequence.LowestIndex())
 
 	m.registerReferencingMarker(structureDetails.PastMarkers, firstMarker)
 

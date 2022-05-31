@@ -120,7 +120,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 
 // MarkerMessageMappingPartitionKeys defines the "layout" of the key. This enables prefix iterations in the object
 // storage.
-var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceIDLength, ((markers.Index)(0)).Length())
+var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.SequenceID(0).Length(), markers.Index(0).Length())
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {

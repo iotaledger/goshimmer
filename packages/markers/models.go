@@ -7,10 +7,8 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
@@ -566,127 +564,88 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 
 // Sequence represents a set of ever-increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
-	sequenceInner `serix:"0"`
+	model.Storable[SequenceID, sequenceModel] `serix:"0"`
 }
-type sequenceInner struct {
-	id                               SequenceID
-	ReferencedMarkers                *ReferencedMarkers  `serix:"0"`
-	ReferencingMarkers               *ReferencingMarkers `serix:"1"`
-	VerticesWithoutFutureMarker      uint64              `serix:"2"`
-	LowestIndex                      Index               `serix:"3"`
-	HighestIndex                     Index               `serix:"4"`
-	verticesWithoutFutureMarkerMutex sync.RWMutex
-	highestIndexMutex                sync.RWMutex
 
-	objectstorage.StorableObjectFlags
+type sequenceModel struct {
+	ReferencedMarkers           *ReferencedMarkers  `serix:"0"`
+	ReferencingMarkers          *ReferencingMarkers `serix:"1"`
+	VerticesWithoutFutureMarker uint64              `serix:"2"`
+	LowestIndex                 Index               `serix:"3"`
+	HighestIndex                Index               `serix:"4"`
 }
 
 // NewSequence creates a new Sequence from the given details.
-func NewSequence(id SequenceID, referencedMarkers *Markers) *Sequence {
+func NewSequence(id SequenceID, referencedMarkers *Markers) (new *Sequence) {
 	initialIndex := referencedMarkers.HighestIndex() + 1
-
 	if id == 0 {
 		initialIndex--
 	}
 
-	return &Sequence{
-		sequenceInner{
-			id:                 id,
-			ReferencedMarkers:  NewReferencedMarkers(referencedMarkers),
-			ReferencingMarkers: NewReferencingMarkers(),
-			LowestIndex:        initialIndex,
-			HighestIndex:       initialIndex,
-		},
-	}
-}
+	new = &Sequence{model.NewStorable[SequenceID](sequenceModel{
+		ReferencedMarkers:  NewReferencedMarkers(referencedMarkers),
+		ReferencingMarkers: NewReferencingMarkers(),
+		LowestIndex:        initialIndex,
+		HighestIndex:       initialIndex,
+	})}
+	new.SetID(id)
 
-// FromObjectStorage creates a Sequence from sequences of key and bytes.
-func (s *Sequence) FromObjectStorage(key, value []byte) error {
-	_, err := s.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return errors.Errorf("failed to parse Sequence from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals a Sequence from a sequence of bytes.
-func (s *Sequence) FromBytes(data []byte) (sequence *Sequence, err error) {
-	if sequence = s; sequence == nil {
-		sequence = new(Sequence)
-	}
-
-	sequenceID := new(SequenceID)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence.id: %w", err)
-		return
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], sequence, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Sequence: %w", err)
-		return
-	}
-	sequence.id = *sequenceID
-	return
-
-}
-
-// ID returns the identifier of the Sequence.
-func (s *Sequence) ID() SequenceID {
-	return s.id
+	return new
 }
 
 // ReferencedMarkers returns a collection of Markers that were referenced by the given Index.
 func (s *Sequence) ReferencedMarkers(index Index) *Markers {
-	return s.sequenceInner.ReferencedMarkers.Get(index)
+	return s.M.ReferencedMarkers.Get(index)
 }
 
 // ReferencingMarkers returns a collection of Markers that reference the given Index.
 func (s *Sequence) ReferencingMarkers(index Index) *Markers {
-	return s.sequenceInner.ReferencingMarkers.Get(index)
+	return s.M.ReferencingMarkers.Get(index)
 }
 
 // LowestIndex returns the Index of the very first Marker in the Sequence.
 func (s *Sequence) LowestIndex() Index {
-	return s.sequenceInner.LowestIndex
+	s.RLock()
+	defer s.RUnlock()
+
+	return s.M.LowestIndex
 }
 
 // HighestIndex returns the Index of the latest Marker in the Sequence.
 func (s *Sequence) HighestIndex() Index {
-	s.highestIndexMutex.RLock()
-	defer s.highestIndexMutex.RUnlock()
+	s.RLock()
+	defer s.RUnlock()
 
-	return s.sequenceInner.HighestIndex
+	return s.M.HighestIndex
 }
 
 // TryExtend tries to extend the Sequence with a new Index by checking if the referenced PastMarkers contain the last
 // assigned Index of the Sequence. It returns the new Index, the remaining Markers pointing to other Sequences and a
 // boolean flag that indicating if a new Index was assigned.
 func (s *Sequence) TryExtend(referencedPastMarkers *Markers, increaseIndexCallback IncreaseIndexCallback) (index Index, remainingReferencedPastMarkers *Markers, extended bool) {
-	s.highestIndexMutex.Lock()
-	defer s.highestIndexMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
-	referencedSequenceIndex, referencedSequenceIndexExists := referencedPastMarkers.Get(s.id)
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedPastMarkers.Get(s.ID())
 	if !referencedSequenceIndexExists {
 		panic("tried to extend unreferenced Sequence")
 	}
 
 	//  referencedSequenceIndex >= s.highestIndex allows gaps in a marker sequence to exist.
 	//  For example, (1,5) <-> (1,8) are valid subsequent structureDetails of sequence 1.
-	if extended = referencedSequenceIndex == s.sequenceInner.HighestIndex && increaseIndexCallback(s.id, referencedSequenceIndex); extended {
-		s.sequenceInner.HighestIndex = referencedPastMarkers.HighestIndex() + 1
+	if extended = referencedSequenceIndex == s.M.HighestIndex && increaseIndexCallback(s.ID(), referencedSequenceIndex); extended {
+		s.M.HighestIndex = referencedPastMarkers.HighestIndex() + 1
 
 		if referencedPastMarkers.Size() > 1 {
 			remainingReferencedPastMarkers = referencedPastMarkers.Clone()
-			remainingReferencedPastMarkers.Delete(s.id)
+			remainingReferencedPastMarkers.Delete(s.ID())
 
-			s.sequenceInner.ReferencedMarkers.Add(s.sequenceInner.HighestIndex, remainingReferencedPastMarkers)
+			s.M.ReferencedMarkers.Add(s.M.HighestIndex, remainingReferencedPastMarkers)
 		}
 
 		s.SetModified()
 	}
-	index = s.sequenceInner.HighestIndex
+	index = s.M.HighestIndex
 
 	return
 }
@@ -695,111 +654,67 @@ func (s *Sequence) TryExtend(referencedPastMarkers *Markers, increaseIndexCallba
 // Marker with the highest Index. It returns the new Index and a boolean flag that indicates if the value was
 // increased.
 func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index, increased bool) {
-	s.highestIndexMutex.Lock()
-	defer s.highestIndexMutex.Unlock()
+	s.Lock()
+	defer s.Unlock()
 
-	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.id)
+	referencedSequenceIndex, referencedSequenceIndexExists := referencedMarkers.Get(s.ID())
 	if !referencedSequenceIndexExists {
 		panic("tried to increase Index of wrong Sequence")
 	}
 
-	if increased = referencedSequenceIndex >= s.sequenceInner.HighestIndex; increased {
-		s.sequenceInner.HighestIndex = referencedMarkers.HighestIndex() + 1
+	if increased = referencedSequenceIndex >= s.M.HighestIndex; increased {
+		s.M.HighestIndex = referencedMarkers.HighestIndex() + 1
 
 		if referencedMarkers.Size() > 1 {
-			referencedMarkers.Delete(s.id)
+			referencedMarkers.Delete(s.ID())
 
-			s.sequenceInner.ReferencedMarkers.Add(s.sequenceInner.HighestIndex, referencedMarkers)
+			s.M.ReferencedMarkers.Add(s.M.HighestIndex, referencedMarkers)
 		}
 
 		s.SetModified()
 	}
-	index = s.sequenceInner.HighestIndex
+	index = s.M.HighestIndex
 
 	return
 }
 
 // AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
 func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
-	s.sequenceInner.ReferencingMarkers.Add(index, referencingMarker)
+	s.M.ReferencingMarkers.Add(index, referencingMarker)
 
 	s.SetModified()
 }
-
-// String returns a human-readable version of the Sequence.
-func (s *Sequence) String() string {
-	return stringify.Struct("Sequence",
-		stringify.StructField("ID", s.ID()),
-		stringify.StructField("LowestIndex", s.LowestIndex()),
-		stringify.StructField("HighestIndex", s.HighestIndex()),
-	)
-}
-
-// Bytes returns a marshaled version of the Sequence.
-func (s *Sequence) Bytes() []byte {
-	return byteutils.ConcatBytes(s.ObjectStorageKey(), s.ObjectStorageValue())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (s *Sequence) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s.id, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the Sequence into a sequence of bytes that are used as the value part in the
-// object storage.
-func (s *Sequence) ObjectStorageValue() []byte {
-	s.verticesWithoutFutureMarkerMutex.RLock()
-	defer s.verticesWithoutFutureMarkerMutex.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// code contract (make sure the type implements all required methods).
-var _ objectstorage.StorableObject = new(Sequence)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region SequenceID ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-// SequenceIDLength represents the amount of bytes of a marshaled SequenceID.
-const SequenceIDLength = marshalutil.Uint64Size
-
 // SequenceID is the type of the identifier of a Sequence.
 type SequenceID uint64
 
-// SequenceIDFromBytes unmarshals a SequenceID from a sequence of bytes.
-func SequenceIDFromBytes(data []byte) (sequenceID SequenceID, consumedBytes int, err error) {
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &sequenceID, serix.WithValidation())
+// FromBytes unmarshals a SequenceID from a sequence of bytes.
+func (s *SequenceID) FromBytes(data []byte) (err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, s, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse SequenceID: %w", err)
-		return
+		return errors.Errorf("failed to parse SequenceID: %w", err)
 	}
-	return
+
+	return nil
+}
+
+// Length returns the length of a serialized SequenceID.
+func (s SequenceID) Length() int {
+	return marshalutil.Uint64Size
 }
 
 // Bytes returns a marshaled version of the SequenceID.
-func (a SequenceID) Bytes() (marshaledSequenceID []byte) {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
+func (s SequenceID) Bytes() (marshaledSequenceID []byte) {
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation()))
 }
 
 // String returns a human-readable version of the SequenceID.
-func (a SequenceID) String() (humanReadableSequenceID string) {
-	return "SequenceID(" + strconv.FormatUint(uint64(a), 10) + ")"
+func (s SequenceID) String() (humanReadableSequenceID string) {
+	return "SequenceID(" + strconv.FormatUint(uint64(s), 10) + ")"
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

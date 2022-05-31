@@ -274,7 +274,7 @@ func (l *latestMarkerVotesMap) Decode(b []byte) (bytesRead int, err error) {
 type VotePower = uint64
 
 // LatestMarkerVotesKeyPartition defines the partition of the storage key of the LastMarkerVotes model.
-var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceIDLength, identity.IDLength)
+var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceID(0).Length(), identity.IDLength)
 
 // LatestMarkerVotes keeps track of the most up-to-date for a certain Voter casted on a specific Marker SequenceID.
 // Votes can be casted on Markers (SequenceID, Index), but can arrive in any arbitrary order.
