@@ -67,7 +67,7 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 		len(strongParents) < MinStrongParentsCount {
 		return ErrNoStrongParents
 	}
-	for parentsType, _ := range parents {
+	for parentsType := range parents {
 		if parentsType > LastValidBlockType {
 			return ErrBlockTypeIsUnknown
 		}

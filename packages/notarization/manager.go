@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/logger"
@@ -62,7 +63,7 @@ func (m *Manager) IsCommittable(ei EI) bool {
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 	ei := m.epochManager.CurrentEI()
-	for ei >= 0 {
+	for ei > 0 {
 		if m.IsCommittable(ei) {
 			break
 		}
@@ -136,6 +137,21 @@ func (m *Manager) updateStateSMT(ei EI, tx *devnetvm.Transaction) {
 	}
 }
 
+// OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
+func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	prevEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
+	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
+
+	if prevEpoch == newEpoch {
+		return
+	}
+
+	m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
+	m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID)
+
+	// TODO: propagate updates to future epochs
+}
+
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
@@ -165,10 +181,8 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
-		// TODO: use timestamp of earliest attachment
-		txvm := tx.(*devnetvm.Transaction)
-		ei = m.epochManager.TimeToEI(txvm.Essence().Timestamp())
-		return
+		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
+		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	})
 	return
 }

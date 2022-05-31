@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
@@ -25,7 +26,8 @@ const (
 
 type notarizationDependencies struct {
 	dig.In
-	Tangle *tangle.Tangle
+	Tangle  *tangle.Tangle
+	Storage kvstore.KVStore
 }
 
 var (
@@ -51,9 +53,12 @@ func configureNotarizationPlugin(_ *node.Plugin) {
 			notarizationManager.OnTransactionConfirmed(t.(*devnetvm.Transaction))
 		})
 	}))
-	// TODO: attach to TransactionInclusionUpdatedEvent
+	notarizationDeps.Tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
+		notarizationManager.OnTransactionInclusionUpdated(event)
+	}))
+
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchConfirmed(event.BranchID)
+		notarizationManager.OnBranchConfirmed(event.ID)
 	}))
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		notarizationManager.OnBranchCreated(event.ID)
@@ -75,7 +80,7 @@ func runNotarizationPlugin(*node.Plugin) {
 func newNotarizationManager() *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(),
+		notarization.NewEpochCommitmentFactory(notarizationDeps.Storage),
 		notarizationDeps.Tangle,
 		notarization.MinCommitableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
 		notarization.Log(Plugin.Logger()))

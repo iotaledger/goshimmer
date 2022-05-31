@@ -131,7 +131,7 @@ func configureBranchConfirmationMetrics() {
 		return
 	}
 	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		onBranchConfirmed(event.BranchID)
+		onBranchConfirmed(event.ID)
 	}))
 
 	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {

@@ -92,8 +92,8 @@ type BranchParentsUpdatedEvent[ConflictID, ConflictingResourceID comparable] str
 
 // BranchConfirmedEvent is a container that acts as a dictionary for the BranchConfirmed event related parameters.
 type BranchConfirmedEvent[ConflictID comparable] struct {
-	// BranchID contains the identifier of the confirmed Conflict.
-	BranchID ConflictID
+	// ID contains the identifier of the confirmed Conflict.
+	ID ConflictID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

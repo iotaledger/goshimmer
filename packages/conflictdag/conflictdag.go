@@ -150,7 +150,7 @@ func (b *ConflictDAG[ConflictID, ConflictingResourceID]) SetBranchConfirmed(bran
 			}
 
 			b.Events.BranchConfirmed.Trigger(&BranchConfirmedEvent[ConflictID]{
-				BranchID: branchID,
+				ID: branchID,
 			})
 
 			confirmationWalker.PushAll(branch.Parents().Slice()...)

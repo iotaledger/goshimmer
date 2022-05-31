@@ -68,7 +68,7 @@ func New(options ...Option) (ledger *Ledger) {
 	ledger.Utils = newUtils(ledger)
 
 	ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		ledger.propagatedConfirmationToIncludedTransactions(event.BranchID)
+		ledger.propagatedConfirmationToIncludedTransactions(event.ID)
 	}))
 
 	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {

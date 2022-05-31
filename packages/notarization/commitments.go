@@ -1,10 +1,12 @@
 package notarization
 
 import (
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"hash"
 	"sync"
+
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/celestiaorg/smt"
 	"golang.org/x/crypto/blake2b"
@@ -20,27 +22,6 @@ type Commitment struct {
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
 	prevECR           [32]byte
-}
-
-// NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR [32]byte, hasher hash.Hash) *Commitment {
-	db, _ := database.NewMemDB()
-	messageIDStore := db.NewStore()
-	messageValueStore := db.NewStore()
-	stateIDStore := db.NewStore()
-	stateValueStore := db.NewStore()
-	stateMutationIDStore := db.NewStore()
-	stateMutationValueStore := db.NewStore()
-
-	commitment := &Commitment{
-		EI:                ei,
-		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
-		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, hasher),
-		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, hasher),
-		prevECR:           prevECR,
-	}
-
-	return commitment
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -74,15 +55,18 @@ type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
 
+	storage *EpochCommitmentStorage
+
 	hasher hash.Hash
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory() *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore) *EpochCommitmentFactory {
 	hasher, _ := blake2b.New256(nil)
 
 	return &EpochCommitmentFactory{
 		commitments: make(map[EI]*Commitment),
+		storage: newEpochCommitmentStorage(WithStore(store)),
 		hasher:      hasher,
 	}
 }
@@ -115,6 +99,17 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID utxo.Transa
 	_, err := commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
+	}
+	f.onStateMutationRootChanged(commitment)
+	return nil
+}
+
+// RemoveStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
+func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei EI, txID utxo.TransactionID) error {
+	commitment := f.getOrCreateCommitment(ei)
+	_, err := commitment.stateMutationRoot.Delete(txID.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
 	}
 	f.onStateMutationRootChanged(commitment)
 	return nil
@@ -211,11 +206,24 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 				previousECR = previousCommitment.ECR()
 			}
 		}
-		commitment = NewCommitment(ei, previousECR, f.hasher)
+		commitment = f.newCommitment(ei, previousECR)
 		f.commitmentsMutex.Lock()
 		f.commitments[ei] = commitment
 		f.commitmentsMutex.Unlock()
 	}
+	return commitment
+}
+
+// NewCommitment returns an empty commitment for the epoch.
+func (f *EpochCommitmentFactory) newCommitment(ei EI, prevECR [32]byte) *Commitment {
+	commitment := &Commitment{
+		EI:                ei,
+		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
+		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, f.hasher),
+		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
+		prevECR:           prevECR,
+	}
+
 	return commitment
 }
 

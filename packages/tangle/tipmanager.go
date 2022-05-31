@@ -141,7 +141,7 @@ func (t *TipManager) Setup() {
 	}))
 
 	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		t.deleteConfirmedBranchCount(event.BranchID)
+		t.deleteConfirmedBranchCount(event.ID)
 	}))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {

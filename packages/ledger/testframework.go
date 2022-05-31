@@ -404,7 +404,7 @@ type mockedTransaction struct {
 // NewMockedTransaction creates a new MockedTransaction with the given inputs and specified outputCount.
 // A unique essence is simulated by an atomic counter, incremented globally for each MockedTransaction created.
 func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (new *MockedTransaction) {
-	return &MockedTransaction{model.NewStorable[utxo.TransactionID](mockedTransaction{
+	return &MockedTransaction{model.NewStorable(mockedTransaction{
 		Inputs:        inputs,
 		OutputCount:   outputCount,
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),

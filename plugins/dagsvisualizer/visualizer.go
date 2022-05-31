@@ -222,7 +222,7 @@ func registerBranchEvents() {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchGoFChanged,
 			Data: &branchGoFChanged{
-				ID:          event.BranchID.Base58(),
+				ID:          event.ID.Base58(),
 				GoF:         gof.High.String(),
 				IsConfirmed: true,
 			},
