@@ -119,7 +119,7 @@ type MarkerMessageMapping struct {
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
 func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
 	return &MarkerMessageMapping{
-		model.NewStorableReference[*markers.Marker, MessageID](marker, messageID),
+		model.NewStorableReference[markers.Marker, MessageID](*marker, messageID),
 	}
 }
 
