@@ -13,7 +13,7 @@ func TestNewBaseManaVector_Consensus(t *testing.T) {
 	bmvCons, err := NewBaseManaVector(ConsensusMana)
 	assert.NoError(t, err)
 	assert.Equal(t, ConsensusMana, bmvCons.Type())
-	assert.Equal(t, map[identity.ID]*ConsensusBaseMana{}, bmvCons.(*ConsensusBaseManaVector).M.vector)
+	assert.Equal(t, map[identity.ID]*ConsensusBaseMana{}, bmvCons.(*ConsensusBaseManaVector).M.Vector)
 }
 
 func TestConsensusBaseManaVector_Type(t *testing.T) {
@@ -303,7 +303,7 @@ func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 		bmv.SetMana(nodeIDs[i], NewConsensusBaseMana(float64(i)))
 	}
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, NewConsensusBaseMana(float64(i)), bmv.(*ConsensusBaseManaVector).M.vector[nodeIDs[i]])
+		assert.Equal(t, NewConsensusBaseMana(float64(i)), bmv.(*ConsensusBaseManaVector).M.Vector[nodeIDs[i]])
 	}
 }
 
@@ -342,7 +342,7 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, bmv.Has(id))
 		assert.Equal(t, 1, bmv.Size())
-		bmValue := bmv.(*ConsensusBaseManaVector).M.vector[id]
+		bmValue := bmv.(*ConsensusBaseManaVector).M.Vector[id]
 		assert.Equal(t, 10.0, bmValue.BaseValue())
 	})
 
@@ -390,5 +390,5 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		err = restoredBmv.FromPersistable(p)
 		assert.NoError(t, err)
 	}
-	assert.Equal(t, bmv.(*ConsensusBaseManaVector).M.vector, restoredBmv.(*ConsensusBaseManaVector).M.vector)
+	assert.Equal(t, bmv.(*ConsensusBaseManaVector).M.Vector, restoredBmv.(*ConsensusBaseManaVector).M.Vector)
 }
