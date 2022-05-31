@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/debug"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
 	"github.com/iotaledger/hive.go/identity"
@@ -68,13 +69,14 @@ func BenchmarkApprovalWeightManager_ProcessMessage_Conflicts(b *testing.B) {
 func TestBranchWeightMarshalling(t *testing.T) {
 	branchWeight := NewBranchWeight(randomBranchID())
 	branchWeight.SetWeight(5.1234)
-
-	branchWeightFromBytes, err := new(BranchWeight).FromBytes(branchWeight.Bytes())
+	branchWeightDecoded := new(BranchWeight)
+	bytes, err := branchWeight.Bytes()
 	require.NoError(t, err)
-
-	assert.Equal(t, branchWeight.Bytes(), branchWeightFromBytes.Bytes())
-	assert.Equal(t, branchWeight.BranchID(), branchWeightFromBytes.BranchID())
-	assert.Equal(t, branchWeight.Weight(), branchWeightFromBytes.Weight())
+	err = branchWeightDecoded.FromBytes(bytes)
+	require.NoError(t, err)
+	assert.Equal(t, lo.PanicOnErr(branchWeight.Bytes()), lo.PanicOnErr(branchWeightDecoded.Bytes()))
+	assert.Equal(t, branchWeight.BranchID(), branchWeightDecoded.BranchID())
+	assert.Equal(t, branchWeight.Weight(), branchWeightDecoded.Weight())
 }
 
 func TestBranchVotersMarshalling(t *testing.T) {
@@ -83,8 +85,8 @@ func TestBranchVotersMarshalling(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		branchVoters.AddVoter(identity.GenerateIdentity().ID())
 	}
-
-	branchVotersFromBytes, err := new(BranchVoters).FromBytes(branchVoters.Bytes())
+	branchVotersFromBytes := new(BranchVoters)
+	err := branchVotersFromBytes.FromBytes(lo.PanicOnErr(branchVoters.Bytes()))
 	require.NoError(t, err)
 
 	// verify that branchVotersFromBytes has all voters from branchVoters
@@ -848,7 +850,7 @@ func TestLatestMarkerVotes(t *testing.T) {
 }
 
 func validateLatestMarkerVotes(t *testing.T, votes *LatestMarkerVotes, expectedVotes map[markers.Index]uint64) {
-	votes.latestMarkerVotesInner.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
+	votes.M.ForEach(func(node *thresholdmap.Element[markers.Index, uint64]) bool {
 		index := node.Key()
 		seq := node.Value()
 

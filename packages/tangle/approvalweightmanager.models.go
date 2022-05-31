@@ -2,10 +2,9 @@ package tangle
 
 import (
 	"context"
-	"sync"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/thresholdmap"
@@ -23,128 +22,45 @@ import (
 
 // BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
-	branchWeightInner `serix:"0"`
-}
-
-type branchWeightInner struct {
-	BranchID utxo.TransactionID
-	Weight   float64 `serix:"0"`
-
-	weightMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
+	model.Storable[utxo.TransactionID, float64]
 }
 
 // NewBranchWeight creates a new BranchWeight.
 func NewBranchWeight(branchID utxo.TransactionID) (branchWeight *BranchWeight) {
 	branchWeight = &BranchWeight{
-		branchWeightInner{
-			BranchID: branchID,
-		},
+		model.NewStorable[utxo.TransactionID, float64](0.0),
 	}
-
-	branchWeight.Persist()
-	branchWeight.SetModified()
-
+	branchWeight.SetID(branchID)
 	return
-}
-
-// FromObjectStorage creates an BranchWeight from sequences of key and bytes.
-func (b *BranchWeight) FromObjectStorage(key, value []byte) error {
-	_, err := b.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return errors.Errorf("failed to parse BranchWeight from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals a BranchWeight object from a sequence of bytes.
-func (b *BranchWeight) FromBytes(data []byte) (result *BranchWeight, err error) {
-	if result = b; result == nil {
-		result = new(BranchWeight)
-	}
-	branchID := new(utxo.TransactionID)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, branchID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchWeight.BranchID: %w", err)
-		return result, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse BranchWeight: %w", err)
-		return result, err
-	}
-	result.branchWeightInner.BranchID = *branchID
-	return result, nil
 }
 
 // BranchID returns the BranchID that is being tracked.
 func (b *BranchWeight) BranchID() (branchID utxo.TransactionID) {
-	return b.branchWeightInner.BranchID
+	return b.ID()
 }
 
 // Weight returns the weight of the BranchID.
 func (b *BranchWeight) Weight() (weight float64) {
-	b.weightMutex.RLock()
-	defer b.weightMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	return b.branchWeightInner.Weight
+	return b.M
 }
 
 // SetWeight sets the weight for the BranchID and returns true if it was modified.
-func (b *BranchWeight) SetWeight(weight float64) (modified bool) {
-	b.weightMutex.Lock()
-	defer b.weightMutex.Unlock()
+func (b *BranchWeight) SetWeight(weight float64) bool {
+	b.RLock()
+	defer b.RUnlock()
 
-	if weight == b.branchWeightInner.Weight {
+	if weight == b.M {
 		return false
 	}
 
-	b.branchWeightInner.Weight = weight
-	modified = true
+	b.M = weight
 	b.SetModified()
 
-	return
+	return true
 }
-
-// Bytes returns a marshaled version of the BranchWeight.
-func (b *BranchWeight) Bytes() (marshaledBranchWeight []byte) {
-	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
-}
-
-// String returns a human-readable version of the BranchWeight.
-func (b *BranchWeight) String() string {
-	return stringify.Struct("BranchWeight",
-		stringify.StructField("BranchID", b.BranchID()),
-		stringify.StructField("Weight", b.Weight()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *BranchWeight) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.BranchID(), serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the BranchWeight into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (b *BranchWeight) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = new(BranchWeight)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 // region SerializableSet ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -232,82 +148,37 @@ func (v *Voters) String() string {
 
 // BranchVoters is a data structure that tracks which nodes support a branch.
 type BranchVoters struct {
-	branchVotersInner `serix:"0"`
-}
-
-type branchVotersInner struct {
-	BranchID utxo.TransactionID
-	Voters   *Voters `serix:"1"`
-
-	votersMutex sync.RWMutex
-
-	objectstorage.StorableObjectFlags
+	model.Storable[utxo.TransactionID, *Voters]
 }
 
 // NewBranchVoters is the constructor for the BranchVoters object.
 func NewBranchVoters(branchID utxo.TransactionID) (branchVoters *BranchVoters) {
 	branchVoters = &BranchVoters{
-		branchVotersInner{
-			BranchID: branchID,
-			Voters:   NewVoters(),
-		},
+		model.NewStorable[utxo.TransactionID, *Voters](NewVoters()),
 	}
-
-	branchVoters.Persist()
-	branchVoters.SetModified()
-
+	branchVoters.SetID(branchID)
 	return
-}
-
-// FromObjectStorage creates an BranchVoters from sequences of key and bytes.
-func (b *BranchVoters) FromObjectStorage(key, value []byte) error {
-	_, err := b.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return errors.Errorf("failed to parse BranchVoters from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals a BranchVoters object from a sequence of bytes.
-func (b *BranchVoters) FromBytes(data []byte) (result *BranchVoters, err error) {
-	if result = b; result == nil {
-		result = new(BranchVoters)
-	}
-	branchID := new(utxo.TransactionID)
-
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, branchID, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse BranchVoters.BranchID: %w", err)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse BranchVoters: %w", err)
-	}
-
-	result.branchVotersInner.BranchID = *branchID
-	return result, nil
 }
 
 // BranchID returns the BranchID that is being tracked.
 func (b *BranchVoters) BranchID() (branchID utxo.TransactionID) {
-	return b.branchVotersInner.BranchID
+	return b.ID()
 }
 
 // Has returns true if the given Voter is currently supporting this Branch.
 func (b *BranchVoters) Has(voter Voter) bool {
-	b.votersMutex.RLock()
-	defer b.votersMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	return b.branchVotersInner.Voters.Set.Has(voter)
+	return b.M.Set.Has(voter)
 }
 
 // AddVoter adds a new Voter to the tracked BranchID.
 func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
-	b.votersMutex.Lock()
-	defer b.votersMutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 
-	if added = b.branchVotersInner.Voters.Set.Add(voter); !added {
+	if added = b.M.Set.Add(voter); !added {
 		return
 	}
 	b.SetModified()
@@ -318,7 +189,7 @@ func (b *BranchVoters) AddVoter(voter Voter) (added bool) {
 // AddVoters adds the Voters set to the tracked BranchID.
 func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
 	voters.Set.ForEach(func(voter Voter) {
-		if b.branchVotersInner.Voters.Set.Add(voter) {
+		if b.AddVoter(voter) {
 			added = true
 		}
 	})
@@ -332,10 +203,10 @@ func (b *BranchVoters) AddVoters(voters *Voters) (added bool) {
 
 // DeleteVoter deletes a Voter from the tracked BranchID.
 func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
-	b.votersMutex.Lock()
-	defer b.votersMutex.Unlock()
+	b.Lock()
+	defer b.Unlock()
 
-	if deleted = b.branchVotersInner.Voters.Set.Delete(voter); !deleted {
+	if deleted = b.M.Set.Delete(voter); !deleted {
 		return
 	}
 	b.SetModified()
@@ -345,51 +216,11 @@ func (b *BranchVoters) DeleteVoter(voter Voter) (deleted bool) {
 
 // Voters returns the set of Voters that are supporting the given BranchID.
 func (b *BranchVoters) Voters() (voters *Voters) {
-	b.votersMutex.RLock()
-	defer b.votersMutex.RUnlock()
+	b.RLock()
+	defer b.RUnlock()
 
-	return b.branchVotersInner.Voters.Clone()
+	return b.M.Clone()
 }
-
-// Bytes returns a marshaled version of the BranchVoters.
-func (b *BranchVoters) Bytes() (marshaledBranchVoters []byte) {
-	return byteutils.ConcatBytes(b.ObjectStorageKey(), b.ObjectStorageValue())
-}
-
-// String returns a human-readable version of the BranchVoters.
-func (b *BranchVoters) String() string {
-	return stringify.Struct("BranchVoters",
-		stringify.StructField("branchID", b.BranchID()),
-		stringify.StructField("voters", b.Voters()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (b *BranchVoters) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b.branchVotersInner.BranchID, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the BranchVoters into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (b *BranchVoters) ObjectStorageValue() []byte {
-	b.votersMutex.RLock()
-	defer b.votersMutex.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), b, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = new(BranchVoters)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -450,27 +281,14 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
-	latestMarkerVotesInner `serix:"0"`
-}
-
-type latestMarkerVotesInner struct {
-	SequenceID        markers.SequenceID
-	Voter             Voter
-	LatestMarkerVotes *latestMarkerVotesMap `serix:"0"`
-
-	sync.RWMutex
-	objectstorage.StorableObjectFlags
+	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap] `serix:"0"`
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
-	newLatestMarkerVotes = &LatestMarkerVotes{
-		latestMarkerVotesInner{
-			SequenceID:        sequenceID,
-			Voter:             voter,
-			LatestMarkerVotes: newLatestMarkerVotesMap(),
-		},
-	}
+	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, *latestMarkerVotesMap](
+		sequenceID, voter, newLatestMarkerVotesMap(),
+	)}
 
 	newLatestMarkerVotes.SetModified()
 	newLatestMarkerVotes.Persist()
@@ -478,45 +296,11 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 	return
 }
 
-// FromObjectStorage creates an LatestMarkerVotes from sequences of key and bytes.
-func (l *LatestMarkerVotes) FromObjectStorage(key, value []byte) error {
-	_, err := l.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return errors.Errorf("failed to parse LatestMarkerVotes from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals a LatestMarkerVotes from a sequence of bytes.
-func (l *LatestMarkerVotes) FromBytes(data []byte) (result *LatestMarkerVotes, err error) {
-	if result = l; result == nil {
-		result = new(LatestMarkerVotes)
-	}
-
-	sequenceID := new(markers.SequenceID)
-	bytesReadSequenceID, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse LatestMarkerVotes.SequenceID: %w", err)
-	}
-
-	voter := new(Voter)
-	bytesReadVoter, err := serix.DefaultAPI.Decode(context.Background(), data[bytesReadSequenceID:], voter, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse LatestMarkerVotes.Voter: %w", err)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesReadSequenceID+bytesReadVoter:], result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse LatestMarkerVotes: %w", err)
-	}
-	result.latestMarkerVotesInner.SequenceID = *sequenceID
-	result.latestMarkerVotesInner.Voter = *voter
-	return result, nil
-}
-
 // Voter returns the Voter for the LatestMarkerVotes.
 func (l *LatestMarkerVotes) Voter() Voter {
-	return l.latestMarkerVotesInner.Voter
+	l.RLock()
+	defer l.RUnlock()
+	return l.TargetID
 }
 
 // Power returns the power of the vote for the given marker Index.
@@ -524,7 +308,7 @@ func (l *LatestMarkerVotes) Power(index markers.Index) (power VotePower, exists 
 	l.RLock()
 	defer l.RUnlock()
 
-	key, exists := l.latestMarkerVotesInner.LatestMarkerVotes.Get(index)
+	key, exists := l.M.Get(index)
 	if !exists {
 		return 0, exists
 	}
@@ -538,84 +322,31 @@ func (l *LatestMarkerVotes) Store(index markers.Index, power VotePower) (stored 
 	l.Lock()
 	defer l.Unlock()
 
-	if maxElement := l.latestMarkerVotesInner.LatestMarkerVotes.MaxElement(); maxElement != nil {
+	if maxElement := l.M.MaxElement(); maxElement != nil {
 		previousHighestIndex = maxElement.Key()
 	}
 
 	// abort if we already have a higher value on an Index that is larger or equal
-	_, ceilingValue, ceilingExists := l.latestMarkerVotesInner.LatestMarkerVotes.Ceiling(index)
+	_, ceilingValue, ceilingExists := l.M.Ceiling(index)
 	if ceilingExists && power < ceilingValue {
 		return false, previousHighestIndex
 	}
 
 	// set the new value
-	l.latestMarkerVotesInner.LatestMarkerVotes.Set(index, power)
+	l.M.Set(index, power)
 
 	// remove all predecessors that are lower than the newly set value
-	floorKey, floorValue, floorExists := l.latestMarkerVotesInner.LatestMarkerVotes.Floor(index - 1)
+	floorKey, floorValue, floorExists := l.M.Floor(index - 1)
 	for floorExists && floorValue < power {
-		l.latestMarkerVotesInner.LatestMarkerVotes.Delete(floorKey)
+		l.M.Delete(floorKey)
 
-		floorKey, floorValue, floorExists = l.latestMarkerVotesInner.LatestMarkerVotes.Floor(index - 1)
+		floorKey, floorValue, floorExists = l.M.Floor(index - 1)
 	}
 
 	l.SetModified()
 
 	return true, previousHighestIndex
 }
-
-// String returns a human-readable version of the LatestMarkerVotes.
-func (l *LatestMarkerVotes) String() string {
-	l.RLock()
-	defer l.RUnlock()
-
-	builder := stringify.StructBuilder("LatestMarkerVotes")
-
-	l.latestMarkerVotesInner.LatestMarkerVotes.ForEach(func(node *thresholdmap.Element[markers.Index, VotePower]) bool {
-		builder.AddField(stringify.StructField(node.Key().String(), node.Value()))
-		return true
-	})
-
-	return builder.String()
-}
-
-// Bytes returns a marshaled version of the LatestMarkerVotes.
-func (l *LatestMarkerVotes) Bytes() []byte {
-	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (l *LatestMarkerVotes) ObjectStorageKey() []byte {
-	objSeqIDBytes, err := serix.DefaultAPI.Encode(context.Background(), l.SequenceID, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-
-	objVoterBytes, err := serix.DefaultAPI.Encode(context.Background(), l.latestMarkerVotesInner.Voter, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return byteutils.ConcatBytes(objSeqIDBytes, objVoterBytes)
-}
-
-// ObjectStorageValue marshals the LatestMarkerVotes into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (l *LatestMarkerVotes) ObjectStorageValue() []byte {
-	l.RLock()
-	defer l.RUnlock()
-
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-var _ objectstorage.StorableObject = new(LatestMarkerVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -640,15 +371,28 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 
 // LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
-	latestBranchVotesInner `serix:"0"`
+	model.Storable[Voter, latestBranchVotesModel] `serix:"0"`
 }
 
-type latestBranchVotesInner struct {
-	Voter             Voter
+type latestBranchVotesModel struct {
 	LatestBranchVotes map[utxo.TransactionID]*BranchVote `serix:"0,lengthPrefixType=uint32"`
+}
 
-	sync.RWMutex
-	objectstorage.StorableObjectFlags
+// NewLatestBranchVotes creates a new LatestBranchVotes.
+func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
+	latestBranchVotes = &LatestBranchVotes{
+		model.NewStorable[Voter, latestBranchVotesModel](
+			latestBranchVotesModel{
+				LatestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
+			},
+		),
+	}
+	latestBranchVotes.SetID(voter)
+
+	latestBranchVotes.Persist()
+	latestBranchVotes.SetModified()
+
+	return
 }
 
 // Vote returns the Vote for the LatestBranchVotes.
@@ -656,7 +400,7 @@ func (l *LatestBranchVotes) Vote(branchID utxo.TransactionID) (vote *BranchVote,
 	l.RLock()
 	defer l.RUnlock()
 
-	vote, exists = l.latestBranchVotesInner.LatestBranchVotes[branchID]
+	vote, exists = l.M.LatestBranchVotes[branchID]
 
 	return
 }
@@ -666,99 +410,15 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 	l.Lock()
 	defer l.Unlock()
 
-	if currentVote, exists := l.latestBranchVotesInner.LatestBranchVotes[vote.BranchID]; exists && currentVote.VotePower >= vote.VotePower {
+	if currentVote, exists := l.M.LatestBranchVotes[vote.BranchID]; exists && currentVote.VotePower >= vote.VotePower {
 		return false
 	}
 
-	l.latestBranchVotesInner.LatestBranchVotes[vote.BranchID] = vote
+	l.M.LatestBranchVotes[vote.BranchID] = vote
 	l.SetModified()
 
 	return true
 }
-
-// NewLatestBranchVotes creates a new LatestBranchVotes.
-func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
-	latestBranchVotes = &LatestBranchVotes{
-		latestBranchVotesInner{
-			Voter:             voter,
-			LatestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
-		},
-	}
-
-	latestBranchVotes.Persist()
-	latestBranchVotes.SetModified()
-
-	return
-}
-
-// FromObjectStorage creates an LatestBranchVotes from sequences of key and bytes.
-func (l *LatestBranchVotes) FromObjectStorage(key, value []byte) error {
-	_, err := l.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return errors.Errorf("failed to parse LatestBranchVotes from bytes: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals a LatestBranchVotes object from a sequence of bytes.
-func (l *LatestBranchVotes) FromBytes(data []byte) (result *LatestBranchVotes, err error) {
-	if result = l; result == nil {
-		result = new(LatestBranchVotes)
-	}
-	voter := new(Voter)
-
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, voter, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse LatestBranchVotes.Voter: %w", err)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse LatestBranchVotes: %w", err)
-	}
-
-	result.latestBranchVotesInner.Voter = *voter
-	return result, nil
-}
-
-// Bytes returns a marshaled version of the LatestBranchVotes.
-func (l *LatestBranchVotes) Bytes() []byte {
-	return byteutils.ConcatBytes(l.ObjectStorageKey(), l.ObjectStorageValue())
-}
-
-// String returns a human-readable version of the LatestBranchVotes.
-func (l *LatestBranchVotes) String() string {
-	return stringify.Struct("LatestBranchVotes",
-		stringify.StructField("Voter", l.latestBranchVotesInner.Voter),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (l *LatestBranchVotes) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l.latestBranchVotesInner.Voter, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the LatestBranchVotes into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (l *LatestBranchVotes) ObjectStorageValue() []byte {
-	l.RLock()
-	defer l.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// code contract (make sure the struct implements all required methods).
-var _ objectstorage.StorableObject = new(LatestBranchVotes)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
