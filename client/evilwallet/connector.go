@@ -9,7 +9,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -132,6 +133,7 @@ func (c *WebClients) AddClient(url string, setters ...client.Option) {
 
 	clt := NewWebClient(url, setters...)
 	c.clients = append(c.clients, clt)
+	c.urls = append(c.urls, url)
 }
 
 // RemoveClient removes client with the provided url from the WebClients.
@@ -167,23 +169,23 @@ type Client interface {
 	// Url returns a client API url.
 	Url() (cltID string)
 	// PostTransaction sends a transaction to the Tangle via a given client.
-	PostTransaction(tx *ledgerstate.Transaction) (ledgerstate.TransactionID, error)
+	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a message in the backend.
 	PostData(data []byte) (msgID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-	GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput
+	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
-	GetAddressUnspentOutputs(address string) (outputIDs []ledgerstate.OutputID, err error)
+	GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error)
 	// GetTransactionGoF returns the GoF of a given transaction ID.
 	GetTransactionGoF(txID string) gof.GradeOfFinality
 	// GetOutput gets the output of a given outputID.
-	GetOutput(outputID ledgerstate.OutputID) ledgerstate.Output
+	GetOutput(outputID utxo.OutputID) devnetvm.Output
 	// GetOutputGoF gets the first unspent outputs of a given address.
-	GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality
+	GetOutputGoF(outputID utxo.OutputID) gof.GradeOfFinality
 	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
 	SendFaucetRequest(address string) error
 	// GetTransactionOutputs returns the outputs the transaction created.
-	GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error)
+	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
 	// GetTransaction gets the transaction.
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 	// GetOutputSolidity checks if the transaction is solid.
@@ -216,12 +218,12 @@ func (c *WebClient) SendFaucetRequest(address string) (err error) {
 }
 
 // PostTransaction sends a transaction to the Tangle via a given client.
-func (c *WebClient) PostTransaction(tx *ledgerstate.Transaction) (txID ledgerstate.TransactionID, err error) {
+func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.TransactionID, err error) {
 	resp, err := c.api.PostTransaction(tx.Bytes())
 	if err != nil {
 		return
 	}
-	txID, err = ledgerstate.TransactionIDFromBase58(resp.TransactionID)
+	err = txID.FromBase58(resp.TransactionID)
 	if err != nil {
 		return
 	}
@@ -238,7 +240,7 @@ func (c *WebClient) PostData(data []byte) (msgID string, err error) {
 	return resp, nil
 }
 
-func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []ledgerstate.OutputID, err error) {
+func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error) {
 	res, err := c.api.GetAddressUnspentOutputs(address)
 	if err != nil {
 		return
@@ -248,7 +250,7 @@ func (c *WebClient) GetAddressUnspentOutputs(address string) (outputIDs []ledger
 }
 
 // GetUnspentOutputForAddress gets the first unspent outputs of a given address.
-func (c *WebClient) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmodels.WalletOutput {
+func (c *WebClient) GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput {
 	resp, err := c.api.PostAddressUnspentOutputs([]string{addr.Base58()})
 	if err != nil {
 		return nil
@@ -261,7 +263,7 @@ func (c *WebClient) GetUnspentOutputForAddress(addr ledgerstate.Address) *jsonmo
 }
 
 // GetOutputGoF gets the first unspent outputs of a given address.
-func (c *WebClient) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinality {
+func (c *WebClient) GetOutputGoF(outputID utxo.OutputID) gof.GradeOfFinality {
 	res, err := c.api.GetOutputMetadata(outputID.Base58())
 	if err != nil {
 		return gof.None
@@ -271,7 +273,7 @@ func (c *WebClient) GetOutputGoF(outputID ledgerstate.OutputID) gof.GradeOfFinal
 }
 
 // GetOutput gets the output of a given outputID.
-func (c *WebClient) GetOutput(outputID ledgerstate.OutputID) ledgerstate.Output {
+func (c *WebClient) GetOutput(outputID utxo.OutputID) devnetvm.Output {
 	res, err := c.api.GetOutput(outputID.Base58())
 	if err != nil {
 		return nil
@@ -290,7 +292,7 @@ func (c *WebClient) GetTransactionGoF(txID string) gof.GradeOfFinality {
 }
 
 // GetTransactionOutputs returns the outputs the transaction created.
-func (c *WebClient) GetTransactionOutputs(txID string) (outputs ledgerstate.Outputs, err error) {
+func (c *WebClient) GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error) {
 	resp, err := c.api.GetTransaction(txID)
 	if err != nil {
 		return
@@ -319,7 +321,7 @@ func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
 	if err != nil {
 		return
 	}
-	solid = resp.Solid
+	solid = resp.OutputID.Base58 != ""
 	return
 }
 

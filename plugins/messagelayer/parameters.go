@@ -64,8 +64,8 @@ type RateSetterParametersDefinition struct {
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
-	// MaxBufferSize defines the maximum buffer size (in bytes).
-	MaxBufferSize int `default:"100000000" usage:"maximum buffer size (in bytes)"` // 100 MB
+	// MaxBufferSize defines the maximum buffer size (in number of messages).
+	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 messages
 	// Rate defines the frequency to schedule a message. `default:"5ms" usage:"message scheduling interval [time duration string]"`
 	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
 	// ConfirmedMessageThreshold time threshold after which confirmed messages are not scheduled [time duration string]

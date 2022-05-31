@@ -22,6 +22,7 @@ func TestAutopeeringNetworkSplit(t *testing.T) {
 	n, err := f.CreateNetworkWithPartitions(ctx, t.Name(), numPeers, numPartitions, framework.CreateNetworkConfig{
 		StartSynced: true,
 		Autopeering: true,
+		Snapshot:    tests.EqualSnapshotDetails,
 	})
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)

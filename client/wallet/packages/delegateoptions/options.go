@@ -7,29 +7,29 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/constants"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // DelegateFundsOption is the type for the optional parameters for the DelegateFunds call.
 type DelegateFundsOption func(*DelegateFundsOptions) error
 
 // Destination is an option for the SendFunds call that defines a destination for funds that are supposed to be moved.
-func Destination(addr address.Address, balance map[ledgerstate.Color]uint64) DelegateFundsOption {
+func Destination(addr address.Address, balance map[devnetvm.Color]uint64) DelegateFundsOption {
 	// return an error if the IOTA amount is less
-	if balance[ledgerstate.ColorIOTA] < ledgerstate.DustThresholdAliasOutputIOTA {
-		return optionError(errors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", ledgerstate.DustThresholdAliasOutputIOTA))
+	if balance[devnetvm.ColorIOTA] < devnetvm.DustThresholdAliasOutputIOTA {
+		return optionError(errors.Errorf("the IOTA amount provided in the destination needs to be larger than %d", devnetvm.DustThresholdAliasOutputIOTA))
 	}
 
 	// return Option
 	return func(options *DelegateFundsOptions) error {
 		// initialize destinations property
 		if options.Destinations == nil {
-			options.Destinations = make(map[address.Address]map[ledgerstate.Color]uint64)
+			options.Destinations = make(map[address.Address]map[devnetvm.Color]uint64)
 		}
 
 		// initialize address specific destination
 		if _, addressExists := options.Destinations[addr]; !addressExists {
-			options.Destinations[addr] = make(map[ledgerstate.Color]uint64)
+			options.Destinations[addr] = make(map[devnetvm.Color]uint64)
 		}
 
 		for color, amount := range balance {
@@ -90,7 +90,7 @@ func WaitForConfirmation(wait bool) DelegateFundsOption {
 
 // DelegateFundsOptions is a struct that is used to aggregate the optional parameters provided in the DelegateFunds call.
 type DelegateFundsOptions struct {
-	Destinations          map[address.Address]map[ledgerstate.Color]uint64
+	Destinations          map[address.Address]map[devnetvm.Color]uint64
 	DelegateUntil         time.Time
 	RemainderAddress      address.Address
 	AccessManaPledgeID    string
@@ -99,14 +99,14 @@ type DelegateFundsOptions struct {
 }
 
 // RequiredFunds derives how much funds are needed based on the Destinations to fund the transfer.
-func (s *DelegateFundsOptions) RequiredFunds() map[ledgerstate.Color]uint64 {
+func (s *DelegateFundsOptions) RequiredFunds() map[devnetvm.Color]uint64 {
 	// aggregate total amount of required funds, so we now what and how many funds we need
-	requiredFunds := make(map[ledgerstate.Color]uint64)
+	requiredFunds := make(map[devnetvm.Color]uint64)
 	for _, coloredBalances := range s.Destinations {
 		for color, amount := range coloredBalances {
 			// if we want to color sth then we need fresh IOTA
-			if color == ledgerstate.ColorMint {
-				color = ledgerstate.ColorIOTA
+			if color == devnetvm.ColorMint {
+				color = devnetvm.ColorIOTA
 			}
 
 			requiredFunds[color] += amount

@@ -2,7 +2,7 @@ package wallet
 
 import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // OutputManager keeps track of the outputs.
@@ -42,7 +42,7 @@ func (o *OutputManager) Refresh(includeSpentAddresses ...bool) error {
 	for addy, IDToOutputMap := range unspentOutputs {
 		for outputID, output := range IDToOutputMap {
 			if _, addressExists := o.unspentOutputs[addy]; !addressExists {
-				o.unspentOutputs[addy] = make(map[ledgerstate.OutputID]*Output)
+				o.unspentOutputs[addy] = make(map[utxo.OutputID]*Output)
 			}
 			// mark the output as spent if we already marked it as spent locally
 			if existingOutput, outputExists := o.unspentOutputs[addy][outputID]; outputExists && existingOutput.Spent {
@@ -78,7 +78,7 @@ func (o *OutputManager) UnspentAliasOutputs(includePending bool, addresses ...ad
 
 func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Address) (unspentOutputs OutputsByAddressAndOutputID) {
 	// prepare result
-	unspentOutputs = make(map[address.Address]map[ledgerstate.OutputID]*Output)
+	unspentOutputs = make(map[address.Address]map[utxo.OutputID]*Output)
 
 	// retrieve the list of addresses from the address manager if none was provided
 	if len(addresses) == 0 {
@@ -106,7 +106,7 @@ func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Add
 
 			// store unspent outputs in result
 			if _, addressExists := unspentOutputs[addr]; !addressExists {
-				unspentOutputs[addr] = make(map[ledgerstate.OutputID]*Output)
+				unspentOutputs[addr] = make(map[utxo.OutputID]*Output)
 			}
 			unspentOutputs[addr][transactionID] = output
 		}
@@ -116,7 +116,7 @@ func (o *OutputManager) getOutputs(includePending bool, addresses ...address.Add
 }
 
 // MarkOutputSpent marks the output identified by the given parameters as spent.
-func (o *OutputManager) MarkOutputSpent(addy address.Address, outputID ledgerstate.OutputID) {
+func (o *OutputManager) MarkOutputSpent(addy address.Address, outputID utxo.OutputID) {
 	// abort if we try to mark an unknown output as spent
 	if _, addressExists := o.unspentOutputs[addy]; !addressExists {
 		return

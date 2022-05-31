@@ -3,6 +3,7 @@ package tangle
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"sort"
 	"strings"
@@ -19,7 +20,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -36,6 +38,12 @@ func randomMessageID() MessageID {
 	msgBytes := randomBytes(MessageIDLength)
 	result, _, _ := MessageIDFromBytes(msgBytes)
 	return result
+}
+
+func numberMessageID(id uint32) MessageID {
+	var msgBytes [32]byte
+	binary.LittleEndian.PutUint32(msgBytes[28:], id)
+	return msgBytes
 }
 
 func randomParents(count int) MessageIDs {
@@ -92,7 +100,7 @@ func TestMessageIDFromBytes(t *testing.T) {
 		buffer := randomBytes(MessageIDLength - 1)
 		result, consumed, err := MessageIDFromBytes(buffer)
 		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "bytes not long enough"))
+		assert.True(t, strings.Contains(err.Error(), "not enough data for deserialization"))
 		assert.Equal(t, 0, consumed)
 		assert.Equal(t, EmptyMessageID, result)
 	})
@@ -240,281 +248,265 @@ func TestNewMessageWithValidation(t *testing.T) {
 	t.Run("CASE: Too many strong parents", func(t *testing.T) {
 		// too many strong parents
 		strongParents := testSortParents(randomParents(MaxParentsCount + 1))
-		block := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  strongParents,
-		}
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(strongParents...))
 
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{block},
+		msg, err := NewMessage(parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
-		)
-		assert.ErrorIs(t, err, ErrParentsOutOfRange)
+			MessageVersion, 0, nil)
+		assert.NoError(t, err)
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: failed to encode map element of type tangle.MessageIDs: serializer failed to write tangle.MessageIDs  as slice of bytes: max count of elements within the array exceeded: max is 8 but count is 9",
+			func() {
+				msg.ObjectStorageValue()
+			})
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		assert.ErrorContains(t, err, "max count of elements within the array exceeded")
 	})
 
 	t.Run("CASE: Nil block", func(t *testing.T) {
-		_, err := newMessageWithValidation(
-			MessageVersion,
+		msg, err := NewMessage(
 			nil,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: missing strong messages in first parent block",
+			func() {
+				msg.ObjectStorageValue()
+			})
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
 	t.Run("CASE: Empty Block", func(t *testing.T) {
-		block := ParentsBlock{}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{block},
+		msg, err := NewMessage(
+			NewParentMessageIDs(),
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
-		assert.ErrorIs(t, err, ErrNoStrongParents)
+
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: missing strong messages in first parent block",
+			func() {
+				msg.ObjectStorageValue()
+			},
+		)
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
 	t.Run("CASE: Blocks are unordered", func(t *testing.T) {
-		parents := testSortParents(randomParents(MaxParentsCount))
+		parents := testSortParents(randomParents(1))
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		weakBlock := ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  parents,
-		}
-		dislikeBlock := ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  testSortParents(randomParents(MaxParentsCount)),
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{weakBlock, strongBlock, dislikeBlock, likeBlock},
+		msg, err := NewMessage(
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
-		)
-		// Since no strong parents in first block the validator will assume they are missing
-		assert.ErrorIs(t, err, ErrNoStrongParents, "weak block came before strong block")
-
-		_, err = newMessageWithValidation(
 			MessageVersion,
-			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
-			0, 0, nil,
+			nil,
 		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+		msgBytes := msg.Bytes()
 
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, dislikeBlock, weakBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0, 0, nil,
-		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before weak block")
+		msgBytes[2] = byte(WeakParentType)
+		msgBytes[36] = byte(StrongParentType)
 
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock, likeBlock},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
-			0,
-			ed25519.Signature{},
-			0, 0, nil,
-		)
-		assert.ErrorIs(t, err, ErrBlocksNotOrderedByType, "dislike block came before like block")
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+
+		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 	})
 
 	t.Run("CASE: Repeating block types", func(t *testing.T) {
+		// this can be tested only for deserialization as it's even impossible to create such message using current structures
+
 		parents := testSortParents(randomParents(MaxParentsCount))
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		strongBlock2 := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-		likeBlock2 := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, strongBlock2, likeBlock},
+		msg, err := NewMessage(
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
-		)
-
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "strong block repeats")
-
-		_, err = newMessageWithValidation(
 			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock, likeBlock2},
-			time.Now(),
-			ed25519.PublicKey{},
-			payload.NewGenericDataPayload([]byte("")),
 			0,
-			ed25519.Signature{},
-			0, 0, nil,
+			nil,
 		)
+		msgBytes := msg.Bytes()
 
-		assert.ErrorIs(t, err, ErrRepeatingBlockTypes, "like block repeats")
+		msgBytes[2] = byte(WeakParentType)
+
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+
+		assert.ErrorContains(t, err, "array elements must be unique")
 	})
 
 	t.Run("CASE: Unknown block type", func(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  testSortParents(randomParents(MaxParentsCount)),
-		}
-		unknownBlock := ParentsBlock{
-			ParentsType: LastValidBlockType + 1, // this should always be out of range
-			References:  parents,
-		}
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(LastValidBlockType+1, NewMessageIDs(parents...))
 
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock, unknownBlock},
+		msg, err := NewMessage(
+
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
 
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: block types must range from 1-4",
+			func() {
+				msg.ObjectStorageValue()
+			},
+		)
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
 	})
 
 	t.Run("Case: Duplicate references", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
-		parents = append(parents, parents[3])
 
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock},
+		msg, err := NewMessage(
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
-		assert.ErrorIs(t, err, ErrRepeatingReferencesInBlock)
+		msgBytes := msg.Bytes()
 
-		parents = testSortParents(randomParents(4))
-		parents = append(parents, parents[1])
+		copy(msgBytes[4:36], msgBytes[36:36+32])
 
-		strongBlock.References = parents
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		assert.ErrorContains(t, err, "array elements must be unique")
 
 		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock},
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0, nil,
 		)
+
+		msgBytes = msg.Bytes()
+
+		// replace parents in byte structure
+		copy(msgBytes[4:36], msgBytes[36+32:36+64])
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 		// if the duplicates are not consecutive a lexicographically order error is returned
-		assert.ErrorIs(t, err, ErrParentsNotLexicographicallyOrdered)
 	})
 
 	t.Run("Parents Repeating across blocks", func(t *testing.T) {
 		parents := testSortParents(randomParents(4))
-		strongBlock := ParentsBlock{
-			ParentsType: StrongParentType,
-			References:  parents,
-		}
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
-		likeBlock := ParentsBlock{
-			ParentsType: ShallowLikeParentType,
-			References:  parents,
-		}
-
-		_, err := newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, likeBlock},
+		msg, err := NewMessage(
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
+
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
 
+		assert.NotPanics(t, func() {
+			msg.ObjectStorageValue()
+		},
+		)
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
 
-		weakBlock := ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  parents,
-		}
+		parentBlocks = NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
 
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock},
+		msg, err = NewMessage(
+
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil,
+			MessageVersion,
+			0,
+			nil,
 		)
+
+		assert.NotPanics(t, func() {
+			msg.ObjectStorageValue()
+		},
+		)
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
 		// check for repeating message across weak and dislike block
@@ -524,33 +516,38 @@ func TestNewMessageWithValidation(t *testing.T) {
 		dislikeParents[2] = weakParents[2]
 		dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
 
-		weakBlock = ParentsBlock{
-			ParentsType: WeakParentType,
-			References:  weakParents,
-		}
+		parentBlocks = NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
+		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(dislikeParents...))
 
-		dislikeBlock := ParentsBlock{
-			ParentsType: ShallowDislikeParentType,
-			References:  dislikeParents,
-		}
-
-		_, err = newMessageWithValidation(
-			MessageVersion,
-			[]ParentsBlock{strongBlock, weakBlock, dislikeBlock},
+		msg, err = NewMessage(
+			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
+			0,
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			0, 0, nil)
-		fmt.Println(err)
-		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks, "message repeated across weak and dislike blocks")
+			MessageVersion,
+			0,
+			nil,
+			)
+
+		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: different blocks have conflicting references",
+			func() {
+				msg.ObjectStorageValue()
+			},
+		)
+
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks)
 	})
 }
 
 func TestMessage_NewMessage(t *testing.T) {
 	t.Run("CASE: No parents at all", func(t *testing.T) {
-		_, err := NewMessage(
+		_, err := newMessageWithValidation(
 			ParentMessageIDs{},
 			time.Now(),
 			ed25519.PublicKey{},
@@ -654,8 +651,8 @@ func TestMessage_Bytes(t *testing.T) {
 	})
 
 	t.Run("CASE: Max msg size", func(t *testing.T) {
-		// 4 bytes for payload size field
-		data := make([]byte, payload.MaxSize-4)
+		// 4 bytes for payload size field + 4 bytes for to denote
+		data := make([]byte, payload.MaxSize-8)
 		msg, err := NewMessage(
 			ParentMessageIDs{
 				StrongParentType:         randomParents(MaxParentsCount),
@@ -694,7 +691,7 @@ func TestMessage_Bytes(t *testing.T) {
 		t.Logf("%s", msg)
 		msgBytes := msg.Bytes()
 		// 4 full parents blocks - 1 parent block with 1 parent
-		assert.Equal(t, MaxMessageSize-payload.MaxSize+4-(3*(1+1+8*32)+(7*32)), len(msgBytes))
+		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(3*(1+1+8*32)+(7*32)), len(msgBytes))
 	})
 }
 
@@ -720,8 +717,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
 		assert.Equal(t, msg.ParentsByType(WeakParentType), result.ParentsByType(WeakParentType))
-		// TODO
-		// assert.Equal(t, msg.ParentsCount(), result.ParentsCount())
+		assert.ElementsMatch(t, msg.Parents(), result.Parents())
 		assert.Equal(t, msg.IssuerPublicKey(), result.IssuerPublicKey())
 		// time is in different representation but it denotes the same time
 		assert.True(t, msg.IssuingTime().Equal(result.IssuingTime()))
@@ -772,90 +768,90 @@ func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
 	return msg.Bytes()
 }
 
-func TestMessageFromMarshalUtil(t *testing.T) {
-	t.Run("CASE: Missing version", func(t *testing.T) {
-		marshaller := marshalutil.New([]byte{})
-		// missing version
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse message version"))
-	})
+// func TestMessageFromMarshalUtil(t *testing.T) {
+// 	t.Run("CASE: Missing version", func(t *testing.T) {
+// 		marshaller := marshalutil.New([]byte{})
+// 		// missing version
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse message version"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents count", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		// missing parentsCount
+// 		marshaller := marshalutil.New(msgBytes[:1])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
+// 	})
+//
+// 	t.Run("CASE: Invalid parents count (less)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		msgBytes[1] = MinParentsCount - 1
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MinParentsCount-1))
+// 	})
+//
+// 	t.Run("CASE: Invalid parents count (more)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		msgBytes[1] = MaxParentsCount + 1
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MaxParentsCount+1))
+// 	})
+//
+// 	t.Run("CASE: Missing parent types", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:2])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:3])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
+// 	})
+//
+// 	t.Run("CASE: Missing parents (one)", func(t *testing.T) {
+// 		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
+// 		marshaller := marshalutil.New(msgBytes[:3+(MaxParentsCount-1)*32])
+// 		_, err := new(Message).FromMarshalUtil(marshaller)
+// 		assert.Error(t, err)
+// 		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
+// 	})
+// }
 
-	t.Run("CASE: Missing parents count", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		// missing parentsCount
-		marshaller := marshalutil.New(msgBytes[:1])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parents count"))
-	})
-
-	t.Run("CASE: Invalid parents count (less)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		msgBytes[1] = MinParentsCount - 1
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MinParentsCount-1))
-	})
-
-	t.Run("CASE: Invalid parents count (more)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		msgBytes[1] = MaxParentsCount + 1
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.EqualError(t, err, fmt.Sprintf("parents count %d not allowed: failed to parse bytes", MaxParentsCount+1))
-	})
-
-	t.Run("CASE: Missing parent types", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:2])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent types"))
-	})
-
-	t.Run("CASE: Missing parents (all)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:3])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
-	})
-
-	t.Run("CASE: Missing parents (one)", func(t *testing.T) {
-		msgBytes := createTestMsgBytes(MaxParentsCount/2, MaxParentsCount/2)
-		marshaller := marshalutil.New(msgBytes[:3+(MaxParentsCount-1)*32])
-		_, err := new(Message).FromMarshalUtil(marshaller)
-		assert.Error(t, err)
-		assert.True(t, strings.Contains(err.Error(), "failed to parse parent"))
-	})
-}
-
-func randomTransaction() *ledgerstate.Transaction {
+func randomTransaction() *devnetvm.Transaction {
 	ID, _ := identity.RandomID()
-	input := ledgerstate.NewUTXOInput(ledgerstate.EmptyOutputID)
-	var outputs ledgerstate.Outputs
+	input := devnetvm.NewUTXOInput(utxo.EmptyOutputID)
+	var outputs devnetvm.Outputs
 	seed := ed25519.NewSeed()
 	w := wl{
 		keyPair: *seed.KeyPair(0),
-		address: ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+		address: devnetvm.NewED25519Address(seed.KeyPair(0).PublicKey),
 	}
-	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(100),
+	output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: uint64(100),
 	}), w.address)
 	outputs = append(outputs, output)
-	essence := ledgerstate.NewTransactionEssence(1, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), ID, ID, devnetvm.NewInputs(input), outputs)
 
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(w.sign(essence))
 
-	return ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
+	return devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{unlockBlock})
 }
 
 type wl struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (w wl) privateKey() ed25519.PrivateKey {
@@ -866,6 +862,6 @@ func (w wl) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
 
-func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+func (w wl) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

@@ -38,7 +38,7 @@ func (a *AccessBaseManaVector) Has(nodeID identity.ID) bool {
 }
 
 // LoadSnapshot loads the initial mana state into the base mana vector.
-func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNode) {
+func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
 	a.Lock()
 	defer a.Unlock()
 
@@ -50,12 +50,11 @@ func (a *AccessBaseManaVector) LoadSnapshot(snapshot map[identity.ID]SnapshotNod
 			LastUpdated:        record.AccessMana.Timestamp,
 		}
 		// trigger events
-		Events().Pledged.Trigger(&PledgedEvent{
+		Events.Pledged.Trigger(&PledgedEvent{
 			NodeID:   nodeID,
 			Amount:   record.AccessMana.Value,
 			Time:     record.AccessMana.Timestamp,
 			ManaType: a.Type(),
-			// TransactionID: record.TxID,
 		})
 	}
 }
@@ -91,8 +90,8 @@ func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 		}
 	}()
 	// trigger events
-	Events().Pledged.Trigger(pledgeEvent)
-	Events().Updated.Trigger(updateEvent)
+	Events.Pledged.Trigger(pledgeEvent)
+	Events.Updated.Trigger(updateEvent)
 }
 
 // Update updates the mana entries for a particular node wrt time.
@@ -299,7 +298,7 @@ func (a *AccessBaseManaVector) RemoveZeroNodes() {
 
 var _ BaseManaVector = &AccessBaseManaVector{}
 
-//// Region Internal methods ////
+// // Region Internal methods ////
 
 // update updates the mana entries for a particular node wrt time. Not concurrency safe.
 func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
@@ -310,7 +309,7 @@ func (a *AccessBaseManaVector) update(nodeID identity.ID, t time.Time) error {
 	if err := a.vector[nodeID].update(t); err != nil {
 		return err
 	}
-	Events().Updated.Trigger(&UpdatedEvent{nodeID, &oldMana, a.vector[nodeID], a.Type()})
+	Events.Updated.Trigger(&UpdatedEvent{nodeID, &oldMana, a.vector[nodeID], a.Type()})
 	return nil
 }
 

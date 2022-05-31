@@ -4,8 +4,25 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 )
+
+// Events holds the different events triggered by a DRNG instance.
+type Events struct {
+	// Collective Beacon is triggered each time we receive a new CollectiveBeacon message.
+	CollectiveBeacon *event.Event[*CollectiveBeaconEvent]
+
+	// Randomness is triggered each time we receive a new and valid CollectiveBeacon message.
+	Randomness *event.Event[*RandomnessEvent]
+}
+
+// newEvents returns a new Events object.
+func newEvents() *Events {
+	return &Events{
+		CollectiveBeacon: event.New[*CollectiveBeaconEvent](),
+		Randomness:       event.New[*RandomnessEvent](),
+	}
+}
 
 // CollectiveBeaconEvent holds data about a collective beacon event.
 type CollectiveBeaconEvent struct {
@@ -25,26 +42,7 @@ type CollectiveBeaconEvent struct {
 	Dpk []byte
 }
 
-// CollectiveBeaconReceived returns the data of a collective beacon event.
-func CollectiveBeaconReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*CollectiveBeaconEvent))(params[0].(*CollectiveBeaconEvent))
-}
-
-// Event holds the different events triggered by a DRNG instance.
-type Event struct {
-	// Collective Beacon is triggered each time we receive a new CollectiveBeacon message.
-	CollectiveBeacon *events.Event
-	// Randomness is triggered each time we receive a new and valid CollectiveBeacon message.
-	Randomness *events.Event
-}
-
-func newEvent() *Event {
-	return &Event{
-		CollectiveBeacon: events.NewEvent(CollectiveBeaconReceived),
-		Randomness:       events.NewEvent(randomnessReceived),
-	}
-}
-
-func randomnessReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*State))(params[0].(*State))
+// Randomness holds the new state when randonmess is generated.
+type RandomnessEvent struct {
+	State *State
 }

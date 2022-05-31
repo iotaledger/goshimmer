@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/reclaimoptions"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execReclaimDelegatedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -33,15 +33,15 @@ func execReclaimDelegatedFundsCommand(command *flag.FlagSet, cliWallet *wallet.W
 		printUsage(command, "delegation ID must be given")
 	}
 
-	var toAddress ledgerstate.Address
+	var toAddress devnetvm.Address
 	if *toAddressPtr != "" {
-		toAddress, err = ledgerstate.AddressFromBase58EncodedString(*toAddressPtr)
+		toAddress, err = devnetvm.AddressFromBase58EncodedString(*toAddressPtr)
 		if err != nil {
 			printUsage(command, fmt.Sprintf("wrong optional toAddress provided: %s", err.Error()))
 		}
 	}
 
-	delegationID, err := ledgerstate.AliasAddressFromBase58EncodedString(*delegationIDPtr)
+	delegationID, err := devnetvm.AliasAddressFromBase58EncodedString(*delegationIDPtr)
 	if err != nil {
 		printUsage(command, fmt.Sprintf("%s is not a valid IOTA alias address: %s", *delegationIDPtr, err.Error()))
 	}

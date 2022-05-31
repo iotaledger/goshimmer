@@ -10,14 +10,14 @@ import (
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 func ExampleRequest() {
 	keyPair := ed25519.GenerateKeyPair()
-	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
+	address := devnetvm.NewED25519Address(keyPair.PublicKey)
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 	emptyID := identity.ID{}
 
@@ -42,7 +42,7 @@ func ExampleRequest() {
 
 func TestRequest(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
-	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
+	address := devnetvm.NewED25519Address(keyPair.PublicKey)
 	access, _ := identity.RandomID()
 	consensus, _ := identity.RandomID()
 
@@ -52,7 +52,6 @@ func TestRequest(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-
 	assert.Equal(t, originalRequest.Address(), clonedRequest.Address())
 	assert.Equal(t, originalRequest.AccessManaPledgeID(), clonedRequest.AccessManaPledgeID())
 	assert.Equal(t, originalRequest.ConsensusManaPledgeID(), clonedRequest.ConsensusManaPledgeID())
@@ -67,7 +66,7 @@ func TestRequest(t *testing.T) {
 
 func TestIsFaucetReq(t *testing.T) {
 	keyPair := ed25519.GenerateKeyPair()
-	address := ledgerstate.NewED25519Address(keyPair.PublicKey)
+	address := devnetvm.NewED25519Address(keyPair.PublicKey)
 	local := identity.NewLocalIdentity(keyPair.PublicKey, keyPair.PrivateKey)
 	emptyID := identity.ID{}
 

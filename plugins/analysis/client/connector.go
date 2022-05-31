@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/netutil"
 	"github.com/iotaledger/hive.go/network"
 )
@@ -99,7 +99,9 @@ func (c *Connector) dial() {
 			return
 		}
 		c.conn = network.NewManagedConnection(conn)
-		c.conn.Events.Close.Attach(events.NewClosure(c.dial))
+		c.conn.Events.Close.Hook(event.NewClosure(func(event *network.CloseEvent) {
+			c.dial()
+		}))
 	}
 }
 

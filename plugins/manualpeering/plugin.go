@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
+
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/daemon"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/node"
 
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/manualpeering"
@@ -38,8 +39,8 @@ type dependencies struct {
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
-	Plugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(newManager); err != nil {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(newManager); err != nil {
 			Plugin.Panic(err)
 		}
 	}))

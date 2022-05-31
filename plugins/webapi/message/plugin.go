@@ -5,13 +5,15 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/labstack/echo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -119,8 +121,8 @@ func GetMessage(c echo.Context) (err error) {
 			SequenceNumber:          message.SequenceNumber(),
 			PayloadType:             message.Payload().Type().String(),
 			TransactionID: func() string {
-				if message.Payload().Type() == ledgerstate.TransactionType {
-					return message.Payload().(*ledgerstate.Transaction).ID().Base58()
+				if message.Payload().Type() == devnetvm.TransactionType {
+					return message.Payload().(*devnetvm.Transaction).ID().Base58()
 				}
 
 				return ""
@@ -165,9 +167,9 @@ func NewMessageMetadata(metadata *tangle.MessageMetadata) jsonmodels.MessageMeta
 		Solid:               metadata.IsSolid(),
 		SolidificationTime:  metadata.SolidificationTime().Unix(),
 		StructureDetails:    jsonmodels.NewStructureDetails(metadata.StructureDetails()),
-		BranchIDs:           branchIDs.Base58(),
-		AddedBranchIDs:      metadata.AddedBranchIDs().Base58(),
-		SubtractedBranchIDs: metadata.SubtractedBranchIDs().Base58(),
+		BranchIDs:           lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+		AddedBranchIDs:      lo.Map(metadata.AddedBranchIDs().Slice(), utxo.TransactionID.Base58),
+		SubtractedBranchIDs: lo.Map(metadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Base58),
 		Scheduled:           metadata.Scheduled(),
 		ScheduledTime:       metadata.ScheduledTime().Unix(),
 		Booked:              metadata.IsBooked(),

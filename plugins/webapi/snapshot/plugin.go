@@ -3,14 +3,14 @@ package snapshot
 import (
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 	"github.com/iotaledger/goshimmer/packages/mana"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 )
@@ -49,49 +49,26 @@ func configure(_ *node.Plugin) {
 
 // DumpCurrentLedger dumps a snapshot (all unspent UTXO and all of the access mana) from now.
 func DumpCurrentLedger(c echo.Context) (err error) {
-	snapshot := deps.Tangle.LedgerState.SnapshotUTXO()
-
-	aMana, err := snapshotAccessMana()
+	accessManaMap, accessManaTime, err := messagelayer.GetManaMap(mana.AccessMana)
 	if err != nil {
-		return err
+		return errors.Errorf("could not get access mana map: %w", err)
 	}
-	snapshot.AccessManaByNode = aMana
 
-	f, err := os.OpenFile(snapshotFileName, os.O_RDWR|os.O_CREATE, 0o666)
-	if err != nil {
+	nodeSnapshot := new(snapshot.Snapshot)
+	nodeSnapshot.FromNode(deps.Tangle.Ledger, accessManaMap, accessManaTime)
+
+	snapshotBytes := nodeSnapshot.Bytes()
+	if err = os.WriteFile(snapshotFileName, snapshotBytes, 0o666); err != nil {
 		Plugin.LogErrorf("unable to create snapshot file %s", err)
 	}
 
-	n, err := snapshot.WriteTo(f)
-	if err != nil {
-		Plugin.LogErrorf("unable to write snapshot content to file %s", err)
-	}
-
 	Plugin.LogInfo("Snapshot information: ")
-	Plugin.LogInfo("     Number of snapshotted transactions: ", len(snapshot.Transactions))
-	Plugin.LogInfo("     Number of snapshotted accessManaEntries: ", len(snapshot.AccessManaByNode))
+	Plugin.LogInfo("     Number of outputs: ", nodeSnapshot.LedgerSnapshot.Outputs.Size())
+	Plugin.LogInfo("     Number of accessManaEntries: ", len(nodeSnapshot.ManaSnapshot.ByNodeID))
 
-	Plugin.LogInfof("Bytes written %d", n)
-	f.Close()
+	Plugin.LogInfof("Bytes written %d", len(snapshotBytes))
 
 	return c.Attachment(snapshotFileName, snapshotFileName)
-}
-
-// snapshotAccessMana returns snapshot of the current access mana.
-func snapshotAccessMana() (aManaSnapshot map[identity.ID]ledgerstate.AccessMana, err error) {
-	aManaSnapshot = make(map[identity.ID]ledgerstate.AccessMana)
-
-	m, t, err := messagelayer.GetManaMap(mana.AccessMana)
-	if err != nil {
-		return nil, err
-	}
-	for nodeID, aMana := range m {
-		aManaSnapshot[nodeID] = ledgerstate.AccessMana{
-			Value:     aMana,
-			Timestamp: t,
-		}
-	}
-	return
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

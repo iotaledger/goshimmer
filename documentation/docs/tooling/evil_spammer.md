@@ -14,7 +14,9 @@ The main goal is to test how the network will handle more complicated spam scena
 Also, do not forget to choose the right name for your spam.*
 
 ## How to be evil?
-There are many options, but we encorage you to use our Evil Spammer Tool. It is available in a form of command line tool and in the interactive mode.
+There are many options, but we encourage you to use our Evil Spammer Tool. It is available in a form of command line tool and in the interactive mode.
+
+The compiled versions of the tool for Windows, Linux, macOS are available in [goshimmer releases](https://github.com/iotaledger/goshimmer/releases).
 
 ### Evil spammer command line
 The tool starts with the `main.go` file in `tools/evil-spammer`.
@@ -36,12 +38,12 @@ and providing spam parameters with flags.
 Below is an example with custom spam:
 ```shell
 # under tools/evil-spammer
-go run . basic --spammers custom --scenario <scenario-name> --rates 10 --durations 1m
+go run . basic --spammer custom --scenario <scenario-name> --rate 5 --duration 30s
 ```
 
 It is possible to start multiple spam types at once by providing parameters separated by commas.
 ```shell
-go run . basic --urls http://localhost:8080 --spammers ds,msg,custom --rates 5,10,2 --durations 20s,20s,20s --tu 1s --scenario peace
+go run . basic --urls http://localhost:8080 --spammer ds,msg,custom --rate 5,10,2 --duration 20s,20s,20s --tu 1s --scenario peace
 ```
 
 #### Quick Test
@@ -50,7 +52,7 @@ Can be used for fast and intense spamming test. First is transaction spam, next 
 Example usage:
 ```shell
 # under tools/evil-spammer
-go run . quick --urls http://localhost:8080,http://localhost:8090 --rate 50 --durations 1m --tu 1s --dbc 100ms
+go run . quick --urls http://localhost:8080,http://localhost:8090 --rate 50 --duration 1m --tu 1s --dbc 100ms
 ```
 ### Go interactive!
 
@@ -65,24 +67,45 @@ go run . interactive
 Evil wallet will start with API endpoints configured for the local docker network,
 **if you want to play with different nodes on different network you need to update urls** in the config.json file and restart the tool,
 or update it directly in the settings menu.
+The url for the DevNet is: http://nodes.nectar.iota.cafe
+The url for the devnet is: http://nodes.nectar.iota.cafe
 
-To correctly execute N-spend (a conflict set with size N) in scenarios, you need to provide at least N distinct urls to issue them simultaneously. The evil tool will pop an warning if more urls are needed.
+Some nodes might have double spend filter enabled. In that case, to correctly execute N-spend (a conflict set with size N) in scenarios, you need to provide at least N distinct urls to issue them simultaneously. The evil tool will pop an warning if more urls are needed. We disabled the double spend filter for now on our nodes - everything should work also with only one url provided, so you don't need to worry about the warning.
 E.g. to correctly spam with _`pear`_ you should have 4 clients configured.
 
-**Notes:**
+#### Requesting funds
+![Request funds](/img/tooling/evil_spammer/evilwallet-request-funds.png "Request funds")
+
+In order to request faucet funds choose "Prepare faucet funds" option, and Evil Spammer will send the faucet request and split the output on the requested number. The fastest is 100 outputs, as we wait only for one transaction to be confirmed, the more output you request the longer you will need to wait.
+> :warning: On the DevNet due to higher PoW and congestion in the network, a creation of more than 100 outputs can not always be successful (as it tries to create 100 splitting transactions at once), that's why we encourage you to use 100 option on the DevNet, and play with higher spam rates and requesting large amounts of outputs in the [local docker network](docker_private_network.md).
+
+You can also enable auto funds requesting, that will trigger funds preparation whenever you'll be short on faucet outputs.
+Just go to: `Settings -> Auto funds requesting -> enable`. However, as mentioned above this is recommended only on private networks, where you have enough network throughput share.
+
+#### Wallet status
+You can check how many outputs is available in the "Evil wallet details".
+![Details](/img/tooling/evil_spammer/evilwallet-details.png "Details")
+ - faucet outputs are outputs created from the faucet requests
+ - reuse outputs are the outputs available for the deep spam, you can collect them by changing reuse spam options to enable in 
+`New Spam -> Update spam options`. Later if you enable the deep spam in `Update spam options` they will be used as the batch inputs and will create deep DAG structures.
+ - and the statistics about spammed data messages, value messages and whole scenarios.
+
+#### Other things worth to know
 - Saving the evil wallet states is not supported. But don't worry you still can request more fresh Faucet outputs with just one click!
 - Wallet will generate a `config.json` file if it did not exist. You can use it to set up your favorite settings or webAPI urls.
 - We encourage you to see the results of your spams and structures in the DAGs Visualizer that by default can be accessed on port `8061`.
 - Spammer allows for max 5 concurrently running spams, you can check currently running spams and cancel them at any time.
 - Spammer tool keeps track of your last spams history, so you can check the times of the spam and render a specific period with the visualizer.
 - In spam options you can enable `deep` spam, in which the spammer will reuse outputs generated by the current spam, previous spams with `reuse` option enabled, and previous deep spams' outputs.
-- By default, the spam rate is set to mps but you can change the time unit in the config file, e.g. `"timeUnit": "1m"` for message per minute.
+- By default, the spam rate is set to mps, but you can change the time unit in the config file, e.g. `"timeUnit": "1m"` for message per minute.
 
 ## Predefined scenarios
 Below you can find a list of predefined scenarios.
 - in the client library they can be accessed by the function `GetScenario(scenarioName string) (batch EvilBatch, ok bool)`
 - in the evil spammer tool with command line you can use `basic` option and `scenario` flag to choose the scenario by name.
 - in the evil spammer tool with interactive mode simply go to `New Spam -> Change scenario` and select from the list.
+
+In the below diagrams, the white box represents a transaction, the yellow box is an output, the green box is an input, and the numbers in yellow and green boxes are aliases for inputs and outputs.
 
 ##### No conflicts
 - `single-tx`
@@ -300,7 +323,7 @@ dsSpammer.Spam()
 ```
 
 The spammer will treat the provided spamming custom conflicts as a single batch, which will be sent with the provided rate.
-So if you use `guava` scenario and rate 5 mps per batch you will be spamming  30 mps on average 
+So if you use `guava` scenario and rate 5 mps per batch you will be spamming  30 mps on average
 (as the `guava` creates 6 distinct transactions).
 
 ### Spam options
@@ -354,13 +377,13 @@ EvilBatch{
 #### Deep spamming
 Except basic functionality to customize spam batches, set the rate and duration, the Evil Spammer allows also for deep spamming.
 
-To create deep branch and UTXO structure  you need to enable the deep spam with an option 
+To create deep branch and UTXO structure  you need to enable the deep spam with an option
 ```go
 evilwallet.WithScenarioDeepSpamEnabled()
 ```
 The spammer will reuse outputs created during that it remembers from previous spams or if you provide a specific input `RestrictedReuse` wallet containing outputs generated during some previous spam.
 If you want to save outputs from the spam for a specific usage in the future, and you don't want the Evil Wallet to remember it and use it automatically you need to provide `RestrictedReuse` wallet.
-After spam ends, you can use this wallet in the next deep spam. 
+After spam ends, you can use this wallet in the next deep spam.
 In the example below, we firstly save outputs from a simple `tx` spam and use the outputs later in the controlled manner to create deep spam with level 2.
 
 ```go

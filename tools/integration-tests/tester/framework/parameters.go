@@ -48,8 +48,8 @@ type CreateNetworkConfig struct {
 	PeerMaster bool
 	// Activity specifies whether nodes schedule activity messages in regular intervals.
 	Activity bool
-	// Snapshots to be generated and rendered available for the network.
-	Snapshots []SnapshotInfo
+	// Snapshot to be generated and rendered available for the network.
+	Snapshot SnapshotInfo
 }
 
 // PeerConfig specifies the default config of a standard GoShimmer peer.
@@ -84,7 +84,6 @@ func PeerConfig() config.GoShimmer {
 	c.AutoPeering.EntryNodes = nil
 
 	c.MessageLayer.Enabled = true
-	c.MessageLayer.Snapshot.File = fmt.Sprintf("/assets/%s.bin", base58.Encode(GenesisSeedBytes))
 	c.MessageLayer.Snapshot.GenesisNode = "" // use the default time based approach
 
 	c.Faucet.Enabled = false

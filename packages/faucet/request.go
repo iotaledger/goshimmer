@@ -1,17 +1,29 @@
 package faucet
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
-	"github.com/iotaledger/goshimmer/packages/pow"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
+
+func init() {
+	err := serix.DefaultAPI.RegisterTypeSettings(Payload{}, serix.TypeSettings{}.WithObjectType(uint32(new(Payload).Type())))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction type settings: %w", err))
+	}
+	err = serix.DefaultAPI.RegisterInterfaceObjects((*payload.Payload)(nil), new(Payload))
+	if err != nil {
+		panic(fmt.Errorf("error registering Transaction as Payload interface: %w", err))
+	}
+}
 
 const (
 	// ObjectName defines the name of the faucet object (payload).
@@ -19,138 +31,93 @@ const (
 	payloadType = 2
 )
 
-// Request represents a faucet request which contains an address for the faucet to send funds to.
-type Request struct {
-	payloadType           payload.Type
-	address               ledgerstate.Address
-	accessManaPledgeID    identity.ID
-	consensusManaPledgeID identity.ID
-	nonce                 uint64
+// Payload represents a faucet request which contains an address for the faucet to send funds to.
+type Payload struct {
+	requestInner `serix:"0"`
 }
 
-// Type represents the identifier for the faucet Request type.
+type requestInner struct {
+	PayloadType           payload.Type
+	Address               devnetvm.Address `serix:"1"`
+	AccessManaPledgeID    identity.ID      `serix:"2"`
+	ConsensusManaPledgeID identity.ID      `serix:"3"`
+	Nonce                 uint64           `serix:"4"`
+}
+
+// RequestType represents the identifier for the faucet Payload type.
 var (
-	Type = payload.NewType(payloadType, ObjectName, PayloadUnmarshaler)
+	RequestType = payload.NewType(payloadType, ObjectName)
 )
 
-// NewRequest is the constructor of a Request and creates a new Request object from the given details.
-func NewRequest(addr ledgerstate.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Request {
-	p := &Request{
-		payloadType:           Type,
-		address:               addr,
-		accessManaPledgeID:    accessManaPledgeID,
-		consensusManaPledgeID: consensusManaPledgeID,
-		nonce:                 nonce,
+// NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
+func NewRequest(addr devnetvm.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Payload {
+	p := &Payload{
+		requestInner{
+			PayloadType:           RequestType,
+			Address:               addr,
+			AccessManaPledgeID:    accessManaPledgeID,
+			ConsensusManaPledgeID: consensusManaPledgeID,
+			Nonce:                 nonce,
+		},
 	}
 
 	return p
 }
 
-// FromBytes parses the marshaled version of a Request into a request object.
-func FromBytes(bytes []byte) (result *Request, consumedBytes int, err error) {
-	// initialize helper
-	marshalUtil := marshalutil.New(bytes)
+// FromBytes parses the marshaled version of a Payload into a Go object.
+// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
+func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err error) {
+	payloadDecoded = new(Payload)
 
-	result = &Request{}
-	if _, err = marshalUtil.ReadUint32(); err != nil {
-		err = errors.Errorf("failed to parse payload size (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	result.payloadType, err = payload.TypeFromMarshalUtil(marshalUtil)
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, payloadDecoded, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse Type from MarshalUtil: %w", err)
+		err = errors.Errorf("failed to parse Request: %w", err)
 		return
 	}
-	addr, err := marshalUtil.ReadBytes(ledgerstate.AddressLength)
-	if err != nil {
-		err = errors.Errorf("failed to parse address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	result.address, _, err = ledgerstate.AddressFromBytes(addr)
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal address of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	result.accessManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal access mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	result.consensusManaPledgeID, err = identity.IDFromMarshalUtil(marshalUtil)
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal consensus mana pledge ID of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	result.nonce, err = marshalUtil.ReadUint64()
-	if err != nil {
-		err = errors.Errorf("failed to unmarshal nonce of faucet request (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-	consumedBytes = marshalUtil.ReadOffset()
 
 	return
 }
 
-// Type returns the type of the faucet Request.
-func (p *Request) Type() payload.Type {
-	return p.payloadType
+// RequestType returns the type of the faucet Payload.
+func (p *Payload) Type() payload.Type {
+	return RequestType
 }
 
-// Address returns the address of the faucet Request.
-func (p *Request) Address() ledgerstate.Address {
-	return p.address
+// Address returns the address of the faucet Payload.
+func (p *Payload) Address() devnetvm.Address {
+	return p.requestInner.Address
 }
 
 // AccessManaPledgeID returns the access mana pledge ID of the faucet request.
-func (p *Request) AccessManaPledgeID() identity.ID {
-	return p.accessManaPledgeID
+func (p *Payload) AccessManaPledgeID() identity.ID {
+	return p.requestInner.AccessManaPledgeID
 }
 
 // ConsensusManaPledgeID returns the consensus mana pledge ID of the faucet request.
-func (p *Request) ConsensusManaPledgeID() identity.ID {
-	return p.consensusManaPledgeID
+func (p *Payload) ConsensusManaPledgeID() identity.ID {
+	return p.requestInner.ConsensusManaPledgeID
 }
 
-// Bytes marshals the faucet Request payload into a sequence of bytes.
-func (p *Request) Bytes() []byte {
-	// initialize helper
-	marshalUtil := marshalutil.New()
-
-	// marshal the payload specific information
-	marshalUtil.WriteUint32(payload.TypeLength + uint32(ledgerstate.AddressLength+identity.IDLength+identity.IDLength+pow.NonceBytes))
-	marshalUtil.WriteBytes(p.Type().Bytes())
-	marshalUtil.WriteBytes(p.address.Bytes())
-	marshalUtil.WriteBytes(p.accessManaPledgeID.Bytes())
-	marshalUtil.WriteBytes(p.consensusManaPledgeID.Bytes())
-	marshalUtil.WriteUint64(p.nonce)
-
-	// return result
-	return marshalUtil.Bytes()
+// Bytes returns a marshaled version of the Payload.
+func (p *Payload) Bytes() []byte {
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
-// String returns a human readable version of faucet Request payload (for debug purposes).
-func (p *Request) String() string {
+// String returns a human readable version of faucet Payload payload (for debug purposes).
+func (p *Payload) String() string {
 	return stringify.Struct("FaucetPayload",
 		stringify.StructField("address", p.Address().Base58()),
-		stringify.StructField("accessManaPledgeID", p.accessManaPledgeID.String()),
-		stringify.StructField("consensusManaPledgeID", p.consensusManaPledgeID.String()),
+		stringify.StructField("accessManaPledgeID", p.AccessManaPledgeID().String()),
+		stringify.StructField("consensusManaPledgeID", p.ConsensusManaPledgeID().String()),
 	)
-}
-
-// PayloadUnmarshaler sets the generic unmarshaler.
-func PayloadUnmarshaler(data []byte) (payload payload.Payload, err error) {
-	var consumedBytes int
-	payload, consumedBytes, err = FromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	if consumedBytes != len(data) {
-		return nil, errors.New("not all payload bytes were consumed")
-	}
-	return
 }
 
 // IsFaucetReq checks if the message is faucet payload.
 func IsFaucetReq(msg *tangle.Message) bool {
-	return msg.Payload().Type() == Type
+	return msg.Payload().Type() == RequestType
 }

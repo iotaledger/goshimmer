@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -35,13 +35,13 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	if *helpPtr {
 		printUsage(command)
 	}
-	if *amountPtr < int64(ledgerstate.DustThresholdAliasOutputIOTA) {
-		printUsage(command, fmt.Sprintf("delegation amount must be greater than %d", ledgerstate.DustThresholdAliasOutputIOTA))
+	if *amountPtr < int64(devnetvm.DustThresholdAliasOutputIOTA) {
+		printUsage(command, fmt.Sprintf("delegation amount must be greater than %d", devnetvm.DustThresholdAliasOutputIOTA))
 	}
 	if *colorPtr == "" {
 		printUsage(command, "color must be set")
 	}
-	var delegationAddress ledgerstate.Address
+	var delegationAddress devnetvm.Address
 	delegateToConnectedNode := false
 	var status wallet.ServerStatus
 	if *delegationAddressPtr == "" {
@@ -50,33 +50,33 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		if statusErr != nil {
 			printUsage(command, fmt.Sprintf("failed to get delegation address from connected node: %s", statusErr.Error()))
 		}
-		delegationAddress, err = ledgerstate.AddressFromBase58EncodedString(status.DelegationAddress)
+		delegationAddress, err = devnetvm.AddressFromBase58EncodedString(status.DelegationAddress)
 		if err != nil {
 			printUsage(command, fmt.Sprintf("failed to parse connected node's delegation adddress: %s", err.Error()))
 		}
 		delegateToConnectedNode = true
 	} else {
-		delegationAddress, err = ledgerstate.AddressFromBase58EncodedString(*delegationAddressPtr)
+		delegationAddress, err = devnetvm.AddressFromBase58EncodedString(*delegationAddressPtr)
 		if err != nil {
 			printUsage(command, fmt.Sprintf("provided delelegation address %s is not a valid IOTA address: %s", *delegationAddressPtr, err.Error()))
 		}
 	}
 
-	var fundsColor ledgerstate.Color
-	if *amountPtr >= int64(ledgerstate.DustThresholdAliasOutputIOTA) {
+	var fundsColor devnetvm.Color
+	if *amountPtr >= int64(devnetvm.DustThresholdAliasOutputIOTA) {
 		// get color
 		switch *colorPtr {
 		case "IOTA":
-			fundsColor = ledgerstate.ColorIOTA
+			fundsColor = devnetvm.ColorIOTA
 		case "NEW":
-			fundsColor = ledgerstate.ColorMint
+			fundsColor = devnetvm.ColorMint
 		default:
 			colorBytes, parseErr := base58.Decode(*colorPtr)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}
 
-			fundsColor, _, parseErr = ledgerstate.ColorFromBytes(colorBytes)
+			fundsColor, _, parseErr = devnetvm.ColorFromBytes(colorBytes)
 			if parseErr != nil {
 				printUsage(command, parseErr.Error())
 			}
@@ -88,18 +88,18 @@ func execDelegateFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		delegateoptions.ConsensusManaPledgeID(*consensusManaPledgeIDPtr),
 	}
 
-	if fundsColor == ledgerstate.ColorIOTA {
+	if fundsColor == devnetvm.ColorIOTA {
 		// when we are delegating IOTA, we automatically fulfill the minimum dust requirement of the alias
 		options = append(options, delegateoptions.Destination(
-			address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{
+			address.Address{AddressBytes: delegationAddress.Array()}, map[devnetvm.Color]uint64{
 				fundsColor: uint64(*amountPtr),
 			}))
 	} else {
 		// when we are delegating anything else, we need IOTAs
 		options = append(options, delegateoptions.Destination(
-			address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: ledgerstate.DustThresholdAliasOutputIOTA,
-				fundsColor:            uint64(*amountPtr),
+			address.Address{AddressBytes: delegationAddress.Array()}, map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: devnetvm.DustThresholdAliasOutputIOTA,
+				fundsColor:         uint64(*amountPtr),
 			}))
 	}
 

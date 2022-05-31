@@ -11,7 +11,7 @@ import Alert from "react-bootstrap/Alert";
 import {Link} from 'react-router-dom';
 import {displayManaUnit} from "app/utils";
 import {outputToComponent, totalBalanceFromExplorerOutputs} from "app/utils/output";
-import {Badge, Button, ListGroupItem} from "react-bootstrap";
+import {Button, ListGroupItem} from "react-bootstrap";
 import {resolveBase58BranchID} from "app/utils/branch";
 
 interface Props {
@@ -238,7 +238,6 @@ class OutputMeta extends React.Component<omProps, any> {
         let pendingMana = this.props.pendingMana;
         return (
             <ListGroup>
-                <ListGroup.Item>Grade of Finality: {deriveSolid(metadata)} {metadata.gradeOfFinality}</ListGroup.Item>
                 BranchIDs: 
                 <ListGroup>
                     {
@@ -255,16 +254,11 @@ class OutputMeta extends React.Component<omProps, any> {
                 </ListGroup>
                 <ListGroup.Item>Pending mana: {displayManaUnit(pendingMana)}</ListGroup.Item>
                 <ListGroup.Item>Timestamp: {new Date(timestamp * 1000).toLocaleString()}</ListGroup.Item>
-                <ListGroup.Item>Solidification Time: {new Date(metadata.solidificationTime * 1000).toLocaleString()}</ListGroup.Item>
                 <ListGroup.Item>Consumer Count: {metadata.consumerCount}</ListGroup.Item>
                 { metadata.confirmedConsumer && <ListGroup.Item>Confirmed Consumer: <a href={`/explorer/transaction/${metadata.confirmedConsumer}`}>{metadata.confirmedConsumer}</a> </ListGroup.Item>}
             </ListGroup>
         );
     }
-}
-
-let deriveSolid = (m: OutputMetadata) => {
-    return m.solid? <Badge variant={"success"}>solid</Badge>: <Badge variant={"danger"}>not solid</Badge>;
 }
 
 let getVariant = (outputType) => {

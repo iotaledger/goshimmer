@@ -5,11 +5,11 @@
 ARG REMOTE_DEBUGGING=0
 
 ############################
-# golang 1.18-buster multi-arch
-FROM golang:1.18-buster AS build
+# golang 1.18-bullseye multi-arch
+FROM golang:1.18.1-bullseye AS build
 
 ARG RUN_TEST=0
-ARG BUILD_TAGS=rocksdb,builtin_static
+ARG BUILD_TAGS=rocksdb
 
 # Define second time inside the build stage to work in bash conditions.
 ARG REMOTE_DEBUGGING=0
@@ -90,17 +90,21 @@ RUN if [ "$DOWNLOAD_SNAPSHOT" -gt 0 ] && [ "$CUSTOM_SNAPSHOT_URL" = "" ] ; then 
       touch /tmp/snapshot.bin ; \
     fi
 
+RUN mkdir -p /tmp/db/mainnetdb /tmp/db/peerdb
+# 65532:65532 is the UID:GUID of nonroot user of distroless image
+RUN chown 65532:65532 /tmp/db/mainnetdb /tmp/db/peerdb
+
 ############################
 # Image
 ############################
 # https://github.com/GoogleContainerTools/distroless/tree/master/cc
 # using distroless cc image, which includes everything in the base image (glibc, libssl and openssl)
-FROM gcr.io/distroless/cc@sha256:4cad7484b00d98ecb300916b1ab71d6c71babd6860c6c5dd6313be41a8c55adb as prepare-runtime
+FROM gcr.io/distroless/cc-debian11:nonroot as prepare-runtime
 
 # Gossip
 EXPOSE 14666/tcp
 # AutoPeering
-#EXPOSE 14626/udp
+EXPOSE 14626/udp
 # Pprof Profiling
 EXPOSE 6061/tcp
 # Prometheus exporter
@@ -112,25 +116,32 @@ EXPOSE 8081/tcp
 # DAGs Visualizer
 EXPOSE 8061/tcp
 
-# Copy configuration
-COPY --from=build /tmp/snapshot.bin /snapshot.bin
-COPY config.default.json /config.json
+# Default directory and drop privileges
+WORKDIR /app
+USER nonroot
 
 # Copy the Pre-built binary file from the previous stage
-COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /run/goshimmer
+COPY --chown=nonroot:nonroot --from=build /go/bin/goshimmer /app/goshimmer
 
-# We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0.
+# Copy configuration and snapshot from the previous stage
+COPY config.default.json /app/config.json
+COPY --from=build /tmp/snapshot.bin /app/snapshot.bin
+
+# Fix permission issue when mounting volumes
+COPY --chown=nonroot:nonroot --from=build /tmp/db/ /app/
+
+# We execute this stage only if debugging is disabled, i.e REMOTE_DEBUGGIN==0
 FROM prepare-runtime as debugger-enabled-0
 
-ENTRYPOINT ["/run/goshimmer", "--config=/config.json"]
+ENTRYPOINT ["/app/goshimmer", "--config=/app/config.json"]
 
-# We execute this stage only if debugging is enabled, i.e REMOTE_DEBUGGIN==1.
+# We execute this stage only if debugging is enabled, i.e REMOTE_DEBUGGING==1
 FROM prepare-runtime as debugger-enabled-1
 EXPOSE 40000
 
 # Copy the Delve binary
-COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /run/dlv
-ENTRYPOINT ["/run/dlv","--listen=:40000", "--headless" ,"--api-version=2", "--accept-multiclient", "exec", "--continue", "/run/goshimmer", "--", "--config=/config.json"]
+COPY --chown=nonroot:nonroot --from=build /go/bin/dlv /app/dlv
+ENTRYPOINT ["/app/dlv", "--listen=:40000", "--headless", "--api-version=2", "--accept-multiclient", "exec", "--continue", "/app/goshimmer", "--", "--config=/app/config.json"]
 
 # Execute corresponding build stage depending on the REMOTE_DEBUGGING build arg.
 FROM debugger-enabled-${REMOTE_DEBUGGING} as runtime

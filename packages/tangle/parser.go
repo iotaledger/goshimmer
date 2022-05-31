@@ -10,10 +10,9 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/typeutils"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 )
 
@@ -41,11 +40,7 @@ func NewParser() (result *Parser) {
 	result = &Parser{
 		bytesFilters:   make([]BytesFilter, 0),
 		messageFilters: make([]MessageFilter, 0),
-		Events: &ParserEvents{
-			MessageParsed:   events.NewEvent(messageParsedEventHandler),
-			BytesRejected:   events.NewEvent(bytesRejectedEventHandler),
-			MessageRejected: events.NewEvent(messageRejectedEventHandler),
-		},
+		Events:         newParserEvents(),
 	}
 
 	// add builtin filters
@@ -103,7 +98,8 @@ func (p *Parser) setupBytesFilterDataFlow() {
 				p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 					Bytes: bytes,
 					Peer:  peer,
-				}, err)
+					Error: err,
+				})
 			})
 		}
 	}
@@ -136,7 +132,8 @@ func (p *Parser) setupMessageFilterDataFlow() {
 				p.Events.MessageRejected.Trigger(&MessageRejectedEvent{
 					Message: msg,
 					Peer:    peer,
-				}, err)
+					Error:   err,
+				})
 			})
 		}
 	}
@@ -149,7 +146,8 @@ func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer,
-		}, err)
+			Error: err,
+		})
 	} else {
 		p.messageFilters[0].Filter(parsedMessage, peer)
 	}
@@ -160,70 +158,6 @@ func (p *Parser) Shutdown() {
 	for _, messageFiler := range p.messageFilters {
 		messageFiler.Close()
 	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ParserEvents /////////////////////////////////////////////////////////////////////////////////////////////////
-
-// ParserEvents represents events happening in the Parser.
-type ParserEvents struct {
-	// Fired when a message was parsed.
-	MessageParsed *events.Event
-
-	// Fired when submitted bytes are rejected by a filter.
-	BytesRejected *events.Event
-
-	// Fired when a message got rejected by a filter.
-	MessageRejected *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region BytesRejectedEvent ///////////////////////////////////////////////////////////////////////////////////////////
-
-// BytesRejectedEvent holds the information provided by the BytesRejected event that gets triggered when the bytes of a
-// Message did not pass the parsing step.
-type BytesRejectedEvent struct {
-	Bytes []byte
-	Peer  *peer.Peer
-}
-
-func bytesRejectedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*BytesRejectedEvent, error))(params[0].(*BytesRejectedEvent), params[1].(error))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MessageRejectedEvent /////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageRejectedEvent holds the information provided by the MessageRejected event that gets triggered when the Message
-// was detected to be invalid.
-type MessageRejectedEvent struct {
-	Message *Message
-	Peer    *peer.Peer
-}
-
-func messageRejectedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*MessageRejectedEvent, error))(params[0].(*MessageRejectedEvent), params[1].(error))
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region MessageParsedEvent ///////////////////////////////////////////////////////////////////////////////////////////
-
-// MessageParsedEvent holds the information provided by the MessageParsed event that gets triggered when a message was
-// fully parsed and syntactically validated.
-type MessageParsedEvent struct {
-	// Message contains the parsed Message.
-	Message *Message
-
-	// Peer contains the node that sent this Message to the node.
-	Peer *peer.Peer
-}
-
-func messageParsedEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(*MessageParsedEvent))(params[0].(*MessageParsedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -479,13 +413,8 @@ type TransactionFilter struct {
 
 // Filter compares the timestamps between the message, and it's transaction payload and calls the corresponding callback.
 func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
-	if payload := msg.Payload(); payload.Type() == ledgerstate.TransactionType {
-		transaction, err := new(ledgerstate.Transaction).FromBytes(payload.Bytes())
-		if err != nil {
-			f.getRejectCallback()(msg, err, peer)
-			return
-		}
-		if !isMessageAndTransactionTimestampsValid(transaction, msg) {
+	if tx, ok := msg.Payload().(*devnetvm.Transaction); ok {
+		if !isMessageAndTransactionTimestampsValid(tx, msg) {
 			f.getRejectCallback()(msg, ErrInvalidMessageAndTransactionTimestamp, peer)
 			return
 		}
@@ -493,7 +422,7 @@ func (f *TransactionFilter) Filter(msg *Message, peer *peer.Peer) {
 	f.getAcceptCallback()(msg, peer)
 }
 
-func isMessageAndTransactionTimestampsValid(transaction *ledgerstate.Transaction, message *Message) bool {
+func isMessageAndTransactionTimestampsValid(transaction *devnetvm.Transaction, message *Message) bool {
 	transactionTimestamp := transaction.Essence().Timestamp()
 	messageTimestamp := message.IssuingTime()
 	return messageTimestamp.Sub(transactionTimestamp).Milliseconds() >= 0 && messageTimestamp.Sub(transactionTimestamp) <= MaxReattachmentTimeMin

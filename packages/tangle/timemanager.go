@@ -7,9 +7,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/timeutil"
 
@@ -43,9 +43,7 @@ type TimeManager struct {
 // NewTimeManager is the constructor for TimeManager.
 func NewTimeManager(tangle *Tangle) *TimeManager {
 	t := &TimeManager{
-		Events: &TimeManagerEvents{
-			SyncChanged: events.NewEvent(SyncChangedCaller),
-		},
+		Events:      newTimeManagerEvents(),
 		tangle:      tangle,
 		startSynced: tangle.Options.StartSynced,
 	}
@@ -81,7 +79,9 @@ func (t *TimeManager) Start() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(t.updateTime))
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		t.updateTime(event.Message)
+	}))
 	t.Start()
 }
 
@@ -144,22 +144,20 @@ func (t *TimeManager) updateSyncedState() {
 }
 
 // updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(messageID MessageID) {
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		t.lastConfirmedMutex.Lock()
-		defer t.lastConfirmedMutex.Unlock()
+func (t *TimeManager) updateTime(message *Message) {
+	t.lastConfirmedMutex.Lock()
+	defer t.lastConfirmedMutex.Unlock()
 
-		if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
-			return
-		}
+	if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
+		return
+	}
 
-		t.lastConfirmedMessage = LastConfirmedMessage{
-			MessageID: messageID,
-			Time:      message.IssuingTime(),
-		}
+	t.lastConfirmedMessage = LastConfirmedMessage{
+		MessageID: message.ID(),
+		Time:      message.IssuingTime(),
+	}
 
-		t.updateSyncedState()
-	})
+	t.updateSyncedState()
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
@@ -179,44 +177,28 @@ func (t *TimeManager) mainLoop() {
 
 // LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
 type LastConfirmedMessage struct {
-	MessageID MessageID
-	Time      time.Time
+	MessageID MessageID `serix:"0"`
+	Time      time.Time `serix:"1"`
 }
 
 // lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
-func lastConfirmedMessageFromBytes(bytes []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
-	marshalUtil := marshalutil.New(bytes)
-	if lcm, err = lastConfirmedMessageFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse LastConfirmedMessage from MarshalUtil: %w", err)
+func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &lcm, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse Background: %w", err)
 		return
 	}
-	consumedBytes = marshalUtil.ReadOffset()
-
-	return
-}
-
-// lastConfirmedMessageFromMarshalUtil unmarshals a LastConfirmedMessage object using a MarshalUtil (for easier unmarshaling).
-func lastConfirmedMessageFromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (lcm LastConfirmedMessage, err error) {
-	lcm = LastConfirmedMessage{}
-	if lcm.MessageID, err = ReferenceFromMarshalUtil(marshalUtil); err != nil {
-		err = errors.Errorf("failed to parse MessageID from MarshalUtil: %w", err)
-		return
-	}
-
-	if lcm.Time, err = marshalUtil.ReadTime(); err != nil {
-		err = errors.Errorf("failed to parse time (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
-	}
-
 	return
 }
 
 // Bytes returns a marshaled version of the LastConfirmedMessage.
 func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
-	return marshalutil.New(MessageIDLength + marshalutil.TimeSize).
-		Write(l.MessageID).
-		WriteTime(l.Time).
-		Bytes()
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
+	}
+	return objBytes
 }
 
 // String returns a human readable version of the LastConfirmedMessage.
@@ -225,26 +207,6 @@ func (l LastConfirmedMessage) String() string {
 		stringify.StructField("MessageID", l.MessageID),
 		stringify.StructField("Time", l.Time),
 	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimeManagerEvents ////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimeManagerEvents represents events happening in the TimeManager.
-type TimeManagerEvents struct {
-	// Fired when the nodes sync status changes.
-	SyncChanged *events.Event
-}
-
-// SyncChangedEvent represents a sync changed event.
-type SyncChangedEvent struct {
-	Synced bool
-}
-
-// SyncChangedCaller is the caller function for sync changed event.
-func SyncChangedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *SyncChangedEvent))(params[0].(*SyncChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

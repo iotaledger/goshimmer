@@ -6,7 +6,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -115,16 +115,16 @@ func sendDisconnectNodes(eventStruct *analysisserver.DisconnectNodesEvent) {
 // runs autopeering feed to propagate autopeering events from analysis server to frontend
 func runAutopeeringFeed() {
 	// closures for the different events
-	notifyAddNode := events.NewClosure(func(eventStruct *analysisserver.AddNodeEvent) {
+	notifyAddNode := event.NewClosure(func(eventStruct *analysisserver.AddNodeEvent) {
 		autoPeeringWorkerPool.Submit("A", eventStruct)
 	})
-	notifyRemoveNode := events.NewClosure(func(eventStruct *analysisserver.RemoveNodeEvent) {
+	notifyRemoveNode := event.NewClosure(func(eventStruct *analysisserver.RemoveNodeEvent) {
 		autoPeeringWorkerPool.Submit("a", eventStruct)
 	})
-	notifyConnectNodes := events.NewClosure(func(eventStruct *analysisserver.ConnectNodesEvent) {
+	notifyConnectNodes := event.NewClosure(func(eventStruct *analysisserver.ConnectNodesEvent) {
 		autoPeeringWorkerPool.Submit("C", eventStruct)
 	})
-	notifyDisconnectNodes := events.NewClosure(func(eventStruct *analysisserver.DisconnectNodesEvent) {
+	notifyDisconnectNodes := event.NewClosure(func(eventStruct *analysisserver.DisconnectNodesEvent) {
 		autoPeeringWorkerPool.Submit("c", eventStruct)
 	})
 

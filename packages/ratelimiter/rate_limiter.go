@@ -7,7 +7,6 @@ import (
 	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/paulbellamy/ratecounter"
 	"go.uber.org/atomic"
@@ -29,7 +28,7 @@ func (rl RateLimit) String() string {
 type PeerRateLimiter struct {
 	interval     time.Duration
 	baseLimit    *atomic.Int64
-	hitEvent     *events.Event
+	Events       *Events
 	peersRecords *ttlcache.Cache
 	log          *logger.Logger
 }
@@ -50,9 +49,9 @@ func NewPeerRateLimiter(interval time.Duration, baseLimit int, log *logger.Logge
 		return nil, errors.WithStack(err)
 	}
 	return &PeerRateLimiter{
+		Events:       newEvents(),
 		interval:     interval,
 		baseLimit:    atomic.NewInt64(int64(baseLimit)),
-		hitEvent:     events.NewEvent(limitHitCaller),
 		peersRecords: records,
 		log:          log,
 	}, nil
@@ -85,11 +84,6 @@ func (prl *PeerRateLimiter) SetBaseLimit(limit int) {
 	prl.baseLimit.Store(int64(limit))
 }
 
-// HitEvent returns the event instance which is triggered when a peer exceeds the activity limit.
-func (prl *PeerRateLimiter) HitEvent() *events.Event {
-	return prl.hitEvent
-}
-
 // Close closes PeerRateLimiter instance, it can't be used after that.
 func (prl *PeerRateLimiter) Close() {
 	if err := prl.peersRecords.Close(); err != nil {
@@ -108,7 +102,7 @@ func (prl *PeerRateLimiter) doCount(p *peer.Peer) error {
 		if !peerRecord.limitHitReported.Swap(true) {
 			prl.log.Infow("Peer hit the activity limit, notifying subscribers to take action",
 				"limit", limit, "interval", prl.interval, "peerId", p.ID())
-			prl.hitEvent.Trigger(p, &RateLimit{Limit: limit, Interval: prl.interval})
+			prl.Events.Hit.Trigger(&HitEvent{p, &RateLimit{Limit: limit, Interval: prl.interval}})
 		}
 	} else {
 		peerRecord.limitHitReported.Store(false)
@@ -133,8 +127,4 @@ func (prl *PeerRateLimiter) getPeerRecord(p *peer.Peer) (*limiterRecord, error) 
 	}
 	peerRecord := nbrRecordI.(*limiterRecord)
 	return peerRecord, nil
-}
-
-func limitHitCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*peer.Peer, *RateLimit))(params[0].(*peer.Peer), params[1].(*RateLimit))
 }

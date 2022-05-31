@@ -6,15 +6,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 func TestStorage_StoreAttachment(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	transactionID, err := ledgerstate.TransactionIDFromRandomness()
-	assert.NoError(t, err)
+	transactionID := randomTransactionID()
 	messageID := randomMessageID()
 	cachedAttachment, stored := tangle.Storage.StoreAttachment(transactionID, messageID)
 	cachedAttachment.Release()
@@ -31,10 +30,10 @@ func TestStorage_Attachments(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	attachments := make(map[ledgerstate.TransactionID]int)
+	attachments := make(map[utxo.TransactionID]int)
 	for i := 0; i < 2; i++ {
-		transactionID, err := ledgerstate.TransactionIDFromRandomness()
-		assert.NoError(t, err)
+		transactionID := randomTransactionID()
+
 		// for every tx, store random number of attachments.
 		for j := 0; j < rand.Intn(5)+1; j++ {
 			attachments[transactionID]++

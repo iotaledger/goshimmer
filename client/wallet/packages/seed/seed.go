@@ -4,7 +4,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // Seed represents a seed for IOTA wallets. A seed allows us to generate a deterministic sequence of Addresses and their
@@ -26,7 +26,7 @@ func (seed *Seed) Address(index uint64) (addr address.Address) {
 	addr = address.Address{
 		Index: index,
 	}
-	copy(addr.AddressBytes[:], ledgerstate.NewED25519Address(seed.Seed.KeyPair(index).PublicKey).Bytes())
+	copy(addr.AddressBytes[:], devnetvm.NewED25519Address(seed.Seed.KeyPair(index).PublicKey).Bytes())
 
 	return
 }

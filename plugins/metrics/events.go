@@ -1,30 +1,40 @@
 package metrics
 
-import (
-	"github.com/iotaledger/hive.go/events"
-)
+import "github.com/iotaledger/hive.go/generics/event"
 
 // Events defines the events of the plugin.
-var Events = pluginEvents{
-	// ReceivedMPSUpdated triggers upon reception of a MPS update.
-	ReceivedMPSUpdated:      events.NewEvent(uint64EventCaller),
-	ReceivedTPSUpdated:      events.NewEvent(uint64EventCaller),
-	ComponentCounterUpdated: events.NewEvent(componentTypeUint64EventCaller),
-}
+var Events *EventsStruct
 
-type pluginEvents struct {
+type EventsStruct struct {
 	// Fired when the messages per second metric is updated.
-	ReceivedMPSUpdated *events.Event
+	ReceivedMPSUpdated *event.Event[*ReceivedMPSUpdatedEvent]
 	// Fired when the transactions per second metric is updated.
-	ReceivedTPSUpdated *events.Event
+	ReceivedTPSUpdated *event.Event[*ReceivedTPSUpdatedEvent]
 	// Fired when the component counter per second metric is updated.
-	ComponentCounterUpdated *events.Event
+	ComponentCounterUpdated *event.Event[*ComponentCounterUpdatedEvent]
 }
 
-func uint64EventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(uint64))(params[0].(uint64))
+func newEvents() (new *EventsStruct) {
+	return &EventsStruct{
+		ReceivedMPSUpdated:      event.New[*ReceivedMPSUpdatedEvent](),
+		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),
+		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
+	}
+
 }
 
-func componentTypeUint64EventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(map[ComponentType]uint64))(params[0].(map[ComponentType]uint64))
+func init() {
+	Events = newEvents()
+}
+
+type ReceivedMPSUpdatedEvent struct {
+	MPS uint64
+}
+
+type ReceivedTPSUpdatedEvent struct {
+	TPS uint64
+}
+
+type ComponentCounterUpdatedEvent struct {
+	ComponentStatus map[ComponentType]uint64
 }

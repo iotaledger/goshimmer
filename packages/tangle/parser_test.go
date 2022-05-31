@@ -8,7 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/gommon/log"
@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -56,7 +56,7 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 	msgParser.Setup()
 	msgParser.Parse(msg.Bytes(), nil)
 
-	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	msgParser.Events.MessageParsed.Hook(event.NewClosure(func(_ *MessageParsedEvent) {
 		log.Infof("parsed message")
 	}))
 }
@@ -76,14 +76,8 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
-		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
+		msg.messageInner.Payload = payload.NewGenericDataPayload([]byte("hello world"))
 		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
-	})
-
-	t.Run("reject on failed parse", func(t *testing.T) {
-		msg := &Message{payload: &testTxPayload{}}
-		m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return err != nil }), testPeer)
 		filter.Filter(msg, testPeer)
 	})
 }
@@ -92,22 +86,22 @@ func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 	msg := &Message{}
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("equal tx and msg timestamp", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp()
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp()
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older message", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.issuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
+		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 }
@@ -163,7 +157,7 @@ func (m *messageCallbackMock) Reject(msg *Message, err error, p *peer.Peer) { m.
 
 type testTxPayload struct{}
 
-func (p *testTxPayload) Type() payload.Type { return ledgerstate.TransactionType }
+func (p *testTxPayload) Type() payload.Type { return devnetvm.TransactionType }
 func (p *testTxPayload) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(32) // random payload size
@@ -172,11 +166,11 @@ func (p *testTxPayload) Bytes() []byte {
 }
 func (p *testTxPayload) String() string { return "tx" }
 
-func newTransaction(t time.Time) *ledgerstate.Transaction {
+func newTransaction(t time.Time) *devnetvm.Transaction {
 	ID, _ := identity.RandomID()
-	var inputs ledgerstate.Inputs
-	var outputs ledgerstate.Outputs
-	essence := ledgerstate.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
-	var unlockBlocks ledgerstate.UnlockBlocks
-	return ledgerstate.NewTransaction(essence, unlockBlocks)
+	var inputs devnetvm.Inputs
+	var outputs devnetvm.Outputs
+	essence := devnetvm.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
+	var unlockBlocks devnetvm.UnlockBlocks
+	return devnetvm.NewTransaction(essence, unlockBlocks)
 }

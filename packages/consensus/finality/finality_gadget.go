@@ -1,16 +1,15 @@
 package finality
 
 import (
-	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -18,7 +17,7 @@ import (
 // Gadget is an interface that describes the finality gadget.
 type Gadget interface {
 	HandleMarker(marker *markers.Marker, aw float64) (err error)
-	HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error)
+	HandleBranch(branchID utxo.TransactionID, aw float64) (err error)
 	tangle.ConfirmationOracle
 }
 
@@ -26,7 +25,7 @@ type Gadget interface {
 type MessageThresholdTranslation func(aw float64) gof.GradeOfFinality
 
 // BranchThresholdTranslation is a function which translates approval weight to a gof.GradeOfFinality.
-type BranchThresholdTranslation func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality
+type BranchThresholdTranslation func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality
 
 const (
 	lowLowerBound    = 0.25
@@ -36,7 +35,7 @@ const (
 
 var (
 	// DefaultBranchGoFTranslation is the default function to translate the approval weight to gof.GradeOfFinality of a branch.
-	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+	DefaultBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= lowLowerBound && aw < mediumLowerBound:
 			return gof.Low
@@ -126,14 +125,7 @@ func NewSimpleFinalityGadget(t *tangle.Tangle, opts ...Option) *SimpleFinalityGa
 		tangle:               t,
 		opts:                 &Options{},
 		lastConfirmedMarkers: make(map[markers.SequenceID]markers.Index),
-		events: &tangle.ConfirmationEvents{
-			MessageConfirmed:      events.NewEvent(tangle.MessageIDCaller),
-			TransactionConfirmed:  events.NewEvent(ledgerstate.TransactionIDEventHandler),
-			BranchConfirmed:       events.NewEvent(ledgerstate.BranchIDEventHandler),
-			BranchRejected:        events.NewEvent(ledgerstate.BranchIDEventHandler),
-			TransactionGoFChanged: events.NewEvent(ledgerstate.TransactionIDEventHandler),
-			BranchGoFChanged:      events.NewEvent(BranchIDGoFEventHandler),
-		},
+		events:               tangle.NewConfirmationEvents(),
 	}
 
 	for _, defOpt := range defaultOpts {
@@ -207,16 +199,16 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 }
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
-func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID ledgerstate.BranchID) (confirmed bool) {
+func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID utxo.TransactionID) (confirmed bool) {
 	// TODO: HANDLE ERRORS INSTEAD?
-	branchGoF, _ := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
+	branchGoF, _ := s.tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
 
 	return branchGoF >= s.opts.BranchGoFReachedLevel
 }
 
 // IsTransactionConfirmed returns whether the given transaction is confirmed.
-func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) (confirmed bool) {
-	s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID utxo.TransactionID) (confirmed bool) {
+	s.tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		if transactionMetadata.GradeOfFinality() >= s.opts.MessageGoFReachedLevel {
 			confirmed = true
 		}
@@ -225,8 +217,8 @@ func (s *SimpleFinalityGadget) IsTransactionConfirmed(transactionID ledgerstate.
 }
 
 // IsOutputConfirmed returns whether the given output is confirmed.
-func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID ledgerstate.OutputID) (confirmed bool) {
-	s.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID utxo.OutputID) (confirmed bool) {
+	s.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 		if outputMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
 			confirmed = true
 		}
@@ -284,11 +276,15 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 		}
 
 		s.tangle.Storage.MessageMetadata(strongParentMessageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
-			if messageMetadata.GradeOfFinality() >= gradeOfFinality || !s.setMessageGoF(messageMetadata, gradeOfFinality) {
+			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
 				return
 			}
 
 			s.tangle.Storage.Message(strongParentMessageID).Consume(func(message *tangle.Message) {
+				if !s.setMessageGoF(message, messageMetadata, gradeOfFinality) {
+					return
+				}
+
 				message.ForEachParent(func(parent tangle.Parent) {
 					if parent.Type == tangle.StrongParentType {
 						strongParentWalker.Push(parent.ID)
@@ -308,156 +304,48 @@ func (s *SimpleFinalityGadget) propagateGoFToMessagePastCone(messageID tangle.Me
 			if messageMetadata.GradeOfFinality() >= gradeOfFinality {
 				return
 			}
-			s.setMessageGoF(messageMetadata, gradeOfFinality)
+
+			s.tangle.Storage.Message(weakParent).Consume(func(message *tangle.Message) {
+				s.setMessageGoF(message, messageMetadata, gradeOfFinality)
+			})
 		})
 	})
 }
 
 // HandleBranch receives a branchID and its approval weight. It propagates the GoF according to AW to transactions
 // in the branch (UTXO future cone) and their outputs.
-func (s *SimpleFinalityGadget) HandleBranch(branchID ledgerstate.BranchID, aw float64) (err error) {
-	newGradeOfFinality := s.opts.BranchTransFunc(branchID, aw)
-
-	// update GoF of txs within the same branch
-	txGoFPropWalker := walker.New[ledgerstate.TransactionID]()
-	s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(branchID.TransactionID()).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
-	})
-	for txGoFPropWalker.HasNext() {
-		s.forwardPropagateBranchGoFToTxs(txGoFPropWalker.Next(), branchID, newGradeOfFinality, txGoFPropWalker)
+func (s *SimpleFinalityGadget) HandleBranch(branchID utxo.TransactionID, aw float64) (err error) {
+	if s.opts.BranchTransFunc(branchID, aw) >= s.opts.BranchGoFReachedLevel {
+		s.tangle.Ledger.ConflictDAG.SetBranchConfirmed(branchID)
 	}
 
-	if newGradeOfFinality >= s.opts.BranchGoFReachedLevel {
-		s.events.BranchConfirmed.Trigger(branchID)
-	}
-	s.Events().BranchGoFChanged.Trigger(branchID, newGradeOfFinality)
-
-	return err
+	return nil
 }
 
-func (s *SimpleFinalityGadget) forwardPropagateBranchGoFToTxs(candidateTxID ledgerstate.TransactionID, candidateBranchID ledgerstate.BranchID, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) bool {
-	return s.tangle.LedgerState.UTXODAG.CachedTransactionMetadata(candidateTxID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-		// we stop if we walk outside our branch
-		if !transactionMetadata.BranchIDs().Contains(candidateBranchID) {
-			return
-		}
-
-		var maxAttachmentGoF gof.GradeOfFinality
-		s.tangle.Storage.Attachments(transactionMetadata.ID()).Consume(func(attachment *tangle.Attachment) {
-			s.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *tangle.MessageMetadata) {
-				if maxAttachmentGoF < messageMetadata.GradeOfFinality() {
-					maxAttachmentGoF = messageMetadata.GradeOfFinality()
-				}
-			})
-		})
-
-		// only adjust tx GoF if attachments have at least GoF derived from UTXO parents
-		if maxAttachmentGoF < newGradeOfFinality {
-			return
-		}
-
-		s.updateTransactionGoF(transactionMetadata, newGradeOfFinality, txGoFPropWalker)
-	})
-}
-
-func (s *SimpleFinalityGadget) updateTransactionGoF(transactionMetadata *ledgerstate.TransactionMetadata, newGradeOfFinality gof.GradeOfFinality, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) {
-	// abort if the grade of finality did not change
-	if !transactionMetadata.SetGradeOfFinality(newGradeOfFinality) {
-		return
-	}
-
-	s.tangle.LedgerState.UTXODAG.CachedTransaction(transactionMetadata.ID()).Consume(func(transaction *ledgerstate.Transaction) {
-		// we use a set of consumer txs as our candidate tx can consume multiple outputs from the same txs,
-		// but we want to add such tx only once to the walker
-		consumerTxs := make(ledgerstate.TransactionIDs)
-
-		// adjust output GoF and add its consumer txs to the walker
-		for _, output := range transaction.Essence().Outputs() {
-			s.adjustOutputGoF(output, newGradeOfFinality, consumerTxs, txGoFPropWalker)
-		}
-	})
-	if transactionMetadata.GradeOfFinality() >= s.opts.BranchGoFReachedLevel {
-		s.events.TransactionConfirmed.Trigger(transactionMetadata.ID())
-	}
-	s.Events().TransactionGoFChanged.Trigger(transactionMetadata.ID())
-}
-
-func (s *SimpleFinalityGadget) adjustOutputGoF(output ledgerstate.Output, newGradeOfFinality gof.GradeOfFinality, consumerTxs ledgerstate.TransactionIDs, txGoFPropWalker *walker.Walker[ledgerstate.TransactionID]) bool {
-	return s.tangle.LedgerState.UTXODAG.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-		outputMetadata.SetGradeOfFinality(newGradeOfFinality)
-		s.tangle.LedgerState.Consumers(output.ID()).Consume(func(consumer *ledgerstate.Consumer) {
-			if _, has := consumerTxs[consumer.TransactionID()]; !has {
-				consumerTxs[consumer.TransactionID()] = types.Empty{}
-				txGoFPropWalker.Push(consumer.TransactionID())
-			}
-		})
-	})
-}
-
-func (s *SimpleFinalityGadget) setMessageGoF(messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
+func (s *SimpleFinalityGadget) setMessageGoF(message *tangle.Message, messageMetadata *tangle.MessageMetadata, gradeOfFinality gof.GradeOfFinality) (modified bool) {
 	// abort if message has GoF already set
 	if modified = messageMetadata.SetGradeOfFinality(gradeOfFinality); !modified {
 		return
 	}
 
-	// set GoF of payload (applicable only to transactions)
-	s.setPayloadGoF(messageMetadata.ID(), gradeOfFinality)
-
 	if gradeOfFinality >= s.opts.MessageGoFReachedLevel {
-		s.Events().MessageConfirmed.Trigger(messageMetadata.ID())
+		s.Events().MessageConfirmed.Trigger(&tangle.MessageConfirmedEvent{
+			Message: message,
+		})
+
+		// set GoF of payload (applicable only to transactions)
+		if tx, ok := message.Payload().(*devnetvm.Transaction); ok {
+			s.tangle.Ledger.SetTransactionInclusionTime(tx.ID(), message.IssuingTime())
+		}
 	}
 
 	return modified
 }
 
-func (s *SimpleFinalityGadget) setPayloadGoF(messageID tangle.MessageID, gradeOfFinality gof.GradeOfFinality) {
-	s.tangle.Utils.ComputeIfTransaction(messageID, func(transactionID ledgerstate.TransactionID) {
-		s.tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			// A transaction can't have a higher GoF than its branch, thus we need to evaluate based on min(branchGoF,max(messageGoF,transactionGoF)).
-			// This also works for transactions in MasterBranch since it has gof.High and we then use max(messageGoF,transactionGoF).
-			// max(messageGoF,transactionGoF) gets the max GoF of any possible reattachment (which has set the transaction's GoF before).
-			transactionGoF := transactionMetadata.GradeOfFinality()
-			if transactionGoF > gradeOfFinality {
-				gradeOfFinality = transactionMetadata.GradeOfFinality()
-			}
-
-			lowestBranchGoF := s.getTransactionBranchesGoF(transactionMetadata)
-
-			// This is an invalid invariant and should never happen.
-			if transactionGoF > lowestBranchGoF {
-				panic(fmt.Sprintf("%s GoF (%s) is bigger than its branches %s GoF (%s)", transactionID, transactionGoF, transactionMetadata.BranchIDs(), lowestBranchGoF))
-			}
-
-			if lowestBranchGoF < gradeOfFinality {
-				gradeOfFinality = lowestBranchGoF
-			}
-
-			// abort if transaction has GoF already set
-			if !transactionMetadata.SetGradeOfFinality(gradeOfFinality) {
-				return
-			}
-
-			// set GoF in outputs
-			s.tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-				for _, output := range transaction.Essence().Outputs() {
-					s.tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-						outputMetadata.SetGradeOfFinality(gradeOfFinality)
-					})
-				}
-			})
-
-			if gradeOfFinality >= s.opts.BranchGoFReachedLevel {
-				s.Events().TransactionConfirmed.Trigger(transactionID)
-			}
-			s.Events().TransactionGoFChanged.Trigger(transactionMetadata.ID())
-		})
-	})
-}
-
-func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledgerstate.TransactionMetadata) (lowestBranchGoF gof.GradeOfFinality) {
+func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *ledger.TransactionMetadata) (lowestBranchGoF gof.GradeOfFinality) {
 	lowestBranchGoF = gof.High
-	for txBranchID := range transactionMetadata.BranchIDs() {
-		branchGoF, err := s.tangle.LedgerState.UTXODAG.BranchGradeOfFinality(txBranchID)
+	for it := transactionMetadata.BranchIDs().Iterator(); it.HasNext(); {
+		branchGoF, err := s.tangle.Ledger.Utils.BranchGradeOfFinality(it.Next())
 		if err != nil {
 			// TODO: properly handle error
 			panic(err)
@@ -467,9 +355,4 @@ func (s *SimpleFinalityGadget) getTransactionBranchesGoF(transactionMetadata *le
 		}
 	}
 	return
-}
-
-// BranchIDGoFEventHandler is an event handler for an event with a BranchID and its new GoF.
-func BranchIDGoFEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(ledgerstate.BranchID, gof.GradeOfFinality))(params[0].(ledgerstate.BranchID), params[1].(gof.GradeOfFinality))
 }

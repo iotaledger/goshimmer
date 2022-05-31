@@ -1,29 +1,29 @@
 package mana
 
 import (
-	"crypto/sha256"
-	"math"
+	"context"
 	"strconv"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/marshalutil"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // PersistableEvent is a persistable event.
 type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
-	Type          byte // pledge or revoke
-	NodeID        identity.ID
-	Amount        float64
-	Time          time.Time
-	ManaType      Type // access or consensus
-	TransactionID ledgerstate.TransactionID
-	InputID       ledgerstate.OutputID // for revoke event
+	Type          byte               `serix:"0"` // pledge or revoke
+	ManaType      Type               `serix:"1"` // access or consensus
+	NodeID        identity.ID        `serix:"2"`
+	Time          time.Time          `serix:"3"`
+	TransactionID utxo.TransactionID `serix:"4"`
+	Amount        float64            `serix:"5"`
+	InputID       utxo.OutputID      `serix:"6"` // for revoke event
 	bytes         []byte
 }
 
@@ -47,20 +47,12 @@ func (p *PersistableEvent) ToStringValues() []string {
 
 // Bytes marshals the persistable event into a sequence of bytes.
 func (p *PersistableEvent) Bytes() []byte {
-	if bytes := p.bytes; bytes != nil {
-		return bytes
+	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
+	if err != nil {
+		// TODO: what do?
+		panic(err)
 	}
-	// create marshal helper
-	marshalUtil := marshalutil.New()
-	marshalUtil.WriteByte(p.Type)
-	marshalUtil.WriteByte(byte(p.ManaType))
-	marshalUtil.WriteBytes(p.NodeID.Bytes())
-	marshalUtil.WriteTime(p.Time)
-	marshalUtil.WriteBytes(p.TransactionID.Bytes())
-	marshalUtil.WriteUint64(math.Float64bits(p.Amount))
-	marshalUtil.WriteBytes(p.InputID.Bytes())
-	p.bytes = marshalUtil.Bytes()
-	return p.bytes
+	return objBytes
 }
 
 // ObjectStorageKey returns the key of the persistable mana.
@@ -73,69 +65,24 @@ func (p *PersistableEvent) ObjectStorageValue() []byte {
 	return p.Bytes()
 }
 
-// parseEvent unmarshals a PersistableEvent using the given marshalUtil (for easier marshaling/unmarshaling).
-func parseEvent(marshalUtil *marshalutil.MarshalUtil) (result *PersistableEvent, err error) {
-	eventType, err := marshalUtil.ReadByte()
-	if err != nil {
-		return
-	}
-	manaType, err := marshalUtil.ReadByte()
-	if err != nil {
-		return
-	}
-	nodeIDBytes, err := marshalUtil.ReadBytes(sha256.Size)
-	if err != nil {
-		return
-	}
-	nodeID := identity.ID{}
-	copy(nodeID[:], nodeIDBytes)
-
-	eventTime, err := marshalUtil.ReadTime()
-	if err != nil {
-		return
-	}
-	txIDBytes, err := marshalUtil.ReadBytes(ledgerstate.TransactionIDLength)
-	if err != nil {
-		return
-	}
-	txID := ledgerstate.TransactionID{}
-	copy(txID[:], txIDBytes)
-
-	_amount, err := marshalUtil.ReadUint64()
-	if err != nil {
-		return
-	}
-	amount := math.Float64frombits(_amount)
-	inputIDBytes, err := marshalUtil.ReadBytes(ledgerstate.OutputIDLength)
-	if err != nil {
-		return
-	}
-	inputID := ledgerstate.OutputID{}
-	copy(inputID[:], inputIDBytes)
-	consumedBytes := marshalUtil.ReadOffset()
-
-	result = &PersistableEvent{
-		Type:          eventType,
-		NodeID:        nodeID,
-		Amount:        amount,
-		Time:          eventTime,
-		ManaType:      Type(manaType),
-		TransactionID: txID,
-		InputID:       inputID,
-	}
-	result.bytes = make([]byte, consumedBytes)
-	copy(result.bytes, marshalUtil.Bytes())
-	return
-}
-
 // FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
-func (p *PersistableEvent) FromObjectStorage(_, bytes []byte) (objectstorage.StorableObject, error) {
-	return p.FromBytes(bytes)
+func (p *PersistableEvent) FromObjectStorage(_, value []byte) error {
+	_, err := p.FromBytes(value)
+	return err
 }
 
 // FromBytes unmarshalls bytes into a persistable event.
 func (p *PersistableEvent) FromBytes(data []byte) (result *PersistableEvent, err error) {
-	return parseEvent(marshalutil.New(data))
+	if result = p; result == nil {
+		result = new(PersistableEvent)
+	}
+
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse SigLockedColoredOutput: %w", err)
+		return
+	}
+	return
 }
 
 var _ objectstorage.StorableObject = new(PersistableEvent)

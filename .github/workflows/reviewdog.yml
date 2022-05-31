@@ -10,17 +10,14 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0 # required for new-from-rev option in .golangci.yml
 
-      - uses: actions/setup-go@v1
-        with:
-          go-version: "1.18"
-
       - name: Run golangci-lint
-        uses: docker://reviewdog/action-golangci-lint:latest
+        uses: reviewdog/action-golangci-lint@v2
         with:
           github_token: ${{ secrets.github_token }}
           golangci_lint_flags: "--timeout=10m"
-          reporter: "github-pr-review"
+          reporter: "github-pr-check"
+          fail_on_error: true

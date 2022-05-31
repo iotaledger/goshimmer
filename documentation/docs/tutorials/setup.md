@@ -160,7 +160,7 @@ docker-compose version 1.26.0, build d4451659
 First, lets create a user defined bridged network. Unlike the already existing `bridge` network, the user defined one will have container name DNS resolution for containers within that network. This is useful if later we want to setup additional containers which need to speak with the GoShimmer container.
 
 ```shell
-docker network create --driver=bridge shimmer
+docker network create --driver=bridge goshimmer
 c726034d295c3df66803b92c71ca517a0cf0e3c65c1c6d84ee5fa34ae76cbcd4
 ```
 
@@ -174,8 +174,8 @@ Lets create a folder holding our database:
 
 ```shell
 cd /opt/goshimmer
-mkdir db
-chmod 0777 db
+sudo mkdir mainnetdb && sudo chown 65532:65532 mainnetdb
+sudo mkdir peerdb && sudo chown 65532:65532 peerdb
 ```
 
 Finally, lets create our `docker-compose.yml`:
@@ -191,7 +191,7 @@ version: '3.3'
 networks:
   outside:
     external:
-      name: shimmer
+      name: goshimmer
 
 services:
   goshimmer:
@@ -200,8 +200,8 @@ services:
     hostname: goshimmer
     stop_grace_period: 2m
     volumes:
-      - "./db:/tmp/mainnetdb:rw"
-      - "./peerdb:/tmp/peerdb:rw"
+      - "./db:/app/mainnetdb:rw"
+      - "./peerdb:/app/peerdb:rw"
       - "/etc/localtime:/etc/localtime:ro"
     ports:
       # Autopeering
@@ -228,8 +228,8 @@ services:
       --autoPeering.entryNodes=2PV5487xMw5rasGBXXWeqSi4hLz7r19YBt8Y1TGAsQbj@analysisentry-01.devnet.shimmer.iota.cafe:15626,5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-0.devnet.tanglebay.com:14646,CAB87iQZR6BjBrCgEBupQJ4gpEBgvGKKv3uuGVRBKb4n@entry-1.devnet.tanglebay.com:14646
       --node.disablePlugins=portcheck
       --node.enablePlugins=remotelog,networkdelay,spammer,prometheus
-      --database.directory=/tmp/mainnetdb
-      --node.peerDBDirectory=/tmp/peerdb
+      --database.directory=/app/mainnetdb
+      --node.peerDBDirectory=/app/peerdb
       --logger.level=info
       --logger.disableEvents=false
       --logger.remotelog.serverAddress=metrics-01.devnet.shimmer.iota.cafe:5213

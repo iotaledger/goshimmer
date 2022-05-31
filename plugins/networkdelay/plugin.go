@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
@@ -79,7 +79,9 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
+		onReceiveMessageFromMessageLayer(event.MessageID)
+	}))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }
@@ -108,7 +110,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 
 		// abort if message was sent more than 1min ago
 		// this should only happen due to a node resyncing
-		if time.Duration(now-networkDelayObject.sentTime) > time.Minute {
+		if time.Duration(now-networkDelayObject.SentTime) > time.Minute {
 			app.LogDebugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 			return
 		}
@@ -120,10 +122,10 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 	m := networkDelay{
 		NodeID:      myID,
-		ID:          networkDelayObject.id.String(),
-		SentTime:    networkDelayObject.sentTime,
+		ID:          networkDelayObject.ID.String(),
+		SentTime:    networkDelayObject.SentTime,
 		ReceiveTime: receiveTime,
-		Delta:       receiveTime - networkDelayObject.sentTime,
+		Delta:       receiveTime - networkDelayObject.SentTime,
 		Clock:       clockEnabled,
 		Sync:        deps.Tangle.Synced(),
 		Type:        remoteLogType,
@@ -134,7 +136,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 	m := networkDelay{
 		NodeID:      myID,
-		ID:          payload.id.String(),
+		ID:          payload.ID.String(),
 		SentTime:    0,
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),

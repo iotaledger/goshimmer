@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownednftsoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execSweepNFTOwnedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -35,7 +35,7 @@ func execSweepNFTOwnedFundsCommand(command *flag.FlagSet, cliWallet *wallet.Wall
 		printUsage(command, "an nft (alias) ID must be given for sweeping")
 	}
 
-	aliasID, err := ledgerstate.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	aliasID, err := devnetvm.AliasAddressFromBase58EncodedString(*nftIDPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}
@@ -82,7 +82,7 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 		printUsage(command, "an nft (alias) ID must be given for sweeping")
 	}
 
-	aliasID, err := ledgerstate.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	aliasID, err := devnetvm.AliasAddressFromBase58EncodedString(*nftIDPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}
@@ -96,7 +96,7 @@ func execSweepNFTOwnedNFTsCommand(command *flag.FlagSet, cliWallet *wallet.Walle
 		options = append(options, sweepnftownednftsoptions.ToAddress(*toAddressPtr))
 	}
 
-	var sweptNFTs []*ledgerstate.AliasAddress
+	var sweptNFTs []*devnetvm.AliasAddress
 	fmt.Println("Sweeping NFT owned NFTs...")
 	_, sweptNFTs, err = cliWallet.SweepNFTOwnedNFTs(options...)
 	if err != nil {

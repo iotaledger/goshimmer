@@ -17,7 +17,7 @@ import (
 
 const (
 	numMessages = 100
-	maxBuffer   = 44 * numMessages
+	maxBuffer   = numMessages
 	maxQueue    = 2 * maxBuffer / numMessages
 )
 
@@ -35,8 +35,10 @@ func TestBufferQueue_Submit(t *testing.T) {
 	var size int
 	for i := 0; i < numMessages; i++ {
 		msg := newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		size += len(msg.Bytes())
-		assert.Empty(t, b.Submit(msg, mockAccessManaRetriever))
+		size++
+		elements, err := b.Submit(msg, mockAccessManaRetriever)
+		assert.Empty(t, elements)
+		assert.NoError(t, err)
 		assert.EqualValues(t, i+1, b.NumActiveNodes())
 		assert.EqualValues(t, i+1, ringLen(b))
 	}
@@ -49,7 +51,9 @@ func TestBufferQueue_Unsubmit(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		assert.Empty(t, b.Submit(messages[i], mockAccessManaRetriever))
+		elements, err := b.Submit(messages[i], mockAccessManaRetriever)
+		assert.Empty(t, elements)
+		assert.NoError(t, err)
 	}
 	assert.EqualValues(t, numMessages, b.NumActiveNodes())
 	assert.EqualValues(t, numMessages, ringLen(b))
@@ -72,24 +76,26 @@ func TestBufferQueue_SubmitWithDrop_Unready(t *testing.T) {
 		preparedMessages = append(preparedMessages, newTestMessageWithIndex(selfNode.PublicKey(), i))
 	}
 	for _, msg := range preparedMessages {
-		droppedMessages := b.Submit(msg, mockAccessManaRetriever)
+		droppedMessages, err := b.Submit(msg, mockAccessManaRetriever)
 		assert.Empty(t, droppedMessages)
+		assert.NoError(t, err)
 	}
 	assert.EqualValues(t, 2, b.NumActiveNodes())
 	assert.EqualValues(t, 2, ringLen(b))
 	assert.EqualValues(t, maxBuffer, b.Size())
 
 	// dropping single unready message
-	droppedMessages := b.Submit(newTestMessageWithIndex(selfNode.PublicKey(), 0), mockAccessManaRetriever)
+	droppedMessages, err := b.Submit(newTestMessageWithIndex(selfNode.PublicKey(), 0), mockAccessManaRetriever)
+	assert.NoError(t, err)
 	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[0].IDBytes(), droppedMessages[0][:])
 	assert.LessOrEqual(t, maxBuffer, b.Size())
 
 	// dropping two unready messages to fit the new one
-	droppedMessages = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
-	assert.Len(t, droppedMessages, 2)
+	droppedMessages, err = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
+	assert.NoError(t, err)
+	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[1].IDBytes(), droppedMessages[0][:])
-	assert.Equal(t, preparedMessages[2].IDBytes(), droppedMessages[1][:])
 	assert.EqualValues(t, maxBuffer, b.Size())
 }
 
@@ -101,7 +107,8 @@ func TestBufferQueue_SubmitWithDrop_DropNewMessage(t *testing.T) {
 		preparedMessages = append(preparedMessages, newTestMessageWithIndex(selfNode.PublicKey(), i))
 	}
 	for _, msg := range preparedMessages {
-		droppedMessages := b.Submit(msg, mockAccessManaRetriever)
+		droppedMessages, err := b.Submit(msg, mockAccessManaRetriever)
+		assert.NoError(t, err)
 		assert.Empty(t, droppedMessages)
 	}
 	assert.EqualValues(t, 1, b.NumActiveNodes())
@@ -110,8 +117,8 @@ func TestBufferQueue_SubmitWithDrop_DropNewMessage(t *testing.T) {
 
 	// drop newly submitted message when all messages in the buffer are not ready
 	newMessage := newLargeTestMessage(noManaNode.PublicKey(), make([]byte, 40))
-	droppedMessages := b.Submit(newMessage, mockAccessManaRetriever)
-
+	droppedMessages, err := b.Submit(newMessage, mockAccessManaRetriever)
+	assert.NoError(t, err)
 	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, newMessage.IDBytes(), droppedMessages[0][:])
 	assert.Equal(t, maxBuffer, b.Size())
@@ -128,7 +135,8 @@ func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 		preparedMessages = append(preparedMessages, newTestMessageWithIndex(selfNode.PublicKey(), i))
 	}
 	for _, msg := range preparedMessages {
-		droppedMessages := b.Submit(msg, mockAccessManaRetriever)
+		droppedMessages, err := b.Submit(msg, mockAccessManaRetriever)
+		assert.NoError(t, err)
 		assert.Empty(t, droppedMessages)
 		b.Ready(msg)
 	}
@@ -137,16 +145,17 @@ func TestBufferQueue_SubmitWithDrop_Ready(t *testing.T) {
 	assert.EqualValues(t, maxBuffer, b.Size())
 
 	// drop single ready message
-	droppedMessages := b.Submit(newTestMessageWithIndex(selfNode.PublicKey(), 0), mockAccessManaRetriever)
+	droppedMessages, err := b.Submit(newTestMessageWithIndex(selfNode.PublicKey(), 0), mockAccessManaRetriever)
+	assert.NoError(t, err)
 	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[0].IDBytes(), droppedMessages[0][:])
 	assert.LessOrEqual(t, maxBuffer, b.Size())
 
 	// drop two ready messages to fit the newly submitted one
-	droppedMessages = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
-	assert.Len(t, droppedMessages, 2)
+	droppedMessages, err = b.Submit(newLargeTestMessage(selfNode.PublicKey(), make([]byte, 44)), mockAccessManaRetriever)
+	assert.NoError(t, err)
+	assert.Len(t, droppedMessages, 1)
 	assert.Equal(t, preparedMessages[1].IDBytes(), droppedMessages[0][:])
-	assert.Equal(t, preparedMessages[2].IDBytes(), droppedMessages[1][:])
 	assert.EqualValues(t, maxBuffer, b.Size())
 }
 
@@ -156,7 +165,9 @@ func TestBufferQueue_Ready(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		assert.Empty(t, b.Submit(messages[i], mockAccessManaRetriever))
+		elements, err := b.Submit(messages[i], mockAccessManaRetriever)
+		assert.NoError(t, err)
+		assert.Empty(t, elements)
 	}
 	for i := range messages {
 		assert.True(t, b.Ready(messages[i]))
@@ -174,11 +185,15 @@ func TestBufferQueue_Time(t *testing.T) {
 
 	future := newTestMessage(selfNode.PublicKey())
 	future.issuingTime = time.Now().Add(time.Second)
-	assert.Empty(t, b.Submit(future, mockAccessManaRetriever))
+	elements, err := b.Submit(future, mockAccessManaRetriever)
+	assert.NoError(t, err)
+	assert.Empty(t, elements)
 	assert.True(t, b.Ready(future))
 
 	now := newTestMessage(selfNode.PublicKey())
-	assert.Empty(t, b.Submit(now, mockAccessManaRetriever))
+	elements, err = b.Submit(now, mockAccessManaRetriever)
+	assert.NoError(t, err)
+	assert.Empty(t, elements)
 	assert.True(t, b.Ready(now))
 
 	assert.Equal(t, now, b.PopFront())
@@ -193,7 +208,9 @@ func TestBufferQueue_Ring(t *testing.T) {
 	messages := make([]*testMessage, numMessages)
 	for i := range messages {
 		messages[i] = newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		assert.Empty(t, b.Submit(messages[i], mockAccessManaRetriever))
+		elements, err := b.Submit(messages[i], mockAccessManaRetriever)
+		assert.NoError(t, err)
+		assert.Empty(t, elements)
 		assert.True(t, b.Ready(messages[i]))
 	}
 	for i := range messages {
@@ -211,7 +228,9 @@ func TestBufferQueue_IDs(t *testing.T) {
 	ids := make([]schedulerutils.ElementID, numMessages)
 	for i := range ids {
 		msg := newTestMessageWithIndex(identity.GenerateIdentity().PublicKey(), i)
-		assert.Empty(t, b.Submit(msg, mockAccessManaRetriever))
+		elements, err := b.Submit(msg, mockAccessManaRetriever)
+		assert.NoError(t, err)
+		assert.Empty(t, elements)
 		if i%2 == 0 {
 			assert.True(t, b.Ready(msg))
 		}
@@ -237,10 +256,14 @@ func TestBufferQueue_InsertNode(t *testing.T) {
 func TestBufferQueue_RemoveNode(t *testing.T) {
 	b := schedulerutils.NewBufferQueue(maxBuffer, maxQueue)
 
-	assert.Empty(t, b.Submit(newTestMessage(selfNode.PublicKey()), mockAccessManaRetriever))
+	elements, err := b.Submit(newTestMessage(selfNode.PublicKey()), mockAccessManaRetriever)
+	assert.Empty(t, elements)
+	assert.NoError(t, err)
 
 	otherNode := identity.GenerateIdentity()
-	assert.Empty(t, b.Submit(newTestMessage(otherNode.PublicKey()), mockAccessManaRetriever))
+	elements, err = b.Submit(newTestMessage(otherNode.PublicKey()), mockAccessManaRetriever)
+	assert.NoError(t, err)
+	assert.Empty(t, elements)
 
 	assert.Equal(t, selfNode.ID(), b.Current().NodeID())
 	b.RemoveNode(selfNode.ID())

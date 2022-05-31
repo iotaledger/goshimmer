@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	"github.com/iotaledger/goshimmer/packages/chat"
@@ -27,7 +27,7 @@ type chatMsg struct {
 
 func configureChatLiveFeed() {
 	chatLiveFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		newMessage := task.Param(0).(*chat.Event)
+		newMessage := task.Param(0).(*chat.MessageReceivedEvent)
 
 		broadcastWsMessage(&wsmsg{MsgTypeChat, &chatMsg{
 			From:      newMessage.From,
@@ -43,8 +43,8 @@ func configureChatLiveFeed() {
 
 func runChatLiveFeed() {
 	if err := daemon.BackgroundWorker("Dashboard[ChatUpdater]", func(ctx context.Context) {
-		notifyNewMessages := events.NewClosure(func(chatEvent *chat.Event) {
-			chatLiveFeedWorkerPool.TrySubmit(chatEvent)
+		notifyNewMessages := event.NewClosure(func(event *chat.MessageReceivedEvent) {
+			chatLiveFeedWorkerPool.TrySubmit(event)
 		})
 		deps.Chat.Events.MessageReceived.Attach(notifyNewMessages)
 

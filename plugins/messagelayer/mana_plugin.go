@@ -4,24 +4,27 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
 	"sort"
 	"time"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"go.uber.org/dig"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -41,15 +44,15 @@ var (
 	// consensusBaseManaPastVectorMetadataStorage *objectstorage.ObjectStorage
 	// consensusEventsLogStorage                  *objectstorage.ObjectStorage
 	// consensusEventsLogsStorageSize             atomic.Uint32.
-	onTransactionConfirmedClosure *events.Closure
+	onTransactionConfirmedClosure *event.Closure[*ledger.TransactionConfirmedEvent]
 	// onPledgeEventClosure          *events.Closure
 	// onRevokeEventClosure          *events.Closure
 	// debuggingEnabled              bool.
 )
 
 func init() {
-	ManaPlugin.Events.Init.Attach(events.NewClosure(func(_ *node.Plugin, container *dig.Container) {
-		if err := container.Provide(func() mana.ManaRetrievalFunc {
+	ManaPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(func() mana.ManaRetrievalFunc {
 			return GetConsensusMana
 		}, dig.Name("manaFunc")); err != nil {
 			Plugin.Panic(err)
@@ -60,7 +63,7 @@ func init() {
 func configureManaPlugin(*node.Plugin) {
 	manaLogger = logger.NewLogger(PluginName)
 
-	onTransactionConfirmedClosure = events.NewClosure(onTransactionConfirmed)
+	onTransactionConfirmedClosure = event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { onTransactionConfirmed(event.TransactionID) })
 	// onPledgeEventClosure = events.NewClosure(logPledgeEvent)
 	// onRevokeEventClosure = events.NewClosure(logRevokeEvent)
 
@@ -72,11 +75,11 @@ func configureManaPlugin(*node.Plugin) {
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
 	store := deps.Storage
-	storages[mana.AccessMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccess}))
-	storages[mana.ConsensusMana] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensus}))
+	storages[mana.AccessMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccess))
+	storages[mana.ConsensusMana] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensus))
 	if ManaParameters.EnableResearchVectors {
-		storages[mana.ResearchAccess] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixAccessResearch}))
-		storages[mana.ResearchConsensus] = objectstorage.New[*mana.PersistableBaseMana](store.WithRealm([]byte{db_pkg.PrefixMana, mana.PrefixConsensusResearch}))
+		storages[mana.ResearchAccess] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixAccessResearch))
+		storages[mana.ResearchConsensus] = objectstorage.NewStructStorage[mana.PersistableBaseMana](objectstorage.NewStoreWithRealm(store, db_pkg.PrefixMana, mana.PrefixConsensusResearch))
 	}
 	// consensusEventsLogStorage = osFactory.New(mana.PrefixEventStorage, mana.FromEventObjectStorage)
 	// consensusEventsLogsStorageSize.Store(getConsensusEventLogsStorageSize())
@@ -96,39 +99,41 @@ func configureManaPlugin(*node.Plugin) {
 
 func configureEvents() {
 	// until we have the proper event...
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(onTransactionConfirmedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(onTransactionConfirmedClosure)
 	// mana.Events().Revoked.Attach(onRevokeEventClosure)
 }
 
-//func logPledgeEvent(ev *mana.PledgedEvent) {
+// func logPledgeEvent(ev *mana.PledgedEvent) {
 //	if ev.ManaType == mana.ConsensusMana {
 //		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
 //		consensusEventsLogsStorageSize.Inc()
 //	}
-//}
+// }
 //
-//func logRevokeEvent(ev *mana.RevokedEvent) {
+// func logRevokeEvent(ev *mana.RevokedEvent) {
 //	if ev.ManaType == mana.ConsensusMana {
 //		consensusEventsLogStorage.Store(ev.ToPersistable()).Release()
 //		consensusEventsLogsStorageSize.Inc()
 //	}
-//}
+// }
 
-func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
-	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+func onTransactionConfirmed(transactionID utxo.TransactionID) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
 		// holds all info mana pkg needs for correct mana calculations from the transaction
 		var txInfo *mana.TxInfo
 
+		devnetTransaction := transaction.(*devnetvm.Transaction)
+
 		// process transaction object to build txInfo
-		totalAmount, inputInfos := gatherInputInfos(transaction)
+		totalAmount, inputInfos := gatherInputInfos(devnetTransaction)
 
 		txInfo = &mana.TxInfo{
-			TimeStamp:     transaction.Essence().Timestamp(),
+			TimeStamp:     devnetTransaction.Essence().Timestamp(),
 			TransactionID: transactionID,
 			TotalBalance:  totalAmount,
 			PledgeID: map[mana.Type]identity.ID{
-				mana.AccessMana:    transaction.Essence().AccessPledgeID(),
-				mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+				mana.AccessMana:    devnetTransaction.Essence().AccessPledgeID(),
+				mana.ConsensusMana: devnetTransaction.Essence().ConsensusPledgeID(),
 			},
 			InputInfos: inputInfos,
 		}
@@ -140,32 +145,31 @@ func onTransactionConfirmed(transactionID ledgerstate.TransactionID) {
 	})
 }
 
-func gatherInputInfos(transaction *ledgerstate.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
+func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, inputInfos []mana.InputInfo) {
 	inputInfos = make([]mana.InputInfo, 0)
 	for _, input := range transaction.Essence().Inputs() {
 		var inputInfo mana.InputInfo
 
-		deps.Tangle.LedgerState.CachedOutput(input.(*ledgerstate.UTXOInput).ReferencedOutputID()).Consume(func(o ledgerstate.Output) {
+		deps.Tangle.Ledger.Storage.CachedOutput(input.(*devnetvm.UTXOInput).ReferencedOutputID()).Consume(func(o utxo.Output) {
 			inputInfo.InputID = o.ID()
 
 			// first, sum balances of the input, calculate total amount as well for later
-			o.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+			o.(devnetvm.Output).Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 				inputInfo.Amount += float64(balance)
 				totalAmount += float64(balance)
 				return true
 			})
 
 			// derive the transaction that created this input
-			inputTxID := o.ID().TransactionID()
+			inputTxID := o.ID().TransactionID
 			// look into the transaction, we need timestamp and access & consensus pledge IDs
-			deps.Tangle.LedgerState.Transaction(inputTxID).Consume(func(transaction *ledgerstate.Transaction) {
-				if transaction == nil {
-					return
-				}
-				inputInfo.TimeStamp = transaction.Essence().Timestamp()
+			deps.Tangle.Ledger.Storage.CachedTransaction(inputTxID).Consume(func(transaction utxo.Transaction) {
+				transactionEssence := transaction.(*devnetvm.Transaction).Essence()
+
+				inputInfo.TimeStamp = transactionEssence.Timestamp()
 				inputInfo.PledgeID = map[mana.Type]identity.ID{
-					mana.AccessMana:    transaction.Essence().AccessPledgeID(),
-					mana.ConsensusMana: transaction.Essence().ConsensusPledgeID(),
+					mana.AccessMana:    transactionEssence.AccessPledgeID(),
+					mana.ConsensusMana: transactionEssence.ConsensusPledgeID(),
 				}
 			})
 		})
@@ -192,15 +196,12 @@ func runManaPlugin(_ *node.Plugin) {
 		if !readStoredManaVectors() {
 			// read snapshot file
 			if Parameters.Snapshot.File != "" {
-				snapshot := &ledgerstate.Snapshot{}
-				f, err := os.Open(Parameters.Snapshot.File)
-				if err != nil {
-					Plugin.Panic("can not open snapshot file:", err)
+				nodeSnapshot := new(snapshot.Snapshot)
+				if err := nodeSnapshot.FromFile(Parameters.Snapshot.File); err != nil {
+					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
-				if _, err := snapshot.ReadFrom(f); err != nil {
-					Plugin.Panic("could not read snapshot file in Mana Plugin:", err)
-				}
-				loadSnapshot(snapshot)
+
+				loadSnapshot(nodeSnapshot.ManaSnapshot)
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -222,7 +223,7 @@ func runManaPlugin(_ *node.Plugin) {
 				manaLogger.Infof("Stopping %s ...", PluginName)
 				// mana.Events().Pledged.Detach(onPledgeEventClosure)
 				// mana.Events().Pledged.Detach(onRevokeEventClosure)
-				deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(onTransactionConfirmedClosure)
+				deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(onTransactionConfirmedClosure)
 				storeManaVectors()
 				shutdownStorages()
 				return
@@ -458,28 +459,33 @@ func verifyPledgeNodes() error {
 }
 
 // PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
-func PendingManaOnOutput(outputID ledgerstate.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.LedgerState.CachedOutputMetadata(outputID)
+func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
+	cachedOutputMetadata := deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID)
 	defer cachedOutputMetadata.Release()
 	outputMetadata, exists := cachedOutputMetadata.Unwrap()
 
 	// spent output has 0 pending mana.
-	if !exists || outputMetadata.ConsumerCount() > 0 {
+	if !exists || outputMetadata.IsSpent() {
 		return 0, time.Time{}
 	}
 
 	var value float64
-	deps.Tangle.LedgerState.CachedOutput(outputID).Consume(func(output ledgerstate.Output) {
-		output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		outputEssence := output.(devnetvm.Output)
+		outputEssence.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
 			value += float64(balance)
 			return true
 		})
 	})
 
-	cachedTx := deps.Tangle.LedgerState.Transaction(outputID.TransactionID())
-	defer cachedTx.Release()
-	tx, _ := cachedTx.Unwrap()
-	txTimestamp := tx.Essence().Timestamp()
+	var txTimestamp time.Time
+	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID)
+		defer cachedTx.Release()
+		tx, _ := cachedTx.Unwrap()
+		txTimestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
+	})
+
 	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
 }
 
@@ -488,8 +494,8 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
-//// GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
-//func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
+// // GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
+// func GetLoggedEvents(identityIDs []identity.ID, startTime time.Time, endTime time.Time) (map[identity.ID]*EventsLogs, error) {
 //	logs := make(map[identity.ID]*EventsLogs)
 //	lookup := make(map[identity.ID]bool)
 //	getAll := true
@@ -548,18 +554,18 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	}
 //
 //	return logs, err
-//}
+// }
 //
-//// GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
-//func GetPastConsensusManaVectorMetadata() *mana.ConsensusBasePastManaVectorMetadata {
+// // GetPastConsensusManaVectorMetadata gets the past consensus mana vector metadata.
+// func GetPastConsensusManaVectorMetadata() *mana.ConsensusBasePastManaVectorMetadata {
 //	cachedObj := consensusBaseManaPastVectorMetadataStorage.Load([]byte(mana.ConsensusBaseManaPastVectorMetadataStorageKey))
 //	cachedMetadata := &mana.CachedConsensusBasePastManaVectorMetadata{CachedObject: cachedObj}
 //	defer cachedMetadata.Release()
 //	return cachedMetadata.Unwrap()
-//}
+// }
 //
-//// GetPastConsensusManaVector builds a consensus base mana vector in the past.
-//func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []mana.Event, error) {
+// // GetPastConsensusManaVector builds a consensus base mana vector in the past.
+// func GetPastConsensusManaVector(t time.Time) (*mana.ConsensusBaseManaVector, []mana.Event, error) {
 //	baseManaVector, err := mana.NewBaseManaVector(mana.ConsensusMana)
 //	if err != nil {
 //		return nil, nil, err
@@ -628,18 +634,18 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	}
 //
 //	return cbmvPast, eventLogs, nil
-//}
+// }
 //
-//func getConsensusEventLogsStorageSize() uint32 {
+// func getConsensusEventLogsStorageSize() uint32 {
 //	var size uint32
 //	consensusEventsLogStorage.ForEachKeyOnly(func(key []byte) bool {
 //		size++
 //		return true
 //	}, objectstorage.WithIteratorSkipCache(true))
 //	return size
-//}
+// }
 //
-//func pruneConsensusEventLogsStorage() {
+// func pruneConsensusEventLogsStorage() {
 //	if consensusEventsLogsStorageSize.Load() < maxConsensusEventsInStorage {
 //		return
 //	}
@@ -757,7 +763,7 @@ func GetPendingMana(value float64, n time.Duration) float64 {
 //	consensusEventsLogStorage.DeleteEntriesFromStore(entriesToDelete)
 //	consensusEventsLogsStorageSize.Sub(uint32(len(entriesToDelete)))
 //	manaLogger.Infof("%d events remaining in consensus event storage", consensusEventsLogsStorageSize.Load())
-//}
+// }
 
 func cleanupManaVectors() {
 	vectorTypes := []mana.Type{mana.AccessMana, mana.ConsensusMana}
@@ -776,11 +782,11 @@ type AllowedPledge struct {
 	Allowed         set.Set[identity.ID]
 }
 
-//// EventsLogs represents the events logs.
-//type EventsLogs struct {
+// // EventsLogs represents the events logs.
+// type EventsLogs struct {
 //	Pledge []*mana.PledgedEvent `json:"pledge"`
 //	Revoke []*mana.RevokedEvent `json:"revoke"`
-//}
+// }
 
 // QueryAllowed returns if the mana plugin answers queries or not.
 func QueryAllowed() (allowed bool) {
@@ -793,66 +799,11 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledgerstate.Snapshot) {
-	txSnapshotByNode := make(map[identity.ID]mana.SortedTxSnapshot)
-
-	// load txSnapshot into SnapshotInfoVec
-	for txID, record := range snapshot.Transactions {
-		totalUnspentBalanceInTx := uint64(0)
-		for i, output := range record.Essence.Outputs() {
-			if !record.UnspentOutputs[i] {
-				continue
-			}
-			output.Balances().ForEach(func(color ledgerstate.Color, balance uint64) bool {
-				totalUnspentBalanceInTx += balance
-				return true
-			})
-		}
-		txInfo := &mana.TxSnapshot{
-			Value:     float64(totalUnspentBalanceInTx),
-			TxID:      txID,
-			Timestamp: record.Essence.Timestamp(),
-		}
-		txSnapshotByNode[record.Essence.ConsensusPledgeID()] = append(txSnapshotByNode[record.Essence.ConsensusPledgeID()], txInfo)
-	}
-
-	// sort txSnapshot per nodeID, so that for each nodeID it is in temporal order
-	snapshotByNode := make(map[identity.ID]mana.SnapshotNode)
-	for nodeID := range txSnapshotByNode {
-		sort.Sort(txSnapshotByNode[nodeID])
-		snapshotNode := mana.SnapshotNode{
-			SortedTxSnapshot: txSnapshotByNode[nodeID],
-		}
-		snapshotByNode[nodeID] = snapshotNode
-	}
-
-	// determine addTime if snapshot should be updated for the difference to now
-	var addTime time.Duration
-	// for certain applications (e.g. docker-network) update all timestamps, to have large enough aMana
-	maxTimestamp := time.Unix(tangle.DefaultGenesisTime, 0)
+func loadSnapshot(snapshot *mana.Snapshot) {
 	if ManaParameters.SnapshotResetTime {
-		for _, accessMana := range snapshot.AccessManaByNode {
-			if accessMana.Timestamp.After(maxTimestamp) {
-				maxTimestamp = accessMana.Timestamp
-			}
-		}
-		addTime = time.Since(maxTimestamp)
+		snapshot.ResetTime()
 	}
 
-	// load access mana
-	for nodeID, accessMana := range snapshot.AccessManaByNode {
-		snapshotNode, ok := snapshotByNode[nodeID]
-		if !ok { // fill with empty element if it does not exist yet
-			snapshotNode = mana.SnapshotNode{}
-			snapshotByNode[nodeID] = snapshotNode
-		}
-		snapshotNode.AccessMana = mana.AccessManaSnapshot{
-			Value:     accessMana.Value,
-			Timestamp: accessMana.Timestamp.Add(addTime),
-		}
-		snapshotByNode[nodeID] = snapshotNode
-	}
-
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshotByNode)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshotByNode)
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshot.ByNodeID)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshot.ByNodeID)
 }

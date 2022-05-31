@@ -3,11 +3,10 @@ package metrics
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 	analysisserver "github.com/iotaledger/goshimmer/plugins/analysis/server"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 )
@@ -31,9 +30,11 @@ var (
 	networkDiameter   atomic.Int32
 )
 
-var onMetricHeartbeatReceived = events.NewClosure(func(hb *packet.MetricHeartbeat) {
+var onMetricHeartbeatReceived = event.NewClosure(func(event *analysisserver.MetricHeartbeatEvent) {
 	nodesMetricsMutex.Lock()
 	defer nodesMetricsMutex.Unlock()
+
+	hb := event.MetricHeartbeat
 	nodesMetrics[shortNodeIDString(hb.OwnID)] = NodeInfo{
 		OS:          hb.OS,
 		Arch:        hb.Arch,

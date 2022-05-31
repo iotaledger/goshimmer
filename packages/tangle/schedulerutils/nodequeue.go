@@ -17,13 +17,13 @@ const ElementIDLength = 32
 type ElementID [ElementIDLength]byte
 
 // ElementIDFromBytes converts byte array to an ElementID.
-func ElementIDFromBytes(bytes []byte) (result ElementID) {
+func ElementIDFromBytes(data []byte) (result ElementID) {
 	// check arguments
-	if len(bytes) < ElementIDLength {
+	if len(data) < ElementIDLength {
 		panic("bytes not long enough to encode a valid message id")
 	}
 
-	copy(result[:], bytes)
+	copy(result[:], data)
 	return
 }
 
@@ -88,7 +88,7 @@ func (q *NodeQueue) Submit(element Element) bool {
 	}
 
 	q.submitted[id] = &element
-	q.size.Add(int64(element.Size()))
+	q.size.Inc()
 	return true
 }
 
@@ -100,7 +100,7 @@ func (q *NodeQueue) Unsubmit(element Element) bool {
 	}
 
 	delete(q.submitted, id)
-	q.size.Sub(int64(element.Size()))
+	q.size.Dec()
 	return true
 }
 
@@ -138,7 +138,7 @@ func (q *NodeQueue) Front() Element {
 // PopFront removes the first ready message from the queue.
 func (q *NodeQueue) PopFront() Element {
 	msg := heap.Pop(q.inbox).(Element)
-	q.size.Sub(int64(msg.Size()))
+	q.size.Dec()
 	return msg
 }
 

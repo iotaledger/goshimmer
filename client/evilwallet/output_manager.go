@@ -9,22 +9,22 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
-
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 var (
-	awaitOutputsByAddress    = 3 * time.Second
-	awaitOutputToBeConfirmed = 3 * time.Second
+	awaitOutputsByAddress    = 150 * time.Second
+	awaitOutputToBeConfirmed = 150 * time.Second
 )
 
 // Output contains details of an output ID.
 type Output struct {
-	//*wallet.Output
-	OutputID ledgerstate.OutputID
-	Address  ledgerstate.Address
+	// *wallet.Output
+	OutputID utxo.OutputID
+	Address  devnetvm.Address
 	Index    uint64
-	Balance  *ledgerstate.ColoredBalances
+	Balance  *devnetvm.ColoredBalances
 }
 
 // Outputs is a list of Output.
@@ -112,12 +112,12 @@ func (o *OutputManager) IssuerSolidOutIDMap(issuer, outputID string) (isSolid bo
 }
 
 // Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
-func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bool) {
+func (o *OutputManager) Track(outputIDs []utxo.OutputID) (allConfirmed bool) {
 	wg := sync.WaitGroup{}
 	allConfirmed = true
 	for _, ID := range outputIDs {
 		wg.Add(1)
-		go func(id ledgerstate.OutputID, allConfirmed bool) {
+		go func(id utxo.OutputID, allConfirmed bool) {
 			defer wg.Done()
 			ok := o.AwaitOutputToBeConfirmed(id, awaitOutputToBeConfirmed)
 			if !ok {
@@ -131,7 +131,7 @@ func (o *OutputManager) Track(outputIDs []ledgerstate.OutputID) (allConfirmed bo
 
 // CreateOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *ledgerstate.ColoredBalances) *Output {
+func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address, balance *devnetvm.ColoredBalances) *Output {
 	outputIDs := o.RequestOutputsByAddress(addr.Base58())
 	if len(outputIDs) == 0 {
 		return nil
@@ -144,7 +144,7 @@ func (o *OutputManager) CreateOutputFromAddress(w *Wallet, addr address.Address,
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output {
+func (o *OutputManager) AddOutput(w *Wallet, output devnetvm.Output) *Output {
 	outputID := output.ID()
 	idx := w.AddrIndexMap(output.Address().Base58())
 	out := w.AddUnspentOutput(output.Address(), idx, outputID, output.Balances())
@@ -155,7 +155,7 @@ func (o *OutputManager) AddOutput(w *Wallet, output ledgerstate.Output) *Output 
 
 // GetOutput returns the Output of the given outputID.
 // Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
-func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output) {
+func (o *OutputManager) GetOutput(outputID utxo.OutputID) (output *Output) {
 	output = o.getOutputFromWallet(outputID)
 
 	// get output info via web api
@@ -175,7 +175,7 @@ func (o *OutputManager) GetOutput(outputID ledgerstate.OutputID) (output *Output
 	return output
 }
 
-func (o *OutputManager) getOutputFromWallet(outputID ledgerstate.OutputID) (output *Output) {
+func (o *OutputManager) getOutputFromWallet(outputID utxo.OutputID) (output *Output) {
 	o.RLock()
 	defer o.RUnlock()
 	w, ok := o.outputIDWalletMap[outputID.Base58()]
@@ -187,7 +187,7 @@ func (o *OutputManager) getOutputFromWallet(outputID ledgerstate.OutputID) (outp
 }
 
 // RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
-func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []ledgerstate.OutputID) {
+func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []utxo.OutputID) {
 	s := time.Now()
 	clt := o.connector.GetClient()
 	for ; time.Since(s) < awaitOutputsByAddress; time.Sleep(1 * time.Second) {
@@ -201,7 +201,7 @@ func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []led
 }
 
 // RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
-func (o *OutputManager) RequestOutputsByTxID(txID string) (outputIDs []ledgerstate.OutputID) {
+func (o *OutputManager) RequestOutputsByTxID(txID string) (outputIDs []utxo.OutputID) {
 	clt := o.connector.GetClient()
 	resp, err := clt.GetTransaction(txID)
 	if err != nil {
@@ -222,7 +222,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 			continue
 		}
 		addr := output.Address
-		go func(addr ledgerstate.Address) {
+		go func(addr devnetvm.Address) {
 			defer wg.Done()
 			outputIDs := o.RequestOutputsByAddress(addr.Base58())
 			ok := o.Track(outputIDs)
@@ -236,7 +236,7 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 
 // AwaitOutputToBeConfirmed awaits for output from a provided outputID is confirmed. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func (o *OutputManager) AwaitOutputToBeConfirmed(outputID ledgerstate.OutputID, waitFor time.Duration) (confirmed bool) {
+func (o *OutputManager) AwaitOutputToBeConfirmed(outputID utxo.OutputID, waitFor time.Duration) (confirmed bool) {
 	s := time.Now()
 	clt := o.connector.GetClient()
 	confirmed = false

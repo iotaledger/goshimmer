@@ -5,15 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -107,7 +108,7 @@ type TipManager struct {
 	tangle               *Tangle
 	tips                 *randommap.RandomMap[MessageID, MessageID]
 	tipsCleaner          *TimedTaskExecutor
-	tipsBranchCount      map[ledgerstate.BranchID]uint
+	tipsBranchCount      map[utxo.TransactionID]uint
 	tipsBranchCountMutex sync.RWMutex
 	Events               *TipManagerEvents
 }
@@ -118,11 +119,8 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 		tangle:          tangle,
 		tips:            randommap.New[MessageID, MessageID](),
 		tipsCleaner:     NewTimedTaskExecutor(1),
-		tipsBranchCount: make(map[ledgerstate.BranchID]uint),
-		Events: &TipManagerEvents{
-			TipAdded:   events.NewEvent(tipEventHandler),
-			TipRemoved: events.NewEvent(tipEventHandler),
-		},
+		tipsBranchCount: make(map[utxo.TransactionID]uint),
+		Events:          newTipManagerEvents(),
 	}
 
 	if tips != nil {
@@ -134,22 +132,24 @@ func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TipManager) Setup() {
-	t.tangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.AddTip)
+	t.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *MessageScheduledEvent) {
+		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
-	t.Events.TipRemoved.Attach(events.NewClosure(func(tipEvent *TipEvent) {
+	t.Events.TipRemoved.Attach(event.NewClosure(func(tipEvent *TipEvent) {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
 	}))
 
-	t.tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(t.deleteConfirmedBranchCount))
-
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.removeStrongParents)
+	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 
-	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(events.NewClosure(func(messageID MessageID) {
-		t.tangle.Storage.Message(messageID).Consume(t.reAddParents)
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		t.removeStrongParents(event.Message)
+	}))
+
+	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(event.NewClosure(func(event *MessageReferenceImpossibleEvent) {
+		t.tangle.Storage.Message(event.MessageID).Consume(t.reAddParents)
 	}))
 }
 
@@ -234,9 +234,9 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 			return
 		}
 
-		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.approverMessageID)
+		approverScheduledConfirmed = t.tangle.ConfirmationOracle.IsMessageConfirmed(approver.ApproverMessageID())
 		if !approverScheduledConfirmed {
-			t.tangle.Storage.MessageMetadata(approver.approverMessageID).Consume(func(messageMetadata *MessageMetadata) {
+			t.tangle.Storage.MessageMetadata(approver.ApproverMessageID()).Consume(func(messageMetadata *MessageMetadata) {
 				approverScheduledConfirmed = messageMetadata.Scheduled()
 			})
 		}
@@ -247,14 +247,15 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
 	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
 	if err != nil {
-		panic("could not determine BranchIDs of tip.")
+		panic(err)
 	}
 
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
-		if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
 			continue
 		}
 
@@ -271,7 +272,8 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
 		if _, exists := t.tipsBranchCount[messageBranchID]; exists {
 			t.tipsBranchCount[messageBranchID]--
 			if t.tipsBranchCount[messageBranchID] == 0 {
@@ -281,11 +283,11 @@ func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
 	}
 }
 
-func (t *TipManager) deleteConfirmedBranchCount(branchID ledgerstate.BranchID) {
+func (t *TipManager) deleteConfirmedBranchCount(branchID utxo.TransactionID) {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	t.tangle.LedgerState.ForEachConflictingBranchID(branchID, func(conflictingBranchID ledgerstate.BranchID) bool {
+	t.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
 		delete(t.tipsBranchCount, conflictingBranchID)
 		return true
 	})
@@ -301,9 +303,10 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 	t.tipsBranchCountMutex.Lock()
 	defer t.tipsBranchCountMutex.Unlock()
 
-	for messageBranchID := range messageBranchIDs {
+	for it := messageBranchIDs.Iterator(); it.HasNext(); {
+		messageBranchID := it.Next()
 		// Lazily introduce a counter for Pending branches only.
-		if t.tangle.LedgerState.InclusionState(ledgerstate.NewBranchIDs(messageBranchID)) != ledgerstate.Pending {
+		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
 			continue
 		}
 		count, exists := t.tipsBranchCount[messageBranchID]
@@ -342,24 +345,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	}
 
 	// select parents
-	parents = t.selectTips(p, countParents)
-	// if transaction, make sure that all inputs are in the past cone of the selected tips
-	if p != nil && p.Type() == ledgerstate.TransactionType {
-		transaction := p.(*ledgerstate.Transaction)
-
-		tries := 5
-		for !t.tangle.Utils.AllTransactionsApprovedByMessages(transaction.ReferencedTransactionIDs(), parents) || len(parents) == 0 {
-			if tries == 0 {
-				err = errors.Errorf("not able to make sure that all inputs are in the past cone of selected tips and parents have correct time-since-confirmation")
-				return nil, err
-			}
-			tries--
-
-			parents = t.selectTips(p, MaxParentsCount)
-		}
-	}
-
-	return parents, nil
+	return t.selectTips(p, countParents), nil
 }
 
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
@@ -524,6 +510,9 @@ func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Wal
 }
 
 func (t *TipManager) getMarkerMessage(marker *markers.Marker) (markerMessageID MessageID, markerMessageIssuingTime time.Time) {
+	if marker.SequenceID() == 0 && marker.Index() == 0 {
+		return EmptyMessageID, time.Unix(DefaultGenesisTime, 0)
+	}
 	messageID := t.tangle.Booker.MarkersManager.MessageID(marker)
 	if messageID == EmptyMessageID {
 		panic(fmt.Errorf("failed to retrieve marker message for %s", marker.String()))
@@ -573,54 +562,13 @@ func (t *TipManager) getPreviousConfirmedIndex(sequence *markers.Sequence, marke
 func (t *TipManager) selectTips(p payload.Payload, count int) (parents MessageIDs) {
 	parents = NewMessageIDs()
 
-	// if transaction: reference young parents directly
-	if p != nil && p.Type() == ledgerstate.TransactionType {
-		transaction := p.(*ledgerstate.Transaction)
-
-		referencedTransactionIDs := transaction.ReferencedTransactionIDs()
-		if len(referencedTransactionIDs) <= 8 {
-			for transactionID := range referencedTransactionIDs {
-				// only one attachment needs to be added
-				added := false
-
-				for attachmentMessageID := range t.tangle.Storage.AttachmentMessageIDs(transactionID) {
-					t.tangle.Storage.Message(attachmentMessageID).Consume(func(message *Message) {
-						// check if message is too old
-						timeDifference := clock.SyncedTime().Sub(message.IssuingTime())
-						if timeDifference <= maxParentsTimeDifference && t.isPastConeTimestampCorrect(attachmentMessageID) {
-							parents.Add(attachmentMessageID)
-							added = true
-						}
-					})
-
-					if added {
-						break
-					}
-				}
-			}
-		} else {
-			// if there are more than 8 referenced transactions:
-			// for now we simply select as many parents as possible and hope all transactions will be covered
-			count = MaxParentsCount
-		}
-	}
-
-	// nothing to do anymore
-	if len(parents) == MaxParentsCount {
-		return
-	}
-
-	// select some current tips (depending on length of parents)
-	if count+len(parents) > MaxParentsCount {
-		count = MaxParentsCount - len(parents)
-	}
-
 	tips := t.tips.RandomUniqueEntries(count)
 
 	// only add genesis if no tips are available and not previously referenced (in case of a transaction),
 	// or selected ones had incorrect time-since-confirmation
-	if len(parents) == 0 && len(tips) == 0 {
+	if len(tips) == 0 {
 		parents.Add(EmptyMessageID)
+		return
 	}
 
 	// at least one tip is returned
@@ -656,34 +604,6 @@ func (t *TipManager) TipCount() int {
 // Shutdown stops the TipManager.
 func (t *TipManager) Shutdown() {
 	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TipManagerEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// TipManagerEvents represents events happening on the TipManager.
-type TipManagerEvents struct {
-	// Fired when a tip is added.
-	TipAdded *events.Event
-
-	// Fired when a tip is removed.
-	TipRemoved *events.Event
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TipEvent /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TipEvent holds the information provided by the TipEvent event that gets triggered when a message gets added or
-// removed as tip.
-type TipEvent struct {
-	// MessageID of the added/removed tip.
-	MessageID MessageID
-}
-
-func tipEventHandler(handler interface{}, params ...interface{}) {
-	handler.(func(event *TipEvent))(params[0].(*TipEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

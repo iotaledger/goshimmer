@@ -4,12 +4,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // TimedBalance represents a balance that is time dependent.
 type TimedBalance struct {
-	Balance map[ledgerstate.Color]uint64
+	Balance map[devnetvm.Color]uint64
 	Time    time.Time
 }
 

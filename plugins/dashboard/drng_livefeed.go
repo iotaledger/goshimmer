@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 
 	drngpkg "github.com/iotaledger/goshimmer/packages/drng"
@@ -64,10 +64,10 @@ func runDrngLiveFeed() {
 		newMsgRateLimiter := time.NewTicker(time.Second / 10)
 		defer newMsgRateLimiter.Stop()
 
-		notifyNewRandomness := events.NewClosure(func(message *drngpkg.State) {
+		notifyNewRandomness := event.NewClosure(func(event *drngpkg.RandomnessEvent) {
 			select {
 			case <-newMsgRateLimiter.C:
-				drngLiveFeedWorkerPool.TrySubmit(message)
+				drngLiveFeedWorkerPool.TrySubmit(event.State)
 			default:
 			}
 		})
