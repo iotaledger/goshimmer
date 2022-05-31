@@ -101,17 +101,17 @@ func (connection *connection) readLoop() (chan []byte, chan bool) {
 	bufferedConnClosed := make(chan bool)
 
 	go func() {
-		connectionClosedClosure := event.NewClosure[*buffconn.CloseEvent](func(_ *buffconn.CloseEvent) { close(bufferedConnClosed) })
-		connection.bufferedConn.Events.Close.Hook(connectionClosedClosure)
+		connectionClosedClosure := event.NewClosure(func(_ *buffconn.CloseEvent) { close(bufferedConnClosed) })
+		connection.bufferedConn.Events.Close.Attach(connectionClosedClosure)
 		defer connection.bufferedConn.Events.Close.Detach(connectionClosedClosure)
 
-		connectionDataReceivedClosure := event.NewClosure[*buffconn.ReceiveMessageEvent](func(event *buffconn.ReceiveMessageEvent) {
+		connectionDataReceivedClosure := event.NewClosure(func(event *buffconn.ReceiveMessageEvent) {
 			d := make([]byte, len(event.Data))
 			copy(d, event.Data)
 			bufferedConnDataReceived <- d
 		})
 
-		connection.bufferedConn.Events.ReceiveMessage.Hook(connectionDataReceivedClosure)
+		connection.bufferedConn.Events.ReceiveMessage.Attach(connectionDataReceivedClosure)
 		defer connection.bufferedConn.Events.ReceiveMessage.Detach(connectionDataReceivedClosure)
 
 		if err := connection.bufferedConn.Read(); err != nil {

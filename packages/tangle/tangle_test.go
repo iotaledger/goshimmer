@@ -13,10 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/testutil"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +25,38 @@ import (
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
+
+func BenchmarkVerifyDataMessages(b *testing.B) {
+	tangle := NewTestTangle()
+
+	pool := workerpool.NewBlockingQueuedWorkerPool(workerpool.WorkerCount(runtime.GOMAXPROCS(0)))
+
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+		return NewMessageIDs(EmptyMessageID), nil
+	}), emptyLikeReferences)
+
+	messages := make([][]byte, b.N)
+	for i := 0; i < b.N; i++ {
+		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
+		require.NoError(b, err)
+		messages[i] = msg.Bytes()
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		currentIndex := i
+		pool.Submit(func() {
+			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
+				b.Error(err)
+			} else {
+				msg.VerifySignature()
+			}
+		})
+	}
+
+	pool.Stop()
+}
 
 func BenchmarkVerifySignature(b *testing.B) {
 	tangle := NewTestTangle()
@@ -103,25 +134,22 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 		return message
 	}
 	newValidMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Valid")), 0, ed25519.Signature{})
+		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
 		return message
 	}
 
 	var wg sync.WaitGroup
-	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("STORED:", messageID)
+	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
 		atomic.AddInt32(&storedMessages, 1)
 		wg.Done()
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("SOLID:", messageID)
+	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
 		atomic.AddInt32(&solidMessages, 1)
 	}))
 
-	messageTangle.Events.MessageInvalid.Attach(events.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
-		fmt.Println("INVALID:", messageInvalidEvent.MessageID)
+	messageTangle.Events.MessageInvalid.Hook(event.NewClosure(func(event *MessageInvalidEvent) {
 		atomic.AddInt32(&invalidMessages, 1)
 	}))
 
@@ -155,20 +183,20 @@ func TestTangle_StoreMessage(t *testing.T) {
 		return
 	}
 
-	messageTangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("STORED:", messageID)
+	messageTangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
+		fmt.Println("STORED:", event.Message.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(messageID MessageID) {
-		fmt.Println("SOLID:", messageID)
+	messageTangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
+		fmt.Println("SOLID:", event.Message.ID())
 	}))
 
-	messageTangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
-		fmt.Println("MISSING:", messageId)
+	messageTangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
+		fmt.Println("MISSING:", event.MessageID)
 	}))
 
-	messageTangle.Storage.Events.MessageRemoved.Attach(events.NewClosure(func(messageId MessageID) {
-		fmt.Println("REMOVED:", messageId)
+	messageTangle.Storage.Events.MessageRemoved.Hook(event.NewClosure(func(event *MessageRemovedEvent) {
+		fmt.Println("REMOVED:", event.MessageID)
 	}))
 
 	newMessageOne := newTestDataMessage("some data")
@@ -188,13 +216,9 @@ func TestTangle_MissingMessages(t *testing.T) {
 		storeDelay   = 5 * time.Millisecond
 	)
 
-	// create rocksdb store
-	rocksdb, err := testutil.RocksDB(t)
-	require.NoError(t, err)
-
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
-	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.LedgerState.BranchDAG, tangle.ApprovalWeightManager.WeightOfBranch))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
+	tangle.OTVConsensusManager = NewOTVConsensusManager(otv.NewOnTangleVoting(tangle.Ledger.ConflictDAG, tangle.ApprovalWeightManager.WeightOfBranch))
 
 	defer tangle.Shutdown()
 	require.NoError(t, tangle.Prune())
@@ -255,28 +279,28 @@ func TestTangle_MissingMessages(t *testing.T) {
 		missingMessages int32
 		solidMessages   int32
 	)
-	tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(_ *MessageStoredEvent) {
 		n := atomic.AddInt32(&storedMessages, 1)
 		t.Logf("stored messages %d/%d", n, messageCount)
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		atomic.AddInt32(&missingMessages, 1)
 		// store the message after it has been requested
 		go func() {
 			time.Sleep(storeDelay)
-			tangle.Storage.StoreMessage(messages[messageId])
+			tangle.Storage.StoreMessage(messages[event.MessageID])
 		}()
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(func(MessageID) {
+	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(_ *MissingMessageStoredEvent) {
 		n := atomic.AddInt32(&missingMessages, -1)
 		t.Logf("missing messages %d", n)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.Attach(events.NewClosure(func(MessageID) {
+	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(_ *MessageSolidEvent) {
 		n := atomic.AddInt32(&solidMessages, 1)
 		t.Logf("solid messages %d/%d", n, messageCount)
 	}))
@@ -309,7 +333,7 @@ func TestRetrieveAllTips(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	messageTangle.Dispatcher.Events.MessageDispatched.Attach(events.NewClosure(func(MessageID) {
+	messageTangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(_ *MessageScheduledEvent) {
 		wg.Done()
 	}))
 
@@ -344,16 +368,13 @@ func TestTangle_Flow(t *testing.T) {
 		messageWorkerCount     = runtime.GOMAXPROCS(0) * 4
 		messageWorkerQueueSize = 1000
 	)
-	// create rocksdb store
-	rocksdb, err := testutil.RocksDB(t)
-	require.NoError(t, err)
 
 	// map to keep track of the tips
 	tips := randommap.New[MessageID, MessageID]()
 	tips.Set(EmptyMessageID, EmptyMessageID)
 
 	// create the tangle
-	tangle := NewTestTangle(Store(rocksdb), Identity(selfLocalIdentity))
+	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 
 	// create local peer
@@ -438,88 +459,84 @@ func TestTangle_Flow(t *testing.T) {
 	invalidmsgs := make(map[MessageID]*Message, invalidMsgCount)
 	for i := 0; i < invalidMsgCount; i++ {
 		msg := createNewMessage(true)
+		messages[msg.ID()] = msg
 		invalidmsgs[msg.ID()] = msg
 	}
 
 	// counter for the different stages
 	var (
-		parsedMessages     int32
-		storedMessages     int32
-		missingMessages    int32
-		solidMessages      int32
-		scheduledMessages  int32
-		bookedMessages     int32
-		dispatchedMessages int32
-		awMessages         int32
-		invalidMessages    int32
-		rejectedMessages   int32
+		parsedMessages    int32
+		storedMessages    int32
+		missingMessages   int32
+		solidMessages     int32
+		scheduledMessages int32
+		bookedMessages    int32
+		awMessages        int32
+		invalidMessages   int32
+		rejectedMessages  int32
 	)
 
-	tangle.Parser.Events.BytesRejected.AttachAfter(events.NewClosure(func(e *BytesRejectedEvent, err error) {
-		t.Logf("rejected bytes %v - %s", e.Bytes, err)
+	tangle.Parser.Events.BytesRejected.Hook(event.NewClosure(func(event *BytesRejectedEvent) {
+		t.Logf("rejected bytes %v - %s", event.Bytes, event.Error)
 	}))
 
 	// filter rejected events
-	tangle.Parser.Events.MessageRejected.AttachAfter(events.NewClosure(func(msgRejectedEvent *MessageRejectedEvent, err error) {
+	tangle.Parser.Events.MessageRejected.Hook(event.NewClosure(func(event *MessageRejectedEvent) {
 		n := atomic.AddInt32(&rejectedMessages, 1)
-		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, msgRejectedEvent.Message.ID(), err)
+		t.Logf("rejected by message filter messages %d/%d - %s %s", n, totalMsgCount, event.Message.ID(), event.Error)
 	}))
 
-	tangle.Parser.Events.MessageParsed.AttachAfter(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
 		n := atomic.AddInt32(&parsedMessages, 1)
 		t.Logf("parsed messages %d/%d - %s", n, totalMsgCount, msgParsedEvent.Message.ID())
 	}))
 
 	// message invalid events
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
+	tangle.Events.MessageInvalid.Hook(event.NewClosure(func(messageInvalidEvent *MessageInvalidEvent) {
 		n := atomic.AddInt32(&invalidMessages, 1)
 		t.Logf("invalid messages %d/%d - %s", n, totalMsgCount, messageInvalidEvent.MessageID)
 	}))
 
-	tangle.Storage.Events.MessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
 		n := atomic.AddInt32(&storedMessages, 1)
-		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("stored messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
 	}))
 
 	// increase the counter when a missing message was detected
-	tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(func(messageId MessageID) {
+	tangle.Solidifier.Events.MessageMissing.Hook(event.NewClosure(func(event *MessageMissingEvent) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
-		inboxWP.TrySubmit(messages[messageId].Bytes(), localPeer)
+		inboxWP.TrySubmit(messages[event.MessageID].Bytes(), localPeer)
 	}))
 
 	// decrease the counter when a missing message was received
-	tangle.Storage.Events.MissingMessageStored.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Storage.Events.MissingMessageStored.Hook(event.NewClosure(func(event *MissingMessageStoredEvent) {
 		n := atomic.AddInt32(&missingMessages, -1)
-		t.Logf("missing messages %d - %s", n, messageID)
+		t.Logf("missing messages %d - %s", n, event.MessageID)
 	}))
 
-	tangle.Solidifier.Events.MessageSolid.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Solidifier.Events.MessageSolid.Hook(event.NewClosure(func(event *MessageSolidEvent) {
 		n := atomic.AddInt32(&solidMessages, 1)
-		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("solid messages %d/%d - %s", n, totalMsgCount, event.Message.ID())
 	}))
 
-	tangle.Scheduler.Events.MessageScheduled.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Scheduler.Events.MessageScheduled.Hook(event.NewClosure(func(event *MessageScheduledEvent) {
 		n := atomic.AddInt32(&scheduledMessages, 1)
-		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("scheduled messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.Booker.Events.MessageBooked.Hook(event.NewClosure(func(event *MessageBookedEvent) {
 		n := atomic.AddInt32(&bookedMessages, 1)
-		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, messageID)
+		t.Logf("booked messages %d/%d - %s", n, totalMsgCount, event.MessageID)
 	}))
 
-	tangle.Dispatcher.Events.MessageDispatched.AttachAfter(events.NewClosure(func(messageID MessageID) {
-		n := atomic.AddInt32(&dispatchedMessages, 1)
-		t.Logf("dispatched messages %d/%d", n, totalMsgCount)
-	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
+	tangle.ApprovalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(func(*MessageProcessedEvent) {
 		n := atomic.AddInt32(&awMessages, 1)
 		t.Logf("approval weight processed messages %d/%d", n, totalMsgCount)
 	}))
 
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
 		t.Logf("Error %s", err)
 	}))
 
@@ -539,14 +556,21 @@ func TestTangle_Flow(t *testing.T) {
 	}
 
 	// wait for all messages to be scheduled
-	assert.Eventually(t, func() bool { return atomic.LoadInt32(&scheduledMessages) == solidMsgCount }, 5*time.Minute, 100*time.Millisecond)
+	lastWaitNotice := time.Now()
+	assert.Eventually(t, func() bool {
+		if time.Now().Sub(lastWaitNotice) > time.Second {
+			lastWaitNotice = time.Now()
+			t.Logf("waiting for scheduled messages %d/%d", atomic.LoadInt32(&scheduledMessages), totalMsgCount)
+		}
+
+		return atomic.LoadInt32(&scheduledMessages) == solidMsgCount
+	}, 5*time.Minute, 100*time.Millisecond)
 
 	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&parsedMessages), "parsed messages does not match")
 	assert.EqualValuesf(t, totalMsgCount, atomic.LoadInt32(&storedMessages), "stored messages does not match")
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&solidMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&scheduledMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&bookedMessages))
-	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&dispatchedMessages))
 	assert.EqualValues(t, solidMsgCount, atomic.LoadInt32(&awMessages))
 	// messages with invalid timestamp are not forwarded from the timestamp filter, thus there are 0.
 	assert.EqualValues(t, invalidMsgCount, atomic.LoadInt32(&invalidMessages))

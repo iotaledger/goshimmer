@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/labstack/echo"
+	"github.com/labstack/echo/middleware"
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 )
@@ -38,7 +39,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() *echo.Echo {
 			server := newServer()
 			return server

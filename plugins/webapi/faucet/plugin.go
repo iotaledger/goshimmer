@@ -11,7 +11,7 @@ import (
 
 	faucetpkg "github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -50,7 +50,7 @@ func requestFunds(c echo.Context) error {
 	Plugin.LogInfo("Received - address:", request.Address)
 	Plugin.LogDebug(request)
 
-	addr, err := ledgerstate.AddressFromBase58EncodedString(request.Address)
+	addr, err := devnetvm.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetResponse{Error: "Invalid address"})
 	}

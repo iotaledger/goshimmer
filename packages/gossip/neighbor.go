@@ -8,7 +8,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/libp2p/go-libp2p-core/mux"
 	"github.com/libp2p/go-yamux/v2"
@@ -31,12 +30,11 @@ type Neighbor struct {
 	*peer.Peer
 	Group NeighborsGroup
 
+	Events *NeighborEvents
+
 	log            *logger.Logger
 	disconnectOnce sync.Once
 	wg             sync.WaitGroup
-
-	disconnected   *events.Event
-	packetReceived *events.Event
 
 	ps *packetsStream
 }
@@ -52,10 +50,9 @@ func NewNeighbor(p *peer.Peer, group NeighborsGroup, ps *packetsStream, log *log
 		Peer:  p,
 		Group: group,
 
-		log: log,
+		Events: NewNeighborEvents(),
 
-		disconnected:   events.NewEvent(disconnected),
-		packetReceived: events.NewEvent(packetReceived),
+		log: log,
 
 		ps: ps,
 	}
@@ -69,14 +66,6 @@ func (n *Neighbor) PacketsRead() uint64 {
 // PacketsWritten returns number of packets this neighbor has sent.
 func (n *Neighbor) PacketsWritten() uint64 {
 	return n.ps.packetsWritten.Load()
-}
-
-func disconnected(handler interface{}, _ ...interface{}) {
-	handler.(func())()
-}
-
-func packetReceived(handler interface{}, params ...interface{}) {
-	handler.(func(*pb.Packet))(params[0].(*pb.Packet))
 }
 
 // ConnectionEstablished returns the connection established.
@@ -109,7 +98,7 @@ func (n *Neighbor) readLoop() {
 				}
 				continue
 			}
-			n.packetReceived.Trigger(packet)
+			n.Events.PacketReceived.Trigger(&NeighborPacketReceivedEvent{packet})
 		}
 	}()
 }
@@ -127,7 +116,7 @@ func (n *Neighbor) disconnect() (err error) {
 			err = errors.WithStack(streamErr)
 		}
 		n.log.Info("Connection closed")
-		n.disconnected.Trigger()
+		n.Events.Disconnected.Trigger(&NeighborDisconnectedEvent{})
 	})
 	return err
 }

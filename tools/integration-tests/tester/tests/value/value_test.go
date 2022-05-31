@@ -8,6 +8,7 @@ import (
 
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,8 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -33,7 +35,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 		StartSynced: true,
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
@@ -43,13 +45,16 @@ func TestValueTransactionPersistence(t *testing.T) {
 		resp, _ := p.Info()
 		t.Logf("node %d mana: %v acc %v\n", i, resp.Mana.Consensus, resp.Mana.Access)
 	}
-	// check consensus mana
-	// faucet node has zero mana because it pledges its mana to `1111111` node
+
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
+
+	// check consensus mana: all nodes should have equal mana
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+		return tests.Mana(t, faucet).Consensus > 0
 	}, tests.Timeout, tests.Tick)
-	// the rest of the nodes should have mana as in snapshot
-	for i, peer := range n.Peers()[1:] {
+	require.EqualValues(t, snapshotInfo.GenesisTokenAmount, tests.Mana(t, faucet).Consensus)
+
+	for i, peer := range nonFaucetPeers {
 		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
@@ -58,30 +63,29 @@ func TestValueTransactionPersistence(t *testing.T) {
 		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
-	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
 	tokensPerRequest := uint64(faucet.Config().Faucet.TokensPerRequest)
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
-	addrBalance := make(map[string]map[ledgerstate.Color]uint64)
+	addrBalance := make(map[string]map[devnetvm.Color]uint64)
 
 	// request funds from faucet
 	for _, peer := range nonFaucetPeers {
 		addr := peer.Address(0)
 		tests.SendFaucetRequest(t, peer, addr)
-		addrBalance[addr.Base58()] = map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: tokensPerRequest}
+		addrBalance[addr.Base58()] = map[devnetvm.Color]uint64{devnetvm.ColorIOTA: tokensPerRequest}
 	}
 
 	// wait for messages to be gossiped
 	for _, peer := range nonFaucetPeers {
 		require.Eventually(t, func() bool {
-			return tests.Balance(t, peer, peer.Address(0), ledgerstate.ColorIOTA) == tokensPerRequest
+			return tests.Balance(t, peer, peer.Address(0), devnetvm.ColorIOTA) == tokensPerRequest
 		}, tests.Timeout, tests.Tick)
 	}
 
 	// send IOTA tokens from every peer
 	expectedStates := make(map[string]tests.ExpectedState)
 	for _, peer := range nonFaucetPeers {
-		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorIOTA, 100, tests.TransactionConfig{ToAddressIndex: 1}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
@@ -92,7 +96,7 @@ func TestValueTransactionPersistence(t *testing.T) {
 
 	// send colored tokens from every peer
 	for _, peer := range nonFaucetPeers {
-		txID, err := tests.SendTransaction(t, peer, peer, ledgerstate.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
+		txID, err := tests.SendTransaction(t, peer, peer, devnetvm.ColorMint, 100, tests.TransactionConfig{ToAddressIndex: 2}, addrBalance)
 		require.NoError(t, err)
 		expectedStates[txID] = tests.ExpectedState{GradeOfFinality: tests.GoFPointer(gof.High)}
 	}
@@ -123,18 +127,20 @@ func TestValueAliasPersistence(t *testing.T) {
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// check consensus mana
-	// faucet node has zero mana because it pledges its mana to `1111111` node
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
+
+	// check consensus mana: all nodes should have equal mana
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+		return tests.Mana(t, faucet).Consensus > 0
 	}, tests.Timeout, tests.Tick)
-	// the rest of the nodes should have mana as in snapshot
-	for i, peer := range n.Peers()[1:] {
+	require.EqualValues(t, snapshotInfo.GenesisTokenAmount, tests.Mana(t, faucet).Consensus)
+
+	for i, peer := range nonFaucetPeers {
 		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
@@ -143,11 +149,10 @@ func TestValueAliasPersistence(t *testing.T) {
 		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
-	faucet, peer := n.Peers()[0], n.Peers()[1]
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
+	w := wallet.New(wallet.WebAPI(nonFaucetPeers[0].BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -189,7 +194,7 @@ func TestValueAliasPersistence(t *testing.T) {
 		outputMetadata, err := peer.GetOutputMetadata(aliasOutputID.Base58())
 		require.NoError(t, err)
 		// it has been spent
-		require.True(t, outputMetadata.ConsumerCount > 0)
+		require.NotEmpty(t, outputMetadata.FirstConsumer)
 
 		resp, err := peer.GetAddressUnspentOutputs(aliasID.Base58())
 		require.NoError(t, err)
@@ -209,18 +214,20 @@ func TestValueAliasDelegation(t *testing.T) {
 		Faucet:      true,
 		Activity:    true, // we need to issue regular activity messages
 		PeerMaster:  true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
-	// check consensus mana
-	// faucet node has zero mana because it pledges its mana to `1111111` node
+	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
+
+	// check consensus mana: all nodes should have equal mana
 	require.Eventually(t, func() bool {
-		return tests.Mana(t, n.Peers()[0]).Consensus == 0
+		return tests.Mana(t, faucet).Consensus > 0
 	}, tests.Timeout, tests.Tick)
-	// the rest of the nodes should have mana as in snapshot
-	for i, peer := range n.Peers()[1:] {
+	require.EqualValues(t, snapshotInfo.GenesisTokenAmount, tests.Mana(t, faucet).Consensus)
+
+	for i, peer := range nonFaucetPeers {
 		if snapshotInfo.PeersAmountsPledged[i] > 0 {
 			require.Eventually(t, func() bool {
 				return tests.Mana(t, peer).Consensus > 0
@@ -229,11 +236,10 @@ func TestValueAliasDelegation(t *testing.T) {
 		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
 	}
 
-	faucet, peer := n.Peers()[0], n.Peers()[1]
 	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
 
 	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(peer.BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
+	w := wallet.New(wallet.WebAPI(nonFaucetPeers[0].BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
 
 	err = w.RequestFaucetFunds(true)
 	require.NoError(t, err)
@@ -241,13 +247,13 @@ func TestValueAliasDelegation(t *testing.T) {
 	dumbWallet := createWallets(1)[0]
 	delegationAddress := dumbWallet.address
 	_, delegationIDs, err := w.DelegateFunds(
-		delegateoptions.Destination(address.Address{AddressBytes: delegationAddress.Array()}, map[ledgerstate.Color]uint64{ledgerstate.ColorIOTA: 1000}),
+		delegateoptions.Destination(address.Address{AddressBytes: delegationAddress.Array()}, map[devnetvm.Color]uint64{devnetvm.ColorIOTA: 1000}),
 		delegateoptions.WaitForConfirmation(true),
 	)
 	require.NoError(t, err)
 
-	delegatedAliasOutputID := ledgerstate.OutputID{}
-	delegatedAliasOutput := &ledgerstate.AliasOutput{}
+	delegatedAliasOutputID := utxo.OutputID{}
+	delegatedAliasOutput := &devnetvm.AliasOutput{}
 	for i, peer := range n.Peers() {
 		resp, err := peer.GetAddressUnspentOutputs(delegationIDs[0].Base58())
 		require.NoError(t, err)
@@ -255,8 +261,8 @@ func TestValueAliasDelegation(t *testing.T) {
 		require.True(t, len(resp.Outputs) == 1)
 		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
 		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
+		require.Equal(t, devnetvm.AliasOutputType, shouldBeAliasOutput.Type())
+		alias, ok := shouldBeAliasOutput.(*devnetvm.AliasOutput)
 		require.True(t, ok)
 		require.Equal(t, delegationIDs[0].Base58(), alias.GetAliasAddress().Base58())
 		require.True(t, alias.IsDelegated())
@@ -266,7 +272,7 @@ func TestValueAliasDelegation(t *testing.T) {
 			delegatedAliasOutput = alias
 		default:
 			require.Equal(t, delegatedAliasOutputID.Base58(), alias.ID().Base58())
-			require.Equal(t, delegatedAliasOutput.Bytes(), alias.Bytes())
+			require.Equal(t, lo.PanicOnErr(delegatedAliasOutput.Bytes()), lo.PanicOnErr(alias.Bytes()))
 		}
 	}
 
@@ -277,12 +283,12 @@ func TestValueAliasDelegation(t *testing.T) {
 
 	// let's try to "refresh mana"
 	nextOutput := delegatedAliasOutput.NewAliasOutputNext(false)
-	essence := ledgerstate.NewTransactionEssence(0, time.Now(),
+	essence := devnetvm.NewTransactionEssence(0, time.Now(),
 		aManaReceiver, cManaReceiver,
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(delegatedAliasOutputID)),
-		ledgerstate.NewOutputs(nextOutput))
-	tx := ledgerstate.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = peer.PostTransaction(tx.Bytes())
+		devnetvm.NewInputs(devnetvm.NewUTXOInput(delegatedAliasOutputID)),
+		devnetvm.NewOutputs(nextOutput))
+	tx := devnetvm.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
+	_, err = nonFaucetPeers[0].PostTransaction(tx.Bytes())
 	require.NoError(t, err)
 
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
@@ -291,9 +297,9 @@ func TestValueAliasDelegation(t *testing.T) {
 		},
 	}, tests.Timeout, tests.Tick)
 
-	aManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
+	aManaReceiverCurrMana, err := nonFaucetPeers[0].GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
 	require.NoError(t, err)
-	cManaReceiverCurrMana, err := peer.GetManaFullNodeID(base58.Encode(cManaReceiver.Bytes()))
+	cManaReceiverCurrMana, err := nonFaucetPeers[0].GetManaFullNodeID(base58.Encode(cManaReceiver.Bytes()))
 	require.NoError(t, err)
 
 	// check that the pledge actually worked
@@ -301,8 +307,8 @@ func TestValueAliasDelegation(t *testing.T) {
 	require.True(t, cManaReceiverCurrMana.Consensus > 0)
 }
 
-func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *ledgerstate.AliasAddress) ledgerstate.OutputID {
-	aliasOutputID := ledgerstate.OutputID{}
+func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *devnetvm.AliasAddress) utxo.OutputID {
+	aliasOutputID := utxo.OutputID{}
 
 	for i, peer := range peers {
 		resp, err := peer.GetAddressUnspentOutputs(aliasAddr.Base58())
@@ -311,8 +317,8 @@ func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr
 		require.True(t, len(resp.Outputs) == 1)
 		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
 		require.NoError(t, err)
-		require.Equal(t, ledgerstate.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*ledgerstate.AliasOutput)
+		require.Equal(t, devnetvm.AliasOutputType, shouldBeAliasOutput.Type())
+		alias, ok := shouldBeAliasOutput.(*devnetvm.AliasOutput)
 		require.True(t, ok)
 		require.Equal(t, aliasAddr.Base58(), alias.GetAliasAddress().Base58())
 		switch i {
@@ -327,7 +333,7 @@ func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr
 
 type simpleWallet struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (s simpleWallet) privateKey() ed25519.PrivateKey {
@@ -344,19 +350,19 @@ func createWallets(n int) []simpleWallet {
 		kp := ed25519.GenerateKeyPair()
 		wallets[i] = simpleWallet{
 			kp,
-			ledgerstate.NewED25519Address(kp.PublicKey),
+			devnetvm.NewED25519Address(kp.PublicKey),
 		}
 	}
 	return wallets
 }
 
-func (s simpleWallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(s.publicKey(), s.privateKey().Sign(txEssence.Bytes()))
+func (s simpleWallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(s.publicKey(), s.privateKey().Sign(txEssence.Bytes()))
 }
 
-func (s simpleWallet) unlockBlocks(txEssence *ledgerstate.TransactionEssence) []ledgerstate.UnlockBlock {
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(s.sign(txEssence))
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+func (s simpleWallet) unlockBlocks(txEssence *devnetvm.TransactionEssence) []devnetvm.UnlockBlock {
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(s.sign(txEssence))
+	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i := range txEssence.Inputs() {
 		unlockBlocks[i] = unlockBlock
 	}

@@ -11,14 +11,15 @@ import (
 	"runtime"
 	"time"
 
+	"go.uber.org/dig"
+	"gopkg.in/src-d/go-git.v4"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
-	"go.uber.org/dig"
-	"gopkg.in/src-d/go-git.v4"
 
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	logger_plugin "github.com/iotaledger/goshimmer/plugins/logger"
@@ -55,7 +56,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func() *RemoteLoggerConn {
 			remoteLogger, err := newRemoteLoggerConn(Parameters.RemoteLog.ServerAddress)
 			if err != nil {
@@ -92,12 +93,12 @@ func run(plugin *node.Plugin) {
 		return
 	}
 
-	logEvent := event.NewClosure[*logger.LogEvent](func(logEvent *logger.LogEvent) {
-		workerPool.TrySubmit(logEvent.Level, logEvent.Name, logEvent.Msg)
+	logEvent := event.NewClosure(func(event *logger.LogEvent) {
+		workerPool.TrySubmit(event.Level, event.Name, event.Msg)
 	})
 
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
-		logger.Events.AnyMsg.Hook(logEvent)
+		logger.Events.AnyMsg.Attach(logEvent)
 		<-ctx.Done()
 		plugin.LogInfof("Stopping %s ...", PluginName)
 		logger.Events.AnyMsg.Detach(logEvent)

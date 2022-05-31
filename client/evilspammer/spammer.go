@@ -6,7 +6,9 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+
 	"github.com/iotaledger/hive.go/configuration"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/types"
@@ -184,7 +186,7 @@ func (s *Spammer) StopSpamming() {
 
 // PostTransaction use provided client to issue a transaction. It chooses API method based on Spammer options. Counts errors,
 // counts transactions and provides debug logs.
-func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Client) {
+func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Client) {
 	if tx == nil {
 		s.log.Debug(ErrTransactionIsNil)
 		s.ErrCounter.CountError(ErrTransactionIsNil)
@@ -197,7 +199,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	}
 
 	var err error
-	var txID ledgerstate.TransactionID
+	var txID utxo.TransactionID
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debug(ErrFailPostTransaction)
@@ -213,7 +215,7 @@ func (s *Spammer) PostTransaction(tx *ledgerstate.Transaction, clt evilwallet.Cl
 	return
 }
 
-func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *ledgerstate.Transaction) (ok bool) {
+func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {
 	ok = true
 	ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {

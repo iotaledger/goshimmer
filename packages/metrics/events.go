@@ -1,33 +1,51 @@
 package metrics
 
-import (
-	"github.com/iotaledger/hive.go/events"
-)
+import "github.com/iotaledger/hive.go/generics/event"
 
 // CollectionEvents defines the events fot the metrics package.
 type CollectionEvents struct {
 	// AnalysisOutboundBytes defines the local analysis outbound network traffic in bytes.
-	AnalysisOutboundBytes *events.Event
+	AnalysisOutboundBytes *event.Event[*AnalysisOutboundBytesEvent]
 	// CPUUsage defines the local CPU usage.
-	CPUUsage *events.Event
+	CPUUsage *event.Event[*CPUUsageEvent]
 	// MemUsage defines the local GoShimmer memory usage.
-	MemUsage *events.Event
+	MemUsage *event.Event[*MemUsageEvent]
 	// TangleTimeSynced defines the local sync status event based on tangle time.
-	TangleTimeSynced *events.Event
+	TangleTimeSynced *event.Event[*TangleTimeSyncedEvent]
 	// ValueTips defines the local value tips count event.
-	ValueTips *events.Event
+	ValueTips *event.Event[*ValueTipsEvent]
 	// MessageTips defines the local message tips count event.
-	MessageTips *events.Event
+	MessageTips *event.Event[*MessageTipsEvent]
 }
 
-func uint64Caller(handler interface{}, params ...interface{}) {
-	handler.(func(uint64))(params[0].(uint64))
+func newCollectionEvents() (new *CollectionEvents) {
+	return &CollectionEvents{
+		AnalysisOutboundBytes: event.New[*AnalysisOutboundBytesEvent](),
+		CPUUsage:              event.New[*CPUUsageEvent](),
+		MemUsage:              event.New[*MemUsageEvent](),
+		TangleTimeSynced:      event.New[*TangleTimeSyncedEvent](),
+		ValueTips:             event.New[*ValueTipsEvent](),
+		MessageTips:           event.New[*MessageTipsEvent](),
+	}
 }
 
-func float64Caller(handler interface{}, params ...interface{}) {
-	handler.(func(float64))(params[0].(float64))
+type AnalysisOutboundBytesEvent struct {
+	AmountBytes uint64
 }
 
-func boolCaller(handler interface{}, params ...interface{}) {
-	handler.(func(bool))(params[0].(bool))
+type CPUUsageEvent struct {
+	CPUPercent float64
+}
+
+type MemUsageEvent struct {
+	MemAllocBytes uint64
+}
+
+type TangleTimeSyncedEvent struct {
+}
+
+type ValueTipsEvent struct {
+}
+
+type MessageTipsEvent struct {
 }

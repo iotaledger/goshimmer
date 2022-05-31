@@ -135,7 +135,7 @@ FROM prepare-runtime as debugger-enabled-0
 
 ENTRYPOINT ["/app/goshimmer", "--config=/app/config.json"]
 
-# We execute this stage only if debugging is enabled, i.e REMOTE_DEBUGGIN==1
+# We execute this stage only if debugging is enabled, i.e REMOTE_DEBUGGING==1
 FROM prepare-runtime as debugger-enabled-1
 EXPOSE 40000
 

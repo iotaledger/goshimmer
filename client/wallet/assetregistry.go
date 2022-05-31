@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 const (
@@ -24,8 +24,8 @@ type AssetRegistry struct {
 }
 
 type assetRegistryInner struct {
-	Network string                      `serix:"0,lengthPrefixType=uint32"`
-	Assets  map[ledgerstate.Color]Asset `serix:"1,lengthPrefixType=uint32"`
+	Network string                   `serix:"0,lengthPrefixType=uint32"`
+	Assets  map[devnetvm.Color]Asset `serix:"1,lengthPrefixType=uint32"`
 	// client communicates with the central registry
 	client *registryclient.HTTPClient
 }
@@ -39,7 +39,7 @@ func NewAssetRegistry(network string, registryURL ...string) *AssetRegistry {
 	client := registryclient.NewHTTPClient(resty.New().SetHostURL(hostURL))
 	return &AssetRegistry{
 		assetRegistryInner{
-			Assets:  make(map[ledgerstate.Color]Asset),
+			Assets:  make(map[devnetvm.Color]Asset),
 			client:  client,
 			Network: network,
 		},
@@ -72,7 +72,7 @@ func (a *AssetRegistry) Network() string {
 }
 
 // LoadAsset returns an asset either from local or from central registry.
-func (a *AssetRegistry) LoadAsset(id ledgerstate.Color) (*Asset, error) {
+func (a *AssetRegistry) LoadAsset(id devnetvm.Color) (*Asset, error) {
 	_, ok := a.Assets[id]
 	if !ok {
 		success := a.updateLocalFromCentral(id)
@@ -85,19 +85,19 @@ func (a *AssetRegistry) LoadAsset(id ledgerstate.Color) (*Asset, error) {
 }
 
 // RegisterAsset registers an asset in the registry, so we can look up names and symbol of colored coins.
-func (a *AssetRegistry) RegisterAsset(color ledgerstate.Color, asset Asset) error {
+func (a *AssetRegistry) RegisterAsset(color devnetvm.Color, asset Asset) error {
 	a.Assets[color] = asset
 	return a.client.SaveAsset(context.TODO(), a.Network(), asset.ToRegistry())
 }
 
 // Name returns the name of the given asset.
-func (a *AssetRegistry) Name(color ledgerstate.Color) string {
+func (a *AssetRegistry) Name(color devnetvm.Color) string {
 	// check in local registry
 	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.Name
 	}
 
-	if color == ledgerstate.ColorIOTA {
+	if color == devnetvm.ColorIOTA {
 		return "IOTA"
 	}
 	// not in local
@@ -110,12 +110,12 @@ func (a *AssetRegistry) Name(color ledgerstate.Color) string {
 }
 
 // Symbol return the symbol of the token.
-func (a *AssetRegistry) Symbol(color ledgerstate.Color) string {
+func (a *AssetRegistry) Symbol(color devnetvm.Color) string {
 	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.Symbol
 	}
 
-	if color == ledgerstate.ColorIOTA {
+	if color == devnetvm.ColorIOTA {
 		return "I"
 	}
 
@@ -129,12 +129,12 @@ func (a *AssetRegistry) Symbol(color ledgerstate.Color) string {
 }
 
 // Supply returns the initial supply of the token.
-func (a *AssetRegistry) Supply(color ledgerstate.Color) string {
+func (a *AssetRegistry) Supply(color devnetvm.Color) string {
 	if asset, assetExists := a.Assets[color]; assetExists {
 		return strconv.FormatUint(asset.Supply, 10)
 	}
 
-	if color == ledgerstate.ColorIOTA {
+	if color == devnetvm.ColorIOTA {
 		return ""
 	}
 
@@ -148,12 +148,12 @@ func (a *AssetRegistry) Supply(color ledgerstate.Color) string {
 }
 
 // TransactionID returns the ID of the transaction that created the token.
-func (a *AssetRegistry) TransactionID(color ledgerstate.Color) string {
+func (a *AssetRegistry) TransactionID(color devnetvm.Color) string {
 	if asset, assetExists := a.Assets[color]; assetExists {
 		return asset.TransactionID.Base58()
 	}
 
-	if color == ledgerstate.ColorIOTA {
+	if color == devnetvm.ColorIOTA {
 		return ""
 	}
 
@@ -167,7 +167,7 @@ func (a *AssetRegistry) TransactionID(color ledgerstate.Color) string {
 }
 
 // Precision returns the amount of decimal places that this token uses.
-func (a *AssetRegistry) Precision(color ledgerstate.Color) int {
+func (a *AssetRegistry) Precision(color devnetvm.Color) int {
 	if asset, assetExists := a.Assets[color]; assetExists {
 		return int(asset.Precision)
 	}
@@ -185,7 +185,7 @@ func (a *AssetRegistry) Bytes() []byte {
 	return objBytes
 }
 
-func (a *AssetRegistry) updateLocalFromCentral(color ledgerstate.Color) (success bool) {
+func (a *AssetRegistry) updateLocalFromCentral(color devnetvm.Color) (success bool) {
 	loadedAsset, err := a.client.LoadAsset(context.TODO(), a.Network(), color.Base58())
 	if err == nil {
 		// save it locally

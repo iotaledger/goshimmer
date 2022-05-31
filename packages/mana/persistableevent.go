@@ -11,19 +11,19 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // PersistableEvent is a persistable event.
 type PersistableEvent struct {
 	objectstorage.StorableObjectFlags
-	Type          byte                      `serix:"0"` // pledge or revoke
-	ManaType      Type                      `serix:"1"` // access or consensus
-	NodeID        identity.ID               `serix:"2"`
-	Time          time.Time                 `serix:"3"`
-	TransactionID ledgerstate.TransactionID `serix:"4"`
-	Amount        float64                   `serix:"5"`
-	InputID       ledgerstate.OutputID      `serix:"6"` // for revoke event
+	Type          byte               `serix:"0"` // pledge or revoke
+	ManaType      Type               `serix:"1"` // access or consensus
+	NodeID        identity.ID        `serix:"2"`
+	Time          time.Time          `serix:"3"`
+	TransactionID utxo.TransactionID `serix:"4"`
+	Amount        float64            `serix:"5"`
+	InputID       utxo.OutputID      `serix:"6"` // for revoke event
 	bytes         []byte
 }
 
@@ -66,8 +66,9 @@ func (p *PersistableEvent) ObjectStorageValue() []byte {
 }
 
 // FromObjectStorage creates an PersistableEvent from sequences of key and bytes.
-func (p *PersistableEvent) FromObjectStorage(_, value []byte) (objectstorage.StorableObject, error) {
-	return p.FromBytes(value)
+func (p *PersistableEvent) FromObjectStorage(_, value []byte) error {
+	_, err := p.FromBytes(value)
+	return err
 }
 
 // FromBytes unmarshalls bytes into a persistable event.

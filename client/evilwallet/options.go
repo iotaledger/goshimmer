@@ -7,7 +7,8 @@ import (
 
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // region Options ///////////////////////////////////////////////////////////////////////////
@@ -15,9 +16,9 @@ import (
 // Options is a struct that represents a collection of options that can be set when creating a message
 type Options struct {
 	aliasInputs              map[string]types.Empty
-	inputs                   []ledgerstate.OutputID
-	aliasOutputs             map[string]*ledgerstate.ColoredBalances
-	outputs                  []*ledgerstate.ColoredBalances
+	inputs                   []utxo.OutputID
+	aliasOutputs             map[string]*devnetvm.ColoredBalances
+	outputs                  []*devnetvm.ColoredBalances
 	inputWallet              *Wallet
 	outputWallet             *Wallet
 	outputBatchAliases       map[string]types.Empty
@@ -30,7 +31,7 @@ type Options struct {
 
 type OutputOption struct {
 	aliasName string
-	color     ledgerstate.Color
+	color     devnetvm.Color
 	amount    uint64
 }
 
@@ -38,9 +39,9 @@ type OutputOption struct {
 func NewOptions(options ...Option) (option *Options, err error) {
 	option = &Options{
 		aliasInputs:  make(map[string]types.Empty),
-		inputs:       make([]ledgerstate.OutputID, 0),
-		aliasOutputs: make(map[string]*ledgerstate.ColoredBalances),
-		outputs:      make([]*ledgerstate.ColoredBalances, 0),
+		inputs:       make([]utxo.OutputID, 0),
+		aliasOutputs: make(map[string]*devnetvm.ColoredBalances),
+		outputs:      make([]*devnetvm.ColoredBalances, 0),
 	}
 
 	for _, opt := range options {
@@ -72,7 +73,7 @@ func (o *Options) isBalanceProvided() bool {
 	provided := false
 
 	for _, balance := range o.aliasOutputs {
-		balance.ForEach(func(color ledgerstate.Color, balance uint64) bool {
+		balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
 			if balance > 0 {
 				provided = true
 			}
@@ -131,9 +132,9 @@ func WithInputs(inputs interface{}) Option {
 			for _, input := range in {
 				options.aliasInputs[input] = types.Void
 			}
-		case ledgerstate.OutputID:
+		case utxo.OutputID:
 			options.inputs = append(options.inputs, in)
-		case []ledgerstate.OutputID:
+		case []utxo.OutputID:
 			for _, input := range in {
 				options.inputs = append(options.inputs, input)
 			}
@@ -145,11 +146,11 @@ func WithInputs(inputs interface{}) Option {
 func WithOutput(output *OutputOption) Option {
 	return func(options *Options) {
 		if output.aliasName != "" {
-			options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			options.aliasOutputs[output.aliasName] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 				output.color: output.amount,
 			})
 		} else {
-			options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+			options.outputs = append(options.outputs, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 				output.color: output.amount,
 			}))
 		}
@@ -161,11 +162,11 @@ func WithOutputs(outputs []*OutputOption) Option {
 	return func(options *Options) {
 		for _, output := range outputs {
 			if output.aliasName != "" {
-				options.aliasOutputs[output.aliasName] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+				options.aliasOutputs[output.aliasName] = devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 					output.color: output.amount,
 				})
 			} else {
-				options.outputs = append(options.outputs, ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
+				options.outputs = append(options.outputs, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
 					output.color: output.amount,
 				}))
 			}

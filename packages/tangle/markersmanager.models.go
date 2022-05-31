@@ -14,18 +14,18 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	*thresholdmap.ThresholdMap[markers.Index, ledgerstate.BranchIDs]
+	*thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
+	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
 }
 
 // Encode returns a serialized byte slice of the object.
@@ -35,7 +35,7 @@ func (m *markerIndexBranchIDMap) Encode() ([]byte, error) {
 
 // Decode deserializes bytes into a valid object.
 func (m *markerIndexBranchIDMap) Decode(b []byte) (bytesRead int, err error) {
-	m.ThresholdMap = thresholdmap.New[markers.Index, ledgerstate.BranchIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
+	m.ThresholdMap = thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)
 	return m.ThresholdMap.Decode(b)
 }
 
@@ -71,35 +71,33 @@ func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchM
 }
 
 // FromObjectStorage creates an MarkerIndexBranchIDMapping from sequences of key and bytes.
-func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	markerIndexBranchIDMapping, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MarkerIndexBranchIDMapping) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
+		return errors.Errorf("failed to parse MarkerIndexBranchIDMapping from bytes: %w", err)
 	}
 
-	return markerIndexBranchIDMapping, err
+	return nil
 }
 
 // FromBytes unmarshals a MarkerIndexBranchIDMapping from a sequence of bytes.
-func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (markerIndexBranchIDMapping objectstorage.StorableObject, err error) {
-	mapping := new(MarkerIndexBranchIDMapping)
-	if m != nil {
-		mapping = m
+func (m *MarkerIndexBranchIDMapping) FromBytes(data []byte) (result *MarkerIndexBranchIDMapping, err error) {
+	if result = m; result == nil {
+		result = new(MarkerIndexBranchIDMapping)
 	}
 	sequenceID := new(markers.SequenceID)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, sequenceID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerIndexBranchIDMapping.SequenceID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerIndexBranchIDMapping: %w", err)
 	}
-	mapping.markerIndexBranchIDInner.SequenceID = *sequenceID
-	return mapping, err
+
+	result.markerIndexBranchIDInner.SequenceID = *sequenceID
+	return result, err
 }
 
 // SequenceID returns the SequenceID that this MarkerIndexBranchIDMapping represents.
@@ -108,7 +106,7 @@ func (m *MarkerIndexBranchIDMapping) SequenceID() markers.SequenceID {
 }
 
 // BranchIDs returns the BranchID that is associated to the given marker Index.
-func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs ledgerstate.BranchIDs) {
+func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branchIDs utxo.TransactionIDs) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -121,7 +119,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 }
 
 // SetBranchIDs creates a mapping between the given marker Index and the given BranchID.
-func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs ledgerstate.BranchIDs) {
+func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs utxo.TransactionIDs) {
 	m.mappingMutex.Lock()
 	defer m.mappingMutex.Unlock()
 
@@ -140,7 +138,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 
 // Floor returns the largest Index that is <= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs ledgerstate.BranchIDs, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.Index, branchIDs utxo.TransactionIDs, exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -148,12 +146,12 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, ledgerstate.NewBranchIDs(), false
+	return 0, utxo.NewTransactionIDs(), false
 }
 
 // Ceiling returns the smallest Index that is >= the given Index which has a mapped BranchID (and a boolean value
 // indicating if it exists).
-func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs ledgerstate.BranchIDs, exists bool) {
+func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker markers.Index, branchIDs utxo.TransactionIDs, exists bool) {
 	m.mappingMutex.RLock()
 	defer m.mappingMutex.RUnlock()
 
@@ -161,7 +159,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 		return untypedIndex, untypedBranchIDs, true
 	}
 
-	return 0, ledgerstate.NewBranchIDs(), false
+	return 0, utxo.NewTransactionIDs(), false
 }
 
 // Bytes returns a marshaled version of the MarkerIndexBranchIDMapping.
@@ -175,8 +173,8 @@ func (m *MarkerIndexBranchIDMapping) String() string {
 	defer m.mappingMutex.RUnlock()
 
 	indexes := make([]markers.Index, 0)
-	branchIDs := make(map[markers.Index]ledgerstate.BranchIDs)
-	m.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, ledgerstate.BranchIDs]) bool {
+	branchIDs := make(map[markers.Index]utxo.TransactionIDs)
+	m.Mapping.ForEach(func(node *thresholdmap.Element[markers.Index, utxo.TransactionIDs]) bool {
 		index := node.Key()
 		indexes = append(indexes, index)
 		branchIDs[index] = node.Value()
@@ -267,35 +265,32 @@ func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *Marke
 }
 
 // FromObjectStorage creates an MarkerMessageMapping from sequences of key and bytes.
-func (m *MarkerMessageMapping) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MarkerMessageMapping) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
+		return errors.Errorf("failed to parse MarkerMessageMapping from bytes: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals an MarkerMessageMapping from a sequence of bytes.
-func (m *MarkerMessageMapping) FromBytes(data []byte) (individuallyMappedMessage objectstorage.StorableObject, err error) {
-	mapping := new(MarkerMessageMapping)
-	if m != nil {
-		mapping = m
+func (m *MarkerMessageMapping) FromBytes(data []byte) (result *MarkerMessageMapping, err error) {
+	if result = m; result == nil {
+		result = new(MarkerMessageMapping)
 	}
 	decodedMarker := new(markers.Marker)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, decodedMarker, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerMessageMapping.Marker: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], mapping, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
-		return mapping, err
+		return nil, errors.Errorf("failed to parse MarkerMessageMapping: %w", err)
 	}
-	mapping.markerMessageMappingInner.Marker = decodedMarker
+	result.markerMessageMappingInner.Marker = decodedMarker
 
-	return mapping, err
+	return result, nil
 }
 
 // Marker returns the Marker that is mapped to a MessageID.

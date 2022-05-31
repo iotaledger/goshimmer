@@ -1,35 +1,39 @@
 package server
 
 import (
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/plugins/analysis/packet"
 )
 
-// Events holds the events of the analysis server package.
-var Events = struct {
+// EventsStruct holds the events of the analysis server package.
+type EventsStruct struct {
 	// AddNode triggers when adding a new node.
-	AddNode *events.Event
+	AddNode *event.Event[*AddNodeEvent]
 	// RemoveNode triggers when removing a node.
-	RemoveNode *events.Event
+	RemoveNode *event.Event[*RemoveNodeEvent]
 	// ConnectNodes triggers when connecting two nodes.
-	ConnectNodes *events.Event
+	ConnectNodes *event.Event[*ConnectNodesEvent]
 	// DisconnectNodes triggers when disconnecting two nodes.
-	DisconnectNodes *events.Event
+	DisconnectNodes *event.Event[*DisconnectNodesEvent]
 	// Error triggers when an error occurs.
-	Error *events.Event
+	Error *event.Event[error]
 	// Heartbeat triggers when an heartbeat has been received.
-	Heartbeat *events.Event
+	Heartbeat *event.Event[*HeartbeatEvent]
 	// MetricHeartbeat triggers when an MetricHeartbeat heartbeat has been received.
-	MetricHeartbeat *events.Event
-}{
-	events.NewEvent(addNodeCaller),
-	events.NewEvent(removeNodeCaller),
-	events.NewEvent(connectNodesCaller),
-	events.NewEvent(disconnectNodesCaller),
-	events.NewEvent(errorCaller),
-	events.NewEvent(heartbeatPacketCaller),
-	events.NewEvent(metricHeartbeatPacketCaller),
+	MetricHeartbeat *event.Event[*MetricHeartbeatEvent]
+}
+
+func newEvents() (new *EventsStruct) {
+	return &EventsStruct{
+		AddNode:         event.New[*AddNodeEvent](),
+		RemoveNode:      event.New[*RemoveNodeEvent](),
+		ConnectNodes:    event.New[*ConnectNodesEvent](),
+		DisconnectNodes: event.New[*DisconnectNodesEvent](),
+		Error:           event.New[error](),
+		Heartbeat:       event.New[*HeartbeatEvent](),
+		MetricHeartbeat: event.New[*MetricHeartbeatEvent](),
+	}
 }
 
 // AddNodeEvent is the payload type of an AddNode event.
@@ -58,30 +62,10 @@ type DisconnectNodesEvent struct {
 	TargetID       string
 }
 
-func addNodeCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*AddNodeEvent))(params[0].(*AddNodeEvent))
+type HeartbeatEvent struct {
+	Heartbeat *packet.Heartbeat
 }
 
-func removeNodeCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*RemoveNodeEvent))(params[0].(*RemoveNodeEvent))
-}
-
-func connectNodesCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*ConnectNodesEvent))(params[0].(*ConnectNodesEvent))
-}
-
-func disconnectNodesCaller(handler interface{}, params ...interface{}) {
-	handler.(func(*DisconnectNodesEvent))(params[0].(*DisconnectNodesEvent))
-}
-
-func errorCaller(handler interface{}, params ...interface{}) {
-	handler.(func(error))(params[0].(error))
-}
-
-func heartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(heartbeat *packet.Heartbeat))(params[0].(*packet.Heartbeat))
-}
-
-func metricHeartbeatPacketCaller(handler interface{}, params ...interface{}) {
-	handler.(func(hb *packet.MetricHeartbeat))(params[0].(*packet.MetricHeartbeat))
+type MetricHeartbeatEvent struct {
+	MetricHeartbeat *packet.MetricHeartbeat
 }

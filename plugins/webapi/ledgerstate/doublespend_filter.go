@@ -6,34 +6,35 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // DoubleSpendFilter keeps a log of recently submitted transactions and their consumed outputs.
 type DoubleSpendFilter struct {
-	recentMap map[ledgerstate.OutputID]ledgerstate.TransactionID
-	addedAt   map[ledgerstate.TransactionID]time.Time
+	recentMap map[utxo.OutputID]utxo.TransactionID
+	addedAt   map[utxo.TransactionID]time.Time
 	mutex     sync.RWMutex
 }
 
 // NewDoubleSpendFilter creates a new doubleSpendFilter worker.
 func NewDoubleSpendFilter() *DoubleSpendFilter {
 	return &DoubleSpendFilter{
-		recentMap: map[ledgerstate.OutputID]ledgerstate.TransactionID{},
-		addedAt:   map[ledgerstate.TransactionID]time.Time{},
+		recentMap: map[utxo.OutputID]utxo.TransactionID{},
+		addedAt:   map[utxo.TransactionID]time.Time{},
 	}
 }
 
 // Add adds a transaction and it's consumed inputs to the doubleSpendFilter.
-func (d *DoubleSpendFilter) Add(tx *ledgerstate.Transaction) {
+func (d *DoubleSpendFilter) Add(tx *devnetvm.Transaction) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	now := clock.SyncedTime()
 	for _, input := range tx.Essence().Inputs() {
-		if input.Type() != ledgerstate.UTXOInputType {
+		if input.Type() != devnetvm.UTXOInputType {
 			continue
 		}
-		casted := input.(*ledgerstate.UTXOInput)
+		casted := input.(*devnetvm.UTXOInput)
 		if casted == nil {
 			continue
 		}
@@ -43,7 +44,7 @@ func (d *DoubleSpendFilter) Add(tx *ledgerstate.Transaction) {
 }
 
 // Remove removes all outputs associated to the given transaction ID.
-func (d *DoubleSpendFilter) Remove(txID ledgerstate.TransactionID) {
+func (d *DoubleSpendFilter) Remove(txID utxo.TransactionID) {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
 	if len(d.recentMap) == 0 {
@@ -57,15 +58,15 @@ func (d *DoubleSpendFilter) Remove(txID ledgerstate.TransactionID) {
 }
 
 // HasConflict returns if there is a conflicting output in the internal map wrt to the provided inputs (outputIDs).
-func (d *DoubleSpendFilter) HasConflict(outputs ledgerstate.Inputs) (bool, ledgerstate.TransactionID) {
+func (d *DoubleSpendFilter) HasConflict(outputs devnetvm.Inputs) (bool, utxo.TransactionID) {
 	d.mutex.RLock()
 	defer d.mutex.RUnlock()
 
 	for _, input := range outputs {
-		if input.Type() != ledgerstate.UTXOInputType {
+		if input.Type() != devnetvm.UTXOInputType {
 			continue
 		}
-		casted := input.(*ledgerstate.UTXOInput)
+		casted := input.(*devnetvm.UTXOInput)
 		if casted == nil {
 			continue
 		}
@@ -73,7 +74,7 @@ func (d *DoubleSpendFilter) HasConflict(outputs ledgerstate.Inputs) (bool, ledge
 			return true, txID
 		}
 	}
-	return false, ledgerstate.TransactionID{}
+	return false, utxo.TransactionID{}
 }
 
 // CleanUp removes transactions from the DoubleSpendFilter if they were added more, than 30s ago.
@@ -94,7 +95,7 @@ func (d *DoubleSpendFilter) CleanUp() {
 }
 
 // remove is a non-concurrency safe internal method.
-func (d *DoubleSpendFilter) remove(txID ledgerstate.TransactionID) {
+func (d *DoubleSpendFilter) remove(txID utxo.TransactionID) {
 	// remove all outputs
 	for outputID, storedTxID := range d.recentMap {
 		if bytes.Equal(txID.Bytes(), storedTxID.Bytes()) {
@@ -106,8 +107,8 @@ func (d *DoubleSpendFilter) remove(txID ledgerstate.TransactionID) {
 
 // shrinkMaps is a non-concurrency safe internal method.
 func (d *DoubleSpendFilter) shrinkMaps() {
-	shrunkRecent := map[ledgerstate.OutputID]ledgerstate.TransactionID{}
-	shrunkAddedAt := map[ledgerstate.TransactionID]time.Time{}
+	shrunkRecent := map[utxo.OutputID]utxo.TransactionID{}
+	shrunkAddedAt := map[utxo.TransactionID]time.Time{}
 
 	for key, value := range d.recentMap {
 		shrunkRecent[key] = value

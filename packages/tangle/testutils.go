@@ -3,20 +3,24 @@ package tangle
 import (
 	"fmt"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -27,45 +31,32 @@ import (
 // simplified way.
 type MessageTestFramework struct {
 	tangle                   *Tangle
-	branchIDs                map[string]ledgerstate.BranchID
+	branchIDs                map[string]utxo.TransactionID
 	messagesByAlias          map[string]*Message
 	walletsByAlias           map[string]wallet
-	walletsByAddress         map[ledgerstate.Address]wallet
-	inputsByAlias            map[string]ledgerstate.Input
-	outputsByAlias           map[string]ledgerstate.Output
-	outputsByID              map[ledgerstate.OutputID]ledgerstate.Output
+	walletsByAddress         map[devnetvm.Address]wallet
+	inputsByAlias            map[string]devnetvm.Input
+	outputsByAlias           map[string]devnetvm.Output
+	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
-	messagesBookedWG         sync.WaitGroup
-	approvalWeightProcessed  sync.WaitGroup
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
 func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOption) (messageTestFramework *MessageTestFramework) {
 	messageTestFramework = &MessageTestFramework{
 		tangle:           tangle,
-		branchIDs:        make(map[string]ledgerstate.BranchID),
+		branchIDs:        make(map[string]utxo.TransactionID),
 		messagesByAlias:  make(map[string]*Message),
 		walletsByAlias:   make(map[string]wallet),
-		walletsByAddress: make(map[ledgerstate.Address]wallet),
-		inputsByAlias:    make(map[string]ledgerstate.Input),
-		outputsByAlias:   make(map[string]ledgerstate.Output),
-		outputsByID:      make(map[ledgerstate.OutputID]ledgerstate.Output),
+		walletsByAddress: make(map[devnetvm.Address]wallet),
+		inputsByAlias:    make(map[string]devnetvm.Input),
+		outputsByAlias:   make(map[string]devnetvm.Output),
+		outputsByID:      make(map[utxo.OutputID]devnetvm.Output),
 		options:          NewMessageTestFrameworkOptions(options...),
 	}
 
 	messageTestFramework.createGenesisOutputs()
-
-	tangle.Booker.Events.MessageBooked.AttachAfter(events.NewClosure(func(messageID MessageID) {
-		messageTestFramework.messagesBookedWG.Done()
-	}))
-	tangle.ApprovalWeightManager.Events.MessageProcessed.AttachAfter(events.NewClosure(func(messageID MessageID) {
-		messageTestFramework.approvalWeightProcessed.Done()
-	}))
-	tangle.Events.MessageInvalid.AttachAfter(events.NewClosure(func(_ *MessageInvalidEvent) {
-		messageTestFramework.messagesBookedWG.Done()
-		messageTestFramework.approvalWeightProcessed.Done()
-	}))
 
 	return
 }
@@ -75,11 +66,16 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 func (m *MessageTestFramework) RegisterBranchID(alias, messageAlias string) {
 	branchID := m.BranchIDFromMessage(messageAlias)
 	m.branchIDs[alias] = branchID
-	ledgerstate.RegisterBranchIDAlias(branchID, alias)
+	branchID.RegisterAlias(alias)
+}
+
+func (m *MessageTestFramework) RegisterTransactionID(alias, messageAlias string) {
+	TxID := m.BranchIDFromMessage(messageAlias)
+	TxID.RegisterAlias(alias)
 }
 
 // BranchID returns the BranchID registered with the given alias.
-func (m *MessageTestFramework) BranchID(alias string) (branchID ledgerstate.BranchID) {
+func (m *MessageTestFramework) BranchID(alias string) (branchID utxo.TransactionID) {
 	branchID, ok := m.branchIDs[alias]
 	if !ok {
 		panic("no branch registered with such alias " + alias)
@@ -89,8 +85,8 @@ func (m *MessageTestFramework) BranchID(alias string) (branchID ledgerstate.Bran
 }
 
 // BranchIDs returns the BranchIDs registered with the given aliases.
-func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs ledgerstate.BranchIDs) {
-	branchIDs = ledgerstate.NewBranchIDs()
+func (m *MessageTestFramework) BranchIDs(aliases ...string) (branchIDs utxo.TransactionIDs) {
+	branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 
 	for _, alias := range aliases {
 		branchID, ok := m.branchIDs[alias]
@@ -164,33 +160,39 @@ func (m *MessageTestFramework) PreventNewMarkers(enabled bool) *MessageTestFrame
 
 // IssueMessages stores the given Messages in the Storage and triggers the processing by the Tangle.
 func (m *MessageTestFramework) IssueMessages(messageAliases ...string) *MessageTestFramework {
-	m.messagesBookedWG.Add(len(messageAliases))
-	m.approvalWeightProcessed.Add(len(messageAliases))
-
 	for _, messageAlias := range messageAliases {
-		m.tangle.Storage.StoreMessage(m.messagesByAlias[messageAlias])
+		currentMessageAlias := messageAlias
+
+		event.Loop.Submit(func() {
+			m.tangle.Storage.StoreMessage(m.messagesByAlias[currentMessageAlias])
+		})
 	}
 
 	return m
 }
 
-// WaitMessagesBooked waits for all Messages to be processed by the Booker.
-func (m *MessageTestFramework) WaitMessagesBooked() *MessageTestFramework {
-	m.messagesBookedWG.Wait()
-
-	return m
-}
-
-// WaitApprovalWeightProcessed waits for all Messages to be processed by the ApprovalWeightManager.
-func (m *MessageTestFramework) WaitApprovalWeightProcessed() *MessageTestFramework {
-	m.approvalWeightProcessed.Wait()
-
+func (m *MessageTestFramework) WaitUntilAllTasksProcessed() (self *MessageTestFramework) {
+	// time.Sleep(100 * time.Millisecond)
+	event.Loop.WaitUntilAllTasksProcessed()
 	return m
 }
 
 // Message retrieves the Messages that is associated with the given alias.
 func (m *MessageTestFramework) Message(alias string) (message *Message) {
-	return m.messagesByAlias[alias]
+	message, ok := m.messagesByAlias[alias]
+	if !ok {
+		panic(fmt.Sprintf("Message alias %s not registered", alias))
+	}
+	return
+}
+
+// Message retrieves the Messages that is associated with the given alias.
+func (m *MessageTestFramework) MessageIDs(aliases ...string) (messageIDs MessageIDs) {
+	messageIDs = NewMessageIDs()
+	for _, alias := range aliases {
+		messageIDs.Add(m.Message(alias).ID())
+	}
+	return
 }
 
 // MessageMetadata retrieves the MessageMetadata that is associated with the given alias.
@@ -203,19 +205,20 @@ func (m *MessageTestFramework) MessageMetadata(alias string) (messageMetadata *M
 }
 
 // TransactionID returns the TransactionID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) TransactionID(messageAlias string) ledgerstate.TransactionID {
+func (m *MessageTestFramework) TransactionID(messageAlias string) utxo.TransactionID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
-	if messagePayload.Type() != ledgerstate.TransactionType {
+	tx, ok := messagePayload.(*devnetvm.Transaction)
+	if !ok {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
 	}
 
-	return messagePayload.(*ledgerstate.Transaction).ID()
+	return tx.ID()
 }
 
 // TransactionMetadata returns the transaction metadata of the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledgerstate.TransactionMetadata) {
-	m.tangle.LedgerState.TransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
+func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta *ledger.TransactionMetadata) {
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(m.TransactionID(messageAlias)).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
 		txMeta = transactionMetadata
 	})
 	return
@@ -223,36 +226,37 @@ func (m *MessageTestFramework) TransactionMetadata(messageAlias string) (txMeta 
 
 // Transaction returns the transaction contained within the given message.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Transaction(messageAlias string) (tx *ledgerstate.Transaction) {
-	m.tangle.LedgerState.Transaction(m.TransactionID(messageAlias)).Consume(func(transaction *ledgerstate.Transaction) {
+func (m *MessageTestFramework) Transaction(messageAlias string) (tx utxo.Transaction) {
+	m.tangle.Ledger.Storage.CachedTransaction(m.TransactionID(messageAlias)).Consume(func(transaction utxo.Transaction) {
 		tx = transaction
 	})
 	return
 }
 
 // OutputMetadata returns the given output metadata.
-func (m *MessageTestFramework) OutputMetadata(outputID ledgerstate.OutputID) (outMeta *ledgerstate.OutputMetadata) {
-	m.tangle.LedgerState.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+func (m *MessageTestFramework) OutputMetadata(outputID utxo.OutputID) (outMeta *ledger.OutputMetadata) {
+	m.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *ledger.OutputMetadata) {
 		outMeta = outputMetadata
 	})
 	return
 }
 
 // BranchIDFromMessage returns the BranchID of the Transaction contained in the Message associated with the given alias.
-func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) ledgerstate.BranchID {
+func (m *MessageTestFramework) BranchIDFromMessage(messageAlias string) utxo.TransactionID {
 	messagePayload := m.messagesByAlias[messageAlias].Payload()
-	if messagePayload.Type() != ledgerstate.TransactionType {
+	tx, ok := messagePayload.(utxo.Transaction)
+	if !ok {
 		panic(fmt.Sprintf("Message with alias '%s' does not contain a Transaction", messageAlias))
 	}
 
-	return ledgerstate.NewBranchID(messagePayload.(*ledgerstate.Transaction).ID())
+	return tx.ID()
 }
 
 // Branch returns the branch emerging from the transaction contained within the given message.
-// This function thus only works on the message creating ledgerstate.Branch.
+// This function thus only works on the message creating ledger.Conflict.
 // Panics if the message's payload isn't a transaction.
-func (m *MessageTestFramework) Branch(messageAlias string) (b *ledgerstate.Branch) {
-	m.tangle.LedgerState.BranchDAG.Branch(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *ledgerstate.Branch) {
+func (m *MessageTestFramework) Branch(messageAlias string) (b *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	m.tangle.Ledger.ConflictDAG.Storage.CachedConflict(m.BranchIDFromMessage(messageAlias)).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		b = branch
 	})
 	return
@@ -264,99 +268,65 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		return
 	}
 
-	genesisOutputs := make(map[ledgerstate.Address]*ledgerstate.ColoredBalances)
-
-	for alias, balance := range m.options.genesisOutputs {
-		addressWallet := createWallets(1)[0]
-
-		m.walletsByAlias[alias] = addressWallet
-		m.walletsByAddress[addressWallet.address] = addressWallet
-
-		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-			ledgerstate.ColorIOTA: balance,
-		})
-	}
-
-	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		addressWallet := createWallets(1)[0]
-		m.walletsByAlias[alias] = addressWallet
-		m.walletsByAddress[addressWallet.address] = addressWallet
-
-		genesisOutputs[addressWallet.address] = ledgerstate.NewColoredBalances(coloredBalances)
-	}
-
-	var outputs []ledgerstate.Output
-	var unspentOutputs []bool
-
-	for address, balance := range genesisOutputs {
-		outputs = append(outputs, ledgerstate.NewSigLockedColoredOutput(balance, address))
-		unspentOutputs = append(unspentOutputs, true)
-	}
-
-	genesisEssence := ledgerstate.NewTransactionEssence(
-		0,
-		time.Now(),
-		identity.ID{},
-		identity.ID{},
-		ledgerstate.NewInputs(ledgerstate.NewUTXOInput(ledgerstate.NewOutputID(ledgerstate.GenesisTransactionID, 0))),
-		ledgerstate.NewOutputs(outputs...),
-	)
-
-	genesisTransaction := ledgerstate.NewTransaction(genesisEssence, ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)})
-
-	snapshot := &ledgerstate.Snapshot{
-		Transactions: map[ledgerstate.TransactionID]ledgerstate.Record{
-			genesisTransaction.ID(): {
-				Essence:        genesisEssence,
-				UnlockBlocks:   ledgerstate.UnlockBlocks{ledgerstate.NewReferenceUnlockBlock(0)},
-				UnspentOutputs: unspentOutputs,
-			},
-		},
-	}
-
-	if err := m.tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
+	manaPledgeID, err := identity.RandomID()
+	if err != nil {
 		panic(err)
 	}
+	manaPledgeTime := time.Now()
 
-	for alias := range m.options.genesisOutputs {
-		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
-				m.outputsByAlias[alias] = output
-				m.outputsByID[addressOutputMapping.OutputID()] = output
-				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(addressOutputMapping.OutputID())
-			})
-		})
+	outputs := utxo.NewOutputs()
+	outputsMetadata := ledger.NewOutputsMetadata()
+
+	for alias, balance := range m.options.genesisOutputs {
+		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+	}
+	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
+		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
 	}
 
-	for alias := range m.options.coloredGenesisOutputs {
-		m.tangle.LedgerState.UTXODAG.CachedAddressOutputMapping(m.walletsByAlias[alias].address).Consume(func(addressOutputMapping *ledgerstate.AddressOutputMapping) {
-			m.tangle.LedgerState.UTXODAG.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output ledgerstate.Output) {
-				m.outputsByAlias[alias] = output
-				m.outputsByID[addressOutputMapping.OutputID()] = output
-			})
-		})
-	}
+	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
+}
+
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
+	addressWallet := createWallets(1)[0]
+	m.walletsByAlias[alias] = addressWallet
+	m.walletsByAddress[addressWallet.address] = addressWallet
+
+	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
+	outputs.Add(output)
+
+	outputMetadata := ledger.NewOutputMetadata(output.ID())
+	outputMetadata.SetGradeOfFinality(gof.High)
+	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
+	outputMetadata.SetCreationTime(manaPledgeTime)
+	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
+	outputsMetadata.Add(outputMetadata)
+
+	m.outputsByAlias[alias] = output
+	m.outputsByID[output.ID()] = output
+	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
 }
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
 // no Transaction related MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *ledgerstate.Transaction) {
+func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMessageOptions) (transaction *devnetvm.Transaction) {
 	if len(options.inputs) == 0 || len(options.outputs) == 0 {
 		return
 	}
 
-	inputs := make([]ledgerstate.Input, 0)
+	inputs := make([]devnetvm.Input, 0)
 	for inputAlias := range options.inputs {
 		inputs = append(inputs, m.inputsByAlias[inputAlias])
 	}
 
-	outputs := make([]ledgerstate.Output, 0)
+	outputs := make([]devnetvm.Output, 0)
 	for alias, balance := range options.outputs {
 		addressWallet := createWallets(1)[0]
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
-		m.outputsByAlias[alias] = ledgerstate.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address)
+		m.outputsByAlias[alias] = devnetvm.NewSigLockedSingleOutput(balance, m.walletsByAlias[alias].address)
 
 		outputs = append(outputs, m.outputsByAlias[alias])
 	}
@@ -365,19 +335,19 @@ func (m *MessageTestFramework) buildTransaction(options *MessageTestFrameworkMes
 		m.walletsByAlias[alias] = addressWallet
 		m.walletsByAddress[addressWallet.address] = addressWallet
 
-		m.outputsByAlias[alias] = ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(balances), m.walletsByAlias[alias].address)
+		m.outputsByAlias[alias] = devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(balances), m.walletsByAlias[alias].address)
 
 		outputs = append(outputs, m.outputsByAlias[alias])
 	}
 
-	transaction = makeTransaction(ledgerstate.NewInputs(inputs...), ledgerstate.NewOutputs(outputs...), m.outputsByID, m.walletsByAddress)
+	transaction = makeTransaction(devnetvm.NewInputs(inputs...), devnetvm.NewOutputs(outputs...), m.outputsByID, m.walletsByAddress)
 	for outputIndex, output := range transaction.Essence().Outputs() {
 		for alias, aliasedOutput := range m.outputsByAlias {
 			if aliasedOutput == output {
-				output.SetID(ledgerstate.NewOutputID(transaction.ID(), uint16(outputIndex)))
+				output.SetID(utxo.NewOutputID(transaction.ID(), uint16(outputIndex)))
 
 				m.outputsByID[output.ID()] = output
-				m.inputsByAlias[alias] = ledgerstate.NewUTXOInput(output.ID())
+				m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
 
 				break
 			}
@@ -433,14 +403,14 @@ func (m *MessageTestFramework) parentIDsByMessageAlias(parentAliases map[string]
 // MessageTestFramework.
 type MessageTestFrameworkOptions struct {
 	genesisOutputs        map[string]uint64
-	coloredGenesisOutputs map[string]map[ledgerstate.Color]uint64
+	coloredGenesisOutputs map[string]map[devnetvm.Color]uint64
 }
 
 // NewMessageTestFrameworkOptions is the constructor for the MessageTestFrameworkOptions.
 func NewMessageTestFrameworkOptions(options ...MessageTestFrameworkOption) (frameworkOptions *MessageTestFrameworkOptions) {
 	frameworkOptions = &MessageTestFrameworkOptions{
 		genesisOutputs:        make(map[string]uint64),
-		coloredGenesisOutputs: make(map[string]map[ledgerstate.Color]uint64),
+		coloredGenesisOutputs: make(map[string]map[devnetvm.Color]uint64),
 	}
 
 	for _, option := range options {
@@ -471,7 +441,7 @@ func WithGenesisOutput(alias string, balance uint64) MessageTestFrameworkOption 
 
 // WithColoredGenesisOutput returns a MessageTestFrameworkOption that defines a genesis Output that is loaded as part of
 // the initial snapshot and that supports colored coins.
-func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint64) MessageTestFrameworkOption {
+func WithColoredGenesisOutput(alias string, balances map[devnetvm.Color]uint64) MessageTestFrameworkOption {
 	return func(options *MessageTestFrameworkOptions) {
 		if _, exists := options.genesisOutputs[alias]; exists {
 			panic(fmt.Sprintf("duplicate genesis output alias (%s)", alias))
@@ -493,7 +463,7 @@ func WithColoredGenesisOutput(alias string, balances map[ledgerstate.Color]uint6
 type MessageTestFrameworkMessageOptions struct {
 	inputs                   map[string]types.Empty
 	outputs                  map[string]uint64
-	coloredOutputs           map[string]map[ledgerstate.Color]uint64
+	coloredOutputs           map[string]map[devnetvm.Color]uint64
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
 	shallowLikeParents       map[string]types.Empty
@@ -544,7 +514,7 @@ func WithOutput(alias string, balance uint64) MessageOption {
 }
 
 // WithColoredOutput returns a MessageOption that is used to define a colored Output for the Transaction in the Message.
-func WithColoredOutput(alias string, balances map[ledgerstate.Color]uint64) MessageOption {
+func WithColoredOutput(alias string, balances map[devnetvm.Color]uint64) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.coloredOutputs[alias] = balances
 	}
@@ -625,6 +595,30 @@ func nextSequenceNumber() uint64 {
 	return atomic.AddUint64(&_sequenceNumber, 1) - 1
 }
 
+func randomTransactionID() (randomTransactionID utxo.TransactionID) {
+	if err := randomTransactionID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomTransactionID
+}
+
+func randomBranchID() (randomBranchID utxo.TransactionID) {
+	if err := randomBranchID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomBranchID
+}
+
+func randomConflictID() (randomConflictID utxo.OutputID) {
+	if err := randomConflictID.FromRandomness(); err != nil {
+		panic(err)
+	}
+
+	return randomConflictID
+}
+
 func newTestNonceMessage(nonce uint64) *Message {
 	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
 		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{})
@@ -694,7 +688,7 @@ func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMess
 
 type wallet struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (w wallet) privateKey() ed25519.PrivateKey {
@@ -711,34 +705,34 @@ func createWallets(n int) []wallet {
 		kp := ed25519.GenerateKeyPair()
 		wallets[i] = wallet{
 			kp,
-			ledgerstate.NewED25519Address(kp.PublicKey),
+			devnetvm.NewED25519Address(kp.PublicKey),
 		}
 	}
 	return wallets
 }
 
-func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+func (w wallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }
 
 // addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
 // the tests.
-func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsByID) ledgerstate.Address {
-	typeCastedInput, ok := input.(*ledgerstate.UTXOInput)
+func addressFromInput(input devnetvm.Input, outputsByID devnetvm.OutputsByID) devnetvm.Address {
+	typeCastedInput, ok := input.(*devnetvm.UTXOInput)
 	if !ok {
 		panic("unexpected Input type")
 	}
 
 	switch referencedOutput := outputsByID[typeCastedInput.ReferencedOutputID()]; referencedOutput.Type() {
-	case ledgerstate.SigLockedSingleOutputType:
-		typeCastedOutput, ok := referencedOutput.(*ledgerstate.SigLockedSingleOutput)
+	case devnetvm.SigLockedSingleOutputType:
+		typeCastedOutput, ok := referencedOutput.(*devnetvm.SigLockedSingleOutput)
 		if !ok {
 			panic("failed to type cast SigLockedSingleOutput")
 		}
 
 		return typeCastedOutput.Address()
-	case ledgerstate.SigLockedColoredOutputType:
-		typeCastedOutput, ok := referencedOutput.(*ledgerstate.SigLockedColoredOutput)
+	case devnetvm.SigLockedColoredOutputType:
+		typeCastedOutput, ok := referencedOutput.(*devnetvm.SigLockedColoredOutput)
 		if !ok {
 			panic("failed to type cast SigLockedColoredOutput")
 		}
@@ -748,9 +742,9 @@ func addressFromInput(input ledgerstate.Input, outputsByID ledgerstate.OutputsBy
 	}
 }
 
-func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, outputsByID map[ledgerstate.OutputID]ledgerstate.Output, walletsByAddress map[ledgerstate.Address]wallet, genesisWallet ...wallet) *ledgerstate.Transaction {
-	txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
-	unlockBlocks := make([]ledgerstate.UnlockBlock, len(txEssence.Inputs()))
+func makeTransaction(inputs devnetvm.Inputs, outputs devnetvm.Outputs, outputsByID map[utxo.OutputID]devnetvm.Output, walletsByAddress map[devnetvm.Address]wallet, genesisWallet ...wallet) *devnetvm.Transaction {
+	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, inputs, outputs)
+	unlockBlocks := make([]devnetvm.UnlockBlock, len(txEssence.Inputs()))
 	for i, input := range txEssence.Inputs() {
 		w := wallet{}
 		if genesisWallet != nil {
@@ -758,14 +752,14 @@ func makeTransaction(inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, out
 		} else {
 			w = walletsByAddress[addressFromInput(input, outputsByID)]
 		}
-		unlockBlocks[i] = ledgerstate.NewSignatureUnlockBlock(w.sign(txEssence))
+		unlockBlocks[i] = devnetvm.NewSignatureUnlockBlock(w.sign(txEssence))
 	}
-	return ledgerstate.NewTransaction(txEssence, unlockBlocks)
+	return devnetvm.NewTransaction(txEssence, unlockBlocks)
 }
 
-func selectIndex(transaction *ledgerstate.Transaction, w wallet) (index uint16) {
+func selectIndex(transaction *devnetvm.Transaction, w wallet) (index uint16) {
 	for i, output := range transaction.Essence().Outputs() {
-		if w.address == output.(*ledgerstate.SigLockedSingleOutput).Address() {
+		if w.address == output.(*devnetvm.SigLockedSingleOutput).Address() {
 			return uint16(i)
 		}
 	}
@@ -826,7 +820,7 @@ func NewTestTangle(options ...Option) *Tangle {
 		t.WeightProvider = &MockWeightProvider{}
 	}
 
-	t.Events.Error.Attach(events.NewClosure(func(e error) {
+	t.Events.Error.Hook(event.NewClosure(func(e error) {
 		fmt.Println(e)
 	}))
 
@@ -854,27 +848,23 @@ func (m *MockConfirmationOracle) IsMessageConfirmed(msgID MessageID) bool {
 }
 
 // IsBranchConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsBranchConfirmed(branchID ledgerstate.BranchID) bool {
+func (m *MockConfirmationOracle) IsBranchConfirmed(branchID utxo.TransactionID) bool {
 	return false
 }
 
 // IsTransactionConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID ledgerstate.TransactionID) bool {
-	return false
+func (m *MockConfirmationOracle) IsTransactionConfirmed(transactionID utxo.TransactionID) bool {
+	return transactionID == utxo.EmptyTransactionID
 }
 
 // IsOutputConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsOutputConfirmed(outputID ledgerstate.OutputID) bool {
+func (m *MockConfirmationOracle) IsOutputConfirmed(outputID utxo.OutputID) bool {
 	return false
 }
 
 // Events mocks its interface function.
 func (m *MockConfirmationOracle) Events() *ConfirmationEvents {
-	return &ConfirmationEvents{
-		MessageConfirmed:     events.NewEvent(nil),
-		TransactionConfirmed: events.NewEvent(nil),
-		BranchConfirmed:      events.NewEvent(nil),
-	}
+	return NewConfirmationEvents()
 }
 
 // MockWeightProvider is a mock of a WeightProvider.
@@ -900,34 +890,35 @@ func (m *MockWeightProvider) Shutdown() {
 
 // SimpleMockOnTangleVoting is mock of OTV mechanism.
 type SimpleMockOnTangleVoting struct {
-	likedConflictMember map[ledgerstate.BranchID]LikedConflictMembers
+	likedConflictMember map[utxo.TransactionID]LikedConflictMembers
 }
 
-// LikedConflictMembers is a struct that holds information about which Branch is the liked one out of a set of
+// LikedConflictMembers is a struct that holds information about which Conflict is the liked one out of a set of
 // ConflictMembers.
 type LikedConflictMembers struct {
-	likedBranch     ledgerstate.BranchID
-	conflictMembers ledgerstate.BranchIDs
+	likedBranch     utxo.TransactionID
+	conflictMembers utxo.TransactionIDs
 }
 
 // LikedConflictMember returns branches that are liked instead of a disliked branch as predefined.
-func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID ledgerstate.BranchID) (likedBranchID ledgerstate.BranchID, conflictMembers ledgerstate.BranchIDs) {
+func (o *SimpleMockOnTangleVoting) LikedConflictMember(branchID utxo.TransactionID) (likedBranchID utxo.TransactionID, conflictMembers utxo.TransactionIDs) {
 	likedConflictMembers := o.likedConflictMember[branchID]
-	innerConflictMembers := likedConflictMembers.conflictMembers.Clone().Subtract(ledgerstate.NewBranchIDs(branchID))
+	innerConflictMembers := likedConflictMembers.conflictMembers.Clone()
+	innerConflictMembers.Delete(branchID)
 
 	return likedConflictMembers.likedBranch, innerConflictMembers
 }
 
 // BranchLiked returns whether the branch is the winner across all conflict sets (it is in the liked reality).
-func (o *SimpleMockOnTangleVoting) BranchLiked(branchID ledgerstate.BranchID) (branchLiked bool) {
+func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (branchLiked bool) {
 	likedConflictMembers, ok := o.likedConflictMember[branchID]
 	if !ok {
 		return false
 	}
-	return likedConflictMembers.conflictMembers.Contains(branchID)
+	return likedConflictMembers.conflictMembers.Has(branchID)
 }
 
-func emptyLikeReferences(parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
+func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
 	return emptyLikeReferencesFromStrongParents(parents), nil, nil
 }
 
@@ -943,8 +934,8 @@ type EventMock struct {
 	test           *testing.T
 
 	attached []struct {
-		*events.Event
-		*events.Closure
+		*event.Event[*MessageProcessedEvent]
+		*event.Closure[*MessageProcessedEvent]
 	}
 }
 
@@ -953,17 +944,15 @@ func NewEventMock(t *testing.T, approvalWeightManager *ApprovalWeightManager) *E
 	e := &EventMock{
 		test: t,
 	}
-	e.Test(t)
-
-	approvalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(e.BranchWeightChanged))
-	approvalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(e.MarkerWeightChanged))
 
 	// attach all events
-	e.attach(approvalWeightManager.Events.MessageProcessed, e.MessageProcessed)
+	approvalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(e.BranchWeightChanged))
+	approvalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(e.MarkerWeightChanged))
+	approvalWeightManager.Events.MessageProcessed.Hook(event.NewClosure(e.MessageProcessed))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(approvalWeightManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+3, numEvents, "not all events in ApprovalWeightManager.Events have been attached")
 
 	return e
 }
@@ -979,15 +968,6 @@ func (e *EventMock) DetachAll() {
 func (e *EventMock) Expect(eventName string, arguments ...interface{}) {
 	e.On(eventName, arguments...)
 	atomic.AddUint64(&e.expectedEvents, 1)
-}
-
-func (e *EventMock) attach(event *events.Event, f interface{}) {
-	closure := events.NewClosure(f)
-	event.Attach(closure)
-	e.attached = append(e.attached, struct {
-		*events.Event
-		*events.Closure
-	}{event, closure})
 }
 
 // AssertExpectations asserts expectations.
@@ -1024,8 +1004,8 @@ func (e *EventMock) MarkerWeightChanged(event *MarkerWeightChangedEvent) {
 }
 
 // MessageProcessed is the mocked MessageProcessed function.
-func (e *EventMock) MessageProcessed(messageID MessageID) {
-	e.Called(messageID)
+func (e *EventMock) MessageProcessed(event *MessageProcessedEvent) {
+	e.Called(event.MessageID)
 
 	atomic.AddUint64(&e.calledEvents, 1)
 }

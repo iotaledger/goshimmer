@@ -20,7 +20,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -264,7 +265,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 				msg.ObjectStorageValue()
 			})
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "max count of elements within the array exceeded")
 	})
 
@@ -284,7 +285,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 				msg.ObjectStorageValue()
 			})
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
@@ -306,7 +307,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorContains(t, err, "min count of elements within the array not reached")
 	})
 
@@ -333,7 +334,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		msgBytes[2] = byte(WeakParentType)
 		msgBytes[36] = byte(StrongParentType)
 
-		_, err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
 
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 	})
@@ -362,7 +363,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		msgBytes[2] = byte(WeakParentType)
 
-		_, err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = new(Message).FromObjectStorage(msg.IDBytes(), msgBytes)
 
 		assert.ErrorContains(t, err, "array elements must be unique")
 	})
@@ -393,7 +394,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorIs(t, err, ErrBlockTypeIsUnknown)
 	})
 
@@ -417,7 +418,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		copy(msgBytes[4:36], msgBytes[36:36+32])
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
 		assert.ErrorContains(t, err, "array elements must be unique")
 
 		_, err = newMessageWithValidation(
@@ -436,7 +437,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		// replace parents in byte structure
 		copy(msgBytes[4:36], msgBytes[36+32:36+64])
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
+		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
 		assert.ErrorContains(t, err, "array elements must be in their lexical order (byte wise)")
 		// if the duplicates are not consecutive a lexicographically order error is returned
 	})
@@ -464,7 +465,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "strong and like parents may have duplicate parents")
 
 		parentBlocks = NewParentMessageIDs()
@@ -488,10 +489,10 @@ func TestNewMessageWithValidation(t *testing.T) {
 		},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
 
-		//check for repeating message across weak and dislike block
+		// check for repeating message across weak and dislike block
 		weakParents := testSortParents(randomParents(4))
 		dislikeParents := randomParents(4).Slice()
 		// create duplicate
@@ -519,7 +520,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			},
 		)
 
-		_, err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
+		err = msg.FromObjectStorage(msg.IDBytes(), msg.Bytes())
 		assert.ErrorIs(t, err, ErrConflictingReferenceAcrossBlocks)
 	})
 }
@@ -696,7 +697,7 @@ func TestMessageFromBytes(t *testing.T) {
 		assert.Equal(t, msg.Version(), result.Version())
 		assert.Equal(t, msg.ParentsByType(StrongParentType), result.ParentsByType(StrongParentType))
 		assert.Equal(t, msg.ParentsByType(WeakParentType), result.ParentsByType(WeakParentType))
-		assert.Equal(t, msg.Parents, result.Parents)
+		assert.ElementsMatch(t, msg.Parents(), result.Parents())
 		assert.Equal(t, msg.IssuerPublicKey(), result.IssuerPublicKey())
 		// time is in different representation but it denotes the same time
 		assert.True(t, msg.IssuingTime().Equal(result.IssuingTime()))
@@ -808,29 +809,29 @@ func createTestMsgBytes(numStrongParents int, numWeakParents int) []byte {
 // 	})
 // }
 
-func randomTransaction() *ledgerstate.Transaction {
+func randomTransaction() *devnetvm.Transaction {
 	ID, _ := identity.RandomID()
-	input := ledgerstate.NewUTXOInput(ledgerstate.EmptyOutputID)
-	var outputs ledgerstate.Outputs
+	input := devnetvm.NewUTXOInput(utxo.EmptyOutputID)
+	var outputs devnetvm.Outputs
 	seed := ed25519.NewSeed()
 	w := wl{
 		keyPair: *seed.KeyPair(0),
-		address: ledgerstate.NewED25519Address(seed.KeyPair(0).PublicKey),
+		address: devnetvm.NewED25519Address(seed.KeyPair(0).PublicKey),
 	}
-	output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-		ledgerstate.ColorIOTA: uint64(100),
+	output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+		devnetvm.ColorIOTA: uint64(100),
 	}), w.address)
 	outputs = append(outputs, output)
-	essence := ledgerstate.NewTransactionEssence(0, time.Now(), ID, ID, ledgerstate.NewInputs(input), outputs)
+	essence := devnetvm.NewTransactionEssence(0, time.Now(), ID, ID, devnetvm.NewInputs(input), outputs)
 
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(w.sign(essence))
 
-	return ledgerstate.NewTransaction(essence, ledgerstate.UnlockBlocks{unlockBlock})
+	return devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{unlockBlock})
 }
 
 type wl struct {
 	keyPair ed25519.KeyPair
-	address *ledgerstate.ED25519Address
+	address *devnetvm.ED25519Address
 }
 
 func (w wl) privateKey() ed25519.PrivateKey {
@@ -841,6 +842,6 @@ func (w wl) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
 
-func (w wl) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+func (w wl) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
 }

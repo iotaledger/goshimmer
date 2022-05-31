@@ -24,7 +24,8 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -220,12 +221,22 @@ func (id MessageID) String() string {
 		return "MessageID(EmptyMessageID)"
 	}
 
-	if messageIDAlias, exists := messageIDAliases[id]; exists {
+	if messageIDAlias, exists := getMessageAlias(id); exists {
 		return "MessageID(" + messageIDAlias + ")"
 	}
 
 	return "MessageID(" + base58.Encode(id[:]) + ")"
 }
+
+func getMessageAlias(id MessageID) (string, bool) {
+	messageIDAliasMutex.RLock()
+	defer messageIDAliasMutex.RUnlock()
+
+	alias, exists := messageIDAliases[id]
+	return alias, exists
+}
+
+var messageIDAliasMutex sync.RWMutex
 
 // messageIDAliases contains a list of aliases registered for a set of MessageIDs.
 var messageIDAliases = make(map[MessageID]string)
@@ -233,12 +244,30 @@ var messageIDAliases = make(map[MessageID]string)
 // RegisterMessageIDAlias registers an alias that will modify the String() output of the MessageID to show a human
 // readable string instead of the base58 encoded Version of itself.
 func RegisterMessageIDAlias(messageID MessageID, alias string) {
+	messageIDAliasMutex.Lock()
+	defer messageIDAliasMutex.Unlock()
+
 	messageIDAliases[messageID] = alias
 }
 
 // UnregisterMessageIDAliases removes all aliases registered through the RegisterMessageIDAlias function.
 func UnregisterMessageIDAliases() {
+	messageIDAliasMutex.Lock()
+	defer messageIDAliasMutex.Unlock()
+
 	messageIDAliases = make(map[MessageID]string)
+}
+
+func MessageIDFromContext(ctx context.Context) MessageID {
+	messageID, ok := ctx.Value("messageID").(MessageID)
+	if !ok {
+		return EmptyMessageID
+	}
+	return messageID
+}
+
+func MessageIDToContext(ctx context.Context, messageID MessageID) context.Context {
+	return context.WithValue(ctx, "messageID", messageID)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -422,7 +451,7 @@ func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time
 }
 
 // FromObjectStorage creates a Message from sequences of key and bytes.
-func (m *Message) FromObjectStorage(key, value []byte) (result objectstorage.StorableObject, err error) {
+func (m *Message) FromObjectStorage(key, value []byte) (err error) {
 	// parse the message
 	message, err := m.FromBytes(value)
 	if err != nil {
@@ -436,17 +465,16 @@ func (m *Message) FromObjectStorage(key, value []byte) (result objectstorage.Sto
 		return
 	}
 	message.messageInner.id = messageID
-	result = message
 
 	return
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytes(data []byte) (*Message, error) {
-	msg := new(Message)
-	if m != nil {
-		msg = m
+func (m *Message) FromBytes(data []byte) (msg *Message, err error) {
+	if msg = m; msg == nil {
+		msg = new(Message)
 	}
+
 	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, msg, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Message: %w", err)
@@ -457,11 +485,12 @@ func (m *Message) FromBytes(data []byte) (*Message, error) {
 		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
 	}
 
+	// TODO: this seems a bit out of place here.
 	msgPayload := msg.Payload()
-	if msgPayload != nil && msgPayload.Type() == ledgerstate.TransactionType {
-		transaction := msgPayload.(*ledgerstate.Transaction)
+	if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
+		tx := msgPayload.(*devnetvm.Transaction)
 
-		ledgerstate.SetOutputID(transaction.Essence(), transaction.ID())
+		devnetvm.SetOutputID(tx.Essence(), tx.ID())
 	}
 
 	return msg, err
@@ -514,7 +543,7 @@ func (m *Message) Version() uint8 {
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	if parents, ok := m.Parents[parentType]; ok {
+	if parents, ok := m.messageInner.Parents[parentType]; ok {
 		return parents
 	}
 	return NewMessageIDs()
@@ -522,7 +551,7 @@ func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for parentType, parents := range m.Parents {
+	for parentType, parents := range m.messageInner.Parents {
 		for parentID := range parents {
 			consumer(Parent{
 				Type: parentType,
@@ -530,6 +559,13 @@ func (m *Message) ForEachParent(consumer func(parent Parent)) {
 			})
 		}
 	}
+}
+
+func (m *Message) Parents() (parents []MessageID) {
+	m.ForEachParent(func(parent Parent) {
+		parents = append(parents, parent.ID)
+	})
+	return
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.
@@ -754,8 +790,8 @@ type messageMetadataInner struct {
 	SolidificationTime  time.Time                 `serix:"2"`
 	Solid               bool                      `serix:"3"`
 	StructureDetails    *markers.StructureDetails `serix:"4,optional"`
-	AddedBranchIDs      ledgerstate.BranchIDs     `serix:"5"`
-	SubtractedBranchIDs ledgerstate.BranchIDs     `serix:"6"`
+	AddedBranchIDs      utxo.TransactionIDs       `serix:"5"`
+	SubtractedBranchIDs utxo.TransactionIDs       `serix:"6"`
 	Scheduled           bool                      `serix:"7"`
 	ScheduledTime       time.Time                 `serix:"8"`
 	Booked              bool                      `serix:"9"`
@@ -790,41 +826,39 @@ func NewMessageMetadata(messageID MessageID) *MessageMetadata {
 		messageMetadataInner{
 			MessageID:           messageID,
 			ReceivedTime:        clock.SyncedTime(),
-			AddedBranchIDs:      ledgerstate.NewBranchIDs(),
-			SubtractedBranchIDs: ledgerstate.NewBranchIDs(),
+			AddedBranchIDs:      utxo.NewTransactionIDs(),
+			SubtractedBranchIDs: utxo.NewTransactionIDs(),
 		},
 	}
 }
 
 // FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
+func (m *MessageMetadata) FromObjectStorage(key, value []byte) error {
+	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
 	if err != nil {
-		err = fmt.Errorf("failed to parse message metadata from object storage: %w", err)
+		return fmt.Errorf("failed to parse message metadata from object storage: %w", err)
 	}
-	return result, err
+	return nil
 }
 
 // FromBytes unmarshals the given bytes into a MessageMetadata.
 func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
-	msgMetadata := new(MessageMetadata)
-	if m != nil {
-		msgMetadata = m
+	if result = m; result == nil {
+		result = new(MessageMetadata)
 	}
 	messageID := new(MessageID)
 	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, messageID, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
-		return msgMetadata, err
+		return nil, errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
 	}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], msgMetadata, serix.WithValidation())
+	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
 	if err != nil {
-		err = errors.Errorf("failed to parse MessageMetadata: %w", err)
-		return msgMetadata, err
+		return nil, errors.Errorf("failed to parse MessageMetadata: %w", err)
 	}
-	msgMetadata.messageMetadataInner.MessageID = *messageID
-	return msgMetadata, err
+
+	result.messageMetadataInner.MessageID = *messageID
+	return result, nil
 }
 
 // ID returns the MessageID of the Message that this MessageMetadata object belongs to.
@@ -906,11 +940,11 @@ func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs utxo.TransactionIDs) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Equals(addedBranchIDs) {
+	if m.messageMetadataInner.AddedBranchIDs.Equal(addedBranchIDs) {
 		return false
 	}
 
@@ -922,11 +956,11 @@ func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs ledgerstate.BranchIDs
 }
 
 // AddBranchID sets the BranchIDs of the added Branches.
-func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified bool) {
+func (m *MessageMetadata) AddBranchID(branchID utxo.TransactionID) (modified bool) {
 	m.addedBranchIDsMutex.Lock()
 	defer m.addedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Contains(branchID) {
+	if m.messageMetadataInner.AddedBranchIDs.Has(branchID) {
 		return
 	}
 
@@ -936,7 +970,7 @@ func (m *MessageMetadata) AddBranchID(branchID ledgerstate.BranchID) (modified b
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
-func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
+func (m *MessageMetadata) AddedBranchIDs() utxo.TransactionIDs {
 	m.addedBranchIDsMutex.RLock()
 	defer m.addedBranchIDsMutex.RUnlock()
 
@@ -944,11 +978,11 @@ func (m *MessageMetadata) AddedBranchIDs() ledgerstate.BranchIDs {
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
-func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate.BranchIDs) (modified bool) {
+func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs utxo.TransactionIDs) (modified bool) {
 	m.subtractedBranchIDsMutex.Lock()
 	defer m.subtractedBranchIDsMutex.Unlock()
 
-	if m.messageMetadataInner.SubtractedBranchIDs.Equals(subtractedBranchIDs) {
+	if m.messageMetadataInner.SubtractedBranchIDs.Equal(subtractedBranchIDs) {
 		return false
 	}
 
@@ -960,7 +994,7 @@ func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs ledgerstate
 }
 
 // SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
-func (m *MessageMetadata) SubtractedBranchIDs() ledgerstate.BranchIDs {
+func (m *MessageMetadata) SubtractedBranchIDs() utxo.TransactionIDs {
 	m.subtractedBranchIDsMutex.RLock()
 	defer m.subtractedBranchIDsMutex.RUnlock()
 

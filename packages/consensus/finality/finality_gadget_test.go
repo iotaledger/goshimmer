@@ -1,15 +1,20 @@
 package finality
 
 import (
+	"fmt"
+	"runtime/debug"
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -24,7 +29,7 @@ const (
 )
 
 var (
-	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID ledgerstate.BranchID, aw float64) gof.GradeOfFinality {
+	TestBranchGoFTranslation BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
 		switch {
 		case aw >= testingLowBound && aw < testingMediumBound:
 			return gof.Low
@@ -55,29 +60,35 @@ func (handler *EventHandlerMock) MessageConfirmed(msgID tangle.MessageID) {
 	handler.Called(msgID)
 }
 
-func (handler *EventHandlerMock) BranchConfirmed(branchID ledgerstate.BranchID) {
+func (handler *EventHandlerMock) BranchConfirmed(branchID utxo.TransactionID) {
 	handler.Called(branchID)
 }
 
-func (handler *EventHandlerMock) TransactionConfirmed(txID ledgerstate.TransactionID) {
+func (handler *EventHandlerMock) TransactionConfirmed(txID utxo.TransactionID) {
 	handler.Called(txID)
 }
 
-func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget) {
-	fg.Events().MessageConfirmed.Attach(events.NewClosure(handler.MessageConfirmed))
-	fg.Events().BranchConfirmed.Attach(events.NewClosure(handler.BranchConfirmed))
-	fg.Events().TransactionConfirmed.Attach(events.NewClosure(handler.TransactionConfirmed))
+func (handler *EventHandlerMock) WireUpFinalityGadget(fg Gadget, tangleInstance *tangle.Tangle) {
+	fg.Events().MessageConfirmed.Hook(event.NewClosure(func(event *tangle.MessageConfirmedEvent) { handler.MessageConfirmed(event.Message.ID()) }))
+	tangleInstance.Ledger.ConflictDAG.Events.BranchConfirmed.Hook(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		handler.BranchConfirmed(event.BranchID)
+	}))
+	tangleInstance.Ledger.Events.TransactionConfirmed.Hook(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) { handler.TransactionConfirmed(event.TransactionID) }))
 }
 
 func TestSimpleFinalityGadget(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario(t)
+	processMsgScenario := tangle.ProcessMessageScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
+		if err := recover(); err != nil {
+			t.Error(err)
+			fmt.Println(string(debug.Stack()))
+			return
+		}
+
 		if err := processMsgScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
 	}(processMsgScenario, t)
-
-	processMsgScenario.Tangle.Configure(tangle.MergeBranches(false))
 
 	testOpts := []Option{
 		WithBranchThresholdTranslation(TestBranchGoFTranslation),
@@ -88,7 +99,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 	wireUpEvents(t, processMsgScenario.Tangle, sfg)
 
 	eventHandlerMock := &EventHandlerMock{}
-	eventHandlerMock.WireUpFinalityGadget(sfg)
+	eventHandlerMock.WireUpFinalityGadget(sfg, processMsgScenario.Tangle)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
 		// Message1
@@ -161,12 +172,10 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message6"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message5"},
-					gof.None:   {"Message6"},
+					gof.None: {"Message5", "Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.Medium: {"Message5"},
-					gof.None:   {"Message6"},
+					gof.None: {"Message5", "Message6"},
 				})
 			},
 		},
@@ -189,8 +198,7 @@ func TestSimpleFinalityGadget(t *testing.T) {
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
 					gof.High: {"Message5"},
-					gof.Low:  {"Message7"},
-					gof.None: {"Message6"},
+					gof.None: {"Message6", "Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -228,12 +236,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message6", "Message8"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5"},
-					gof.Medium: {"Message6"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message7"},
-					gof.Medium: {"Message6"},
+					gof.High: {"Message5", "Message7"},
+					gof.None: {"Message6"},
 				})
 			},
 		},
@@ -251,14 +259,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5", "Message7"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5", "Message7"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -273,14 +279,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message6"},
-					gof.Medium: {},
-					gof.Low:    {"Message5", "Message7"},
+					gof.High: {"Message6"},
+					gof.None: {"Message5", "Message7"},
 				})
 			},
 		},
@@ -295,14 +299,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 				})
 				// AW swaps back from msg6's branch to 5's, msg 7/11 (pun intended) new conflict set
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5"},
-					gof.Medium: {"Message6", "Message11"},
-					gof.Low:    {"Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5"},
-					gof.Medium: {"Message6", "Message11"},
-					gof.Low:    {"Message7"},
+					gof.High: {"Message5"},
+					gof.None: {"Message6", "Message7", "Message11"},
 				})
 			},
 		},
@@ -320,14 +322,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message11", "Message12"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7", "Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message7", "Message6"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7", "Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message7", "Message6"},
 				})
 				eventHandlerMock.AssertExpectations(t)
 			},
@@ -342,16 +342,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message11", "Message12", "Message13"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7"},
-					gof.None:   {"Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message6", "Message7"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7"},
-					gof.None:   {"Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message6", "Message7"},
 				})
 			},
 		},
@@ -365,16 +361,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 					gof.None:   {"Message10", "Message14"},
 				})
 				assertBranchsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7"},
-					gof.None:   {"Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message6", "Message7"},
 				})
 				assertTxsGoFs(t, testFramework, map[gof.GradeOfFinality][]string{
-					gof.High:   {"Message5", "Message11"},
-					gof.Medium: {},
-					gof.Low:    {"Message7"},
-					gof.None:   {"Message6"},
+					gof.High: {"Message5", "Message11"},
+					gof.None: {"Message6", "Message7"},
 				})
 			},
 		},
@@ -389,14 +381,12 @@ func TestSimpleFinalityGadget(t *testing.T) {
 }
 
 func TestWeakVsStrongParentWalk(t *testing.T) {
-	processMsgScenario := tangle.ProcessMessageScenario2(t)
+	processMsgScenario := tangle.ProcessMessageScenario2(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	defer func(processMsgScenario *tangle.TestScenario, t *testing.T) {
 		if err := processMsgScenario.Cleanup(t); err != nil {
 			require.NoError(t, err)
 		}
 	}(processMsgScenario, t)
-
-	processMsgScenario.Tangle.Configure(tangle.MergeBranches(false))
 
 	testOpts := []Option{
 		WithBranchThresholdTranslation(TestBranchGoFTranslation),
@@ -480,7 +470,7 @@ func assertTxsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework, exp
 			actualGradeOfFinality := txMeta.GradeOfFinality()
 			assert.Equal(t, expectedGoF, actualGradeOfFinality, "expected tx %s (via msg %s) GoF to be %s but is %s", txMeta.ID(), msgAlias, expectedGoF, actualGradeOfFinality)
 			// auto. also check outputs
-			for _, output := range testFramework.Transaction(msgAlias).Essence().Outputs() {
+			for _, output := range testFramework.Transaction(msgAlias).(*devnetvm.Transaction).Essence().Outputs() {
 				outputGoF := testFramework.OutputMetadata(output.ID()).GradeOfFinality()
 				assert.Equal(t, expectedGoF, outputGoF, "expected also tx output %s (via msg %s) GoF to be %s but is %s", output.ID(), msgAlias, expectedGoF, outputGoF)
 			}
@@ -499,12 +489,12 @@ func assertBranchsGoFs(t *testing.T, testFramework *tangle.MessageTestFramework,
 }
 
 func wireUpEvents(t *testing.T, testTangle *tangle.Tangle, fg Gadget) {
-	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Attach(events.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.MarkerWeightChanged.Hook(event.NewClosure(func(e *tangle.MarkerWeightChangedEvent) {
 		if err := fg.HandleMarker(e.Marker, e.Weight); err != nil {
 			t.Log(err)
 		}
 	}))
-	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+	testTangle.ApprovalWeightManager.Events.BranchWeightChanged.Hook(event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
 		if err := fg.HandleBranch(e.BranchID, e.Weight); err != nil {
 			t.Log(err)
 		}

@@ -99,7 +99,7 @@ func (c *Connector) dial() {
 			return
 		}
 		c.conn = network.NewManagedConnection(conn)
-		c.conn.Events.Close.Attach(event.NewClosure(func(event *network.CloseEvent) {
+		c.conn.Events.Close.Hook(event.NewClosure(func(event *network.CloseEvent) {
 			c.dial()
 		}))
 	}
