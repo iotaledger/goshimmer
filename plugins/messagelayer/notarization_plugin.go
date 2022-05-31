@@ -56,10 +56,10 @@ func configureNotarizationPlugin(_ *node.Plugin) {
 		notarizationManager.OnBranchConfirmed(event.BranchID)
 	}))
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		notarizationManager.OnBranchCreated(event.BranchID)
+		notarizationManager.OnBranchCreated(event.ID)
 	}))
-	notarizationDeps.Tangle.ConfirmationOracle.Events().BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchRejected(event.BranchID)
+	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+		notarizationManager.OnBranchRejected(event.ID)
 	}))
 }
 

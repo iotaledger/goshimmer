@@ -149,8 +149,9 @@ func (s *Scheduler) Setup() {
 		})
 		s.updateApprovers(messageID)
 	}
+
 	s.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
-		onMessageConfirmed(event.MessageMessageConfirmedEvent)
+		onMessageConfirmed(event.Message)
 	}))
 
 	s.Start()
