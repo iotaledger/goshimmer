@@ -14,7 +14,7 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
+	thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
