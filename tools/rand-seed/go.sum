@@ -1,6 +1,6 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
-github.com/iotaledger/hive.go v0.0.0-20220531100308-09cfa66b8774 h1:OzOVCg+Oq+/v2XgdS0NnZVYvOacaN0IbdjvWdVV1Ts0=
-github.com/iotaledger/hive.go v0.0.0-20220531100308-09cfa66b8774/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220531100818-1f2661abd1a0 h1:R7+QEPlKusCtl/AnVejiO1iNLOcQvQ/aTSm35x8PZEs=
+github.com/iotaledger/hive.go v0.0.0-20220531100818-1f2661abd1a0/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/mr-tron/base58 v1.2.0 h1:T/HDJBh4ZCPbU39/+c3rRvE0uKBQlU27+QI8LJ4t64o=
 github.com/mr-tron/base58 v1.2.0/go.mod h1:BinMc/sQntlIE1frQmRFPUoPA1Zkr8VRgBdjWI2mNwc=
 github.com/oasisprotocol/ed25519 v0.0.0-20210505154701-76d8c688d86e h1:pHDo+QVA9a72j08pr99Zh91vkQibH0CiNNSp36sOflA=
