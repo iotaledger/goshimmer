@@ -410,8 +410,8 @@ type messageInner struct {
 	Signature       ed25519.Signature `serix:"7"`
 
 	// commitments
-	epochCommitment      *EpochCommitment
-	latestConfirmedEpoch uint64
+	EpochCommitment      *EpochCommitment
+	LatestConfirmedEpoch uint64
 
 	// derived properties
 	id         *MessageID
@@ -422,20 +422,23 @@ type messageInner struct {
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) (*Message, error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature,
+	latestConfirmedEpoch uint64, epochCommitment *EpochCommitment, versionOpt ...uint8) (*Message, error) {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
 	msg := &Message{messageInner{
-		Version:         version,
-		Parents:         references,
-		IssuerPublicKey: issuerPublicKey,
-		IssuingTime:     issuingTime,
-		SequenceNumber:  sequenceNumber,
-		Payload:         msgPayload,
-		Nonce:           nonce,
-		Signature:       signature,
+		Version:              version,
+		Parents:              references,
+		IssuerPublicKey:      issuerPublicKey,
+		IssuingTime:          issuingTime,
+		SequenceNumber:       sequenceNumber,
+		EpochCommitment:      epochCommitment,
+		LatestConfirmedEpoch: latestConfirmedEpoch,
+		Payload:              msgPayload,
+		Nonce:                nonce,
+		Signature:            signature,
 	}}
 
 	return msg, nil
@@ -451,8 +454,8 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, version ...uint8) (result *Message, err error) {
-	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch uint64, epochCommitment *EpochCommitment, version ...uint8) (result *Message, err error) {
+	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
 
 	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
 	if err != nil {

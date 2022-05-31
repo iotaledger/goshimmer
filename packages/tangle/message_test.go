@@ -258,7 +258,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion, 0, nil)
+			0, nil, MessageVersion)
 		assert.NoError(t, err)
 		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: failed to encode map element of type tangle.MessageIDs: serializer failed to write tangle.MessageIDs  as slice of bytes: max count of elements within the array exceeded: max is 8 but count is 9",
 			func() {
@@ -278,9 +278,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: missing strong messages in first parent block",
 			func() {
@@ -300,9 +300,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 
 		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: missing strong messages in first parent block",
@@ -331,9 +331,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 		msgBytes := msg.Bytes()
 
@@ -363,9 +363,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 		msgBytes := msg.Bytes()
 
@@ -393,9 +393,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 
 		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: block types must range from 1-4",
@@ -422,9 +422,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 		msgBytes := msg.Bytes()
 
@@ -441,8 +441,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0, nil,
+			MessageVersion,
 		)
 
 		msgBytes = msg.Bytes()
@@ -470,9 +470,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 
 		assert.NotPanics(t, func() {
@@ -496,9 +496,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
+			MessageVersion,
 		)
 
 		assert.NotPanics(t, func() {
@@ -529,10 +529,10 @@ func TestNewMessageWithValidation(t *testing.T) {
 			payload.NewGenericDataPayload([]byte("")),
 			0,
 			ed25519.Signature{},
-			MessageVersion,
 			0,
 			nil,
-			)
+			MessageVersion,
+		)
 
 		assert.PanicsWithError(t, "can't serialize embedded struct messageInner: failed to serialize struct field Parents: pre-serialization validation failed: syntactic validator returns an error for type tangle.ParentMessageIDs: different blocks have conflicting references",
 			func() {
