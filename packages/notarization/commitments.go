@@ -1,6 +1,8 @@
 package notarization
 
 import (
+	"github.com/cockroachdb/errors"
+	"hash"
 	"sync"
 
 	"github.com/lazyledger/smt"
@@ -21,7 +23,7 @@ type Commitment struct {
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR [32]byte) *Commitment {
+func NewCommitment(ei EI, prevECR [32]byte, hasher hash.Hash) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -30,7 +32,6 @@ func NewCommitment(ei EI, prevECR [32]byte) *Commitment {
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
 
-	hasher, _ := blake2b.New256(nil)
 	commitment := &Commitment{
 		EI:                ei,
 		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
@@ -72,54 +73,79 @@ func (e *Commitment) ECR() [32]byte {
 type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
+
+	hasher hash.Hash
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
 func NewEpochCommitmentFactory() *EpochCommitmentFactory {
+	hasher, _ := blake2b.New256(nil)
+
 	return &EpochCommitmentFactory{
 		commitments: make(map[EI]*Commitment),
+		hasher:      hasher,
 	}
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID) {
+func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	commitment.tangleRoot.Update(msgID.Bytes(), msgID.Bytes())
+	_, err := commitment.tangleRoot.Update(msgID.Bytes(), msgID.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the tangle tree")
+	}
 	f.onTangleRootChanged(commitment)
+	return nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID ledgerstate.OutputID) {
+func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID ledgerstate.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
+	_, err := commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the state tree")
+	}
 	f.onStateRootChanged(commitment)
+	return nil
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID ledgerstate.TransactionID) {
+func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID ledgerstate.TransactionID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
+	_, err := commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
+	}
 	f.onStateMutationRootChanged(commitment)
+	return nil
 }
 
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID) {
+func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	exists, _ := commitment.stateRoot.Has(msgID.Bytes())
 	if exists {
-		commitment.tangleRoot.Delete(msgID.Bytes())
+		_, err := commitment.tangleRoot.Delete(msgID.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the tangle tree")
+		}
 		f.onTangleRootChanged(commitment)
 	}
+	return nil
 }
 
 // RemoveStateLeaf removes the output ID from the ledgerstate sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID ledgerstate.OutputID) {
+func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID ledgerstate.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	exists, _ := commitment.stateRoot.Has(outID.Bytes())
 	if exists {
-		commitment.stateRoot.Delete(outID.Bytes())
+		_, err := commitment.stateRoot.Delete(outID.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the state tree")
+		}
 		f.onStateRootChanged(commitment)
 	}
+	return nil
 }
 
 // GetCommitment returns the commitment with the given ei.
@@ -143,6 +169,36 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitme
 	return nil
 }
 
+func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputID) (*CommitmentProof, error) {
+	key := outID.Bytes()
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not generate the state root proof")
+	}
+	return &CommitmentProof{ei, proof, root}, nil
+}
+
+func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID ledgerstate.TransactionID) (*CommitmentProof, error) {
+	key := txID.Bytes()
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not generate the state mutation root proof")
+	}
+	return &CommitmentProof{ei, proof, root}, nil
+}
+
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID) (*CommitmentProof, error) {
+	key := blockID.Bytes()
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].tangleRoot.ProveForRoot(key, root)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not generate the tangle root proof")
+	}
+	return &CommitmentProof{ei, proof, root}, nil
+}
+
 func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 	f.commitmentsMutex.RLock()
 	commitment, ok := f.commitments[ei]
@@ -155,12 +211,26 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 				previousECR = previousCommitment.ECR()
 			}
 		}
-		commitment = NewCommitment(ei, previousECR)
+		commitment = NewCommitment(ei, previousECR, f.hasher)
 		f.commitmentsMutex.Lock()
 		f.commitments[ei] = commitment
 		f.commitmentsMutex.Unlock()
 	}
 	return commitment
+}
+
+func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangle.MessageID) bool {
+	key := blockID.Bytes()
+	return f.verifyRoot(proof, key, key)
+}
+
+func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID ledgerstate.TransactionID) bool {
+	key := transactionID.Bytes()
+	return f.verifyRoot(proof, key, key)
+}
+
+func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
+	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
 func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
@@ -191,4 +261,10 @@ func (f *EpochCommitmentFactory) onStateRootChanged(commitment *Commitment) {
 		return
 	}
 	forwardCommitment.prevECR = commitment.ECR()
+}
+
+type CommitmentProof struct {
+	EI    EI
+	proof smt.SparseMerkleProof
+	root  []byte
 }
