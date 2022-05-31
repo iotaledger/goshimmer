@@ -2,10 +2,8 @@ package markers
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -22,11 +20,13 @@ import (
 
 // region Index ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// IndexLength represents the amount of bytes of a marshaled Index.
-const IndexLength = marshalutil.Uint64Size
-
 // Index represents the ever-increasing number of the Markers in a Sequence.
 type Index uint64
+
+// Length returns the amount of bytes of a serialized Index.
+func (i Index) Length() int {
+	return marshalutil.Uint64Size
+}
 
 // String returns a human-readable version of the Index.
 func (i Index) String() (humanReadable string) {
@@ -105,29 +105,15 @@ type markersModel struct {
 
 // NewMarkers creates a new collection of Markers.
 func NewMarkers(markers ...*Marker) (new *Markers) {
-	new = &Markers{
-		model.New(markersModel{
-			Markers: make(map[SequenceID]Index),
-		}),
-	}
+	new = &Markers{model.New(markersModel{
+		Markers: make(map[SequenceID]Index),
+	})}
+
 	for _, marker := range markers {
 		new.Set(marker.SequenceID(), marker.Index())
 	}
 
 	return
-}
-
-// SequenceIDs returns the SequenceIDs that are having Markers in this collection.
-func (m *Markers) SequenceIDs() (sequenceIDs SequenceIDs) {
-	m.RLock()
-	defer m.RUnlock()
-
-	sequenceIDsSlice := make([]SequenceID, 0, len(m.M.Markers))
-	for sequenceID := range m.M.Markers {
-		sequenceIDsSlice = append(sequenceIDsSlice, sequenceID)
-	}
-
-	return NewSequenceIDs(sequenceIDsSlice...)
 }
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
@@ -236,15 +222,9 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 	if m == nil {
 		return true
 	}
-	m.RLock()
-	markersCopy := make(map[SequenceID]Index)
-	for sequenceID, index := range m.M.Markers {
-		markersCopy[sequenceID] = index
-	}
-	m.RUnlock()
 
 	success = true
-	for sequenceID, index := range markersCopy {
+	for sequenceID, index := range m.Clone().M.Markers {
 		if success = iterator(sequenceID, index); !success {
 			return
 		}
@@ -256,10 +236,9 @@ func (m *Markers) ForEach(iterator func(sequenceID SequenceID, index Index) bool
 // ForEachSorted calls the iterator for each of the contained Markers in increasing order. The iteration is aborted if
 // the iterator returns false. The method returns false if the iteration was aborted.
 func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index) bool) (success bool) {
-	clonedMarkers := m.Clone().M.Markers
-
-	sequenceIDs := make([]SequenceID, 0, len(clonedMarkers))
-	for sequenceID := range clonedMarkers {
+	cloned := m.Clone()
+	sequenceIDs := make([]SequenceID, 0, len(cloned.M.Markers))
+	for sequenceID := range cloned.M.Markers {
 		sequenceIDs = append(sequenceIDs, sequenceID)
 	}
 	sort.Slice(sequenceIDs, func(i, j int) bool {
@@ -268,7 +247,7 @@ func (m *Markers) ForEachSorted(iterator func(sequenceID SequenceID, index Index
 
 	success = true
 	for _, sequenceID := range sequenceIDs {
-		if success = iterator(sequenceID, clonedMarkers[sequenceID]); !success {
+		if success = iterator(sequenceID, cloned.M.Markers[sequenceID]); !success {
 			return
 		}
 	}
@@ -299,9 +278,7 @@ func (m *Markers) LowestIndex() (lowestIndex Index) {
 	m.RLock()
 	defer m.RUnlock()
 
-	lowestIndex = m.M.LowestIndex
-
-	return
+	return m.M.LowestIndex
 }
 
 // HighestIndex returns the highest Index of all Markers in the collection.
@@ -309,42 +286,30 @@ func (m *Markers) HighestIndex() (highestIndex Index) {
 	m.RLock()
 	defer m.RUnlock()
 
-	highestIndex = m.M.HighestIndex
-
-	return
+	return m.M.HighestIndex
 }
 
 // Clone creates a deep copy of the Markers.
-func (m *Markers) Clone() (clonedMarkers *Markers) {
-	clonedMap := make(map[SequenceID]Index)
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		clonedMap[sequenceID] = index
+func (m *Markers) Clone() (cloned *Markers) {
+	m.RLock()
+	defer m.RUnlock()
 
-		return true
-	})
-
-	clonedMarkers = &Markers{
-		model.New(markersModel{
-			Markers:      clonedMap,
-			LowestIndex:  m.M.LowestIndex,
-			HighestIndex: m.M.HighestIndex,
-		}),
+	cloned = NewMarkers()
+	for sequenceID, index := range m.M.Markers {
+		cloned.Set(sequenceID, index)
 	}
 
-	return
+	return cloned
 }
 
 // Equals is a comparator for two Markers.
 func (m *Markers) Equals(other *Markers) (equals bool) {
-	m.RLock()
-	defer m.RUnlock()
-
-	if len(m.M.Markers) != len(other.M.Markers) {
+	if m.Size() != other.Size() {
 		return false
 	}
 
 	for sequenceID, index := range m.M.Markers {
-		otherIndex, exists := other.M.Markers[sequenceID]
+		otherIndex, exists := other.Get(sequenceID)
 		if !exists {
 			return false
 		}
@@ -361,37 +326,8 @@ func (m *Markers) Equals(other *Markers) (equals bool) {
 func (m *Markers) Bytes() []byte {
 	m.RLock()
 	defer m.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
 
-// String returns a human-readable version of the Markers.
-func (m *Markers) String() (humanReadableMarkers string) {
-	structBuilder := stringify.StructBuilder("Markers")
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		structBuilder.AddField(stringify.StructField(sequenceID.String(), index))
-
-		return true
-	})
-	structBuilder.AddField(stringify.StructField("lowestIndex", m.LowestIndex()))
-	structBuilder.AddField(stringify.StructField("highestIndex", m.HighestIndex()))
-
-	return structBuilder.String()
-}
-
-// SequenceToString returns a string in the form sequenceID:index;.
-func (m *Markers) SequenceToString() (s string) {
-	parts := make([]string, 0, m.Size())
-	m.ForEach(func(sequenceID SequenceID, index Index) bool {
-		parts = append(parts, fmt.Sprintf("%d:%d", sequenceID, index))
-		return true
-	})
-	s = strings.Join(parts, ";")
-	return s
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -401,45 +337,29 @@ func (m *Markers) SequenceToString() (s string) {
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
-	referencingMarkersInner `serix:"0"`
+	model.Model[referencingMarkersModel] `serix:"0"`
 }
 
-type referencingMarkersInner struct {
+type referencingMarkersModel struct {
 	ReferencingIndexesBySequence map[SequenceID]*referencingMarkersMap `serix:"0,lengthPrefixType=uint32"`
-	mutex                        sync.RWMutex
 }
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
-	referencingMarkers = &ReferencingMarkers{
-		referencingMarkersInner{
-			ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
-		},
-	}
-
-	return
-}
-
-// ReferencingMarkersFromBytes unmarshals ReferencingMarkers from a sequence of bytes.
-func ReferencingMarkersFromBytes(referencingMarkersBytes []byte) (referencingMarkers *ReferencingMarkers, consumedBytes int, err error) {
-	referencingMarkers = new(ReferencingMarkers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), referencingMarkersBytes, referencingMarkers, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ReferencingMarkers: %w", err)
-		return
-	}
-	return
+	return &ReferencingMarkers{model.New(referencingMarkersModel{
+		ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
+	})}
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.
 func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	thresholdMap, thresholdMapExists := r.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
+	thresholdMap, thresholdMapExists := r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
 	if !thresholdMapExists {
 		thresholdMap = newReferencingMarkersMap()
-		r.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
+		r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
 	thresholdMap.Set(uint64(index), referencingMarker.Index())
@@ -447,11 +367,11 @@ func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 
 // Get returns the Markers of child Sequences that reference the given Index.
 func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencingMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencingIndexesBySequence {
 		if referencingIndex, exists := thresholdMap.Get(uint64(index)); exists {
 			referencingMarkers.Set(sequenceID, referencingIndex)
 		}
@@ -460,27 +380,14 @@ func (r *ReferencingMarkers) Get(index Index) (referencingMarkers *Markers) {
 	return
 }
 
-// Bytes returns a marshaled version of the PersistableBaseMana.
-func (r *ReferencingMarkers) Bytes() []byte {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r)
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
 // String returns a human-readable version of the ReferencingMarkers.
 func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	indexes := make([]Index, 0)
 	referencingMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range r.ReferencingIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencingIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			index := Index(node.Key())
 			referencingIndex := node.Value()
@@ -537,27 +444,24 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which other Markers
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
-	referencedMarkersInner `serix:"0"`
+	model.Model[referencedMarkersModel] `serix:"0"`
 }
-type referencedMarkersInner struct {
+type referencedMarkersModel struct {
 	ReferencedIndexesBySequence map[SequenceID]*referencedMarkersMap `serix:"0,lengthPrefixType=uint32"`
-	mutex                       sync.RWMutex
 }
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.
-func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarkers) {
-	referencedMarkers = &ReferencedMarkers{
-		referencedMarkersInner{
-			ReferencedIndexesBySequence: make(map[SequenceID]*referencedMarkersMap),
-		},
-	}
+func NewReferencedMarkers(markers *Markers) (new *ReferencedMarkers) {
+	new = &ReferencedMarkers{model.New(referencedMarkersModel{
+		ReferencedIndexesBySequence: make(map[SequenceID]*referencedMarkersMap),
+	})}
 
 	initialSequenceIndex := markers.HighestIndex() + 1
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
 		thresholdMap := newReferencedMarkersMap()
 		thresholdMap.Set(uint64(initialSequenceIndex), index)
 
-		referencedMarkers.referencedMarkersInner.ReferencedIndexesBySequence[sequenceID] = thresholdMap
+		new.M.ReferencedIndexesBySequence[sequenceID] = thresholdMap
 
 		return true
 	})
@@ -565,27 +469,16 @@ func NewReferencedMarkers(markers *Markers) (referencedMarkers *ReferencedMarker
 	return
 }
 
-// ReferencedMarkersFromBytes unmarshals ReferencedMarkers from a sequence of bytes.
-func ReferencedMarkersFromBytes(parentReferencesBytes []byte) (referencedMarkers *ReferencedMarkers, consumedBytes int, err error) {
-	referencedMarkers = new(ReferencedMarkers)
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), parentReferencesBytes, referencedMarkers, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse ReferencedMarkers: %w", err)
-		return
-	}
-	return
-}
-
 // Add adds new referenced Markers to the ReferencedMarkers.
 func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	referencedMarkers.ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
-		thresholdMap, exists := r.referencedMarkersInner.ReferencedIndexesBySequence[referencedSequenceID]
+		thresholdMap, exists := r.M.ReferencedIndexesBySequence[referencedSequenceID]
 		if !exists {
 			thresholdMap = newReferencedMarkersMap()
-			r.referencedMarkersInner.ReferencedIndexesBySequence[referencedSequenceID] = thresholdMap
+			r.M.ReferencedIndexesBySequence[referencedSequenceID] = thresholdMap
 		}
 
 		thresholdMap.Set(uint64(index), referencedIndex)
@@ -596,11 +489,11 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 
 // Get returns the Markers of parent Sequences that were referenced by the given Index.
 func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	referencedMarkers = NewMarkers()
-	for sequenceID, thresholdMap := range r.referencedMarkersInner.ReferencedIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencedIndexesBySequence {
 		if referencedIndex, exists := thresholdMap.Get(uint64(index)); exists {
 			referencedMarkers.Set(sequenceID, referencedIndex)
 		}
@@ -609,26 +502,14 @@ func (r *ReferencedMarkers) Get(index Index) (referencedMarkers *Markers) {
 	return
 }
 
-// Bytes returns a marshaled version of the ReferencingMarkers.
-func (r *ReferencedMarkers) Bytes() []byte {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r)
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
 // String returns a human-readable version of the ReferencedMarkers.
 func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
-	r.mutex.RLock()
-	defer r.mutex.RUnlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	indexes := make([]Index, 0)
 	referencedMarkersByReferencingIndex := make(map[Index]*Markers)
-	for sequenceID, thresholdMap := range r.referencedMarkersInner.ReferencedIndexesBySequence {
+	for sequenceID, thresholdMap := range r.M.ReferencedIndexesBySequence {
 		thresholdMap.ForEach(func(node *thresholdmap.Element[uint64, Index]) bool {
 			index := Index(node.Key())
 			referencedIndex := node.Value()

@@ -161,10 +161,8 @@ var DiagnosticMessagesTableDescription = []string{
 	"Invalid",
 	"Rank",
 	"IsPastMarker",
-	"PastMarkers",
 	"PMHI",
 	"PMLI",
-	"FutureMarkers",
 	"FMHI",
 	"FMLI",
 	"PayloadType",
@@ -199,10 +197,8 @@ type DiagnosticMessagesInfo struct {
 	ObjectivelyInvalid      bool
 	Rank                    uint64
 	IsPastMarker            bool
-	PastMarkers             string // PastMarkers
 	PMHI                    uint64 // PastMarkers Highest Index
 	PMLI                    uint64 // PastMarkers Lowest Index
-	FutureMarkers           string // FutureMarkers
 	FMHI                    uint64 // FutureMarkers Highest Index
 	FMLI                    uint64 // FutureMarkers Lowest Index
 	PayloadType             string
@@ -244,10 +240,8 @@ func getDiagnosticMessageInfo(messageID tangle.MessageID) *DiagnosticMessagesInf
 		if metadata.StructureDetails() != nil {
 			msgInfo.Rank = metadata.StructureDetails().Rank
 			msgInfo.IsPastMarker = metadata.StructureDetails().IsPastMarker
-			msgInfo.PastMarkers = metadata.StructureDetails().PastMarkers.SequenceToString()
 			msgInfo.PMHI = uint64(metadata.StructureDetails().PastMarkers.HighestIndex())
 			msgInfo.PMLI = uint64(metadata.StructureDetails().PastMarkers.LowestIndex())
-			msgInfo.FutureMarkers = metadata.StructureDetails().FutureMarkers.SequenceToString()
 			msgInfo.FMHI = uint64(metadata.StructureDetails().FutureMarkers.HighestIndex())
 			msgInfo.FMLI = uint64(metadata.StructureDetails().FutureMarkers.LowestIndex())
 		}
@@ -287,10 +281,8 @@ func (d *DiagnosticMessagesInfo) toCSVRow() (row []string) {
 		fmt.Sprint(d.ObjectivelyInvalid),
 		fmt.Sprint(d.Rank),
 		fmt.Sprint(d.IsPastMarker),
-		d.PastMarkers,
 		fmt.Sprint(d.PMHI),
 		fmt.Sprint(d.PMLI),
-		d.FutureMarkers,
 		fmt.Sprint(d.FMHI),
 		fmt.Sprint(d.FMLI),
 		d.PayloadType,
