@@ -712,12 +712,11 @@ type messageMetadataModel struct {
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
-	meta := &MessageMetadata{
-		model.NewStorable[MessageID, messageMetadataModel](messageMetadataModel{
-			ReceivedTime:        clock.SyncedTime(),
-			AddedBranchIDs:      utxo.NewTransactionIDs(),
-			SubtractedBranchIDs: utxo.NewTransactionIDs(),
-		})}
+	meta := &MessageMetadata{model.NewStorable[MessageID](messageMetadataModel{
+		ReceivedTime:        clock.SyncedTime(),
+		AddedBranchIDs:      utxo.NewTransactionIDs(),
+		SubtractedBranchIDs: utxo.NewTransactionIDs(),
+	})}
 	meta.SetID(messageID)
 
 	return meta

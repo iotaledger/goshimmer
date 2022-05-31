@@ -4167,6 +4167,9 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 				if currentMarker.SequenceID() == 0 && currentMarker.Index() == 0 {
 					return
 				}
+
+				fmt.Println(messageMetadata.StructureDetails().IsPastMarker, *messageMetadata.StructureDetails().PastMarkers.Marker(), *currentMarker)
+
 				assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.Marker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
 			}), "failed to load Message with %s", mappedMessageIDOfMarker)
 		}
