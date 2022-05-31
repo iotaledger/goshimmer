@@ -4168,9 +4168,9 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 					return
 				}
 
-				fmt.Println("HUHU", mappedMessageIDOfMarker, messageMetadata.StructureDetails().IsPastMarker, *messageMetadata.StructureDetails().PastMarkers.Marker(), *currentMarker)
-
-				assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.Marker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
+				if !assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.Marker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID()) {
+					fmt.Println("DEBUG", mappedMessageIDOfMarker, messageMetadata.StructureDetails().IsPastMarker, *messageMetadata.StructureDetails().PastMarkers.Marker(), *currentMarker)
+				}
 			}), "failed to load Message with %s", mappedMessageIDOfMarker)
 		}
 	}
