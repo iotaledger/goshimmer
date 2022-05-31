@@ -42,41 +42,6 @@ func TestMarkers(t *testing.T) {
 	assert.Equal(t, Index(2), markers.HighestIndex())
 }
 
-func TestMarkersByRank(t *testing.T) {
-	markersByRank := newMarkersByRank()
-
-	updated, added := markersByRank.Add(10, 7, 8)
-	assert.True(t, updated)
-	assert.True(t, added)
-	updated, added = markersByRank.Add(10, 7, 8)
-	assert.False(t, updated)
-	assert.False(t, added)
-	updated, added = markersByRank.Add(10, 7, 9)
-	assert.True(t, updated)
-	assert.False(t, added)
-	assert.Equal(t, uint64(10), markersByRank.LowestRank())
-	assert.Equal(t, uint64(10), markersByRank.HighestRank())
-	assert.Equal(t, uint64(1), markersByRank.Size())
-
-	updated, added = markersByRank.Add(12, 7, 9)
-	assert.True(t, updated)
-	assert.True(t, added)
-	assert.Equal(t, uint64(10), markersByRank.LowestRank())
-	assert.Equal(t, uint64(12), markersByRank.HighestRank())
-	assert.Equal(t, uint64(2), markersByRank.Size())
-
-	assert.False(t, markersByRank.Delete(10, 8))
-	assert.True(t, markersByRank.Delete(10, 7))
-	assert.Equal(t, uint64(12), markersByRank.LowestRank())
-	assert.Equal(t, uint64(12), markersByRank.HighestRank())
-	assert.Equal(t, uint64(1), markersByRank.Size())
-
-	assert.True(t, markersByRank.Delete(12, 7))
-	assert.Equal(t, uint64(1<<64-1), markersByRank.LowestRank())
-	assert.Equal(t, uint64(0), markersByRank.HighestRank())
-	assert.Equal(t, uint64(0), markersByRank.Size())
-}
-
 func TestReferencedMarkers(t *testing.T) {
 	referencedMarkers := NewReferencedMarkers(NewMarkers(
 		NewMarker(1, 3),

@@ -341,13 +341,13 @@ type ReferencingMarkers struct {
 }
 
 type referencingMarkersModel struct {
-	ReferencingIndexesBySequence map[SequenceID]*referencingMarkersMap `serix:"0,lengthPrefixType=uint32"`
+	ReferencingIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 	return &ReferencingMarkers{model.New(referencingMarkersModel{
-		ReferencingIndexesBySequence: make(map[SequenceID]*referencingMarkersMap),
+		ReferencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 	})}
 }
 
@@ -358,7 +358,7 @@ func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
 
 	thresholdMap, thresholdMapExists := r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()]
 	if !thresholdMapExists {
-		thresholdMap = newReferencingMarkersMap()
+		thresholdMap = thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode)
 		r.M.ReferencingIndexesBySequence[referencingMarker.SequenceID()] = thresholdMap
 	}
 
@@ -447,18 +447,18 @@ type ReferencedMarkers struct {
 	model.Model[referencedMarkersModel] `serix:"0"`
 }
 type referencedMarkersModel struct {
-	ReferencedIndexesBySequence map[SequenceID]*referencedMarkersMap `serix:"0,lengthPrefixType=uint32"`
+	ReferencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
 }
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.
 func NewReferencedMarkers(markers *Markers) (new *ReferencedMarkers) {
 	new = &ReferencedMarkers{model.New(referencedMarkersModel{
-		ReferencedIndexesBySequence: make(map[SequenceID]*referencedMarkersMap),
+		ReferencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 	})}
 
 	initialSequenceIndex := markers.HighestIndex() + 1
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
-		thresholdMap := newReferencedMarkersMap()
+		thresholdMap := thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)
 		thresholdMap.Set(uint64(initialSequenceIndex), index)
 
 		new.M.ReferencedIndexesBySequence[sequenceID] = thresholdMap
@@ -477,7 +477,7 @@ func (r *ReferencedMarkers) Add(index Index, referencedMarkers *Markers) {
 	referencedMarkers.ForEach(func(referencedSequenceID SequenceID, referencedIndex Index) bool {
 		thresholdMap, exists := r.M.ReferencedIndexesBySequence[referencedSequenceID]
 		if !exists {
-			thresholdMap = newReferencedMarkersMap()
+			thresholdMap = thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)
 			r.M.ReferencedIndexesBySequence[referencedSequenceID] = thresholdMap
 		}
 
@@ -558,248 +558,6 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 	}
 
 	return referencedMarkers.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region markersByRank ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// markersByRank is a collection of Markers that groups them by the rank of their Sequence.
-type markersByRank struct {
-	markersByRank      map[uint64]*Markers
-	markersByRankMutex sync.RWMutex
-	lowestRank         uint64
-	highestRank        uint64
-	size               uint64
-}
-
-// newMarkersByRank creates a new collection of Markers grouped by the rank of their Sequence.
-func newMarkersByRank() (newMarkersByRank *markersByRank) {
-	return &markersByRank{
-		markersByRank: make(map[uint64]*Markers),
-		lowestRank:    1<<64 - 1,
-		highestRank:   0,
-		size:          0,
-	}
-}
-
-// Add adds a new Marker to the collection and returns two boolean flags that indicate if a Marker was added and/or
-// updated.
-func (m *markersByRank) Add(rank uint64, sequenceID SequenceID, index Index) (updated, added bool) {
-	m.markersByRankMutex.Lock()
-	defer m.markersByRankMutex.Unlock()
-
-	if _, exists := m.markersByRank[rank]; !exists {
-		m.markersByRank[rank] = NewMarkers()
-
-		if rank > m.highestRank {
-			m.highestRank = rank
-		}
-		if rank < m.lowestRank {
-			m.lowestRank = rank
-		}
-	}
-
-	updated, added = m.markersByRank[rank].Set(sequenceID, index)
-	if added {
-		m.size++
-	}
-
-	return
-}
-
-// Markers flattens the collection and returns a normal Marker's collection by removing the rank information. The
-// optionalRank parameter allows to optionally filter the collection by rank and only return the Markers of the given
-// rank. The method additionally returns an exists flag that indicates if the returned Markers contain at least one
-// element.
-func (m *markersByRank) Markers(optionalRank ...uint64) (markers *Markers, exists bool) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	if len(optionalRank) >= 1 {
-		markers, exists = m.markersByRank[optionalRank[0]]
-		return
-	}
-
-	markers = NewMarkers()
-	for _, markersOfRank := range m.markersByRank {
-		markersOfRank.ForEach(func(sequenceID SequenceID, index Index) bool {
-			markers.Set(sequenceID, index)
-
-			return true
-		})
-	}
-	exists = markers.Size() >= 1
-
-	return
-}
-
-// Index returns the Index of the Marker given by the rank and its SequenceID and a flag that indicates if the Marker
-// exists in the collection.
-func (m *markersByRank) Index(rank uint64, sequenceID SequenceID) (index Index, exists bool) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	uniqueMarkers, exists := m.markersByRank[rank]
-	if !exists {
-		return
-	}
-
-	index, exists = uniqueMarkers.Get(sequenceID)
-
-	return
-}
-
-// Delete removes the given Marker from the collection and returns a flag that indicates if the Marker existed in the
-// collection.
-func (m *markersByRank) Delete(rank uint64, sequenceID SequenceID) (deleted bool) {
-	m.markersByRankMutex.Lock()
-	defer m.markersByRankMutex.Unlock()
-
-	if sequences, sequencesExist := m.markersByRank[rank]; sequencesExist {
-		if deleted = sequences.Delete(sequenceID); deleted {
-			m.size--
-
-			if sequences.Size() == 0 {
-				delete(m.markersByRank, rank)
-
-				if rank == m.lowestRank {
-					if rank == m.highestRank {
-						m.lowestRank = 1<<64 - 1
-						m.highestRank = 0
-						return
-					}
-
-					for lowestRank := m.lowestRank + 1; lowestRank <= m.highestRank; lowestRank++ {
-						if _, rankExists := m.markersByRank[lowestRank]; rankExists {
-							m.lowestRank = lowestRank
-							break
-						}
-					}
-				}
-
-				if rank == m.highestRank {
-					for highestRank := m.highestRank - 1; highestRank >= m.lowestRank; highestRank-- {
-						if _, rankExists := m.markersByRank[highestRank]; rankExists {
-							m.highestRank = highestRank
-							break
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return deleted
-}
-
-// LowestRank returns the lowest rank that has Markers.
-func (m *markersByRank) LowestRank() (lowestRank uint64) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	return m.lowestRank
-}
-
-// HighestRank returns the highest rank that has Markers.
-func (m *markersByRank) HighestRank() (highestRank uint64) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	return m.highestRank
-}
-
-// Size returns the amount of Markers in the collection.
-func (m *markersByRank) Size() (size uint64) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	return m.size
-}
-
-// Clone returns a deep copy of the markersByRank.
-func (m *markersByRank) Clone() (clonedMarkersByRank *markersByRank) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	markersByRankMap := make(map[uint64]*Markers)
-	for rank, uniqueMarkers := range m.markersByRank {
-		markersByRankMap[rank] = uniqueMarkers.Clone()
-	}
-
-	return &markersByRank{
-		markersByRank: markersByRankMap,
-		lowestRank:    m.lowestRank,
-		highestRank:   m.highestRank,
-		size:          m.size,
-	}
-}
-
-// String returns a human-readable version of the markersByRank.
-func (m *markersByRank) String() (humanReadableMarkersByRank string) {
-	m.markersByRankMutex.RLock()
-	defer m.markersByRankMutex.RUnlock()
-
-	structBuilder := stringify.StructBuilder("markersByRank")
-	if m.highestRank == 0 {
-		return structBuilder.String()
-	}
-
-	for rank := m.lowestRank; rank <= m.highestRank; rank++ {
-		if uniqueMarkers, uniqueMarkersExist := m.markersByRank[rank]; uniqueMarkersExist {
-			structBuilder.AddField(stringify.StructField(strconv.FormatUint(rank, 10), uniqueMarkers))
-		}
-	}
-
-	return structBuilder.String()
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region referencingMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
-
-type referencingMarkersMap struct {
-	*thresholdmap.ThresholdMap[uint64, Index] `serix:"0"`
-}
-
-func newReferencingMarkersMap() *referencingMarkersMap {
-	return &referencingMarkersMap{
-		thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode),
-	}
-}
-
-// Encode returns a serialized byte slice of the object.
-func (l *referencingMarkersMap) Encode() ([]byte, error) {
-	return l.ThresholdMap.Encode()
-}
-
-// Decode deserializes bytes into a valid object.
-func (l *referencingMarkersMap) Decode(b []byte) (bytesRead int, err error) {
-	l.ThresholdMap = thresholdmap.New[uint64, Index](thresholdmap.UpperThresholdMode)
-	return l.ThresholdMap.Decode(b)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region referencedMarkersMap /////////////////////////////////////////////////////////////////////////////////////////
-
-type referencedMarkersMap struct {
-	*thresholdmap.ThresholdMap[uint64, Index] `serix:"0"`
-}
-
-func newReferencedMarkersMap() *referencedMarkersMap {
-	return &referencedMarkersMap{thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)}
-}
-
-// Encode returns a serialized byte slice of the object.
-func (l *referencedMarkersMap) Encode() ([]byte, error) {
-	return l.ThresholdMap.Encode()
-}
-
-// Decode deserializes bytes into a valid object.
-func (l *referencedMarkersMap) Decode(b []byte) (bytesRead int, err error) {
-	l.ThresholdMap = thresholdmap.New[uint64, Index](thresholdmap.LowerThresholdMode)
-	return l.ThresholdMap.Decode(b)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
