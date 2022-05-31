@@ -16,6 +16,7 @@ require (
 	github.com/iotaledger/hive.go v0.0.0-20220530091800-fd2c8ba749cf
 	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/gommon v0.3.0
+	github.com/lazyledger/smt v0.2.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/libp2p/go-yamux/v2 v2.2.0
