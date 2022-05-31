@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -350,27 +351,23 @@ func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallb
 
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
-		genesisMetadata := &MessageMetadata{
-			messageMetadataInner{
-				AddedBranchIDs:      utxo.NewTransactionIDs(),
-				SubtractedBranchIDs: utxo.NewTransactionIDs(),
-				SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-				MessageID:           EmptyMessageID,
-				Solid:               true,
-				StructureDetails: &markers.StructureDetails{
-					Rank:          0,
-					IsPastMarker:  false,
-					PastMarkers:   markers.NewMarkers(),
-					FutureMarkers: markers.NewMarkers(),
-				},
-				Scheduled: true,
-				Booked:    true,
-			},
-		}
-
-		genesisMetadata.Persist()
-		genesisMetadata.SetModified()
-
+		genesisMetadata :=
+			&MessageMetadata{
+				model.NewStorable[MessageID, messageMetadataModel](messageMetadataModel{
+					AddedBranchIDs:      utxo.NewTransactionIDs(),
+					SubtractedBranchIDs: utxo.NewTransactionIDs(),
+					SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+					Solid:               true,
+					StructureDetails: &markers.StructureDetails{
+						Rank:          0,
+						IsPastMarker:  false,
+						PastMarkers:   markers.NewMarkers(),
+						FutureMarkers: markers.NewMarkers(),
+					},
+					Scheduled: true,
+					Booked:    true,
+				})}
+		genesisMetadata.SetID(EmptyMessageID)
 		return genesisMetadata
 	}).Release()
 }
@@ -455,7 +452,7 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 			if msgMetaData.Scheduled() {
 				res.ScheduledCount++
 				res.SumSchedulerReceivedTime += msgMetaData.ScheduledTime().Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.messageMetadataInner.BookedTime)
+				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.BookedTime())
 			}
 		})
 		return true
@@ -477,9 +474,9 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := s.Approvers(messageMetadata.messageMetadataInner.MessageID)
+				cachedApprovers := s.Approvers(messageMetadata.ID())
 				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.messageMetadataInner.MessageID)
+					tips = append(tips, messageMetadata.ID())
 				}
 				cachedApprovers.Release()
 			}
@@ -654,93 +651,29 @@ var _ objectstorage.StorableObject = new(Approver)
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	attachmentInner `serix:"0"`
-}
-type attachmentInner struct {
-	TransactionID utxo.TransactionID `serix:"0"`
-	MessageID     MessageID          `serix:"1"`
-
-	objectstorage.StorableObjectFlags
+	model.StorableReference[utxo.TransactionID, MessageID]
 }
 
 // NewAttachment creates an attachment object with the given information.
 func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
-	return &Attachment{
-		attachmentInner{
-			TransactionID: transactionID,
-			MessageID:     messageID,
-		},
-	}
-}
-
-// FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, _ []byte) error {
-	_, err := a.FromBytes(key)
-	if err != nil {
-		return errors.Errorf("failed to parse attachment from object storage: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
-// optionally provided one with the parsed information.
-func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
-	if result = a; result == nil {
-		result = new(Attachment)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse Attachment: %w", err)
-	}
-	return result, nil
+	return &Attachment{model.NewStorableReference(transactionID, messageID)}
 }
 
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() utxo.TransactionID {
-	return a.attachmentInner.TransactionID
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.SourceID
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	return a.attachmentInner.MessageID
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.TargetID
 }
-
-// Bytes marshals the Attachment into a sequence of bytes.
-func (a *Attachment) Bytes() []byte {
-	return a.ObjectStorageKey()
-}
-
-// String returns a human readable version of the Attachment.
-func (a *Attachment) String() string {
-	return stringify.Struct("Attachment",
-		stringify.StructField("transactionId", a.TransactionID()),
-		stringify.StructField("messageID", a.MessageID()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *Attachment) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
-// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (a *Attachment) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = new(Attachment)
-
-// AttachmentLength holds the length of a marshaled Attachment in bytes.
-var AttachmentLength = utxo.TransactionID{}.Length() + MessageIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

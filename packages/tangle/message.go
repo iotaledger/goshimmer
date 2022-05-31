@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serializer"
@@ -781,11 +781,10 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	messageMetadataInner `serix:"0"`
+	model.Storable[MessageID, messageMetadataModel] `serix:"0"`
 }
 
-type messageMetadataInner struct {
-	MessageID           MessageID
+type messageMetadataModel struct {
 	ReceivedTime        time.Time                 `serix:"1"`
 	SolidificationTime  time.Time                 `serix:"2"`
 	Solid               bool                      `serix:"3"`
@@ -802,130 +801,71 @@ type messageMetadataInner struct {
 	DiscardedTime       time.Time                 `serix:"14"`
 	QueuedTime          time.Time                 `serix:"15"`
 	SubjectivelyInvalid bool                      `serix:"16"`
-
-	solidMutex               sync.RWMutex
-	solidificationTimeMutex  sync.RWMutex
-	structureDetailsMutex    sync.RWMutex
-	addedBranchIDsMutex      sync.RWMutex
-	subtractedBranchIDsMutex sync.RWMutex
-	scheduledMutex           sync.RWMutex
-	scheduledTimeMutex       sync.RWMutex
-	discardedTimeMutex       sync.RWMutex
-	queuedTimeMutex          sync.RWMutex
-	bookedMutex              sync.RWMutex
-	bookedTimeMutex          sync.RWMutex
-	invalidMutex             sync.RWMutex
-	gradeOfFinalityMutex     sync.RWMutex
-
-	objectstorage.StorableObjectFlags
 }
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
-	return &MessageMetadata{
-		messageMetadataInner{
-			MessageID:           messageID,
+	meta := &MessageMetadata{
+		model.NewStorable[MessageID, messageMetadataModel](messageMetadataModel{
 			ReceivedTime:        clock.SyncedTime(),
 			AddedBranchIDs:      utxo.NewTransactionIDs(),
 			SubtractedBranchIDs: utxo.NewTransactionIDs(),
-		},
-	}
-}
+		})}
+	meta.SetID(messageID)
 
-// FromObjectStorage creates an MessageMetadata from sequences of key and bytes.
-func (m *MessageMetadata) FromObjectStorage(key, value []byte) error {
-	_, err := m.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		return fmt.Errorf("failed to parse message metadata from object storage: %w", err)
-	}
-	return nil
-}
-
-// FromBytes unmarshals the given bytes into a MessageMetadata.
-func (m *MessageMetadata) FromBytes(data []byte) (result *MessageMetadata, err error) {
-	if result = m; result == nil {
-		result = new(MessageMetadata)
-	}
-	messageID := new(MessageID)
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, messageID, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse MessageMetadata.MessageID: %w", err)
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], result, serix.WithValidation())
-	if err != nil {
-		return nil, errors.Errorf("failed to parse MessageMetadata: %w", err)
-	}
-
-	result.messageMetadataInner.MessageID = *messageID
-	return result, nil
-}
-
-// ID returns the MessageID of the Message that this MessageMetadata object belongs to.
-func (m *MessageMetadata) ID() MessageID {
-	return m.messageMetadataInner.MessageID
+	return meta
 }
 
 // ReceivedTime returns the time when the message was received.
 func (m *MessageMetadata) ReceivedTime() time.Time {
-	return m.messageMetadataInner.ReceivedTime
+	m.RLock()
+	defer m.RUnlock()
+
+	return m.M.ReceivedTime
 }
 
 // IsSolid returns true if the message represented by this metadata is solid. False otherwise.
 func (m *MessageMetadata) IsSolid() (result bool) {
-	m.solidMutex.RLock()
-	defer m.solidMutex.RUnlock()
-	result = m.messageMetadataInner.Solid
+	m.RLock()
+	defer m.RUnlock()
 
-	return
+	return m.M.Solid
 }
 
 // SetSolid sets the message associated with this metadata as solid.
 // It returns true if the solid status is modified. False otherwise.
 func (m *MessageMetadata) SetSolid(solid bool) (modified bool) {
-	m.solidMutex.RLock()
-	if m.messageMetadataInner.Solid != solid {
-		m.solidMutex.RUnlock()
+	m.Lock()
+	defer m.Unlock()
 
-		m.solidMutex.Lock()
-		if m.messageMetadataInner.Solid != solid {
-			m.messageMetadataInner.Solid = solid
-			if solid {
-				m.solidificationTimeMutex.Lock()
-				m.messageMetadataInner.SolidificationTime = clock.SyncedTime()
-				m.solidificationTimeMutex.Unlock()
-			}
-
-			m.SetModified()
-
-			modified = true
-		}
-		m.solidMutex.Unlock()
-	} else {
-		m.solidMutex.RUnlock()
+	if m.M.Solid == solid {
+		return false
 	}
 
-	return
+	m.M.SolidificationTime = clock.SyncedTime()
+	m.M.Solid = solid
+	m.SetModified()
+	return true
 }
 
 // SolidificationTime returns the time when the message was marked to be solid.
 func (m *MessageMetadata) SolidificationTime() time.Time {
-	m.solidificationTimeMutex.RLock()
-	defer m.solidificationTimeMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.SolidificationTime
+	return m.M.SolidificationTime
 }
 
 // SetStructureDetails sets the structureDetails of the message.
 func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.StructureDetails) (modified bool) {
-	m.structureDetailsMutex.Lock()
-	defer m.structureDetailsMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.StructureDetails != nil {
+	if m.M.StructureDetails != nil {
 		return false
 	}
 
-	m.messageMetadataInner.StructureDetails = structureDetails
+	m.M.StructureDetails = structureDetails
 
 	m.SetModified()
 	return true
@@ -933,316 +873,245 @@ func (m *MessageMetadata) SetStructureDetails(structureDetails *markers.Structur
 
 // StructureDetails returns the structureDetails of the message.
 func (m *MessageMetadata) StructureDetails() *markers.StructureDetails {
-	m.structureDetailsMutex.RLock()
-	defer m.structureDetailsMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.StructureDetails
+	return m.M.StructureDetails
 }
 
 // SetAddedBranchIDs sets the BranchIDs of the added Branches.
 func (m *MessageMetadata) SetAddedBranchIDs(addedBranchIDs utxo.TransactionIDs) (modified bool) {
-	m.addedBranchIDsMutex.Lock()
-	defer m.addedBranchIDsMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Equal(addedBranchIDs) {
+	if m.M.AddedBranchIDs.Equal(addedBranchIDs) {
 		return false
 	}
 
-	m.messageMetadataInner.AddedBranchIDs = addedBranchIDs.Clone()
-	m.SetModified(true)
-	modified = true
-
-	return
+	m.M.AddedBranchIDs = addedBranchIDs.Clone()
+	m.SetModified()
+	return true
 }
 
 // AddBranchID sets the BranchIDs of the added Branches.
 func (m *MessageMetadata) AddBranchID(branchID utxo.TransactionID) (modified bool) {
-	m.addedBranchIDsMutex.Lock()
-	defer m.addedBranchIDsMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.AddedBranchIDs.Has(branchID) {
+	if m.M.AddedBranchIDs.Has(branchID) {
 		return
 	}
 
-	m.messageMetadataInner.AddedBranchIDs.Add(branchID)
-	m.SetModified(true)
+	m.M.AddedBranchIDs.Add(branchID)
+	m.SetModified()
 	return true
 }
 
 // AddedBranchIDs returns the BranchIDs of the added Branches of the Message.
 func (m *MessageMetadata) AddedBranchIDs() utxo.TransactionIDs {
-	m.addedBranchIDsMutex.RLock()
-	defer m.addedBranchIDsMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.AddedBranchIDs.Clone()
+	return m.M.AddedBranchIDs.Clone()
 }
 
 // SetSubtractedBranchIDs sets the BranchIDs of the subtracted Branches.
 func (m *MessageMetadata) SetSubtractedBranchIDs(subtractedBranchIDs utxo.TransactionIDs) (modified bool) {
-	m.subtractedBranchIDsMutex.Lock()
-	defer m.subtractedBranchIDsMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.SubtractedBranchIDs.Equal(subtractedBranchIDs) {
+	if m.M.SubtractedBranchIDs.Equal(subtractedBranchIDs) {
 		return false
 	}
 
-	m.messageMetadataInner.SubtractedBranchIDs = subtractedBranchIDs.Clone()
-	m.SetModified(true)
-	modified = true
-
-	return
+	m.M.SubtractedBranchIDs = subtractedBranchIDs.Clone()
+	m.SetModified()
+	return true
 }
 
 // SubtractedBranchIDs returns the BranchIDs of the subtracted Branches of the Message.
 func (m *MessageMetadata) SubtractedBranchIDs() utxo.TransactionIDs {
-	m.subtractedBranchIDsMutex.RLock()
-	defer m.subtractedBranchIDsMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.SubtractedBranchIDs.Clone()
+	return m.M.SubtractedBranchIDs.Clone()
 }
 
 // SetScheduled sets the message associated with this metadata as scheduled.
 // It returns true if the scheduled status is modified. False otherwise.
 func (m *MessageMetadata) SetScheduled(scheduled bool) (modified bool) {
-	m.scheduledMutex.Lock()
-	defer m.scheduledMutex.Unlock()
-	m.scheduledTimeMutex.Lock()
-	defer m.scheduledTimeMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.Scheduled == scheduled {
+	if m.M.Scheduled == scheduled {
 		return false
 	}
 
-	m.messageMetadataInner.Scheduled = scheduled
-	m.messageMetadataInner.ScheduledTime = clock.SyncedTime()
+	m.M.Scheduled = scheduled
+	m.M.ScheduledTime = clock.SyncedTime()
 	m.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // Scheduled returns true if the message represented by this metadata was scheduled. False otherwise.
-func (m *MessageMetadata) Scheduled() (result bool) {
-	m.scheduledMutex.RLock()
-	defer m.scheduledMutex.RUnlock()
+func (m *MessageMetadata) Scheduled() bool {
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.Scheduled
+	return m.M.Scheduled
 }
 
 // ScheduledTime returns the time when the message represented by this metadata was scheduled.
 func (m *MessageMetadata) ScheduledTime() time.Time {
-	m.scheduledTimeMutex.RLock()
-	defer m.scheduledTimeMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.ScheduledTime
+	return m.M.ScheduledTime
 }
 
 // SetDiscardedTime add the discarded time of a message to the metadata.
 func (m *MessageMetadata) SetDiscardedTime(discardedTime time.Time) {
-	m.discardedTimeMutex.Lock()
-	defer m.discardedTimeMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	m.messageMetadataInner.DiscardedTime = discardedTime
+	m.M.DiscardedTime = discardedTime
+	m.SetModified()
 }
 
 // DiscardedTime returns when the message was discarded.
 func (m *MessageMetadata) DiscardedTime() time.Time {
-	m.discardedTimeMutex.RLock()
-	defer m.discardedTimeMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.DiscardedTime
+	return m.M.DiscardedTime
 }
 
 // QueuedTime returns the time a message entered the scheduling queue.
 func (m *MessageMetadata) QueuedTime() time.Time {
-	m.queuedTimeMutex.RLock()
-	defer m.queuedTimeMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.QueuedTime
+	return m.M.QueuedTime
 }
 
 // SetQueuedTime records the time the message entered the scheduler queue.
 func (m *MessageMetadata) SetQueuedTime(queuedTime time.Time) {
-	m.queuedTimeMutex.Lock()
-	defer m.queuedTimeMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	m.messageMetadataInner.QueuedTime = queuedTime
+	m.M.QueuedTime = queuedTime
+	m.SetModified()
 }
 
 // SetBooked sets the message associated with this metadata as booked.
 // It returns true if the booked status is modified. False otherwise.
 func (m *MessageMetadata) SetBooked(booked bool) (modified bool) {
-	m.bookedMutex.Lock()
-	defer m.bookedMutex.Unlock()
-	m.bookedTimeMutex.Lock()
-	defer m.bookedTimeMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.Booked == booked {
+	if m.M.Booked == booked {
 		return false
 	}
 
-	m.messageMetadataInner.Booked = booked
-	m.messageMetadataInner.BookedTime = clock.SyncedTime()
+	m.M.Booked = booked
+	m.M.BookedTime = clock.SyncedTime()
 	m.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // IsBooked returns true if the message represented by this metadata is booked. False otherwise.
 func (m *MessageMetadata) IsBooked() (result bool) {
-	m.bookedMutex.RLock()
-	defer m.bookedMutex.RUnlock()
-	result = m.messageMetadataInner.Booked
+	m.RLock()
+	defer m.RUnlock()
 
-	return
+	return m.M.Booked
 }
 
 // BookedTime returns the time when the message represented by this metadata was booked.
 func (m *MessageMetadata) BookedTime() time.Time {
-	m.bookedTimeMutex.RLock()
-	defer m.bookedTimeMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.BookedTime
+	return m.M.BookedTime
 }
 
 // IsObjectivelyInvalid returns true if the message represented by this metadata is objectively invalid.
 func (m *MessageMetadata) IsObjectivelyInvalid() (result bool) {
-	m.invalidMutex.RLock()
-	defer m.invalidMutex.RUnlock()
-	result = m.messageMetadataInner.ObjectivelyInvalid
+	m.RLock()
+	defer m.RUnlock()
 
-	return
+	return m.M.ObjectivelyInvalid
 }
 
 // SetObjectivelyInvalid sets the message associated with this metadata as objectively invalid - it returns true if the
 // status was changed.
 func (m *MessageMetadata) SetObjectivelyInvalid(invalid bool) (modified bool) {
-	m.invalidMutex.Lock()
-	defer m.invalidMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.ObjectivelyInvalid == invalid {
+	if m.M.ObjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.messageMetadataInner.ObjectivelyInvalid = invalid
+	m.M.ObjectivelyInvalid = invalid
 	m.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // IsSubjectivelyInvalid returns true if the message represented by this metadata is subjectively invalid.
 func (m *MessageMetadata) IsSubjectivelyInvalid() (result bool) {
-	m.invalidMutex.RLock()
-	defer m.invalidMutex.RUnlock()
-	result = m.messageMetadataInner.SubjectivelyInvalid
+	m.RLock()
+	defer m.RUnlock()
 
-	return
+	return m.M.SubjectivelyInvalid
 }
 
 // SetSubjectivelyInvalid sets the message associated with this metadata as subjectively invalid - it returns true if
 // the status was changed.
 func (m *MessageMetadata) SetSubjectivelyInvalid(invalid bool) (modified bool) {
-	m.invalidMutex.Lock()
-	defer m.invalidMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.SubjectivelyInvalid == invalid {
+	if m.M.SubjectivelyInvalid == invalid {
 		return false
 	}
 
-	m.messageMetadataInner.SubjectivelyInvalid = invalid
+	m.M.SubjectivelyInvalid = invalid
 	m.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // SetGradeOfFinality sets the grade of finality associated with this metadata.
 // It returns true if the grade of finality is modified. False otherwise.
 func (m *MessageMetadata) SetGradeOfFinality(gradeOfFinality gof.GradeOfFinality) (modified bool) {
-	m.gradeOfFinalityMutex.Lock()
-	defer m.gradeOfFinalityMutex.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
-	if m.messageMetadataInner.GradeOfFinality == gradeOfFinality {
+	if m.M.GradeOfFinality == gradeOfFinality {
 		return false
 	}
 
-	m.messageMetadataInner.GradeOfFinality = gradeOfFinality
-	m.messageMetadataInner.GradeOfFinalityTime = clock.SyncedTime()
+	m.M.GradeOfFinality = gradeOfFinality
+	m.M.GradeOfFinalityTime = clock.SyncedTime()
 	m.SetModified()
-	modified = true
-
-	return
+	return true
 }
 
 // GradeOfFinality returns the grade of finality.
 func (m *MessageMetadata) GradeOfFinality() (result gof.GradeOfFinality) {
-	m.gradeOfFinalityMutex.RLock()
-	defer m.gradeOfFinalityMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.GradeOfFinality
+	return m.M.GradeOfFinality
 }
 
 // GradeOfFinalityTime returns the time the grade of finality was set.
 func (m *MessageMetadata) GradeOfFinalityTime() time.Time {
-	m.gradeOfFinalityMutex.RLock()
-	defer m.gradeOfFinalityMutex.RUnlock()
+	m.RLock()
+	defer m.RUnlock()
 
-	return m.messageMetadataInner.GradeOfFinalityTime
+	return m.M.GradeOfFinalityTime
 }
-
-// Bytes returns a marshaled Version of the whole MessageMetadata object.
-func (m *MessageMetadata) Bytes() []byte {
-	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *MessageMetadata) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.MessageID, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the MessageMetadata into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (m *MessageMetadata) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable Version of the MessageMetadata.
-func (m *MessageMetadata) String() string {
-	return stringify.Struct("MessageMetadata",
-		stringify.StructField("ID", m.MessageID),
-		stringify.StructField("receivedTime", m.ReceivedTime()),
-		stringify.StructField("solid", m.IsSolid()),
-		stringify.StructField("solidificationTime", m.SolidificationTime()),
-		stringify.StructField("structureDetails", m.StructureDetails()),
-		stringify.StructField("addedBranchIDs", m.AddedBranchIDs()),
-		stringify.StructField("subtractedBranchIDs", m.SubtractedBranchIDs()),
-		stringify.StructField("scheduled", m.Scheduled()),
-		stringify.StructField("scheduledTime", m.ScheduledTime()),
-		stringify.StructField("discardedTime", m.DiscardedTime()),
-		stringify.StructField("queuedTime", m.QueuedTime()),
-		stringify.StructField("booked", m.IsBooked()),
-		stringify.StructField("bookedTime", m.BookedTime()),
-		stringify.StructField("objectivelyInvalid", m.IsObjectivelyInvalid()),
-		stringify.StructField("subjectivelyInvalid", m.IsSubjectivelyInvalid()),
-		stringify.StructField("gradeOfFinality", m.GradeOfFinality()),
-		stringify.StructField("gradeOfFinalityTime", m.GradeOfFinalityTime()),
-	)
-}
-
-var _ objectstorage.StorableObject = new(MessageMetadata)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
