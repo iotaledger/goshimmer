@@ -89,7 +89,7 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
 	var ei EI
 	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
-		t := tx.(devnetvm.Transaction).Essence().Timestamp()
+		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
 		ei = m.epochManager.TimeToEI(t)
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
@@ -166,7 +166,8 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
 		// TODO: use timestamp of earliest attachment
-		ei = m.epochManager.TimeToEI(tx.Essence().Timestamp())
+		txvm := tx.(*devnetvm.Transaction)
+		ei = m.epochManager.TimeToEI(txvm.Essence().Timestamp())
 		return
 	})
 	return

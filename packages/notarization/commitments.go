@@ -6,7 +6,7 @@ import (
 	"hash"
 	"sync"
 
-	"github.com/lazyledger/smt"
+	"github.com/celestiaorg/smt"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/database"

@@ -72,7 +72,7 @@ func New(options ...Option) (ledger *Ledger) {
 	}))
 
 	ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		ledger.propagatedRejectionToTransactions(event.BranchID)
+		ledger.propagatedRejectionToTransactions(event.ID)
 	}))
 
 	ledger.Events.TransactionBooked.Attach(event.NewClosure(func(event *TransactionBookedEvent) {

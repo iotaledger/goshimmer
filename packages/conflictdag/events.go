@@ -102,8 +102,8 @@ type BranchConfirmedEvent[ConflictID comparable] struct {
 
 // BranchRejectedEvent is a container that acts as a dictionary for the BranchRejected event related parameters.
 type BranchRejectedEvent[ConflictID comparable] struct {
-	// BranchID contains the identifier of the rejected Conflict.
-	BranchID ConflictID
+	// ID contains the identifier of the rejected Conflict.
+	ID ConflictID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

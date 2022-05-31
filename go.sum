@@ -140,6 +140,8 @@ github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8 h1:lCaU8zjlV8f06WK3jlruYmTUPVumZ4sxj0CEyg/k0IU=
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8/go.mod h1:BXwVCA0+rgYcMKC3vVkfjF+2nXYIYq3h/HndbaCuw08=
 github.com/casbin/casbin/v2 v2.1.2/go.mod h1:YcPU1XXisHhLzuxH9coDNf2FbKpjGlbCg3n9yuLkIJQ=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884 h1:iRNKw2WmAbVgGMNYzDH5Y2yY3+jyxwEK9Hc5pwIjZAE=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884/go.mod h1:/sdYDakowo/XaxS2Fl7CBqtuf/O2uTqF2zmAUFAtAiw=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.1.1/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
