@@ -18,7 +18,7 @@ type markerIndexBranchIDMap struct {
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode, markers.IndexComparator)}
+	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // Encode returns a serialized byte slice of the object.
