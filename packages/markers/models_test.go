@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +14,7 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, Index(1), marker.Index())
 
 	unmarshalledMarker := new(Marker)
-	require.NoError(t, unmarshalledMarker.FromBytes(lo.PanicOnErr(marker.Bytes())))
+	require.NoError(t, unmarshalledMarker.FromBytes(marker.Bytes()))
 	assert.Equal(t, marker, unmarshalledMarker)
 }
 
@@ -27,9 +26,8 @@ func TestMarkers(t *testing.T) {
 	)
 
 	marshaledMarkers := markers.Bytes()
-	unmarshalledMarkers, consumedBytes, err := FromBytes(marshaledMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledMarkers), consumedBytes)
+	unmarshalledMarkers := new(Markers)
+	require.NoError(t, unmarshalledMarkers.FromBytes(marshaledMarkers))
 	assert.Equal(t, markers, unmarshalledMarkers)
 	assert.Equal(t, Index(3), markers.HighestIndex())
 	assert.Equal(t, Index(1), markers.LowestIndex())
