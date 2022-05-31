@@ -69,6 +69,34 @@ func (m *Manager) GetLatestEC() *EpochCommitment {
 	return m.epochCommitmentFactory.GetEpochCommitment(ei)
 }
 
+// GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
+func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
+	var ei EI
+	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
+		t := block.IssuingTime()
+		ei = m.epochManager.TimeToEI(t)
+	})
+	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
+// GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
+func (m *Manager) GetTransactionInclusionProof(transactionID ledgerstate.TransactionID) (*CommitmentProof, error) {
+	var ei EI
+	m.tangle.LedgerState.Transaction(transactionID).Consume(func(tx *ledgerstate.Transaction) {
+		t := tx.Essence().Timestamp()
+		ei = m.epochManager.TimeToEI(t)
+	})
+	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	ei := m.epochManager.TimeToEI(message.IssuingTime())

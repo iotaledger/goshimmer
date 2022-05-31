@@ -2,6 +2,7 @@ package notarization
 
 import (
 	"github.com/cockroachdb/errors"
+	"hash"
 	"sync"
 
 	"github.com/lazyledger/smt"
@@ -33,7 +34,7 @@ type Commitment struct {
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR []byte) *Commitment {
+func NewCommitment(ei EI, prevECR []byte, hasher hash.Hash) *Commitment {
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
 	messageValueStore := db.NewStore()
@@ -42,7 +43,6 @@ func NewCommitment(ei EI, prevECR []byte) *Commitment {
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
 
-	hasher, _ := blake2b.New256(nil)
 	commitment := &Commitment{
 		EI:                ei,
 		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
@@ -85,12 +85,17 @@ func (e *Commitment) ECR() []byte {
 type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
+
+	hasher hash.Hash
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
 func NewEpochCommitmentFactory() *EpochCommitmentFactory {
+	hasher, _ := blake2b.New256(nil)
+
 	return &EpochCommitmentFactory{
 		commitments: make(map[EI]*Commitment),
+		hasher:      hasher,
 	}
 }
 
@@ -184,29 +189,32 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *EpochCommitment {
 
 func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID ledgerstate.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
-	proof, err := f.commitments[ei].stateRoot.Prove(key)
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Newf("could not generate the state root proof: %w", err)
 	}
-	return &CommitmentProof{ei, proof}, nil
+	return &CommitmentProof{ei, proof, root}, nil
 }
 
 func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID ledgerstate.TransactionID) (*CommitmentProof, error) {
 	key := txID.Bytes()
-	proof, err := f.commitments[ei].stateRoot.Prove(key)
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Newf("could not generate the state mutation root proof: %w", err)
 	}
-	return &CommitmentProof{ei, proof}, nil
+	return &CommitmentProof{ei, proof, root}, nil
 }
 
 func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID) (*CommitmentProof, error) {
 	key := blockID.Bytes()
-	proof, err := f.commitments[ei].tangleRoot.Prove(key)
+	root := f.commitments[ei].tangleRoot.Root()
+	proof, err := f.commitments[ei].tangleRoot.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Newf("could not generate the tangle root proof: %w", err)
 	}
-	return &CommitmentProof{ei, proof}, nil
+	return &CommitmentProof{ei, proof, root}, nil
 }
 
 func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
@@ -221,12 +229,26 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 				previousECR = previousCommitment.ECR()
 			}
 		}
-		commitment = NewCommitment(ei, previousECR)
+		commitment = NewCommitment(ei, previousECR, f.hasher)
 		f.commitmentsMutex.Lock()
 		f.commitments[ei] = commitment
 		f.commitmentsMutex.Unlock()
 	}
 	return commitment
+}
+
+func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangle.MessageID) bool {
+	key := blockID.Bytes()
+	return f.verifyRoot(proof, key, key)
+}
+
+func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID ledgerstate.TransactionID) bool {
+	key := transactionID.Bytes()
+	return f.verifyRoot(proof, key, key)
+}
+
+func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
+	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
 func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
@@ -262,4 +284,5 @@ func (f *EpochCommitmentFactory) onStateRootChanged(commitment *Commitment) {
 type CommitmentProof struct {
 	EI    EI
 	proof smt.SparseMerkleProof
+	root  []byte
 }
