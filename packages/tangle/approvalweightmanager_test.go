@@ -520,7 +520,7 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
 
 		IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 0.30,
+			markers.NewMarker(0, 1): 0.30,
 		})
 	}
 	// ISSUE Message2
@@ -531,8 +531,8 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
 
 		IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 0.45,
-			*markers.NewMarker(0, 2): 0.15,
+			markers.NewMarker(0, 1): 0.45,
+			markers.NewMarker(0, 2): 0.15,
 		})
 	}
 	// ISSUE Message3
@@ -543,9 +543,9 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
 
 		IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 0.70,
-			*markers.NewMarker(0, 2): 0.40,
-			*markers.NewMarker(0, 3): 0.25,
+			markers.NewMarker(0, 1): 0.70,
+			markers.NewMarker(0, 2): 0.40,
+			markers.NewMarker(0, 3): 0.25,
 		})
 	}
 	// ISSUE Message4
@@ -558,10 +558,10 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
 
 		IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 0.90,
-			*markers.NewMarker(0, 2): 0.60,
-			*markers.NewMarker(0, 3): 0.45,
-			*markers.NewMarker(0, 4): 0.20,
+			markers.NewMarker(0, 1): 0.90,
+			markers.NewMarker(0, 2): 0.60,
+			markers.NewMarker(0, 3): 0.45,
+			markers.NewMarker(0, 4): 0.20,
 		})
 	}
 	// ISSUE Message5
@@ -575,11 +575,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
 
 		IssueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 0.90,
-			*markers.NewMarker(0, 2): 0.90,
-			*markers.NewMarker(0, 3): 0.75,
-			*markers.NewMarker(0, 4): 0.50,
-			*markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(0, 1): 0.90,
+			markers.NewMarker(0, 2): 0.90,
+			markers.NewMarker(0, 3): 0.75,
+			markers.NewMarker(0, 4): 0.50,
+			markers.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -600,11 +600,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"A": 0.3,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 0.85,
-			*markers.NewMarker(0, 4): 0.60,
-			*markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 0.85,
+			markers.NewMarker(0, 4): 0.60,
+			markers.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -618,11 +618,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"A": 0.30,
 			"B": 0.1,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.60,
-			*markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.60,
+			markers.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Message8
@@ -640,11 +640,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.15,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.60,
-			*markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.60,
+			markers.NewMarker(0, 5): 0.30,
 		})
 	}
 
@@ -662,11 +662,11 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.60,
-			*markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.60,
+			markers.NewMarker(0, 5): 0.30,
 		})
 	}
 	// ISSUE Message10
@@ -684,12 +684,12 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.75,
-			*markers.NewMarker(0, 5): 0.30,
-			*markers.NewMarker(1, 5): 0.15,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.75,
+			markers.NewMarker(0, 5): 0.30,
+			markers.NewMarker(1, 5): 0.15,
 		})
 	}
 
@@ -710,13 +710,13 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.45,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.75,
-			*markers.NewMarker(0, 5): 0.40,
-			*markers.NewMarker(0, 6): 0.10,
-			*markers.NewMarker(1, 5): 0.15,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.75,
+			markers.NewMarker(0, 5): 0.40,
+			markers.NewMarker(0, 6): 0.10,
+			markers.NewMarker(1, 5): 0.15,
 		})
 	}
 
@@ -736,14 +736,14 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"C": 0.55,
 			"D": 0.20,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.75,
-			*markers.NewMarker(0, 5): 0.40,
-			*markers.NewMarker(0, 6): 0.10,
-			*markers.NewMarker(1, 5): 0.25,
-			*markers.NewMarker(1, 6): 0.10,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.75,
+			markers.NewMarker(0, 5): 0.40,
+			markers.NewMarker(0, 6): 0.10,
+			markers.NewMarker(1, 5): 0.25,
+			markers.NewMarker(1, 6): 0.10,
 		})
 	}
 
@@ -772,14 +772,14 @@ func TestOutOfOrderStatements(t *testing.T) {
 			"X": 1.00,
 			"Y": 0.00,
 		}, map[markers.Marker]float64{
-			*markers.NewMarker(0, 1): 1,
-			*markers.NewMarker(0, 2): 1,
-			*markers.NewMarker(0, 3): 1,
-			*markers.NewMarker(0, 4): 0.75,
-			*markers.NewMarker(0, 5): 0.40,
-			*markers.NewMarker(0, 6): 0.10,
-			*markers.NewMarker(1, 5): 0.25,
-			*markers.NewMarker(1, 6): 0.10,
+			markers.NewMarker(0, 1): 1,
+			markers.NewMarker(0, 2): 1,
+			markers.NewMarker(0, 3): 1,
+			markers.NewMarker(0, 4): 0.75,
+			markers.NewMarker(0, 5): 0.40,
+			markers.NewMarker(0, 6): 0.10,
+			markers.NewMarker(1, 5): 0.25,
+			markers.NewMarker(1, 6): 0.10,
 		})
 	}
 }
@@ -860,7 +860,7 @@ func validateMarkerVoters(t *testing.T, approvalWeightManager *ApprovalWeightMan
 	}
 }
 
-func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...*markers.Marker) (message *Message) {
+func approveMarkers(approvalWeightManager *ApprovalWeightManager, voter *identity.Identity, markersToApprove ...markers.Marker) (message *Message) {
 	message = newTestDataMessagePublicKey("test", voter.PublicKey())
 	approvalWeightManager.tangle.Storage.StoreMessage(message)
 	approvalWeightManager.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {

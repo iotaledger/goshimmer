@@ -836,7 +836,7 @@ func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.
 }
 
 // IsMarkerConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+func (m *MockConfirmationOracle) IsMarkerConfirmed(markers.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
 	return false

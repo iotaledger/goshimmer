@@ -273,7 +273,7 @@ func (s *Storage) DeleteMarkerMessageMapping(branchID utxo.TransactionID, messag
 }
 
 // MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
-func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
+func (s *Storage) MarkerMessageMapping(marker markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
 	return s.markerMessageMappingStorage.Load(marker.Bytes())
 }
 

@@ -117,11 +117,11 @@ type MarkerMessageMapping struct {
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
-func NewMarkerMessageMapping(marker *markers.Marker, messageID MessageID) *MarkerMessageMapping {
+func NewMarkerMessageMapping(marker markers.Marker, messageID MessageID) *MarkerMessageMapping {
 	markerMessageMapping := &MarkerMessageMapping{
 		model.NewStorable[markers.Marker, MessageID](messageID),
 	}
-	markerMessageMapping.SetID(*marker)
+	markerMessageMapping.SetID(marker)
 	return markerMessageMapping
 }
 

@@ -38,7 +38,7 @@ func TestManager(t *testing.T) {
 	manager := NewManager(WithCacheTime(0), WithMaxPastMarkerDistance(3))
 
 	for _, m := range testMessages {
-		if futureMarkerToPropagate := inheritPastMarkers(m, manager, messageDB); futureMarkerToPropagate != nil {
+		if futureMarkerToPropagate, propagateFutureMarker := inheritPastMarkers(m, manager, messageDB); propagateFutureMarker {
 			distributeNewFutureMarkerToPastCone(futureMarkerToPropagate, m.parents, manager, messageDB)
 		}
 	}
@@ -451,7 +451,7 @@ func messageReferencesMessage(laterMessage, earlierMessage *message, messageDB m
 	return types.False
 }
 
-func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) (pastMarkerToPropagate *Marker) {
+func inheritPastMarkers(message *message, manager *Manager, messageDB map[string]*message) (pastMarkerToPropagate Marker, propagate bool) {
 	// merge past Markers of referenced parents
 	pastMarkers := make([]*StructureDetails, len(message.parents))
 	for i, parentID := range message.parents {
@@ -461,12 +461,13 @@ func inheritPastMarkers(message *message, manager *Manager, messageDB map[string
 	message.structureDetails, _ = manager.InheritStructureDetails(pastMarkers, alwaysIncreaseIndex)
 	if message.structureDetails.IsPastMarker() {
 		pastMarkerToPropagate = message.structureDetails.PastMarkers().Marker()
+		propagate = true
 	}
 
 	return
 }
 
-func distributeNewFutureMarkerToPastCone(futureMarker *Marker, messageParents []string, manager *Manager, messageDB map[string]*message) {
+func distributeNewFutureMarkerToPastCone(futureMarker Marker, messageParents []string, manager *Manager, messageDB map[string]*message) {
 	nextMessageParents := make([]string, 0)
 	for _, parentID := range messageParents {
 		parentMessage := messageDB[parentID]

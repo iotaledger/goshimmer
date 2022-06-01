@@ -14,7 +14,7 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, SequenceID(1337), marker.SequenceID())
 	assert.Equal(t, Index(1), marker.Index())
 
-	unmarshalledMarker := new(Marker)
+	var unmarshalledMarker Marker
 	require.NoError(t, unmarshalledMarker.FromBytes(marker.Bytes()))
 	assert.Equal(t, marker, unmarshalledMarker)
 }

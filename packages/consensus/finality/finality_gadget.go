@@ -16,7 +16,7 @@ import (
 
 // Gadget is an interface that describes the finality gadget.
 type Gadget interface {
-	HandleMarker(marker *markers.Marker, aw float64) (err error)
+	HandleMarker(marker markers.Marker, aw float64) (err error)
 	HandleBranch(branchID utxo.TransactionID, aw float64) (err error)
 	tangle.ConfirmationOracle
 }
@@ -144,7 +144,7 @@ func (s *SimpleFinalityGadget) Events() *tangle.ConfirmationEvents {
 }
 
 // IsMarkerConfirmed returns whether the given marker is confirmed.
-func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker *markers.Marker) (confirmed bool) {
+func (s *SimpleFinalityGadget) IsMarkerConfirmed(marker markers.Marker) (confirmed bool) {
 	messageID := s.tangle.Booker.MarkersManager.MessageID(marker)
 	if messageID == tangle.EmptyMessageID {
 		return false
@@ -227,7 +227,7 @@ func (s *SimpleFinalityGadget) IsOutputConfirmed(outputID utxo.OutputID) (confir
 }
 
 // HandleMarker receives a marker and its current approval weight. It propagates the GoF according to AW to its past cone.
-func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) (err error) {
+func (s *SimpleFinalityGadget) HandleMarker(marker markers.Marker, aw float64) (err error) {
 	gradeOfFinality := s.opts.MessageTransFunc(aw)
 	if gradeOfFinality == gof.None {
 		return nil
@@ -251,7 +251,7 @@ func (s *SimpleFinalityGadget) HandleMarker(marker *markers.Marker, aw float64) 
 }
 
 // setMarkerConfirmed marks the current Marker as confirmed.
-func (s *SimpleFinalityGadget) setMarkerConfirmed(marker *markers.Marker) (updated bool) {
+func (s *SimpleFinalityGadget) setMarkerConfirmed(marker markers.Marker) (updated bool) {
 	s.lastConfirmedMarkersMutex.Lock()
 	defer s.lastConfirmedMarkersMutex.Unlock()
 

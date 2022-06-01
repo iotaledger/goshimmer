@@ -24,14 +24,14 @@ type TransactionID struct {
 }
 
 // NewTransactionID returns a new TransactionID for the given data.
-func NewTransactionID(txData []byte) TransactionID {
+func NewTransactionID(txData []byte) (newTransactionID TransactionID) {
 	return TransactionID{
 		types.NewIdentifier(txData),
 	}
 }
 
 // Length returns the byte length of a serialized TransactionID.
-func (t TransactionID) Length() int {
+func (t TransactionID) Length() (length int) {
 	return types.IdentifierLength
 }
 

@@ -4169,7 +4169,7 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 				}
 
 				if assert.True(t, messageMetadata.StructureDetails().IsPastMarker(), "Message with %s should be PastMarker", messageMetadata.ID()) {
-					assert.True(t, *messageMetadata.StructureDetails().PastMarkers().Marker() == *currentMarker, "PastMarker of %s is wrong.\n"+
+					assert.True(t, messageMetadata.StructureDetails().PastMarkers().Marker() == currentMarker, "PastMarker of %s is wrong.\n"+
 						"Expected: %+v\nActual: %+v", messageMetadata.ID(), currentMarker, messageMetadata.StructureDetails().PastMarkers().Marker())
 				}
 			}), "failed to load Message with %s", mappedMessageIDOfMarker)
