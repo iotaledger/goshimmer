@@ -359,7 +359,6 @@ func (s *Scheduler) submit(message *Message) error {
 		// shortly before submitting we set the queued time
 		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
-	fmt.Println("Submitting", message.ID())
 	// when removing the zero mana node solution, check if nodes have MinMana here
 	droppedMessageIDs, err := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
 	if err != nil {
