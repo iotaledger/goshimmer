@@ -1,6 +1,8 @@
 package notarization
 
 import (
+	"encoding/binary"
+	"fmt"
 	"sync"
 	"time"
 
@@ -10,7 +12,9 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -44,17 +48,30 @@ type MutationLeaf struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type OutputID struct {
+	model.Storable[utxo.OutputID, utxo.OutputID] `serix:"0"`
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type smtStore struct {
+	Nodes  kvstore.KVStore
+	Values kvstore.KVStore
+}
+
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // EpochCommitmentStorage is a Ledger component that bundles the storage related API.
 type EpochCommitmentStorage struct {
-	// epochStateDiffStore contains the storage for epoch diffs.
-	epochStateDiffStore *objectstorage.ObjectStorage[*EpochStateDiff]
+	// Base store for all other storages, prefixed by the package
+	baseStore kvstore.KVStore
 
 	// TODO
-	smtStores map[EI]kvstore.KVStore
+	smtStores map[EI]*smtStore
 
-	ledgerstateStore *objectstorage.ObjectStorage[*utxo.OutputID]
+	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
 
 	// Delta storages
 	deltaStores map[EI]*objectstorage.ObjectStorage[*EpochStateDiff]
@@ -72,21 +89,17 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		epochCommitmentStorageOptions: newOptions(options...),
 	}
 
-	new.ledgerstateStore = objectstorage.NewStructStorage[utxo.OutputID](
-		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixEpochStateDiff),
+	new.baseStore = new.specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization)
+
+	ledgerStore := new.specializeStore(new.epochCommitmentStorageOptions.store, PrefixLedgerState)
+
+	new.ledgerstateStore = objectstorage.NewInterfaceStorage[utxo.Output](
+		ledgerStore,
+		ledger.OutputFactory(new.epochCommitmentStorageOptions.vm),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
-
-	new.epochStateDiffStore = objectstorage.NewStructStorage[EpochStateDiff](
-		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixLedgerState),
-		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
-		objectstorage.LeakDetectionEnabled(false),
-		objectstorage.StoreOnCreation(true),
-	)
-
-	new.masterStore = objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixLedgerState)
 
 	return new
 }
@@ -96,8 +109,51 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 // Shutdown shuts down the KVStore used to persist data.
 func (s *EpochCommitmentStorage) Shutdown() {
 	s.shutdownOnce.Do(func() {
-		s.epochStateDiffStore.Shutdown()
+		//s.epochStateDiffStore.Shutdown()
 	})
+}
+
+func (s *EpochCommitmentStorage) specializeStore(baseStore kvstore.KVStore, prefixes ...byte) (specializedStore kvstore.KVStore) {
+	specializedStore, err := baseStore.WithRealm(prefixes)
+	if err != nil {
+		panic(fmt.Errorf("could not create specialized store: %w", err))
+	}
+	return specializedStore
+}
+
+// Shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) getDeltaStore(ei EI) *objectstorage.ObjectStorage[*EpochStateDiff] {
+	if store, exists := s.deltaStores[ei]; exists {
+		return store
+	}
+
+	s.deltaStores[ei] = objectstorage.NewStructStorage[EpochStateDiff](
+		objectstorage.NewStoreWithRealm(s.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixEpochStateDiff),
+		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	)
+
+	return s.deltaStores[ei]
+}
+
+// Shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) getSmtStore(ei EI) *smtStore {
+	if store, exists := s.smtStores[ei]; exists {
+		return store
+	}
+
+	eiBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(eiBytes, uint64(ei))
+
+	epochSmtStore := s.specializeStore(s.specializeStore(s.baseStore, PrefixSmt), eiBytes...)
+
+	s.smtStores[ei] = &smtStore{
+		Nodes: s.specializeStore(epochSmtStore, PrefixSmtNodes),
+		Values: s.specializeStore(epochSmtStore, PrefixSmtValues),
+	}
+
+	return s.smtStores[ei]
 }
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +167,12 @@ const (
 	PrefixMutationLeaf
 
 	PrefixLedgerState
+
+	PrefixSmt
+
+	PrefixSmtNodes
+
+	PrefixSmtValues
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -120,6 +182,17 @@ const (
 func WithStore(store kvstore.KVStore) (option Option) {
 	return func(options *options) {
 		options.store = store
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region WithVM ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO
+func WithVM(vm vm.VM) (option Option) {
+	return func(options *options) {
+		options.vm = vm
 	}
 }
 
@@ -147,6 +220,9 @@ type options struct {
 
 	// TODO
 	epochCommitmentCacheTime time.Duration
+
+	//
+	vm vm.VM
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

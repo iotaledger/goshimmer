@@ -61,7 +61,7 @@ func newStorage(ledger *Ledger) (new *Storage) {
 		),
 		outputStorage: objectstorage.NewInterfaceStorage[utxo.Output](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixOutputStorage),
-			outputFactory(ledger.options.vm),
+			OutputFactory(ledger.options.vm),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.outputCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
@@ -299,8 +299,8 @@ func transactionFactory(vm vm.VM) func(key []byte, data []byte) (output objectst
 	}
 }
 
-// outputFactory represents the object factory for the Output type.
-func outputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
+// OutputFactory represents the object factory for the Output type.
+func OutputFactory(vm vm.VM) func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 	return func(key []byte, data []byte) (output objectstorage.StorableObject, err error) {
 		var outputID utxo.OutputID
 		if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {

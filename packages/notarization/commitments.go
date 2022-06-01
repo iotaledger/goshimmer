@@ -6,6 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/celestiaorg/smt"
@@ -61,12 +62,14 @@ type EpochCommitmentFactory struct {
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory(store kvstore.KVStore) *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitmentFactory {
 	hasher, _ := blake2b.New256(nil)
+
+	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
 
 	return &EpochCommitmentFactory{
 		commitments: make(map[EI]*Commitment),
-		storage:     newEpochCommitmentStorage(WithStore(store)),
+		storage:     epochCommitmentStorage,
 		hasher:      hasher,
 	}
 }
@@ -216,21 +219,20 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitment(ei EI, prevECR [32]byte) *Commitment {
-	memdb, _ := database.NewMemDB()
-	kvdb, _ := database.NewDB()
-	messageIDStore := memdb.NewStore()
-	messageValueStore := memdb.NewStore()
-	stateMutationIDStore := memdb.NewStore()
-	stateMutationValueStore := memdb.NewStore()
+	// Volatile storage for small trees
+	db, _ := database.NewMemDB()
+	messageIDStore := db.NewStore()
+	messageValueStore := db.NewStore()
+	stateMutationIDStore := db.NewStore()
+	stateMutationValueStore := db.NewStore()
 
-	stateIDStore := 
-	stateValueStore := memdb.NewStore()
+	epochSmtStores := f.storage.getSmtStore(ei)
 
 	commitment := &Commitment{
 		EI:                ei,
 		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
-		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, f.hasher),
-		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
+		stateMutationRoot: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
+		stateRoot:         smt.NewSparseMerkleTree(epochSmtStores.Nodes, epochSmtStores.Values, f.hasher),
 		prevECR:           prevECR,
 	}
 
