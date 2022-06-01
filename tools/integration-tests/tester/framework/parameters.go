@@ -19,7 +19,6 @@ const (
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
-	containerNameDrand       = "drand_"
 	containerNameSuffixPumba = "_pumba"
 
 	graceTimePumba = 3 * time.Second

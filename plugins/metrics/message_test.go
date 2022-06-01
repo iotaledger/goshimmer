@@ -19,10 +19,4 @@ func TestMessageCountPerPayload(t *testing.T) {
 	}
 	assert.Equal(t, MessageCountSinceStartPerComponentGrafana()[Store], uint64(10))
 	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{devnetvm.TransactionType: 10})
-	// simulate attaching 5 drng payloads
-	for i := 0; i < 5; i++ {
-		increasePerComponentCounter(Store)
-	}
-	assert.Equal(t, MessageCountSinceStartPerComponentGrafana()[Store], uint64(15))
-	assert.Equal(t, MessageCountSinceStartPerPayload(), map[payload.Type]uint64{devnetvm.TransactionType: 10})
 }

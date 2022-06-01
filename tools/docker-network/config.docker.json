@@ -33,16 +33,6 @@
   "database": {
     "directory": "mainnetdb"
   },
-  "drng": {
-    "custom": {
-      "instanceID": 111,
-      "threshold": 3,
-      "distributedPubKey": "",
-      "committeeMembers": [
-        "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP"
-      ]
-    }
-  },
   "gossip": {
     "port": 14666
   },
