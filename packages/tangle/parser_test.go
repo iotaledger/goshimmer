@@ -77,7 +77,7 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
-		msg.M.Payload = payload.NewGenericDataPayload([]byte("hello world"))
+		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
 		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
 	})

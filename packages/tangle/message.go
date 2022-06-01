@@ -21,6 +21,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -289,6 +290,7 @@ const (
 // Message represents the core message for the base layer Tangle.
 type Message struct {
 	model.Storable[MessageID, MessageModel] `serix:"0"`
+	payload                                 payload.Payload
 }
 type MessageModel struct {
 	// core properties (get sent over the wire)
@@ -297,7 +299,7 @@ type MessageModel struct {
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
-	Payload         payload.Payload   `serix:"5,optional"`
+	PayloadBytes    []byte            `serix:"5,lengthPrefixType=uint32"`
 	Nonce           uint64            `serix:"6"`
 	Signature       ed25519.Signature `serix:"7"`
 }
@@ -309,16 +311,19 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
-	msg := &Message{model.NewStorable[MessageID, MessageModel](MessageModel{
-		Version:         version,
-		Parents:         references,
-		IssuerPublicKey: issuerPublicKey,
-		IssuingTime:     issuingTime,
-		SequenceNumber:  sequenceNumber,
-		Payload:         msgPayload,
-		Nonce:           nonce,
-		Signature:       signature,
-	})}
+	msg := &Message{
+		Storable: model.NewStorable[MessageID, MessageModel](MessageModel{
+			Version:         version,
+			Parents:         references,
+			IssuerPublicKey: issuerPublicKey,
+			IssuingTime:     issuingTime,
+			SequenceNumber:  sequenceNumber,
+			PayloadBytes:    msgPayload.Bytes(),
+			Nonce:           nonce,
+			Signature:       signature,
+		}),
+		payload: msgPayload,
+	}
 
 	return msg
 }
@@ -340,28 +345,6 @@ func NewMessageWithValidation(references ParentMessageIDs, issuingTime time.Time
 	}
 	return msg, nil
 }
-
-// // FromBytes unmarshals a Transaction from a sequence of bytes.
-// func (m *Message) FromBytes(data []byte) (err error) {
-// 	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, m, serix.WithValidation())
-// 	if err != nil {
-// 		return errors.Errorf("failed to parse Message: %w", err)
-// 	}
-//
-// 	if len(data) != consumedBytes {
-// 		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
-// 	}
-//
-// 	// TODO: this seems a bit out of place here.
-// 	// msgPayload := msg.Payload()
-// 	// if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
-// 	// 	tx := msgPayload.(*devnetvm.Transaction)
-// 	//
-// 	// 	devnetvm.SetOutputID(tx.Essence(), tx.ID())
-// 	// }
-//
-// 	return nil
-// }
 
 // VerifySignature verifies the Signature of the message.
 func (m *Message) VerifySignature() (valid bool, err error) {
@@ -445,7 +428,24 @@ func (m *Message) SequenceNumber() uint64 {
 
 // Payload returns the Payload of the message.
 func (m *Message) Payload() payload.Payload {
-	return m.M.Payload
+	m.Lock()
+	defer m.Unlock()
+
+	if m.payload == nil {
+		_, err := serix.DefaultAPI.Decode(context.Background(), m.M.PayloadBytes, &m.payload, serix.WithValidation())
+		if err != nil {
+			panic(err)
+		}
+
+		if m.payload.Type() == devnetvm.TransactionType {
+			tx := m.payload.(*devnetvm.Transaction)
+			tx.SetID(utxo.NewTransactionID(m.M.PayloadBytes))
+
+			devnetvm.SetOutputID(tx.Essence(), tx.ID())
+		}
+	}
+
+	return m.payload
 }
 
 // Nonce returns the Nonce of the message.
