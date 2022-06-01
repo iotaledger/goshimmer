@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -51,15 +52,13 @@ var EmptyTransactionID TransactionID
 type TransactionIDs = *set.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
-func NewTransactionIDs(ids ...TransactionID) TransactionIDs {
+func NewTransactionIDs(ids ...TransactionID) (newTransactionIDs TransactionIDs) {
 	return set.NewAdvancedSet[TransactionID](ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-const OutputIDSuffixLength = 2
 
 // OutputID is a unique identifier for an Output.
 type OutputID struct {
@@ -133,14 +132,14 @@ func (o OutputID) Base58() (base58Encoded string) {
 
 // Length returns number of bytes of OutputID
 func (o OutputID) Length() int {
-	return o.TransactionID.Length() + OutputIDSuffixLength
+	return o.TransactionID.Length() + serializer.UInt16ByteSize
 }
 
 // Bytes returns a serialized version of the OutputID.
 func (o OutputID) Bytes() (serialized []byte) {
 	serialized = o.TransactionID.Bytes()
 
-	b := make([]byte, OutputIDSuffixLength)
+	b := make([]byte, serializer.UInt16ByteSize)
 	binary.LittleEndian.PutUint16(b, o.Index)
 
 	return byteutils.ConcatBytes(serialized, b)
@@ -170,7 +169,7 @@ var (
 type OutputIDs = *set.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
-func NewOutputIDs(ids ...OutputID) OutputIDs {
+func NewOutputIDs(ids ...OutputID) (newOutputIDs OutputIDs) {
 	return set.NewAdvancedSet[OutputID](ids...)
 }
 
