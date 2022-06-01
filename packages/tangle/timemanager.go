@@ -83,6 +83,7 @@ func (t *TimeManager) Start() {
 func (t *TimeManager) Setup() {
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
 		t.updateTime(event.Message)
+		t.updateSyncedState()
 	}))
 	t.Start()
 }
@@ -167,16 +168,14 @@ func (t *TimeManager) updateTime(message *Message) {
 	t.lastConfirmedMutex.Lock()
 	defer t.lastConfirmedMutex.Unlock()
 
-		if t.lastConfirmedMessage.MessageTime.After(message.IssuingTime()) {
-			return
-		}
-		t.lastConfirmedMessage = LastConfirmedMessage{
-			MessageID:     message.ID(),
-			MessageTime:   message.IssuingTime(),
-			ConfirmedTime: time.Now(),
-		}
-	})
-	t.updateSyncedState()
+	if t.lastConfirmedMessage.MessageTime.After(message.IssuingTime()) {
+		return
+	}
+	t.lastConfirmedMessage = LastConfirmedMessage{
+		MessageID:     message.ID(),
+		MessageTime:   message.IssuingTime(),
+		ConfirmedTime: time.Now(),
+	}
 }
 
 // RCTT return relative confirmed tangle time.
