@@ -17,7 +17,7 @@ func checkSynced() {
 		if deps.Local != nil {
 			myID = deps.Local.ID().String()
 		}
-		syncStatusChangedEvent := remotemetrics.SyncStatusChangedEvent{
+		syncStatusChangedEvent := &remotemetrics.TangleTimeSyncChangedEvent{
 			Type:           "sync",
 			NodeID:         myID,
 			MetricsLevel:   Parameters.MetricsLevel,
@@ -29,10 +29,10 @@ func checkSynced() {
 			CurrentStatus:  tts,
 			PreviousStatus: oldTangleTimeSynced,
 		}
-		remotemetrics.Events().TangleTimeSyncChanged.Trigger(syncStatusChangedEvent)
+		remotemetrics.Events.TangleTimeSyncChanged.Trigger(syncStatusChangedEvent)
 	}
 }
 
-func sendSyncStatusChangedEvent(syncUpdate remotemetrics.SyncStatusChangedEvent) {
+func sendSyncStatusChangedEvent(syncUpdate *remotemetrics.TangleTimeSyncChangedEvent) {
 	_ = deps.RemoteLogger.Send(syncUpdate)
 }

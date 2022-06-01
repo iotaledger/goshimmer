@@ -6,7 +6,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58"
@@ -79,7 +79,9 @@ func configure(plugin *node.Plugin) {
 	configureWebAPI()
 
 	// subscribe to message-layer
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(onReceiveMessageFromMessageLayer))
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
+		onReceiveMessageFromMessageLayer(event.MessageID)
+	}))
 
 	clockEnabled = !node.IsSkipped(deps.ClockPlugin)
 }

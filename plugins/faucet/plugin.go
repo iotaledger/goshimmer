@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/workerpool"
@@ -19,7 +19,8 @@ import (
 
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -50,6 +51,7 @@ var (
 	blackListMutex    sync.RWMutex
 	// signals that the faucet has initialized itself and can start funding requests.
 	initDone atomic.Bool
+	synced   chan (bool)
 
 	waitForManaWindow = 5 * time.Second
 	deps              = new(dependencies)
@@ -58,8 +60,9 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local  *peer.Local
-	Tangle *tangle.Tangle
+	Local   *peer.Local
+	Tangle  *tangle.Tangle
+	Indexer *indexer.Indexer
 }
 
 func init() {
@@ -120,6 +123,8 @@ func configure(plugin *node.Plugin) {
 	preparingWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(_faucet.prepareTransactionTask,
 		workerpool.WorkerCount(preparingWorkerCount), workerpool.QueueSize(preparingWorkerQueueSize))
 
+	synced = make(chan bool, 1)
+
 	configureEvents()
 }
 
@@ -162,19 +167,6 @@ func run(plugin *node.Plugin) {
 }
 
 func waitUntilBootstrapped(ctx context.Context) bool {
-	synced := make(chan struct{}, 1)
-	closure := events.NewClosure(func(e *tangle.SyncChangedEvent) {
-		if e.Synced {
-			// use non-blocking send to prevent deadlocks in rare cases when the SyncedChanged events is spammed
-			select {
-			case synced <- struct{}{}:
-			default:
-			}
-		}
-	})
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(closure)
-	defer deps.Tangle.TimeManager.Events.SyncChanged.Detach(closure)
-
 	// if we are already synced, there is no need to wait for the event
 	if deps.Tangle.TimeManager.Bootstrapped() {
 		return true
@@ -213,53 +205,63 @@ func waitForMana(ctx context.Context) error {
 }
 
 func configureEvents() {
-	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		// Do not start picking up request while waiting for initialization.
-		// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
-		// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
-		// sync and initialized.
-		if !initDone.Load() {
+	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
+		onMessageProcessed(event.MessageID)
+	}))
+
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
+		if event.Synced {
+			synced <- true
+		}
+	}))
+}
+
+func onMessageProcessed(messageID tangle.MessageID) {
+	// Do not start picking up request while waiting for initialization.
+	// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
+	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
+	// sync and initialized.
+	if !initDone.Load() {
+		return
+	}
+	deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		if !faucet.IsFaucetReq(message) {
 			return
 		}
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			if !faucet.IsFaucetReq(message) {
-				return
-			}
-			fundingRequest := message.Payload().(*faucet.Payload)
-			addr := fundingRequest.Address()
+		fundingRequest := message.Payload().(*faucet.Payload)
+		addr := fundingRequest.Address()
 
-			// verify PoW
-			leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
-			if err != nil {
-				Plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
-				return
-			}
+		// verify PoW
+		leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
+		if err != nil {
+			Plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
+			return
+		}
 
-			if leadingZeroes < targetPoWDifficulty {
-				Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-				return
-			}
+		if leadingZeroes < targetPoWDifficulty {
+			Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
+			return
+		}
 
-			if IsAddressBlackListed(addr) {
-				Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-				return
-			}
+		if IsAddressBlackListed(addr) {
+			Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
+			return
+		}
 
-			// finally add it to the faucet to be processed
-			_, added := fundingWorkerPool.TrySubmit(message)
-			if !added {
-				RemoveAddressFromBlacklist(addr)
-				Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-				return
-			}
-			Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
-		})
-	}))
+		// finally add it to the faucet to be processed
+		_, added := fundingWorkerPool.TrySubmit(message)
+		if !added {
+			RemoveAddressFromBlacklist(addr)
+			Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
+			return
+		}
+		Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+	})
 }
 
 // IsAddressBlackListed returns if an address is blacklisted.
 // adds the given address to the blacklist and removes the oldest blacklist entry if it would go over capacity.
-func IsAddressBlackListed(address ledgerstate.Address) bool {
+func IsAddressBlackListed(address devnetvm.Address) bool {
 	blackListMutex.Lock()
 	defer blackListMutex.Unlock()
 
@@ -285,7 +287,7 @@ func IsAddressBlackListed(address ledgerstate.Address) bool {
 }
 
 // RemoveAddressFromBlacklist removes an address from the blacklist.
-func RemoveAddressFromBlacklist(address ledgerstate.Address) {
+func RemoveAddressFromBlacklist(address devnetvm.Address) {
 	blackListMutex.Lock()
 	defer blackListMutex.Unlock()
 

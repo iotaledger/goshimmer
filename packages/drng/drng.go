@@ -11,14 +11,14 @@ import (
 // DRNG holds the state and events of a drng instance.
 type DRNG struct {
 	State  map[uint32]*State // The state of the DRNG.
-	Events *Event            // The events fired on the DRNG.
+	Events *Events           // The events fired on the DRNG.
 }
 
 // New creates a new DRNG instance.
 func New(config map[uint32][]Option) *DRNG {
 	drng := &DRNG{
 		State:  make(map[uint32]*State),
-		Events: newEvent(),
+		Events: newEvents(),
 	}
 
 	for id, setters := range config {

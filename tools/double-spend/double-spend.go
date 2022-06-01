@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/hive.go/identity"
 
 	"github.com/iotaledger/goshimmer/client"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
 )
 
 func main() {
@@ -70,14 +71,14 @@ func main() {
 		return
 	}
 
-	out, err := ledgerstate.OutputIDFromBase58(myOutputID)
-	if err != nil {
+	var out utxo.OutputID
+	if err := out.FromBase58(myOutputID); err != nil {
 		fmt.Println("malformed OutputID")
 		return
 	}
 
 	// issue transactions which spend the same output
-	conflictingTxs := make([]*ledgerstate.Transaction, 2)
+	conflictingTxs := make([]*devnetvm.Transaction, 2)
 	conflictingMsgIDs := make([]string, 2)
 	receiverSeeds := make([]*walletseed.Seed, 2)
 
@@ -91,21 +92,20 @@ func main() {
 			receiverSeeds[i] = walletseed.NewSeed()
 			destAddr := receiverSeeds[i].Address(0)
 
-			output := ledgerstate.NewSigLockedColoredOutput(ledgerstate.NewColoredBalances(map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: uint64(1000000),
+			output := devnetvm.NewSigLockedColoredOutput(devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: uint64(1000000),
 			}), destAddr.Address())
-			txEssence := ledgerstate.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, ledgerstate.NewInputs(ledgerstate.NewUTXOInput(out)), ledgerstate.NewOutputs(output))
+			txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, devnetvm.NewInputs(devnetvm.NewUTXOInput(out)), devnetvm.NewOutputs(output))
 			kp := *mySeed.KeyPair(0)
-			sig := ledgerstate.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
-			unlockBlock := ledgerstate.NewSignatureUnlockBlock(sig)
-			tx := ledgerstate.NewTransaction(txEssence, ledgerstate.UnlockBlocks{unlockBlock})
+			sig := devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+			unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
+			tx := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
 
 			// issue the tx
 			resp, err2 := clients[i].PostTransaction(tx.Bytes())
 			if err2 != nil {
-				fmt.Println(err)
-				return
+				panic(err2)
 			}
 			fmt.Println(resp.TransactionID)
 

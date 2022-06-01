@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 var (
@@ -48,7 +48,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
-				InputID: ledgerstate.OutputID{1},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -58,7 +58,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
-				InputID: ledgerstate.OutputID{2},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -68,7 +68,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
-				InputID: ledgerstate.OutputID{3},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 		},
 	}
@@ -133,13 +133,13 @@ func TestAccessBaseManaVector_Book(t *testing.T) {
 	)
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
-	Events().Revoked.Attach(events.NewClosure(func(ev *RevokedEvent) {
+	Events.Revoked.Hook(event.NewClosure(func(ev *RevokedEvent) {
 		revokeEvents = append(revokeEvents, ev)
 	}))
-	Events().Pledged.Attach(events.NewClosure(func(ev *PledgedEvent) {
+	Events.Pledged.Hook(event.NewClosure(func(ev *PledgedEvent) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
@@ -300,7 +300,7 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -336,7 +336,7 @@ func TestAccessBaseManaVector_UpdateError(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -369,7 +369,7 @@ func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 

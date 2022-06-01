@@ -6,10 +6,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/labstack/echo"
+	"github.com/mr-tron/base58"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // DiagnosticBranchesHandler runs the diagnostic over the Tangle.
@@ -30,9 +35,9 @@ func runDiagnosticBranches(c echo.Context) {
 		panic(err)
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.ForEachBranch(func(branch *ledgerstate.Branch) {
+	deps.Tangle.Ledger.ConflictDAG.Utils.ForEachBranch(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		switch branch.ID() {
-		case ledgerstate.MasterBranchID:
+		case utxo.EmptyTransactionID:
 			return
 		default:
 			conflictInfo := getDiagnosticConflictsInfo(branch.ID())
@@ -52,7 +57,7 @@ var DiagnosticBranchesTableDescription = []string{
 	"ID",
 	"ConflictSet",
 	"IssuanceTime",
-	"SolidTime",
+	"BookingTime",
 	"LazyBooked",
 	"GradeOfFinality",
 }
@@ -62,30 +67,29 @@ type DiagnosticBranchInfo struct {
 	ID                string
 	ConflictSet       []string
 	IssuanceTimestamp time.Time
-	SolidTime         time.Time
+	BookingTime       time.Time
 	LazyBooked        bool
 	GradeOfFinality   gof.GradeOfFinality
 }
 
-func getDiagnosticConflictsInfo(branchID ledgerstate.BranchID) DiagnosticBranchInfo {
+func getDiagnosticConflictsInfo(branchID utxo.TransactionID) DiagnosticBranchInfo {
 	conflictInfo := DiagnosticBranchInfo{
 		ID: branchID.Base58(),
 	}
 
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
-		conflictInfo.GradeOfFinality, _ = deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branch.ID())
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictInfo.GradeOfFinality, _ = deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branch.ID())
 
-		transactionID := ledgerstate.TransactionID(branchID)
+		transactionID := branchID
 
-		conflictInfo.ConflictSet = deps.Tangle.LedgerState.ConflictSet(transactionID).Base58s()
+		conflictInfo.ConflictSet = lo.Map(lo.Map(branch.ConflictIDs().Slice(), utxo.OutputID.Bytes), base58.Encode)
 
-		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-			conflictInfo.IssuanceTimestamp = transaction.Essence().Timestamp()
+		deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+			conflictInfo.IssuanceTimestamp = transaction.(*devnetvm.Transaction).Essence().Timestamp()
 		})
 
-		deps.Tangle.LedgerState.TransactionMetadata(transactionID).Consume(func(transactionMetadata *ledgerstate.TransactionMetadata) {
-			conflictInfo.SolidTime = transactionMetadata.SolidificationTime()
-			conflictInfo.LazyBooked = transactionMetadata.LazyBooked()
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(transactionID).Consume(func(transactionMetadata *ledger.TransactionMetadata) {
+			conflictInfo.BookingTime = transactionMetadata.BookingTime()
 		})
 	})
 
@@ -97,7 +101,7 @@ func (d DiagnosticBranchInfo) toCSV() (result string) {
 		d.ID,
 		strings.Join(d.ConflictSet, ";"),
 		fmt.Sprint(d.IssuanceTimestamp.UnixNano()),
-		fmt.Sprint(d.SolidTime.UnixNano()),
+		fmt.Sprint(d.BookingTime.UnixNano()),
 		fmt.Sprint(d.LazyBooked),
 		fmt.Sprint(d.GradeOfFinality),
 	}

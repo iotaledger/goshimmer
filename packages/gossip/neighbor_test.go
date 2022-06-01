@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/stretchr/testify/assert"
@@ -50,8 +50,8 @@ func TestNeighborWrite(t *testing.T) {
 	neighborA := newTestNeighbor("A", a)
 	defer neighborA.disconnect()
 	var countA uint32
-	neighborA.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
-		assert.Equal(t, testPacket2.String(), packet.String())
+	neighborA.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+		assert.Equal(t, testPacket2.String(), event.Packet.String())
 		atomic.AddUint32(&countA, 1)
 	}))
 	neighborA.readLoop()
@@ -60,8 +60,8 @@ func TestNeighborWrite(t *testing.T) {
 	defer neighborB.disconnect()
 
 	var countB uint32
-	neighborB.packetReceived.Attach(events.NewClosure(func(packet *pb.Packet) {
-		assert.Equal(t, testPacket1.String(), packet.String())
+	neighborB.Events.PacketReceived.Hook(event.NewClosure(func(event *NeighborPacketReceivedEvent) {
+		assert.Equal(t, testPacket1.String(), event.Packet.String())
 		atomic.AddUint32(&countB, 1)
 	}))
 	neighborB.readLoop()

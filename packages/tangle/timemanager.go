@@ -7,7 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -44,9 +44,7 @@ type TimeManager struct {
 // NewTimeManager is the constructor for TimeManager.
 func NewTimeManager(tangle *Tangle) *TimeManager {
 	t := &TimeManager{
-		Events: &TimeManagerEvents{
-			SyncChanged: events.NewEvent(SyncChangedCaller),
-		},
+		Events:      newTimeManagerEvents(),
 		tangle:      tangle,
 		startSynced: tangle.Options.StartSynced,
 	}
@@ -83,7 +81,9 @@ func (t *TimeManager) Start() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (t *TimeManager) Setup() {
-	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(t.updateTime))
+	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
+		t.updateTime(event.Message)
+	}))
 	t.Start()
 }
 
@@ -163,16 +163,15 @@ func (t *TimeManager) updateSyncedState() {
 }
 
 // updateTime updates the last confirmed message.
-func (t *TimeManager) updateTime(messageID MessageID) {
-	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		t.lastConfirmedMutex.Lock()
-		defer t.lastConfirmedMutex.Unlock()
+func (t *TimeManager) updateTime(message *Message) {
+	t.lastConfirmedMutex.Lock()
+	defer t.lastConfirmedMutex.Unlock()
 
 		if t.lastConfirmedMessage.MessageTime.After(message.IssuingTime()) {
 			return
 		}
 		t.lastConfirmedMessage = LastConfirmedMessage{
-			MessageID:     messageID,
+			MessageID:     message.ID(),
 			MessageTime:   message.IssuingTime(),
 			ConfirmedTime: time.Now(),
 		}
@@ -250,26 +249,6 @@ func (l LastConfirmedMessage) String() string {
 		stringify.StructField("MessageTime", l.MessageTime),
 		stringify.StructField("ConfirmedTime", l.ConfirmedTime),
 	)
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TimeManagerEvents ////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimeManagerEvents represents events happening in the TimeManager.
-type TimeManagerEvents struct {
-	// Fired when the nodes sync status changes.
-	SyncChanged *events.Event
-}
-
-// SyncChangedEvent represents a sync changed event.
-type SyncChangedEvent struct {
-	Synced bool
-}
-
-// SyncChangedCaller is the caller function for sync changed event.
-func SyncChangedCaller(handler interface{}, params ...interface{}) {
-	handler.(func(ev *SyncChangedEvent))(params[0].(*SyncChangedEvent))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

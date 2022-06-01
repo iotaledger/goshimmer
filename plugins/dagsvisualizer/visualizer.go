@@ -8,14 +8,19 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -53,20 +58,21 @@ func runVisualizer() {
 }
 
 func registerTangleEvents() {
-	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeTangleVertex,
-			Data: newTangleVertex(messageID),
+			Data: newTangleVertex(event.Message),
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
 			if err != nil {
-				branchIDs = ledgerstate.NewBranchIDs()
+				branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 			}
 
 			wsMsg := &wsMessage{
@@ -74,7 +80,7 @@ func registerTangleEvents() {
 				Data: &tangleBooked{
 					ID:        messageID.Base58(),
 					IsMarker:  msgMetadata.StructureDetails().IsPastMarker,
-					BranchIDs: branchIDs.Base58(),
+					BranchIDs: lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 				},
 			}
 			visualizerWorkerPool.TrySubmit(wsMsg)
@@ -82,7 +88,8 @@ func registerTangleEvents() {
 		})
 	})
 
-	msgConfirmedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	msgConfirmedClosure := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		messageID := event.Message.ID()
 		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeTangleConfirmed,
@@ -97,31 +104,29 @@ func registerTangleEvents() {
 		})
 	})
 
-	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		var msgID tangle.MessageID
-		deps.Tangle.Storage.Attachments(txID).Consume(func(a *tangle.Attachment) {
+		deps.Tangle.Storage.Attachments(event.TransactionID).Consume(func(a *tangle.Attachment) {
 			msgID = a.MessageID()
 		})
 
-		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-			wsMsg := &wsMessage{
-				Type: MsgTypeTangleTxGoF,
-				Data: &tangleTxGoFChanged{
-					ID:          msgID.Base58(),
-					IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(txID),
-				},
-			}
-			visualizerWorkerPool.TrySubmit(wsMsg)
-			storeWsMessage(wsMsg)
-		})
+		wsMsg := &wsMessage{
+			Type: MsgTypeTangleTxGoF,
+			Data: &tangleTxGoFChanged{
+				ID:          msgID.Base58(),
+				IsConfirmed: deps.FinalityGadget.IsTransactionConfirmed(event.TransactionID),
+			},
+		}
+		visualizerWorkerPool.TrySubmit(wsMsg)
+		storeWsMessage(wsMsg)
 	})
 
-	fmUpdateClosure := events.NewClosure(func(fmUpdate *tangle.FutureMarkerUpdate) {
+	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeFutureMarkerUpdated,
 			Data: &tangleFutureMarkerUpdated{
-				ID:             fmUpdate.ID.Base58(),
-				FutureMarkerID: fmUpdate.FutureMarker.Base58(),
+				ID:             event.ID.Base58(),
+				FutureMarkerID: event.FutureMarker.Base58(),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
@@ -132,38 +137,33 @@ func registerTangleEvents() {
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
 	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
-	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerUTXOEvents() {
-	storeClosure := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-			if msg.Payload().Type() == ledgerstate.TransactionType {
-				tx := msg.Payload().(*ledgerstate.Transaction)
-				wsMsg := &wsMessage{
-					Type: MsgTypeUTXOVertex,
-					Data: newUTXOVertex(messageID, tx),
-				}
-				visualizerWorkerPool.TrySubmit(wsMsg)
-				storeWsMessage(wsMsg)
+	storeClosure := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		if event.Message.Payload().Type() == devnetvm.TransactionType {
+			tx := event.Message.Payload().(*devnetvm.Transaction)
+			wsMsg := &wsMessage{
+				Type: MsgTypeUTXOVertex,
+				Data: newUTXOVertex(event.Message.ID(), tx),
 			}
-		})
+			visualizerWorkerPool.TrySubmit(wsMsg)
+			storeWsMessage(wsMsg)
+		}
 	})
 
-	bookedClosure := events.NewClosure(func(messageID tangle.MessageID) {
+	bookedClosure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		messageID := event.MessageID
 		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			if message.Payload().Type() == ledgerstate.TransactionType {
-				tx := message.Payload().(*ledgerstate.Transaction)
-				deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
-					branchIDs := make([]string, 0)
-					for branchID := range txMetadata.BranchIDs() {
-						branchIDs = append(branchIDs, branchID.Base58())
-					}
+			if message.Payload().Type() == devnetvm.TransactionType {
+				tx := message.Payload().(*devnetvm.Transaction)
+				deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 					wsMsg := &wsMessage{
 						Type: MsgTypeUTXOBooked,
 						Data: &utxoBooked{
 							ID:        tx.ID().Base58(),
-							BranchIDs: branchIDs,
+							BranchIDs: lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58),
 						},
 					}
 					visualizerWorkerPool.TrySubmit(wsMsg)
@@ -173,8 +173,9 @@ func registerUTXOEvents() {
 		})
 	})
 
-	txGoFChangedClosure := events.NewClosure(func(txID ledgerstate.TransactionID) {
-		deps.Tangle.LedgerState.TransactionMetadata(txID).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+	txGoFChangedClosure := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		txID := event.TransactionID
+		deps.Tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *ledger.TransactionMetadata) {
 			wsMsg := &wsMessage{
 				Type: MsgTypeUTXOGoFChanged,
 				Data: &utxoGoFChanged{
@@ -191,46 +192,47 @@ func registerUTXOEvents() {
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.FinalityGadget.Events().TransactionGoFChanged.Attach(txGoFChangedClosure)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
 
 func registerBranchEvents() {
-	createdClosure := events.NewClosure(func(branchID ledgerstate.BranchID) {
+	createdClosure := event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchVertex,
-			Data: newBranchVertex(branchID),
+			Data: newBranchVertex(event.ID),
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	parentUpdateClosure := events.NewClosure(func(parentUpdate *ledgerstate.BranchParentUpdate) {
+	parentUpdateClosure := event.NewClosure(func(event *conflictdag.BranchParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchParentsUpdate,
 			Data: &branchParentUpdate{
-				ID:      parentUpdate.ID.Base58(),
-				Parents: parentUpdate.NewParents.Base58(),
+				ID:      event.BranchID.Base58(),
+				Parents: lo.Map(event.ParentsBranchIDs.Slice(), utxo.TransactionID.Base58),
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	branchGoFChangedClosure := events.NewClosure(func(branchID ledgerstate.BranchID, newGoF gof.GradeOfFinality) {
+	branchConfirmedClosure := event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchGoFChanged,
 			Data: &branchGoFChanged{
-				ID:          branchID.Base58(),
-				GoF:         newGoF.String(),
-				IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
+				ID:          event.BranchID.Base58(),
+				GoF:         gof.High.String(),
+				IsConfirmed: true,
 			},
 		}
 		visualizerWorkerPool.TrySubmit(wsMsg)
 		storeWsMessage(wsMsg)
 	})
 
-	branchWeightChangedClosure := events.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
-		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(e.BranchID)
+	branchWeightChangedClosure := event.NewClosure(func(e *tangle.BranchWeightChangedEvent) {
+		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(e.BranchID)
 		wsMsg := &wsMessage{
 			Type: MsgTypeBranchWeightChanged,
 			Data: &branchWeightChanged{
@@ -243,17 +245,17 @@ func registerBranchEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(createdClosure)
-	deps.FinalityGadget.Events().BranchGoFChanged.Attach(branchGoFChangedClosure)
-	deps.Tangle.LedgerState.BranchDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(createdClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(branchConfirmedClosure)
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchParentsUpdated.Attach(parentUpdateClosure)
 	deps.Tangle.ApprovalWeightManager.Events.BranchWeightChanged.Attach(branchWeightChangedClosure)
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/dagsvisualizer/branch/:branchID", func(c echo.Context) (err error) {
 		parents := make(map[string]*branchVertex)
-		var branchID ledgerstate.BranchID
-		if branchID, err = ledgerstate.BranchIDFromBase58(c.Param("branchID")); err != nil {
+		var branchID utxo.TransactionID
+		if err = branchID.FromBase58(c.Param("branchID")); err != nil {
 			err = c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 			return
 		}
@@ -280,7 +282,7 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 		messages := []*tangleVertex{}
 		txs := []*utxoVertex{}
 		branches := []*branchVertex{}
-		branchMap := ledgerstate.NewBranchIDs()
+		branchMap := set.NewAdvancedSet[utxo.TransactionID]()
 		entryMsgs := tangle.NewMessageIDs()
 		deps.Tangle.Storage.Approvers(tangle.EmptyMessageID).Consume(func(approver *tangle.Approver) {
 			entryMsgs.Add(approver.ApproverMessageID())
@@ -291,22 +293,23 @@ func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
 				// only keep messages that is issued in the given time interval
 				if msg.IssuingTime().After(startTimestamp) && msg.IssuingTime().Before(endTimestamp) {
 					// add message
-					tangleNode := newTangleVertex(msg.ID())
+					tangleNode := newTangleVertex(msg)
 					messages = append(messages, tangleNode)
 
 					// add tx
 					if tangleNode.IsTx {
-						utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*ledgerstate.Transaction))
+						utxoNode := newUTXOVertex(msg.ID(), msg.Payload().(*devnetvm.Transaction))
 						txs = append(txs, utxoNode)
 					}
 
 					// add branch
 					branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(msg.ID())
 					if err != nil {
-						branchIDs = ledgerstate.NewBranchIDs()
+						branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
 					}
-					for branchID := range branchIDs {
-						if branchMap.Contains(branchID) {
+					for it := branchIDs.Iterator(); it.HasNext(); {
+						branchID := it.Next()
+						if branchMap.Has(branchID) {
 							continue
 						}
 
@@ -348,36 +351,34 @@ func isTimeIntervalValid(start, end time.Time) (valid bool) {
 	return true
 }
 
-func newTangleVertex(messageID tangle.MessageID) (ret *tangleVertex) {
-	deps.Tangle.Storage.Message(messageID).Consume(func(msg *tangle.Message) {
-		deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(msgMetadata *tangle.MessageMetadata) {
-			branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(messageID)
-			if err != nil {
-				branchIDs = ledgerstate.NewBranchIDs()
-			}
-			ret = &tangleVertex{
-				ID:                      messageID.Base58(),
-				StrongParentIDs:         msg.ParentsByType(tangle.StrongParentType).Base58(),
-				WeakParentIDs:           msg.ParentsByType(tangle.WeakParentType).Base58(),
-				ShallowLikeParentIDs:    msg.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-				ShallowDislikeParentIDs: msg.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
-				BranchIDs:               branchIDs.Base58(),
-				IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
-				IsTx:                    msg.Payload().Type() == ledgerstate.TransactionType,
-				IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(messageID),
-				ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
-				GoF:                     msgMetadata.GradeOfFinality().String(),
-			}
-		})
-
-		if ret.IsTx {
-			ret.TxID = msg.Payload().(*ledgerstate.Transaction).ID().Base58()
+func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
+	deps.Tangle.Storage.MessageMetadata(message.ID()).Consume(func(msgMetadata *tangle.MessageMetadata) {
+		branchIDs, err := deps.Tangle.Booker.MessageBranchIDs(message.ID())
+		if err != nil {
+			branchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+		}
+		ret = &tangleVertex{
+			ID:                      message.ID().Base58(),
+			StrongParentIDs:         message.ParentsByType(tangle.StrongParentType).Base58(),
+			WeakParentIDs:           message.ParentsByType(tangle.WeakParentType).Base58(),
+			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
+			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
+			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
+			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
+			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
+			ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
+			GoF:                     msgMetadata.GradeOfFinality().String(),
 		}
 	})
+
+	if ret.IsTx {
+		ret.TxID = message.Payload().(*devnetvm.Transaction).ID().Base58()
+	}
 	return
 }
 
-func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *utxoVertex) {
+func newUTXOVertex(msgID tangle.MessageID, tx *devnetvm.Transaction) (ret *utxoVertex) {
 	inputs := make([]*jsonmodels.Input, len(tx.Essence().Inputs()))
 	for i, input := range tx.Essence().Inputs() {
 		inputs[i] = jsonmodels.NewInput(input)
@@ -391,10 +392,10 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	var gof string
 	var confirmedTime int64
 	var branchIDs []string
-	deps.Tangle.LedgerState.TransactionMetadata(tx.ID()).Consume(func(txMetadata *ledgerstate.TransactionMetadata) {
+	deps.Tangle.Ledger.Storage.CachedTransactionMetadata(tx.ID()).Consume(func(txMetadata *ledger.TransactionMetadata) {
 		gof = txMetadata.GradeOfFinality().String()
 		confirmedTime = txMetadata.GradeOfFinalityTime().UnixNano()
-		branchIDs = txMetadata.BranchIDs().Base58()
+		branchIDs = lo.Map(txMetadata.BranchIDs().Slice(), utxo.TransactionID.Base58)
 	})
 
 	ret = &utxoVertex{
@@ -411,21 +412,22 @@ func newUTXOVertex(msgID tangle.MessageID, tx *ledgerstate.Transaction) (ret *ut
 	return ret
 }
 
-func newBranchVertex(branchID ledgerstate.BranchID) (ret *branchVertex) {
-	deps.Tangle.LedgerState.BranchDAG.Branch(branchID).Consume(func(branch *ledgerstate.Branch) {
-		conflicts := make(map[ledgerstate.ConflictID][]ledgerstate.BranchID)
+func newBranchVertex(branchID utxo.TransactionID) (ret *branchVertex) {
+	deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflict(branchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 		// get conflicts of a branch
-		for conflictID := range branch.Conflicts() {
-			conflicts[conflictID] = make([]ledgerstate.BranchID, 0)
-			deps.Tangle.LedgerState.BranchDAG.ConflictMembers(conflictID).Consume(func(conflictMember *ledgerstate.ConflictMember) {
-				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.BranchID())
+		for it := branch.ConflictIDs().Iterator(); it.HasNext(); {
+			conflictID := it.Next()
+			conflicts[conflictID] = make([]utxo.TransactionID, 0)
+			deps.Tangle.Ledger.ConflictDAG.Storage.CachedConflictMembers(conflictID).Consume(func(conflictMember *conflictdag.ConflictMember[utxo.OutputID, utxo.TransactionID]) {
+				conflicts[conflictID] = append(conflicts[conflictID], conflictMember.ConflictID())
 			})
 		}
 
-		branchGoF, _ := deps.Tangle.LedgerState.UTXODAG.BranchGradeOfFinality(branchID)
+		branchGoF, _ := deps.Tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
 		ret = &branchVertex{
 			ID:          branchID.Base58(),
-			Parents:     branch.Parents().Base58(),
+			Parents:     lo.Map(branch.Parents().Slice(), utxo.TransactionID.Base58),
 			Conflicts:   jsonmodels.NewGetBranchConflictsResponse(branch.ID(), conflicts),
 			IsConfirmed: deps.FinalityGadget.IsBranchConfirmed(branchID),
 			GoF:         branchGoF.String(),
@@ -447,7 +449,8 @@ func storeWsMessage(msg *wsMessage) {
 func getBranchesToMaster(vertex *branchVertex, parents map[string]*branchVertex) {
 	for _, IDBase58 := range vertex.Parents {
 		if _, ok := parents[IDBase58]; !ok {
-			if ID, err := ledgerstate.BranchIDFromBase58(IDBase58); err == nil {
+			var ID utxo.TransactionID
+			if err := ID.FromBase58(IDBase58); err == nil {
 				parentVertex := newBranchVertex(ID)
 				parents[parentVertex.ID] = parentVertex
 				getBranchesToMaster(parentVertex, parents)

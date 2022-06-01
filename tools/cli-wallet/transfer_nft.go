@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execTransferNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -39,12 +39,12 @@ func execTransferNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "an nft (alias) ID must be given for transfer")
 	}
 
-	destinationAddress, err := ledgerstate.AddressFromBase58EncodedString(*addressPtr)
+	destinationAddress, err := devnetvm.AddressFromBase58EncodedString(*addressPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}
 
-	aliasID, err := ledgerstate.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	aliasID, err := devnetvm.AliasAddressFromBase58EncodedString(*nftIDPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}

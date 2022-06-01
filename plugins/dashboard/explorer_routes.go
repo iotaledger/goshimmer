@@ -4,13 +4,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/labstack/echo"
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -90,9 +94,9 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowLikeApprover).Base58(),
 		ShallowDislikeApprovers: deps.Tangle.Utils.ApprovingMessageIDs(messageID, tangle.ShallowDislikeApprover).Base58(),
 		Solid:                   messageMetadata.IsSolid(),
-		BranchIDs:               branchIDs.Base58(),
-		AddedBranchIDs:          messageMetadata.AddedBranchIDs().Base58(),
-		SubtractedBranchIDs:     messageMetadata.SubtractedBranchIDs().Base58(),
+		BranchIDs:               lo.Map(lo.Map(branchIDs.Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		AddedBranchIDs:          lo.Map(lo.Map(messageMetadata.AddedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
+		SubtractedBranchIDs:     lo.Map(lo.Map(messageMetadata.SubtractedBranchIDs().Slice(), utxo.TransactionID.Bytes), base58.Encode),
 		Scheduled:               messageMetadata.Scheduled(),
 		Booked:                  messageMetadata.IsBooked(),
 		ObjectivelyInvalid:      messageMetadata.IsObjectivelyInvalid(),
@@ -195,7 +199,7 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 		}
 
 		switch len(searchInByte) {
-		case ledgerstate.AddressLength:
+		case devnetvm.AddressLength:
 			addr, err := findAddress(search)
 			if err == nil {
 				result.Address = addr
@@ -231,7 +235,7 @@ func findMessage(messageID tangle.MessageID) (explorerMsg *ExplorerMessage, err 
 }
 
 func findAddress(strAddress string) (*ExplorerAddress, error) {
-	address, err := ledgerstate.AddressFromBase58EncodedString(strAddress)
+	address, err := devnetvm.AddressFromBase58EncodedString(strAddress)
 	if err != nil {
 		return nil, fmt.Errorf("%w: address %s", ErrNotFound, strAddress)
 	}
@@ -239,35 +243,45 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	outputs := make([]ExplorerOutput, 0)
 
 	// get outputids by address
-	deps.Tangle.LedgerState.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
-		var metaData *ledgerstate.OutputMetadata
+	// deps.Indexer.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
+	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
+		var metaData *ledger.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + grade of finality status from branch of the output
-		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
+		deps.Tangle.Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
-		// get the inclusion state info from the transaction that created this output
-		transactionID := output.ID().TransactionID()
+		var txID utxo.TransactionID
+		deps.Tangle.Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
 
-		deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
-			timestamp = transaction.Essence().Timestamp().Unix()
-		})
+			if output, ok := output.(devnetvm.Output); ok {
+				// get the inclusion state info from the transaction that created this output
+				txID = output.ID().TransactionID
 
-		// how much pending mana the output has?
-		pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
+				deps.Tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+					if tx, ok := transaction.(*devnetvm.Transaction); ok {
+						timestamp = tx.Essence().Timestamp().Unix()
+					}
+				})
 
-		// obtain information about the consumer of the output being considered
-		confirmedConsumerID := deps.Tangle.LedgerState.ConfirmedConsumer(output.ID())
+				// how much pending mana the output has?
+				pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
 
-		outputs = append(outputs, ExplorerOutput{
-			ID:              jsonmodels.NewOutputID(output.ID()),
-			Output:          jsonmodels.NewOutput(output),
-			Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
-			TxTimestamp:     int(timestamp),
-			PendingMana:     pendingMana,
-			GradeOfFinality: metaData.GradeOfFinality(),
+				// obtain information about the consumer of the output being considered
+				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
+
+				outputs = append(outputs, ExplorerOutput{
+					ID:              jsonmodels.NewOutputID(output.ID()),
+					Output:          jsonmodels.NewOutput(output),
+					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
+					TxTimestamp:     int(timestamp),
+					PendingMana:     pendingMana,
+					GradeOfFinality: metaData.GradeOfFinality(),
+				})
+			}
+
 		})
 	})
 

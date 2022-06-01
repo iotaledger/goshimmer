@@ -31,7 +31,7 @@ func TestCommonSynchronization(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
@@ -105,6 +105,7 @@ func TestFirewall(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
+		Snapshot:    tests.EqualSnapshotDetails,
 	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
 			cfg.Gossip.MessagesRateLimit.Limit = 50
@@ -143,7 +144,7 @@ func TestConfirmMessage(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
 		return conf

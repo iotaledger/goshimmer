@@ -6,11 +6,11 @@ import (
 	"sync"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/labstack/echo"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
@@ -68,7 +68,7 @@ func sendVertex(msg *tangle.Message, finalized bool) {
 		ID:              msg.ID().Base58(),
 		ParentIDsByType: prepareParentReferences(msg),
 		IsFinalized:     finalized,
-		IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+		IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
 	}}, true)
 }
 
@@ -80,27 +80,33 @@ func sendTipInfo(messageID tangle.MessageID, isTip bool) {
 }
 
 func runVisualizer() {
-	notifyNewMsg := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(messageID)
-			addToHistory(message, finalized)
-			visualizerWorkerPool.TrySubmit(message, finalized)
-		})
+	processMessage := func(message *tangle.Message) {
+		finalized := deps.Tangle.ConfirmationOracle.IsMessageConfirmed(message.ID())
+		addToHistory(message, finalized)
+		visualizerWorkerPool.TrySubmit(message, finalized)
+	}
+
+	notifyNewMsgStored := event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		processMessage(event.Message)
 	})
 
-	notifyNewTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyNewMsgConfirmed := event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		processMessage(event.Message)
+	})
+
+	notifyNewTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, true)
 	})
 
-	notifyDeletedTip := events.NewClosure(func(tipEvent *tangle.TipEvent) {
+	notifyDeletedTip := event.NewClosure(func(tipEvent *tangle.TipEvent) {
 		visualizerWorkerPool.TrySubmit(tipEvent, tipEvent.MessageID, false)
 	})
 
 	if err := daemon.BackgroundWorker("Dashboard[Visualizer]", func(ctx context.Context) {
-		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsg)
-		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsg)
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsg)
-		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsg)
+		deps.Tangle.Storage.Events.MessageStored.Attach(notifyNewMsgStored)
+		defer deps.Tangle.Storage.Events.MessageStored.Detach(notifyNewMsgStored)
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(notifyNewMsgConfirmed)
+		defer deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Detach(notifyNewMsgConfirmed)
 		deps.Tangle.TipManager.Events.TipAdded.Attach(notifyNewTip)
 		defer deps.Tangle.TipManager.Events.TipAdded.Detach(notifyNewTip)
 		deps.Tangle.TipManager.Events.TipRemoved.Attach(notifyDeletedTip)
@@ -128,7 +134,7 @@ func setupVisualizerRoutes(routeGroup *echo.Group) {
 				ID:              msg.ID().Base58(),
 				ParentIDsByType: prepareParentReferences(msg),
 				IsFinalized:     msgFinalized[msg.ID().Base58()],
-				IsTx:            msg.Payload().Type() == ledgerstate.TransactionType,
+				IsTx:            msg.Payload().Type() == devnetvm.TransactionType,
 			})
 		}
 

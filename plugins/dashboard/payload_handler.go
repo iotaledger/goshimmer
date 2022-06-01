@@ -7,7 +7,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/plugins/chat"
 )
@@ -106,7 +107,7 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "GenericDataPayload",
 			Content:      p.(*payload.GenericDataPayload).Blob(),
 		}
-	case ledgerstate.TransactionType:
+	case devnetvm.TransactionType:
 		return processTransactionPayload(p)
 	case faucet.RequestType:
 		// faucet payload
@@ -165,7 +166,7 @@ func processDrngPayload(p payload.Payload) (dp DrngPayload) {
 
 // processTransactionPayload handles Value payload
 func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
-	tx, err := new(ledgerstate.Transaction).FromBytes(p.Bytes())
+	tx, err := new(devnetvm.Transaction).FromBytes(p.Bytes())
 	if err != nil {
 		return
 	}
@@ -173,9 +174,11 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
-		refOutputID := input.(*ledgerstate.UTXOInput).ReferencedOutputID()
-		deps.Tangle.LedgerState.CachedOutput(refOutputID).Consume(func(output ledgerstate.Output) {
-			tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(output)
+		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
+		deps.Tangle.Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
+			if typedOutput, ok := output.(devnetvm.Output); ok {
+				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
+			}
 		})
 	}
 

@@ -2,26 +2,28 @@ package messagelayer
 
 import (
 	"context"
-	"os"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/autopeering/discover"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
+	"github.com/iotaledger/goshimmer/packages/snapshot"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/database"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
@@ -49,6 +51,7 @@ type dependencies struct {
 	dig.In
 
 	Tangle           *tangle.Tangle
+	Indexer          *indexer.Indexer
 	Local            *peer.Local
 	Discover         *discover.Protocol `optional:"true"`
 	Storage          kvstore.KVStore
@@ -62,15 +65,25 @@ type tangledeps struct {
 	Local   *peer.Local
 }
 
+type indexerdeps struct {
+	dig.In
+
+	Tangle *tangle.Tangle
+}
+
 func init() {
 	Plugin = node.NewPlugin("MessageLayer", deps, node.Enabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(newTangle); err != nil {
 			Plugin.Panic(err)
 		}
 
 		if err := event.Container.Provide(FinalityGadget); err != nil {
+			Plugin.Panic(err)
+		}
+
+		if err := event.Container.Provide(newIndexer); err != nil {
 			Plugin.Panic(err)
 		}
 
@@ -83,59 +96,60 @@ func init() {
 }
 
 func configure(plugin *node.Plugin) {
-	deps.Tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	deps.Tangle.Events.Error.Attach(event.NewClosure(func(err error) {
 		plugin.LogError(err)
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(events.NewClosure(func(message *tangle.Message) {
-		deps.Tangle.ProcessGossipMessage(message.Bytes(), deps.Local.Peer)
+	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *tangle.MessageConstructedEvent) {
+		deps.Tangle.ProcessGossipMessage(event.Message.Bytes(), deps.Local.Peer)
 	}))
 
-	deps.Tangle.Storage.Events.MessageStored.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
-			deps.Tangle.WeightProvider.Update(message.IssuingTime(), identity.NewID(message.IssuerPublicKey()))
-		})
+	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {
+		deps.Tangle.WeightProvider.Update(event.Message.IssuingTime(), identity.NewID(event.Message.IssuerPublicKey()))
 	}))
 
-	deps.Tangle.Parser.Events.MessageRejected.Attach(events.NewClosure(func(ev *tangle.MessageRejectedEvent, err error) {
-		plugin.LogInfof("message with %s rejected in Parser: %v", ev.Message.ID().Base58(), err)
+	deps.Tangle.Parser.Events.MessageRejected.Attach(event.NewClosure(func(event *tangle.MessageRejectedEvent) {
+		plugin.LogInfof("message with %s rejected in Parser: %v", event.Message.ID().Base58(), event.Error)
 	}))
 
-	deps.Tangle.Parser.Events.BytesRejected.Attach(events.NewClosure(func(ev *tangle.BytesRejectedEvent, err error) {
-		if errors.Is(err, tangle.ErrReceivedDuplicateBytes) {
+	deps.Tangle.Parser.Events.BytesRejected.Attach(event.NewClosure(func(event *tangle.BytesRejectedEvent) {
+		if errors.Is(event.Error, tangle.ErrReceivedDuplicateBytes) {
 			return
 		}
 
-		plugin.LogWarnf("bytes rejected from peer %s: %v", ev.Peer.ID(), err)
+		plugin.LogWarnf("bytes rejected from peer %s: %v", event.Peer.ID(), event.Error)
 	}))
 
-	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(func(messageID tangle.MessageID) {
-		plugin.LogInfof("message rejected in Scheduler: %s", messageID.Base58())
+	deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+		plugin.LogInfof("message rejected in Scheduler: %s", event.MessageID.Base58())
 	}))
 
-	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(events.NewClosure(func(nodeID identity.ID) {
-		plugin.LogInfof("node %s is blacklisted in Scheduler", nodeID.String())
+	deps.Tangle.Scheduler.Events.NodeBlacklisted.Attach(event.NewClosure(func(event *tangle.NodeBlacklistedEvent) {
+		plugin.LogInfof("node %s is blacklisted in Scheduler", event.NodeID.String())
 	}))
 
-	deps.Tangle.TimeManager.Events.SyncChanged.Attach(events.NewClosure(func(ev *tangle.SyncChangedEvent) {
-		plugin.LogInfo("Sync changed: ", ev.Synced)
+	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
+		plugin.LogInfo("Sync changed: ", event.Synced)
 	}))
 
 	// read snapshot file
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
-		snapshot := &ledgerstate.Snapshot{}
-		f, err := os.Open(Parameters.Snapshot.File)
-		if err != nil {
-			plugin.Panic("can not open snapshot file:", err)
-		}
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
-		if _, err := snapshot.ReadFrom(f); err != nil {
-			plugin.Panic("could not read snapshot file in message layer plugin:", err)
+
+		nodeSnapshot := new(snapshot.Snapshot)
+		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
+		if err != nil {
+			plugin.Panic("could not load snapshot file:", err)
 		}
-		if err = deps.Tangle.LedgerState.LoadSnapshot(snapshot); err != nil {
-			plugin.Panic("fail to load snapshot file in message layer plugin:", err)
-		}
+
+		deps.Tangle.Ledger.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+
+		// Add outputs to Indexer.
+		_ = nodeSnapshot.LedgerSnapshot.Outputs.ForEach(func(output utxo.Output) error {
+			deps.Indexer.IndexOutput(output.(devnetvm.Output))
+			return nil
+		})
 		plugin.LogInfof("reading snapshot from %s ... done", Parameters.Snapshot.File)
 
 		// Set flag that we read the snapshot already, so we don't have to do it again after a restart.
@@ -164,15 +178,16 @@ func run(*node.Plugin) {
 var tangleInstance *tangle.Tangle
 
 // newTangle gets the tangle instance.
-func newTangle(deps tangledeps) *tangle.Tangle {
+func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 	tangleInstance = tangle.New(
-		tangle.Store(deps.Storage),
-		tangle.Identity(deps.Local.LocalIdentity()),
+		tangle.Store(tangleDeps.Storage),
+		tangle.Identity(tangleDeps.Local.LocalIdentity()),
 		tangle.Width(Parameters.TangleWidth),
 		tangle.TimeSinceConfirmationThreshold(Parameters.TimeSinceConfirmationThreshold),
 		tangle.GenesisNode(Parameters.Snapshot.GenesisNode),
 		tangle.SchedulerConfig(tangle.SchedulerParams{
 			MaxBufferSize:                     SchedulerParameters.MaxBufferSize,
+			TotalSupply:                       2779530283277761,
 			ConfirmedMessageScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedMessageThreshold),
 			Rate:                              parseDuration(SchedulerParameters.Rate),
 			AccessManaMapRetrieverFunc:        accessManaMapRetriever,
@@ -188,14 +203,18 @@ func newTangle(deps tangledeps) *tangle.Tangle {
 	)
 
 	tangleInstance.Scheduler = tangle.NewScheduler(tangleInstance)
-	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RCTT, deps.Storage)
-	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.LedgerState.BranchDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
+	tangleInstance.WeightProvider = tangle.NewCManaWeightProvider(GetCMana, tangleInstance.TimeManager.RCTT, tangleDeps.Storage)
+	tangleInstance.OTVConsensusManager = tangle.NewOTVConsensusManager(otv.NewOnTangleVoting(tangleInstance.Ledger.ConflictDAG, tangleInstance.ApprovalWeightManager.WeightOfBranch))
 
 	finalityGadget = finality.NewSimpleFinalityGadget(tangleInstance)
 	tangleInstance.ConfirmationOracle = finalityGadget
 
 	tangleInstance.Setup()
 	return tangleInstance
+}
+
+func newIndexer(indexerDeps indexerdeps) *indexer.Indexer {
+	return indexer.New(indexerDeps.Tangle.Ledger, indexer.WithStore(indexerDeps.Tangle.Options.Store), indexer.WithCacheTimeProvider(database.CacheTimeProvider()))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -239,7 +258,7 @@ func totalAccessManaRetriever() float64 {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitMessageToBeBooked awaits maxAwait for the given message to get booked.
-func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {
+func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID utxo.TransactionID, maxAwait time.Duration) (*tangle.Message, error) {
 	// first subscribe to the transaction booked event
 	booked := make(chan struct{}, 1)
 	// exit is used to let the caller exit if for whatever
@@ -247,11 +266,11 @@ func AwaitMessageToBeBooked(f func() (*tangle.Message, error), txID ledgerstate.
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := events.NewClosure(func(msgID tangle.MessageID) {
+	closure := event.NewClosure(func(event *tangle.MessageBookedEvent) {
 		match := false
-		deps.Tangle.Storage.Message(msgID).Consume(func(message *tangle.Message) {
-			if message.Payload().Type() == ledgerstate.TransactionType {
-				tx := message.Payload().(*ledgerstate.Transaction)
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
+			if message.Payload().Type() == devnetvm.TransactionType {
+				tx := message.Payload().(*devnetvm.Transaction)
 				if tx.ID() == txID {
 					match = true
 					return
@@ -290,8 +309,8 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := events.NewClosure(func(messageID tangle.MessageID) {
-		deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+	closure := event.NewClosure(func(event *tangle.MessageScheduledEvent) {
+		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
 			if message.IssuerPublicKey() != issuer {
 				return
 			}

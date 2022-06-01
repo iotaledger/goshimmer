@@ -11,6 +11,9 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/mr-tron/base58"
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
@@ -18,8 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
-	"github.com/mr-tron/base58"
-	"go.uber.org/dig"
 
 	databasePkg "github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -50,7 +51,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure[*node.InitEvent](func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(configureLocalPeer); err != nil {
 			Plugin.Panic(err)
 		}

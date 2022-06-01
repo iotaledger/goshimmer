@@ -3,28 +3,25 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.
 type CollectionLogEvents struct {
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
-	TangleTimeSyncChanged *events.Event
-	SchedulerQuery        *events.Event
+	TangleTimeSyncChanged *event.Event[*TangleTimeSyncChangedEvent]
+	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-// SyncStatusChangedEventCaller is called when a node changes its sync status.
-func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
+func newCollectionLogEvents() (new *CollectionLogEvents) {
+	return &CollectionLogEvents{
+		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
+		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
+	}
 }
 
-// TimeEventCaller is used everytime you want to send an event with a timestamp.
-func TimeEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(time.Time))(params[0].(time.Time))
-}
-
-// SyncStatusChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
-type SyncStatusChangedEvent struct {
+// TangleTimeSyncChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
+type TangleTimeSyncChangedEvent struct {
 	// Type defines the type of the message.
 	Type string `json:"type" bson:"type"`
 	// NodeID defines the ID of the node.
@@ -45,6 +42,10 @@ type SyncStatusChangedEvent struct {
 	FTT time.Time `json:"FinalizedTangleTime" bson:"FinalizedTangleTime"`
 	// RFTT contains relative time of the last finalized message
 	RFTT time.Time `json:"RelativeFinalizedTangleTime" bson:"RelativeFinalizedTangleTime"`
+}
+
+type SchedulerQueryEvent struct {
+	Time time.Time
 }
 
 // MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.

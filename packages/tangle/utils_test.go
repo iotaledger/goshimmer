@@ -3,8 +3,9 @@ package tangle
 import (
 	"testing"
 
-	"github.com/iotaledger/hive.go/events"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -15,7 +16,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	defer tangle.Shutdown()
 
 	tangle.Setup()
-	tangle.Events.Error.Attach(events.NewClosure(func(err error) {
+	tangle.Events.Error.Hook(event.NewClosure(func(err error) {
 		panic(err)
 	}))
 
@@ -29,7 +30,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 	mtf.CreateMessage("Message6", WithStrongParents("Message5"))
 	mtf.CreateMessage("Message7", WithInputs("A", "B", "C"), WithOutput("D", 13), WithStrongParents("Message3", "Message6"))
 
-	mtf.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitMessagesBooked()
+	mtf.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7").WaitUntilAllTasksProcessed()
 
 	for messageAlias, expectedMarkers := range map[string]*markers.Markers{
 		"Message1": markers.NewMarkers(markers.NewMarker(0, 1)),
