@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+
 	"github.com/iotaledger/hive.go/logger"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -46,6 +47,22 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		log:                    options.Log,
 		options:                options,
 	}
+}
+
+func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
+	snapshot.Outputs.ForEach(func(output utxo.Output) error {
+		oid:=output.ID()
+		output.(devnetvm.Output).Balances()
+		m.epochCommitmentFactory.storage.ledgerstateStore.Put(&oid)
+	})
+	snapshot.OutputsMetadata.ForEach(func(outputMetadata *ledger.OutputMetadata) error {
+		m.epochCommitmentFactory.InsertStateLeaf(EI(0), outputMetadata.ID())
+
+		outputMetadata.ConsensusManaPledgeID()
+		outputMetadata.
+		return nil
+	})
+	return nil
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.

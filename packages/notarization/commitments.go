@@ -4,13 +4,14 @@ import (
 	"hash"
 	"sync"
 
+	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 	"github.com/iotaledger/hive.go/kvstore"
-
-	"github.com/celestiaorg/smt"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -22,6 +23,30 @@ type Commitment struct {
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	prevECR           [32]byte
+}
+
+// NewCommitment returns an empty commitment for the epoch.
+func NewCommitment(ei EI, prevECR [32]byte, hasher hash.Hash) *Commitment {
+	db, _ := database.NewMemDB()
+	messageIDStore := db.NewStore()
+	messageValueStore := db.NewStore()
+	stateIDStore := db.NewStore()
+	stateValueStore := db.NewStore()
+	stateMutationIDStore := db.NewStore()
+	stateMutationValueStore := db.NewStore()
+	manaIDStore := db.NewStore()
+	manaValueStore := db.NewStore()
+
+	commitment := &Commitment{
+		EI:                ei,
+		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
+		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, hasher),
+		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, hasher),
+		manaRoot:          smt.NewSparseMerkleTree(manaIDStore, manaValueStore, hasher),
+		prevECR:           prevECR,
+	}
+
+	return commitment
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -39,10 +64,17 @@ func (e *Commitment) StateRoot() []byte {
 	return e.stateRoot.Root()
 }
 
+// ManaRoot returns the root of the mana sparse merkle tree.
+func (e *Commitment) ManaRoot() []byte {
+	return e.manaRoot.Root()
+}
+
 // ECR generates the epoch commitment root.
 func (e *Commitment) ECR() [32]byte {
 	branch1 := blake2b.Sum256(append(e.prevECR[:], e.TangleRoot()...))
-	branch2 := blake2b.Sum256(append(e.StateRoot(), e.StateMutationRoot()...))
+	branch2Bytes := append(e.StateRoot(), e.StateMutationRoot()...)
+	branch2Bytes = append(branch2Bytes, e.ManaRoot()...)
+	branch2 := blake2b.Sum256(branch2Bytes)
 	var root []byte
 	root = append(root, branch1[:]...)
 	root = append(root, branch2[:]...)
@@ -56,7 +88,7 @@ type EpochCommitmentFactory struct {
 	commitmentsMutex sync.RWMutex
 
 	storage *EpochCommitmentStorage
-	
+
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
 
