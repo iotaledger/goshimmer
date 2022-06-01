@@ -1,10 +1,7 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/marshalutil"
-
 	chat2 "github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -24,22 +21,6 @@ type BasicPayload struct {
 type BasicStringPayload struct {
 	ContentTitle string `json:"content_title"`
 	Content      string `json:"content"`
-}
-
-// DrngPayload contains the subtype of drng payload, instance ID
-// and the subpayload
-type DrngPayload struct {
-	SubPayloadType byte        `json:"subpayload_type"`
-	InstanceID     uint32      `json:"instance_id"`
-	SubPayload     interface{} `json:"drngpayload"`
-}
-
-// DrngCollectiveBeaconPayload is the subpayload of DrngPayload.
-type DrngCollectiveBeaconPayload struct {
-	Round   uint64 `json:"round"`
-	PrevSig []byte `json:"prev_sig"`
-	Sig     []byte `json:"sig"`
-	Dpk     []byte `json:"dpk"`
 }
 
 // TransactionPayload contains the transaction information.
@@ -115,9 +96,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "address",
 			Content:      p.(*faucet.Payload).Address().Base58(),
 		}
-	case drng.PayloadType:
-		// drng payload
-		return processDrngPayload(p)
 	case chat2.Type:
 		chatPayload := p.(*chat2.Payload)
 		return chat.Request{
@@ -131,36 +109,6 @@ func ProcessPayload(p payload.Payload) interface{} {
 			ContentTitle: "Bytes",
 			Content:      p.Bytes(),
 		}
-	}
-}
-
-// processDrngPayload handles the subtypes of Drng payload
-func processDrngPayload(p payload.Payload) (dp DrngPayload) {
-	var subpayload interface{}
-	marshalUtil := marshalutil.New(p.Bytes())
-	drngPayload, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
-
-	switch drngPayload.Header.PayloadType {
-	case drng.TypeCollectiveBeacon:
-		// collective beacon
-		marshalUtil := marshalutil.New(p.Bytes())
-		cbp, _ := drng.CollectiveBeaconPayloadFromMarshalUtil(marshalUtil)
-		subpayload = DrngCollectiveBeaconPayload{
-			Round:   cbp.Round,
-			PrevSig: cbp.PrevSignature,
-			Sig:     cbp.Signature,
-			Dpk:     cbp.Dpk,
-		}
-	default:
-		subpayload = BasicPayload{
-			ContentTitle: "bytes",
-			Content:      drngPayload.Bytes(),
-		}
-	}
-	return DrngPayload{
-		SubPayloadType: drngPayload.Header.PayloadType,
-		InstanceID:     drngPayload.Header.InstanceID,
-		SubPayload:     subpayload,
 	}
 }
 
