@@ -51,11 +51,13 @@ type EpochCommitmentStorage struct {
 	// epochStateDiffStore contains the storage for epoch diffs.
 	epochStateDiffStore *objectstorage.ObjectStorage[*EpochStateDiff]
 
-	// tangleStore contains the storage for the Tangle.
-	tangleStore *objectstorage.ObjectStorage[*TangleLeaf]
+	// TODO
+	smtStores map[EI]kvstore.KVStore
 
-	// mutationStore contains the storage for the mutations.
-	mutationStore *objectstorage.ObjectStorage[*MutationLeaf]
+	ledgerstateStore *objectstorage.ObjectStorage[*utxo.OutputID]
+
+	// Delta storages
+	deltaStores map[EI]*objectstorage.ObjectStorage[*EpochStateDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -69,25 +71,22 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	new = &EpochCommitmentStorage{
 		epochCommitmentStorageOptions: newOptions(options...),
 	}
-	new.epochStateDiffStore = objectstorage.NewStructStorage[EpochStateDiff](
+
+	new.ledgerstateStore = objectstorage.NewStructStorage[utxo.OutputID](
 		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixEpochStateDiff),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
-	new.tangleStore = objectstorage.NewStructStorage[TangleLeaf](
-		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixTangleLeaf),
+
+	new.epochStateDiffStore = objectstorage.NewStructStorage[EpochStateDiff](
+		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixLedgerState),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.mutationStore = objectstorage.NewStructStorage[MutationLeaf](
-		objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixMutationLeaf),
-		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
-		objectstorage.LeakDetectionEnabled(false),
-		objectstorage.StoreOnCreation(true),
-	)
+	new.masterStore = objectstorage.NewStoreWithRealm(new.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixLedgerState)
 
 	return new
 }
@@ -110,6 +109,8 @@ const (
 	PrefixTangleLeaf
 
 	PrefixMutationLeaf
+
+	PrefixLedgerState
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

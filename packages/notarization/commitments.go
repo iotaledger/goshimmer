@@ -66,7 +66,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore) *EpochCommitmentFactory {
 
 	return &EpochCommitmentFactory{
 		commitments: make(map[EI]*Commitment),
-		storage: newEpochCommitmentStorage(WithStore(store)),
+		storage:     newEpochCommitmentStorage(WithStore(store)),
 		hasher:      hasher,
 	}
 }
@@ -216,6 +216,16 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitment(ei EI, prevECR [32]byte) *Commitment {
+	memdb, _ := database.NewMemDB()
+	kvdb, _ := database.NewDB()
+	messageIDStore := memdb.NewStore()
+	messageValueStore := memdb.NewStore()
+	stateMutationIDStore := memdb.NewStore()
+	stateMutationValueStore := memdb.NewStore()
+
+	stateIDStore := 
+	stateValueStore := memdb.NewStore()
+
 	commitment := &Commitment{
 		EI:                ei,
 		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
