@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -23,7 +21,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -291,12 +288,9 @@ const (
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
-	messageInner `serix:"0"`
+	model.Storable[MessageID, MessageModel] `serix:"0"`
 }
-type messageInner struct {
-	// base functionality of StorableObject
-	objectstorage.StorableObjectFlags
-
+type MessageModel struct {
 	// core properties (get sent over the wire)
 	Version         uint8             `serix:"0"`
 	Parents         ParentMessageIDs  `serix:"1"`
@@ -306,22 +300,16 @@ type messageInner struct {
 	Payload         payload.Payload   `serix:"5,optional"`
 	Nonce           uint64            `serix:"6"`
 	Signature       ed25519.Signature `serix:"7"`
-
-	// derived properties
-	id         *MessageID
-	idMutex    sync.RWMutex
-	bytes      []byte
-	bytesMutex sync.RWMutex
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) (*Message, error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, versionOpt ...uint8) *Message {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
-	msg := &Message{messageInner{
+	msg := &Message{model.NewStorable[MessageID, MessageModel](MessageModel{
 		Version:         version,
 		Parents:         references,
 		IssuerPublicKey: issuerPublicKey,
@@ -330,110 +318,63 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 		Payload:         msgPayload,
 		Nonce:           nonce,
 		Signature:       signature,
-	}}
+	})}
 
-	return msg, nil
+	return msg
 }
 
-// newMessageWithValidation creates a new message while performing ths following syntactical checks:
+// NewMessageWithValidation creates a new message while performing ths following syntactical checks:
 // 1. A Strong Parents Block must exist.
 // 2. Parents Block types cannot repeat.
 // 3. Parent count per block 1 <= x <= 8.
 // 4. Parents unique within block.
 // 5. Parents lexicographically sorted within block.
 // 7. Blocks should be ordered by type in ascending order.
-
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
-func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
+func NewMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, version ...uint8) (result *Message, err error) {
-	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
+	msg := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, version...)
 
-	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())
-	if err != nil {
-		return nil, err
+	if _, err = msg.Bytes(); err != nil {
+		return nil, errors.Errorf("failed to create message: %w", err)
 	}
 	return msg, nil
 }
 
-// FromObjectStorage creates a Message from sequences of key and bytes.
-func (m *Message) FromObjectStorage(key, value []byte) (err error) {
-	// parse the message
-	message, err := m.FromBytes(value)
-	if err != nil {
-		err = fmt.Errorf("failed to parse message from object storage: %w", err)
-		return
-	}
-	messageID := new(MessageID)
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, messageID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Message.id: %w", err)
-		return
-	}
-	message.messageInner.id = messageID
-
-	return
-}
-
-// FromBytes unmarshals a Transaction from a sequence of bytes.
-func (m *Message) FromBytes(data []byte) (msg *Message, err error) {
-	if msg = m; msg == nil {
-		msg = new(Message)
-	}
-
-	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, msg, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Message: %w", err)
-		return msg, err
-	}
-
-	if len(data) != consumedBytes {
-		err = errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
-	}
-
-	// TODO: this seems a bit out of place here.
-	msgPayload := msg.Payload()
-	if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
-		tx := msgPayload.(*devnetvm.Transaction)
-
-		devnetvm.SetOutputID(tx.Essence(), tx.ID())
-	}
-
-	return msg, err
-}
+// // FromBytes unmarshals a Transaction from a sequence of bytes.
+// func (m *Message) FromBytes(data []byte) (err error) {
+// 	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, m, serix.WithValidation())
+// 	if err != nil {
+// 		return errors.Errorf("failed to parse Message: %w", err)
+// 	}
+//
+// 	if len(data) != consumedBytes {
+// 		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
+// 	}
+//
+// 	// TODO: this seems a bit out of place here.
+// 	// msgPayload := msg.Payload()
+// 	// if msgPayload != nil && msgPayload.Type() == devnetvm.TransactionType {
+// 	// 	tx := msgPayload.(*devnetvm.Transaction)
+// 	//
+// 	// 	devnetvm.SetOutputID(tx.Essence(), tx.ID())
+// 	// }
+//
+// 	return nil
+// }
 
 // VerifySignature verifies the Signature of the message.
-func (m *Message) VerifySignature() bool {
-	msgBytes := m.Bytes()
+func (m *Message) VerifySignature() (valid bool, err error) {
+	msgBytes, err := m.Bytes()
+	if err != nil {
+		return false, errors.Errorf("failed to create message bytes: %w", err)
+	}
 	signature := m.Signature()
 
 	contentLength := len(msgBytes) - len(signature)
 	content := msgBytes[:contentLength]
 
-	return m.messageInner.IssuerPublicKey.VerifySignature(content, signature)
-}
-
-// ID returns the id of the message which is made up of the content id and parent1/parent2 ids.
-// This id can be used for merkle proofs.
-func (m *Message) ID() (result MessageID) {
-	m.idMutex.RLock()
-
-	if m.id == nil {
-		m.idMutex.RUnlock()
-
-		m.idMutex.Lock()
-		defer m.idMutex.Unlock()
-		if m.id != nil {
-			result = *m.id
-			return
-		}
-		result = m.calculateID()
-		m.id = &result
-		return
-	}
-
-	result = *m.id
-	m.idMutex.RUnlock()
-	return
+	return m.M.IssuerPublicKey.VerifySignature(content, signature), nil
 }
 
 // IDBytes implements Element interface in scheduler NodeQueue that returns the MessageID of the message in bytes.
@@ -443,20 +384,20 @@ func (m *Message) IDBytes() []byte {
 
 // Version returns the message Version.
 func (m *Message) Version() uint8 {
-	return m.messageInner.Version
+	return m.M.Version
 }
 
 // ParentsByType returns a slice of all parents of the desired type.
 func (m *Message) ParentsByType(parentType ParentsType) MessageIDs {
-	if parents, ok := m.messageInner.Parents[parentType]; ok {
-		return parents
+	if parents, ok := m.M.Parents[parentType]; ok {
+		return parents.Clone()
 	}
 	return NewMessageIDs()
 }
 
 // ForEachParent executes a consumer func for each parent.
 func (m *Message) ForEachParent(consumer func(parent Parent)) {
-	for parentType, parents := range m.messageInner.Parents {
+	for parentType, parents := range m.M.Parents {
 		for parentID := range parents {
 			consumer(Parent{
 				Type: parentType,
@@ -489,80 +430,48 @@ func (m *Message) ParentsCountByType(parentType ParentsType) uint8 {
 
 // IssuerPublicKey returns the public key of the message issuer.
 func (m *Message) IssuerPublicKey() ed25519.PublicKey {
-	return m.messageInner.IssuerPublicKey
+	return m.M.IssuerPublicKey
 }
 
 // IssuingTime returns the time when this message was created.
 func (m *Message) IssuingTime() time.Time {
-	return m.messageInner.IssuingTime
+	return m.M.IssuingTime
 }
 
 // SequenceNumber returns the sequence number of this message.
 func (m *Message) SequenceNumber() uint64 {
-	return m.messageInner.SequenceNumber
+	return m.M.SequenceNumber
 }
 
 // Payload returns the Payload of the message.
 func (m *Message) Payload() payload.Payload {
-	return m.messageInner.Payload
+	return m.M.Payload
 }
 
 // Nonce returns the Nonce of the message.
 func (m *Message) Nonce() uint64 {
-	return m.messageInner.Nonce
+	return m.M.Nonce
 }
 
 // Signature returns the Signature of the message.
 func (m *Message) Signature() ed25519.Signature {
-	return m.messageInner.Signature
+	return m.M.Signature
 }
 
-// calculates the message's MessageID.
-func (m *Message) calculateID() MessageID {
-	return MessageID{
-		Identifier: blake2b.Sum256(m.Bytes()),
-	}
-}
-
-// Bytes returns a marshaled version of the Transaction.
-func (m *Message) Bytes() []byte {
-	m.bytesMutex.Lock()
-	defer m.bytesMutex.Unlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m)
+// DetermineID calculates and sets the message's MessageID.
+func (m *Message) DetermineID() (err error) {
+	b, err := m.Bytes()
 	if err != nil {
-		// TODO: what do?
-		panic(err)
+		return errors.Errorf("failed to determine message ID: %w", err)
 	}
-	return objBytes
+
+	m.SetID(MessageID{Identifier: blake2b.Sum256(b)})
+	return nil
 }
 
 // Size returns the message size in bytes.
 func (m *Message) Size() int {
-	return len(m.Bytes())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *Message) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.ID(), serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (m *Message) ObjectStorageValue() []byte {
-	m.bytesMutex.Lock()
-	defer m.bytesMutex.Unlock()
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
+	return len(lo.PanicOnErr(m.Bytes()))
 }
 
 func (m *Message) String() string {
@@ -601,8 +510,6 @@ func sortParents(parents MessageIDs) (sorted []MessageID) {
 
 	return
 }
-
-var _ objectstorage.StorableObject = new(Message)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

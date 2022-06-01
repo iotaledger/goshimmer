@@ -202,7 +202,7 @@ loop:
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.ownRate.Load() * float64(time.Second)))
+	wait := time.Duration(math.Ceil(float64(msg.Size()) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 

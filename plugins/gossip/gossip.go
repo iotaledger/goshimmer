@@ -48,7 +48,7 @@ func createManager(lPeer *peer.Local, t *tangle.Tangle) *gossip.Manager {
 			return nil, ErrMessageNotFound
 		}
 		msg, _ := cachedMessage.Unwrap()
-		return msg.Bytes(), nil
+		return msg.Bytes()
 	}
 	libp2pIdentity, err := libp2putil.GetLibp2pIdentity(lPeer)
 	if err != nil {
