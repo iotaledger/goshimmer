@@ -148,7 +148,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	msg, err := NewMessage(
+	msg, err := NewMessageWithValidation(
 		references,
 		issuingTime,
 		issuerPublicKey,
@@ -162,6 +162,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
+	_ = msg.DetermineID()
 
 	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
 	return msg, nil
@@ -246,12 +247,11 @@ func (f *MessageFactory) Shutdown() {
 // doPOW performs pow on the message and returns a nonce.
 func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature)
+	dummy, err := message.Bytes()
 	if err != nil {
 		return 0, err
 	}
-
-	dummy := message.Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
@@ -260,11 +260,11 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 
 func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature)
+	dummyBytes, err := dummy.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
-	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
 	return f.localIdentity.Sign(dummyBytes[:contentLength]), nil

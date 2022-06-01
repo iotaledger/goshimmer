@@ -17,28 +17,28 @@ func TestUpdateBM2(t *testing.T) {
 
 		// 0 initial values, timely update should not change anything
 		bm.updateBM2(time.Hour)
-		assert.Equal(t, 0.0, bm.BaseMana2)
+		assert.Equal(t, 0.0, bm.BaseValue())
 	})
 
 	t.Run("CASE: Batch update", func(t *testing.T) {
 		bm := AccessBaseMana{}
 
 		// pledge BM2 at t = o
-		bm.BaseMana2 = 1.0
+		bm.M.BaseValue = 1.0
 		bm.updateBM2(time.Hour * 6)
-		assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+		assert.InDelta(t, 0.5, bm.BaseValue(), delta)
 	})
 
 	t.Run("CASE: Incremental update", func(t *testing.T) {
 		bm := AccessBaseMana{}
 
 		// pledge BM2 at t = o
-		bm.BaseMana2 = 1.0
+		bm.M.BaseValue = 1.0
 		// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
 		for i := 0; i < 6; i++ {
 			bm.updateBM2(time.Hour)
 		}
-		assert.InDelta(t, 0.5, bm.BaseMana2, delta)
+		assert.InDelta(t, 0.5, bm.BaseValue(), delta)
 	})
 }
 
@@ -48,7 +48,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 		// 0 initial values, timely update should not change anything
 		bm.updateEBM2(time.Hour)
-		assert.Equal(t, 0.0, bm.EffectiveBaseMana2)
+		assert.Equal(t, 0.0, bm.M.EffectiveValue)
 	})
 
 	t.Run("CASE: Batch and incremental update", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 		// first, let's calculate once on a 6 hour span
 		// pledge BM2 at t = o
-		bmBatch.BaseMana2 = 1.0
+		bmBatch.M.BaseValue = 1.0
 		// updateEBM2 relies on an update baseMana2 value
 		bmBatch.updateBM2(time.Hour * 6)
 		bmBatch.updateEBM2(time.Hour * 6)
@@ -64,7 +64,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 		bmInc := AccessBaseMana{}
 		// second, let's calculate the same but every hour
 		// pledge BM2 at t = o
-		bmInc.BaseMana2 = 1.0
+		bmInc.M.BaseValue = 1.0
 		// with emaCoeff1 = 0.00003209, half value should be reached within 6 hours
 		for i := 0; i < 6; i++ {
 			// updateEBM2 relies on an update baseMana2 value
@@ -73,7 +73,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 		}
 
 		// compare results of the two calculations
-		assert.Equal(t, true, math.Abs(bmBatch.EffectiveBaseMana2-bmInc.EffectiveBaseMana2) < delta)
+		assert.Equal(t, true, math.Abs(bmBatch.M.EffectiveValue-bmInc.M.EffectiveValue) < delta)
 	})
 
 	t.Run("CASE: Large durations BM2", func(t *testing.T) {
@@ -81,23 +81,23 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 		// first, let's calculate once on a 6 hour span
 		// pledge BM2 at t = o
-		bmBatch.BaseMana2 = 1.0
+		bmBatch.M.BaseValue = 1.0
 		// updateEBM2 relies on an update baseMana2 value
 		minTime := time.Unix(-2208988800, 0) // Jan 1, 1900
 		maxTime := minTime.Add(1<<63 - 1)
 
 		bmBatch.updateBM2(maxTime.Sub(minTime))
 
-		assert.False(t, math.IsNaN(bmBatch.BaseMana2))
-		assert.False(t, math.IsInf(bmBatch.BaseMana2, 0))
-		assert.Equal(t, 0.0, bmBatch.BaseMana2)
+		assert.False(t, math.IsNaN(bmBatch.M.BaseValue))
+		assert.False(t, math.IsInf(bmBatch.M.BaseValue, 0))
+		assert.Equal(t, 0.0, bmBatch.M.BaseValue)
 	})
 
 	t.Run("CASE: Large durations EBM2 Decay==emaCoeff2", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
 		// pledge BM2 at t = o
-		bmBatch.BaseMana2 = 1.0
-		bmBatch.EffectiveBaseMana2 = 1.0
+		bmBatch.M.BaseValue = 1.0
+		bmBatch.M.EffectiveValue = 1.0
 
 		// updateEBM2 relies on an update baseMana2 value
 		minTime := time.Unix(-2208988800, 0) // Jan 1, 1900
@@ -105,19 +105,19 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 		bmBatch.updateBM2(maxTime.Sub(minTime))
 		bmBatch.updateEBM2(maxTime.Sub(minTime))
-		assert.False(t, math.IsNaN(bmBatch.BaseMana2))
-		assert.False(t, math.IsNaN(bmBatch.EffectiveBaseMana2))
-		assert.False(t, math.IsInf(bmBatch.BaseMana2, 0))
-		assert.False(t, math.IsInf(bmBatch.EffectiveBaseMana2, 0))
-		assert.Equal(t, 0.0, bmBatch.BaseMana2)
-		assert.Equal(t, 0.0, bmBatch.EffectiveBaseMana2)
+		assert.False(t, math.IsNaN(bmBatch.M.BaseValue))
+		assert.False(t, math.IsNaN(bmBatch.M.EffectiveValue))
+		assert.False(t, math.IsInf(bmBatch.M.BaseValue, 0))
+		assert.False(t, math.IsInf(bmBatch.M.EffectiveValue, 0))
+		assert.Equal(t, 0.0, bmBatch.M.BaseValue)
+		assert.Equal(t, 0.0, bmBatch.M.EffectiveValue)
 	})
 	t.Run("CASE: Large durations EBM2 Decay!=emaCoeff2", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
 		SetCoefficients(0.00003209, 0.0057762265, 0.00003209)
 		// pledge BM2 at t = o
-		bmBatch.BaseMana2 = 1.0
-		bmBatch.EffectiveBaseMana2 = 1.0
+		bmBatch.M.BaseValue = 1.0
+		bmBatch.M.EffectiveValue = 1.0
 
 		// updateEBM2 relies on an update baseMana2 value
 		minTime := time.Unix(-2208988800, 0) // Jan 1, 1900
@@ -126,12 +126,12 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 		bmBatch.updateBM2(maxTime.Sub(minTime))
 		bmBatch.updateEBM2(maxTime.Sub(minTime))
 
-		assert.False(t, math.IsNaN(bmBatch.BaseMana2))
-		assert.False(t, math.IsNaN(bmBatch.EffectiveBaseMana2))
-		assert.False(t, math.IsInf(bmBatch.BaseMana2, 0))
-		assert.False(t, math.IsInf(bmBatch.EffectiveBaseMana2, 0))
-		assert.Equal(t, 0.0, bmBatch.BaseMana2)
-		assert.Equal(t, 0.0, bmBatch.EffectiveBaseMana2)
+		assert.False(t, math.IsNaN(bmBatch.M.BaseValue))
+		assert.False(t, math.IsNaN(bmBatch.M.EffectiveValue))
+		assert.False(t, math.IsInf(bmBatch.M.BaseValue, 0))
+		assert.False(t, math.IsInf(bmBatch.M.EffectiveValue, 0))
+		assert.Equal(t, 0.0, bmBatch.BaseValue())
+		assert.Equal(t, 0.0, bmBatch.EffectiveValue())
 		// re-set the default values so that other tests pass
 		SetCoefficients(0.00003209, 0.00003209, 0.00003209)
 	})
@@ -139,11 +139,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 func TestUpdateTimeInPast_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime,
-	}
+	bm := NewAccessBaseMana(1.0, 0.0, baseTime)
 	pastTime := baseTime.Add(time.Hour * -1)
 	err := bm.update(pastTime)
 	assert.Error(t, err)
@@ -152,28 +148,22 @@ func TestUpdateTimeInPast_Access(t *testing.T) {
 
 func TestUpdate_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime,
-	}
+	bm := NewAccessBaseMana(1.0, 0.0, baseTime)
+
 	updateTime := baseTime.Add(time.Hour * 6)
 
 	err := bm.update(updateTime)
 	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
-	assert.InDelta(t, 0.5, bm.BaseMana2, delta)
-	assert.InDelta(t, 0.346573, bm.EffectiveBaseMana2, delta)
-	assert.Equal(t, updateTime, bm.LastUpdated)
+	assert.InDelta(t, 0.5, bm.BaseValue(), delta)
+	assert.InDelta(t, 0.346573, bm.EffectiveValue(), delta)
+	assert.Equal(t, updateTime, bm.LastUpdate())
 }
 
 func TestRevoke_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime,
-	}
+	bm := NewAccessBaseMana(1.0, 0.0, baseTime)
+
 	assert.Panics(t, func() {
 		_ = bm.revoke(1.0)
 	})
@@ -181,11 +171,7 @@ func TestRevoke_Access(t *testing.T) {
 
 func TestPledgeRegularOldFunds_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime,
-	}
+	bm := NewAccessBaseMana(1.0, 0.0, baseTime)
 
 	// transaction pledges mana at t=6 hours with 3 inputs.
 	txInfo := &TxInfo{
@@ -218,16 +204,12 @@ func TestPledgeRegularOldFunds_Access(t *testing.T) {
 
 	assert.InDelta(t, 10.0, bm2Pledged, delta)
 	// half of the original BM2 degraded away in 6 hours
-	assert.InDelta(t, 10.5, bm.BaseMana2, delta)
+	assert.InDelta(t, 10.5, bm.BaseValue(), delta)
 }
 
 func TestPledgeRegularHalfOldFunds_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime,
-	}
+	bm := NewAccessBaseMana(1.0, 0.0, baseTime)
 
 	// transaction pledges mana at t=6 hours with 3 inputs.
 	txInfo := &TxInfo{
@@ -260,16 +242,12 @@ func TestPledgeRegularHalfOldFunds_Access(t *testing.T) {
 
 	assert.InDelta(t, 5.0, bm2Pledged, delta)
 	// half of the original BM2 degraded away in 6 hours
-	assert.InDelta(t, 5.5, bm.BaseMana2, delta)
+	assert.InDelta(t, 5.5, bm.BaseValue(), delta)
 }
 
 func TestPledgePastOldFunds_Access(t *testing.T) {
 	baseTime := time.Now()
-	bm := &AccessBaseMana{
-		BaseMana2:          0,
-		EffectiveBaseMana2: 0.0,
-		LastUpdated:        baseTime.Add(time.Hour * 6),
-	}
+	bm := NewAccessBaseMana(0, 0.0, baseTime.Add(time.Hour*6))
 
 	// transaction pledges mana at t=0 hours with 3 inputs.
 	txInfo := &TxInfo{
@@ -304,5 +282,5 @@ func TestPledgePastOldFunds_Access(t *testing.T) {
 	assert.InDelta(t, 5.0, bm2Pledged, delta)
 	// half of the original BM2 degraded away in 6 hours
 	// valid EBM2 at t=6 hours, after pledging 10 BM2 at t=0
-	assert.InDelta(t, 3.465731, bm.EffectiveBaseMana2, delta)
+	assert.InDelta(t, 3.465731, bm.EffectiveValue(), delta)
 }

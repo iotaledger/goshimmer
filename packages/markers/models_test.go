@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,10 +14,8 @@ func TestMarker(t *testing.T) {
 	assert.Equal(t, SequenceID(1337), marker.SequenceID())
 	assert.Equal(t, Index(1), marker.Index())
 
-	marshaledMarker := marker.Bytes()
-	unmarshalledMarker, consumedBytes, err := MarkerFromBytes(marshaledMarker)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledMarker), consumedBytes)
+	var unmarshalledMarker Marker
+	require.NoError(t, unmarshalledMarker.FromBytes(marker.Bytes()))
 	assert.Equal(t, marker, unmarshalledMarker)
 }
 
@@ -28,9 +27,8 @@ func TestMarkers(t *testing.T) {
 	)
 
 	marshaledMarkers := markers.Bytes()
-	unmarshalledMarkers, consumedBytes, err := FromBytes(marshaledMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledMarkers), consumedBytes)
+	unmarshalledMarkers := new(Markers)
+	require.NoError(t, unmarshalledMarkers.FromBytes(marshaledMarkers))
 	assert.Equal(t, markers, unmarshalledMarkers)
 	assert.Equal(t, Index(3), markers.HighestIndex())
 	assert.Equal(t, Index(1), markers.LowestIndex())
@@ -42,41 +40,6 @@ func TestMarkers(t *testing.T) {
 	markers.Delete(1339)
 	assert.Equal(t, Index(2), markers.LowestIndex())
 	assert.Equal(t, Index(2), markers.HighestIndex())
-}
-
-func TestMarkersByRank(t *testing.T) {
-	markersByRank := newMarkersByRank()
-
-	updated, added := markersByRank.Add(10, 7, 8)
-	assert.True(t, updated)
-	assert.True(t, added)
-	updated, added = markersByRank.Add(10, 7, 8)
-	assert.False(t, updated)
-	assert.False(t, added)
-	updated, added = markersByRank.Add(10, 7, 9)
-	assert.True(t, updated)
-	assert.False(t, added)
-	assert.Equal(t, uint64(10), markersByRank.LowestRank())
-	assert.Equal(t, uint64(10), markersByRank.HighestRank())
-	assert.Equal(t, uint64(1), markersByRank.Size())
-
-	updated, added = markersByRank.Add(12, 7, 9)
-	assert.True(t, updated)
-	assert.True(t, added)
-	assert.Equal(t, uint64(10), markersByRank.LowestRank())
-	assert.Equal(t, uint64(12), markersByRank.HighestRank())
-	assert.Equal(t, uint64(2), markersByRank.Size())
-
-	assert.False(t, markersByRank.Delete(10, 8))
-	assert.True(t, markersByRank.Delete(10, 7))
-	assert.Equal(t, uint64(12), markersByRank.LowestRank())
-	assert.Equal(t, uint64(12), markersByRank.HighestRank())
-	assert.Equal(t, uint64(1), markersByRank.Size())
-
-	assert.True(t, markersByRank.Delete(12, 7))
-	assert.Equal(t, uint64(1<<64-1), markersByRank.LowestRank())
-	assert.Equal(t, uint64(0), markersByRank.HighestRank())
-	assert.Equal(t, uint64(0), markersByRank.Size())
 }
 
 func TestReferencedMarkers(t *testing.T) {
@@ -123,10 +86,9 @@ func TestReferencedMarkers(t *testing.T) {
 		NewMarker(4, 9),
 	), referencedMarkers.Get(12))
 
-	marshaledReferencedMarkers := referencedMarkers.Bytes()
-	unmarshalledReferencedMarkers, consumedBytes, err := ReferencedMarkersFromBytes(marshaledReferencedMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledReferencedMarkers), consumedBytes)
+	marshaledReferencedMarkers := lo.PanicOnErr(referencedMarkers.Bytes())
+	unmarshalledReferencedMarkers := new(ReferencedMarkers)
+	require.NoError(t, unmarshalledReferencedMarkers.FromBytes(marshaledReferencedMarkers))
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 3),
@@ -199,10 +161,9 @@ func TestReferencingMarkers(t *testing.T) {
 
 	assert.Equal(t, NewMarkers(), referencingMarkers.Get(13))
 
-	marshaledReferencingMarkers := referencingMarkers.Bytes()
-	unmarshalledReferencingMarkers, consumedBytes, err := ReferencingMarkersFromBytes(marshaledReferencingMarkers)
-	require.NoError(t, err)
-	assert.Equal(t, len(marshaledReferencingMarkers), consumedBytes)
+	marshaledReferencingMarkers := lo.PanicOnErr(referencingMarkers.Bytes())
+	unmarshalledReferencingMarkers := new(ReferencingMarkers)
+	require.NoError(t, unmarshalledReferencingMarkers.FromBytes(marshaledReferencingMarkers))
 
 	assert.Equal(t, NewMarkers(
 		NewMarker(1, 5),
@@ -241,9 +202,7 @@ func TestSequence(t *testing.T) {
 	assert.Equal(t, SequenceID(1337), sequence.ID())
 	assert.Equal(t, Index(7), sequence.HighestIndex())
 
-	marshaledSequence := sequence.Bytes()
-	unmarshalledSequence, err := new(Sequence).FromBytes(marshaledSequence)
-	require.NoError(t, err)
-	assert.Equal(t, sequence.ID(), unmarshalledSequence.ID())
+	unmarshalledSequence := new(Sequence)
+	require.NoError(t, unmarshalledSequence.FromBytes(lo.PanicOnErr(sequence.Bytes())))
 	assert.Equal(t, sequence.HighestIndex(), unmarshalledSequence.HighestIndex())
 }
