@@ -804,8 +804,8 @@ func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(seque
 }
 
 // IsMessageConfirmed mocks its interface function.
-func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker *markers.Marker) bool {
-	if marker == nil || m.confirmedMarkers == nil || m.confirmedMarkers.Size() == 0 {
+func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker markers.Marker) bool {
+	if m.confirmedMarkers == nil || m.confirmedMarkers.Size() == 0 {
 		return false
 	}
 	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(marker.SequenceID())

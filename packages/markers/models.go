@@ -44,7 +44,7 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
-	model.Model[markerModel] `serix:"0"`
+	model.Immutable[markerModel] `serix:"0"`
 }
 
 // markerModel contains the data of a Marker.
@@ -54,34 +54,25 @@ type markerModel struct {
 }
 
 // NewMarker returns a new marker.
-func NewMarker(sequenceID SequenceID, index Index) *Marker {
-	return &Marker{model.New(markerModel{
+func NewMarker(sequenceID SequenceID, index Index) Marker {
+	return Marker{model.NewImmutable(markerModel{
 		SequenceID: sequenceID,
 		Index:      index,
 	})}
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
-func (m *Marker) SequenceID() (sequenceID SequenceID) {
-	m.RLock()
-	defer m.RUnlock()
-
+func (m Marker) SequenceID() (sequenceID SequenceID) {
 	return m.M.SequenceID
 }
 
 // Index returns the coordinate of the Marker in a Sequence.
-func (m *Marker) Index() (index Index) {
-	m.RLock()
-	defer m.RUnlock()
-
+func (m Marker) Index() (index Index) {
 	return m.M.Index
 }
 
 // Bytes returns a serialized version of the Marker.
-func (m *Marker) Bytes() (serialized []byte) {
-	m.RLock()
-	defer m.RUnlock()
-
+func (m Marker) Bytes() (serialized []byte) {
 	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m.M))
 }
 
@@ -101,7 +92,7 @@ type markersModel struct {
 }
 
 // NewMarkers creates a new collection of Markers.
-func NewMarkers(markers ...*Marker) (new *Markers) {
+func NewMarkers(markers ...Marker) (new *Markers) {
 	new = &Markers{model.New(markersModel{
 		Markers: make(map[SequenceID]Index),
 	})}
@@ -114,7 +105,7 @@ func NewMarkers(markers ...*Marker) (new *Markers) {
 }
 
 // Marker type casts the Markers to a Marker if it contains only 1 element.
-func (m *Markers) Marker() (marker *Marker) {
+func (m *Markers) Marker() (marker Marker) {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -125,11 +116,11 @@ func (m *Markers) Marker() (marker *Marker) {
 		for sequenceID, index := range m.M.Markers {
 			return NewMarker(sequenceID, index)
 		}
+
+		return Marker{}
 	default:
 		panic("converting multiple Markers into a single Marker is not supported")
 	}
-
-	return
 }
 
 // Get returns the Index of the Marker with the given Sequence and a flag that indicates if the Marker exists.
@@ -349,7 +340,7 @@ func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.
-func (r *ReferencingMarkers) Add(index Index, referencingMarker *Marker) {
+func (r *ReferencingMarkers) Add(index Index, referencingMarker Marker) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -678,7 +669,7 @@ func (s *Sequence) IncreaseHighestIndex(referencedMarkers *Markers) (index Index
 }
 
 // AddReferencingMarker register a Marker that referenced the given Index of this Sequence.
-func (s *Sequence) AddReferencingMarker(index Index, referencingMarker *Marker) {
+func (s *Sequence) AddReferencingMarker(index Index, referencingMarker Marker) {
 	s.M.ReferencingMarkers.Add(index, referencingMarker)
 
 	s.SetModified()
