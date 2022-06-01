@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"time"
@@ -116,7 +115,6 @@ func (s *Scheduler) Shutdown() {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Scheduler) Setup() {
-	fmt.Println("setup scheduler")
 	// pass booked messages to the scheduler
 	s.tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *MessageProcessedEvent) {
 		if err := s.Submit(event.MessageID); err != nil {
