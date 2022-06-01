@@ -30,7 +30,6 @@ services:
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --webAPI.exportPath=/tmp/
       --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
@@ -61,7 +60,6 @@ services:
       --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
-      --webAPI.exportPath=/tmp/
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
@@ -118,7 +116,6 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
-      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
