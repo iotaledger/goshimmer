@@ -42,7 +42,7 @@ func TestUtils_AllTransactionsApprovedByMessages(t *testing.T) {
 		"Message7": markers.NewMarkers(markers.NewMarker(0, 4)),
 	} {
 		tangle.Storage.MessageMetadata(mtf.Message(messageAlias).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, messageMetadata.StructureDetails().PastMarkers.Equals(expectedMarkers))
+			assert.True(t, messageMetadata.StructureDetails().PastMarkers().Equals(expectedMarkers))
 		})
 	}
 }

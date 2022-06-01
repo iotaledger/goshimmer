@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/bytesfilter"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/typeutils"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -143,14 +145,18 @@ func (p *Parser) setupMessageFilterDataFlow() {
 
 // parses the given message and emits
 func (p *Parser) parseMessage(bytes []byte, peer *peer.Peer) {
-	if parsedMessage, err := new(Message).FromBytes(bytes); err != nil {
+	// Validation of the message is implicitly done while decoding the bytes with serix.
+	msg := new(Message)
+	if _, err := serix.DefaultAPI.Decode(context.Background(), bytes, msg); err != nil {
 		p.Events.BytesRejected.Trigger(&BytesRejectedEvent{
 			Bytes: bytes,
 			Peer:  peer,
 			Error: err,
 		})
 	} else {
-		p.messageFilters[0].Filter(parsedMessage, peer)
+		// TODO: this could also be done by directly taking the bytes
+		_ = msg.DetermineID()
+		p.messageFilters[0].Filter(msg, peer)
 	}
 }
 
@@ -214,7 +220,7 @@ func NewMessageSignatureFilter() *MessageSignatureFilter {
 // Filter filters up on the given bytes and peer and calls the acceptance callback
 // if the input passes or the rejection callback if the input is rejected.
 func (f *MessageSignatureFilter) Filter(msg *Message, peer *peer.Peer) {
-	if msg.VerifySignature() {
+	if valid, _ := msg.VerifySignature(); valid {
 		f.getAcceptCallback()(msg, peer)
 		return
 	}

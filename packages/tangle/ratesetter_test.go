@@ -66,7 +66,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
 	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
 	for i := 0; i < MaxLocalQueueSize*2; i++ {
-		msg, _ := NewMessage(
+		msg := NewMessage(
 			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
 			time.Now(),
 			localNode.PublicKey(),
@@ -75,6 +75,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
+	assert.NoError(t, msg.DetermineID())
 		assert.NoError(t, rateSetter.Issue(msg))
 	}
 

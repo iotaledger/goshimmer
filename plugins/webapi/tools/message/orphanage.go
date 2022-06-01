@@ -27,12 +27,13 @@ func OrphanageHandler(c echo.Context) error {
 	path := filepath.Join(filepath.Dir(ex), fileNameOrphanage)
 
 	// check whether a valid message ID is given in the request
-	targetMessageID, err := tangle.NewMessageID(c.QueryParam("msgID"))
+	var msgID tangle.MessageID
+	err = msgID.FromBase58(c.QueryParam("msgID"))
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, OrphanageResponse{Err: err.Error()})
 	}
 
-	if err = orphanageAnalysis(targetMessageID, path); err != nil {
+	if err = orphanageAnalysis(msgID, path); err != nil {
 		return c.JSON(http.StatusInternalServerError, OrphanageResponse{Err: err.Error()})
 	}
 	return c.JSON(http.StatusOK, OrphanageResponse{})

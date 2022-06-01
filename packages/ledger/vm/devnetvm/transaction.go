@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"golang.org/x/crypto/blake2b"
-
 	"github.com/iotaledger/hive.go/cerrors"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
@@ -244,7 +242,7 @@ func (t *Transaction) ID() utxo.TransactionID {
 		return *t.id
 	}
 
-	return utxo.TransactionID{Identifier: blake2b.Sum256(t.Bytes())}
+	return utxo.NewTransactionID(t.Bytes())
 }
 
 func (t *Transaction) SetID(id utxo.TransactionID) {

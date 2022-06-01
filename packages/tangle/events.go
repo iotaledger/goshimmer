@@ -119,7 +119,7 @@ type MessageBranchUpdatedEvent struct {
 }
 
 type MarkerBranchAddedEvent struct {
-	Marker      *markers.Marker
+	Marker      markers.Marker
 	NewBranchID utxo.TransactionID
 }
 
@@ -194,7 +194,7 @@ type MessageProcessedEvent struct {
 
 // MarkerWeightChangedEvent holds information about a marker and its updated weight.
 type MarkerWeightChangedEvent struct {
-	Marker *markers.Marker
+	Marker markers.Marker
 	Weight float64
 }
 

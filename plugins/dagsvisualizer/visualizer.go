@@ -79,7 +79,7 @@ func registerTangleEvents() {
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:        messageID.Base58(),
-					IsMarker:  msgMetadata.StructureDetails().IsPastMarker,
+					IsMarker:  msgMetadata.StructureDetails().IsPastMarker(),
 					BranchIDs: lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 				},
 			}
@@ -364,7 +364,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
 			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
 			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
 			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
 			ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),
