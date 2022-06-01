@@ -516,6 +516,7 @@ func (t *TipManager) getMarkerMessage(marker *markers.Marker) (markerMessageID M
 		markerMessageID = message.ID()
 		markerMessageIssuingTime = message.IssuingTime()
 	})
+
 	return
 }
 
