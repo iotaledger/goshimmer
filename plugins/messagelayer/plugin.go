@@ -192,7 +192,6 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 			ConfirmedMessageScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedMessageThreshold),
 			Rate:                              parseDuration(SchedulerParameters.Rate),
 			AccessManaMapRetrieverFunc:        accessManaMapRetriever,
-			AccessManaRetrieveFunc:            accessManaRetriever,
 			TotalAccessManaRetrieveFunc:       totalAccessManaRetriever,
 		}),
 		tangle.RateSetterConfig(tangle.RateSetterParams{
@@ -239,15 +238,6 @@ func accessManaMapRetriever() map[identity.ID]float64 {
 		return mana.NodeMap{}
 	}
 	return nodeMap
-}
-
-func accessManaRetriever(nodeID identity.ID) float64 {
-	nodeMana, _, err := GetAccessMana(nodeID)
-	// return at least MinMana so that zero mana nodes can access the network
-	if err != nil && nodeMana < tangle.MinMana {
-		return tangle.MinMana
-	}
-	return nodeMana
 }
 
 func totalAccessManaRetriever() float64 {

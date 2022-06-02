@@ -55,7 +55,7 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",spammer
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
@@ -95,6 +95,33 @@ services:
       - "8070:8080/tcp" # web API
       - "8071:8081/tcp" # dashboard
       - "6071:6061/tcp" # pprof
+    networks:
+      - goshimmer
+    depends_on:
+      - peer_master
+  peer_nomana:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/mainnetdb
+      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
+      --node.overwriteStoredSeed=true
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
+      --node.disablePlugins=portcheck,clock,Firewall
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
+      --mana.snapshotResetTime=true
+      --messageLayer.startSynced=true
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
+    ports:
+      - "8040:8080/tcp" # web API
+      - "8041:8081/tcp" # dashboard
+      - "6041:6061/tcp" # pprof
     networks:
       - goshimmer
     depends_on:

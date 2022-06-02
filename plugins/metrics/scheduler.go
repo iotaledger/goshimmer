@@ -47,7 +47,7 @@ func measureSchedulerMetrics() {
 	}
 	bufferSize = deps.Tangle.Scheduler.BufferSize()
 	maxBufferSize = deps.Tangle.Options.SchedulerParams.MaxBufferSize
-	schedulerDeficit = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID())
+	schedulerDeficit, _ = deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
 	schedulerRate = deps.Tangle.Scheduler.Rate()
 	readyMessagesCount = deps.Tangle.Scheduler.ReadyMessagesCount()
 	totalMessagesCount = deps.Tangle.Scheduler.TotalMessagesCount()
