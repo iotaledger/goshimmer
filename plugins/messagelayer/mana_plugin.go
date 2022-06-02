@@ -201,7 +201,6 @@ func runManaPlugin(_ *node.Plugin) {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 
-				nodeSnapshot.ManaSnapshot.ByNodeID[]
 				loadSnapshot(nodeSnapshot.ManaSnapshot)
 
 				// initialize cMana WeightProvider with snapshot

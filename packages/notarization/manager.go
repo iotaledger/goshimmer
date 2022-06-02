@@ -4,6 +4,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -50,19 +52,11 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 }
 
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
-	snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		oid:=output.ID()
-		output.(devnetvm.Output).Balances()
-		m.epochCommitmentFactory.storage.ledgerstateStore.Put(&oid)
-	})
-	snapshot.OutputsMetadata.ForEach(func(outputMetadata *ledger.OutputMetadata) error {
-		m.epochCommitmentFactory.InsertStateLeaf(EI(0), outputMetadata.ID())
-
-		outputMetadata.ConsensusManaPledgeID()
-		outputMetadata.
+	err := snapshot.Outputs.ForEach(func(output utxo.Output) error {
+		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
 		return nil
 	})
-	return nil
+	return errors.WithStack(err)
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
