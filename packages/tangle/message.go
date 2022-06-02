@@ -577,6 +577,11 @@ func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) 
 	return p
 }
 
+// IsEmpty returns true if the ParentMessageIDs are empty.
+func (p ParentMessageIDs) IsEmpty() bool {
+	return p == nil || len(p) == 0
+}
+
 // Clone returns a copy of map.
 func (p ParentMessageIDs) Clone() ParentMessageIDs {
 	pCloned := NewParentMessageIDs()
