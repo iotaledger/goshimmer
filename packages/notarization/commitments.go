@@ -21,6 +21,7 @@ type Commitment struct {
 	EI                EI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
+	stateRoot         *smt.SparseMerkleTree
 	prevECR           [32]byte
 }
 
@@ -63,28 +64,12 @@ func (e *Commitment) StateRoot() []byte {
 	return e.stateRoot.Root()
 }
 
-// ManaRoot returns the root of the mana sparse merkle tree.
-func (e *Commitment) ManaRoot() []byte {
-	return e.manaRoot.Root()
-}
-
-// ECR generates the epoch commitment root.
-func (e *Commitment) ECR() [32]byte {
-	branch1 := blake2b.Sum256(append(e.prevECR[:], e.TangleRoot()...))
-	branch2Bytes := append(e.StateRoot(), e.StateMutationRoot()...)
-	branch2Bytes = append(branch2Bytes, e.ManaRoot()...)
-	branch2 := blake2b.Sum256(branch2Bytes)
-	var root []byte
-	root = append(root, branch1[:]...)
-	root = append(root, branch2[:]...)
-	return blake2b.Sum256(root)
-
-}
-
 // EpochCommitmentFactory manages epoch commitments.
 type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
+
+	ecc map[EI][32]byte
 
 	storage        *EpochCommitmentStorage
 	FullEpochIndex EI
@@ -109,6 +94,37 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitment
 	}
 }
 
+// StateRoot returns the root of the state sparse merkle tree.
+func (f *EpochCommitmentFactory) StateRoot() []byte {
+	return f.stateRootTree.Root()
+}
+
+// ECR generates the epoch commitment root.
+func (f *EpochCommitmentFactory) ECR(ei EI) [32]byte {
+	commitment := f.GetCommitment(ei)
+	if commitment == nil {
+		return [32]byte{}
+	}
+	branch1 := blake2b.Sum256(append(commitment.prevECR[:], commitment.TangleRoot()...))
+	branch2 := blake2b.Sum256(append(commitment.StateRoot(), commitment.StateMutationRoot()...))
+	var root []byte
+	root = append(root, branch1[:]...)
+	root = append(root, branch2[:]...)
+	return blake2b.Sum256(root)
+}
+
+func (f *EpochCommitmentFactory) ECHash(ei EI) [32]byte {
+	if ec, ok := f.ecc[ei]; ok {
+		return ec
+	}
+	ECR := f.ECR(ei)
+	prevEC := f.ECHash(ei - 1)
+
+	ECHash := blake2b.Sum256(append(append(prevEC[:], ECR[:]...), byte(ei)))
+	f.ecc[ei] = ECHash
+	return ECHash
+}
+
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
@@ -116,7 +132,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID)
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
-	f.onTangleRootChanged(commitment)
+	f.updatePrevECR(commitment.EI)
 	return nil
 }
 
@@ -127,7 +143,7 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID utxo.OutputID) 
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
 	}
-	f.onStateRootChanged(commitment)
+	f.updatePrevECR(commitment.EI)
 	return nil
 }
 
@@ -138,7 +154,7 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID utxo.Transa
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
 	}
-	f.onStateMutationRootChanged(commitment)
+	f.updatePrevECR(commitment.EI)
 	return nil
 }
 
@@ -149,7 +165,7 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei EI, txID utxo.Transa
 	if err != nil {
 		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
 	}
-	f.onStateMutationRootChanged(commitment)
+	f.updatePrevECR(commitment.EI)
 	return nil
 }
 
@@ -162,7 +178,7 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID)
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
-		f.onTangleRootChanged(commitment)
+		f.updatePrevECR(commitment.EI)
 	}
 	return nil
 }
@@ -176,7 +192,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) err
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
-		f.onStateRootChanged(commitment)
+		f.updatePrevECR(commitment.EI)
 	}
 	return nil
 }
@@ -185,21 +201,18 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) err
 func (f *EpochCommitmentFactory) GetCommitment(ei EI) *Commitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
-	return f.commitments[ei]
+	commitment := f.commitments[ei]
+	commitment.stateRoot = f.getStateRoot(ei)
+	return commitment
 }
 
 // GetEpochCommitment returns the epoch commitment with the given ei.
 func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitment {
-	f.commitmentsMutex.RLock()
-	defer f.commitmentsMutex.RUnlock()
-	if commitment, ok := f.commitments[ei]; ok {
-		return &tangle.EpochCommitment{
-			EI:          uint64(ei),
-			ECR:         commitment.ECR(),
-			PreviousECR: commitment.prevECR,
-		}
+	return &tangle.EpochCommitment{
+		EI:         uint64(ei),
+		ECR:        f.ECR(ei),
+		PreviousEC: f.ECHash(ei - 1),
 	}
-	return nil
 }
 
 func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*CommitmentProof, error) {
@@ -240,9 +253,7 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 		var previousECR [32]byte
 
 		if ei > 0 {
-			if previousCommitment := f.GetCommitment(ei - 1); previousCommitment != nil {
-				previousECR = previousCommitment.ECR()
-			}
+			previousECR = f.ECR(ei - 1)
 		}
 		commitment = f.newCommitment(ei, previousECR)
 		f.commitmentsMutex.Lock()
@@ -285,34 +296,15 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
-func (f *EpochCommitmentFactory) onTangleRootChanged(commitment *Commitment) {
+func (f *EpochCommitmentFactory) updatePrevECR(prevEI EI) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
-	forwardCommitment, ok := f.commitments[commitment.EI+1]
-	if !ok {
-		return
-	}
-	forwardCommitment.prevECR = commitment.ECR()
-}
 
-func (f *EpochCommitmentFactory) onStateMutationRootChanged(commitment *Commitment) {
-	f.commitmentsMutex.RLock()
-	defer f.commitmentsMutex.RUnlock()
-	forwardCommitment, ok := f.commitments[commitment.EI+1]
+	forwardCommitment, ok := f.commitments[prevEI+1]
 	if !ok {
 		return
 	}
-	forwardCommitment.prevECR = commitment.ECR()
-}
-
-func (f *EpochCommitmentFactory) onStateRootChanged(commitment *Commitment) {
-	f.commitmentsMutex.RLock()
-	defer f.commitmentsMutex.RUnlock()
-	forwardCommitment, ok := f.commitments[commitment.EI+1]
-	if !ok {
-		return
-	}
-	forwardCommitment.prevECR = commitment.ECR()
+	forwardCommitment.prevECR = f.ECR(prevEI)
 }
 
 type CommitmentProof struct {
