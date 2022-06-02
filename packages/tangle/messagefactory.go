@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
@@ -94,6 +95,10 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	}
 
 	issuerPublicKey := f.localIdentity.PublicKey()
+
+	// TODO:
+	//  - factor out PoW stuff
+	//  - remove error triggers and create container where it is triggered
 
 	// do the PoW
 	startTime := time.Now()
@@ -187,6 +192,7 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
 
+	// TODO: remove switch statement and make easier readable
 	tx, ok := p.(utxo.Transaction)
 	if ok {
 		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID())
@@ -332,74 +338,37 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 	referenceNotPossible = NewMessageIDs()
 
 	for strongParent := range strongParents {
-		if strongParent == EmptyMessageID {
-			references.AddStrong(strongParent)
-			continue
-		}
-
-		strongParentBranchIDs, err := tangle.Booker.MessageBranchIDs(strongParent)
-
-		if strongParentBranchIDs.Size() == 0 {
-			references.AddStrong(strongParent)
-			continue
-		}
-
+		// TODO: put this in separate function
+		strongParentConflicts, err := tangle.Booker.MessageBranchIDs(strongParent)
 		if err != nil {
-			return nil, referenceNotPossible, errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err)
+			panic(errors.Errorf("branchID for Parent with %s can't be retrieved: %w", strongParent, err))
 		}
 
-		referencesCopy := references.Clone()
-
-		opinionCanBeExpressed := true
-		for it := strongParentBranchIDs.Iterator(); it.HasNext(); {
-			referenceParentType, referenceMessageID, err := referenceFromStrongParent(tangle, it.Next(), issuingTime)
-			// Explicitly ignore error since we can't create a like/dislike reference to the message.
-			// This means this message can't be added as a strong parent.
-			if err != nil {
-				opinionCanBeExpressed = false
-				break
-			}
-
-			if referenceParentType == UndefinedParentType {
-				continue
-			}
-
-			references.Add(referenceParentType, referenceMessageID)
-
-			if len(references[referenceParentType]) > MaxParentsCount {
-				opinionCanBeExpressed = false
-				break
-			}
+		if strongParentConflicts.IsEmpty() {
+			references.AddStrong(strongParent)
+			continue
 		}
 
-		if !opinionCanBeExpressed {
-			// If the opinion cannot be expressed, we have to rollback to the previous reference collection.
-			references = referencesCopy
-			strongParentPayloadBranchIDs, strongParentPayloadBranchIDsErr := tangle.Booker.PayloadBranchIDs(strongParent)
-			if strongParentPayloadBranchIDsErr != nil {
-				return nil, referenceNotPossible, errors.Errorf("failed to determine payload branch ids of strong parent with %s: %w", strongParent, strongParentPayloadBranchIDsErr)
+		// TODO: return error and log
+		referencesCopy, opinionCanBeExpressed := determineOpinion(strongParentConflicts, tangle, issuingTime)
+		if opinionCanBeExpressed {
+			for parentsType, parents := range referencesCopy {
+				references.AddAll(parentsType, parents)
 			}
+			references.AddStrong(strongParent)
+			continue
+		}
 
-			if tangle.Utils.AllBranchesLiked(strongParentPayloadBranchIDs) {
-				references.Add(WeakParentType, strongParent)
-			}
-			// If we can't add express the opinion (can't reference past cone), the message needs to be removed from the tip pool.
+		if err = createWeakReference(tangle, strongParent); err != nil {
 			referenceNotPossible.Add(strongParent)
 			continue
 		}
 
-		references.AddStrong(strongParent)
+		references.Add(WeakParentType, strongParent)
 	}
 
 	if len(references[StrongParentType]) == 0 {
 		return nil, referenceNotPossible, errors.Errorf("none of the provided strong parents can be referenced")
-	}
-
-	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
-		if len(references[parentType]) > MaxParentsCount {
-			return nil, referenceNotPossible, errors.Errorf("parent overflow while creating references for message with strong Parents %s", strongParents)
-		}
-
 	}
 
 	// If the payload is a transaction we will weakly reference unconfirmed transactions it is consuming.
@@ -425,47 +394,97 @@ func PrepareReferences(payload payload.Payload, strongParents MessageIDs, issuin
 		}
 	}
 
+	for _, parentType := range []ParentsType{StrongParentType, WeakParentType, ShallowLikeParentType, ShallowDislikeParentType} {
+		if len(references[parentType]) > MaxParentsCount {
+			return nil, referenceNotPossible, errors.Errorf("parent overflow while creating references for message with strong Parents %s", strongParents)
+		}
+	}
+
 	return references, referenceNotPossible, nil
 }
 
-func referenceFromStrongParent(tangle *Tangle, strongParentBranchID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, reference MessageID, err error) {
-	likedBranchID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(strongParentBranchID)
-	if likedBranchID == strongParentBranchID {
-		return
-	}
-
-	if likedBranchID != utxo.EmptyTransactionID {
-		txID := likedBranchID
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(txID)
+func determineOpinion(strongParentConflicts *set.AdvancedSet[utxo.TransactionID], tangle *Tangle, issuingTime time.Time) (references ParentMessageIDs, opinionCanBeExpressed bool) {
+	for it := strongParentConflicts.Iterator(); it.HasNext(); {
+		referenceParentType, referenceMessageID, err := referenceFromConflictID(tangle, it.Next(), issuingTime)
+		// Explicitly ignore error since we can't create a like/dislike reference to the message.
+		// This means this message can't be added as a strong parent.
+		// TODO: return error
 		if err != nil {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", txID, err)
-		}
-		if issuingTime.Sub(oldestAttachmentTime) >= maxParentsTimeDifference {
-			return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like reference needed for Transaction with %s is too far in the past", txID)
+			return nil, false
 		}
 
-		return ShallowLikeParentType, oldestAttachmentMessageID, nil
+		if referenceParentType == UndefinedParentType {
+			continue
+		}
+
+		references.Add(referenceParentType, referenceMessageID)
+
+		if len(references[referenceParentType]) > MaxParentsCount {
+			return nil, false
+		}
+	}
+	return references, true
+}
+
+func referenceFromConflictID(tangle *Tangle, conflictID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, msgID MessageID, err error) {
+	likedConflictID, conflictMembers := tangle.OTVConsensusManager.LikedConflictMember(conflictID)
+	if likedConflictID == conflictID {
+		return UndefinedParentType, EmptyMessageID, nil
 	}
 
+	// Nothing is liked.
+	if likedConflictID == utxo.EmptyTransactionID {
+		return createDislikeReference(tangle, conflictID, issuingTime, conflictMembers)
+	}
+
+	firstAttachmentTime, firstAttachmentMessageID, err := tangle.Utils.FirstAttachment(likedConflictID)
+	if err != nil {
+		return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", likedConflictID, err)
+	}
+	// TODO: we don't want to vote on anything that is in a committed epoch.
+	if issuingTime.Sub(firstAttachmentTime) >= maxParentsTimeDifference {
+		return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow like msgID needed for Transaction with %s is too far in the past", likedConflictID)
+	}
+
+	return ShallowLikeParentType, firstAttachmentMessageID, nil
+}
+
+func createDislikeReference(tangle *Tangle, conflictID utxo.TransactionID, issuingTime time.Time, conflictMembers utxo.TransactionIDs) (parentType ParentsType, msgID MessageID, err error) {
 	for it := conflictMembers.Iterator(); it.HasNext(); {
 		conflictMember := it.Next()
 
 		// Always point to another branch, to make sure the receiver forks the branch.
-		if conflictMember == strongParentBranchID {
+		if conflictMember == conflictID {
 			continue
 		}
 
-		oldestAttachmentTime, oldestAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember)
+		// TODO: set dislike reference on oldest disliked parent conflict
+		// maybe remember branches that are removed
+		// recursively: get parents, check with OTV, if disliked and still referenceable continue
+
+		firstAttachmentTime, firstAttachmentMessageID, err := tangle.Utils.FirstAttachment(conflictMember)
 		if err != nil {
 			return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to find first attachment of Transaction with %s: %w", conflictMember, err)
 		}
 
-		if issuingTime.Sub(oldestAttachmentTime) < maxParentsTimeDifference {
-			return ShallowDislikeParentType, oldestAttachmentMessageID, nil
+		if issuingTime.Sub(firstAttachmentTime) < maxParentsTimeDifference {
+			return ShallowDislikeParentType, firstAttachmentMessageID, nil
 		}
 	}
+	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike msgID needed for Transaction with %s is too far in the past", conflictID)
+}
 
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("shallow dislike reference needed for Transaction with %s is too far in the past", strongParentBranchID)
+func createWeakReference(tangle *Tangle, msgID MessageID) (err error) {
+	payloadConflictIDs, err := tangle.Booker.PayloadBranchIDs(msgID)
+	if err != nil {
+		return errors.Errorf("failed to determine payload conflictIDs of %s: %w", msgID, err)
+	}
+
+	if !tangle.Utils.AllBranchesLiked(payloadConflictIDs) {
+		return errors.Errorf("payload of %s is not liked: %s", msgID, payloadConflictIDs)
+	}
+
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
