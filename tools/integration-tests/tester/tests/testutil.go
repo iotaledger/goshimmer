@@ -44,7 +44,7 @@ const (
 // EqualSnapshotDetails defines info for equally distributed consensus mana.
 var EqualSnapshotDetails = framework.SnapshotInfo{
 	FilePath:           "/assets/dynamic_snapshots/equal_snapshot.bin",
-	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // dAnF7pQ6k7a
+	MasterSeed:         "3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E", // FZ6xmPZX
 	GenesisTokenAmount: 2_500_000_000_000_000,
 	PeersSeedBase58: []string{
 		"GtKSdqanb4mokUBjAf9JZmsSqWzWjzzw57mRR56LjfBL", // H6jzPnLbjsh
@@ -57,7 +57,7 @@ var EqualSnapshotDetails = framework.SnapshotInfo{
 // ConsensusSnapshotDetails defines info for consensus integration test snapshot, messages approved with gof threshold set up to 75%
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	// node ID: 4AeXyZ26e4G
+	// node ID: 2GtxMQD9
 	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	GenesisTokenAmount: 800_000, // pledged to peer master
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp
