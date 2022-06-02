@@ -29,6 +29,7 @@ type Manager struct {
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
 
+	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
 	lastCommittedEpoch EI
 }
 
@@ -52,7 +53,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 }
 
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
-	err := snapshot.Outputs.ForEach(func(output utxo.Output) error {
+	snapshot.Outputs.ForEach(func(output utxo.Output) error {
 		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
 		return nil
 	})
@@ -61,7 +62,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
 	for ei, diff := range snapshot.EpochDiffs {
 		m.epochCommitmentFactory.storage.diffStores[ei].Store(diff).Release()
 	}
-	return errors.WithStack(err)
+	return nil
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.

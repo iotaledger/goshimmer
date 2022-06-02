@@ -16,13 +16,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+type ECR = [32]byte
+type EC = [32]byte
+
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
 	EI                EI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
-	prevECR           [32]byte
+	prevECR           ECR
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -45,7 +48,7 @@ type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
 
-	ecc map[EI][32]byte
+	ecc map[EI]EC
 
 	storage        *EpochCommitmentStorage
 	FullEpochIndex EI
@@ -76,7 +79,7 @@ func (f *EpochCommitmentFactory) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei EI) [32]byte {
+func (f *EpochCommitmentFactory) ECR(ei EI) ECR {
 	commitment := f.GetCommitment(ei)
 	if commitment == nil {
 		return [32]byte{}
@@ -89,7 +92,7 @@ func (f *EpochCommitmentFactory) ECR(ei EI) [32]byte {
 	return blake2b.Sum256(root)
 }
 
-func (f *EpochCommitmentFactory) ECHash(ei EI) [32]byte {
+func (f *EpochCommitmentFactory) ECHash(ei EI) EC {
 	if ec, ok := f.ecc[ei]; ok {
 		return ec
 	}
