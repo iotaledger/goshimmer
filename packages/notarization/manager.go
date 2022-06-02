@@ -49,7 +49,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		log:                    options.Log,
 		options:                options,
 		Events: &Events{
-			ECCommitable: event.New[*ECCommitableEvent](),
+			EpochCommitted: event.New[*EpochCommittedEvent](),
 		},
 	}
 }
@@ -83,17 +83,13 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
-	ei := m.epochManager.CurrentEI()
-	for ei > 0 {
-		if m.IsCommittable(ei) {
-			break
-		}
-		ei -= 1
+	nextEI := m.lastCommittedEpoch + 1
+	if m.IsCommittable(nextEI) {
+		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
+		m.lastCommittedEpoch = nextEI
 	}
-	// TODO: Decide to trigger the event every time or once for each EC.
-	m.Events.ECCommitable.Trigger(&ECCommitableEvent{EI: ei})
 
-	return m.epochCommitmentFactory.GetEpochCommitment(ei)
+	return m.epochCommitmentFactory.GetEpochCommitment(m.lastCommittedEpoch)
 }
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
@@ -236,12 +232,12 @@ func Log(log *logger.Logger) ManagerOption {
 
 // Events is a container that acts as a dictionary for the existing events of a notarization manager.
 type Events struct {
-	// ECCommitable is an event that gets triggered whenever a epoch commitment is commitable.
-	ECCommitable *event.Event[*ECCommitableEvent]
+	// EpochCommitted is an event that gets triggered whenever a epoch commitment is commitable.
+	EpochCommitted *event.Event[*EpochCommittedEvent]
 }
 
-// ECCommitableEvent is a container that acts as a dictionary for the ECCommitable event related parameters.
-type ECCommitableEvent struct {
+// EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type EpochCommittedEvent struct {
 	// EI is the index of commitable epoch.
-	EI EI
+	EI epoch.EI
 }
