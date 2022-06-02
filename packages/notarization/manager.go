@@ -4,15 +4,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
-	"github.com/iotaledger/hive.go/logger"
-
 	"github.com/iotaledger/goshimmer/packages/tangle"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -28,6 +25,7 @@ type Manager struct {
 	pendingConflictsCount  map[EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
+	Events                 *Events
 
 	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
 	lastCommittedEpoch EI
@@ -49,6 +47,9 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		pendingConflictsCount:  make(map[EI]uint64),
 		log:                    options.Log,
 		options:                options,
+		Events: &Events{
+			ECCommitable: event.New[*ECCommitableEvent](),
+		},
 	}
 }
 
@@ -88,6 +89,9 @@ func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 		}
 		ei -= 1
 	}
+	// TODO: Decide to trigger the event every time or once for each EC.
+	m.Events.ECCommitable.Trigger(&ECCommitableEvent{EI: ei})
+
 	return m.epochCommitmentFactory.GetEpochCommitment(ei)
 }
 
@@ -227,4 +231,16 @@ func Log(log *logger.Logger) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.Log = log
 	}
+}
+
+// Events is a container that acts as a dictionary for the existing events of a notarization manager.
+type Events struct {
+	// ECCommitable is an event that gets triggered whenever a epoch commitment is commitable.
+	ECCommitable *event.Event[*ECCommitableEvent]
+}
+
+// ECCommitableEvent is a container that acts as a dictionary for the ECCommitable event related parameters.
+type ECCommitableEvent struct {
+	// EI is the index of commitable epoch.
+	EI EI
 }
