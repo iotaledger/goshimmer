@@ -121,6 +121,7 @@ func configureLocalPeer() peerOut {
 	}
 
 	Plugin.Logger().Infof("Initialized local: %v", local)
+	fmt.Println("Local peer:", local.ID().EncodeBase58(), local.ID().String())
 
 	return peerOut{
 		Peer:          local,
