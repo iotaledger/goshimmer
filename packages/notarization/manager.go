@@ -4,8 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
-
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -25,9 +24,12 @@ type Manager struct {
 	epochManager           *EpochManager
 	epochCommitmentFactory *EpochCommitmentFactory
 	options                *ManagerOptions
-	pendingConflictsCount  map[EI]uint64
+	pendingConflictsCount  map[epoch.EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
+
+	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
+	lastCommittedEpoch epoch.EI
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -43,14 +45,14 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		tangle:                 tangle,
 		epochManager:           epochManager,
 		epochCommitmentFactory: epochCommitmentFactory,
-		pendingConflictsCount:  make(map[EI]uint64),
+		pendingConflictsCount:  make(map[epoch.EI]uint64),
 		log:                    options.Log,
 		options:                options,
 	}
 }
 
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
-	err := snapshot.Outputs.ForEach(func(output utxo.Output) error {
+	snapshot.Outputs.ForEach(func(output utxo.Output) error {
 		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
 		return nil
 	})
@@ -59,18 +61,18 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
 	for ei, diff := range snapshot.EpochDiffs {
 		m.epochCommitmentFactory.storage.diffStores[ei].Store(diff).Release()
 	}
-	return errors.WithStack(err)
+	return nil
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei EI) uint64 {
+func (m *Manager) PendingConflictsCount(ei epoch.EI) uint64 {
 	m.pccMutex.RLock()
 	defer m.pccMutex.RUnlock()
 	return m.pendingConflictsCount[ei]
 }
 
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) IsCommittable(ei EI) bool {
+func (m *Manager) IsCommittable(ei epoch.EI) bool {
 	t := m.epochManager.EIToStartTime(ei)
 	diff := time.Since(t)
 	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommitableEpochAge
@@ -94,7 +96,7 @@ func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
 func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
-	var ei EI
+	var ei epoch.EI
 	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
 		t := block.IssuingTime()
 		ei = m.epochManager.TimeToEI(t)
@@ -108,7 +110,7 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
-	var ei EI
+	var ei epoch.EI
 	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
 		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
 		ei = m.epochManager.TimeToEI(t)
@@ -139,7 +141,7 @@ func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 	m.updateStateSMT(ei, tx)
 }
 
-func (m *Manager) updateStateSMT(ei EI, tx *devnetvm.Transaction) {
+func (m *Manager) updateStateSMT(ei epoch.EI, tx *devnetvm.Transaction) {
 	for _, o := range tx.Essence().Outputs() {
 		err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
 		if err != nil && m.log != nil {
@@ -199,7 +201,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei EI) {
+func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
 		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
 		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())

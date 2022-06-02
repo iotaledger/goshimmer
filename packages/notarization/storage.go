@@ -11,30 +11,26 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// region EpochStateDiff ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type EpochStateDiff struct {
-	model.Storable[EI, epochStateDiff] `serix:"0"`
+type ecRecord struct {
+	ECR    ECR `serix:"0"`
+	PrevEC EC  `serix:"1"`
 }
 
-type epochStateDiff struct {
-	Spent   devnetvm.Outputs `serix:"0"`
-	Created devnetvm.Outputs `serix:"1"`
+type ECRecord struct {
+	model.Storable[epoch.EI, ecRecord] `serix:"0"`
 }
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type TangleLeaf struct {
-	model.Storable[EI, tangle.MessageID] `serix:"0"`
+	model.Storable[epoch.EI, tangle.MessageID] `serix:"0"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -42,7 +38,7 @@ type TangleLeaf struct {
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type MutationLeaf struct {
-	model.Storable[EI, utxo.TransactionID] `serix:"0"`
+	model.Storable[epoch.EI, utxo.TransactionID] `serix:"0"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,8 +65,10 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
 
+	ecStorage *objectstorage.ObjectStorage[*ECRecord]
+
 	// Delta storages
-	diffStores map[EI]*objectstorage.ObjectStorage[*EpochStateDiff]
+	diffStores map[epoch.EI]*objectstorage.ObjectStorage[*epoch.EpochStateDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -96,6 +94,13 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
+	ecStore := new.specializeStore(new.baseStore, PrefixEC)
+	new.ecStorage = objectstorage.NewStructStorage[ECRecord](
+		ecStore,
+		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	)
 
 	return new
 }
@@ -117,14 +122,14 @@ func (s *EpochCommitmentStorage) specializeStore(baseStore kvstore.KVStore, pref
 	return specializedStore
 }
 
-func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei EI) *objectstorage.ObjectStorage[*EpochStateDiff] {
+func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *objectstorage.ObjectStorage[*epoch.EpochStateDiff] {
 	if store, exists := s.diffStores[ei]; exists {
 		return store
 	}
 
 	diffStore := s.specializeStore(s.baseStore, PrefixDiff)
 
-	s.diffStores[ei] = objectstorage.NewStructStorage[EpochStateDiff](
+	s.diffStores[ei] = objectstorage.NewStructStorage[epoch.EpochStateDiff](
 		diffStore,
 		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -141,6 +146,8 @@ const (
 	PrefixEpochStateDiff byte = iota
 
 	PrefixLedgerState
+
+	PrefixEC
 
 	PrefixDiff
 

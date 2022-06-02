@@ -9,12 +9,16 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
+
+type ECR = [32]byte
+type EC = [32]byte
 
 type Commitment struct {
 	EI                EI
@@ -44,15 +48,15 @@ func (e *CommitmentTrees) StateMutationRoot() []byte {
 
 // EpochCommitmentFactory manages epoch commitmentTrees.
 type EpochCommitmentFactory struct {
-	commitmentTrees  map[EI]*CommitmentTrees
+	commitmentTrees  map[epoch.EI]*CommitmentTrees
 	commitmentsMutex sync.RWMutex
 
-	ecc                map[EI][32]byte
+	ecc                map[EI]EC
 	lastCommittedEpoch EI
 
 	storage        *EpochCommitmentStorage
-	FullEpochIndex EI
-	DiffEpochIndex EI
+	FullEpochIndex epoch.EI
+	DiffEpochIndex epoch.EI
 
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
@@ -67,7 +71,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitment
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
 
 	return &EpochCommitmentFactory{
-		commitmentTrees: make(map[EI]*CommitmentTrees),
+		commitmentTrees: make(map[epoch.EI]*CommitmentTrees),
 		storage:         epochCommitmentStorage,
 		hasher:          hasher,
 	}
@@ -79,7 +83,7 @@ func (f *EpochCommitmentFactory) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei EI) ([32]byte, error) {
+func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ECR, error) {
 	commitment, err := f.GetCommitment(ei)
 	if err != nil {
 		return [32]byte{}, err
@@ -92,7 +96,7 @@ func (f *EpochCommitmentFactory) ECR(ei EI) ([32]byte, error) {
 	return blake2b.Sum256(root), nil
 }
 
-func (f *EpochCommitmentFactory) ECHash(ei EI) [32]byte {
+func (f *EpochCommitmentFactory) ECHash(ei epoch.EI) EC {
 	if ec, ok := f.ecc[ei]; ok {
 		return ec
 	}
@@ -243,7 +247,7 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) (*tangle.EpochCommitm
 	}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.EI, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root := f.commitmentTrees[ei].tangleTree.Root()
 	proof, err := f.stateRootTree.ProveForRoot(key, root)
@@ -253,7 +257,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*Co
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.TransactionID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.EI, txID utxo.TransactionID) (*CommitmentProof, error) {
 	key := txID.Bytes()
 	root := f.commitmentTrees[ei].stateMutationTree.Root()
 	proof, err := f.commitmentTrees[ei].stateMutationTree.ProveForRoot(key, root)
@@ -263,7 +267,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.Transac
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.EI, blockID tangle.MessageID) (*CommitmentProof, error) {
 	key := blockID.Bytes()
 	root := f.commitmentTrees[ei].tangleTree.Root()
 	proof, err := f.commitmentTrees[ei].tangleTree.ProveForRoot(key, root)
@@ -351,7 +355,7 @@ func (f *EpochCommitmentFactory) getStateRoot(ei EI) ([]byte, error) {
 }
 
 type CommitmentProof struct {
-	EI    EI
+	EI    epoch.EI
 	proof smt.SparseMerkleProof
 	root  []byte
 }
