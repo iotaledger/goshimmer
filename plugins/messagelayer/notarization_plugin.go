@@ -44,9 +44,7 @@ func init() {
 func configureNotarizationPlugin(plugin *node.Plugin) {
 	notarizationManager = newNotarizationManager()
 	if nodeSnapshot != nil {
-		if err := notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
-			plugin.Panic(err)
-		}
+		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		notarizationDeps.Tangle.Storage.Message(event.Message.ID()).Consume(func(m *tangle.Message) {

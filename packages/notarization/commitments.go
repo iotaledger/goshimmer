@@ -17,16 +17,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-type ECR = [32]byte
-type EC = [32]byte
-
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
 	EI                epoch.EI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
-	prevECR           ECR
+	prevECR           epoch.ECR
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -49,11 +46,19 @@ type EpochCommitmentFactory struct {
 	commitments      map[epoch.EI]*Commitment
 	commitmentsMutex sync.RWMutex
 
-	ecc map[epoch.EI]EC
+	ecc map[epoch.EI]epoch.EC
 
-	storage        *EpochCommitmentStorage
+	storage *EpochCommitmentStorage
+
+	// FullEpochIndex is the epoch index we have the full ledger state for.
+	// This index also represents the full ledger state dumped at snapshot.
 	FullEpochIndex epoch.EI
+
+	// DiffEpochIndex is the epoch index up to which we have a diff, starting from FullEpochIndex.
 	DiffEpochIndex epoch.EI
+
+	// LastCommittedEpoch is the last epoch that was committed, the in-memory
+	LastCommittedEpoch epoch.EI
 
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
@@ -67,10 +72,15 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitment
 
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
 
+	stateRootTreeStore := epochCommitmentStorage.specializeStore(epochCommitmentStorage.baseStore, PrefixTree)
+	stateRootTreeNodeStore := epochCommitmentStorage.specializeStore(stateRootTreeStore, PrefixTreeNodes)
+	stateRootTreeValueStore := epochCommitmentStorage.specializeStore(stateRootTreeStore, PrefixTreeValues)
+
 	return &EpochCommitmentFactory{
-		commitments: make(map[epoch.EI]*Commitment),
-		storage:     epochCommitmentStorage,
-		hasher:      hasher,
+		commitments:   make(map[epoch.EI]*Commitment),
+		storage:       epochCommitmentStorage,
+		hasher:        hasher,
+		stateRootTree: smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
 	}
 }
 
@@ -80,7 +90,7 @@ func (f *EpochCommitmentFactory) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei epoch.EI) ECR {
+func (f *EpochCommitmentFactory) ECR(ei epoch.EI) epoch.ECR {
 	commitment := f.GetCommitment(ei)
 	if commitment == nil {
 		return [32]byte{}
@@ -93,7 +103,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) ECR {
 	return blake2b.Sum256(root)
 }
 
-func (f *EpochCommitmentFactory) ECHash(ei epoch.EI) EC {
+func (f *EpochCommitmentFactory) ECHash(ei epoch.EI) epoch.EC {
 	if ec, ok := f.ecc[ei]; ok {
 		return ec
 	}

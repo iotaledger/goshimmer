@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -60,6 +61,7 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
 
+	// TODO: do we even need a dedicated ObjectStorage per epoch?
 	// Delta storages
 	diffStores map[epoch.EI]*objectstorage.ObjectStorage[*epoch.EpochStateDiff]
 
@@ -96,7 +98,11 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 // Shutdown shuts down the KVStore used to persist data.
 func (s *EpochCommitmentStorage) Shutdown() {
 	s.shutdownOnce.Do(func() {
-		//s.epochStateDiffStore.Shutdown()
+		s.ledgerstateStore.Shutdown()
+		for _, store := range s.diffStores {
+			store.Shutdown()
+
+		}
 	})
 }
 
@@ -114,9 +120,11 @@ func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *objectstorag
 	}
 
 	diffStore := s.specializeStore(s.baseStore, PrefixDiff)
+	eiPrefixBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(eiPrefixBytes, uint64(ei))
 
 	s.diffStores[ei] = objectstorage.NewStructStorage[epoch.EpochStateDiff](
-		diffStore,
+		s.specializeStore(diffStore, eiPrefixBytes...),
 		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -134,6 +142,8 @@ const (
 	PrefixLedgerState
 
 	PrefixDiff
+
+	PrefixTree
 
 	PrefixTreeNodes
 

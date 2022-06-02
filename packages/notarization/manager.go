@@ -27,9 +27,6 @@ type Manager struct {
 	pendingConflictsCount  map[epoch.EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
-
-	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
-	lastCommittedEpoch epoch.EI
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -51,17 +48,29 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 	}
 }
 
-func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
+func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	snapshot.Outputs.ForEach(func(output utxo.Output) error {
 		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
+		m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
 		return nil
 	})
-	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
+
 	m.epochCommitmentFactory.FullEpochIndex = snapshot.FullEpochIndex
+	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
+	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
+
 	for ei, diff := range snapshot.EpochDiffs {
 		m.epochCommitmentFactory.storage.diffStores[ei].Store(diff).Release()
+		for _, spent := range diff.M.Spent {
+			m.epochCommitmentFactory.stateRootTree.Delete(spent.ID().Bytes())
+		}
+
+		for _, created := range diff.M.Created {
+			m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
+		}
 	}
-	return nil
+
+	return
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.

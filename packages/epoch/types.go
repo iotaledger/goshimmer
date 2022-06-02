@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/model"
+	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -12,6 +13,14 @@ import (
 
 // EI is the ID of an epoch.
 type EI uint64
+
+type ECR struct {
+	types.Identifier
+}
+
+type EC struct {
+	types.Identifier
+}
 
 // Epoch is a time range used to define a bucket of messages.
 type Epoch struct {
