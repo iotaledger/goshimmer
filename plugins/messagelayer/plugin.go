@@ -43,8 +43,9 @@ var (
 
 var (
 	// Plugin is the plugin instance of the messagelayer plugin.
-	Plugin *node.Plugin
-	deps   = new(dependencies)
+	Plugin       *node.Plugin
+	deps         = new(dependencies)
+	nodeSnapshot *snapshot.Snapshot
 )
 
 type dependencies struct {
@@ -137,7 +138,7 @@ func configure(plugin *node.Plugin) {
 	if loaded, _ := deps.Storage.Has(snapshotLoadedKey); !loaded && Parameters.Snapshot.File != "" {
 		plugin.LogInfof("reading snapshot from %s ...", Parameters.Snapshot.File)
 
-		nodeSnapshot := new(snapshot.Snapshot)
+		nodeSnapshot = new(snapshot.Snapshot)
 		err := nodeSnapshot.FromFile(Parameters.Snapshot.File)
 		if err != nil {
 			plugin.Panic("could not load snapshot file:", err)
