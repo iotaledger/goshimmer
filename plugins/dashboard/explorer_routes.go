@@ -108,11 +108,11 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	}
 
 	if d := messageMetadata.StructureDetails(); d != nil {
-		t.Rank = d.Rank
-		t.PastMarkerGap = d.PastMarkerGap
-		t.IsPastMarker = d.IsPastMarker
-		t.PastMarkers = d.PastMarkers.String()
-		t.FutureMarkers = d.FutureMarkers.String()
+		t.Rank = d.Rank()
+		t.PastMarkerGap = d.PastMarkerGap()
+		t.IsPastMarker = d.IsPastMarker()
+		t.PastMarkers = d.PastMarkers().String()
+		t.FutureMarkers = d.FutureMarkers().String()
 	}
 
 	return t
@@ -155,7 +155,8 @@ type SearchResult struct {
 
 func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/message/:id", func(c echo.Context) (err error) {
-		messageID, err := tangle.NewMessageID(c.Param("id"))
+		var messageID tangle.MessageID
+		err = messageID.FromBase58(c.Param("id"))
 		if err != nil {
 			return
 		}
@@ -206,7 +207,8 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			}
 
 		case tangle.MessageIDLength:
-			messageID, err := tangle.NewMessageID(search)
+			var messageID tangle.MessageID
+			err = messageID.FromBase58(c.Param("id"))
 			if err != nil {
 				return fmt.Errorf("%w: search ID %s", ErrInvalidParameter, search)
 			}

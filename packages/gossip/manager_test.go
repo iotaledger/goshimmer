@@ -357,7 +357,7 @@ func TestMessageRequest(t *testing.T) {
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
 
-	b, err := proto.Marshal(&pb.MessageRequest{Id: id[:]})
+	b, err := proto.Marshal(&pb.MessageRequest{Id: id.Bytes()})
 	require.NoError(t, err)
 	mgrA.RequestMessage(b)
 	time.Sleep(graceTime)

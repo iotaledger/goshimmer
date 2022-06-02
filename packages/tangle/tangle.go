@@ -3,24 +3,23 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/syncutils"
 	"github.com/cockroachdb/errors"
-	"github.com/mr-tron/base58"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
+	"github.com/iotaledger/hive.go/syncutils"
+	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/markers"
-	"github.com/iotaledger/goshimmer/packages/tangle/payload"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
+	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 const (
@@ -57,7 +56,7 @@ type Tangle struct {
 
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
-	IsMarkerConfirmed(marker *markers.Marker) bool
+	IsMarkerConfirmed(marker markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
 	IsBranchConfirmed(branchID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool

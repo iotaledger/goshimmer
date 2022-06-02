@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/autopeering/discover"
@@ -102,7 +103,7 @@ func configure(plugin *node.Plugin) {
 
 	// Messages created by the node need to pass through the normal flow.
 	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *tangle.MessageConstructedEvent) {
-		deps.Tangle.ProcessGossipMessage(event.Message.Bytes(), deps.Local.Peer)
+		deps.Tangle.ProcessGossipMessage(lo.PanicOnErr(event.Message.Bytes()), deps.Local.Peer)
 	}))
 
 	deps.Tangle.Storage.Events.MessageStored.Attach(event.NewClosure(func(event *tangle.MessageStoredEvent) {

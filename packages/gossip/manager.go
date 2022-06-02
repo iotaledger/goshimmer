@@ -369,7 +369,8 @@ func (m *Manager) processMessageRequestPacket(packetMsgReq *pb.Packet_MessageReq
 	if m.messageRequestsRateLimiter != nil {
 		m.messageRequestsRateLimiter.Count(nbr.Peer)
 	}
-	msgID, _, err := tangle.MessageIDFromBytes(packetMsgReq.MessageRequest.GetId())
+	var msgID tangle.MessageID
+	_, err := msgID.Decode(packetMsgReq.MessageRequest.GetId())
 	if err != nil {
 		m.log.Debugw("invalid message id:", "err", err)
 		return

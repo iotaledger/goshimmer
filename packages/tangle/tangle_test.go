@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/randommap"
 
 	"github.com/iotaledger/hive.go/workerpool"
@@ -39,7 +40,7 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		msg, err := factory.IssuePayload(payload.NewGenericDataPayload([]byte("some data")))
 		require.NoError(b, err)
-		messages[i] = msg.Bytes()
+		messages[i] = lo.PanicOnErr(msg.Bytes())
 	}
 
 	b.ResetTimer()
@@ -47,10 +48,13 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		currentIndex := i
 		pool.Submit(func() {
-			if msg, err := new(Message).FromBytes(messages[currentIndex]); err != nil {
+			var msg *Message
+			if err := msg.FromBytes(messages[currentIndex]); err != nil {
 				b.Error(err)
 			} else {
-				msg.VerifySignature()
+				if _, err := msg.VerifySignature(); err != nil {
+					b.Error(err)
+				}
 			}
 		})
 	}
@@ -124,18 +128,27 @@ func TestTangle_InvalidParentsAgeMessage(t *testing.T) {
 	var storedMessages, solidMessages, invalidMessages int32
 
 	newOldParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(maxParentsTimeDifference+5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Old")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
+		if err := message.DetermineID(); err != nil {
+			panic(err)
+		}
 		return message
 	}
 	newYoungParentsMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now().Add(-maxParentsTimeDifference-5*time.Minute), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("Young")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
+		if err := message.DetermineID(); err != nil {
+			panic(err)
+		}
 		return message
 	}
 	newValidMessage := func(strongParents MessageIDs) *Message {
-		message, err := NewMessage(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{})
+		message, err := NewMessageWithValidation(emptyLikeReferencesFromStrongParents(strongParents), time.Now(), ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("IsBooked")), 0, ed25519.Signature{})
 		assert.NoError(t, err)
+		if err := message.DetermineID(); err != nil {
+			panic(err)
+		}
 		return message
 	}
 
@@ -432,6 +445,7 @@ func TestTangle_Flow(t *testing.T) {
 		if !invalidTS {
 			tips.Set(msg.ID(), msg.ID())
 		}
+		require.NoError(t, msg.DetermineID())
 		// return the constructed message
 		return msg
 	}
@@ -507,7 +521,7 @@ func TestTangle_Flow(t *testing.T) {
 		atomic.AddInt32(&missingMessages, 1)
 
 		// push the message into the gossip inboxWP
-		inboxWP.TrySubmit(messages[event.MessageID].Bytes(), localPeer)
+		inboxWP.TrySubmit(lo.PanicOnErr(messages[event.MessageID].Bytes()), localPeer)
 	}))
 
 	// decrease the counter when a missing message was received
@@ -548,11 +562,11 @@ func TestTangle_Flow(t *testing.T) {
 		if key == EmptyMessageID {
 			return
 		}
-		inboxWP.TrySubmit(messages[key].Bytes(), localPeer)
+		inboxWP.TrySubmit(lo.PanicOnErr(messages[key].Bytes()), localPeer)
 	})
 	// incoming invalid messages
 	for _, msg := range invalidmsgs {
-		inboxWP.TrySubmit(msg.Bytes(), localPeer)
+		inboxWP.TrySubmit(lo.PanicOnErr(msg.Bytes()), localPeer)
 	}
 
 	// wait for all messages to be scheduled
@@ -620,7 +634,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	msg, err := NewMessage(
+	msg, err := NewMessageWithValidation(
 		emptyLikeReferencesFromStrongParents(parents),
 		issuingTime,
 		issuerPublicKey,

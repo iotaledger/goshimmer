@@ -7,10 +7,11 @@ import (
 
 	"github.com/labstack/echo"
 
+	"github.com/iotaledger/hive.go/generics/event"
+
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/hive.go/generics/event"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -38,7 +39,8 @@ func SendMessage(c echo.Context) error {
 	references := tangle.NewParentMessageIDs()
 	for _, p := range request.ParentMessageIDs {
 		for _, ID := range p.MessageIDs {
-			msgID, err := tangle.NewMessageID(ID)
+			var msgID tangle.MessageID
+			err := msgID.FromBase58(ID)
 			if err != nil {
 				return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: fmt.Sprintf("error decoding messageID: %s", ID)})
 			}

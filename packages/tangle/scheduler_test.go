@@ -231,7 +231,7 @@ func TestScheduler_SkipConfirmed(t *testing.T) {
 	assert.NoError(t, tangle.Scheduler.Submit(msgUnreadyConfirmedNew.ID()))
 	tangle.ConfirmationOracle.Events().MessageConfirmed.Trigger(&MessageConfirmedEvent{msgUnreadyConfirmedNew})
 	// make sure that the message was not unsubmitted
-	assert.Equal(t, MessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
+	assert.Equal(t, NewMessageID(tangle.Scheduler.buffer.NodeQueue(peerNode.ID()).IDs()[0]), msgUnreadyConfirmedNew.ID())
 	assert.NoError(t, tangle.Scheduler.Ready(msgUnreadyConfirmedNew.ID()))
 	assert.Eventually(t, func() bool {
 		select {
@@ -315,7 +315,7 @@ func TestScheduler_Time(t *testing.T) {
 	tangle.Scheduler.Start()
 
 	future := newMessage(peerNode.PublicKey())
-	future.messageInner.IssuingTime = time.Now().Add(time.Second)
+	future.M.IssuingTime = time.Now().Add(time.Second)
 	tangle.Storage.StoreMessage(future)
 	assert.NoError(t, tangle.Scheduler.Submit(future.ID()))
 
@@ -414,18 +414,18 @@ func TestSchedulerFlow(t *testing.T) {
 	// set C to have a timestamp in the future
 	msgC := newMessage(selfNode.PublicKey())
 
-	msgC.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgC.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
 
-	msgC.messageInner.IssuingTime = time.Now().Add(5 * time.Second)
+	msgC.M.IssuingTime = time.Now().Add(5 * time.Second)
 	messages["C"] = msgC
 
 	msgD := newMessage(peerNode.PublicKey())
-	msgD.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgD.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
 	messages["D"] = msgD
 
 	msgE := newMessage(selfNode.PublicKey())
-	msgE.messageInner.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
-	msgE.messageInner.IssuingTime = time.Now().Add(3 * time.Second)
+	msgE.M.Parents.AddAll(StrongParentType, NewMessageIDs(messages["A"].ID(), messages["B"].ID()))
+	msgE.M.IssuingTime = time.Now().Add(3 * time.Second)
 	messages["E"] = msgE
 
 	messageScheduled := make(chan MessageID, len(messages))
@@ -529,7 +529,7 @@ func BenchmarkScheduler(b *testing.B) {
 }
 
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
-	message, _ := NewMessage(
+	message := NewMessage(
 		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
 		time.Now(),
 		issuerPublicKey,
@@ -538,11 +538,14 @@ func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
 		0,
 		ed25519.Signature{},
 	)
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 
 func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.Time) *Message {
-	message, _ := NewMessage(
+	message := NewMessage(
 		ParentMessageIDs{
 			StrongParentType: {
 				EmptyMessageID: types.Void,
@@ -555,6 +558,9 @@ func newMessageWithTimestamp(issuerPublicKey ed25519.PublicKey, timestamp time.T
 		0,
 		ed25519.Signature{},
 	)
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 

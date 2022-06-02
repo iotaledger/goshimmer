@@ -19,7 +19,8 @@ func PastconeHandler(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PastconeResponse{Error: err.Error()})
 	}
 
-	msgID, err := tangle.NewMessageID(request.ID)
+	var msgID tangle.MessageID
+	err := msgID.FromBase58(request.ID)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, jsonmodels.PastconeResponse{Error: err.Error()})
 	}
