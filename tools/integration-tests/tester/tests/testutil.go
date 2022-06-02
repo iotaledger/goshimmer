@@ -429,7 +429,7 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
 	require.Eventuallyf(t, condition, waitFor, tick,
 		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
-	log.Println("Waiting for message... done")
+	log.Println("Waiting for messages... done")
 }
 
 // RequireMessagesEqual asserts that all nodes return the correct data messages as specified in messagesByID.
@@ -618,19 +618,10 @@ func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
 }
 
 // TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
-func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
-	var peers []*framework.Node
-	for _, peer := range n.Peers() {
-		if _, err := peer.GetMessage(msgID); err == nil {
-			peers = append(peers, peer)
-		}
-	}
-	if len(peers) == 0 {
-		log.Println("msg ", msgID, "is not found on any node")
-		t.FailNow()
-	}
+func TryConfirmMessage(t *testing.T, peers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
+	log.Printf("waiting for msg %s to become confirmed...", msgID)
+	defer log.Printf("waiting for msg %s to become confirmed... done", msgID)
 
-	var i int
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 	ticker := time.NewTicker(tick)
@@ -639,20 +630,19 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 	for {
 		select {
 		case <-timer.C:
-			log.Println("timeout")
+			log.Printf("failed to confirm msg %s within the time limit", msgID)
 			t.FailNow()
 		case <-ticker.C:
-			if ConfirmedOnAllPeers(msgID, requiredPeers) {
-				log.Println("msg is confirmed on all required peers")
+			// Issue a new message on each peer to make msg confirmed.
+			for i, peer := range peers {
+				id, _ := SendDataMessage(t, peer, []byte("test"), i)
+				log.Printf("send message %s on node %s", id, peer.ID())
+			}
+
+			if ConfirmedOnAllPeers(msgID, peers) {
+				log.Printf("msg %s is confirmed on all peers", msgID)
 				return
 			}
-		default:
-			// sort nodes by cmana before issuing?
-			node := peers[i%len(peers)]
-			if _, err := node.Data([]byte("test")); err != nil {
-				log.Println("send message on node: ", node.ID().String())
-			}
-			i++
 		}
 	}
 }
