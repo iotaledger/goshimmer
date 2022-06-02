@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -718,66 +717,4 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 		}
 	}
 	return
-}
-
-// TryConfirmBranch tries to confirm the given branch in the duration specified.
-func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
-	// check that the branch exists in the network and fail fast if it does not
-	exists := false
-	for _, peer := range n.Peers() {
-		if _, err := peer.GetBranch(branchID); err == nil {
-			exists = true
-			break
-		}
-	}
-	require.True(t, exists, "branch does not exists on any node")
-
-	// get tip to attach
-	tip, err := findAttachmentMsg(requiredPeers[0], branchID)
-	require.NoError(t, err)
-
-	// issue messages on top of tip.
-	timer := time.NewTimer(waitFor)
-	defer timer.Stop()
-	ticker := time.NewTicker(tick)
-	defer ticker.Stop()
-	var i int
-	peers := n.Peers()
-
-	for {
-		select {
-		case <-timer.C:
-			require.FailNow(t, "timeout")
-		case <-ticker.C:
-			if IsBranchConfirmedOnAllPeers(branchID, requiredPeers) {
-				return
-			}
-		default:
-			var parentMessageIDs []jsonmodels.ParentMessageIDs
-			var msgID tangle.MessageID
-			if err = msgID.FromBase58(tip.ID); err == nil {
-				if tip.PayloadType == devnetvm.TransactionType.String() {
-					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
-						Type:       uint8(tangle.ShallowLikeParentType),
-						MessageIDs: []string{msgID.Base58()},
-					})
-				}
-				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
-					Type:       uint8(tangle.StrongParentType),
-					MessageIDs: []string{msgID.Base58()},
-				})
-			}
-
-			require.NoError(t, err)
-			tipMsgID, err := peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
-				Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
-				ParentMessageIDs: parentMessageIDs,
-			})
-			require.NoError(t, err)
-			tip, err = peers[i%len(peers)].GetMessage(tipMsgID)
-			require.NoError(t, err)
-			time.Sleep(500 * time.Millisecond)
-			i++
-		}
-	}
 }
