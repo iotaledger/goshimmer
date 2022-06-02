@@ -56,6 +56,11 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) error {
 		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
 		return nil
 	})
+	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
+	m.epochCommitmentFactory.FullEpochIndex = snapshot.FullEpochIndex
+	for ei, diff := range snapshot.EpochDiffs {
+		m.epochCommitmentFactory.storage.diffStores[ei].Store(diff).Release()
+	}
 	return errors.WithStack(err)
 }
 

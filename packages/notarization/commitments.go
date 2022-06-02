@@ -6,12 +6,11 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -87,7 +86,9 @@ type EpochCommitmentFactory struct {
 	commitments      map[EI]*Commitment
 	commitmentsMutex sync.RWMutex
 
-	storage *EpochCommitmentStorage
+	storage        *EpochCommitmentStorage
+	FullEpochIndex EI
+	DiffEpochIndex EI
 
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
