@@ -21,7 +21,6 @@ type Commitment struct {
 	EI                EI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
-	stateRoot         *smt.SparseMerkleTree
 	prevECR           [32]byte
 }
 
@@ -57,6 +56,9 @@ type EpochCommitmentFactory struct {
 	commitmentsMutex sync.RWMutex
 
 	storage *EpochCommitmentStorage
+	
+	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
+	stateRootTree *smt.SparseMerkleTree
 
 	hasher hash.Hash
 }
@@ -88,7 +90,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID)
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
 func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	_, err := commitment.stateRoot.Update(outputID.Bytes(), outputID.Bytes())
+	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
 	}
@@ -121,7 +123,7 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei EI, txID utxo.Transa
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
 func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	exists, _ := commitment.stateRoot.Has(msgID.Bytes())
+	exists, _ := commitment.tangleRoot.Has(msgID.Bytes())
 	if exists {
 		_, err := commitment.tangleRoot.Delete(msgID.Bytes())
 		if err != nil {
@@ -135,9 +137,9 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID)
 // RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
 func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
-	exists, _ := commitment.stateRoot.Has(outID.Bytes())
+	exists, _ := f.stateRootTree.Has(outID.Bytes())
 	if exists {
-		_, err := commitment.stateRoot.Delete(outID.Bytes())
+		_, err := f.stateRootTree.Delete(outID.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
@@ -170,7 +172,7 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitme
 func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root := f.commitments[ei].tangleRoot.Root()
-	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
+	proof, err := f.stateRootTree.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate the state root proof")
 	}
@@ -179,8 +181,8 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*Co
 
 func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.TransactionID) (*CommitmentProof, error) {
 	key := txID.Bytes()
-	root := f.commitments[ei].tangleRoot.Root()
-	proof, err := f.commitments[ei].stateRoot.ProveForRoot(key, root)
+	root := f.commitments[ei].stateMutationRoot.Root()
+	proof, err := f.commitments[ei].stateMutationRoot.ProveForRoot(key, root)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not generate the state mutation root proof")
 	}
@@ -226,13 +228,10 @@ func (f *EpochCommitmentFactory) newCommitment(ei EI, prevECR [32]byte) *Commitm
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
 
-	epochSmtStores := f.storage.getSmtStore(ei)
-
 	commitment := &Commitment{
 		EI:                ei,
 		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
 		stateMutationRoot: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
-		stateRoot:         smt.NewSparseMerkleTree(epochSmtStores.Nodes, epochSmtStores.Values, f.hasher),
 		prevECR:           prevECR,
 	}
 

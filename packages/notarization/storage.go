@@ -1,11 +1,11 @@
 package notarization
 
 import (
-	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/celestiaorg/smt"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
@@ -56,7 +56,7 @@ type OutputID struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type smtStore struct {
+type treeStore struct {
 	Nodes  kvstore.KVStore
 	Values kvstore.KVStore
 }
@@ -68,13 +68,10 @@ type EpochCommitmentStorage struct {
 	// Base store for all other storages, prefixed by the package
 	baseStore kvstore.KVStore
 
-	// TODO
-	smtStores map[EI]*smtStore
-
 	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
 
 	// Delta storages
-	deltaStores map[EI]*objectstorage.ObjectStorage[*EpochStateDiff]
+	diffStores map[EI]*objectstorage.ObjectStorage[*EpochStateDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -91,7 +88,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 
 	new.baseStore = new.specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization)
 
-	ledgerStore := new.specializeStore(new.epochCommitmentStorageOptions.store, PrefixLedgerState)
+	ledgerStore := new.specializeStore(new.baseStore, PrefixLedgerState)
 
 	new.ledgerstateStore = objectstorage.NewInterfaceStorage[utxo.Output](
 		ledgerStore,
@@ -121,39 +118,21 @@ func (s *EpochCommitmentStorage) specializeStore(baseStore kvstore.KVStore, pref
 	return specializedStore
 }
 
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) getDeltaStore(ei EI) *objectstorage.ObjectStorage[*EpochStateDiff] {
-	if store, exists := s.deltaStores[ei]; exists {
+func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei EI) *objectstorage.ObjectStorage[*EpochStateDiff] {
+	if store, exists := s.diffStores[ei]; exists {
 		return store
 	}
 
-	s.deltaStores[ei] = objectstorage.NewStructStorage[EpochStateDiff](
-		objectstorage.NewStoreWithRealm(s.epochCommitmentStorageOptions.store, database.PrefixNotarization, PrefixEpochStateDiff),
+	diffStore := s.specializeStore(s.baseStore, PrefixDiff)
+
+	s.diffStores[ei] = objectstorage.NewStructStorage[EpochStateDiff](
+		diffStore,
 		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
-	return s.deltaStores[ei]
-}
-
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) getSmtStore(ei EI) *smtStore {
-	if store, exists := s.smtStores[ei]; exists {
-		return store
-	}
-
-	eiBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(eiBytes, uint64(ei))
-
-	epochSmtStore := s.specializeStore(s.specializeStore(s.baseStore, PrefixSmt), eiBytes...)
-
-	s.smtStores[ei] = &smtStore{
-		Nodes: s.specializeStore(epochSmtStore, PrefixSmtNodes),
-		Values: s.specializeStore(epochSmtStore, PrefixSmtValues),
-	}
-
-	return s.smtStores[ei]
+	return s.diffStores[ei]
 }
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,17 +141,13 @@ const (
 	// PrefixEpochStateDiff defines the storage prefix for the Transaction object storage.
 	PrefixEpochStateDiff byte = iota
 
-	PrefixTangleLeaf
-
-	PrefixMutationLeaf
-
 	PrefixLedgerState
 
-	PrefixSmt
+	PrefixDiff
 
-	PrefixSmtNodes
+	PrefixTreeNodes
 
-	PrefixSmtValues
+	PrefixTreeValues
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

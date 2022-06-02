@@ -25,6 +25,8 @@ type Manager struct {
 	pendingConflictsCount  map[EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
+
+	lastCommittedEpoch EI
 }
 
 // NewManager creates and returns a new notarization manager.
