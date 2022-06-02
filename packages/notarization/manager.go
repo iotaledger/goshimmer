@@ -28,8 +28,6 @@ type Manager struct {
 	pendingConflictsCount  map[EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
-
-	lastCommittedEpoch EI
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -87,7 +85,11 @@ func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 		}
 		ei -= 1
 	}
-	return m.epochCommitmentFactory.GetEpochCommitment(ei)
+	ec, err := m.epochCommitmentFactory.GetEpochCommitment(ei)
+	if err != nil {
+		m.log.Error(err)
+	}
+	return ec
 }
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.

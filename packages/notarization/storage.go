@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/celestiaorg/smt"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
