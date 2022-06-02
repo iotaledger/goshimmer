@@ -3,17 +3,17 @@ package ledger
 import (
 	"github.com/iotaledger/hive.go/stringify"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/notarization"
 )
 
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
-	Outputs         *utxo.Outputs                                    `serix:"0"`
-	OutputsMetadata *OutputsMetadata                                 `serix:"1"`
-	FullEpochIndex  notarization.EI                                  `serix:"2"`
-	DiffEpochIndex  notarization.EI                                  `serix:"3"`
-	EpochDiffs      map[notarization.EI]*notarization.EpochStateDiff `serix:"4"`
+	Outputs         *utxo.Outputs                      `serix:"0"`
+	OutputsMetadata *OutputsMetadata                   `serix:"1"`
+	FullEpochIndex  epoch.EI                           `serix:"2"`
+	DiffEpochIndex  epoch.EI                           `serix:"3"`
+	EpochDiffs      map[epoch.EI]*epoch.EpochStateDiff `serix:"4"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
