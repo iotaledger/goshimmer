@@ -1,6 +1,8 @@
 package wallet
 
 import (
+	"time"
+
 	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -42,6 +44,12 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
 func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address, powTarget int) (err error) {
+	rateSetterInfo, err := webConnector.client.RateSetter()
+	if err != nil {
+		return err
+	}
+	time.Sleep(rateSetterInfo.Estimate)
+
 	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
 
 	return
@@ -102,6 +110,13 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 
 // SendTransaction sends a new transaction to the network.
 func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
+	rateSetterInfo, err := webConnector.client.RateSetter()
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(rateSetterInfo.Estimate)
+
 	_, err = webConnector.client.PostTransaction(tx.Bytes())
 
 	return

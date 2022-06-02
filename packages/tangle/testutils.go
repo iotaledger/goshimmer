@@ -815,7 +815,6 @@ var (
 		MaxBufferSize:                     testMaxBuffer,
 		Rate:                              testRate,
 		AccessManaMapRetrieverFunc:        mockAccessManaMapRetriever,
-		AccessManaRetrieveFunc:            mockAccessManaRetriever,
 		TotalAccessManaRetrieveFunc:       mockTotalAccessManaRetriever,
 		ConfirmedMessageScheduleThreshold: time.Minute,
 	}

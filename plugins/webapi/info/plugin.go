@@ -155,7 +155,7 @@ func getInfo(c echo.Context) error {
 		RateSetter: jsonmodels.RateSetter{
 			Rate:     deps.Tangle.RateSetter.Rate(),
 			Size:     deps.Tangle.RateSetter.Size(),
-			Estimate: deps.Tangle.RateSetter.Estimate().String(),
+			Estimate: deps.Tangle.RateSetter.Estimate(),
 		},
 	})
 }

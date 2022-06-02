@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 
@@ -168,6 +169,8 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 type Client interface {
 	// Url returns a client API url.
 	Url() (cltID string)
+	// GetRateSetterEstimate returns a rate setter estimate.
+	GetRateSetterEstimate() (estimate time.Duration, err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a message in the backend.
@@ -209,6 +212,15 @@ func NewWebClient(url string, setters ...client.Option) *WebClient {
 		api: client.NewGoShimmerAPI(url, setters...),
 		url: url,
 	}
+}
+
+// GetRateSetterEstimate returns a rate setter estimate.
+func (c *WebClient) GetRateSetterEstimate() (estimate time.Duration, err error) {
+	response, err := c.api.RateSetter()
+	if err != nil {
+		return time.Duration(0), err
+	}
+	return response.Estimate, nil
 }
 
 // SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.

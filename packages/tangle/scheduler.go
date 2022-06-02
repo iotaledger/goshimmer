@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"sync"
@@ -431,7 +430,6 @@ func (s *Scheduler) schedule() *Message {
 				if r.Cmp(rounds) < 0 {
 					rounds = r
 					schedulingNode = q
-					fmt.Println("rounds:", rounds, "remainingDeficit", remainingDeficit, "quanta", s.Quanta(q.NodeID()), "nodeID", q.NodeID())
 				}
 				break
 			}

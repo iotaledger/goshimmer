@@ -154,12 +154,14 @@ func (r *RateSetter) Estimate() time.Duration {
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
 func (r *RateSetter) rateSetting() {
-	ownMana := r.tangle.Options.SchedulerParams.AccessManaRetrieveFunc(r.self)
+	var ownMana float64
+	// Return access mana or MinMana to allow zero mana nodes issue.
+	ownMana = math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 
 	ownRate := r.ownRate.Load()
 	// TODO: is this condition correct? what was used in simulations?
-	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)+r.Size()) > 10 {
+	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)) > 10 {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = RateSettingPause
 	} else {

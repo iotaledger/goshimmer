@@ -39,6 +39,6 @@ func getRateSetterEstimate(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.RateSetter{
 		Rate:     deps.Tangle.RateSetter.Rate(),
 		Size:     deps.Tangle.RateSetter.Size(),
-		Estimate: deps.Tangle.RateSetter.Estimate().String(),
+		Estimate: deps.Tangle.RateSetter.Estimate(),
 	})
 }
