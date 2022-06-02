@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 	"golang.org/x/crypto/blake2b"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
 
@@ -21,7 +22,7 @@ type EC = [32]byte
 
 // Commitment is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
 type Commitment struct {
-	EI                EI
+	EI                epoch.EI
 	tangleRoot        *smt.SparseMerkleTree
 	stateMutationRoot *smt.SparseMerkleTree
 	stateRoot         *smt.SparseMerkleTree
@@ -45,14 +46,14 @@ func (e *Commitment) StateRoot() []byte {
 
 // EpochCommitmentFactory manages epoch commitments.
 type EpochCommitmentFactory struct {
-	commitments      map[EI]*Commitment
+	commitments      map[epoch.EI]*Commitment
 	commitmentsMutex sync.RWMutex
 
-	ecc map[EI]EC
+	ecc map[epoch.EI]EC
 
 	storage        *EpochCommitmentStorage
-	FullEpochIndex EI
-	DiffEpochIndex EI
+	FullEpochIndex epoch.EI
+	DiffEpochIndex epoch.EI
 
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
@@ -67,7 +68,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitment
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
 
 	return &EpochCommitmentFactory{
-		commitments: make(map[EI]*Commitment),
+		commitments: make(map[epoch.EI]*Commitment),
 		storage:     epochCommitmentStorage,
 		hasher:      hasher,
 	}
@@ -79,7 +80,7 @@ func (f *EpochCommitmentFactory) StateRoot() []byte {
 }
 
 // ECR generates the epoch commitment root.
-func (f *EpochCommitmentFactory) ECR(ei EI) ECR {
+func (f *EpochCommitmentFactory) ECR(ei epoch.EI) ECR {
 	commitment := f.GetCommitment(ei)
 	if commitment == nil {
 		return [32]byte{}
@@ -92,7 +93,7 @@ func (f *EpochCommitmentFactory) ECR(ei EI) ECR {
 	return blake2b.Sum256(root)
 }
 
-func (f *EpochCommitmentFactory) ECHash(ei EI) EC {
+func (f *EpochCommitmentFactory) ECHash(ei epoch.EI) EC {
 	if ec, ok := f.ecc[ei]; ok {
 		return ec
 	}
@@ -105,7 +106,7 @@ func (f *EpochCommitmentFactory) ECHash(ei EI) EC {
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID) error {
+func (f *EpochCommitmentFactory) InsertTangleLeaf(ei epoch.EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.tangleRoot.Update(msgID.Bytes(), msgID.Bytes())
 	if err != nil {
@@ -116,7 +117,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei EI, msgID tangle.MessageID)
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID utxo.OutputID) error {
+func (f *EpochCommitmentFactory) InsertStateLeaf(ei epoch.EI, outputID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
@@ -127,7 +128,7 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(ei EI, outputID utxo.OutputID) 
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID utxo.TransactionID) error {
+func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei epoch.EI, txID utxo.TransactionID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateMutationRoot.Update(txID.Bytes(), txID.Bytes())
 	if err != nil {
@@ -138,7 +139,7 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei EI, txID utxo.Transa
 }
 
 // RemoveStateMutationLeaf deletes the transaction ID to the state mutation sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei EI, txID utxo.TransactionID) error {
+func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei epoch.EI, txID utxo.TransactionID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	_, err := commitment.stateMutationRoot.Delete(txID.Bytes())
 	if err != nil {
@@ -149,7 +150,7 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei EI, txID utxo.Transa
 }
 
 // RemoveTangleLeaf removes the message ID from the Tangle sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID) error {
+func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.MessageID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	exists, _ := commitment.tangleRoot.Has(msgID.Bytes())
 	if exists {
@@ -163,7 +164,7 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei EI, msgID tangle.MessageID)
 }
 
 // RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) error {
+func (f *EpochCommitmentFactory) RemoveStateLeaf(ei epoch.EI, outID utxo.OutputID) error {
 	commitment := f.getOrCreateCommitment(ei)
 	exists, _ := f.stateRootTree.Has(outID.Bytes())
 	if exists {
@@ -177,7 +178,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei EI, outID utxo.OutputID) err
 }
 
 // GetCommitment returns the commitment with the given ei.
-func (f *EpochCommitmentFactory) GetCommitment(ei EI) *Commitment {
+func (f *EpochCommitmentFactory) GetCommitment(ei epoch.EI) *Commitment {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 	commitment := f.commitments[ei]
@@ -186,7 +187,7 @@ func (f *EpochCommitmentFactory) GetCommitment(ei EI) *Commitment {
 }
 
 // GetEpochCommitment returns the epoch commitment with the given ei.
-func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitment {
+func (f *EpochCommitmentFactory) GetEpochCommitment(ei epoch.EI) *tangle.EpochCommitment {
 	return &tangle.EpochCommitment{
 		EI:         uint64(ei),
 		ECR:        f.ECR(ei),
@@ -194,7 +195,7 @@ func (f *EpochCommitmentFactory) GetEpochCommitment(ei EI) *tangle.EpochCommitme
 	}
 }
 
-func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.EI, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.stateRootTree.ProveForRoot(key, root)
@@ -204,7 +205,7 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei EI, outID utxo.OutputID) (*Co
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.TransactionID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.EI, txID utxo.TransactionID) (*CommitmentProof, error) {
 	key := txID.Bytes()
 	root := f.commitments[ei].stateMutationRoot.Root()
 	proof, err := f.commitments[ei].stateMutationRoot.ProveForRoot(key, root)
@@ -214,7 +215,7 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei EI, txID utxo.Transac
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID) (*CommitmentProof, error) {
+func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.EI, blockID tangle.MessageID) (*CommitmentProof, error) {
 	key := blockID.Bytes()
 	root := f.commitments[ei].tangleRoot.Root()
 	proof, err := f.commitments[ei].tangleRoot.ProveForRoot(key, root)
@@ -224,7 +225,7 @@ func (f *EpochCommitmentFactory) ProofTangleRoot(ei EI, blockID tangle.MessageID
 	return &CommitmentProof{ei, proof, root}, nil
 }
 
-func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
+func (f *EpochCommitmentFactory) getOrCreateCommitment(ei epoch.EI) *Commitment {
 	f.commitmentsMutex.RLock()
 	commitment, ok := f.commitments[ei]
 	f.commitmentsMutex.RUnlock()
@@ -243,7 +244,7 @@ func (f *EpochCommitmentFactory) getOrCreateCommitment(ei EI) *Commitment {
 }
 
 // NewCommitment returns an empty commitment for the epoch.
-func (f *EpochCommitmentFactory) newCommitment(ei EI, prevECR [32]byte) *Commitment {
+func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI, prevECR [32]byte) *Commitment {
 	// Volatile storage for small trees
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
@@ -275,7 +276,7 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
-func (f *EpochCommitmentFactory) updatePrevECR(prevEI EI) {
+func (f *EpochCommitmentFactory) updatePrevECR(prevEI epoch.EI) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 
@@ -287,7 +288,7 @@ func (f *EpochCommitmentFactory) updatePrevECR(prevEI EI) {
 }
 
 type CommitmentProof struct {
-	EI    EI
+	EI    epoch.EI
 	proof smt.SparseMerkleProof
 	root  []byte
 }
