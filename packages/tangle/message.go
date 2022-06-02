@@ -384,11 +384,11 @@ const (
 	LastValidBlockType = ShallowDislikeParentType
 )
 
-// EpochCommitment contains the ECR and PreviousECR of an epoch.
+// EpochCommitment contains the ECR and PreviousEC of an epoch.
 type EpochCommitment struct {
-	EI          uint64
-	ECR         [32]byte
-	PreviousECR [32]byte
+	EI         uint64
+	ECR        [32]byte
+	PreviousEC [32]byte
 }
 
 // Message represents the core message for the base layer Tangle.
