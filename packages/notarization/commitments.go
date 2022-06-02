@@ -25,30 +25,6 @@ type Commitment struct {
 	prevECR           [32]byte
 }
 
-// NewCommitment returns an empty commitment for the epoch.
-func NewCommitment(ei EI, prevECR [32]byte, hasher hash.Hash) *Commitment {
-	db, _ := database.NewMemDB()
-	messageIDStore := db.NewStore()
-	messageValueStore := db.NewStore()
-	stateIDStore := db.NewStore()
-	stateValueStore := db.NewStore()
-	stateMutationIDStore := db.NewStore()
-	stateMutationValueStore := db.NewStore()
-	manaIDStore := db.NewStore()
-	manaValueStore := db.NewStore()
-
-	commitment := &Commitment{
-		EI:                ei,
-		tangleRoot:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, hasher),
-		stateMutationRoot: smt.NewSparseMerkleTree(stateIDStore, stateValueStore, hasher),
-		stateRoot:         smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, hasher),
-		manaRoot:          smt.NewSparseMerkleTree(manaIDStore, manaValueStore, hasher),
-		prevECR:           prevECR,
-	}
-
-	return commitment
-}
-
 // TangleRoot returns the root of the tangle sparse merkle tree.
 func (e *Commitment) TangleRoot() []byte {
 	return e.tangleRoot.Root()
