@@ -220,9 +220,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         <ListGroup.Item>
                                             Past markers: {msg.pastMarkers}
                                         </ListGroup.Item>
-                                        <ListGroup.Item>
-                                            Future markers: {msg.futureMarkers}
-                                        </ListGroup.Item>
                                     </ListGroup>
                                 </Col>
                             </Row>

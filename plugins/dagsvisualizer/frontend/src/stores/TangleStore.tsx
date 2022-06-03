@@ -5,7 +5,6 @@ import {
     tangleBooked,
     tangleConfirmed,
     tangleTxGoFChanged,
-    tangleFutureMarkerUpdated,
     tangleVertex
 } from 'models/tangle';
 import {
@@ -46,7 +45,6 @@ export class TangleStore {
             this.setMessageConfirmedTime
         );
         registerHandler(WSMsgType.MessageTxGoFChanged, this.updateMessageTxGoF);
-        registerHandler(WSMsgType.FutureMarkerUpdated, this.updateFutureMarker);
     }
 
     unregisterHandlers() {
@@ -54,7 +52,6 @@ export class TangleStore {
         unregisterHandler(WSMsgType.MessageBooked);
         unregisterHandler(WSMsgType.MessageConfirmed);
         unregisterHandler(WSMsgType.MessageTxGoFChanged);
-        unregisterHandler(WSMsgType.FutureMarkerUpdated);
     }
 
     @action
@@ -62,7 +59,6 @@ export class TangleStore {
         this.checkLimit();
 
         msg.isTip = true;
-        msg.futureMarkers = [];
         this.msgOrder.push(msg.ID);
         this.messages.set(msg.ID, msg);
 
@@ -148,24 +144,6 @@ export class TangleStore {
         this.messages.set(msg.ID, msg);
         if (this.draw) {
             this.updateIfNotPaused(msg);
-        }
-    };
-
-    @action
-    updateFutureMarker = (fm: tangleFutureMarkerUpdated) => {
-        const msg = this.messages.get(fm.ID);
-        if (msg) {
-            msg.futureMarkers.push(fm.futureMarkerID);
-            this.messages.set(fm.ID, msg);
-        }
-
-        // update marker map
-        const pastconeList = this.markerMap.get(fm.futureMarkerID);
-        if (!pastconeList) {
-            this.markerMap.set(fm.futureMarkerID, [fm.ID]);
-        } else {
-            pastconeList.push(fm.ID);
-            this.markerMap.set(fm.futureMarkerID, pastconeList);
         }
     };
 

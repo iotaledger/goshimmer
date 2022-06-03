@@ -558,11 +558,10 @@ type Sequence struct {
 }
 
 type sequenceModel struct {
-	ReferencedMarkers           *ReferencedMarkers  `serix:"0"`
-	ReferencingMarkers          *ReferencingMarkers `serix:"1"`
-	VerticesWithoutFutureMarker uint64              `serix:"2"`
-	LowestIndex                 Index               `serix:"3"`
-	HighestIndex                Index               `serix:"4"`
+	ReferencedMarkers  *ReferencedMarkers  `serix:"0"`
+	ReferencingMarkers *ReferencingMarkers `serix:"1"`
+	LowestIndex        Index               `serix:"2"`
+	HighestIndex       Index               `serix:"3"`
 }
 
 // NewSequence creates a new Sequence from the given details.

@@ -157,13 +157,6 @@ fmt.Println(string(message.Finalized))
             },
             "highestIndex": 21904,
             "lowestIndex": 21904
-        },
-        "futureMarkers": {
-            "markers": {
-                "1": 21905
-            },
-            "highestIndex": 21905,
-            "lowestIndex": 21905
         }
     },
     "branchID": "BranchID(MasterBranchID)",
