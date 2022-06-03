@@ -148,8 +148,9 @@ func (t *TipManager) Setup() {
 		t.removeStrongParents(event.Message)
 	}))
 
-	t.tangle.MessageFactory.Events.MessageReferenceImpossible.Attach(event.NewClosure(func(event *MessageReferenceImpossibleEvent) {
-		t.tangle.Storage.Message(event.MessageID).Consume(t.reAddParents)
+	// Hook into this so that next time we try to select tips, the parents are already removed.
+	t.tangle.MessageFactory.ReferenceProvider.Events.ReferenceImpossible.Hook(event.NewClosure(func(msgID MessageID) {
+		t.tangle.Storage.Message(msgID).Consume(t.reAddParents)
 	}))
 }
 

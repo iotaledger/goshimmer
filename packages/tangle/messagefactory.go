@@ -23,11 +23,12 @@ const storeSequenceInterval = 100
 type MessageFactory struct {
 	Events *MessageFactoryEvents
 
-	tangle         *Tangle
-	sequence       *kvstore.Sequence
-	localIdentity  *identity.LocalIdentity
-	selector       TipSelector
-	referencesFunc ReferencesFunc
+	tangle            *Tangle
+	sequence          *kvstore.Sequence
+	localIdentity     *identity.LocalIdentity
+	selector          TipSelector
+	referencesFunc    ReferencesFunc
+	ReferenceProvider *ReferenceProvider
 
 	powTimeout time.Duration
 
@@ -36,21 +37,28 @@ type MessageFactory struct {
 }
 
 // NewMessageFactory creates a new message factory.
-func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc ReferencesFunc) *MessageFactory {
+func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc ...ReferencesFunc) *MessageFactory {
 	sequence, err := kvstore.NewSequence(tangle.Options.Store, []byte(DBSequenceNumber), storeSequenceInterval)
 	if err != nil {
 		panic(fmt.Sprintf("could not create message sequence number: %v", err))
 	}
 
+	referenceProvider := NewReferenceProvider(tangle)
+	f := NewReferenceProvider(tangle).References
+	if len(referencesFunc) != 0 {
+		f = referencesFunc[0]
+	}
+
 	return &MessageFactory{
-		Events:         NewMessageFactoryEvents(),
-		tangle:         tangle,
-		sequence:       sequence,
-		localIdentity:  tangle.Options.Identity,
-		selector:       selector,
-		referencesFunc: referencesFunc,
-		worker:         ZeroWorker,
-		powTimeout:     0 * time.Second,
+		Events:            NewMessageFactoryEvents(),
+		tangle:            tangle,
+		sequence:          sequence,
+		localIdentity:     tangle.Options.Identity,
+		selector:          selector,
+		referencesFunc:    f,
+		ReferenceProvider: referenceProvider,
+		worker:            ZeroWorker,
+		powTimeout:        0 * time.Second,
 	}
 }
 

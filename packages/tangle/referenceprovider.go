@@ -56,17 +56,20 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 	}
 
 	for strongParent := range strongParents {
-		referencesToAdd, success := r.addedReferencesForMessage(strongParent, issuingTime)
-		if !success {
-			continue
+		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime)
+		if !validStrongParent {
+			if err = r.checkPayloadLiked(strongParent); err != nil {
+				r.Events.Error.Trigger(errors.Errorf("failed to pick up %s as a weak parent: %w", strongParent, err))
+				continue
+			}
+			referencesToAdd = NewParentMessageIDs().Add(WeakParentType, strongParent)
+		} else {
+			referencesToAdd.AddStrong(strongParent)
 		}
 
-		combinedReferences, success := r.tryExtendReferences(references, referencesToAdd)
-		if !success {
-			continue
+		if combinedReferences, success := r.tryExtendReferences(references, referencesToAdd); success {
+			references = combinedReferences
 		}
-
-		references = combinedReferences.AddStrong(strongParent)
 	}
 
 	if len(references[StrongParentType]) == 0 {
@@ -90,17 +93,11 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 		return addedReferences, true
 	}
 
-	if referencesToAdd, referencesErr := r.addedReferencesForConflicts(msgConflictIDs, issuingTime); referencesErr == nil {
-		return referencesToAdd, true
-	}
-	r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
-	r.Events.ReferenceImpossible.Trigger(msgID)
-
-	if err = r.checkPayloadLiked(msgID); err != nil {
-		r.Events.Error.Trigger(errors.Errorf("failed to pick up %s as a weak parent: %w", msgID, err))
+	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime); err != nil {
+		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
+		r.Events.ReferenceImpossible.Trigger(msgID)
 		return nil, false
 	}
-	addedReferences.Add(WeakParentType, msgID)
 
 	return addedReferences, true
 }
@@ -112,7 +109,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 		conflictID := it.Next()
 
 		referenceType, referencedMsg, referenceErr := r.addedReferenceForConflict(conflictID, issuingTime)
-		if err != nil {
+		if referenceErr != nil {
 			return nil, errors.Errorf("failed to create reference for %s: %w", conflictID, referenceErr)
 		}
 
@@ -150,11 +147,23 @@ func (r *ReferenceProvider) firstValidAttachment(txID utxo.TransactionID, issuin
 	}
 
 	// TODO: we don't want to vote on anything that is in a committed epoch.
-	if issuingTime.Sub(attachmentTime) >= maxParentsTimeDifference {
+	if !r.validTime(attachmentTime, issuingTime) {
 		return EmptyMessageID, errors.Errorf("attachment of %s with %s is too far in the past", txID, msgID)
 	}
 
 	return msgID, nil
+}
+
+func (r *ReferenceProvider) validTime(parentTime, issuingTime time.Time) bool {
+	// TODO: we don't want to vote on anything that is in a committed epoch.
+	return issuingTime.Sub(parentTime) < maxParentsTimeDifference
+}
+
+func (r *ReferenceProvider) validTimeForStrongParent(msgID MessageID, issuingTime time.Time) (valid bool) {
+	r.tangle.Storage.Message(msgID).Consume(func(msg *Message) {
+		valid = r.validTime(msg.IssuingTime(), issuingTime)
+	})
+	return valid
 }
 
 // dislikeReference returns the reference that is necessary to remove the given conflict.
@@ -200,7 +209,7 @@ func (r *ReferenceProvider) tryExtendReferences(references ParentMessageIDs, ref
 
 	extendedReferences = references.Clone()
 	for referenceType, referencedMessageIDs := range referencesToAdd {
-		extendedReferences[referenceType].AddAll(referencedMessageIDs)
+		extendedReferences.AddAll(referenceType, referencedMessageIDs)
 
 		if len(extendedReferences[referenceType]) > MaxParentsCount {
 			return nil, false

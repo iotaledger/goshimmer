@@ -3,6 +3,7 @@ package tangle
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -202,12 +203,11 @@ func TestMessageFactory_PrepareLikedReferences_1(t *testing.T) {
 
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	references, referenceNotPossible, err := PrepareReferences(nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
+	references, err := tangle.MessageFactory.ReferenceProvider.References(nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now())
 
 	require.NoError(t, err)
 
 	assert.Equal(t, references[ShallowLikeParentType], MessageIDs{testFramework.Message("2").ID(): types.Void})
-	assert.Empty(t, referenceNotPossible)
 }
 
 func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
@@ -304,7 +304,7 @@ func TestMessageFactory_PrepareLikedReferences_2(t *testing.T) {
 		ShallowLikeParentType: NewMessageIDs(testFramework.Message("2").ID(), testFramework.Message("5").ID()),
 	}, time.Now())
 
-	// Do not return too old like reference: remove strong parent and return it so that it can be removed from the tips.
+	// Do not return too old like reference: remove strong parent.
 	checkReferences(t, tangle, nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("4").ID()), map[ParentsType]MessageIDs{
 		StrongParentType:      NewMessageIDs(testFramework.Message("3").ID()),
 		ShallowLikeParentType: NewMessageIDs(testFramework.Message("2").ID()),
@@ -363,9 +363,13 @@ func TestMessageFactory_PrepareLikedReferences_3(t *testing.T) {
 
 	tangle.OTVConsensusManager = NewOTVConsensusManager(mockOTV)
 
-	_, referenceNotPossible, err := PrepareReferences(nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now(), tangle)
+	tangle.MessageFactory.ReferenceProvider.Events.ReferenceImpossible.Hook(event.NewClosure(func(msgID MessageID) {
+		fmt.Println(msgID)
+	}))
+
+	references, err := tangle.MessageFactory.ReferenceProvider.References(nil, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), time.Now())
 	require.Error(t, err)
-	assert.Equal(t, NewMessageIDs(testFramework.Message("3").ID(), testFramework.Message("2").ID()), referenceNotPossible)
+	assert.True(t, references.IsEmpty())
 }
 
 // Tests if weak references are properly constructed from consumed outputs.
@@ -413,17 +417,12 @@ func TestMessageFactory_WeakReferencesConsumed(t *testing.T) {
 }
 
 func checkReferences(t *testing.T, tangle *Tangle, payload payload.Payload, parents MessageIDs, expectedReferences map[ParentsType]MessageIDs, issuingTime time.Time, errorExpected ...bool) {
-	actualReferences, referenceNotPossible, err := PrepareReferences(payload, parents, issuingTime, tangle)
+	actualReferences, err := tangle.MessageFactory.ReferenceProvider.References(payload, parents, issuingTime)
 	if len(errorExpected) > 0 && errorExpected[0] {
 		require.Error(t, err)
 		return
 	}
 	require.NoError(t, err)
-
-	// Check for parents whose references can't be set and have to be removed from the tips.
-	if !parents.Subtract(expectedReferences[StrongParentType]).Empty() {
-		assert.Equalf(t, parents, referenceNotPossible, "references to %s not possible, should be removed from parents %s", referenceNotPossible, parents)
-	}
 
 	for _, referenceType := range []ParentsType{StrongParentType, ShallowDislikeParentType, ShallowLikeParentType, WeakParentType} {
 		assert.Equalf(t, expectedReferences[referenceType], actualReferences[referenceType], "references type %s do not match: expected %s - actual %s", referenceType, expectedReferences[referenceType], actualReferences[referenceType])

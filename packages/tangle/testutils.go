@@ -952,8 +952,8 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (bra
 	return likedConflictMembers.conflictMembers.Has(branchID)
 }
 
-func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
-	return emptyLikeReferencesFromStrongParents(parents), nil, nil
+func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time) (references ParentMessageIDs, err error) {
+	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
 func emptyLikeReferencesFromStrongParents(parents MessageIDs) (references ParentMessageIDs) {
