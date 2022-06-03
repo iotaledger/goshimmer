@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
 const maxIssuedAwaitTime = 5 * time.Second
@@ -63,12 +62,7 @@ func broadcastData(c echo.Context) error {
 		})
 	}
 
-	issueData := func() (*tangle.Message, error) {
-		return deps.Tangle.IssuePayload(payload.NewGenericDataPayload(request.Data))
-	}
-
-	// await MessageScheduled event to be triggered.
-	msg, err := messagelayer.AwaitMessageToBeIssued(issueData, deps.Tangle.Options.Identity.PublicKey(), maxIssuedAwaitTime)
+	msg, err := deps.Tangle.IssuePayload(payload.NewGenericDataPayload(request.Data))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, jsonmodels.DataResponse{Error: err.Error()})
 	}

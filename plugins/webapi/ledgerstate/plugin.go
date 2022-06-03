@@ -576,13 +576,9 @@ func PostTransaction(c echo.Context) error {
 		time.Sleep(tx.Essence().Timestamp().Sub(clock.SyncedTime()) + 1*time.Nanosecond)
 	}
 
-	issueTransaction := func() (*tangle.Message, error) {
-		return deps.Tangle.IssuePayload(tx)
-	}
-
 	// add tx to double spend doubleSpendFilter
 	FilterAdd(tx)
-	if _, err := messagelayer.AwaitMessageToBeBooked(issueTransaction, tx.ID(), maxBookedAwaitTime); err != nil {
+	if _, err = deps.Tangle.IssuePayload(tx); err != nil {
 		// if we failed to issue the transaction, we remove it
 		FilterRemove(tx.ID())
 		return c.JSON(http.StatusBadRequest, jsonmodels.PostTransactionResponse{Error: err.Error()})

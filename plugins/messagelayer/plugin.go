@@ -302,19 +302,17 @@ func AwaitMessageToBeIssued(f func() (*tangle.Message, error), issuer ed25519.Pu
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(event *tangle.MessageScheduledEvent) {
-		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			if message.IssuerPublicKey() != issuer {
-				return
-			}
-			select {
-			case issued <- message:
-			case <-exit:
-			}
-		})
+	closure := event.NewClosure(func(event *tangle.MessageConstructedEvent) {
+		if event.Message.IssuerPublicKey() != issuer {
+			return
+		}
+		select {
+		case issued <- event.Message:
+		case <-exit:
+		}
 	})
-	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(closure)
-	defer deps.Tangle.Scheduler.Events.MessageScheduled.Detach(closure)
+	deps.Tangle.RateSetter.Events.MessageIssued.Attach(closure)
+	defer deps.Tangle.RateSetter.Events.MessageIssued.Detach(closure)
 
 	// channel to receive the result of issuance
 	issueResult := make(chan struct {
