@@ -59,6 +59,9 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 			notarizationManager.OnMessageConfirmed(m)
 		})
 	}))
+	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		notarizationManager.OnMessageOrphaned(event.Message)
+	}))
 	notarizationDeps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		notarizationDeps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
 			notarizationManager.OnTransactionConfirmed(t.(*devnetvm.Transaction))

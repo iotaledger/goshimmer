@@ -4,13 +4,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/logger"
+
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
-	"github.com/iotaledger/hive.go/generics/event"
-	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -104,6 +105,16 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
+}
+
+// OnMessageOrphaned is the handler for message orphaned event.
+func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	err := m.epochCommitmentFactory.RemoveTangleLeaf(ei, message.ID())
+	if err != nil && m.log != nil {
+		m.log.Error(err)
+	}
+	// TODO: think about transaction case.
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.

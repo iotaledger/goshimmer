@@ -37,12 +37,14 @@ type MessageInvalidEvent struct {
 // ConfirmationEvents are events entailing confirmation.
 type ConfirmationEvents struct {
 	MessageConfirmed *event.Event[*MessageConfirmedEvent]
+	MessageOrphaned  *event.Event[*MessageConfirmedEvent]
 }
 
 // NewConfirmationEvents returns a new ConfirmationEvents object.
 func NewConfirmationEvents() (new *ConfirmationEvents) {
 	return &ConfirmationEvents{
 		MessageConfirmed: event.New[*MessageConfirmedEvent](),
+		MessageOrphaned:  event.New[*MessageConfirmedEvent](),
 	}
 }
 
