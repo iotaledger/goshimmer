@@ -83,13 +83,18 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
-	nextEI := m.lastCommittedEpoch + 1
-	if m.IsCommittable(nextEI) {
-		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
-		m.lastCommittedEpoch = nextEI
+	ei := m.epochManager.CurrentEI()
+	for ei > 0 {
+		if m.IsCommittable(ei) {
+			break
+		}
+		ei -= 1
 	}
-
-	return m.epochCommitmentFactory.GetEpochCommitment(m.lastCommittedEpoch)
+	ec, err := m.epochCommitmentFactory.GetEpochCommitment(ei)
+	if err != nil {
+		m.log.Error(err)
+	}
+	return ec
 }
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.

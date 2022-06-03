@@ -18,9 +18,14 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-// region EpochStateDiff ///////////////////////////////////////////////////////////////////////////////////////////////
+type ecRecord struct {
+	ECR    ECR `serix:"0"`
+	PrevEC EC  `serix:"1"`
+}
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+type ECRecord struct {
+	model.Storable[epoch.EI, ecRecord] `serix:"0"`
+}
 
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -60,6 +65,8 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
 
+	ecStorage *objectstorage.ObjectStorage[*ECRecord]
+
 	// Delta storages
 	diffStores map[epoch.EI]*objectstorage.ObjectStorage[*epoch.EpochStateDiff]
 
@@ -83,6 +90,13 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	new.ledgerstateStore = objectstorage.NewInterfaceStorage[utxo.Output](
 		ledgerStore,
 		ledger.OutputFactory(new.epochCommitmentStorageOptions.vm),
+		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	)
+	ecStore := new.specializeStore(new.baseStore, PrefixEC)
+	new.ecStorage = objectstorage.NewStructStorage[ECRecord](
+		ecStore,
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -132,6 +146,8 @@ const (
 	PrefixEpochStateDiff byte = iota
 
 	PrefixLedgerState
+
+	PrefixEC
 
 	PrefixDiff
 
