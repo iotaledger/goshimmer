@@ -181,7 +181,7 @@ The response is written in a csv file.
 MsgID,MsgIssuerID,MsgIssuanceTime,MsgArrivalTime,MsgSolidTime,MsgApprovedBy
 ...
 
-7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,dAnF7pQ6k7a,1622100376301474621,1622100390350323240,1622100390350376317,true
+7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,FZ6xmPZX,1622100376301474621,1622100390350323240,1622100390350376317,true
 ```
 
 ## `tools/diagnostic/messages`
@@ -206,7 +206,7 @@ ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,Boo
 
 ...
 
-7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,dAnF7pQ6k7a,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
+7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,FZ6xmPZX,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
 ```
 
 ## `tools/diagnostic/messages/firstweakreferences`
@@ -232,7 +232,7 @@ ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,Boo
 
 ...
 
-7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,dAnF7pQ6k7a,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
+7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,FZ6xmPZX,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
 ```
 
 ## `tools/diagnostic/messages/rank/:rank`
@@ -261,7 +261,7 @@ ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,ScheduledTime,Boo
 
 ...
 
-7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,dAnF7pQ6k7a,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
+7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,FZ6xmPZX,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
 ```
 
 ## `tools/diagnostic/utxodag`
@@ -383,7 +383,7 @@ tipType,ID,IssuerID,IssuerPublicKey,IssuanceTime,ArrivalTime,SolidTime,Scheduled
 
 ...
 
-TipType(StrongTip),7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,dAnF7pQ6k7a,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
+TipType(StrongTip),7h7arHrxYhuuzgpvRtuw6jn5AwtAA5AEiKnAzdQheyDW,FZ6xmPZX,CHfU1NUf6ZvUKDQHTG2df53GR7CvuMFtyt7YymJ6DwS3,1622100376301474621,1622100390350323240,1622100390350376317,1622100390350655597,1622100390497058485,1622100394498368012,GradeOfFinanlity(3),E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,,,E8jiyKgouhbk8GK8xNiwSnLM4FSzmCfvCmBijbKd8z8A,BranchID(MasterBranchID),true,true,true,1,0:0,0,0,1:2,2,2,TransactionType(1337)
 ```
 
 ## `tools/diagnostic/drng`

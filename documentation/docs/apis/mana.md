@@ -105,7 +105,7 @@ if err != nil {
 
 ##### `GetMana` with short node ID
 ```go
-manas, err := goshimAPI.GetMana("4AeXyZ26e4G")
+manas, err := goshimAPI.GetMana("2GtxMQD9")
 if err != nil {
     // return error
 }
@@ -114,7 +114,7 @@ if err != nil {
 ### Response examples
 ```json
 {
-  "shortNodeID": "4AeXyZ26e4G",
+  "shortNodeID": "2GtxMQD9",
   "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
   "access": 26.5,
   "accessTimestamp": 1614924295,
@@ -180,7 +180,7 @@ for _, m := range manas.Consensus {
 {
   "access": [
       {
-          "shortNodeID": "4AeXyZ26e4G",
+          "shortNodeID": "2GtxMQD9",
           "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
           "mana": 26.5
       }
@@ -188,7 +188,7 @@ for _, m := range manas.Consensus {
   "accessTimestamp": 1614924295,
   "consensus": [
       {
-          "shortNodeID": "4AeXyZ26e4G",
+          "shortNodeID": "2GtxMQD9",
           "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
           "mana": 26.5
       }
@@ -252,7 +252,7 @@ fmt.Println("consensus mana percentile: ", mana.Consensus, "consensus mana updat
 ### Response examples
 ```json
 {
-  "shortNodeID": "4AeXyZ26e4G",
+  "shortNodeID": "2GtxMQD9",
   "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
   "access": 75,
   "accessTimestamp": 1614924295,
@@ -310,7 +310,7 @@ for _, m := accessMana.Online {
   "online": [
     {
       "rank": 1,
-      "shortNodeID": "4AeXyZ26e4G",
+      "shortNodeID": "2GtxMQD9",
       "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
       "mana": 75
     }
@@ -372,7 +372,7 @@ for _, m := accessMana.Online {
   "online": [
       {
         "rank": 1,
-        "shortNodeID": "4AeXyZ26e4G",
+        "shortNodeID": "2GtxMQD9",
         "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
         "mana": 75
       }
@@ -439,7 +439,7 @@ for _, m := accessMana.Nodes {
 {
   "nodes": [
       {
-        "shortNodeID": "4AeXyZ26e4G",
+        "shortNodeID": "2GtxMQD9",
         "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
         "mana": 26.5
       }
@@ -504,7 +504,7 @@ for _, m := consensusMana.Nodes {
 {
   "nodes": [
       {
-        "shortNodeID": "4AeXyZ26e4G",
+        "shortNodeID": "2GtxMQD9",
         "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
         "mana": 26.5
       }
@@ -622,7 +622,7 @@ for _, m := range res.Consensus {
 {
   "consensus": [
       {
-        "shortNodeID": "4AeXyZ26e4G",
+        "shortNodeID": "2GtxMQD9",
         "nodeID": "2GtxMQD94KvDH1SJPJV7icxofkyV1njuUZKtsqKmtux5",
         "mana": 26.5 
       }
@@ -836,6 +836,3 @@ for _, id := range res.Consensus.Allowed {
 |:-----|:------|:------|
 | `isFilterEnabled`  | bool | A flag shows that if mana pledge filter is enabled.   |
 | `allowed`   | []string | A list of node ID that allow to be pledged mana. This list has effect only if `isFilterEnabled` is `true`|
-
-
-
