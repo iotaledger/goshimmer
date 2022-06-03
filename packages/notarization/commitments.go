@@ -92,14 +92,14 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR [32]byt
 	stateMutationIDStore := db.NewStore()
 	stateMutationValueStore := db.NewStore()
 
-	commitment := &CommitmentTrees{
+	commitmentTrees := &CommitmentTrees{
 		EI:                ei,
 		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
 		prevECR:           prevECR,
 	}
 
-	return commitment
+	return commitmentTrees
 }
 
 // ECR generates the epoch commitment root.
@@ -255,6 +255,7 @@ func (f *EpochCommitmentFactory) GetCommitment(ei epoch.EI) (*Commitment, error)
 	}
 	commitment := &Commitment{}
 	commitment.EI = ei
+	// convert []byte to [32]byte type
 	copy(commitment.stateRoot[:], commitmentTrees.tangleTree.Root())
 	copy(commitment.stateMutationRoot[:], commitmentTrees.stateMutationTree.Root())
 	copy(commitment.stateRoot[:], stateRoot)

@@ -28,6 +28,7 @@ type notarizationDependencies struct {
 	dig.In
 	Tangle  *tangle.Tangle
 	Storage kvstore.KVStore
+	VM      *devnetvm.VM
 }
 
 var (
@@ -39,10 +40,15 @@ var (
 
 func init() {
 	NotarizationPlugin = node.NewPlugin(NotarizationPluginName, deps, node.Enabled, configureNotarizationPlugin, runNotarizationPlugin)
+
+	NotarizationPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(newNotarizationManager); err != nil {
+			NotarizationPlugin.Panic(err)
+		}
+	}))
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	notarizationManager = newNotarizationManager()
 	if nodeSnapshot != nil {
 		if err := notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
 			plugin.Panic(err)
@@ -82,10 +88,10 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager() *notarization.Manager {
+func newNotarizationManager(deps *notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(notarizationDeps.Storage),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.VM),
 		notarizationDeps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
 		notarization.Log(Plugin.Logger()))
