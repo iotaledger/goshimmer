@@ -76,36 +76,48 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
-	return f.issuePayload(p, nil, parentsCount...)
+	msg, err := f.issuePayload(p, nil)
+	if err != nil {
+		f.Events.Error.Trigger(errors.Errorf("message could not be issued: %w", err))
+		return nil, err
+	}
+
+	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
+	return msg, nil
 }
 
 // IssuePayloadWithReferences creates a new message with the references submit.
 func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, references ParentMessageIDs) (*Message, error) {
-	return f.issuePayload(p, references)
+	msg, err := f.issuePayload(p, nil)
+	if err != nil {
+		f.Events.Error.Trigger(errors.Errorf("message could not be issued: %w", err))
+		return nil, err
+	}
+
+	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
+	return msg, nil
 }
 
 // issuePayload create a new message. If there are any supplied references, it uses them. Otherwise, uses tip selection.
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
-func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessageIDs, parentsCount ...int) (*Message, error) {
+func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessageIDs, parentsCountOpt ...int) (*Message, error) {
+	parentsCount := 2
+	if len(parentsCountOpt) > 0 {
+		parentsCount = parentsCountOpt[0]
+	}
+
 	payloadLen := len(p.Bytes())
 	if payloadLen > payload.MaxSize {
-		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
-		f.Events.Error.Trigger(err)
-		return nil, err
+		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}
+
 	sequenceNumber, err := f.sequence.Next()
 	if err != nil {
-		err = errors.Errorf("could not create sequence number: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
+		return nil, errors.Errorf("could not create sequence number: %w", err)
 	}
 
 	issuerPublicKey := f.localIdentity.PublicKey()
-
-	// TODO:
-	//  - factor out PoW stuff
-	//  - remove error triggers and create container where it is triggered
 
 	// do the PoW
 	startTime := time.Now()
@@ -115,44 +127,31 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 
 	strongParents := references[StrongParentType]
 
-	countParents := 2
-	if len(parentsCount) > 0 {
-		countParents = parentsCount[0]
-	}
-
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		_, txOk := p.(utxo.Transaction)
 		if len(references) == 0 && (len(strongParents) == 0 || !txOk) {
-			if strongParents, err = f.tips(p, countParents); err != nil {
-				err = errors.Errorf("tips could not be selected: %w", err)
-				f.Events.Error.Trigger(err)
-				return nil, err
+			if strongParents, err = f.tips(p, parentsCount); err != nil {
+				return nil, errors.Errorf("tips could not be selected: %w", err)
 			}
 		}
 		issuingTime = f.getIssuingTime(strongParents)
 		if len(references) == 0 {
 			references, err = f.referencesFunc(p, strongParents, issuingTime)
 			if err != nil {
-				err = errors.Errorf("references could not be prepared: %w", err)
-				f.Events.Error.Trigger(err)
-				return nil, err
+				return nil, errors.Errorf("references could not be prepared: %w", err)
 			}
 		}
 		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
 	if errPoW != nil {
-		err = errors.Errorf("pow failed: %w", errPoW)
-		f.Events.Error.Trigger(err)
-		return nil, err
+		return nil, errors.Errorf("pow failed: %w", errPoW)
 	}
 
 	// create the signature
 	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce)
 	if err != nil {
-		err = errors.Errorf("signing failed: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
+		return nil, errors.Errorf("signing failed: %w", err)
 	}
 
 	msg, err := NewMessageWithValidation(
@@ -165,13 +164,10 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		signature,
 	)
 	if err != nil {
-		err = errors.Errorf("there is a problem with the message syntax: %w", err)
-		f.Events.Error.Trigger(err)
-		return nil, err
+		return nil, errors.Errorf("there is a problem with the message syntax: %w", err)
 	}
 	_ = msg.DetermineID()
 
-	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
 	return msg, nil
 }
 
@@ -193,22 +189,24 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 
 func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
 	parents, err = f.selector.Tips(p, parentsCount)
+	if err != nil {
+		err = errors.Errorf("tips could not be selected: %w", err)
+	}
 
-	// TODO: remove switch statement and make easier readable
 	tx, ok := p.(utxo.Transaction)
-	if ok {
-		conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID())
-		if !conflictingTransactions.IsEmpty() {
-			switch earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment {
-			case nil:
-				return
-			default:
-				return earliestAttachment.ParentsByType(StrongParentType), nil
-			}
+	if !ok {
+		return parents, nil
+	}
+
+	// If the message is issuing a transaction and is a double spend, we add it in parallel to the earliest attachment
+	// to prevent a double spend from being issued in its past cone.
+	if conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID()); !conflictingTransactions.IsEmpty() {
+		if earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment != nil {
+			return earliestAttachment.ParentsByType(StrongParentType), nil
 		}
 	}
 
-	return
+	return parents, nil
 }
 
 func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
