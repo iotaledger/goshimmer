@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -15,8 +14,6 @@ import (
 type BranchMarkersMapper struct {
 	tangle *Tangle
 	*markers.Manager
-
-	Events *BranchMarkersMapperEvents
 }
 
 // NewBranchMarkersMapper is the constructor of the MarkersManager.
@@ -24,7 +21,6 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 	b = &BranchMarkersMapper{
 		tangle:  tangle,
 		Manager: markers.NewManager(markers.WithStore(tangle.Options.Store)),
-		Events:  newBranchMarkersMapperEvents(),
 	}
 
 	// Always set Genesis to MasterBranch.
@@ -54,7 +50,6 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
 	if newStructureDetails.IsPastMarker() {
 		b.SetMessageID(newStructureDetails.PastMarkers().Marker(), message.ID())
-		b.tangle.Utils.WalkMessageMetadata(b.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers().Marker()), message.ParentsByType(StrongParentType))
 	}
 
 	return
@@ -162,29 +157,6 @@ func (b *BranchMarkersMapper) ForEachMarkerReferencingMarker(referencedMarker ma
 			return true
 		})
 	})
-}
-
-// propagatePastMarkerToFutureMarkers updates the FutureMarkers of the strong parents of a given message when a new
-// PastMaster was assigned.
-func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInherit markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
-	return func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
-		updated, inheritFurther := b.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
-		if updated {
-			messageMetadata.SetModified(true)
-
-			b.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdateEvent{
-				ID:           messageMetadata.ID(),
-				FutureMarker: b.MessageID(pastMarkerToInherit),
-			})
-		}
-		if inheritFurther {
-			b.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
-				for strongParentMessageID := range message.ParentsByType(StrongParentType) {
-					walker.Push(strongParentMessageID)
-				}
-			})
-		}
-	}
 }
 
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.

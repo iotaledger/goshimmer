@@ -112,7 +112,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		t.PastMarkerGap = d.PastMarkerGap()
 		t.IsPastMarker = d.IsPastMarker()
 		t.PastMarkers = d.PastMarkers().String()
-		t.FutureMarkers = d.FutureMarkers().String()
 	}
 
 	return t
