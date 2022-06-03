@@ -22,7 +22,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
@@ -430,7 +429,7 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 	log.Printf("Waiting for %d messages to become available...", len(messageIDs))
 	require.Eventuallyf(t, condition, waitFor, tick,
 		"%d out of %d nodes did not receive all messages", len(missing), len(nodes))
-	log.Println("Waiting for message... done")
+	log.Println("Waiting for messages... done")
 }
 
 // RequireMessagesEqual asserts that all nodes return the correct data messages as specified in messagesByID.
@@ -619,19 +618,10 @@ func ConfirmedOnAllPeers(msgID string, peers []*framework.Node) bool {
 }
 
 // TryConfirmMessage tries to confirm the message on all the peers provided within the time limit provided.
-func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
-	var peers []*framework.Node
-	for _, peer := range n.Peers() {
-		if _, err := peer.GetMessage(msgID); err == nil {
-			peers = append(peers, peer)
-		}
-	}
-	if len(peers) == 0 {
-		log.Println("msg ", msgID, "is not found on any node")
-		t.FailNow()
-	}
+func TryConfirmMessage(t *testing.T, peers []*framework.Node, msgID string, waitFor time.Duration, tick time.Duration) {
+	log.Printf("waiting for msg %s to become confirmed...", msgID)
+	defer log.Printf("waiting for msg %s to become confirmed... done", msgID)
 
-	var i int
 	timer := time.NewTimer(waitFor)
 	defer timer.Stop()
 	ticker := time.NewTicker(tick)
@@ -640,20 +630,19 @@ func TryConfirmMessage(t *testing.T, n *framework.Network, requiredPeers []*fram
 	for {
 		select {
 		case <-timer.C:
-			log.Println("timeout")
+			log.Printf("failed to confirm msg %s within the time limit", msgID)
 			t.FailNow()
 		case <-ticker.C:
-			if ConfirmedOnAllPeers(msgID, requiredPeers) {
-				log.Println("msg is confirmed on all required peers")
+			// Issue a new message on each peer to make msg confirmed.
+			for i, peer := range peers {
+				id, _ := SendDataMessage(t, peer, []byte("test"), i)
+				log.Printf("send message %s on node %s", id, peer.ID())
+			}
+
+			if ConfirmedOnAllPeers(msgID, peers) {
+				log.Printf("msg %s is confirmed on all peers", msgID)
 				return
 			}
-		default:
-			// sort nodes by cmana before issuing?
-			node := peers[i%len(peers)]
-			if _, err := node.Data([]byte("test")); err != nil {
-				log.Println("send message on node: ", node.ID().String())
-			}
-			i++
 		}
 	}
 }
@@ -718,66 +707,4 @@ func findAttachmentMsg(peer *framework.Node, branchID string) (tip *jsonmodels.M
 		}
 	}
 	return
-}
-
-// TryConfirmBranch tries to confirm the given branch in the duration specified.
-func TryConfirmBranch(t *testing.T, n *framework.Network, requiredPeers []*framework.Node, branchID string, waitFor time.Duration, tick time.Duration) {
-	// check that the branch exists in the network and fail fast if it does not
-	exists := false
-	for _, peer := range n.Peers() {
-		if _, err := peer.GetBranch(branchID); err == nil {
-			exists = true
-			break
-		}
-	}
-	require.True(t, exists, "branch does not exists on any node")
-
-	// get tip to attach
-	tip, err := findAttachmentMsg(requiredPeers[0], branchID)
-	require.NoError(t, err)
-
-	// issue messages on top of tip.
-	timer := time.NewTimer(waitFor)
-	defer timer.Stop()
-	ticker := time.NewTicker(tick)
-	defer ticker.Stop()
-	var i int
-	peers := n.Peers()
-
-	for {
-		select {
-		case <-timer.C:
-			require.FailNow(t, "timeout")
-		case <-ticker.C:
-			if IsBranchConfirmedOnAllPeers(branchID, requiredPeers) {
-				return
-			}
-		default:
-			var parentMessageIDs []jsonmodels.ParentMessageIDs
-			var msgID tangle.MessageID
-			if err = msgID.FromBase58(tip.ID); err == nil {
-				if tip.PayloadType == devnetvm.TransactionType.String() {
-					parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
-						Type:       uint8(tangle.ShallowLikeParentType),
-						MessageIDs: []string{msgID.Base58()},
-					})
-				}
-				parentMessageIDs = append(parentMessageIDs, jsonmodels.ParentMessageIDs{
-					Type:       uint8(tangle.StrongParentType),
-					MessageIDs: []string{msgID.Base58()},
-				})
-			}
-
-			require.NoError(t, err)
-			tipMsgID, err := peers[i%len(peers)].SendMessage(&jsonmodels.SendMessageRequest{
-				Payload:          payload.NewGenericDataPayload([]byte("test")).Bytes(),
-				ParentMessageIDs: parentMessageIDs,
-			})
-			require.NoError(t, err)
-			tip, err = peers[i%len(peers)].GetMessage(tipMsgID)
-			require.NoError(t, err)
-			time.Sleep(500 * time.Millisecond)
-			i++
-		}
-	}
 }

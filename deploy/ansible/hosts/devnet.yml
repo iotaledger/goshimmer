@@ -18,18 +18,16 @@ goshimmers:
           bootstrap: true
         vanilla-01.devnet.shimmer.iota.cafe:
           seed: "{{ VANILLA_01_SEED }}"
-        drng-01.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_01_SEED }}"
-        drng-02.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_02_SEED }}"
-        drng-03.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_03_SEED }}"
-        drng-04.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_04_SEED }}"
-        drng-05.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_05_SEED }}"
-        drng-xteam-01.devnet.shimmer.iota.cafe:
-          seed: "{{ DRNG_XTEAM_01_SEED }}"
+        node-01.devnet.shimmer.iota.cafe:
+          seed: "{{ NODE_01_SEED }}"
+        node-02.devnet.shimmer.iota.cafe:
+          seed: "{{ NODE_02_SEED }}"
+        node-03.devnet.shimmer.iota.cafe:
+          seed: "{{ NODE_03_SEED }}"
+        node-04.devnet.shimmer.iota.cafe:
+          seed: "{{ NODE_04_SEED }}"
+        node-05.devnet.shimmer.iota.cafe:
+          seed: "{{ NODE_05_SEED }}"
         faucet-01.devnet.shimmer.iota.cafe:
           seed: "{{ FAUCET_01_SEED }}"
           faucet: true
@@ -47,14 +45,7 @@ goshimmers:
     bootstrapNodePubKey: "Gm7W191NDnqyF7KJycZqK7V6ENLwqxTwoKQN4SmpkB24"
     remoteLoggerHost: "metrics-01.devnet.shimmer.iota.cafe"
     communityEntryNode: "5EDH4uY78EA6wrBkHHAVBWBMDt7EcksRq6pjzipoW15B@entry-0.devnet.tanglebay.com:14646,CAB87iQZR6BjBrCgEBupQJ4gpEBgvGKKv3uuGVRBKb4n@entry-1.devnet.tanglebay.com:14646"
-    xteamDRNG: true
     logLevel: "info"
-
-drands:
-  hosts:
-    drand-01.devnet.shimmer.iota.cafe:
-  vars:
-    drngHostTemplate: "drng-0{drandNumber}.devnet.shimmer.iota.cafe"
 
 asset_registries:
   hosts:

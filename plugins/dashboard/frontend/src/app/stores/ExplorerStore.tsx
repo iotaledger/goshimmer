@@ -2,9 +2,6 @@ import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import {
     BasicPayload,
-    DrngCbPayload,
-    DrngPayload,
-    DrngSubtype,
     getPayloadType,
     Output,
     PayloadType,
@@ -535,14 +532,6 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
         switch (msg.payload_type) {
-            case PayloadType.Drng:
-                this.payload = msg.payload as DrngPayload
-                if (this.payload.subpayload_type == DrngSubtype.Cb) {
-                    this.subpayload = this.payload.drngpayload as DrngCbPayload
-                } else {
-                    this.subpayload = this.payload.drngpayload as BasicPayload
-                }
-                break;
             case PayloadType.Transaction:
                 this.payload = msg.payload as TransactionPayload
                 break;

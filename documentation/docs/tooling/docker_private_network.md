@@ -30,9 +30,6 @@ The command `./run.sh` spins up a GoShimmer network within Docker as schematical
 
 More details on how to set up the dashboard can be found [here](../tutorials/setup.md).
 
-The third argument is optional for activating a dRNG committee, where
-* default (no argument) or 0: dRNG disabled
-* 1: dRNG enabled
 
 The peers can communicate freely within the Docker network 
 while the analysis and visualizer dashboard, as well as the `peer_master's` dashboard and web API are reachable from the host system on the respective ports.
@@ -135,7 +132,7 @@ Then you just need to run this command:
 
 ```shell
 docker-compose build
-docker-compose --profile drng --profile grafana up -d
+docker-compose --profile grafana up -d
 ```
 
 > Note: Docker will build the GoShimmer image which can take several minutes.
@@ -228,33 +225,3 @@ The following ports are exposed on the host to allow for interacting with the Ta
 |------|---------|
 | 3000/tcp | Grafana | 
 | 9090/tcp | Prometheus | 
-
-#### DRNG
-
-Distributed randomness beacon.
-Verifiable, unpredictable and unbiased random numbers as a service.
-
-##### Profile
-
-In order to enable these containers you must set the `--profile drng` flag when running `docker-compose`.
-
-##### Configuration
-
-- DRNG_REPLICAS: (Optional) How many nodes to create in addition to the DRNG leader. Defaults to `2`.
-
-##### Example
-
-You can set the environment variable configuration inline as seen in this example.
-
-```shell
-DRNG_REPLICAS=2 docker-compose --profile drng up -d
-```
-
-##### Ports
-
-The following ports are exposed on the host to allow for interacting with the Tangle.
-
-| Port | Service |
-|------|---------|
-| 8000/tcp | Drand Control | 
-| 8800/tcp | GoShimmer API | 

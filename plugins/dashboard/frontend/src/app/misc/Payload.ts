@@ -3,33 +3,13 @@ export enum PayloadType {
     Transaction = 1337,
     Faucet = 2,
     Statement = 3,
-    Drng = 111,
     Chat = 989,
-}
-
-export enum DrngSubtype {
-    Default = 0,
-    Cb      = 1,
 }
 
 // BasicPayload
 export class BasicPayload {
     content_title: string;
     content: string;
-}
-
-// DrngPayload
-export class DrngPayload {
-    subpayload_type: string;
-    instance_id: number;
-    drngpayload: any;
-}
-
-export class DrngCbPayload {
-    round: number;
-    prev_sig: string;
-    sig: string;
-    dpk: string;
 }
 
 // Transaction payload
@@ -152,8 +132,6 @@ export function getPayloadType(p: number){
             return "Transaction"
         case PayloadType.Statement:
             return "Statement"
-        case PayloadType.Drng:
-            return "Drng"
         case PayloadType.Faucet:
             return "Faucet"
         case PayloadType.Chat:
