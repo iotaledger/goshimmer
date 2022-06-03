@@ -30,7 +30,6 @@ services:
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --webAPI.exportPath=/tmp/
       --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
@@ -61,9 +60,8 @@ services:
       --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
-      --webAPI.exportPath=/tmp/
     deploy:
-      replicas: ${SHIMMER_PEER_REPLICAS:-1}
+      replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -145,7 +143,6 @@ services:
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall
       --mana.snapshotResetTime=true
-      --webAPI.exportPath=/tmp/
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin
@@ -191,40 +188,7 @@ services:
       - grafana-data-volume:/var/lib/grafana
       - ./grafana/provisioning:/var/lib/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-  drand-leader:
-    image: angelocapossele/drand:v1.1.4
-    entrypoint: /data/client-script.sh
-    profiles:
-      - drng
-    ports:
-      - "8000:8000/tcp"
-      - "8800:8081/tcp"
-    networks:
-      - goshimmer
-    environment:
-      LEADER: 1
-      GOSHIMMER: http://peer_master:8080
-    depends_on:
-      - peer_master
-  drand-client:
-    image: angelocapossele/drand:v1.1.4
-    entrypoint: /data/client-script.sh
-    profiles:
-      - drng
-    ports:
-      - "8000/tcp"
-      - "8081/tcp"
-    deploy:
-      replicas: ${DRNG_REPLICAS:-4}
-    external_links:
-      # Manually set the container name for the leader to what the container expects
-      - drand-leader:testdrng-drand_0
-    networks:
-      - goshimmer
-    environment:
-      GOSHIMMER: http://peer_master:8080
-    depends_on:
-      - drand-leader
+
 # Create our own network
 networks:
   goshimmer:

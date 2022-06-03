@@ -152,13 +152,11 @@ func TestConfirmMessage(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	// Send a message and wait for it to be confirmed.
 	peers := n.Peers()
-	msgID, err := peers[0].Data([]byte("test"))
-	require.Nil(t, err)
-	metadata, err := peers[0].GetMessageMetadata(msgID)
-	require.Nil(t, err)
-	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
-	tests.TryConfirmMessage(t, n, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
+	msgID, _ := tests.SendDataMessage(t, peers[0], []byte("Test"), 0)
+
+	tests.TryConfirmMessage(t, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
 }
 
 func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {

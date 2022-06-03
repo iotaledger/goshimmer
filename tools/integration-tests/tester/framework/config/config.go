@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -50,7 +49,6 @@ type GoShimmer struct {
 	Mana
 	Consensus
 	Activity
-	DRNG
 	Prometheus
 	Profiling
 	Dashboard
@@ -136,13 +134,6 @@ type Activity struct {
 	Enabled bool
 
 	activity.ParametersDefinition
-}
-
-// DRNG defines the parameters of the DRNG plugin.
-type DRNG struct {
-	Enabled bool
-
-	drng.ParametersDefinition
 }
 
 // RateSetter defines the parameters of the RateSetter plugin.

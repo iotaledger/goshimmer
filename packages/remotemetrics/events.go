@@ -152,15 +152,3 @@ type BranchCountUpdate struct {
 	InitialFinalizedBranchCount    uint64 `json:"initialFinalizedBranchCount" bson:"initialFinalizedBranchCount"`
 	FinalizedBranchCountSinceStart uint64 `json:"finalizedBranchCountSinceStart" bson:"finalizedBranchCountSinceStart"`
 }
-
-// DRNGMetrics defines the DRNG metrics record that is sent to remote logger.
-type DRNGMetrics struct {
-	Type              string    `json:"type" bson:"type"`
-	NodeID            string    `json:"nodeID" bson:"nodeID"`
-	MetricsLevel      uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
-	Round             uint64    `json:"round" bson:"round"`
-	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
-	DeltaReceived     int64     `json:"deltaReceived"  bson:"deltaReceived"`
-}

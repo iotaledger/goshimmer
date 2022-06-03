@@ -5,7 +5,6 @@ package framework
 
 import (
 	"context"
-	"encoding/hex"
 	"log"
 	"os"
 	"sync"
@@ -16,8 +15,6 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
-
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -262,65 +259,4 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	}
 
 	return network, nil
-}
-
-// CreateDRNGNetwork creates and returns a network that contains numPeers GoShimmer peers
-// out of which numMembers are part of the DRNG committee. It blocks until all peers are connected.
-func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembers int, numPeers int) (*DRNGNetwork, error) {
-	drng, err := newDRNGNetwork(ctx, f.docker, name, f.tester)
-	if err != nil {
-		return nil, err
-	}
-
-	// create numMembers/drand nodes
-	for i := 0; i < numMembers; i++ {
-		leader := i == 0
-		if _, err = drng.CreateMember(ctx, leader); err != nil {
-			return nil, err
-		}
-	}
-
-	err = drng.WaitForDKG(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// create GoShimmer identities
-	pubKeys := make([]ed25519.PublicKey, numPeers)
-	privKeys := make([]ed25519.PrivateKey, numPeers)
-	var drngCommittee []string
-	for i := 0; i < numPeers; i++ {
-		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
-		if err != nil {
-			return nil, err
-		}
-
-		if i < numMembers {
-			drngCommittee = append(drngCommittee, pubKeys[i].String())
-		}
-	}
-
-	conf := PeerConfig()
-	conf.Activity.Enabled = true
-	conf.DRNG.Enabled = true
-	conf.DRNG.Custom.InstanceID = 111
-	conf.DRNG.Custom.Threshold = 3
-	conf.DRNG.Custom.DistributedPubKey = hex.EncodeToString(drng.distKey)
-	conf.DRNG.Custom.CommitteeMembers = drngCommittee
-
-	conf.MessageLayer.StartSynced = true
-
-	// create numPeers/GoShimmer nodes
-	for i := 0; i < numPeers; i++ {
-		conf.Seed = privKeys[i].Seed().Bytes()
-		if _, e := drng.CreatePeer(ctx, conf); e != nil {
-			return nil, e
-		}
-	}
-
-	err = drng.DoManualPeering(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "manual peering failed")
-	}
-	return drng, nil
 }
