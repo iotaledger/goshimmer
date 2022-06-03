@@ -4,10 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // EI is the ID of an epoch.
@@ -93,13 +90,4 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	}
 
 	return
-}
-
-type EpochStateDiff struct {
-	model.Storable[EI, epochStateDiff] `serix:"0"`
-}
-
-type epochStateDiff struct {
-	Spent   devnetvm.Outputs `serix:"0"`
-	Created devnetvm.Outputs `serix:"1"`
 }

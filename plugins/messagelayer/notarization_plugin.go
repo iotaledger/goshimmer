@@ -91,7 +91,7 @@ func runNotarizationPlugin(*node.Plugin) {
 func newNotarizationManager(deps *notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(deps.Storage, deps.VM),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.VM, deps.Tangle),
 		notarizationDeps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
 		notarization.Log(Plugin.Logger()))

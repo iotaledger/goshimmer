@@ -1,7 +1,10 @@
 package notarization
 
 import (
+	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/serix"
 	"sync"
 	"time"
 
@@ -68,7 +71,7 @@ type EpochCommitmentStorage struct {
 	ecStorage *objectstorage.ObjectStorage[*ECRecord]
 
 	// Delta storages
-	diffStores map[epoch.EI]*objectstorage.ObjectStorage[*epoch.EpochStateDiff]
+	diffStores map[epoch.EI]*diffStores
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -102,7 +105,13 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
+	new.diffStores = make(map[epoch.EI]*diffStores)
 	return new
+}
+
+type diffStores struct {
+	created *objectstorage.ObjectStorage[utxo.Output]
+	spent   *objectstorage.ObjectStorage[utxo.Output]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -122,21 +131,44 @@ func (s *EpochCommitmentStorage) specializeStore(baseStore kvstore.KVStore, pref
 	return specializedStore
 }
 
-func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *objectstorage.ObjectStorage[*epoch.EpochStateDiff] {
+func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *diffStores {
 	if store, exists := s.diffStores[ei]; exists {
 		return store
 	}
 
-	diffStore := s.specializeStore(s.baseStore, PrefixDiff)
-
-	s.diffStores[ei] = objectstorage.NewStructStorage[epoch.EpochStateDiff](
-		diffStore,
+	spentStore := objectstorage.NewInterfaceStorage[utxo.Output](
+		s.specializeStore(s.baseStore, PrefixSpentDiff),
+		outputFactory,
 		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
-
+	createStore := objectstorage.NewInterfaceStorage[utxo.Output](
+		s.specializeStore(s.baseStore, PrefixCreateDiff),
+		outputFactory,
+		s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
+		objectstorage.LeakDetectionEnabled(false),
+		objectstorage.StoreOnCreation(true),
+	)
+	s.diffStores[ei] = &diffStores{
+		created: createStore,
+		spent:   spentStore,
+	}
 	return s.diffStores[ei]
+}
+
+func outputFactory(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
+	var outputID utxo.OutputID
+	_, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation())
+	if err != nil {
+		return nil, err
+	}
+	out, err := devnetvm.OutputFromBytes(data)
+	if err != nil {
+		return nil, err
+	}
+	out.SetID(outputID)
+	return out, nil
 }
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +181,9 @@ const (
 
 	PrefixEC
 
-	PrefixDiff
+	PrefixSpentDiff
+
+	PrefixCreateDiff
 
 	PrefixTreeNodes
 

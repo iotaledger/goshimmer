@@ -160,21 +160,27 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 }
 
 func (m *Manager) updateStateLeafs(ei epoch.EI, tx *devnetvm.Transaction) {
-	for _, o := range tx.Essence().Outputs() {
-		err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
-		if err != nil && m.log != nil {
-			m.log.Error(err)
-		}
-	}
-	// remove spent outputs
-	outputs := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	outputsCreated := tx.Essence().Outputs()
 
-	for it := outputs.Iterator(); it.HasNext(); {
-		err := m.epochCommitmentFactory.RemoveStateLeaf(ei, it.Next())
-		if err != nil && m.log != nil {
-			m.log.Error(err)
+	// update the state root only if  ei is the next committable epoch
+	if ei == m.epochCommitmentFactory.lastCommittedEpoch+1 {
+		for _, o := range outputsCreated {
+			err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
+			if err != nil && m.log != nil {
+				m.log.Error(err)
+			}
+		}
+		// remove spent outputs
+		for it := outputsSpent.Iterator(); it.HasNext(); {
+			err := m.epochCommitmentFactory.RemoveStateLeaf(ei, it.Next())
+			if err != nil && m.log != nil {
+				m.log.Error(err)
+			}
 		}
 	}
+	// store outputs in the commitment diff storage
+	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {

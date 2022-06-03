@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"hash"
 	"sync"
 
@@ -65,12 +66,13 @@ type EpochCommitmentFactory struct {
 	// The state tree that always lags behind and gets the diffs applied to upon epoch commitment.
 	stateRootTree *smt.SparseMerkleTree
 
+	tangle     *tangle.Tangle
 	hasher     hash.Hash
 	ECMaxDepth uint64
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.Tangle) *EpochCommitmentFactory {
 	hasher, _ := blake2b.New256(nil)
 
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
@@ -79,6 +81,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM) *EpochCommitment
 		commitmentTrees: make(map[epoch.EI]*CommitmentTrees),
 		storage:         epochCommitmentStorage,
 		hasher:          hasher,
+		tangle:          tangle,
 		ECMaxDepth:      ECCreationMaxDepth, // TODO replace this with the snapshotting time parameter
 	}
 }
@@ -372,6 +375,21 @@ func (f *EpochCommitmentFactory) getStateRoot(ei epoch.EI) ([]byte, error) {
 		return []byte{}, errors.Errorf("getting the state root of not next committable epoch is not supported")
 	}
 	return f.stateRootTree.Root(), nil
+}
+
+func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
+	store := f.storage.getOrCreateDiffStore(ei)
+	for _, o := range created {
+		store.created.Store(o)
+	}
+	for it := spent.Iterator(); it.HasNext(); {
+		out := f.tangle.Ledger.Storage.CachedOutput(it.Next())
+		var outVM devnetvm.Output
+		out.Consume(func(out utxo.Output) {
+			outVM = out.(devnetvm.Output)
+		})
+		store.spent.Store(outVM)
+	}
 }
 
 type CommitmentProof struct {
