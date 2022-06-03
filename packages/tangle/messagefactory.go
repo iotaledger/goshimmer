@@ -119,33 +119,10 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 
 	issuerPublicKey := f.localIdentity.PublicKey()
 
-	// do the PoW
-	startTime := time.Now()
-	var errPoW error
-	var nonce uint64
-	var issuingTime time.Time
-
-	strongParents := references[StrongParentType]
-
-	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
-		_, txOk := p.(utxo.Transaction)
-		if len(references) == 0 && (len(strongParents) == 0 || !txOk) {
-			if strongParents, err = f.tips(p, parentsCount); err != nil {
-				return nil, errors.Errorf("tips could not be selected: %w", err)
-			}
-		}
-		issuingTime = f.getIssuingTime(strongParents)
-		if len(references) == 0 {
-			references, err = f.referencesFunc(p, strongParents, issuingTime)
-			if err != nil {
-				return nil, errors.Errorf("references could not be prepared: %w", err)
-			}
-		}
-		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
-	}
-
-	if errPoW != nil {
-		return nil, errors.Errorf("pow failed: %w", errPoW)
+	// select tips, perform PoW and prepare references
+	references, nonce, issuingTime, err := f.selectTipsAndPerformPoW(p, references, parentsCount, issuerPublicKey, sequenceNumber)
+	if err != nil {
+		return nil, errors.Errorf("could not select tips and perform PoW: %w", err)
 	}
 
 	// create the signature
@@ -171,6 +148,41 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 	return msg, nil
 }
 
+func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences ParentMessageIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64) (references ParentMessageIDs, nonce uint64, issuingTime time.Time, err error) {
+	references = NewParentMessageIDs()
+
+	// Perform PoW with given information if there are references provided.
+	if !providedReferences.IsEmpty() {
+		issuingTime = f.getIssuingTime(providedReferences[StrongParentType])
+		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		if err != nil {
+			return references, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
+		}
+		return references, nonce, issuingTime, nil
+	}
+
+	// TODO: once we get rid of PoW we need to set another timeout here that allows to specify for how long we try to select tips if there are no valid references.
+	//   This in turn should remove the invalid references from the tips bit by bit until there are valid strong parents again.
+	startTime := time.Now()
+	for run := true; run; run = err != nil && time.Since(startTime) < f.powTimeout {
+		strongParents := f.tips(p, parentsCount)
+		issuingTime = f.getIssuingTime(strongParents)
+		references, err = f.referencesFunc(p, strongParents, issuingTime)
+		// If none of the strong parents are possible references, we have to try again.
+		if err != nil {
+			f.Events.Error.Trigger(errors.Errorf("references could not be created: %w", err))
+			continue
+		}
+		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+	}
+
+	if err != nil {
+		return nil, 0, time.Time{}, errors.Errorf("pow failed: %w", err)
+	}
+
+	return references, nonce, issuingTime, nil
+}
+
 func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	issuingTime := clock.SyncedTime()
 
@@ -187,26 +199,23 @@ func (f *MessageFactory) getIssuingTime(parents MessageIDs) time.Time {
 	return issuingTime
 }
 
-func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs, err error) {
-	parents, err = f.selector.Tips(p, parentsCount)
-	if err != nil {
-		err = errors.Errorf("tips could not be selected: %w", err)
-	}
+func (f *MessageFactory) tips(p payload.Payload, parentsCount int) (parents MessageIDs) {
+	parents = f.selector.Tips(p, parentsCount)
 
 	tx, ok := p.(utxo.Transaction)
 	if !ok {
-		return parents, nil
+		return parents
 	}
 
 	// If the message is issuing a transaction and is a double spend, we add it in parallel to the earliest attachment
 	// to prevent a double spend from being issued in its past cone.
 	if conflictingTransactions := f.tangle.Ledger.Utils.ConflictingTransactions(tx.ID()); !conflictingTransactions.IsEmpty() {
 		if earliestAttachment := f.EarliestAttachment(conflictingTransactions); earliestAttachment != nil {
-			return earliestAttachment.ParentsByType(StrongParentType), nil
+			return earliestAttachment.ParentsByType(StrongParentType)
 		}
 	}
 
-	return parents, nil
+	return parents
 }
 
 func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) (earliestAttachment *Message) {
@@ -282,7 +291,7 @@ func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time
 
 // A TipSelector selects two tips, parent2 and parent1, for a new message to attach to.
 type TipSelector interface {
-	Tips(p payload.Payload, countParents int) (parents MessageIDs, err error)
+	Tips(p payload.Payload, countParents int) (parents MessageIDs)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -290,10 +299,10 @@ type TipSelector interface {
 // region TipSelectorFunc //////////////////////////////////////////////////////////////////////////////////////////////
 
 // The TipSelectorFunc type is an adapter to allow the use of ordinary functions as tip selectors.
-type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs, err error)
+type TipSelectorFunc func(p payload.Payload, countParents int) (parents MessageIDs)
 
 // Tips calls f().
-func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (f TipSelectorFunc) Tips(p payload.Payload, countParents int) (parents MessageIDs) {
 	return f(p, countParents)
 }
 

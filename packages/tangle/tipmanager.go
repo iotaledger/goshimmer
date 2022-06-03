@@ -337,7 +337,7 @@ func (t *TipManager) removeStrongParents(message *Message) {
 }
 
 // Tips returns count number of tips, maximum MaxParentsCount.
-func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs, err error) {
+func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageIDs) {
 	if countParents > MaxParentsCount {
 		countParents = MaxParentsCount
 	}
@@ -345,8 +345,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 		countParents = MinParentsCount
 	}
 
-	// select parents
-	return t.selectTips(p, countParents), nil
+	return t.selectTips(p, countParents)
 }
 
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {

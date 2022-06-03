@@ -26,16 +26,14 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 
 	// without any tip -> genesis
 	{
-		parents, err := tipManager.Tips(nil, 2)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, EmptyMessageID)
 	}
 
 	// without any count -> 1 tip, in this case genesis
 	{
-		parents, err := tipManager.Tips(nil, 0)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 0)
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, EmptyMessageID)
 	}
@@ -49,8 +47,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
 
-		parents, err := tipManager.Tips(nil, 2)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, messages["1"].ID())
 	}
@@ -63,8 +60,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Equal(t, 2, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID(), messages["2"].ID())
 
-		parents, err := tipManager.Tips(nil, 3)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 3)
 		assert.Len(t, parents, 2)
 		assert.Contains(t, parents, messages["1"].ID(), messages["2"].ID())
 	}
@@ -77,8 +73,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
 
-		parents, err := tipManager.Tips(nil, 2)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 2)
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, messages["3"].ID())
 	}
@@ -102,20 +97,17 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 	// now we have 6 tips
 	// Tips(4) -> 4
 	{
-		parents, err := tipManager.Tips(nil, 4)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 4)
 		assert.Len(t, parents, 4)
 	}
 	// Tips(8) -> 6
 	{
-		parents, err := tipManager.Tips(nil, 8)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 8)
 		assert.Len(t, parents, 6)
 	}
 	// Tips(0) -> 1
 	{
-		parents, err := tipManager.Tips(nil, 0)
-		assert.NoError(t, err)
+		parents := tipManager.Tips(nil, 0)
 		assert.Len(t, parents, 1)
 	}
 }

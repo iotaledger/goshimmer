@@ -38,8 +38,8 @@ func TestMessageFactory_BuildMessage(t *testing.T) {
 
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
-			return NewMessageIDs(EmptyMessageID), nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs) {
+			return NewMessageIDs(EmptyMessageID)
 		}),
 		emptyLikeReferences,
 	)
@@ -132,8 +132,8 @@ func TestMessageFactory_POW(t *testing.T) {
 
 	msgFactory := NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
-			return NewMessageIDs(EmptyMessageID), nil
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs) {
+			return NewMessageIDs(EmptyMessageID)
 		}),
 		emptyLikeReferences,
 	)
