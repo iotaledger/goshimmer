@@ -71,7 +71,7 @@ type EpochCommitmentStorage struct {
 	ecStorage *objectstorage.ObjectStorage[*ECRecord]
 
 	// Delta storages
-	diffStores map[epoch.EI]*diffStores
+	diffStores map[epoch.EI]*epoch.DiffStores
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -105,13 +105,8 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.diffStores = make(map[epoch.EI]*diffStores)
+	new.diffStores = make(map[epoch.EI]*epoch.DiffStores)
 	return new
-}
-
-type diffStores struct {
-	created *objectstorage.ObjectStorage[utxo.Output]
-	spent   *objectstorage.ObjectStorage[utxo.Output]
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -131,7 +126,7 @@ func (s *EpochCommitmentStorage) specializeStore(baseStore kvstore.KVStore, pref
 	return specializedStore
 }
 
-func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *diffStores {
+func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *epoch.DiffStores {
 	if store, exists := s.diffStores[ei]; exists {
 		return store
 	}
@@ -150,9 +145,9 @@ func (s *EpochCommitmentStorage) getOrCreateDiffStore(ei epoch.EI) *diffStores {
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
-	s.diffStores[ei] = &diffStores{
-		created: createStore,
-		spent:   spentStore,
+	s.diffStores[ei] = &epoch.DiffStores{
+		Created: createStore,
+		Spent:   spentStore,
 	}
 	return s.diffStores[ei]
 }

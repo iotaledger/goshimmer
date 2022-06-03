@@ -380,7 +380,7 @@ func (f *EpochCommitmentFactory) getStateRoot(ei epoch.EI) ([]byte, error) {
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
 	store := f.storage.getOrCreateDiffStore(ei)
 	for _, o := range created {
-		store.created.Store(o)
+		store.Created.Store(o)
 	}
 	for it := spent.Iterator(); it.HasNext(); {
 		out := f.tangle.Ledger.Storage.CachedOutput(it.Next())
@@ -388,7 +388,7 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 		out.Consume(func(out utxo.Output) {
 			outVM = out.(devnetvm.Output)
 		})
-		store.spent.Store(outVM)
+		store.Spent.Store(outVM)
 	}
 }
 

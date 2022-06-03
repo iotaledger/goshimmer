@@ -1,6 +1,8 @@
 package epoch
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"sync"
 	"time"
 
@@ -90,4 +92,9 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	}
 
 	return
+}
+
+type DiffStores struct {
+	Created *objectstorage.ObjectStorage[utxo.Output]
+	Spent   *objectstorage.ObjectStorage[utxo.Output]
 }
