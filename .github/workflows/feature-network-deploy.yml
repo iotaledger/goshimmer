@@ -76,7 +76,6 @@ jobs:
           GRAFANA_ADMIN_PASSWORD: '${{ secrets.GRAFANA_ADMIN_PASSWORD }}'
           ELK_ELASTIC_PASSWORD: '${{ secrets.ELK_ELASTIC_PASSWORD }}'
           ELK_ELASTIC_USER: '${{ secrets.ELK_ELASTIC_USER }}'
-          DRANDS_SECRET: '${{ secrets.DRANDS_SECRET }}'
           COMMIT_SHA: '${{ github.sha }}'
           GOSHIMMER_DOCKER_IMAGE: 'iotaledgertesting/goshimmer'
           GOSHIMMER_DOCKER_TAG: 'feature'
