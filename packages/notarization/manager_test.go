@@ -63,5 +63,5 @@ func TestManager_GetLatestEC(t *testing.T) {
 func testNotarizationManager() *Manager {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	interval := int64(5 * 60)
-	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(), tangle.NewTestTangle(), MinCommitableEpochAge(10*time.Minute))
+	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(), tangle.NewTestTangle(), MinCommittableEpochAge(10*time.Minute))
 }
