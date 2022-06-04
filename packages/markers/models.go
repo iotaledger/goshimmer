@@ -558,11 +558,10 @@ type Sequence struct {
 }
 
 type sequenceModel struct {
-	ReferencedMarkers           *ReferencedMarkers  `serix:"0"`
-	ReferencingMarkers          *ReferencingMarkers `serix:"1"`
-	VerticesWithoutFutureMarker uint64              `serix:"2"`
-	LowestIndex                 Index               `serix:"3"`
-	HighestIndex                Index               `serix:"4"`
+	ReferencedMarkers  *ReferencedMarkers  `serix:"0"`
+	ReferencingMarkers *ReferencingMarkers `serix:"1"`
+	LowestIndex        Index               `serix:"2"`
+	HighestIndex       Index               `serix:"3"`
 }
 
 // NewSequence creates a new Sequence from the given details.
@@ -756,14 +755,12 @@ type structureDetailsModel struct {
 	PastMarkerGap uint64   `serix:"1"`
 	IsPastMarker  bool     `serix:"2"`
 	PastMarkers   *Markers `serix:"3"`
-	FutureMarkers *Markers `serix:"4"`
 }
 
 // NewStructureDetails creates an empty StructureDetails object.
 func NewStructureDetails() (newStructureDetails *StructureDetails) {
 	return &StructureDetails{model.New(structureDetailsModel{
-		PastMarkers:   NewMarkers(),
-		FutureMarkers: NewMarkers(),
+		PastMarkers: NewMarkers(),
 	})}
 }
 
@@ -823,20 +820,6 @@ func (m *StructureDetails) SetPastMarkers(pastMarkers *Markers) {
 	m.M.PastMarkers = pastMarkers
 }
 
-func (m *StructureDetails) FutureMarkers() (futureMarkers *Markers) {
-	m.RLock()
-	defer m.RUnlock()
-
-	return m.M.FutureMarkers
-}
-
-func (m *StructureDetails) SetFutureMarkers(futureMarkers *Markers) {
-	m.Lock()
-	defer m.Unlock()
-
-	m.M.FutureMarkers = futureMarkers
-}
-
 // Clone creates a deep copy of the StructureDetails.
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
 	return &StructureDetails{model.New(structureDetailsModel{
@@ -844,7 +827,6 @@ func (m *StructureDetails) Clone() (clone *StructureDetails) {
 		PastMarkerGap: m.PastMarkerGap(),
 		IsPastMarker:  m.IsPastMarker(),
 		PastMarkers:   m.PastMarkers().Clone(),
-		FutureMarkers: m.FutureMarkers().Clone(),
 	})}
 }
 
