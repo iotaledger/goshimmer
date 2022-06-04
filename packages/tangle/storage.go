@@ -347,17 +347,15 @@ func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallb
 
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
-		genesisMetadata :=
-			&MessageMetadata{
-				model.NewStorable[MessageID, messageMetadataModel](messageMetadataModel{
-					AddedBranchIDs:      utxo.NewTransactionIDs(),
-					SubtractedBranchIDs: utxo.NewTransactionIDs(),
-					SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-					Solid:               true,
-					StructureDetails:    markers.NewStructureDetails(),
-					Scheduled:           true,
-					Booked:              true,
-				})}
+		genesisMetadata := model.NewStorable[MessageID, MessageMetadata](&messageMetadataModel{
+			AddedBranchIDs:      utxo.NewTransactionIDs(),
+			SubtractedBranchIDs: utxo.NewTransactionIDs(),
+			SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			Solid:               true,
+			StructureDetails:    markers.NewStructureDetails(),
+			Scheduled:           true,
+			Booked:              true,
+		})
 		genesisMetadata.SetID(EmptyMessageID)
 		return genesisMetadata
 	}).Release()
@@ -616,16 +614,16 @@ func (a *Attachment) MessageID() MessageID {
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	model.Storable[MessageID, time.Time] `serix:"0"`
+	model.Storable[MessageID, MissingMessage, *MissingMessage, time.Time] `serix:"0"`
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
-	missingMessage := &MissingMessage{
-		model.NewStorable[MessageID, time.Time](
-			time.Now(),
-		),
-	}
+	time := time.Now()
+	missingMessage := model.NewStorable[MessageID, MissingMessage](
+		&time,
+	)
+
 	missingMessage.SetID(messageID)
 	return missingMessage
 }

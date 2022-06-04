@@ -27,16 +27,14 @@ func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
 
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
-	model.Storable[markers.SequenceID, *markerIndexBranchIDMap] `serix:"0"`
+	model.Storable[markers.SequenceID, MarkerIndexBranchIDMapping, *MarkerIndexBranchIDMapping, markerIndexBranchIDMap] `serix:"0"`
 }
 
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
-	markerBranchMapping = &MarkerIndexBranchIDMapping{
-		model.NewStorable[markers.SequenceID, *markerIndexBranchIDMap](
-			newMarkerIndexBranchIDMap(),
-		),
-	}
+	markerBranchMapping = model.NewStorable[markers.SequenceID, MarkerIndexBranchIDMapping](
+		newMarkerIndexBranchIDMap(),
+	)
 	markerBranchMapping.SetID(sequenceID)
 	return
 }
@@ -113,14 +111,12 @@ var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.Seque
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
-	model.Storable[markers.Marker, MessageID] `serix:"0"`
+	model.Storable[markers.Marker, MarkerMessageMapping, *MarkerMessageMapping, MessageID] `serix:"0"`
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
 func NewMarkerMessageMapping(marker markers.Marker, messageID MessageID) *MarkerMessageMapping {
-	markerMessageMapping := &MarkerMessageMapping{
-		model.NewStorable[markers.Marker, MessageID](messageID),
-	}
+	markerMessageMapping := model.NewStorable[markers.Marker, MarkerMessageMapping](&messageID)
 	markerMessageMapping.SetID(marker)
 	return markerMessageMapping
 }

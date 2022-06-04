@@ -22,14 +22,13 @@ import (
 
 // BranchWeight is a data structure that tracks the weight of a BranchID.
 type BranchWeight struct {
-	model.Storable[utxo.TransactionID, float64] `serix:"0"`
+	model.Storable[utxo.TransactionID, BranchWeight, *BranchWeight, float64] `serix:"0"`
 }
 
 // NewBranchWeight creates a new BranchWeight.
 func NewBranchWeight(branchID utxo.TransactionID) (branchWeight *BranchWeight) {
-	branchWeight = &BranchWeight{
-		model.NewStorable[utxo.TransactionID, float64](0.0),
-	}
+	weight := 0.0
+	branchWeight = model.NewStorable[utxo.TransactionID, BranchWeight](&weight)
 	branchWeight.SetID(branchID)
 	return
 }
@@ -148,14 +147,12 @@ func (v *Voters) String() string {
 
 // BranchVoters is a data structure that tracks which nodes support a branch.
 type BranchVoters struct {
-	model.Storable[utxo.TransactionID, *Voters] `serix:"0"`
+	model.Storable[utxo.TransactionID, BranchVoters, *BranchVoters, Voters] `serix:"0"`
 }
 
 // NewBranchVoters is the constructor for the BranchVoters object.
 func NewBranchVoters(branchID utxo.TransactionID) (branchVoters *BranchVoters) {
-	branchVoters = &BranchVoters{
-		model.NewStorable[utxo.TransactionID, *Voters](NewVoters()),
-	}
+	branchVoters = model.NewStorable[utxo.TransactionID, BranchVoters](NewVoters())
 	branchVoters.SetID(branchID)
 	return
 }
@@ -357,7 +354,7 @@ func (c CachedLatestMarkerVotesByVoter) Consume(consumer func(latestMarkerVotes 
 
 // LatestBranchVotes represents the branch supported from an Issuer.
 type LatestBranchVotes struct {
-	model.Storable[Voter, latestBranchVotesModel] `serix:"0"`
+	model.Storable[Voter, LatestBranchVotes, *LatestBranchVotes, latestBranchVotesModel] `serix:"0"`
 }
 
 type latestBranchVotesModel struct {
@@ -366,13 +363,11 @@ type latestBranchVotesModel struct {
 
 // NewLatestBranchVotes creates a new LatestBranchVotes.
 func NewLatestBranchVotes(voter Voter) (latestBranchVotes *LatestBranchVotes) {
-	latestBranchVotes = &LatestBranchVotes{
-		model.NewStorable[Voter, latestBranchVotesModel](
-			latestBranchVotesModel{
-				LatestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
-			},
-		),
-	}
+	latestBranchVotes = model.NewStorable[Voter, LatestBranchVotes](
+		&latestBranchVotesModel{
+			LatestBranchVotes: make(map[utxo.TransactionID]*BranchVote),
+		},
+	)
 	latestBranchVotes.SetID(voter)
 	return
 }
@@ -408,7 +403,7 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 
 // BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
 type BranchVote struct {
-	model.Model[branchVoteModel] `serix:"0"`
+	model.Model[BranchVote, *BranchVote, branchVoteModel] `serix:"0"`
 }
 
 type branchVoteModel struct {
@@ -420,48 +415,42 @@ type branchVoteModel struct {
 
 // NewBranchVote derives a vote for th.
 func NewBranchVote(voter Voter, votePower VotePower, branchID utxo.TransactionID, opinion Opinion) (voteWithOpinion *BranchVote) {
-	return &BranchVote{
-		model.New[branchVoteModel](
-			branchVoteModel{
-				Voter:     voter,
-				VotePower: votePower,
-				BranchID:  branchID,
-				Opinion:   opinion,
-			},
-		),
-	}
+	return model.New[BranchVote](
+		&branchVoteModel{
+			Voter:     voter,
+			VotePower: votePower,
+			BranchID:  branchID,
+			Opinion:   opinion,
+		},
+	)
 }
 
 // WithOpinion derives a vote for the given Opinion.
 func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return &BranchVote{
-		model.New[branchVoteModel](
-			branchVoteModel{
-				Voter:     v.M.Voter,
-				BranchID:  v.M.BranchID,
-				Opinion:   opinion,
-				VotePower: v.M.VotePower,
-			},
-		),
-	}
+	return model.New[BranchVote](
+		&branchVoteModel{
+			Voter:     v.M.Voter,
+			BranchID:  v.M.BranchID,
+			Opinion:   opinion,
+			VotePower: v.M.VotePower,
+		},
+	)
 }
 
 // WithBranchID derives a vote for the given BranchID.
 func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return &BranchVote{
-		model.New[branchVoteModel](
-			branchVoteModel{
-				Voter:     v.M.Voter,
-				BranchID:  branchID,
-				Opinion:   v.M.Opinion,
-				VotePower: v.M.VotePower,
-			},
-		),
-	}
+	return model.New[BranchVote](
+		&branchVoteModel{
+			Voter:     v.M.Voter,
+			BranchID:  branchID,
+			Opinion:   v.M.Opinion,
+			VotePower: v.M.VotePower,
+		},
+	)
 }
 
 func (v *BranchVote) Voter() Voter {

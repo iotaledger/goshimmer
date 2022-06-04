@@ -11,7 +11,7 @@ import (
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Conflict[ConflictID, ConflictSetID comparable] struct {
-	model.Storable[ConflictID, conflict[ConflictID, ConflictSetID]] `serix:"0"`
+	model.Storable[ConflictID, Conflict[ConflictID, ConflictSetID], *Conflict[ConflictID, ConflictSetID], conflict[ConflictID, ConflictSetID]] `serix:"0"`
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
@@ -26,14 +26,18 @@ type conflict[ConflictID, ConflictSetID comparable] struct {
 }
 
 func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
-	new = &Conflict[ConflictID, ConflictSetID]{model.NewStorable[ConflictID](conflict[ConflictID, ConflictSetID]{
+	new = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
 		Parents:        parents,
 		ConflictIDs:    conflicts,
 		InclusionState: Pending,
-	})}
+	})
 	new.SetID(id)
 
 	return new
+}
+
+// Init initializes the object.
+func (b *Conflict[ConflictID, ConflictSetID]) Init(_ *conflict[ConflictID, ConflictSetID]) {
 }
 
 // Parents returns the parent BranchIDs that this Conflict depends on.
