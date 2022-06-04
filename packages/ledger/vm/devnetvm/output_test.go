@@ -162,8 +162,8 @@ func TestAliasOutputFromMarshalUtil(t *testing.T) {
 		originBytes := lo.PanicOnErr(originAlias.Bytes())
 		// manually change output type byte
 		originBytes[0] = 1
-		marshalUtil := marshalutil.New(originBytes)
-		_, err := new(AliasOutput).FromMarshalUtil(marshalUtil)
+		restoredAlias := new(AliasOutput)
+		err := restoredAlias.FromBytes(originBytes)
 		assert.Error(t, err)
 	})
 
@@ -380,8 +380,8 @@ func TestAliasOutput_Bytes(t *testing.T) {
 	t.Run("Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		aBytes := lo.PanicOnErr(alias.Bytes())
-		mUtil := marshalutil.New(aBytes)
-		restoredAlias, err := new(AliasOutput).FromMarshalUtil(mUtil)
+		restoredAlias := new(AliasOutput)
+		err := restoredAlias.FromBytes(aBytes)
 		assert.NoError(t, err)
 		assert.True(t, alias.GetAliasAddress().Equals(restoredAlias.GetAliasAddress()))
 		assert.True(t, alias.GetStateAddress().Equals(restoredAlias.GetStateAddress()))
@@ -399,8 +399,8 @@ func TestAliasOutput_Compare(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		alias := dummyAliasOutput()
 		aBytes := lo.PanicOnErr(alias.Bytes())
-		mUtil := marshalutil.New(aBytes)
-		restoredAlias, err := new(AliasOutput).FromMarshalUtil(mUtil)
+		restoredAlias := new(AliasOutput)
+		err := restoredAlias.FromBytes(aBytes)
 		assert.NoError(t, err)
 		assert.True(t, alias.Compare(restoredAlias) == 0)
 	})
@@ -2006,7 +2006,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		outputBytes := lo.PanicOnErr(output.Bytes())
 		marshalUtil := marshalutil.New(outputBytes)
-		restored, err := new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil)
+		restored, err := new(ExtendedLockedOutput).fromMarshalUtil(marshalUtil)
 		assert.NoError(t, err)
 		assert.Equal(t, len(outputBytes), marshalUtil.ReadOffset())
 		assert.Equal(t, outputBytes, lo.PanicOnErr(restored.Bytes()))
@@ -2017,7 +2017,7 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 		outputBytes := lo.PanicOnErr(output.Bytes())
 		outputBytes[0] = byte(AliasOutputType)
 		marshalUtil := marshalutil.New(outputBytes)
-		_, err := new(ExtendedLockedOutput).FromMarshalUtil(marshalUtil)
+		_, err := new(ExtendedLockedOutput).fromMarshalUtil(marshalUtil)
 		t.Log(err)
 		assert.Error(t, err)
 	})

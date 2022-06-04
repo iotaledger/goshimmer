@@ -331,7 +331,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Storable[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -341,11 +341,11 @@ type sigLockedSingleOutput struct {
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return &SigLockedSingleOutput{model.NewStorable[utxo.OutputID](
-		sigLockedSingleOutput{
+	return model.NewStorable[utxo.OutputID, SigLockedSingleOutput](
+		&sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
-		})}
+		})
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -424,38 +424,38 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
-func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (err error) {
-	s.Lock()
-	defer s.Unlock()
+//func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (err error) {
+//	s.Lock()
+//	defer s.Unlock()
+//
+//	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
+//	return
+//}
+//
+//func (s *SigLockedSingleOutput) FromObjectStorage(key, data []byte) (err error) {
+//	if err = s.IDFromBytes(key); err != nil {
+//		return errors.Errorf("failed to decode ID: %w", err)
+//	}
+//
+//	if err = s.FromBytes(data); err != nil {
+//		return errors.Errorf("failed to decode Model: %w", err)
+//	}
+//
+//	return nil
+//}
 
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
-	return
-}
-
-func (s *SigLockedSingleOutput) FromObjectStorage(key, data []byte) (err error) {
-	if err = s.IDFromBytes(key); err != nil {
-		return errors.Errorf("failed to decode ID: %w", err)
-	}
-
-	if err = s.FromBytes(data); err != nil {
-		return errors.Errorf("failed to decode Model: %w", err)
-	}
-
-	return nil
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (s *SigLockedSingleOutput) ObjectStorageValue() (value []byte) {
-	return lo.PanicOnErr(s.Bytes())
-}
-
-func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
-	s.RLock()
-	defer s.RUnlock()
-
-	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-}
+//// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
+//// a key in the ObjectStorage.
+//func (s *SigLockedSingleOutput) ObjectStorageValue() (value []byte) {
+//	return lo.PanicOnErr(s.Bytes())
+//}
+//
+//func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
+//	s.RLock()
+//	defer s.RUnlock()
+//
+//	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
+//}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -464,7 +464,7 @@ func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Storable[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -473,11 +473,11 @@ type sigLockedColoredOutput struct {
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return &SigLockedColoredOutput{model.NewStorable[utxo.OutputID](
-		sigLockedColoredOutput{
+	return model.NewStorable[utxo.OutputID, SigLockedColoredOutput](
+		&sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,
-		})}
+		})
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -711,7 +711,7 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 
 func (a *AliasOutput) Decode(b []byte) (int, error) {
 	marshalUtil := marshalutil.New(b)
-	if _, err := a.FromMarshalUtil(marshalUtil); err != nil {
+	if _, err := a.fromMarshalUtil(marshalUtil); err != nil {
 		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
 	}
 
@@ -721,7 +721,6 @@ func (a *AliasOutput) Decode(b []byte) (int, error) {
 func (a *AliasOutput) Encode() ([]byte, error) {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
-		WriteByte(byte(AliasOutputType)).
 		WriteByte(byte(flags)).
 		WriteBytes(a.aliasAddress.Bytes()).
 		WriteBytes(a.balances.Bytes()).
@@ -749,17 +748,15 @@ func (a *AliasOutput) Encode() ([]byte, error) {
 }
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
-func (a *AliasOutput) FromObjectStorage(key, bytes []byte) error {
-	_, err := a.Decode(bytes)
-	if err != nil {
-		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
-		return err
+func (a *AliasOutput) FromObjectStorage(key, data []byte) (err error) {
+
+	if err = a.FromBytes(data); err != nil {
+		return errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
 	}
 
 	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return err
+		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
 	a.SetID(outputID)
 
@@ -773,22 +770,30 @@ func (a *AliasOutput) ObjectStorageKey() []byte {
 
 // ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
-	return lo.PanicOnErr(a.Encode())
+	return lo.PanicOnErr(a.Bytes())
 }
 
-// FromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
-func (a *AliasOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *AliasOutput, err error) {
+// FromBytes creates an AliasOutput from sequences of bytes.
+func (a *AliasOutput) FromBytes(data []byte) error {
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, a, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
+		return err
+	}
+
+	if len(data) != consumedBytes {
+		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
+	}
+
+	return nil
+}
+
+// fromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func (a *AliasOutput) fromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *AliasOutput, err error) {
 	if output = a; output == nil {
 		output = new(AliasOutput)
 	}
 
-	outputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, errors.Errorf("aliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-	if OutputType(outputType) != AliasOutputType {
-		return nil, errors.Errorf("aliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-	}
 	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
@@ -1118,7 +1123,7 @@ func (a *AliasOutput) Input() Input {
 
 // Bytes serialized form.
 func (a *AliasOutput) Bytes() ([]byte, error) {
-	return a.ObjectStorageValue(), nil
+	return serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
 }
 
 // String human readable form.
@@ -1597,7 +1602,7 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 
 func (o *ExtendedLockedOutput) Decode(b []byte) (int, error) {
 	marshalUtil := marshalutil.New(b)
-	if _, err := o.FromMarshalUtil(marshalUtil); err != nil {
+	if _, err := o.fromMarshalUtil(marshalUtil); err != nil {
 		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
 	}
 
@@ -1607,7 +1612,6 @@ func (o *ExtendedLockedOutput) Decode(b []byte) (int, error) {
 func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 	flags := o.compressFlags()
 	ret := marshalutil.New().
-		WriteByte(byte(ExtendedLockedOutputType)).
 		WriteBytes(o.balances.Bytes()).
 		WriteBytes(o.address.Bytes()).
 		WriteByte(byte(flags))
@@ -1626,17 +1630,14 @@ func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 }
 
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
-func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) error {
-	_, err := o.Decode(value)
-	if err != nil {
-		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
-		return err
+func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (err error) {
+	if err = o.FromBytes(value); err != nil {
+		return errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
 	}
 
 	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return err
+		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
 	o.SetID(outputID)
 
@@ -1650,23 +1651,28 @@ func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
 
 // ObjectStorageValue binary form.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
-	return lo.PanicOnErr(o.Encode())
+	return lo.PanicOnErr(o.Bytes())
 }
 
-// FromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
-func (o *ExtendedLockedOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
-	if output = o; output == nil {
-		output = new(ExtendedLockedOutput)
+// FromBytes creates an AliasOutput from sequences of bytes.
+func (o *ExtendedLockedOutput) FromBytes(data []byte) error {
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
+		return err
 	}
 
-	outputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	if len(data) != consumedBytes {
+		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
 	}
-	if OutputType(outputType) != ExtendedLockedOutputType {
-		err = errors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
+
+	return nil
+}
+
+// fromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
+func (o *ExtendedLockedOutput) fromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
+	if output = o; output == nil {
+		output = new(ExtendedLockedOutput)
 	}
 
 	balances, bytesRead, err := ColoredBalancesFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
