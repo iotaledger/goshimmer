@@ -52,7 +52,6 @@ export class Message {
     isPastMarker: boolean;
     pastMarkerGap: number;
     pastMarkers: string;
-    futureMarkers: string;
 }
 
 export class AddressResult {
