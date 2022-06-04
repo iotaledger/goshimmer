@@ -123,6 +123,10 @@ func (t *Tangle) Setup() {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
 	}))
 
+	t.MessageFactory.ReferenceProvider.Events.Error.Attach(event.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in ReferenceProvider: %w", err))
+	}))
+
 	t.Booker.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in booker: %w", err))
 	}))

@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -94,6 +95,15 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 	}
 
 	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime); err != nil {
+		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
+		r.Events.ReferenceImpossible.Trigger(msgID)
+		return nil, false
+	}
+
+	fmt.Println("addedReferencesForMessage", msgID, addedReferences)
+	// A message might introduce too many references and cannot be picked up as a strong parent.
+	if _, success := r.tryExtendReferences(NewParentMessageIDs(), addedReferences); !success {
+		fmt.Println("too many references for", msgID)
 		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
 		r.Events.ReferenceImpossible.Trigger(msgID)
 		return nil, false

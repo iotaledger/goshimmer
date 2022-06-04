@@ -150,6 +150,7 @@ func (t *TipManager) Setup() {
 
 	// Hook into this so that next time we try to select tips, the parents are already removed.
 	t.tangle.MessageFactory.ReferenceProvider.Events.ReferenceImpossible.Hook(event.NewClosure(func(msgID MessageID) {
+		fmt.Println("TipManager: ReferenceImpossible hook", msgID)
 		t.tangle.Storage.Message(msgID).Consume(t.reAddParents)
 	}))
 }
