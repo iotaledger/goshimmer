@@ -9,7 +9,7 @@ import (
 
 // AccessBaseMana holds information about the access base mana values of a single node.
 type AccessBaseMana struct {
-	model.Model[accessBaseManaModel] `serix:"0"`
+	model.Model[AccessBaseMana, *AccessBaseMana, accessBaseManaModel] `serix:"0"`
 }
 
 type accessBaseManaModel struct {
@@ -20,11 +20,11 @@ type accessBaseManaModel struct {
 
 // NewAccessBaseMana returns new base access mana vector.
 func NewAccessBaseMana(baseMana, effectiveBaseMana float64, lastUpdated time.Time) (newAccessBaseMana *AccessBaseMana) {
-	return &AccessBaseMana{model.New[accessBaseManaModel](accessBaseManaModel{
+	return model.New[AccessBaseMana](&accessBaseManaModel{
 		BaseValue:      baseMana,
 		EffectiveValue: effectiveBaseMana,
 		LastUpdate:     lastUpdated,
-	})}
+	})
 }
 
 // EffectiveValue returns effective base mana value.

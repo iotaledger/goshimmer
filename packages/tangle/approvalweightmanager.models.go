@@ -98,16 +98,6 @@ func (v *Voters) Clone() (clonedVoters *Voters) {
 	return
 }
 
-// Encode returns a serialized byte slice of the object.
-func (v *Voters) Encode() ([]byte, error) {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), v.Set, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes, nil
-}
-
 // Decode deserializes bytes into a valid object.
 func (v *Voters) Decode(data []byte) (bytesRead int, err error) {
 

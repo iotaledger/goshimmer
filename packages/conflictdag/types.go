@@ -36,10 +36,6 @@ func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID,
 	return new
 }
 
-// Init initializes the object.
-func (b *Conflict[ConflictID, ConflictSetID]) Init(_ *conflict[ConflictID, ConflictSetID]) {
-}
-
 // Parents returns the parent BranchIDs that this Conflict depends on.
 func (b *Conflict[ConflictID, ConflictSetID]) Parents() (parents *set.AdvancedSet[ConflictID]) {
 	b.RLock()
