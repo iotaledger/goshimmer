@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 
@@ -18,7 +17,6 @@ func TestMarkerIndexBranchIDMapping_Serialization(t *testing.T) {
 	m.SetBranchIDs(10, utxo.NewTransactionIDs(txID))
 
 	restored := new(MarkerIndexBranchIDMapping)
-	fmt.Println("restored:", restored)
 	err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
 	assert.NoError(t, err)
 	assert.Equal(t, m.BranchIDs(11), restored.BranchIDs(11))

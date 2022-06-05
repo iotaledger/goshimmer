@@ -14,7 +14,7 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	*thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
+	T *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
@@ -49,7 +49,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 	m.RLock()
 	defer m.RUnlock()
 
-	value, exists := m.M.Get(markerIndex)
+	value, exists := m.M.T.Get(markerIndex)
 	if !exists {
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
@@ -62,7 +62,7 @@ func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs
 	m.Lock()
 	defer m.Unlock()
 
-	m.M.Set(index, branchIDs)
+	m.M.T.Set(index, branchIDs)
 	m.SetModified()
 }
 
@@ -71,7 +71,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.M.Delete(index)
+	m.M.T.Delete(index)
 	m.SetModified()
 }
 
@@ -81,7 +81,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.Floor(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.M.T.Floor(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -94,7 +94,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.Ceiling(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.M.T.Ceiling(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
