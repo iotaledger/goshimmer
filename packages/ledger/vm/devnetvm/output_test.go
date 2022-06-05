@@ -2005,10 +2005,9 @@ func TestExtendedOutputFromMarshalUtil(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		outputBytes := lo.PanicOnErr(output.Bytes())
-		marshalUtil := marshalutil.New(outputBytes)
-		restored, err := new(ExtendedLockedOutput).fromMarshalUtil(marshalUtil)
+		restored := new(ExtendedLockedOutput)
+		err := restored.FromBytes(outputBytes)
 		assert.NoError(t, err)
-		assert.Equal(t, len(outputBytes), marshalUtil.ReadOffset())
 		assert.Equal(t, outputBytes, lo.PanicOnErr(restored.Bytes()))
 	})
 

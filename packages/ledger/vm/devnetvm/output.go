@@ -424,38 +424,6 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
-//func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (err error) {
-//	s.Lock()
-//	defer s.Unlock()
-//
-//	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
-//	return
-//}
-//
-//func (s *SigLockedSingleOutput) FromObjectStorage(key, data []byte) (err error) {
-//	if err = s.IDFromBytes(key); err != nil {
-//		return errors.Errorf("failed to decode ID: %w", err)
-//	}
-//
-//	if err = s.FromBytes(data); err != nil {
-//		return errors.Errorf("failed to decode Model: %w", err)
-//	}
-//
-//	return nil
-//}
-
-//// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-//// a key in the ObjectStorage.
-//func (s *SigLockedSingleOutput) ObjectStorageValue() (value []byte) {
-//	return lo.PanicOnErr(s.Bytes())
-//}
-//
-//func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
-//	s.RLock()
-//	defer s.RUnlock()
-//
-//	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-//}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -750,7 +718,6 @@ func (a *AliasOutput) Encode() ([]byte, error) {
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
 func (a *AliasOutput) FromObjectStorage(key, data []byte) (err error) {
-
 	if err = a.FromBytes(data); err != nil {
 		return errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
 	}
@@ -772,6 +739,11 @@ func (a *AliasOutput) ObjectStorageKey() []byte {
 // ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
 	return lo.PanicOnErr(a.Bytes())
+}
+
+// Bytes serialized form.
+func (a *AliasOutput) Bytes() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
 }
 
 // FromBytes creates an AliasOutput from sequences of bytes.
@@ -1154,11 +1126,6 @@ func (a *AliasOutput) Input() Input {
 	}
 
 	return NewUTXOInput(a.ID())
-}
-
-// Bytes serialized form.
-func (a *AliasOutput) Bytes() ([]byte, error) {
-	return serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
 }
 
 // String human readable form.
@@ -1689,6 +1656,11 @@ func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
 	return lo.PanicOnErr(o.Bytes())
 }
 
+// Bytes returns a marshaled version of the Output.
+func (o *ExtendedLockedOutput) Bytes() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+}
+
 // FromBytes creates an AliasOutput from sequences of bytes.
 func (o *ExtendedLockedOutput) FromBytes(data []byte) error {
 	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())
@@ -1908,11 +1880,6 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	updatedOutput.SetID(o.ID())
 
 	return updatedOutput
-}
-
-// Bytes returns a marshaled version of the Output.
-func (o *ExtendedLockedOutput) Bytes() ([]byte, error) {
-	return o.ObjectStorageValue(), nil
 }
 
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if
