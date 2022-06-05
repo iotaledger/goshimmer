@@ -14,11 +14,11 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
+	*thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{*thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
+	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
