@@ -76,7 +76,7 @@ func (f *MessageFactory) SetTimeout(timeout time.Duration) {
 
 // IssuePayload creates a new message including sequence number and tip selection and returns it.
 func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*Message, error) {
-	msg, err := f.issuePayload(p, nil)
+	msg, err := f.issuePayload(p, nil, parentsCount...)
 	if err != nil {
 		f.Events.Error.Trigger(errors.Errorf("message could not be issued: %w", err))
 		return nil, err
@@ -87,8 +87,8 @@ func (f *MessageFactory) IssuePayload(p payload.Payload, parentsCount ...int) (*
 }
 
 // IssuePayloadWithReferences creates a new message with the references submit.
-func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, references ParentMessageIDs) (*Message, error) {
-	msg, err := f.issuePayload(p, nil)
+func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, references ParentMessageIDs, parentsCount ...int) (*Message, error) {
+	msg, err := f.issuePayload(p, references, parentsCount...)
 	if err != nil {
 		f.Events.Error.Trigger(errors.Errorf("message could not be issued: %w", err))
 		return nil, err
