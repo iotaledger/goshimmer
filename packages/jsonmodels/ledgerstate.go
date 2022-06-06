@@ -631,7 +631,7 @@ func NewTransaction(transaction *devnetvm.Transaction) *Transaction {
 
 	dataPayload := make([]byte, 0)
 	if transaction.Essence().Payload() != nil {
-		dataPayload = transaction.Essence().Payload().Bytes()
+		dataPayload = lo.PanicOnErr(transaction.Essence().Payload().Bytes())
 	}
 
 	return &Transaction{

@@ -1,6 +1,8 @@
 package dashboard
 
 import (
+	"github.com/iotaledger/hive.go/generics/lo"
+
 	chat2 "github.com/iotaledger/goshimmer/packages/chat"
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
@@ -99,25 +101,22 @@ func ProcessPayload(p payload.Payload) interface{} {
 	case chat2.Type:
 		chatPayload := p.(*chat2.Payload)
 		return chat.Request{
-			From:    chatPayload.From,
-			To:      chatPayload.To,
-			Message: chatPayload.Message,
+			From:    chatPayload.From(),
+			To:      chatPayload.To(),
+			Message: chatPayload.Message(),
 		}
 	default:
 		// unknown payload
 		return BasicPayload{
 			ContentTitle: "Bytes",
-			Content:      p.Bytes(),
+			Content:      lo.PanicOnErr(p.Bytes()),
 		}
 	}
 }
 
 // processTransactionPayload handles Value payload
 func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
-	tx, err := new(devnetvm.Transaction).FromBytes(p.Bytes())
-	if err != nil {
-		return
-	}
+	tx := p.(*devnetvm.Transaction)
 	tp.TxID = tx.ID().Base58()
 	tp.Transaction = jsonmodels.NewTransaction(tx)
 	// add consumed inputs

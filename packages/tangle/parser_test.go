@@ -8,6 +8,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -168,10 +170,17 @@ func (p *testTxPayload) Bytes() []byte {
 func (p *testTxPayload) String() string { return "tx" }
 
 func newTransaction(t time.Time) *devnetvm.Transaction {
-	ID, _ := identity.RandomID()
-	var inputs devnetvm.Inputs
-	var outputs devnetvm.Outputs
-	essence := devnetvm.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
-	var unlockBlocks devnetvm.UnlockBlocks
+	issuerKeyPair := ed25519.GenerateKeyPair()
+	issuerIdentity := identity.New(issuerKeyPair.PublicKey)
+	inputs := devnetvm.NewInputs(
+		devnetvm.NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0)),
+	)
+	outputs := devnetvm.NewOutputs(
+		devnetvm.NewSigLockedSingleOutput(12, devnetvm.NewED25519Address(issuerKeyPair.PublicKey)),
+	)
+	essence := devnetvm.NewTransactionEssence(0, t, issuerIdentity.ID(), issuerIdentity.ID(), inputs, outputs)
+	unlockBlocks := devnetvm.UnlockBlocks{
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(essence.Bytes()))),
+	}
 	return devnetvm.NewTransaction(essence, unlockBlocks)
 }

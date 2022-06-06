@@ -317,7 +317,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 		IssuerPublicKey: issuerPublicKey,
 		IssuingTime:     issuingTime,
 		SequenceNumber:  sequenceNumber,
-		PayloadBytes:    msgPayload.Bytes(),
+		PayloadBytes:    lo.PanicOnErr(msgPayload.Bytes()),
 		Nonce:           nonce,
 		Signature:       signature,
 	})

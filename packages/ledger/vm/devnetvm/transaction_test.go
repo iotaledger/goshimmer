@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,8 +35,8 @@ func TestTransaction_Bytes(t *testing.T) {
 	transaction := NewTransaction(transactionEssence, UnlockBlocks{
 		NewSignatureUnlockBlock(NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(transactionEssence.Bytes()))),
 	})
-
-	_tx, err := new(Transaction).FromBytes(transaction.Bytes())
+	_tx := new(Transaction)
+	err := _tx.FromBytes(lo.PanicOnErr(transaction.Bytes()))
 	assert.NoError(t, err)
 	assert.Equal(t, transaction.ID(), _tx.ID())
 	assert.Equal(t, transaction.Essence().Outputs()[0].Balances(), _tx.Essence().Outputs()[0].Balances())

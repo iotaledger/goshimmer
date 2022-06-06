@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -103,7 +105,7 @@ func main() {
 			conflictingTxs[i] = tx
 
 			// issue the tx
-			resp, err2 := clients[i].PostTransaction(tx.Bytes())
+			resp, err2 := clients[i].PostTransaction(lo.PanicOnErr(tx.Bytes()))
 			if err2 != nil {
 				panic(err2)
 			}

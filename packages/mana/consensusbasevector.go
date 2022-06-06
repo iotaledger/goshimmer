@@ -13,7 +13,7 @@ import (
 
 // ConsensusBaseManaVector represents a base mana vector.
 type ConsensusBaseManaVector struct {
-	model.Model[ConsensusBaseManaVector, *ConsensusBaseManaVector, consensusBaseManaVectorModel] `serix:"0"`
+	model.Mutable[ConsensusBaseManaVector, *ConsensusBaseManaVector, consensusBaseManaVectorModel] `serix:"0"`
 }
 
 type consensusBaseManaVectorModel struct {
@@ -119,7 +119,7 @@ func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*Snapsho
 			})
 		}
 
-		c.M.Vector[nodeID] = model.New[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: value})
+		c.M.Vector[nodeID] = model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: value})
 	}
 }
 
@@ -352,7 +352,7 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 	}
 	c.Lock()
 	defer c.Unlock()
-	c.M.Vector[p.NodeID()] = model.New[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: p.BaseValues()[0]})
+	c.M.Vector[p.NodeID()] = model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: p.BaseValues()[0]})
 	return
 }
 

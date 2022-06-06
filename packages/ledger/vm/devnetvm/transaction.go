@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/cerrors"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
@@ -145,20 +145,27 @@ func (t TransactionIDs) Base58s() (transactionIDs []string) {
 
 // Transaction represents a payload that executes a value transfer in the ledger state.
 type Transaction struct {
-	transactionInner `serix:"0"`
+	model.Storable[utxo.TransactionID, Transaction, *Transaction, transactionModel] `serix:"0"`
 }
-type transactionInner struct {
-	id           *utxo.TransactionID
-	idMutex      sync.RWMutex
+
+type transactionModel struct {
 	Essence      *TransactionEssence `serix:"1"`
 	UnlockBlocks UnlockBlocks        `serix:"2,lengthPrefixType=uint16"`
+}
 
-	objectstorage.StorableObjectFlags
+// ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
+// we calculate this value lazy and use double-checked locking.
+func (t *Transaction) ID() utxo.TransactionID {
+	if t.Storable.ID() == utxo.EmptyTransactionID {
+		t.Storable.SetID(utxo.NewTransactionID(lo.PanicOnErr(t.Bytes())))
+	}
+
+	return t.Storable.ID()
 }
 
 func (t *Transaction) Inputs() (inputs []utxo.Input) {
 	inputs = make([]utxo.Input, 0)
-	for _, input := range t.transactionInner.Essence.Inputs() {
+	for _, input := range t.Essence().Inputs() {
 		inputs = append(inputs, input)
 	}
 
@@ -171,12 +178,10 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 		panic(fmt.Sprintf("in NewTransaction: Amount of UnlockBlocks (%d) does not match amount of Inputs (%d)", len(unlockBlocks), len(essence.Inputs())))
 	}
 
-	transaction = &Transaction{
-		transactionInner{
-			Essence:      essence,
-			UnlockBlocks: unlockBlocks,
-		},
-	}
+	transaction = model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
+		Essence:      essence,
+		UnlockBlocks: unlockBlocks,
+	})
 
 	SetOutputID(essence, transaction.ID())
 
@@ -185,71 +190,19 @@ func NewTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks) (tra
 
 // FromObjectStorage creates an Transaction from sequences of key and bytes.
 func (t *Transaction) FromObjectStorage(key, value []byte) error {
-	tx := t
-	if tx == nil {
-		tx = new(Transaction)
-	}
+	err := t.Storable.FromObjectStorage(key, value)
 
-	_, err := serix.DefaultAPI.Decode(context.Background(), value, tx, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Transaction: %w", err)
-		return err
-	}
-	transactionID := new(utxo.TransactionID)
-	_, err = serix.DefaultAPI.Decode(context.Background(), key, transactionID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Transaction.id: %w", err)
-		return err
-	}
-	tx.transactionInner.id = transactionID
-
-	SetOutputID(tx.Essence(), tx.ID())
+	SetOutputID(t.Essence(), t.ID())
 
 	return err
 }
 
 // FromBytes unmarshals a Transaction from a sequence of bytes.
-func (t *Transaction) FromBytes(data []byte) (*Transaction, error) {
-	tx := new(Transaction)
-	if t != nil {
-		tx = t
-	}
-	_, err := serix.DefaultAPI.Decode(context.Background(), data, tx)
-	if err != nil {
-		err = errors.Errorf("failed to parse Transaction: %w", err)
-		return tx, err
-	}
-	SetOutputID(tx.Essence(), tx.ID())
+func (t *Transaction) FromBytes(data []byte) error {
+	err := t.Storable.FromBytes(data)
+	SetOutputID(t.Essence(), t.ID())
 
-	return tx, nil
-}
-
-// ID returns the identifier of the Transaction. Since calculating the TransactionID is a resource intensive operation
-// we calculate this value lazy and use double-checked locking.
-func (t *Transaction) ID() utxo.TransactionID {
-	t.idMutex.RLock()
-	if t.id != nil {
-		defer t.idMutex.RUnlock()
-
-		return *t.id
-	}
-
-	t.idMutex.RUnlock()
-	t.idMutex.Lock()
-	defer t.idMutex.Unlock()
-
-	if t.id != nil {
-		return *t.id
-	}
-
-	return utxo.NewTransactionID(t.Bytes())
-}
-
-func (t *Transaction) SetID(id utxo.TransactionID) {
-	t.idMutex.Lock()
-	defer t.idMutex.Unlock()
-
-	t.id = &id
+	return err
 }
 
 // Type returns the Type of the Payload.
@@ -259,50 +212,21 @@ func (t *Transaction) Type() payload.Type {
 
 // Essence returns the TransactionEssence of the Transaction.
 func (t *Transaction) Essence() *TransactionEssence {
-	return t.transactionInner.Essence
+	return t.M.Essence
 }
 
 // UnlockBlocks returns the UnlockBlocks of the Transaction.
 func (t *Transaction) UnlockBlocks() UnlockBlocks {
-	return t.transactionInner.UnlockBlocks
-}
-
-// Bytes returns a marshaled version of the Transaction.
-func (t *Transaction) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable version of the Transaction.
-func (t *Transaction) String() string {
-	return stringify.Struct("Transaction",
-		stringify.StructField("id", t.ID()),
-		stringify.StructField("essence", t.Essence()),
-		stringify.StructField("unlockBlocks", t.UnlockBlocks()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (t *Transaction) ObjectStorageKey() []byte {
-	return t.ID().Bytes()
-}
-
-// ObjectStorageValue marshals the Transaction into a sequence of bytes. The ID is not serialized here as it is only
-// used as a key in the ObjectStorage.
-func (t *Transaction) ObjectStorageValue() []byte {
-	return t.Bytes()
+	return t.M.UnlockBlocks
 }
 
 // SetOutputID assigns TransactionID to all outputs in TransactionEssence
 func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
+	fmt.Println("setoutputid")
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
 		output.SetID(utxo.NewOutputID(transactionID, uint16(i)))
+		fmt.Println(output.ID())
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state
@@ -324,9 +248,6 @@ func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) 
 var _ payload.Payload = new(Transaction)
 
 var _ utxo.Transaction = new(Transaction)
-
-// code contract (make sure the struct implements all required methods)
-var _ objectstorage.StorableObject = new(Transaction)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

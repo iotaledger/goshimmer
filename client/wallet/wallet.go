@@ -144,9 +144,13 @@ func (wallet *Wallet) SendFunds(options ...sendoptions.SendFundsOption) (tx *dev
 	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 
 	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
-
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
 	// check syntactical validity by marshaling an unmarshalling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	tx = new(devnetvm.Transaction)
+	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -226,12 +230,16 @@ func (wallet *Wallet) ConsolidateFunds(options ...consolidateoptions.Consolidate
 
 		tx := devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-		// check syntactical validity by marshaling an unmarshaling
-		tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+		txBytes, err := tx.Bytes()
 		if err != nil {
 			return nil, err
 		}
-
+		// check syntactical validity by marshaling an unmarshalling
+		tx = new(devnetvm.Transaction)
+		err = tx.FromBytes(txBytes)
+		if err != nil {
+			return nil, err
+		}
 		// check tx validity (balances, unlock blocks)
 		ok, cErr := checkBalancesAndUnlocks(inputsAsOutputsInOrder, tx)
 		if cErr != nil {
@@ -303,8 +311,13 @@ func (wallet *Wallet) ClaimConditionalFunds(options ...claimconditionaloptions.C
 
 	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	// check syntactical validity by marshaling an unmarshalling
+	tx = new(devnetvm.Transaction)
+	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -472,8 +485,13 @@ func (wallet *Wallet) DelegateFunds(options ...delegateoptions.DelegateFundsOpti
 	unlockBlocks, inputsAsOutputsInOrder := wallet.buildUnlockBlocks(inputs, outputsByID, txEssence)
 	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return
+	}
+	// check syntactical validity by marshaling an unmarshalling
+	tx = new(devnetvm.Transaction)
+	err = tx.FromBytes(txBytes)
 	if err != nil {
 		return
 	}
@@ -599,10 +617,15 @@ func (wallet *Wallet) CreateNFT(options ...createnftoptions.CreateNFTOption) (tx
 
 	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
-	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
 	if err != nil {
-		return nil, nil, err
+		return
+	}
+	// check syntactical validity by marshaling an unmarshalling
+	tx = new(devnetvm.Transaction)
+	err = tx.FromBytes(txBytes)
+	if err != nil {
+		return
 	}
 
 	// check tx validity (balances, unlock blocks)
@@ -721,7 +744,11 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -817,7 +844,11 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -929,7 +960,11 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1044,7 +1079,11 @@ func (wallet *Wallet) DepositFundsToNFT(options ...deposittonftoptions.DepositFu
 	tx = devnetvm.NewTransaction(txEssence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -1183,7 +1222,11 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 	tx = devnetvm.NewTransaction(essence, unlockBlocks)
 
 	// check syntactical validity by marshaling an unmarshaling
-	tx, err = new(devnetvm.Transaction).FromBytes(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	err = new(devnetvm.Transaction).FromBytes(txBytes)
 	if err != nil {
 		return nil, err
 	}
