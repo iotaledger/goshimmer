@@ -471,7 +471,7 @@ func (o *OutputsMetadata) String() (humanReadable string) {
 
 // Consumer represents the reference between an Output and its spending Transaction.
 type Consumer struct {
-	model.StorableReferenceWithMetadata[utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
+	model.StorableReferenceWithMetadata[Consumer, *Consumer, utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
 }
 
 type consumer struct {
@@ -481,17 +481,17 @@ type consumer struct {
 
 // NewConsumer return a new Consumer reference from the named Output to the named Transaction.
 func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
-	return &Consumer{model.NewStorableReferenceWithMetadata(consumedInput, transactionID, consumer{})}
+	return model.NewStorableReferenceWithMetadata[Consumer](consumedInput, transactionID, &consumer{})
 }
 
 // ConsumedInput returns the identifier of the Output that was spent.
 func (c *Consumer) ConsumedInput() (outputID utxo.OutputID) {
-	return c.SourceID
+	return c.SourceID()
 }
 
 // TransactionID returns the identifier of the spending Transaction.
 func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
-	return c.TargetID
+	return c.TargetID()
 }
 
 // IsBooked returns a boolean flag that indicates whether the Consumer was completely booked.

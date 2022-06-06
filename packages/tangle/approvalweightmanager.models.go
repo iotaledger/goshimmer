@@ -229,18 +229,6 @@ const (
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region latestMarkerVotesMap /////////////////////////////////////////////////////////////////////////////////////////
-
-type latestMarkerVotesMap struct {
-	thresholdmap.ThresholdMap[markers.Index, VotePower]
-}
-
-func newLatestMarkerVotesMap() *latestMarkerVotesMap {
-	return &latestMarkerVotesMap{*thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode)}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region LatestMarkerVotes ////////////////////////////////////////////////////////////////////////////////////////////
 
 // VotePower is used to establish an absolute order of votes, regardless of their arrival order.
@@ -257,14 +245,14 @@ var LatestMarkerVotesKeyPartition = objectstorage.PartitionKey(markers.SequenceI
 // Due to the nature of a Sequence, a vote casted for a certain Index clobbers votes for every lower index.
 // Similarly, if a vote for an Index is casted and an existing vote for an higher Index exists, the operation has no effect.
 type LatestMarkerVotes struct {
-	model.StorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap] `serix:"0"`
+	model.StorableReferenceWithMetadata[LatestMarkerVotes, *LatestMarkerVotes, markers.SequenceID, Voter, thresholdmap.ThresholdMap[markers.Index, VotePower]] `serix:"0"`
 }
 
 // NewLatestMarkerVotes creates a new NewLatestMarkerVotes instance associated with the given details.
 func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatestMarkerVotes *LatestMarkerVotes) {
-	newLatestMarkerVotes = &LatestMarkerVotes{model.NewStorableReferenceWithMetadata[markers.SequenceID, Voter, latestMarkerVotesMap](
-		sequenceID, voter, *newLatestMarkerVotesMap(),
-	)}
+	newLatestMarkerVotes = model.NewStorableReferenceWithMetadata[LatestMarkerVotes](
+		sequenceID, voter, thresholdmap.New[markers.Index, VotePower](thresholdmap.UpperThresholdMode),
+	)
 
 	return
 }
@@ -273,7 +261,7 @@ func NewLatestMarkerVotes(sequenceID markers.SequenceID, voter Voter) (newLatest
 func (l *LatestMarkerVotes) Voter() Voter {
 	l.RLock()
 	defer l.RUnlock()
-	return l.TargetID
+	return l.TargetID()
 }
 
 // Power returns the power of the vote for the given marker Index.

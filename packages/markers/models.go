@@ -73,7 +73,7 @@ func (m Marker) Index() (index Index) {
 
 // Bytes returns a serialized version of the Marker.
 func (m Marker) Bytes() (serialized []byte) {
-	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m.M))
+	return lo.PanicOnErr(m.Immutable.Bytes())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

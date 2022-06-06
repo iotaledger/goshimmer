@@ -42,7 +42,7 @@ func TestConsensusBaseManaVector_Has(t *testing.T) {
 	has := bmv.Has(randID)
 	assert.False(t, has)
 
-	bmv.SetMana(randID, &ConsensusBaseMana{})
+	bmv.SetMana(randID, NewConsensusBaseMana(0))
 	has = bmv.Has(randID)
 	assert.True(t, has)
 }
@@ -136,7 +136,7 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 	assert.Equal(t, 0.0, mana)
 	assert.Error(t, err)
 
-	bmv.SetMana(randID, &ConsensusBaseMana{})
+	bmv.SetMana(randID, NewConsensusBaseMana(0))
 	mana, _, err = bmv.GetMana(randID)
 	assert.NoError(t, err)
 	assert.Equal(t, 0.0, mana)

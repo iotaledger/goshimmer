@@ -74,7 +74,7 @@ func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 		pledgeNodeID := txInfo.PledgeID[a.Type()]
 		if _, exist := a.M.Vector[pledgeNodeID]; !exist {
 			// first time we see this node
-			a.M.Vector[pledgeNodeID] = &AccessBaseMana{}
+			a.M.Vector[pledgeNodeID] = NewAccessBaseMana(0, 0, time.Time{})
 		}
 		// save it for proper event trigger
 		oldMana := *a.M.Vector[pledgeNodeID]

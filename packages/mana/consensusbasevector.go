@@ -156,7 +156,7 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 		newPledgeNodeID := txInfo.PledgeID[c.Type()]
 		if _, exist := c.M.Vector[newPledgeNodeID]; !exist {
 			// first time we see this node
-			c.M.Vector[newPledgeNodeID] = &ConsensusBaseMana{}
+			c.M.Vector[newPledgeNodeID] = NewConsensusBaseMana(0)
 		}
 		// save it for proper event trigger
 		oldMana := *c.M.Vector[newPledgeNodeID]

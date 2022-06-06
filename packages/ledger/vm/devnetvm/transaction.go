@@ -222,11 +222,9 @@ func (t *Transaction) UnlockBlocks() UnlockBlocks {
 
 // SetOutputID assigns TransactionID to all outputs in TransactionEssence
 func SetOutputID(essence *TransactionEssence, transactionID utxo.TransactionID) {
-	fmt.Println("setoutputid")
 	for i, output := range essence.Outputs() {
 		// the first call of transaction.ID() will also create a transaction id
 		output.SetID(utxo.NewOutputID(transactionID, uint16(i)))
-		fmt.Println(output.ID())
 		// check if an alias output is deadlocked to itself
 		// for origin alias outputs, alias address is only known once the ID of the output is set. However unlikely it is,
 		// it is still possible to pre-mine a transaction with an origin alias output that has its governing or state

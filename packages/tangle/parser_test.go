@@ -79,6 +79,8 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
+		msg.Init()
+
 		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
 		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
@@ -87,6 +89,8 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 	msg := &Message{}
+	msg.Init()
+
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
 		msg.M.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)

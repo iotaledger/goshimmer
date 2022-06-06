@@ -91,7 +91,7 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 		messageMetadataStorage:            objectstorage.NewStructStorage[MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		approverStorage:                   objectstorage.NewStructStorage[Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		missingMessageStorage:             objectstorage.NewStructStorage[MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(Attachment{}.KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
 		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
 		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
 		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
@@ -535,7 +535,7 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	model.StorableReference[approverSourceModel, MessageID] `serix:"0"`
+	model.StorableReference[Approver, *Approver, approverSourceModel, MessageID] `serix:"0"`
 }
 
 type approverSourceModel struct {
@@ -548,27 +548,25 @@ type approverSourceModel struct {
 
 // NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
-	return &Approver{
-		model.NewStorableReference[approverSourceModel, MessageID](approverSourceModel{
-			ReferencedMessageID: referencedMessageID,
-			ApproverType:        approverType,
-		}, approverMessageID),
-	}
+	return model.NewStorableReference[Approver](approverSourceModel{
+		ReferencedMessageID: referencedMessageID,
+		ApproverType:        approverType,
+	}, approverMessageID)
 }
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	return a.SourceID.ApproverType
+	return a.SourceID().ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	return a.SourceID.ReferencedMessageID
+	return a.SourceID().ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	return a.TargetID
+	return a.TargetID()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -578,22 +576,22 @@ func (a *Approver) ApproverMessageID() MessageID {
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	model.StorableReference[utxo.TransactionID, MessageID] `serix:"0"`
+	model.StorableReference[Attachment, *Attachment, utxo.TransactionID, MessageID] `serix:"0"`
 }
 
 // NewAttachment creates an attachment object with the given information.
 func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
-	return &Attachment{model.NewStorableReference(transactionID, messageID)}
+	return model.NewStorableReference[Attachment](transactionID, messageID)
 }
 
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() utxo.TransactionID {
-	return a.SourceID
+	return a.SourceID()
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	return a.TargetID
+	return a.TargetID()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
