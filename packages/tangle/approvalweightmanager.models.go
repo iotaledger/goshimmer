@@ -393,7 +393,7 @@ func (l *LatestBranchVotes) Store(vote *BranchVote) (stored bool) {
 
 // BranchVote represents a struct that holds information about what Opinion a certain Voter has on a Branch.
 type BranchVote struct {
-	model.Model[BranchVote, *BranchVote, branchVoteModel] `serix:"0"`
+	model.Mutable[BranchVote, *BranchVote, branchVoteModel] `serix:"0"`
 }
 
 type branchVoteModel struct {
@@ -405,7 +405,7 @@ type branchVoteModel struct {
 
 // NewBranchVote derives a vote for th.
 func NewBranchVote(voter Voter, votePower VotePower, branchID utxo.TransactionID, opinion Opinion) (voteWithOpinion *BranchVote) {
-	return model.New[BranchVote](
+	return model.NewMutable[BranchVote](
 		&branchVoteModel{
 			Voter:     voter,
 			VotePower: votePower,
@@ -419,7 +419,7 @@ func NewBranchVote(voter Voter, votePower VotePower, branchID utxo.TransactionID
 func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return model.New[BranchVote](
+	return model.NewMutable[BranchVote](
 		&branchVoteModel{
 			Voter:     v.M.Voter,
 			BranchID:  v.M.BranchID,
@@ -433,7 +433,7 @@ func (v *BranchVote) WithOpinion(opinion Opinion) (voteWithOpinion *BranchVote) 
 func (v *BranchVote) WithBranchID(branchID utxo.TransactionID) (rejectedVote *BranchVote) {
 	v.RLock()
 	defer v.RUnlock()
-	return model.New[BranchVote](
+	return model.NewMutable[BranchVote](
 		&branchVoteModel{
 			Voter:     v.M.Voter,
 			BranchID:  branchID,

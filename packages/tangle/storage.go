@@ -558,22 +558,16 @@ func NewApprover(approverType ApproverType, referencedMessageID MessageID, appro
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	a.RLock()
-	defer a.RUnlock()
 	return a.SourceID.ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	a.RLock()
-	defer a.RUnlock()
 	return a.SourceID.ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	a.RLock()
-	defer a.RUnlock()
 	return a.TargetID
 }
 
@@ -594,17 +588,11 @@ func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attac
 
 // TransactionID returns the transactionID of this Attachment.
 func (a *Attachment) TransactionID() utxo.TransactionID {
-	a.RLock()
-	defer a.RUnlock()
-
 	return a.SourceID
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	a.RLock()
-	defer a.RUnlock()
-
 	return a.TargetID
 }
 
@@ -619,9 +607,9 @@ type MissingMessage struct {
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
-	time := time.Now()
+	now := time.Now()
 	missingMessage := model.NewStorable[MessageID, MissingMessage](
-		&time,
+		&now,
 	)
 
 	missingMessage.SetID(messageID)

@@ -44,7 +44,7 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
-	model.Immutable[markerModel] `serix:"0"`
+	model.Immutable[Marker, *Marker, markerModel] `serix:"0"`
 }
 
 // markerModel contains the data of a Marker.
@@ -55,10 +55,10 @@ type markerModel struct {
 
 // NewMarker returns a new marker.
 func NewMarker(sequenceID SequenceID, index Index) Marker {
-	return Marker{model.NewImmutable(markerModel{
+	return *model.NewImmutable[Marker](&markerModel{
 		SequenceID: sequenceID,
 		Index:      index,
-	})}
+	})
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
@@ -82,7 +82,7 @@ func (m Marker) Bytes() (serialized []byte) {
 
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
 type Markers struct {
-	model.Model[Markers, *Markers, markersModel] `serix:"0"`
+	model.Mutable[Markers, *Markers, markersModel] `serix:"0"`
 }
 
 type markersModel struct {
@@ -93,7 +93,7 @@ type markersModel struct {
 
 // NewMarkers creates a new collection of Markers.
 func NewMarkers(markers ...Marker) (new *Markers) {
-	new = model.New[Markers](&markersModel{
+	new = model.NewMutable[Markers](&markersModel{
 		Markers: make(map[SequenceID]Index),
 	})
 
@@ -325,7 +325,7 @@ func (m *Markers) Bytes() []byte {
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
-	model.Model[ReferencingMarkers, *ReferencingMarkers, referencingMarkersModel] `serix:"0"`
+	model.Mutable[ReferencingMarkers, *ReferencingMarkers, referencingMarkersModel] `serix:"0"`
 }
 
 type referencingMarkersModel struct {
@@ -334,7 +334,7 @@ type referencingMarkersModel struct {
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
-	return model.New[ReferencingMarkers](&referencingMarkersModel{
+	return model.NewMutable[ReferencingMarkers](&referencingMarkersModel{
 		ReferencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 	})
 }
@@ -432,7 +432,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which other Markers
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
-	model.Model[ReferencedMarkers, *ReferencedMarkers, referencedMarkersModel] `serix:"0"`
+	model.Mutable[ReferencedMarkers, *ReferencedMarkers, referencedMarkersModel] `serix:"0"`
 }
 type referencedMarkersModel struct {
 	ReferencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
@@ -440,7 +440,7 @@ type referencedMarkersModel struct {
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.
 func NewReferencedMarkers(markers *Markers) (new *ReferencedMarkers) {
-	new = model.New[ReferencedMarkers](&referencedMarkersModel{
+	new = model.NewMutable[ReferencedMarkers](&referencedMarkersModel{
 		ReferencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
 	})
 
@@ -747,7 +747,7 @@ func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 // StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
 // to interact with the public API of this package.
 type StructureDetails struct {
-	model.Model[StructureDetails, *StructureDetails, structureDetailsModel] `serix:"0"`
+	model.Mutable[StructureDetails, *StructureDetails, structureDetailsModel] `serix:"0"`
 }
 
 type structureDetailsModel struct {
@@ -759,7 +759,7 @@ type structureDetailsModel struct {
 
 // NewStructureDetails creates an empty StructureDetails object.
 func NewStructureDetails() (newStructureDetails *StructureDetails) {
-	return model.New[StructureDetails](&structureDetailsModel{
+	return model.NewMutable[StructureDetails](&structureDetailsModel{
 		PastMarkers: NewMarkers(),
 	})
 }
@@ -822,7 +822,7 @@ func (m *StructureDetails) SetPastMarkers(pastMarkers *Markers) {
 
 // Clone creates a deep copy of the StructureDetails.
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
-	return model.New[StructureDetails](&structureDetailsModel{
+	return model.NewMutable[StructureDetails](&structureDetailsModel{
 		Rank:          m.Rank(),
 		PastMarkerGap: m.PastMarkerGap(),
 		IsPastMarker:  m.IsPastMarker(),
