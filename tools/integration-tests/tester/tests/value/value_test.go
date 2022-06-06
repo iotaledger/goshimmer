@@ -288,7 +288,7 @@ func TestValueAliasDelegation(t *testing.T) {
 		devnetvm.NewInputs(devnetvm.NewUTXOInput(delegatedAliasOutputID)),
 		devnetvm.NewOutputs(nextOutput))
 	tx := devnetvm.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = nonFaucetPeers[0].PostTransaction(tx.Bytes())
+	_, err = nonFaucetPeers[0].PostTransaction(lo.PanicOnErr(tx.Bytes()))
 	require.NoError(t, err)
 
 	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{

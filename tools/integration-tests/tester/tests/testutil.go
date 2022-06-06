@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/lo"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
@@ -278,7 +279,7 @@ func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int
 		number: number,
 		id:     id,
 		// save payload to be able to compare API response
-		data:            payload.NewGenericDataPayload(data).Bytes(),
+		data:            lo.PanicOnErr(payload.NewGenericDataPayload(data).Bytes()),
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 	return id, sent
@@ -368,7 +369,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	}
 
 	// send transaction
-	resp, err := from.PostTransaction(txn.Bytes())
+	resp, err := from.PostTransaction(lo.PanicOnErr(txn.Bytes()))
 	if err != nil {
 		return "", err
 	}
