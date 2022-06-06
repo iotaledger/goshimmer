@@ -363,6 +363,9 @@ func TestRetrieveAllTips(t *testing.T) {
 }
 
 func TestTangle_Flow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
