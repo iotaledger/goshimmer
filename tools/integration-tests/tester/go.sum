@@ -461,14 +461,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20220602132800-47d5e0419264 h1:BFO3PiYpYa3tOleosCow99+hjUFzw2hYffV24Q84x/w=
-github.com/iotaledger/hive.go v0.0.0-20220602132800-47d5e0419264/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
-github.com/iotaledger/hive.go v0.0.0-20220603121653-149d5f740312 h1:nIFqz2F4bKrJ1Kqiyts2rdNUwms87ocahKHHDr0nLJI=
-github.com/iotaledger/hive.go v0.0.0-20220603121653-149d5f740312/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
-github.com/iotaledger/hive.go v0.0.0-20220604100743-40898337a727 h1:NDNgpftyrWboDyKHgcbISPdYKRVqeXw+mBYomCax+qw=
-github.com/iotaledger/hive.go v0.0.0-20220604100743-40898337a727/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
-github.com/iotaledger/hive.go v0.0.0-20220606145444-54bf785be488 h1:P9j4XlOOBIbik1aHqWfoEgFMqr08xiYsxrN38IubtNQ=
-github.com/iotaledger/hive.go v0.0.0-20220606145444-54bf785be488/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220607150119-1be29e962175 h1:IgXxiPx51WJglOL5EtIurlMbujnrLP4vLYQqyfmR0zg=
+github.com/iotaledger/hive.go v0.0.0-20220607150119-1be29e962175/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
