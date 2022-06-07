@@ -298,6 +298,8 @@ func SendDataMessages(t *testing.T, peers []*framework.Node, numMessages int, id
 		data := []byte(fmt.Sprintf("Test: %d", i))
 
 		id, sent := SendDataMessage(t, peers[i%len(peers)], data, i)
+		RequireMessagesAvailable(t, framework.Nodes{peers[i%len(peers)]}, map[string]DataMessageSent{sent.id: sent}, Timeout, Tick, gof.Low)
+
 		result[id] = sent
 	}
 	return result
@@ -360,6 +362,8 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	sig := devnetvm.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
 	unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
 	txn := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
+
+	RequireGradeOfFinalityEqual(t, framework.Nodes{from}, map[string]ExpectedState{txn.ID().String(): {Solid: True(), GradeOfFinality: GoFPointer(gof.Low)}}, Timeout, Tick)
 
 	outputColor := color
 	if color == devnetvm.ColorMint {
