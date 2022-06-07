@@ -37,6 +37,12 @@ func configure(plugin *node.Plugin) {
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
 func broadcastActivityMessage() {
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
+
+	// sleep some time according to rate setter estimate
+	if deps.Tangle.Options.RateSetterParams.Enabled {
+		time.Sleep(deps.Tangle.RateSetter.Estimate())
+	}
+
 	msg, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {
 		Plugin.LogWarnf("error issuing activity message: %s", err)
