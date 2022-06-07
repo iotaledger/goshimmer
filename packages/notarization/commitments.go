@@ -283,20 +283,20 @@ func (f *EpochCommitmentFactory) GetCommitment(ei epoch.EI) (*Commitment, error)
 	return commitment, nil
 }
 
-// GetEpochCommitment returns the epoch commitment with the given ei.
-func (f *EpochCommitmentFactory) GetEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
+// getEpochCommitment returns the epoch commitment with the given ei.
+func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
 	ecr, err := f.ECR(ei)
 	if err != nil {
 		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
 	}
-	prevECR, err := f.ECHash(ei-1, f.ECMaxDepth)
+	prevEC, err := f.ECHash(ei-1, f.ECMaxDepth)
 	if err != nil {
 		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
 	}
 	return &epoch.EpochCommitment{
-		EI:         uint64(ei),
+		EI:         ei,
 		ECR:        ecr,
-		PreviousEC: prevECR,
+		PreviousEC: prevEC,
 	}, nil
 }
 
@@ -394,6 +394,7 @@ func (f *EpochCommitmentFactory) getStateRoot(ei epoch.EI) ([]byte, error) {
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
+	// TODO: this Load should be cached
 	f.storage.diffsStore.Load(ei.Bytes()).Consume(func(epochDiff *epoch.EpochDiff) {
 		for _, o := range created {
 			epochDiff.M.Created.Add(o)

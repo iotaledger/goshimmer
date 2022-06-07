@@ -9,11 +9,14 @@ import (
 
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
-	Outputs         *utxo.Outputs                               `serix:"0"`
-	OutputsMetadata *OutputsMetadata                            `serix:"1"`
-	FullEpochIndex  epoch.EI                                    `serix:"2"`
-	DiffEpochIndex  epoch.EI                                    `serix:"3"`
-	EpochDiffs      *epoch.EpochDiffs 			    `serix:"4"`
+	Outputs         *utxo.Outputs     `serix:"0"`
+	OutputsMetadata *OutputsMetadata  `serix:"1"`
+	FullEpochIndex  epoch.EI          `serix:"2"`
+	DiffEpochIndex  epoch.EI          `serix:"3"`
+	EpochDiffs      *epoch.EpochDiffs `serix:"4"`
+
+	// EC of DiffEpochIndex
+	EC epoch.EC `serix:"5"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.

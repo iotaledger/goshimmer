@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
@@ -98,19 +99,18 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func (m *Manager) GetLatestEC() *epoch.EpochCommitment {
-	ei := m.epochManager.CurrentEI()
-	for ei > 0 {
-		if m.IsCommittable(ei) {
-			break
-		}
-		ei -= 1
+func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
+	nextEI := m.epochCommitmentFactory.LastCommittedEpoch + 1
+	if m.IsCommittable(nextEI) {
+		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
+		m.epochCommitmentFactory.LastCommittedEpoch = nextEI
 	}
-	ec, err := m.epochCommitmentFactory.GetEpochCommitment(ei)
-	if err != nil {
-		m.log.Error(err)
+
+	if commitment, err =  m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
+		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
-	return ec
+
+	return
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.

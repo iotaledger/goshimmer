@@ -50,7 +50,7 @@ type Epoch struct {
 
 // EpochCommitment contains the ECR and PreviousEC of an epoch.
 type EpochCommitment struct {
-	EI         uint64
+	EI         EI
 	ECR        *ECR
 	PreviousEC *EC
 }
