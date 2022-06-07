@@ -357,7 +357,7 @@ func createWallets(n int) []simpleWallet {
 }
 
 func (s simpleWallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
-	return devnetvm.NewED25519Signature(s.publicKey(), s.privateKey().Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(s.publicKey(), s.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 func (s simpleWallet) unlockBlocks(txEssence *devnetvm.TransactionEssence) []devnetvm.UnlockBlock {
