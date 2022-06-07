@@ -400,9 +400,13 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 			epochDiff.M.Created.Add(o)
 		}
 		for it := spent.Iterator(); it.HasNext(); {
-			out := f.tangle.Ledger.Storage.CachedOutput(it.Next())
-			out.Consume(func(out utxo.Output) {
-				outVM := out.(devnetvm.Output)
+			outputID := it.Next()
+			// We won't mark the output as spent if it was created in this epoch.
+			if epochDiff.M.Created.Delete(outputID) {
+				continue
+			}
+			f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
+				outVM := o.(devnetvm.Output)
 				epochDiff.M.Spent.Add(outVM)
 			})
 		}

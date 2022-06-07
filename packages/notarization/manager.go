@@ -140,7 +140,7 @@ func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.updateStateLeafs(ei, tx)
+	m.updateState(ei, tx)
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
@@ -186,7 +186,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) updateStateLeafs(ei epoch.EI, tx *devnetvm.Transaction) {
+func (m *Manager) updateState(ei epoch.EI, tx *devnetvm.Transaction) {
 	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
 	outputsCreated := tx.Essence().Outputs()
 
