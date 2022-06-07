@@ -363,7 +363,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
 	txn := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 
-	RequireGradeOfFinalityEqual(t, framework.Nodes{from}, map[string]ExpectedState{txn.ID().String(): {Solid: True(), GradeOfFinality: GoFPointer(gof.Low)}}, Timeout, Tick)
+	RequireGradeOfFinalityEqual(t, framework.Nodes{from}, map[string]ExpectedState{txn.ID().Base58(): {Solid: True()}}, Timeout, Tick)
 
 	outputColor := color
 	if color == devnetvm.ColorMint {
