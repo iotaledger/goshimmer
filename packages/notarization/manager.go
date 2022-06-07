@@ -4,18 +4,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/logger"
+
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
-	"github.com/iotaledger/hive.go/logger"
-
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
-	minEpochCommitableDuration = 24 * time.Minute
+	minEpochCommittableDuration = 24 * time.Minute
 )
 
 // Manager is the notarization manager.
@@ -27,13 +27,17 @@ type Manager struct {
 	pendingConflictsCount  map[epoch.EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
+	Events                 *Events
+
+	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
+	lastCommittedEpoch epoch.EI
 }
 
 // NewManager creates and returns a new notarization manager.
 func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, tangle *tangle.Tangle, opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
-		MinCommitableEpochAge: minEpochCommitableDuration,
-		Log:                   nil,
+		MinCommittableEpochAge: minEpochCommittableDuration,
+		Log:                    nil,
 	}
 	for _, option := range opts {
 		option(options)
@@ -45,6 +49,9 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		pendingConflictsCount:  make(map[epoch.EI]uint64),
 		log:                    options.Log,
 		options:                options,
+		Events: &Events{
+			EpochCommitted: event.New[*EpochCommittedEvent](),
+		},
 	}
 }
 
@@ -84,7 +91,7 @@ func (m *Manager) PendingConflictsCount(ei epoch.EI) uint64 {
 func (m *Manager) IsCommittable(ei epoch.EI) bool {
 	t := m.epochManager.EIToStartTime(ei)
 	diff := time.Since(t)
-	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommitableEpochAge
+	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
@@ -96,35 +103,11 @@ func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
 		}
 		ei -= 1
 	}
-	return m.epochCommitmentFactory.GetEpochCommitment(ei)
-}
-
-// GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
-func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
-	var ei epoch.EI
-	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
-		t := block.IssuingTime()
-		ei = m.epochManager.TimeToEI(t)
-	})
-	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
+	ec, err := m.epochCommitmentFactory.GetEpochCommitment(ei)
 	if err != nil {
-		return nil, err
+		m.log.Error(err)
 	}
-	return proof, nil
-}
-
-// GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
-func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
-	var ei epoch.EI
-	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
-		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
-		ei = m.epochManager.TimeToEI(t)
-	})
-	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
+	return ec
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -136,32 +119,25 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	}
 }
 
+// OnMessageOrphaned is the handler for message orphaned event.
+func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	err := m.epochCommitmentFactory.RemoveTangleLeaf(ei, message.ID())
+	if err != nil && m.log != nil {
+		m.log.Error(err)
+	}
+	// TODO: think about transaction case.
+}
+
 // OnTransactionConfirmed is the handler for transaction confirmed event.
 func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
-	ei := m.epochManager.TimeToEI(tx.Essence().Timestamp())
+	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
+	ei := m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	err := m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.updateStateSMT(ei, tx)
-}
-
-func (m *Manager) updateStateSMT(ei epoch.EI, tx *devnetvm.Transaction) {
-	for _, o := range tx.Essence().Outputs() {
-		err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
-		if err != nil && m.log != nil {
-			m.log.Error(err)
-		}
-	}
-	// remove spent outputs
-	outputs := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
-
-	for it := outputs.Iterator(); it.HasNext(); {
-		err := m.epochCommitmentFactory.RemoveStateLeaf(ei, it.Next())
-		if err != nil && m.log != nil {
-			m.log.Error(err)
-		}
-	}
+	m.updateStateLeafs(ei, tx)
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
@@ -206,6 +182,30 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
+func (m *Manager) updateStateLeafs(ei epoch.EI, tx *devnetvm.Transaction) {
+	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	outputsCreated := tx.Essence().Outputs()
+
+	// update the state root only if  ei is the next committable epoch
+	if ei == m.epochCommitmentFactory.lastCommittedEpoch+1 {
+		for _, o := range outputsCreated {
+			err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
+			if err != nil && m.log != nil {
+				m.log.Error(err)
+			}
+		}
+		// remove spent outputs
+		for it := outputsSpent.Iterator(); it.HasNext(); {
+			err := m.epochCommitmentFactory.RemoveStateLeaf(ei, it.Next())
+			if err != nil && m.log != nil {
+				m.log.Error(err)
+			}
+		}
+	}
+	// store outputs in the commitment diff storage
+	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
+}
+
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
 		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
@@ -214,19 +214,47 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {
 	return
 }
 
+// GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
+func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
+	var ei epoch.EI
+	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
+		t := block.IssuingTime()
+		ei = m.epochManager.TimeToEI(t)
+	})
+	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
+// GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
+func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
+	var ei epoch.EI
+	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
+		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
+		ei = m.epochManager.TimeToEI(t)
+	})
+	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
 type ManagerOption func(options *ManagerOptions)
 
 // ManagerOptions is a container of all the config parameters of the notarization manager.
 type ManagerOptions struct {
-	MinCommitableEpochAge time.Duration
-	Log                   *logger.Logger
+	MinCommittableEpochAge time.Duration
+	Log                    *logger.Logger
 }
 
-// MinCommitableEpochAge specifies how old an epoch has to be for it to be commitable.
-func MinCommitableEpochAge(d time.Duration) ManagerOption {
+// MinCommittableEpochAge specifies how old an epoch has to be for it to be committable.
+func MinCommittableEpochAge(d time.Duration) ManagerOption {
 	return func(options *ManagerOptions) {
-		options.MinCommitableEpochAge = d
+		options.MinCommittableEpochAge = d
 	}
 }
 
@@ -235,4 +263,16 @@ func Log(log *logger.Logger) ManagerOption {
 	return func(options *ManagerOptions) {
 		options.Log = log
 	}
+}
+
+// Events is a container that acts as a dictionary for the existing events of a notarization manager.
+type Events struct {
+	// EpochCommitted is an event that gets triggered whenever an epoch commitment is committable.
+	EpochCommitted *event.Event[*EpochCommittedEvent]
+}
+
+// EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type EpochCommittedEvent struct {
+	// EI is the index of committable epoch.
+	EI epoch.EI
 }

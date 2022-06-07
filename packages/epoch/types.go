@@ -1,6 +1,8 @@
 package epoch
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"sync"
 	"time"
 
@@ -8,7 +10,6 @@ import (
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // EI is the ID of an epoch.
@@ -104,11 +105,7 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	return
 }
 
-type EpochStateDiff struct {
-	model.Storable[EI, epochStateDiff] `serix:"0"`
-}
-
-type epochStateDiff struct {
-	Spent   devnetvm.Outputs `serix:"0"`
-	Created devnetvm.Outputs `serix:"1"`
+type DiffStores struct {
+	Created *objectstorage.ObjectStorage[utxo.Output]
+	Spent   *objectstorage.ObjectStorage[utxo.Output]
 }

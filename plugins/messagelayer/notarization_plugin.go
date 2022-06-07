@@ -28,6 +28,7 @@ type notarizationDependencies struct {
 	dig.In
 	Tangle  *tangle.Tangle
 	Storage kvstore.KVStore
+	VM      *devnetvm.VM
 }
 
 var (
@@ -39,10 +40,15 @@ var (
 
 func init() {
 	NotarizationPlugin = node.NewPlugin(NotarizationPluginName, deps, node.Enabled, configureNotarizationPlugin, runNotarizationPlugin)
+
+	NotarizationPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(newNotarizationManager); err != nil {
+			NotarizationPlugin.Panic(err)
+		}
+	}))
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	notarizationManager = newNotarizationManager()
 	if nodeSnapshot != nil {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
@@ -50,6 +56,9 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationDeps.Tangle.Storage.Message(event.Message.ID()).Consume(func(m *tangle.Message) {
 			notarizationManager.OnMessageConfirmed(m)
 		})
+	}))
+	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		notarizationManager.OnMessageOrphaned(event.Message)
 	}))
 	notarizationDeps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		notarizationDeps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
@@ -80,12 +89,12 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager() *notarization.Manager {
+func newNotarizationManager(deps *notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(notarizationDeps.Storage),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.VM, deps.Tangle),
 		notarizationDeps.Tangle,
-		notarization.MinCommitableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
 		notarization.Log(Plugin.Logger()))
 }
 
