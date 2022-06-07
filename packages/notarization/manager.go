@@ -140,7 +140,7 @@ func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.updateState(ei, tx)
+	m.storeTXDiff(ei, tx)
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
@@ -186,26 +186,10 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) updateState(ei epoch.EI, tx *devnetvm.Transaction) {
+func (m *Manager) storeTXDiff(ei epoch.EI, tx *devnetvm.Transaction) {
 	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
 	outputsCreated := tx.Essence().Outputs()
 
-	// update the state root only if  ei is the next committable epoch
-	if ei == m.epochCommitmentFactory.LastCommittedEpoch+1 {
-		for _, o := range outputsCreated {
-			err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
-			if err != nil && m.log != nil {
-				m.log.Error(err)
-			}
-		}
-		// remove spent outputs
-		for it := outputsSpent.Iterator(); it.HasNext(); {
-			err := m.epochCommitmentFactory.RemoveStateLeaf(ei, it.Next())
-			if err != nil && m.log != nil {
-				m.log.Error(err)
-			}
-		}
-	}
 	// store outputs in the commitment diff storage
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
 }

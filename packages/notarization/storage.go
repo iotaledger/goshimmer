@@ -23,8 +23,8 @@ type ECRecord struct {
 }
 
 type ecRecord struct {
-	ECR    epoch.ECR `serix:"0"`
-	PrevEC epoch.EC  `serix:"1"`
+	ECR    *epoch.ECR `serix:"0"`
+	PrevEC *epoch.EC  `serix:"1"`
 }
 
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
