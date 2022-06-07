@@ -955,13 +955,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
 		tx := model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{
-			Essence: &TransactionEssence{
-				transactionEssenceInner{
-					Timestamp: time.Now(),
-				},
-			},
-		},
-		)
+			Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{
+				Timestamp: time.Now(),
+			}),
+		})
 		err := prev.validateTransition(next, tx)
 		assert.NoError(t, err)
 	})
@@ -972,10 +969,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		next := prev.NewAliasOutputNext(true)
 		assert.Equal(t, true, next.IsDelegated())
 		// happy case, time-lock expired
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}))
+		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
 		assert.NoError(t, err)
 		// not happy case, time-lock is still active
-		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}))
+		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -983,7 +980,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 	t.Run("CASE: State update, delegation without time-lock", func(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}))
+		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
 		assert.NoError(t, err)
 	})
 
@@ -992,10 +989,10 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegationAndTimelock(timeLock)
 		next := prev.NewAliasOutputNext(false)
 		// time-lock is active state transition allowed
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(-time.Second)}}}))
+		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(-time.Second)})}))
 		assert.NoError(t, err)
 		// time-lock expired, state transition should fail
-		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: timeLock.Add(time.Second)}}}))
+		err = prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: timeLock.Add(time.Second)})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1004,7 +1001,7 @@ func TestAliasOutput_validateTransition(t *testing.T) {
 		prev := dummyAliasOutput().WithDelegation()
 		next := prev.NewAliasOutputNext(false)
 		next.delegationTimelock = time.Now()
-		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: &TransactionEssence{transactionEssenceInner{Timestamp: time.Now()}}}))
+		err := prev.validateTransition(next, model.NewStorable[utxo.TransactionID, Transaction](&transactionModel{Essence: model.NewImmutable[TransactionEssence](&transactionEssenceModel{Timestamp: time.Now()})}))
 		t.Log(err)
 		assert.Error(t, err)
 	})
@@ -1337,18 +1334,18 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.utxoInputInner.ReferencedOutputID == alias.ID() {
+			if castedInput.ReferencedOutputID() == alias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, alias)
 			}
-			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
+			if castedInput.ReferencedOutputID() == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
 		}
 		unlocks := make(UnlockBlocks, len(inputsOfTx))
 		unlocks[indexOfAliasInput] = NewAliasUnlockBlock(uint16(indexOfGoverningAliasInput))
-		unlocks[indexOfGoverningAliasInput] = NewSignatureUnlockBlock(NewED25519Signature(governingAliasStateKeyPair.PublicKey, governingAliasStateKeyPair.PrivateKey.Sign(essence.Bytes())))
+		unlocks[indexOfGoverningAliasInput] = NewSignatureUnlockBlock(NewED25519Signature(governingAliasStateKeyPair.PublicKey, governingAliasStateKeyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 
 		tx := NewTransaction(essence, unlocks)
 
@@ -1601,11 +1598,11 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		var indexOfAliasInput, indexOfGoverningAliasInput int
 		for i, input := range inputsOfTx {
 			castedInput := input.(*UTXOInput)
-			if castedInput.utxoInputInner.ReferencedOutputID == governedAlias.ID() {
+			if castedInput.ReferencedOutputID() == governedAlias.ID() {
 				indexOfAliasInput = i
 				inputs = append(inputs, governedAlias)
 			}
-			if castedInput.utxoInputInner.ReferencedOutputID == governingAlias.ID() {
+			if castedInput.ReferencedOutputID() == governingAlias.ID() {
 				indexOfGoverningAliasInput = i
 				inputs = append(inputs, governingAlias)
 			}
@@ -1632,7 +1629,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		)
 		txEssence := NewTransactionEssence(0, time.Time{}, issuerIdentity.ID(), issuerIdentity.ID(), inputs, outputs)
 		unlockBlocks := UnlockBlocks{
-			NewSignatureUnlockBlock(NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(txEssence.Bytes()))),
+			NewSignatureUnlockBlock(NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))),
 		}
 		tx := NewTransaction(txEssence, unlockBlocks)
 		ok, err := alias.UnlockValid(tx, NewReferenceUnlockBlock(0), Outputs{})
@@ -1842,7 +1839,7 @@ func TestExtendedLockedOutput_Input(t *testing.T) {
 		output := dummyExtendedLockedOutput()
 		input, ok := output.Input().(*UTXOInput)
 		assert.True(t, ok)
-		assert.Equal(t, input.utxoInputInner.ReferencedOutputID.Bytes(), output.ID().Bytes())
+		assert.Equal(t, input.ReferencedOutputID().Bytes(), output.ID().Bytes())
 	})
 
 	t.Run("CASE: No output id yet", func(t *testing.T) {

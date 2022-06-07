@@ -2,6 +2,7 @@ package manarefresher
 
 import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
@@ -32,7 +33,7 @@ func (w *wallet) publicKey() ed25519.PublicKey {
 }
 
 func (w *wallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
-	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 // unlockBlocks returns the unlock blocks assuming all inputs can be unlocked by the same signature.

@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -253,9 +252,10 @@ var _ utxo.Transaction = new(Transaction)
 
 // TransactionEssence contains the transfer related information of the Transaction (without the unlocking details).
 type TransactionEssence struct {
-	transactionEssenceInner `serix:"0"`
+	model.Immutable[TransactionEssence, *TransactionEssence, transactionEssenceModel] `serix:"0"`
 }
-type transactionEssenceInner struct {
+
+type transactionEssenceModel struct {
 	Version TransactionEssenceVersion `serix:"0"`
 	// timestamp is the timestamp of the transaction.
 	Timestamp time.Time `serix:"1"`
@@ -277,16 +277,15 @@ func NewTransactionEssence(
 	inputs Inputs,
 	outputs Outputs,
 ) *TransactionEssence {
-	return &TransactionEssence{
-		transactionEssenceInner{
-			Version:           version,
-			Timestamp:         timestamp,
-			AccessPledgeID:    accessPledgeID,
-			ConsensusPledgeID: consensusPledgeID,
-			Inputs:            inputs,
-			Outputs:           outputs,
-		},
-	}
+	return model.NewImmutable[TransactionEssence](&transactionEssenceModel{
+		Version:           version,
+		Timestamp:         timestamp,
+		AccessPledgeID:    accessPledgeID,
+		ConsensusPledgeID: consensusPledgeID,
+		Inputs:            inputs,
+		Outputs:           outputs,
+	},
+	)
 }
 
 // TransactionEssenceFromBytes unmarshals a TransactionEssence from a sequence of bytes.
@@ -302,65 +301,42 @@ func TransactionEssenceFromBytes(data []byte) (transactionEssence *TransactionEs
 
 // SetPayload set the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) SetPayload(p payload.Payload) {
-	t.transactionEssenceInner.Payload = p
+	t.M.Payload = p
 }
 
 // Version returns the Version of the TransactionEssence.
 func (t *TransactionEssence) Version() TransactionEssenceVersion {
-	return t.transactionEssenceInner.Version
+	return t.M.Version
 }
 
 // Timestamp returns the timestamp of the TransactionEssence.
 func (t *TransactionEssence) Timestamp() time.Time {
-	return t.transactionEssenceInner.Timestamp
+	return t.M.Timestamp
 }
 
 // AccessPledgeID returns the access mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) AccessPledgeID() identity.ID {
-	return t.transactionEssenceInner.AccessPledgeID
+	return t.M.AccessPledgeID
 }
 
 // ConsensusPledgeID returns the consensus mana pledge nodeID of the TransactionEssence.
 func (t *TransactionEssence) ConsensusPledgeID() identity.ID {
-	return t.transactionEssenceInner.ConsensusPledgeID
+	return t.M.ConsensusPledgeID
 }
 
 // Inputs returns the Inputs of the TransactionEssence.
 func (t *TransactionEssence) Inputs() Inputs {
-	return t.transactionEssenceInner.Inputs
+	return t.M.Inputs
 }
 
 // Outputs returns the Outputs of the TransactionEssence.
 func (t *TransactionEssence) Outputs() Outputs {
-	return t.transactionEssenceInner.Outputs
+	return t.M.Outputs
 }
 
 // Payload returns the optional Payload of the TransactionEssence.
 func (t *TransactionEssence) Payload() payload.Payload {
-	return t.transactionEssenceInner.Payload
-}
-
-// Bytes returns a marshaled version of the TransactionEssence.
-func (t *TransactionEssence) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), t)
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human-readable version of the TransactionEssence.
-func (t *TransactionEssence) String() string {
-	return stringify.Struct("TransactionEssence",
-		stringify.StructField("Version", t.transactionEssenceInner.Version),
-		stringify.StructField("Timestamp", t.transactionEssenceInner.Timestamp),
-		stringify.StructField("AccessPledgeID", t.transactionEssenceInner.AccessPledgeID),
-		stringify.StructField("ConsensusPledgeID", t.transactionEssenceInner.ConsensusPledgeID),
-		stringify.StructField("Inputs", t.transactionEssenceInner.Inputs),
-		stringify.StructField("Outputs", t.transactionEssenceInner.Outputs),
-		stringify.StructField("Payload", t.transactionEssenceInner.Payload),
-	)
+	return t.M.Payload
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

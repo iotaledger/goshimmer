@@ -184,7 +184,7 @@ func newTransaction(t time.Time) *devnetvm.Transaction {
 	)
 	essence := devnetvm.NewTransactionEssence(0, t, issuerIdentity.ID(), issuerIdentity.ID(), inputs, outputs)
 	unlockBlocks := devnetvm.UnlockBlocks{
-		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(essence.Bytes()))),
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	}
 	return devnetvm.NewTransaction(essence, unlockBlocks)
 }

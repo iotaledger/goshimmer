@@ -367,7 +367,11 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
+		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
@@ -461,8 +465,12 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
@@ -1157,13 +1165,21 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 		if chained != nil {
 			// chained output is present
 			if chained.isGovernanceUpdate {
+				txBytes, err := tx.Essence().Bytes()
+				if err != nil {
+					return false, errors.Wrap(err, "could not get essence bytes")
+				}
 				// check if signature is valid against governing address
-				if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetGoverningAddress(), txBytes) {
 					return false, errors.New("signature is invalid for governance unlock")
 				}
 			} else {
+				txBytes, err := tx.Essence().Bytes()
+				if err != nil {
+					return false, errors.Wrap(err, "could not get essence bytes")
+				}
 				// check if signature is valid against state address
-				if !blk.AddressSignatureValid(a.GetStateAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetStateAddress(), txBytes) {
 					return false, errors.New("signature is invalid for state unlock")
 				}
 			}
@@ -1172,9 +1188,13 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 				return false, err
 			}
 		} else {
+			txBytes, err := tx.Essence().Bytes()
+			if err != nil {
+				return false, errors.Wrap(err, "could not get essence bytes")
+			}
 			// no chained output found. Alias is being destroyed?
 			// check if governance is unlocked
-			if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
+			if !blk.AddressSignatureValid(a.GetGoverningAddress(), txBytes) {
 				return false, errors.New("signature is invalid for chain output deletion")
 			}
 			// validate deletion constraint
@@ -1792,8 +1812,12 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(addr, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(addr, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
