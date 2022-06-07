@@ -141,7 +141,12 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	epochCommitment := f.tangle.Options.CommitmentFunc()
+	epochCommitment, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
+	if epochCommitmentErr != nil {
+		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
 
 	// create the signature
 	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce, epochCommitment)

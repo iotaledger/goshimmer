@@ -200,7 +200,7 @@ type Options struct {
 	TimeSinceConfirmationThreshold time.Duration
 	StartSynced                    bool
 	CacheTimeProvider              *database.CacheTimeProvider
-	CommitmentFunc                 func() *epoch.EpochCommitment
+	CommitmentFunc                 func() (*epoch.EpochCommitment, error)
 }
 
 // Store is an Option for the Tangle that allows to specify which storage layer is supposed to be used to persist data.
@@ -305,7 +305,7 @@ func WithConflictDAGOptions(branchDAGOptions ...conflictdag.Option) Option {
 }
 
 // CommitmentFunc is an Option for the Tangle that retrieves epoch commitments for blocks.
-func CommitmentFunc(commitmentRetrieverFunc func() *epoch.EpochCommitment) Option {
+func CommitmentFunc(commitmentRetrieverFunc func() (*epoch.EpochCommitment, error)) Option {
 	return func(o *Options) {
 		o.CommitmentFunc = commitmentRetrieverFunc
 	}

@@ -100,6 +100,6 @@ func newNotarizationManager(deps *notarizationDependencies) *notarization.Manage
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() *epoch.EpochCommitment {
+func GetLatestEC() (*epoch.EpochCommitment, error) {
 	return notarizationManager.GetLatestEC()
 }
