@@ -33,7 +33,7 @@ func TestTransaction_Bytes(t *testing.T) {
 	)
 
 	transaction := NewTransaction(transactionEssence, UnlockBlocks{
-		NewSignatureUnlockBlock(NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(transactionEssence.Bytes()))),
+		NewSignatureUnlockBlock(NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(lo.PanicOnErr(transactionEssence.Bytes())))),
 	})
 	_tx := new(Transaction)
 	err := _tx.FromBytes(lo.PanicOnErr(transaction.Bytes()))
@@ -64,7 +64,7 @@ func TestTransaction_Complex(t *testing.T) {
 	})
 
 	// party1 prepares a TransactionEssence that party2 is supposed to complete for the exchange of tokens
-	sentParty1Essence := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{},
+	sentParty1Essence, err := NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{},
 		// he consumes 200 tokens of Color2
 		NewInputs(unspentOutputsDB[party1ControlledOutputID].Input()),
 
@@ -78,6 +78,7 @@ func TestTransaction_Complex(t *testing.T) {
 			}), party1RemainderAddress),
 		),
 	).Bytes()
+	require.NoError(t, err)
 
 	// party2 unmarshals the prepared TransactionEssence he received from party1
 	receivedParty1Essence, _, err := TransactionEssenceFromBytes(sentParty1Essence)
@@ -182,7 +183,7 @@ func addressFromInput(input Input, outputsByID OutputsByID) Address {
 // signTransaction is a utility function that iterates through a transactions inputs and signs the addresses that are
 // part of the signers key chain.
 func signTransaction(essence *TransactionEssence, unlockBlocks UnlockBlocks, unspentOutputsDB OutputsByID, keyChain map[Address]ed25519.KeyPair) {
-	essenceBytesToSign := essence.Bytes()
+	essenceBytesToSign := lo.PanicOnErr(essence.Bytes())
 
 	for i, input := range essence.Inputs() {
 		if keyPair, keyPairExists := keyChain[addressFromInput(input, unspentOutputsDB)]; keyPairExists {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/bitmask"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"golang.org/x/crypto/blake2b"
@@ -740,7 +741,7 @@ func (wallet *Wallet) TransferNFT(options ...transfernftoptions.TransferNFTOptio
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
 	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
-		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes()))),
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -840,7 +841,7 @@ func (wallet *Wallet) DestroyNFT(options ...destroynftoptions.DestroyNFTOption) 
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
 	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
-		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes()))),
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -956,7 +957,7 @@ func (wallet *Wallet) WithdrawFundsFromNFT(options ...withdrawfromnftoptions.Wit
 	// there is only one input, so signing is easy
 	keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
 	tx = devnetvm.NewTransaction(essence, devnetvm.UnlockBlocks{
-		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes()))),
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
 	})
 
 	// check syntactical validity by marshaling an unmarshaling
@@ -1201,7 +1202,7 @@ func (wallet Wallet) SweepNFTOwnedFunds(options ...sweepnftownedoptions.SweepNFT
 			casted := input.(*devnetvm.UTXOInput)
 			if casted.ReferencedOutputID() == alias.ID() {
 				keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
+				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 				unlockBlocks[index] = unlockBlock
 				aliasInputIndex = index
 			}
@@ -1355,7 +1356,7 @@ func (wallet *Wallet) SweepNFTOwnedNFTs(options ...sweepnftownednftsoptions.Swee
 			casted := input.(*devnetvm.UTXOInput)
 			if casted.ReferencedOutputID() == alias.ID() {
 				keyPair := wallet.Seed().KeyPair(walletAlias.Address.Index)
-				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
+				unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 				unlockBlocks[index] = unlockBlock
 				aliasInputIndex = index
 			}
@@ -2263,7 +2264,7 @@ func (wallet *Wallet) buildUnlockBlocks(inputs devnetvm.Inputs, consumedOutputsB
 		}
 
 		keyPair := wallet.Seed().KeyPair(output.Address.Index)
-		unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(essence.Bytes())))
+		unlockBlock := devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes()))))
 		unlocks[outputIndex] = unlockBlock
 		existingUnlockBlocks[output.Address] = uint16(outputIndex)
 	}

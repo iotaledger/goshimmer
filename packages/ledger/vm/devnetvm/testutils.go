@@ -2,6 +2,7 @@ package devnetvm
 
 import (
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 )
 
 type wallet struct {
@@ -38,7 +39,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *TransactionEssence) *ED25519Signature {
-	return NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+	return NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 func (w wallet) unlockBlocks(txEssence *TransactionEssence) []UnlockBlock {

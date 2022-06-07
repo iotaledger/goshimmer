@@ -20,6 +20,9 @@ import (
 // region Scheduler_test /////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestScheduler_StartStop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
 	tangle.Scheduler.Start()
