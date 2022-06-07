@@ -60,12 +60,6 @@ module.exports = {
 
     {
       type: 'doc',
-      label: 'Set up a custom dRNG committee',
-      id: 'tutorials/custom_dRNG',
-    },
-
-    {
-      type: 'doc',
       label: 'Set up the Monitoring Dashboard',
       id: 'tutorials/monitoring',
     },
@@ -251,12 +245,6 @@ module.exports = {
 
       {
         type: 'doc',
-        label: 'dRNG',
-        id: 'apis/dRNG',
-      },
-
-      {
-        type: 'doc',
         label: 'Snapshot',
         id: 'apis/snapshot',
       },
@@ -271,12 +259,6 @@ module.exports = {
         type: 'doc',
         label: 'Spammer',
         id: 'apis/spammer',
-      },
-
-      {
-        type: 'doc',
-        label: 'Tools',
-        id: 'apis/tools',
       },
     ],
   },

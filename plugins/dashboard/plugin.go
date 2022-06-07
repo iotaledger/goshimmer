@@ -22,7 +22,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/chat"
-	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
@@ -50,14 +49,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Node         *configuration.Configuration
-	Local        *peer.Local
-	Tangle       *tangle.Tangle
-	Selection    *selection.Protocol `optional:"true"`
-	GossipMgr    *gossip.Manager     `optional:"true"`
-	DRNGInstance *drng.DRNG          `optional:"true"`
-	Chat         *chat.Chat          `optional:"true"`
-	Indexer      *indexer.Indexer
+	Node      *configuration.Configuration
+	Local     *peer.Local
+	Tangle    *tangle.Tangle
+	Selection *selection.Protocol `optional:"true"`
+	GossipMgr *gossip.Manager     `optional:"true"`
+	Chat      *chat.Chat          `optional:"true"`
+	Indexer   *indexer.Indexer
 }
 
 func init() {
@@ -68,7 +66,6 @@ func configure(plugin *node.Plugin) {
 	log = logger.NewLogger(plugin.Name)
 	configureWebSocketWorkerPool()
 	configureLiveFeed()
-	configureDrngLiveFeed()
 	configureChatLiveFeed()
 	configureVisualizer()
 	configureManaFeed()
@@ -109,9 +106,6 @@ func run(*node.Plugin) {
 	runVisualizer()
 	runManaFeed()
 	runConflictLiveFeed()
-	if deps.DRNGInstance != nil {
-		runDrngLiveFeed()
-	}
 
 	if deps.Chat != nil {
 		runChatLiveFeed()
@@ -169,8 +163,6 @@ const (
 	MsgTypeNeighborMetric
 	// MsgTypeComponentCounterMetric is the type of the component counter triggered per second.
 	MsgTypeComponentCounterMetric
-	// MsgTypeDrng is the type of the dRNG message.
-	MsgTypeDrng
 	// MsgTypeTipsMetric is the type of the TipsMetric message.
 	MsgTypeTipsMetric
 	// MsgTypeVertex defines a vertex message.

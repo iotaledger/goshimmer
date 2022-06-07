@@ -4,7 +4,6 @@ export enum WSMsgType {
     Message,
     NeighborStats,
     ComponentCounterMetrics,
-    Drng,
     TipsMetrics,
     Vertex,
     TipInfo,

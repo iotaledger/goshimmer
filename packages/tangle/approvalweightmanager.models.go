@@ -49,8 +49,8 @@ func (b *BranchWeight) Weight() (weight float64) {
 
 // SetWeight sets the weight for the BranchID and returns true if it was modified.
 func (b *BranchWeight) SetWeight(weight float64) bool {
-	b.RLock()
-	defer b.RUnlock()
+	b.Lock()
+	defer b.Unlock()
 
 	if weight == b.M {
 		return false

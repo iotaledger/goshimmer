@@ -13,7 +13,6 @@ export class tangleVertex {
     isTxConfirmed: boolean;
     gof: string;
     confirmedTime: number;
-    futureMarkers: Array<string>;
 }
 
 export class tangleBooked {
@@ -31,11 +30,6 @@ export class tangleConfirmed {
 export class tangleTxGoFChanged {
     ID: string;
     isConfirmed: boolean;
-}
-
-export class tangleFutureMarkerUpdated {
-    ID: string;
-    futureMarkerID: string;
 }
 
 export enum parentRefType {

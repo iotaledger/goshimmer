@@ -19,7 +19,6 @@ const (
 
 	containerNameEntryNode   = "entry_node"
 	containerNameReplica     = "replica_"
-	containerNameDrand       = "drand_"
 	containerNameSuffixPumba = "_pumba"
 
 	graceTimePumba = 3 * time.Second
@@ -101,8 +100,6 @@ func PeerConfig() config.GoShimmer {
 	c.Activity.Enabled = false
 	c.Activity.BroadcastInterval = time.Second // increase frequency to speedup tests
 
-	c.DRNG.Enabled = false
-
 	return c
 }
 
@@ -110,10 +107,10 @@ func PeerConfig() config.GoShimmer {
 func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
-	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus", "manarefresher", "manualpeering", "chat",
-		"WebAPIDataEndpoint", "WebAPIDRNGEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint", "Snapshot", "WebAPIToolsDRNGEndpoint",
-		"WebAPIToolsMessageEndpoint", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall", "remotelog", "remotelogmetrics",
-		"DAGsVisualizer")
+	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
+		"manarefresher", "manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
+		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall",
+		"remotelog", "remotelogmetrics", "DAGsVisualizer")
 	c.Gossip.Enabled = false
 	c.POW.Enabled = false
 	c.AutoPeering.Enabled = true
@@ -122,7 +119,6 @@ func EntryNodeConfig() config.GoShimmer {
 	c.Mana.Enabled = false
 	c.Consensus.Enabled = false
 	c.Activity.Enabled = false
-	c.DRNG.Enabled = false
 	c.Dashboard.Enabled = false
 	c.Dagsvisualizer.Enabled = false
 
