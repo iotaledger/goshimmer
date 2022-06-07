@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/consensus/finality"
 	"github.com/iotaledger/goshimmer/packages/consensus/otv"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
@@ -261,7 +262,7 @@ func totalAccessManaRetriever() float64 {
 
 // region Notarization ///////////////////////////////////////////////////////////////////////////////////////////
 
-func commitmentRetriever() *tangle.EpochCommitment {
+func commitmentRetriever() *epoch.EpochCommitment {
 	return GetLatestEC()
 }
 

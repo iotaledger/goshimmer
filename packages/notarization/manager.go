@@ -28,9 +28,6 @@ type Manager struct {
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
 	Events                 *Events
-
-	// lastCommittedEpoch is the last epoch that was committed, and the state tree is built upon this epoch.
-	lastCommittedEpoch epoch.EI
 }
 
 // NewManager creates and returns a new notarization manager.
@@ -66,18 +63,24 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
 	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
 
-	for ei, diff := range snapshot.EpochDiffs {
-		m.epochCommitmentFactory.storage.diffStores[ei].Store(diff).Release()
-		for _, spent := range diff.M.Spent {
+	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *epoch.EpochDiff) bool {
+		m.epochCommitmentFactory.storage.diffsStore.Store(epochdiff).Release()
+
+		epochdiff.M.Spent.ForEach(func(spent utxo.Output) error {
+			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
+				panic("epoch diff spends an output not contained in the ledger state")
+			}
 			m.epochCommitmentFactory.stateRootTree.Delete(spent.ID().Bytes())
-		}
+			return nil
+		})
 
-		for _, created := range diff.M.Created {
+		epochdiff.M.Created.ForEach(func(created utxo.Output) error {
 			m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
-		}
-	}
+			return nil
+		})
 
-	return
+		return true
+	})
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
@@ -95,7 +98,7 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func (m *Manager) GetLatestEC() *tangle.EpochCommitment {
+func (m *Manager) GetLatestEC() *epoch.EpochCommitment {
 	ei := m.epochManager.CurrentEI()
 	for ei > 0 {
 		if m.IsCommittable(ei) {
@@ -153,6 +156,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID)
 
 	// TODO: propagate updates to future epochs
+	// TODO: update state tree
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -187,7 +191,7 @@ func (m *Manager) updateStateLeafs(ei epoch.EI, tx *devnetvm.Transaction) {
 	outputsCreated := tx.Essence().Outputs()
 
 	// update the state root only if  ei is the next committable epoch
-	if ei == m.epochCommitmentFactory.lastCommittedEpoch+1 {
+	if ei == m.epochCommitmentFactory.LastCommittedEpoch+1 {
 		for _, o := range outputsCreated {
 			err := m.epochCommitmentFactory.InsertStateLeaf(ei, o.ID())
 			if err != nil && m.log != nil {

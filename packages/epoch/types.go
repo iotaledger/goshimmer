@@ -1,12 +1,15 @@
 package epoch
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/hive.go/generics/objectstorage"
+	"context"
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/model"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
+	"github.com/iotaledger/hive.go/serix"
+
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -15,13 +18,21 @@ import (
 // EI is the ID of an epoch.
 type EI uint64
 
-type ECR struct {
-	types.Identifier
+func (e EI) Bytes() []byte {
+	bytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
+	if err != nil {
+		panic(err)
+	}
+
+	return bytes
 }
 
-type EC struct {
-	types.Identifier
+type MerkleRoot struct {
+	types.Identifier `serix:"0"`
 }
+
+type ECR = MerkleRoot
+type EC = MerkleRoot
 
 // Epoch is a time range used to define a bucket of messages.
 type Epoch struct {
@@ -35,6 +46,13 @@ type Epoch struct {
 	confirmedMutex  sync.RWMutex
 	finalizedMutex  sync.RWMutex
 	commitmentMutex sync.RWMutex
+}
+
+// EpochCommitment contains the ECR and PreviousEC of an epoch.
+type EpochCommitment struct {
+	EI         uint64
+	ECR        *ECR
+	PreviousEC *EC
 }
 
 // NewEpoch is the constructor for an Epoch.
@@ -105,7 +123,16 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	return
 }
 
-type DiffStores struct {
-	Created *objectstorage.ObjectStorage[utxo.Output]
-	Spent   *objectstorage.ObjectStorage[utxo.Output]
+type EpochDiffs struct {
+	orderedmap.OrderedMap[EI, *EpochDiff] `serix:"0"`
+}
+
+type EpochDiff struct {
+	model.Storable[EI, epochDiff] `serix:"0"`
+}
+
+type epochDiff struct {
+	EI      EI           `serix:"0"`
+	Created utxo.Outputs `serix:"1"`
+	Spent   utxo.Outputs `serix:"2"`
 }
