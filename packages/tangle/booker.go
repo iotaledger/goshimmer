@@ -28,6 +28,7 @@ type Booker struct {
 	tangle              *Tangle
 	payloadBookingMutex *syncutils.DAGMutex[MessageID]
 	bookingMutex        *syncutils.DAGMutex[MessageID]
+	sequenceMutex       *syncutils.DAGMutex[markers.SequenceID]
 }
 
 // NewBooker is the constructor of a Booker.
@@ -38,6 +39,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		MarkersManager:      NewBranchMarkersMapper(tangle),
 		payloadBookingMutex: syncutils.NewDAGMutex[MessageID](),
 		bookingMutex:        syncutils.NewDAGMutex[MessageID](),
+		sequenceMutex:       syncutils.NewDAGMutex[markers.SequenceID](),
 	}
 
 	return
@@ -585,14 +587,20 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markers.Marker]) (err error) {
+	b.sequenceMutex.Lock(currentMarker.SequenceID())
+	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
+
 	// update BranchID mapping
 	newBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
 	if !newBranchIDs.Add(newBranchID) {
 		return nil
 	}
 
-	if newBranchIDs.DeleteAll(removedBranchIDs).Size() != removedBranchIDs.Size() {
-		return nil
+	// carry forward parent branchIDs
+	for it := removedBranchIDs.Iterator(); it.HasNext(); {
+		if !newBranchIDs.Has(it.Next()) {
+			return
+		}
 	}
 
 	if !b.MarkersManager.SetBranchIDs(currentMarker, newBranchIDs) {

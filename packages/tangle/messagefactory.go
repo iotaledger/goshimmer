@@ -44,7 +44,7 @@ func NewMessageFactory(tangle *Tangle, selector TipSelector, referencesFunc ...R
 	}
 
 	referenceProvider := NewReferenceProvider(tangle)
-	f := NewReferenceProvider(tangle).References
+	f := referenceProvider.References
 	if len(referencesFunc) != 0 {
 		f = referencesFunc[0]
 	}
