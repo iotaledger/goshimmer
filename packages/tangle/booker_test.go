@@ -3900,9 +3900,12 @@ func TestFutureConeDislike(t *testing.T) {
 	testFramework.RegisterBranchID("B*", "Message2*")
 
 	{
-		testFramework.IssueMessages("Message1", "Message1*", "Message2", "Message3").WaitUntilAllTasksProcessed()
+		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
+		testFramework.IssueMessages("Message1*").WaitUntilAllTasksProcessed()
+		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
+		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A"),
