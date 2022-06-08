@@ -1,10 +1,11 @@
 package notarization
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/stretchr/testify/require"
 
 	"github.com/stretchr/testify/assert"
 
@@ -15,14 +16,14 @@ import (
 func TestNewManager(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	vm := new(devnetvm.VM)
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm), testTangle)
+	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
 	assert.NotNil(t, m)
 }
 
 func TestManager_PendingConflictsCount(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	vm := new(devnetvm.VM)
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm), testTangle)
+	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
 	m.pendingConflictsCount[3] = 3
 	assert.Equal(t, uint64(3), m.PendingConflictsCount(3))
 }
@@ -52,17 +53,20 @@ func TestManager_GetLatestEC(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	commitment := m.GetLatestEC()
+	commitment, err := m.GetLatestEC()
+	assert.NoError(t, err)
 	// only epoch 0 has pbc = 0
 	assert.Equal(t, epoch.EI(0), commitment.EI)
 
 	m.pendingConflictsCount[4] = 0
-	commitment = m.GetLatestEC()
+	commitment, err = m.GetLatestEC()
+	assert.NoError(t, err)
 	// epoch 4 has pbc = 0 but is not old enough
 	assert.Equal(t, epoch.EI(0), commitment.EI)
 
 	m.pendingConflictsCount[2] = 0
-	commitment = m.GetLatestEC()
+	commitment, err = m.GetLatestEC()
+	assert.NoError(t, err)
 	// epoch 2 has pbc=0 and is old enough
 	assert.Equal(t, epoch.EI(2), commitment.EI)
 }
@@ -72,5 +76,5 @@ func testNotarizationManager() *Manager {
 	testTangle := tangle.NewTestTangle()
 	interval := int64(5 * 60)
 	vm := new(devnetvm.VM)
-	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm), testTangle, MinCommittableEpochAge(10*time.Minute))
+	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
 }

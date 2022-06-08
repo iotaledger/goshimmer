@@ -396,8 +396,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 				payload.NewGenericDataPayload([]byte("")),
 				0,
 				ed25519.Signature{},
-			0,
-			nil,
+				0,
+				nil,
 				MessageVersion,
 			)
 			assert.NoError(t, err, "strong and like parents may have duplicate parents")
@@ -416,8 +416,8 @@ func TestNewMessageWithValidation(t *testing.T) {
 				payload.NewGenericDataPayload([]byte("")),
 				0,
 				ed25519.Signature{},
-			0,
-			nil,
+				0,
+				nil,
 				MessageVersion,
 			)
 			assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
@@ -449,7 +449,6 @@ func TestNewMessageWithValidation(t *testing.T) {
 				MessageVersion)
 			assert.Error(t, err)
 		}
-		)
 	})
 }
 
