@@ -136,3 +136,55 @@ type epochDiff struct {
 	Created utxo.Outputs `serix:"1"`
 	Spent   utxo.Outputs `serix:"2"`
 }
+
+func NewEpochDiff(ei EI) *EpochDiff {
+	return &EpochDiff{
+		model.NewStorable(epochDiff{
+			EI: ei,
+		}, func(model *epochDiff) EI {
+			return model.EI
+		}),
+	}
+}
+
+func (e *EpochDiff) EI() EI {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.EI
+}
+
+func (e *EpochDiff) SetEI(ei EI) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.EI = ei
+}
+
+func (e *EpochDiff) Created() utxo.Outputs {
+	e.RLock()
+	defer e.RUnlock()
+
+	return utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
+}
+
+func (e *EpochDiff) SetCreated(created utxo.Outputs) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Created = created
+}
+
+func (e *EpochDiff) Spent() utxo.Outputs {
+	e.RLock()
+	defer e.RUnlock()
+
+	return utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
+}
+
+func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Spent = spent
+}

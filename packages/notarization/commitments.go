@@ -119,7 +119,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.
 
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
-	if f.storage.ecStorage.Load(ei.Bytes()).Consume(func(ecRecord *ECRecord) {
+	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *ECRecord) {
 		ecr = ecRecord.M.ECR
 	}) {
 		return
@@ -155,13 +155,18 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
 	concatenated = append(concatenated, byte(ei))
 	EC := &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 
+	f.storage.CachedECRecord(ei, NewECRecord).Consume(func(e *ECRecord) {
+		e.M.ECR = ecr
+		e.M.PrevEC = prevEC
+	})
+
 	ecRecord := &ECRecord{model.NewStorable[epoch.EI](ecRecord{
 		ECR:    ecr,
 		PrevEC: prevEC,
 	})}
 	ecRecord.SetID(ei)
 
-	f.storage.ecStorage.Store(ecRecord).Release()
+	f.storage.ecRecordStorage.Store(ecRecord).Release()
 	f.ecc[ei] = EC
 
 	return EC, nil
@@ -274,11 +279,11 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, e
 func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
 	ecr, err := f.ECR(ei)
 	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
+		return nil, errors.Wrapf(err, "epoch commitment root could not be created for epoch %d", ei)
 	}
 	prevEC, err := f.EC(ei - 1)
 	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
+		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei-1)
 	}
 	return &epoch.EpochCommitment{
 		EI:         ei,
@@ -359,7 +364,7 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, err error) {
 	if ei != f.LastCommittedEpoch+1 {
-		return []byte{}, errors.Errorf("getting the state root of not next committable epoch is not supported")
+		return nil, errors.Errorf("getting the state root of not next committable epoch is not supported")
 	}
 
 	// By the time we want the state root for a specific epoch, the diff should be complete.
@@ -381,12 +386,11 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 		}
 	}
 
-	return f.stateRootTree.Root(), nil
+	return f.StateRoot(), nil
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
-	// TODO: this Load should be cached
-	f.storage.diffsStore.Load(ei.Bytes()).Consume(func(epochDiff *epoch.EpochDiff) {
+	f.storage.CachedDiff(ei, epoch.NewEpochDiff).Consume(func(epochDiff *epoch.EpochDiff) {
 		for _, o := range created {
 			epochDiff.M.Created.Add(o)
 		}
@@ -409,7 +413,7 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputIDs, created devnetvm.Outputs) {
 	created = make(devnetvm.Outputs, 0)
 	// TODO: this Load should be cached
-	f.storage.diffsStore.Load(ei.Bytes()).Consume(func(epochDiff *epoch.EpochDiff) {
+	f.storage.CachedDiff(ei).Consume(func(epochDiff *epoch.EpochDiff) {
 		spent = epochDiff.M.Spent.IDs()
 		epochDiff.M.Created.ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))
