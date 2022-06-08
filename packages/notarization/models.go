@@ -2,8 +2,6 @@ package notarization
 
 import (
 	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/hive.go/generics/model"
 )
 
@@ -36,6 +34,7 @@ func (e *ECRecord) SetECR(ecr *epoch.ECR) {
 	defer e.Unlock()
 
 	e.M.ECR = ecr
+	e.SetModified()
 }
 
 func (e *ECRecord) PrevEC() *epoch.EC {
@@ -50,28 +49,5 @@ func (e *ECRecord) SetPrevEC(prevEC *epoch.EC) {
 	defer e.Unlock()
 
 	e.M.PrevEC = prevEC
+	e.SetModified()
 }
-
-// region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type TangleLeaf struct {
-	model.Storable[epoch.EI, tangle.MessageID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type MutationLeaf struct {
-	model.Storable[epoch.EI, utxo.TransactionID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type OutputID struct {
-	model.Storable[utxo.OutputID, utxo.OutputID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

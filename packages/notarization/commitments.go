@@ -8,7 +8,6 @@ import (
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
@@ -120,7 +119,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *ECRecord) {
-		ecr = ecRecord.M.ECR
+		ecr = ecRecord.ECR()
 	}) {
 		return
 	}
@@ -151,22 +150,15 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
 		return nil, err
 	}
 
+	f.storage.CachedECRecord(ei, NewECRecord).Consume(func(e *ECRecord) {
+		e.SetECR(ecr)
+		e.SetPrevEC(prevEC)
+	})
+
 	concatenated := append(prevEC.Bytes(), ecr.Bytes()...)
 	concatenated = append(concatenated, byte(ei))
 	EC := &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 
-	f.storage.CachedECRecord(ei, NewECRecord).Consume(func(e *ECRecord) {
-		e.M.ECR = ecr
-		e.M.PrevEC = prevEC
-	})
-
-	ecRecord := &ECRecord{model.NewStorable[epoch.EI](ecRecord{
-		ECR:    ecr,
-		PrevEC: prevEC,
-	})}
-	ecRecord.SetID(ei)
-
-	f.storage.ecRecordStorage.Store(ecRecord).Release()
 	f.ecc[ei] = EC
 
 	return EC, nil
@@ -248,7 +240,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei epoch.EI, outID utxo.OutputI
 	return nil
 }
 
-// newCommitment creates a new commitment with the given ei, by advancing the corresponding trees.
+// newCommitment creates a new commitment with the given ei, by advancing the corresponding data structures.
 func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, error) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
@@ -260,10 +252,16 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, e
 	}
 
 	// We advance the StateRootTree to the next epoch.
+	// This call will fail if we are trying to commit an epoch other than the next of the last committed epoch.
 	stateRoot, err := f.newStateRoot(ei)
 	if err != nil {
 		return nil, err
 	}
+	// We advance the LedgerState to the next epoch.
+	if err := f.commitLedgerState(ei); err != nil {
+		return nil, errors.Wrap(err, "could not commit ledger state")
+	}
+
 	commitment := &CommitmentRoots{}
 	commitment.EI = ei
 
@@ -275,7 +273,29 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, e
 	return commitment, nil
 }
 
+// commitLedgerState commits the corresponding diff to the ledger state and drops it.
+func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
+	if !f.storage.CachedDiff(ei).Consume(func(diff *epoch.EpochDiff) {
+		diff.Spent().ForEach(func(spent utxo.Output) error {
+			f.storage.ledgerstateStorage.Delete(spent.ID().Bytes())
+			return nil
+		})
+
+		diff.Created().ForEach(func(created utxo.Output) error {
+			f.storage.ledgerstateStorage.Store(created).Release()
+			return nil
+		})
+	}) {
+		return errors.Errorf("could not commit ledger state for epoch %d, unavailable diff", ei)
+	}
+
+	f.storage.epochDiffStorage.Delete(ei.Bytes())
+
+	return nil
+}
+
 // getEpochCommitment returns the epoch commitment with the given ei.
+// The requested epoch must be committable.
 func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
 	ecr, err := f.ECR(ei)
 	if err != nil {
@@ -369,6 +389,9 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 
 	// By the time we want the state root for a specific epoch, the diff should be complete.
 	spent, created := f.loadDiffUTXOs(ei)
+	if spent == nil || created == nil {
+		return nil, errors.Errorf("could not load diff for epoch %d", ei)
+	}
 
 	// Insert created UTXOs into the state tree.
 	for _, o := range created {
@@ -392,17 +415,17 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
 	f.storage.CachedDiff(ei, epoch.NewEpochDiff).Consume(func(epochDiff *epoch.EpochDiff) {
 		for _, o := range created {
-			epochDiff.M.Created.Add(o)
+			epochDiff.AddCreated(o)
 		}
 		for it := spent.Iterator(); it.HasNext(); {
 			outputID := it.Next()
 			// We won't mark the output as spent if it was created in this epoch.
-			if epochDiff.M.Created.Delete(outputID) {
+			if epochDiff.DeleteCreated(outputID) {
 				continue
 			}
 			f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 				outVM := o.(devnetvm.Output)
-				epochDiff.M.Spent.Add(outVM)
+				epochDiff.AddSpent(outVM)
 			})
 		}
 		epochDiff.SetModified()
@@ -414,8 +437,8 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputID
 	created = make(devnetvm.Outputs, 0)
 	// TODO: this Load should be cached
 	f.storage.CachedDiff(ei).Consume(func(epochDiff *epoch.EpochDiff) {
-		spent = epochDiff.M.Spent.IDs()
-		epochDiff.M.Created.ForEach(func(output utxo.Output) error {
+		spent = epochDiff.Spent().IDs()
+		epochDiff.Created().ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))
 			return nil
 		})

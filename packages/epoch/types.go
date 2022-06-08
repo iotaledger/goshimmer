@@ -159,13 +159,52 @@ func (e *EpochDiff) SetEI(ei EI) {
 	defer e.Unlock()
 
 	e.M.EI = ei
+	e.SetModified()
 }
 
-func (e *EpochDiff) Created() utxo.Outputs {
+func (e *EpochDiff) AddCreated(created utxo.Output) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Created.Add(created)
+	e.SetModified()
+}
+
+func (e *EpochDiff) DeleteCreated(id utxo.OutputID) (existed bool) {
+	e.Lock()
+	defer e.Unlock()
+
+	if existed = e.M.Created.OrderedMap.Delete(id); existed {
+		e.SetModified()
+	}
+
+	return
+}
+
+func (e *EpochDiff) AddSpent(spent utxo.Output) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Spent.Add(spent)
+	e.SetModified()
+}
+
+func (e *EpochDiff) DeleteSpent(id utxo.OutputID) (existed bool) {
+	e.Lock()
+	defer e.Unlock()
+
+	if existed = e.M.Spent.OrderedMap.Delete(id); existed {
+		e.SetModified()
+	}
+
+	return
+}
+
+func (e *EpochDiff) Created() *utxo.Outputs {
 	e.RLock()
 	defer e.RUnlock()
 
-	return utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
+	return &utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
 }
 
 func (e *EpochDiff) SetCreated(created utxo.Outputs) {
@@ -173,13 +212,14 @@ func (e *EpochDiff) SetCreated(created utxo.Outputs) {
 	defer e.Unlock()
 
 	e.M.Created = created
+	e.SetModified()
 }
 
-func (e *EpochDiff) Spent() utxo.Outputs {
+func (e *EpochDiff) Spent() *utxo.Outputs {
 	e.RLock()
 	defer e.RUnlock()
 
-	return utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
+	return &utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
 }
 
 func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
@@ -187,4 +227,5 @@ func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
 	defer e.Unlock()
 
 	e.M.Spent = spent
+	e.SetModified()
 }
