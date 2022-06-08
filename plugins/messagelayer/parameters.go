@@ -68,12 +68,12 @@ type RateSetterParametersDefinition struct {
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
-	// MaxBufferSize defines the maximum buffer size (in number of messages).
-	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 messages
-	// Rate defines the frequency to schedule a message. `default:"5ms" usage:"message scheduling interval [time duration string]"`
-	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
-	// ConfirmedMessageThreshold time threshold after which confirmed messages are not scheduled [time duration string]
-	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed messages are not scheduled [time duration string]"`
+	// MaxBufferSize defines the maximum buffer size (in number of blocks).
+	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 blocks
+	// Rate defines the frequency to schedule a message.
+	Rate string `default:"34ms" usage:"message scheduling interval [time duration string]"` // 29.4 blocks per second
+	// ConfirmedMessageThreshold time threshold after which confirmed blocks are not scheduled [time duration string]
+	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.

@@ -7,7 +7,7 @@ on:
         required: false
         default: ""
       powDifficulty:
-        description: 'PoW difficulty (default: 21):'
+        description: 'PoW difficulty (default: 0):'
         required: false
         default: ""
       remoteDebugging:
