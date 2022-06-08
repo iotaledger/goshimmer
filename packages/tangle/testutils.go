@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -863,7 +864,9 @@ func NewTestTangle(options ...Option) *Tangle {
 }
 
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
-type MockConfirmationOracle struct{}
+type MockConfirmationOracle struct {
+	sync.RWMutex
+}
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
 func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {

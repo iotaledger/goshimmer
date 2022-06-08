@@ -469,6 +469,12 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	defer tangle.Shutdown()
 
 	tipManager := tangle.TipManager
+	confirmationOracle := &MockConfirmationOracleTipManagerTest{
+		confirmedMessageIDs:    NewMessageIDs(),
+		confirmedMarkers:       markers.NewMarkers(),
+		MockConfirmationOracle: MockConfirmationOracle{},
+	}
+	tangle.ConfirmationOracle = confirmationOracle
 
 	testFramework := NewMessageTestFramework(
 		tangle,
@@ -481,7 +487,12 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	confirmedMessageIDs := prepareConfirmedMessageIDs(testFramework, confirmedMessageIDsString)
 	confirmedMarkers := markers.NewMarkers(markers.NewMarker(0, 1), markers.NewMarker(1, 2), markers.NewMarker(2, 3))
 
-	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
+	confirmationOracle.Lock()
+	confirmationOracle.confirmedMessageIDs = confirmedMessageIDs
+	confirmationOracle.confirmedMarkers = confirmedMarkers
+	confirmationOracle.Unlock()
+
+	// = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
 	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
 
 	// Even without any confirmations, it should be possible to attach to genesis.
@@ -783,11 +794,17 @@ type MockConfirmationOracleTipManagerTest struct {
 
 // IsMessageConfirmed mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) IsMessageConfirmed(msgID MessageID) bool {
+	m.RLock()
+	defer m.RUnlock()
+
 	return m.confirmedMessageIDs.Contains(msgID)
 }
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
+	m.RLock()
+	defer m.RUnlock()
+
 	confirmedMarkerIndex, exists := m.confirmedMarkers.Get(sequenceID)
 	if exists {
 		return confirmedMarkerIndex + 1
@@ -797,6 +814,9 @@ func (m *MockConfirmationOracleTipManagerTest) FirstUnconfirmedMarkerIndex(seque
 
 // IsMessageConfirmed mocks its interface function.
 func (m *MockConfirmationOracleTipManagerTest) IsMarkerConfirmed(marker markers.Marker) bool {
+	m.RLock()
+	defer m.RUnlock()
+
 	if m.confirmedMarkers == nil || m.confirmedMarkers.Size() == 0 {
 		return false
 	}
