@@ -102,7 +102,11 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 
 // SendTransaction sends a new transaction to the network.
 func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
-	_, err = webConnector.client.PostTransaction(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return err
+	}
+	_, err = webConnector.client.PostTransaction(txBytes)
 
 	return
 }

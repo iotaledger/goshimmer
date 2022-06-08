@@ -331,7 +331,7 @@ func (o OutputsByID) String() string {
 // SigLockedSingleOutput is an Output that holds exactly one uncolored balance and that can be unlocked by providing a
 // signature for an Address.
 type SigLockedSingleOutput struct {
-	model.Storable[utxo.OutputID, sigLockedSingleOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedSingleOutput, *SigLockedSingleOutput, sigLockedSingleOutput] `serix:"0"`
 }
 
 type sigLockedSingleOutput struct {
@@ -341,11 +341,11 @@ type sigLockedSingleOutput struct {
 
 // NewSigLockedSingleOutput is the constructor for a SigLockedSingleOutput.
 func NewSigLockedSingleOutput(balance uint64, address Address) *SigLockedSingleOutput {
-	return &SigLockedSingleOutput{model.NewStorable[utxo.OutputID](
-		sigLockedSingleOutput{
+	return model.NewStorable[utxo.OutputID, SigLockedSingleOutput](
+		&sigLockedSingleOutput{
 			Balance: balance,
 			Address: address,
-		})}
+		})
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -367,7 +367,11 @@ func (s *SigLockedSingleOutput) UnlockValid(tx *Transaction, unlockBlock UnlockB
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
+		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
@@ -424,39 +428,6 @@ func (s *SigLockedSingleOutput) Compare(other Output) int {
 	return bytes.Compare(lo.PanicOnErr(s.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
-func (s *SigLockedSingleOutput) FromBytes(bytes []byte) (err error) {
-	s.Lock()
-	defer s.Unlock()
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s, serix.WithValidation())
-	return
-}
-
-func (s *SigLockedSingleOutput) FromObjectStorage(key, data []byte) (err error) {
-	if err = s.IDFromBytes(key); err != nil {
-		return errors.Errorf("failed to decode ID: %w", err)
-	}
-
-	if err = s.FromBytes(data); err != nil {
-		return errors.Errorf("failed to decode Model: %w", err)
-	}
-
-	return nil
-}
-
-// ObjectStorageValue marshals the Output into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (s *SigLockedSingleOutput) ObjectStorageValue() (value []byte) {
-	return lo.PanicOnErr(s.Bytes())
-}
-
-func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
-	s.RLock()
-	defer s.RUnlock()
-
-	return serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region SigLockedColoredOutput ///////////////////////////////////////////////////////////////////////////////////////
@@ -464,7 +435,7 @@ func (s *SigLockedSingleOutput) Bytes() (bytes []byte, err error) {
 // SigLockedColoredOutput is an Output that holds colored balances and that can be unlocked by providing a signature for
 // an Address.
 type SigLockedColoredOutput struct {
-	model.Storable[utxo.OutputID, sigLockedColoredOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, SigLockedColoredOutput, *SigLockedColoredOutput, sigLockedColoredOutput] `serix:"0"`
 }
 type sigLockedColoredOutput struct {
 	Balances *ColoredBalances `serix:"0"`
@@ -473,11 +444,11 @@ type sigLockedColoredOutput struct {
 
 // NewSigLockedColoredOutput is the constructor for a SigLockedColoredOutput.
 func NewSigLockedColoredOutput(balances *ColoredBalances, address Address) *SigLockedColoredOutput {
-	return &SigLockedColoredOutput{model.NewStorable[utxo.OutputID](
-		sigLockedColoredOutput{
+	return model.NewStorable[utxo.OutputID, SigLockedColoredOutput](
+		&sigLockedColoredOutput{
 			Balances: balances,
 			Address:  address,
-		})}
+		})
 }
 
 // Type returns the type of the Output which allows us to generically handle Outputs of different types.
@@ -494,8 +465,12 @@ func (s *SigLockedColoredOutput) Balances() *ColoredBalances {
 func (s *SigLockedColoredOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inputs []Output) (unlockValid bool, err error) {
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(s.M.Address, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(s.M.Address, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
@@ -657,6 +632,7 @@ type AliasOutput struct {
 	// governance transition
 	delegationTimelock time.Time
 
+	mutex sync.RWMutex
 	objectstorage.StorableObjectFlags
 }
 
@@ -711,7 +687,7 @@ func (a *AliasOutput) WithDelegationAndTimelock(lockUntil time.Time) *AliasOutpu
 
 func (a *AliasOutput) Decode(b []byte) (int, error) {
 	marshalUtil := marshalutil.New(b)
-	if _, err := a.FromMarshalUtil(marshalUtil); err != nil {
+	if _, err := a.fromMarshalUtil(marshalUtil); err != nil {
 		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse AliasOutput from MarshalUtil: %w", err)
 	}
 
@@ -721,7 +697,6 @@ func (a *AliasOutput) Decode(b []byte) (int, error) {
 func (a *AliasOutput) Encode() ([]byte, error) {
 	flags := a.mustFlags()
 	ret := marshalutil.New().
-		WriteByte(byte(AliasOutputType)).
 		WriteByte(byte(flags)).
 		WriteBytes(a.aliasAddress.Bytes()).
 		WriteBytes(a.balances.Bytes()).
@@ -749,17 +724,14 @@ func (a *AliasOutput) Encode() ([]byte, error) {
 }
 
 // FromObjectStorage creates an AliasOutput from sequences of key and bytes.
-func (a *AliasOutput) FromObjectStorage(key, bytes []byte) error {
-	_, err := a.Decode(bytes)
-	if err != nil {
-		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
-		return err
+func (a *AliasOutput) FromObjectStorage(key, data []byte) (err error) {
+	if err = a.FromBytes(data); err != nil {
+		return errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
 	}
 
 	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return err
+		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
 	a.SetID(outputID)
 
@@ -773,22 +745,35 @@ func (a *AliasOutput) ObjectStorageKey() []byte {
 
 // ObjectStorageValue binary form.
 func (a *AliasOutput) ObjectStorageValue() []byte {
-	return lo.PanicOnErr(a.Encode())
+	return lo.PanicOnErr(a.Bytes())
 }
 
-// FromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
-func (a *AliasOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *AliasOutput, err error) {
+// Bytes serialized form.
+func (a *AliasOutput) Bytes() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
+}
+
+// FromBytes creates an AliasOutput from sequences of bytes.
+func (a *AliasOutput) FromBytes(data []byte) error {
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, a, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse AliasOutput from bytes: %w", err)
+		return err
+	}
+
+	if len(data) != consumedBytes {
+		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
+	}
+
+	return nil
+}
+
+// fromMarshalUtil unmarshals a AliasOutput using a MarshalUtil (for easier unmarshaling).
+func (a *AliasOutput) fromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *AliasOutput, err error) {
 	if output = a; output == nil {
 		output = new(AliasOutput)
 	}
 
-	outputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		return nil, errors.Errorf("aliasOutput: failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-	}
-	if OutputType(outputType) != AliasOutputType {
-		return nil, errors.Errorf("aliasOutput: invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-	}
 	flagsByte, err1 := marshalUtil.ReadByte()
 	if err1 != nil {
 		return nil, errors.Errorf("aliasOutput: failed to parse AliasOutput flags (%v): %w", err1, cerrors.ErrParseBytesFailed)
@@ -883,6 +868,8 @@ func (a *AliasOutput) SetBalances(balances map[Color]uint64) error {
 
 // GetAliasAddress calculates new ID if it is a minting output. Otherwise it takes stored value.
 func (a *AliasOutput) GetAliasAddress() *AliasAddress {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	if a.aliasAddress.IsNil() {
 		return NewAliasAddress(a.ID().Bytes())
 	}
@@ -891,11 +878,15 @@ func (a *AliasOutput) GetAliasAddress() *AliasAddress {
 
 // SetAliasAddress sets the alias address of the alias output.
 func (a *AliasOutput) SetAliasAddress(addr *AliasAddress) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
 	a.aliasAddress = *addr
 }
 
 // IsOrigin returns true if it starts the chain.
 func (a *AliasOutput) IsOrigin() bool {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.isOrigin
 }
 
@@ -906,6 +897,8 @@ func (a *AliasOutput) SetIsOrigin(isOrigin bool) {
 
 // IsDelegated returns true if the output is delegated.
 func (a *AliasOutput) IsDelegated() bool {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.isDelegated
 }
 
@@ -916,11 +909,15 @@ func (a *AliasOutput) SetIsDelegated(isDelegated bool) {
 
 // IsSelfGoverned returns if governing address is not set which means that stateAddress is same as governingAddress.
 func (a *AliasOutput) IsSelfGoverned() bool {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.governingAddress == nil
 }
 
 // GetStateAddress return state controlling address.
 func (a *AliasOutput) GetStateAddress() Address {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.stateAddress
 }
 
@@ -949,8 +946,12 @@ func (a *AliasOutput) SetGoverningAddress(addr Address) {
 // GetGoverningAddress return governing address. If self-governed, it is the same as state controlling address.
 func (a *AliasOutput) GetGoverningAddress() Address {
 	if a.IsSelfGoverned() {
+		a.mutex.RLock()
+		defer a.mutex.RUnlock()
 		return a.stateAddress
 	}
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.governingAddress
 }
 
@@ -966,6 +967,8 @@ func (a *AliasOutput) SetStateData(data []byte) error {
 
 // GetStateData gets the state data.
 func (a *AliasOutput) GetStateData() []byte {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.stateData
 }
 
@@ -981,6 +984,8 @@ func (a *AliasOutput) SetGovernanceMetadata(data []byte) error {
 
 // GetGovernanceMetadata gets the governance metadata.
 func (a *AliasOutput) GetGovernanceMetadata() []byte {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.governanceMetadata
 }
 
@@ -991,6 +996,8 @@ func (a *AliasOutput) SetStateIndex(index uint32) {
 
 // GetIsGovernanceUpdated returns if the output was unlocked for governance in the transaction.
 func (a *AliasOutput) GetIsGovernanceUpdated() bool {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.isGovernanceUpdate
 }
 
@@ -1001,11 +1008,15 @@ func (a *AliasOutput) SetIsGovernanceUpdated(i bool) {
 
 // GetStateIndex returns the state index.
 func (a *AliasOutput) GetStateIndex() uint32 {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.stateIndex
 }
 
 // GetImmutableData gets the state data.
 func (a *AliasOutput) GetImmutableData() []byte {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.immutableData
 }
 
@@ -1031,6 +1042,8 @@ func (a *AliasOutput) SetDelegationTimelock(timelock time.Time) error {
 // DelegationTimelock returns the delegation timelock. If the output is not delegated, or delegation timelock is
 // not set, it returns the zero time object.
 func (a *AliasOutput) DelegationTimelock() time.Time {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	if !a.isDelegated {
 		return time.Time{}
 	}
@@ -1039,6 +1052,8 @@ func (a *AliasOutput) DelegationTimelock() time.Time {
 
 // DelegationTimeLockedNow determines if the alias output is delegation timelocked at a given time.
 func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	if !a.isDelegated || a.delegationTimelock.IsZero() {
 		return false
 	}
@@ -1047,6 +1062,8 @@ func (a *AliasOutput) DelegationTimeLockedNow(nowis time.Time) bool {
 
 // Clone clones the structure.
 func (a *AliasOutput) Clone() Output {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.clone()
 }
 
@@ -1099,6 +1116,8 @@ func (a *AliasOutput) Type() OutputType {
 
 // Balances return colored balances of the output.
 func (a *AliasOutput) Balances() *ColoredBalances {
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.balances
 }
 
@@ -1114,11 +1133,6 @@ func (a *AliasOutput) Input() Input {
 	}
 
 	return NewUTXOInput(a.ID())
-}
-
-// Bytes serialized form.
-func (a *AliasOutput) Bytes() ([]byte, error) {
-	return a.ObjectStorageValue(), nil
 }
 
 // String human readable form.
@@ -1151,13 +1165,21 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 		if chained != nil {
 			// chained output is present
 			if chained.isGovernanceUpdate {
+				txBytes, err := tx.Essence().Bytes()
+				if err != nil {
+					return false, errors.Wrap(err, "could not get essence bytes")
+				}
 				// check if signature is valid against governing address
-				if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetGoverningAddress(), txBytes) {
 					return false, errors.New("signature is invalid for governance unlock")
 				}
 			} else {
+				txBytes, err := tx.Essence().Bytes()
+				if err != nil {
+					return false, errors.Wrap(err, "could not get essence bytes")
+				}
 				// check if signature is valid against state address
-				if !blk.AddressSignatureValid(a.GetStateAddress(), tx.Essence().Bytes()) {
+				if !blk.AddressSignatureValid(a.GetStateAddress(), txBytes) {
 					return false, errors.New("signature is invalid for state unlock")
 				}
 			}
@@ -1166,9 +1188,13 @@ func (a *AliasOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBlock, inpu
 				return false, err
 			}
 		} else {
+			txBytes, err := tx.Essence().Bytes()
+			if err != nil {
+				return false, errors.Wrap(err, "could not get essence bytes")
+			}
 			// no chained output found. Alias is being destroyed?
 			// check if governance is unlocked
-			if !blk.AddressSignatureValid(a.GetGoverningAddress(), tx.Essence().Bytes()) {
+			if !blk.AddressSignatureValid(a.GetGoverningAddress(), txBytes) {
 				return false, errors.New("signature is invalid for chain output deletion")
 			}
 			// validate deletion constraint
@@ -1597,7 +1623,7 @@ func (o *ExtendedLockedOutput) SetPayload(data []byte) error {
 
 func (o *ExtendedLockedOutput) Decode(b []byte) (int, error) {
 	marshalUtil := marshalutil.New(b)
-	if _, err := o.FromMarshalUtil(marshalUtil); err != nil {
+	if _, err := o.fromMarshalUtil(marshalUtil); err != nil {
 		return marshalUtil.ReadOffset(), errors.Errorf("failed to parse ExtendedLockedOutput from MarshalUtil: %w", err)
 	}
 
@@ -1607,7 +1633,6 @@ func (o *ExtendedLockedOutput) Decode(b []byte) (int, error) {
 func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 	flags := o.compressFlags()
 	ret := marshalutil.New().
-		WriteByte(byte(ExtendedLockedOutputType)).
 		WriteBytes(o.balances.Bytes()).
 		WriteBytes(o.address.Bytes()).
 		WriteByte(byte(flags))
@@ -1626,17 +1651,14 @@ func (o *ExtendedLockedOutput) Encode() ([]byte, error) {
 }
 
 // FromObjectStorage creates an ExtendedLockedOutput from sequences of key and bytes.
-func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) error {
-	_, err := o.Decode(value)
-	if err != nil {
-		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
-		return err
+func (o *ExtendedLockedOutput) FromObjectStorage(key, value []byte) (err error) {
+	if err = o.FromBytes(value); err != nil {
+		return errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
 	}
 
 	var outputID utxo.OutputID
 	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
-		err = errors.Errorf("failed to parse OutputID from bytes: %w", err)
-		return err
+		return errors.Errorf("failed to parse OutputID from bytes: %w", err)
 	}
 	o.SetID(outputID)
 
@@ -1650,23 +1672,33 @@ func (o *ExtendedLockedOutput) ObjectStorageKey() []byte {
 
 // ObjectStorageValue binary form.
 func (o *ExtendedLockedOutput) ObjectStorageValue() []byte {
-	return lo.PanicOnErr(o.Encode())
+	return lo.PanicOnErr(o.Bytes())
 }
 
-// FromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
-func (o *ExtendedLockedOutput) FromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
-	if output = o; output == nil {
-		output = new(ExtendedLockedOutput)
+// Bytes returns a marshaled version of the Output.
+func (o *ExtendedLockedOutput) Bytes() ([]byte, error) {
+	return serix.DefaultAPI.Encode(context.Background(), o, serix.WithValidation())
+}
+
+// FromBytes creates an AliasOutput from sequences of bytes.
+func (o *ExtendedLockedOutput) FromBytes(data []byte) error {
+	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), data, o, serix.WithValidation())
+	if err != nil {
+		err = errors.Errorf("failed to parse ExtendedLockedOutput from bytes: %w", err)
+		return err
 	}
 
-	outputType, err := marshalUtil.ReadByte()
-	if err != nil {
-		err = errors.Errorf("failed to parse OutputType (%v): %w", err, cerrors.ErrParseBytesFailed)
-		return
+	if len(data) != consumedBytes {
+		return errors.Errorf("consumed bytes %d not equal total bytes %d: %w", consumedBytes, len(data), cerrors.ErrParseBytesFailed)
 	}
-	if OutputType(outputType) != ExtendedLockedOutputType {
-		err = errors.Errorf("invalid OutputType (%X): %w", outputType, cerrors.ErrParseBytesFailed)
-		return
+
+	return nil
+}
+
+// fromMarshalUtil unmarshals a ExtendedLockedOutput using a MarshalUtil (for easier unmarshalling).
+func (o *ExtendedLockedOutput) fromMarshalUtil(marshalUtil *marshalutil.MarshalUtil) (output *ExtendedLockedOutput, err error) {
+	if output = o; output == nil {
+		output = new(ExtendedLockedOutput)
 	}
 
 	balances, bytesRead, err := ColoredBalancesFromBytes(marshalUtil.Bytes()[marshalUtil.ReadOffset():])
@@ -1780,8 +1812,12 @@ func (o *ExtendedLockedOutput) UnlockValid(tx *Transaction, unlockBlock UnlockBl
 
 	switch blk := unlockBlock.(type) {
 	case *SignatureUnlockBlock:
+		txBytes, err := tx.Essence().Bytes()
+		if err != nil {
+			return false, errors.Wrap(err, "could not get essence bytes")
+		}
 		// unlocking by signature
-		unlockValid = blk.AddressSignatureValid(addr, tx.Essence().Bytes())
+		unlockValid = blk.AddressSignatureValid(addr, txBytes)
 
 	case *AliasUnlockBlock:
 		// unlocking by alias reference. The unlock is valid if:
@@ -1867,11 +1903,6 @@ func (o *ExtendedLockedOutput) UpdateMintingColor() Output {
 	updatedOutput.SetID(o.ID())
 
 	return updatedOutput
-}
-
-// Bytes returns a marshaled version of the Output.
-func (o *ExtendedLockedOutput) Bytes() ([]byte, error) {
-	return o.ObjectStorageValue(), nil
 }
 
 // Compare offers a comparator for Outputs which returns -1 if the other Output is bigger, 1 if it is smaller and 0 if

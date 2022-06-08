@@ -3937,6 +3937,7 @@ func TestFutureConeDislike(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
+	debug.SetEnabled(true)
 	const layersNum = 127
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 

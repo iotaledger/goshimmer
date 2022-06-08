@@ -677,5 +677,5 @@ func (w wl) publicKey() ed25519.PublicKey {
 }
 
 func (w wl) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
-	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }

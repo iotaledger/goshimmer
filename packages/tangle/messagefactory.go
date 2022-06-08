@@ -80,7 +80,14 @@ func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, reference
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessageIDs, parentsCount ...int) (*Message, error) {
-	payloadLen := len(p.Bytes())
+	payloadBytes, err := p.Bytes()
+	if err != nil {
+		err = errors.Errorf("could not serialize payload: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	payloadLen := len(payloadBytes)
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 		f.Events.Error.Trigger(err)

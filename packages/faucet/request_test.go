@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -48,7 +49,7 @@ func TestRequest(t *testing.T) {
 
 	originalRequest := NewRequest(address, access, consensus, 0)
 
-	clonedRequest, _, err := FromBytes(originalRequest.Bytes())
+	clonedRequest, _, err := FromBytes(lo.PanicOnErr(originalRequest.Bytes()))
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +57,7 @@ func TestRequest(t *testing.T) {
 	assert.Equal(t, originalRequest.AccessManaPledgeID(), clonedRequest.AccessManaPledgeID())
 	assert.Equal(t, originalRequest.ConsensusManaPledgeID(), clonedRequest.ConsensusManaPledgeID())
 
-	clonedRequest2, _, err := FromBytes(clonedRequest.Bytes())
+	clonedRequest2, _, err := FromBytes(lo.PanicOnErr(clonedRequest.Bytes()))
 	if err != nil {
 		panic(err)
 	}

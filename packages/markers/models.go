@@ -44,7 +44,7 @@ type IncreaseIndexCallback func(sequenceID SequenceID, currentHighestIndex Index
 
 // Marker represents a coordinate in a Sequence that is identified by an ever-increasing Index.
 type Marker struct {
-	model.Immutable[markerModel] `serix:"0"`
+	model.Immutable[Marker, *Marker, markerModel] `serix:"0"`
 }
 
 // markerModel contains the data of a Marker.
@@ -55,10 +55,10 @@ type markerModel struct {
 
 // NewMarker returns a new marker.
 func NewMarker(sequenceID SequenceID, index Index) Marker {
-	return Marker{model.NewImmutable(markerModel{
+	return *model.NewImmutable[Marker](&markerModel{
 		SequenceID: sequenceID,
 		Index:      index,
-	})}
+	})
 }
 
 // SequenceID returns the identifier of the Sequence of the Marker.
@@ -73,7 +73,7 @@ func (m Marker) Index() (index Index) {
 
 // Bytes returns a serialized version of the Marker.
 func (m Marker) Bytes() (serialized []byte) {
-	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m.M))
+	return lo.PanicOnErr(m.Immutable.Bytes())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +82,7 @@ func (m Marker) Bytes() (serialized []byte) {
 
 // Markers represents a collection of Markers that can contain exactly one Index per SequenceID.
 type Markers struct {
-	model.Model[markersModel] `serix:"0"`
+	model.Mutable[Markers, *Markers, markersModel] `serix:"0"`
 }
 
 type markersModel struct {
@@ -93,9 +93,9 @@ type markersModel struct {
 
 // NewMarkers creates a new collection of Markers.
 func NewMarkers(markers ...Marker) (new *Markers) {
-	new = &Markers{model.New(markersModel{
+	new = model.NewMutable[Markers](&markersModel{
 		Markers: make(map[SequenceID]Index),
-	})}
+	})
 
 	for _, marker := range markers {
 		new.Set(marker.SequenceID(), marker.Index())
@@ -325,7 +325,7 @@ func (m *Markers) Bytes() []byte {
 // ReferencingMarkers is a data structure that allows to denote which Markers of child Sequences in the Sequence DAG
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
-	model.Model[referencingMarkersModel] `serix:"0"`
+	model.Mutable[ReferencingMarkers, *ReferencingMarkers, referencingMarkersModel] `serix:"0"`
 }
 
 type referencingMarkersModel struct {
@@ -334,9 +334,9 @@ type referencingMarkersModel struct {
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
 func NewReferencingMarkers() (referencingMarkers *ReferencingMarkers) {
-	return &ReferencingMarkers{model.New(referencingMarkersModel{
+	return model.NewMutable[ReferencingMarkers](&referencingMarkersModel{
 		ReferencingIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
-	})}
+	})
 }
 
 // Add adds a new referencing Marker to the ReferencingMarkers.
@@ -432,7 +432,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // ReferencedMarkers is a data structure that allows to denote which Marker of a Sequence references which other Markers
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
-	model.Model[referencedMarkersModel] `serix:"0"`
+	model.Mutable[ReferencedMarkers, *ReferencedMarkers, referencedMarkersModel] `serix:"0"`
 }
 type referencedMarkersModel struct {
 	ReferencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
@@ -440,9 +440,9 @@ type referencedMarkersModel struct {
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.
 func NewReferencedMarkers(markers *Markers) (new *ReferencedMarkers) {
-	new = &ReferencedMarkers{model.New(referencedMarkersModel{
+	new = model.NewMutable[ReferencedMarkers](&referencedMarkersModel{
 		ReferencedIndexesBySequence: make(map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index]),
-	})}
+	})
 
 	initialSequenceIndex := markers.HighestIndex() + 1
 	markers.ForEach(func(sequenceID SequenceID, index Index) bool {
@@ -554,7 +554,7 @@ func (r *ReferencedMarkers) String() (humanReadableReferencedMarkers string) {
 
 // Sequence represents a set of ever-increasing Indexes that are encapsulating a certain part of the DAG.
 type Sequence struct {
-	model.Storable[SequenceID, sequenceModel] `serix:"0"`
+	model.Storable[SequenceID, Sequence, *Sequence, sequenceModel] `serix:"0"`
 }
 
 type sequenceModel struct {
@@ -571,12 +571,12 @@ func NewSequence(id SequenceID, referencedMarkers *Markers) (new *Sequence) {
 		initialIndex--
 	}
 
-	new = &Sequence{model.NewStorable[SequenceID](sequenceModel{
+	new = model.NewStorable[SequenceID, Sequence](&sequenceModel{
 		ReferencedMarkers:  NewReferencedMarkers(referencedMarkers),
 		ReferencingMarkers: NewReferencingMarkers(),
 		LowestIndex:        initialIndex,
 		HighestIndex:       initialIndex,
-	})}
+	})
 	new.SetID(id)
 
 	return new
@@ -747,7 +747,7 @@ func (s SequenceIDs) String() (humanReadableSequenceIDs string) {
 // StructureDetails represents a container for the complete Marker related information of a node in a DAG that are used
 // to interact with the public API of this package.
 type StructureDetails struct {
-	model.Model[structureDetailsModel] `serix:"0"`
+	model.Mutable[StructureDetails, *StructureDetails, structureDetailsModel] `serix:"0"`
 }
 
 type structureDetailsModel struct {
@@ -759,9 +759,9 @@ type structureDetailsModel struct {
 
 // NewStructureDetails creates an empty StructureDetails object.
 func NewStructureDetails() (newStructureDetails *StructureDetails) {
-	return &StructureDetails{model.New(structureDetailsModel{
+	return model.NewMutable[StructureDetails](&structureDetailsModel{
 		PastMarkers: NewMarkers(),
-	})}
+	})
 }
 
 func (m *StructureDetails) Rank() (rank uint64) {
@@ -822,12 +822,12 @@ func (m *StructureDetails) SetPastMarkers(pastMarkers *Markers) {
 
 // Clone creates a deep copy of the StructureDetails.
 func (m *StructureDetails) Clone() (clone *StructureDetails) {
-	return &StructureDetails{model.New(structureDetailsModel{
+	return model.NewMutable[StructureDetails](&structureDetailsModel{
 		Rank:          m.Rank(),
 		PastMarkerGap: m.PastMarkerGap(),
 		IsPastMarker:  m.IsPastMarker(),
 		PastMarkers:   m.PastMarkers().Clone(),
-	})}
+	})
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
