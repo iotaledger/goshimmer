@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -33,10 +33,10 @@ const (
 
 // Payload represents a faucet request which contains an address for the faucet to send funds to.
 type Payload struct {
-	requestInner `serix:"0"`
+	model.Immutable[Payload, *Payload, requestModel] `serix:"0"`
 }
 
-type requestInner struct {
+type requestModel struct {
 	PayloadType           payload.Type
 	Address               devnetvm.Address `serix:"1"`
 	AccessManaPledgeID    identity.ID      `serix:"2"`
@@ -51,15 +51,15 @@ var (
 
 // NewRequest is the constructor of a Payload and creates a new Payload object from the given details.
 func NewRequest(addr devnetvm.Address, accessManaPledgeID, consensusManaPledgeID identity.ID, nonce uint64) *Payload {
-	p := &Payload{
-		requestInner{
+	p := model.NewImmutable[Payload](
+		&requestModel{
 			PayloadType:           RequestType,
 			Address:               addr,
 			AccessManaPledgeID:    accessManaPledgeID,
 			ConsensusManaPledgeID: consensusManaPledgeID,
 			Nonce:                 nonce,
 		},
-	}
+	)
 
 	return p
 }
@@ -78,43 +78,24 @@ func FromBytes(data []byte) (payloadDecoded *Payload, consumedBytes int, err err
 	return
 }
 
-// RequestType returns the type of the faucet Payload.
+// Type returns the type of the faucet Payload.
 func (p *Payload) Type() payload.Type {
 	return RequestType
 }
 
 // Address returns the address of the faucet Payload.
 func (p *Payload) Address() devnetvm.Address {
-	return p.requestInner.Address
+	return p.M.Address
 }
 
 // AccessManaPledgeID returns the access mana pledge ID of the faucet request.
 func (p *Payload) AccessManaPledgeID() identity.ID {
-	return p.requestInner.AccessManaPledgeID
+	return p.M.AccessManaPledgeID
 }
 
 // ConsensusManaPledgeID returns the consensus mana pledge ID of the faucet request.
 func (p *Payload) ConsensusManaPledgeID() identity.ID {
-	return p.requestInner.ConsensusManaPledgeID
-}
-
-// Bytes returns a marshaled version of the Payload.
-func (p *Payload) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// String returns a human readable version of faucet Payload payload (for debug purposes).
-func (p *Payload) String() string {
-	return stringify.Struct("FaucetPayload",
-		stringify.StructField("address", p.Address().Base58()),
-		stringify.StructField("accessManaPledgeID", p.AccessManaPledgeID().String()),
-		stringify.StructField("consensusManaPledgeID", p.ConsensusManaPledgeID().String()),
-	)
+	return p.M.ConsensusManaPledgeID
 }
 
 // IsFaucetReq checks if the message is faucet payload.

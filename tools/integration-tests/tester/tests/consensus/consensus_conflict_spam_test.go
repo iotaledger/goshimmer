@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -176,7 +177,7 @@ func postTransactions(t *testing.T, peers []*framework.Node, peerIndex int, atta
 	for i, tx := range txs {
 		newPeerIndex := (peerIndex + i) % len(peers)
 		log.Printf("%s: post tx %s on peer %s", attackName, tx.ID().Base58(), peers[newPeerIndex].Name())
-		resp, err := peers[newPeerIndex].PostTransaction(tx.Bytes())
+		resp, err := peers[newPeerIndex].PostTransaction(lo.PanicOnErr(tx.Bytes()))
 		require.NoError(t, err, "%s: There was an error posting transaction %s to peer %s",
 			attackName, tx.ID().Base58(), peers[newPeerIndex].Name())
 		require.Empty(t, resp.Error, "%s: There was an error in the response while posting transaction %s to peer %s",
@@ -213,7 +214,7 @@ func getOutputsControlledBy(t *testing.T, node *framework.Node, addresses ...dev
 
 func splitToAddresses(t *testing.T, node *framework.Node, output devnetvm.Output, keyPairs map[string]*ed25519.KeyPair, addresses ...devnetvm.Address) devnetvm.Outputs {
 	transaction := tests.CreateTransactionFromOutputs(t, node.ID(), addresses, keyPairs, output)
-	_, err := node.PostTransaction(transaction.Bytes())
+	_, err := node.PostTransaction(lo.PanicOnErr(transaction.Bytes()))
 	require.NoError(t, err, "Error occured while trying to split addresses")
 	return transaction.Essence().Outputs()
 }

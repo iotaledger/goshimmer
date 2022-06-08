@@ -363,6 +363,9 @@ func TestRetrieveAllTips(t *testing.T) {
 }
 
 func TestTangle_Flow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	const (
 		testNetwork = "udp"
 		testPort    = 8000
@@ -594,7 +597,7 @@ func TestTangle_Flow(t *testing.T) {
 
 // IssueInvalidTsPayload creates a new message including sequence number and tip selection and returns it.
 func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) (*Message, error) {
-	payloadLen := len(p.Bytes())
+	payloadLen := len(lo.PanicOnErr(p.Bytes()))
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 		f.Events.Error.Trigger(err)

@@ -231,7 +231,12 @@ func (c *WebClient) SendFaucetRequest(address string) (err error) {
 
 // PostTransaction sends a transaction to the Tangle via a given client.
 func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.TransactionID, err error) {
-	resp, err := c.api.PostTransaction(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return
+	}
+
+	resp, err := c.api.PostTransaction(txBytes)
 	if err != nil {
 		return
 	}

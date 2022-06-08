@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/lo"
 
 	"github.com/iotaledger/hive.go/types"
 	"go.uber.org/atomic"
@@ -418,7 +419,7 @@ func (w *Wallet) Sign(addr devnetvm.Address, txEssence *devnetvm.TransactionEsse
 	defer w.RUnlock()
 	index := w.AddrIndexMap(addr.Base58())
 	kp := w.seed.KeyPair(index)
-	return devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 // UpdateUnspentOutputID updates the unspent output on the address specified.

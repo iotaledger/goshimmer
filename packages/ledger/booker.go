@@ -96,7 +96,6 @@ func (b *booker) storeOutputs(outputs *utxo.Outputs, branchIDs *set.AdvancedSet[
 	_ = outputs.ForEach(func(output utxo.Output) (err error) {
 		outputMetadata := NewOutputMetadata(output.ID())
 		outputMetadata.SetBranchIDs(branchIDs)
-
 		b.ledger.Storage.outputMetadataStorage.Store(outputMetadata).Release()
 		b.ledger.Storage.outputStorage.Store(output).Release()
 

@@ -114,10 +114,12 @@ func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err 
 	if err != nil {
 		return err
 	}
-
 	time.Sleep(rateSetterInfo.Estimate)
-
-	_, err = webConnector.client.PostTransaction(tx.Bytes())
+	txBytes, err := tx.Bytes()
+	if err != nil {
+		return err
+	}
+	_, err = webConnector.client.PostTransaction(txBytes)
 
 	return
 }

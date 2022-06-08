@@ -29,6 +29,9 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	selfLocalIdentity := identity.GenerateLocalIdentity()
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()

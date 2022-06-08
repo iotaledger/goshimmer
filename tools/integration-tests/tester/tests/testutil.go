@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/datastructure/walker"
+	"github.com/iotaledger/hive.go/generics/lo"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 
@@ -260,7 +261,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 		addressKey := utxos[i].Address().String()
 		keyPair := keyPairs[addressKey]
 		require.NotNilf(t, keyPair, "missing key pair for address %s", addressKey)
-		sig := devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(txEssence.Bytes()))
+		sig := devnetvm.NewED25519Signature(keyPair.PublicKey, keyPair.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
 		unlockBlocks[i] = devnetvm.NewSignatureUnlockBlock(sig)
 	}
 
@@ -278,7 +279,7 @@ func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int
 		number: number,
 		id:     id,
 		// save payload to be able to compare API response
-		data:            payload.NewGenericDataPayload(data).Bytes(),
+		data:            lo.PanicOnErr(payload.NewGenericDataPayload(data).Bytes()),
 		issuerPublicKey: node.Identity.PublicKey().String(),
 	}
 	return id, sent
@@ -357,7 +358,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	}
 
 	txEssence := devnetvm.NewTransactionEssence(0, time.Now(), txConfig.AccessManaPledgeID, txConfig.ConsensusManaPledgeID, devnetvm.NewInputs(input), devnetvm.NewOutputs(outputs...))
-	sig := devnetvm.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(txEssence.Bytes()))
+	sig := devnetvm.NewED25519Signature(from.KeyPair(txConfig.FromAddressIndex).PublicKey, from.KeyPair(txConfig.FromAddressIndex).PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
 	unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
 	txn := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 
@@ -368,7 +369,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 	}
 
 	// send transaction
-	resp, err := from.PostTransaction(txn.Bytes())
+	resp, err := from.PostTransaction(lo.PanicOnErr(txn.Bytes()))
 	if err != nil {
 		return "", err
 	}
