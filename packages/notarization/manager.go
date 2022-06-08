@@ -67,7 +67,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *epoch.EpochDiff) bool {
 		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochdiff).Release()
 
-		epochdiff.M.Spent.ForEach(func(spent utxo.Output) error {
+		epochdiff.Spent().ForEach(func(spent utxo.Output) error {
 			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
 				panic("epoch diff spends an output not contained in the ledger state")
 			}
@@ -75,7 +75,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 			return nil
 		})
 
-		epochdiff.M.Created.ForEach(func(created utxo.Output) error {
+		epochdiff.Created().ForEach(func(created utxo.Output) error {
 			m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
 			return nil
 		})

@@ -468,17 +468,17 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
 	f.storage.CachedDiff(ei, epoch.NewEpochDiff).Consume(func(epochDiff *epoch.EpochDiff) {
 		for _, o := range created {
-			epochDiff.M.Created.Add(o)
+			epochDiff.AddCreated(o)
 		}
 		for it := spent.Iterator(); it.HasNext(); {
 			outputID := it.Next()
 			// We won't mark the output as spent if it was created in this epoch.
-			if epochDiff.M.Created.Delete(outputID) {
+			if epochDiff.DeleteCreated(outputID) {
 				continue
 			}
 			f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 				outVM := o.(devnetvm.Output)
-				epochDiff.M.Spent.Add(outVM)
+				epochDiff.AddSpent(outVM)
 			})
 		}
 		epochDiff.SetModified()
@@ -490,8 +490,8 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputID
 	created = make(devnetvm.Outputs, 0)
 	// TODO: this Load should be cached
 	f.storage.CachedDiff(ei).Consume(func(epochDiff *epoch.EpochDiff) {
-		spent = epochDiff.M.Spent.IDs()
-		epochDiff.M.Created.ForEach(func(output utxo.Output) error {
+		spent = epochDiff.Spent().IDs()
+		epochDiff.Created().ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))
 			return nil
 		})
