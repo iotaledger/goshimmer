@@ -138,7 +138,7 @@ func (r *ReferenceProvider) addedReferenceForConflict(conflictID utxo.Transactio
 		return UndefinedParentType, EmptyMessageID, nil
 	}
 
-	if likedConflictID == utxo.EmptyTransactionID {
+	if likedConflictID.IsEmpty() {
 		return r.dislikeReference(conflictID, conflictSetMembers, issuingTime)
 	}
 
