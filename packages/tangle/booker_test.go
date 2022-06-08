@@ -994,10 +994,10 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"B1":   testFramework.BranchIDs("B"),
 			"C1":   testFramework.BranchIDs("C"),
 			"D1":   testFramework.BranchIDs("D"),
-			"A2":   testFramework.BranchIDs("A2"),
-			"A3":   testFramework.BranchIDs("A2"),
-			"A+C1": testFramework.BranchIDs("A2", "C"),
-			"A+C2": testFramework.BranchIDs("A2", "C"),
+			"A2":   testFramework.BranchIDs("A", "A2"),
+			"A3":   testFramework.BranchIDs("A", "A2"),
+			"A+C1": testFramework.BranchIDs("A", "A2", "C"),
+			"A+C2": testFramework.BranchIDs("A", "A2", "C"),
 			"A2*":  testFramework.BranchIDs("A", "A2*"),
 		})
 	}
@@ -3916,7 +3916,7 @@ func TestFutureConeDislike(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
-			"Message2":  testFramework.BranchIDs("B"),
+			"Message2":  testFramework.BranchIDs("A", "B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
 			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
 		})
@@ -3928,7 +3928,7 @@ func TestFutureConeDislike(t *testing.T) {
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
-			"Message2":  testFramework.BranchIDs("B"),
+			"Message2":  testFramework.BranchIDs("A", "B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
 			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
 			"Message4":  set.NewAdvancedSet[utxo.TransactionID](),
