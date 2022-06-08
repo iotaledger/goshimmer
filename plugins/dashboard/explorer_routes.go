@@ -69,7 +69,6 @@ type ExplorerMessage struct {
 	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
-	FutureMarkers string `json:"futureMarkers"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -112,7 +111,6 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		t.PastMarkerGap = d.PastMarkerGap()
 		t.IsPastMarker = d.IsPastMarker()
 		t.PastMarkers = d.PastMarkers().String()
-		t.FutureMarkers = d.FutureMarkers().String()
 	}
 
 	return t

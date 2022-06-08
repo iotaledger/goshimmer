@@ -107,7 +107,12 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		parentsCount = parentsCountOpt[0]
 	}
 
-	payloadLen := len(p.Bytes())
+	payloadBytes, err := p.Bytes()
+	if err != nil {
+		return nil, errors.Errorf("could not serialize payload: %w", err)
+	}
+
+	payloadLen := len(payloadBytes)
 	if payloadLen > payload.MaxSize {
 		return nil, errors.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 	}

@@ -19,7 +19,7 @@ type Payload interface {
 	Type() Type
 
 	// Bytes returns a marshaled version of the Payload.
-	Bytes() []byte
+	Bytes() ([]byte, error)
 
 	// String returns a human readable version of the Payload.
 	String() string

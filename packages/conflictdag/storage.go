@@ -29,8 +29,8 @@ type Storage[ConflictID comparable, ConflictSetID comparable] struct {
 }
 
 // newStorage returns a new Storage instance configured with the given options.
-func newStorage[ConflictID comparable, ConflictSetID comparable](options *options) (new *Storage[ConflictID, ConflictSetID]) {
-	new = &Storage[ConflictID, ConflictSetID]{
+func newStorage[ConflictID comparable, ConflictSetID comparable](options *options) (storage *Storage[ConflictID, ConflictSetID]) {
+	storage = &Storage[ConflictID, ConflictSetID]{
 		branchStorage: objectstorage.NewStructStorage[Conflict[ConflictID, ConflictSetID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixBranchStorage),
 			options.cacheTimeProvider.CacheTime(options.branchCacheTime),
@@ -38,21 +38,21 @@ func newStorage[ConflictID comparable, ConflictSetID comparable](options *option
 		),
 		childBranchStorage: objectstorage.NewStructStorage[ChildBranch[ConflictID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixChildBranchStorage),
-			objectstorage.PartitionKey(ChildBranch[ConflictID]{}.KeyPartitions()...),
+			objectstorage.PartitionKey(new(ChildBranch[ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.childBranchCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		conflictMemberStorage: objectstorage.NewStructStorage[ConflictMember[ConflictSetID, ConflictID]](
 			objectstorage.NewStoreWithRealm(options.store, database.PrefixConflictDAG, PrefixConflictMemberStorage),
-			objectstorage.PartitionKey(ConflictMember[ConflictSetID, ConflictID]{}.KeyPartitions()...),
+			objectstorage.PartitionKey(new(ConflictMember[ConflictSetID, ConflictID]).KeyPartitions()...),
 			options.cacheTimeProvider.CacheTime(options.conflictMemberCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 	}
 
-	return new
+	return storage
 }
 
 // CachedConflict retrieves the CachedObject representing the named Conflict. The optional computeIfAbsentCallback can be

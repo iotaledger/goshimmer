@@ -14,11 +14,11 @@ import (
 // region markerIndexBranchIDMap /////////////////////////////////////////////////////////////////////////////////////////
 
 type markerIndexBranchIDMap struct {
-	thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
+	T *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs] `serix:"0"`
 }
 
 func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
-	return &markerIndexBranchIDMap{*thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
+	return &markerIndexBranchIDMap{thresholdmap.New[markers.Index, utxo.TransactionIDs](thresholdmap.LowerThresholdMode)}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,16 +27,14 @@ func newMarkerIndexBranchIDMap() *markerIndexBranchIDMap {
 
 // MarkerIndexBranchIDMapping is a data structure that allows to map marker Indexes to a BranchID.
 type MarkerIndexBranchIDMapping struct {
-	model.Storable[markers.SequenceID, *markerIndexBranchIDMap] `serix:"0"`
+	model.Storable[markers.SequenceID, MarkerIndexBranchIDMapping, *MarkerIndexBranchIDMapping, markerIndexBranchIDMap] `serix:"0"`
 }
 
 // NewMarkerIndexBranchIDMapping creates a new MarkerIndexBranchIDMapping for the given SequenceID.
 func NewMarkerIndexBranchIDMapping(sequenceID markers.SequenceID) (markerBranchMapping *MarkerIndexBranchIDMapping) {
-	markerBranchMapping = &MarkerIndexBranchIDMapping{
-		model.NewStorable[markers.SequenceID, *markerIndexBranchIDMap](
-			newMarkerIndexBranchIDMap(),
-		),
-	}
+	markerBranchMapping = model.NewStorable[markers.SequenceID, MarkerIndexBranchIDMapping](
+		newMarkerIndexBranchIDMap(),
+	)
 	markerBranchMapping.SetID(sequenceID)
 	return
 }
@@ -51,7 +49,7 @@ func (m *MarkerIndexBranchIDMapping) BranchIDs(markerIndex markers.Index) (branc
 	m.RLock()
 	defer m.RUnlock()
 
-	value, exists := m.M.Get(markerIndex)
+	value, exists := m.M.T.Get(markerIndex)
 	if !exists {
 		panic(fmt.Sprintf("tried to retrieve the BranchID of unknown marker.%s", markerIndex))
 	}
@@ -64,7 +62,7 @@ func (m *MarkerIndexBranchIDMapping) SetBranchIDs(index markers.Index, branchIDs
 	m.Lock()
 	defer m.Unlock()
 
-	m.M.Set(index, branchIDs)
+	m.M.T.Set(index, branchIDs)
 	m.SetModified()
 }
 
@@ -73,7 +71,7 @@ func (m *MarkerIndexBranchIDMapping) DeleteBranchID(index markers.Index) {
 	m.Lock()
 	defer m.Unlock()
 
-	m.M.Delete(index)
+	m.M.T.Delete(index)
 	m.SetModified()
 }
 
@@ -83,7 +81,7 @@ func (m *MarkerIndexBranchIDMapping) Floor(index markers.Index) (marker markers.
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.Floor(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.M.T.Floor(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -96,7 +94,7 @@ func (m *MarkerIndexBranchIDMapping) Ceiling(index markers.Index) (marker marker
 	m.RLock()
 	defer m.RUnlock()
 
-	if untypedIndex, untypedBranchIDs, exists := m.M.Ceiling(index); exists {
+	if untypedIndex, untypedBranchIDs, exists := m.M.T.Ceiling(index); exists {
 		return untypedIndex, untypedBranchIDs, true
 	}
 
@@ -113,14 +111,12 @@ var MarkerMessageMappingPartitionKeys = objectstorage.PartitionKey(markers.Seque
 
 // MarkerMessageMapping is a data structure that denotes a mapping from a Marker to a Message.
 type MarkerMessageMapping struct {
-	model.Storable[markers.Marker, MessageID] `serix:"0"`
+	model.Storable[markers.Marker, MarkerMessageMapping, *MarkerMessageMapping, MessageID] `serix:"0"`
 }
 
 // NewMarkerMessageMapping is the constructor for the MarkerMessageMapping.
 func NewMarkerMessageMapping(marker markers.Marker, messageID MessageID) *MarkerMessageMapping {
-	markerMessageMapping := &MarkerMessageMapping{
-		model.NewStorable[markers.Marker, MessageID](messageID),
-	}
+	markerMessageMapping := model.NewStorable[markers.Marker, MarkerMessageMapping](&messageID)
 	markerMessageMapping.SetID(marker)
 	return markerMessageMapping
 }

@@ -1,8 +1,9 @@
 package config
 
 import (
-	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 	"reflect"
+
+	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
@@ -12,7 +13,6 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/dashboard"
 	"github.com/iotaledger/goshimmer/plugins/database"
-	"github.com/iotaledger/goshimmer/plugins/drng"
 	"github.com/iotaledger/goshimmer/plugins/faucet"
 	"github.com/iotaledger/goshimmer/plugins/gossip"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
@@ -49,7 +49,6 @@ type GoShimmer struct {
 	Mana
 	Consensus
 	Activity
-	DRNG
 	Prometheus
 	Profiling
 	Dashboard
@@ -134,13 +133,6 @@ type Activity struct {
 	Enabled bool
 
 	activity.ParametersDefinition
-}
-
-// DRNG defines the parameters of the DRNG plugin.
-type DRNG struct {
-	Enabled bool
-
-	drng.ParametersDefinition
 }
 
 // Prometheus defines the parameters of the Prometheus plugin.

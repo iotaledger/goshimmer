@@ -8,7 +8,7 @@ import (
 
 // ConsensusBaseMana holds information about the consensus base mana values of a single node.
 type ConsensusBaseMana struct {
-	model.Model[consensusBaseManaModel] `serix:"0"`
+	model.Mutable[ConsensusBaseMana, *ConsensusBaseMana, consensusBaseManaModel] `serix:"0"`
 }
 
 type consensusBaseManaModel struct {
@@ -16,9 +16,7 @@ type consensusBaseManaModel struct {
 }
 
 func NewConsensusBaseMana(baseMana float64) *ConsensusBaseMana {
-	return &ConsensusBaseMana{
-		model.New(consensusBaseManaModel{BaseMana1: baseMana}),
-	}
+	return model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: baseMana})
 }
 
 func (c *ConsensusBaseMana) update(now time.Time) error {
@@ -26,6 +24,8 @@ func (c *ConsensusBaseMana) update(now time.Time) error {
 }
 
 func (c *ConsensusBaseMana) revoke(amount float64) error {
+	c.Lock()
+	defer c.Unlock()
 	//if c.BaseMana1-amount < 0.0 {
 	//	return ErrBaseManaNegative
 	//}
@@ -34,6 +34,8 @@ func (c *ConsensusBaseMana) revoke(amount float64) error {
 }
 
 func (c *ConsensusBaseMana) pledge(tx *TxInfo) (pledged float64) {
+	c.Lock()
+	defer c.Unlock()
 	pledged = tx.sumInputs()
 	c.M.BaseMana1 += pledged
 	return pledged
@@ -41,6 +43,8 @@ func (c *ConsensusBaseMana) pledge(tx *TxInfo) (pledged float64) {
 
 // BaseValue returns the base mana value (BM1).
 func (c *ConsensusBaseMana) BaseValue() float64 {
+	c.RLock()
+	defer c.RUnlock()
 	return c.M.BaseMana1
 }
 

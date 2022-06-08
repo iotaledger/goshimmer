@@ -335,8 +335,14 @@ func TestNewMessageWithValidation(t *testing.T) {
 
 		err = msg.FromObjectStorage(msg.IDBytes(), msgBytes)
 		assert.ErrorContains(t, err, "array elements must be unique")
+	})
+	t.Run("Case: References out of order", func(t *testing.T) {
+		parents := testSortParents(randomParents(4))
 
-		_, err = NewMessageWithValidation(
+		parentBlocks := NewParentMessageIDs()
+		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
+
+		msg, err := NewMessageWithValidation(
 			parentBlocks,
 			time.Now(),
 			ed25519.PublicKey{},
@@ -346,8 +352,9 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			MessageVersion,
 		)
+		assert.NoError(t, msg.DetermineID())
 
-		msgBytes = lo.PanicOnErr(msg.Bytes())
+		msgBytes := lo.PanicOnErr(msg.Bytes())
 
 		// replace parents in byte structure
 		copy(msgBytes[4:36], msgBytes[36+32:36+64])
@@ -668,5 +675,5 @@ func (w wl) publicKey() ed25519.PublicKey {
 }
 
 func (w wl) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
-	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }

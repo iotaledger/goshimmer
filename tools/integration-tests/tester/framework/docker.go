@@ -92,26 +92,6 @@ func (d *DockerContainer) CreateNode(ctx context.Context, conf config.GoShimmer)
 	})
 }
 
-// CreateDrandMember creates a new container with the drand configuration.
-func (d *DockerContainer) CreateDrandMember(ctx context.Context, name string, goShimmerAPI string, leader bool) error {
-	// configure drand container instance
-	var env []string
-	if leader {
-		env = append(env, "LEADER=1")
-	}
-	env = append(env, "GOSHIMMER=http://"+goShimmerAPI)
-	containerConfig := &container.Config{
-		Image: "angelocapossele/drand:v1.1.4",
-		ExposedPorts: nat.PortSet{
-			nat.Port("8000/tcp"): {},
-		},
-		Env:        env,
-		Entrypoint: strslice.StrSlice{"/data/client-script.sh"},
-	}
-
-	return d.CreateContainer(ctx, name, containerConfig)
-}
-
 func (d *DockerContainer) createSocatContainer(ctx context.Context, name string, targetContainer string, portMapping map[int]config.GoShimmerPort) error {
 	// create host configs
 	portBindings := make(nat.PortMap, len(portMapping))

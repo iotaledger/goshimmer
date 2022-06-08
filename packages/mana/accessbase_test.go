@@ -14,7 +14,7 @@ var delta = 0.001
 func TestUpdateBM2(t *testing.T) {
 	t.Run("CASE: Zero values", func(t *testing.T) {
 		bm := AccessBaseMana{}
-
+		bm.Init()
 		// 0 initial values, timely update should not change anything
 		bm.updateBM2(time.Hour)
 		assert.Equal(t, 0.0, bm.BaseValue())
@@ -22,7 +22,7 @@ func TestUpdateBM2(t *testing.T) {
 
 	t.Run("CASE: Batch update", func(t *testing.T) {
 		bm := AccessBaseMana{}
-
+		bm.Init()
 		// pledge BM2 at t = o
 		bm.M.BaseValue = 1.0
 		bm.updateBM2(time.Hour * 6)
@@ -31,6 +31,7 @@ func TestUpdateBM2(t *testing.T) {
 
 	t.Run("CASE: Incremental update", func(t *testing.T) {
 		bm := AccessBaseMana{}
+		bm.Init()
 
 		// pledge BM2 at t = o
 		bm.M.BaseValue = 1.0
@@ -45,6 +46,7 @@ func TestUpdateBM2(t *testing.T) {
 func TestUpdateEBM2CoeffEqual(t *testing.T) {
 	t.Run("CASE: Zero values", func(t *testing.T) {
 		bm := AccessBaseMana{}
+		bm.Init()
 
 		// 0 initial values, timely update should not change anything
 		bm.updateEBM2(time.Hour)
@@ -53,6 +55,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 	t.Run("CASE: Batch and incremental update", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
+		bmBatch.Init()
 
 		// first, let's calculate once on a 6 hour span
 		// pledge BM2 at t = o
@@ -62,6 +65,8 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 		bmBatch.updateEBM2(time.Hour * 6)
 
 		bmInc := AccessBaseMana{}
+		bmInc.Init()
+
 		// second, let's calculate the same but every hour
 		// pledge BM2 at t = o
 		bmInc.M.BaseValue = 1.0
@@ -78,6 +83,7 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 	t.Run("CASE: Large durations BM2", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
+		bmBatch.Init()
 
 		// first, let's calculate once on a 6 hour span
 		// pledge BM2 at t = o
@@ -95,6 +101,8 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 
 	t.Run("CASE: Large durations EBM2 Decay==emaCoeff2", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
+		bmBatch.Init()
+
 		// pledge BM2 at t = o
 		bmBatch.M.BaseValue = 1.0
 		bmBatch.M.EffectiveValue = 1.0
@@ -114,6 +122,8 @@ func TestUpdateEBM2CoeffEqual(t *testing.T) {
 	})
 	t.Run("CASE: Large durations EBM2 Decay!=emaCoeff2", func(t *testing.T) {
 		bmBatch := AccessBaseMana{}
+		bmBatch.Init()
+
 		SetCoefficients(0.00003209, 0.0057762265, 0.00003209)
 		// pledge BM2 at t = o
 		bmBatch.M.BaseValue = 1.0

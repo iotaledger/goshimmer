@@ -9,7 +9,7 @@ import (
 
 // PersistableBaseMana represents a base mana vector that can be persisted.
 type PersistableBaseMana struct {
-	model.Storable[identity.ID, persistableBaseManaModel] `serix:"0"`
+	model.Storable[identity.ID, PersistableBaseMana, *PersistableBaseMana, persistableBaseManaModel] `serix:"0"`
 }
 
 type persistableBaseManaModel struct {
@@ -20,16 +20,14 @@ type persistableBaseManaModel struct {
 }
 
 func NewPersistableBaseMana(nodeID identity.ID, manaType Type, baseValues, effectiveValues []float64, lastUpdated time.Time) *PersistableBaseMana {
-	persistableBaseMana := &PersistableBaseMana{
-		model.NewStorable[identity.ID, persistableBaseManaModel](
-			persistableBaseManaModel{
-				ManaType:        manaType,
-				BaseValues:      baseValues,
-				EffectiveValues: effectiveValues,
-				LastUpdated:     lastUpdated,
-			},
-		),
-	}
+	persistableBaseMana := model.NewStorable[identity.ID, PersistableBaseMana](
+		&persistableBaseManaModel{
+			ManaType:        manaType,
+			BaseValues:      baseValues,
+			EffectiveValues: effectiveValues,
+			LastUpdated:     lastUpdated,
+		},
+	)
 	persistableBaseMana.SetID(nodeID)
 	return persistableBaseMana
 }

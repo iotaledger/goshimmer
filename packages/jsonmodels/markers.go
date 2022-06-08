@@ -12,7 +12,6 @@ type StructureDetails struct {
 	PastMarkerGap uint64   `json:"pastMarkerGap"`
 	IsPastMarker  bool     `json:"isPastMarker"`
 	PastMarkers   *Markers `json:"pastMarkers"`
-	FutureMarkers *Markers `json:"futureMarkers"`
 }
 
 // NewStructureDetails returns the StructureDetails from the given markers.StructureDetails.
@@ -26,7 +25,6 @@ func NewStructureDetails(structureDetails *markersPackage.StructureDetails) *Str
 		IsPastMarker:  structureDetails.IsPastMarker(),
 		PastMarkerGap: structureDetails.PastMarkerGap(),
 		PastMarkers:   NewMarkers(structureDetails.PastMarkers()),
-		FutureMarkers: NewMarkers(structureDetails.FutureMarkers()),
 	}
 }
 

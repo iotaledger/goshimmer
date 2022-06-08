@@ -289,8 +289,8 @@ const (
 
 // Message represents the core message for the base layer Tangle.
 type Message struct {
-	model.Storable[MessageID, MessageModel] `serix:"0"`
-	payload                                 payload.Payload
+	model.Storable[MessageID, Message, *Message, MessageModel] `serix:"0"`
+	payload                                                    payload.Payload
 }
 type MessageModel struct {
 	// core properties (get sent over the wire)
@@ -311,19 +311,17 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
 	}
-	msg := &Message{
-		Storable: model.NewStorable[MessageID, MessageModel](MessageModel{
-			Version:         version,
-			Parents:         references,
-			IssuerPublicKey: issuerPublicKey,
-			IssuingTime:     issuingTime,
-			SequenceNumber:  sequenceNumber,
-			PayloadBytes:    msgPayload.Bytes(),
-			Nonce:           nonce,
-			Signature:       signature,
-		}),
-		payload: msgPayload,
-	}
+	msg := model.NewStorable[MessageID, Message](&MessageModel{
+		Version:         version,
+		Parents:         references,
+		IssuerPublicKey: issuerPublicKey,
+		IssuingTime:     issuingTime,
+		SequenceNumber:  sequenceNumber,
+		PayloadBytes:    lo.PanicOnErr(msgPayload.Bytes()),
+		Nonce:           nonce,
+		Signature:       signature,
+	})
+	msg.payload = msgPayload
 
 	return msg
 }
@@ -600,7 +598,7 @@ func (p ParentMessageIDs) Clone() ParentMessageIDs {
 
 // MessageMetadata defines the metadata for a message.
 type MessageMetadata struct {
-	model.Storable[MessageID, messageMetadataModel] `serix:"0"`
+	model.Storable[MessageID, MessageMetadata, *MessageMetadata, messageMetadataModel] `serix:"0"`
 }
 
 type messageMetadataModel struct {
@@ -624,14 +622,14 @@ type messageMetadataModel struct {
 
 // NewMessageMetadata creates a new MessageMetadata from the specified messageID.
 func NewMessageMetadata(messageID MessageID) *MessageMetadata {
-	meta := &MessageMetadata{model.NewStorable[MessageID](messageMetadataModel{
+	metadata := model.NewStorable[MessageID, MessageMetadata](&messageMetadataModel{
 		ReceivedTime:        clock.SyncedTime(),
 		AddedBranchIDs:      utxo.NewTransactionIDs(),
 		SubtractedBranchIDs: utxo.NewTransactionIDs(),
-	})}
-	meta.SetID(messageID)
+	})
+	metadata.SetID(messageID)
 
-	return meta
+	return metadata
 }
 
 // ReceivedTime returns the time when the message was received.
