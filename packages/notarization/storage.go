@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
@@ -19,18 +18,18 @@ import (
 )
 
 type ECRecord struct {
-	model.Storable[epoch.EI, ecRecord] `serix:"0"`
+	model.Storable[ledger.EI, ecRecord] `serix:"0"`
 }
 
 type ecRecord struct {
-	ECR    *epoch.ECR `serix:"0"`
-	PrevEC *epoch.EC  `serix:"1"`
+	ECR    *ledger.ECR `serix:"0"`
+	PrevEC *ledger.EC  `serix:"1"`
 }
 
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type TangleLeaf struct {
-	model.Storable[epoch.EI, tangle.MessageID] `serix:"0"`
+	model.Storable[ledger.EI, tangle.MessageID] `serix:"0"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -38,7 +37,7 @@ type TangleLeaf struct {
 // region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
 
 type MutationLeaf struct {
-	model.Storable[epoch.EI, utxo.TransactionID] `serix:"0"`
+	model.Storable[ledger.EI, utxo.TransactionID] `serix:"0"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +62,7 @@ type EpochCommitmentStorage struct {
 	ecStorage *objectstorage.ObjectStorage[*ECRecord]
 
 	// Delta storages
-	diffsStore *objectstorage.ObjectStorage[*epoch.EpochDiff]
+	diffsStore *objectstorage.ObjectStorage[*ledger.EpochDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -93,7 +92,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.diffsStore = objectstorage.NewStructStorage[epoch.EpochDiff](
+	new.diffsStore = objectstorage.NewStructStorage[ledger.EpochDiff](
 		specializeStore(new.baseStore, PrefixEpochDiff),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),

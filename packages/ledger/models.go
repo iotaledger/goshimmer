@@ -210,6 +210,9 @@ type outputMetadata struct {
 	// ConsensusManaPledgeID contains the identifier of the node that received the consensus mana pledge.
 	ConsensusManaPledgeID identity.ID `serix:"0"`
 
+	// ConsensusManaPledgeID contains the identifier of the node that received the access mana pledge.
+	AccessManaPledgeID identity.ID `serix:"7"`
+
 	// CreationTime contains the time when the Output was created.
 	CreationTime time.Time `serix:"1"`
 
@@ -257,6 +260,29 @@ func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool)
 	}
 
 	o.M.ConsensusManaPledgeID = id
+	o.SetModified()
+
+	return true
+}
+
+// AccessManaPledgeID returns the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) AccessManaPledgeID() (id identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.AccessManaPledgeID
+}
+
+// SetAccessManaPledgeID sets the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
+	o.Lock()
+	defer o.Unlock()
+
+	if o.M.AccessManaPledgeID == id {
+		return false
+	}
+
+	o.M.AccessManaPledgeID = id
 	o.SetModified()
 
 	return true

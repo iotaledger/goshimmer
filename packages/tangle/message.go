@@ -24,7 +24,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
-	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -404,7 +404,7 @@ type messageInner struct {
 	Signature       ed25519.Signature `serix:"7"`
 
 	// commitments
-	EpochCommitment      *epoch.EpochCommitment
+	EpochCommitment      *ledger.EpochCommitment
 	LatestConfirmedEpoch uint64
 
 	// derived properties
@@ -417,7 +417,7 @@ type messageInner struct {
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature,
-	latestConfirmedEpoch uint64, epochCommitment *epoch.EpochCommitment, versionOpt ...uint8) (*Message, error) {
+	latestConfirmedEpoch uint64, epochCommitment *ledger.EpochCommitment, versionOpt ...uint8) (*Message, error) {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
@@ -448,7 +448,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 func newMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch uint64, epochCommitment *epoch.EpochCommitment, version ...uint8) (result *Message, err error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch uint64, epochCommitment *ledger.EpochCommitment, version ...uint8) (result *Message, err error) {
 	msg, _ := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
 
 	_, err = serix.DefaultAPI.Encode(context.Background(), msg, serix.WithValidation())

@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -57,7 +56,7 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 		outputMetadata.SetID(outputID)
 		return true
 	})
-	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *epoch.EpochDiff) bool {
+	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei ledger.EI, epochDiff *ledger.EpochDiff) bool {
 		epochDiff.SetID(ei)
 		return true
 	})
