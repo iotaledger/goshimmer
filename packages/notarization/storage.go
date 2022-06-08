@@ -40,9 +40,10 @@ type EpochCommitmentStorage struct {
 // newEpochCommitmentStorage returns a new storage instance for the given Ledger.
 func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) {
 	new = &EpochCommitmentStorage{
-		baseStore:                     specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization),
 		epochCommitmentStorageOptions: newOptions(options...),
 	}
+
+	new.baseStore = specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization)
 
 	new.ledgerstateStorage = objectstorage.NewInterfaceStorage[utxo.Output](
 		specializeStore(new.baseStore, PrefixLedgerState),
