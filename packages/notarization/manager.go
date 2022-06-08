@@ -60,9 +60,13 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		return nil
 	})
 
+	// TODO: mana root
+
 	m.epochCommitmentFactory.FullEpochIndex = snapshot.FullEpochIndex
 	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
 	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
+
+	// TODO: store EC coming from the snapshot corresponding to DiffEpochInded
 
 	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *epoch.EpochDiff) bool {
 		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochdiff).Release()
