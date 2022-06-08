@@ -26,7 +26,6 @@ var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
 type GenericDataPayload struct {
 	model.Immutable[GenericDataPayload, *GenericDataPayload, genericDataPayloadInner] `serix:"0"`
 
-	genericDataPayloadInner `serix:"0"`
 }
 type genericDataPayloadInner struct {
 	Data []byte `serix:"0,lengthPrefixType=uint32"`
