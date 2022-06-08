@@ -29,6 +29,9 @@ const (
 )
 
 func TestMessageFactory_BuildMessage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode.")
+	}
 	selfLocalIdentity := identity.GenerateLocalIdentity()
 	tangle := NewTestTangle(Identity(selfLocalIdentity))
 	defer tangle.Shutdown()
@@ -148,7 +151,8 @@ func TestMessageFactory_POW(t *testing.T) {
 	msg, err := msgFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 
-	msgBytes := msg.Bytes()
+	msgBytes, err := msg.Bytes()
+	require.NoError(t, err)
 	content := msgBytes[:len(msgBytes)-ed25519.SignatureSize-8]
 
 	zeroes, err := worker.LeadingZerosWithNonce(content, msg.Nonce())

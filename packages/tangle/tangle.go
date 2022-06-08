@@ -57,7 +57,7 @@ type Tangle struct {
 
 // ConfirmationOracle answers questions about entities' confirmation.
 type ConfirmationOracle interface {
-	IsMarkerConfirmed(marker *markers.Marker) bool
+	IsMarkerConfirmed(marker markers.Marker) bool
 	IsMessageConfirmed(msgID MessageID) bool
 	IsBranchConfirmed(branchID utxo.TransactionID) bool
 	IsTransactionConfirmed(transactionID utxo.TransactionID) bool

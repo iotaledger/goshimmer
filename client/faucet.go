@@ -70,7 +70,10 @@ func computeFaucetPoW(address devnetvm.Address, aManaPledgeID, cManaPledgeID ide
 
 	faucetRequest := faucet.NewRequest(address, aManaPledgeID, cManaPledgeID, 0)
 
-	objectBytes := faucetRequest.Bytes()
+	objectBytes, err := faucetRequest.Bytes()
+	if err != nil {
+		return
+	}
 	powRelevantBytes := objectBytes[:len(objectBytes)-pow.NonceBytes]
 
 	return powWorker.Mine(context.Background(), powRelevantBytes, powTarget)

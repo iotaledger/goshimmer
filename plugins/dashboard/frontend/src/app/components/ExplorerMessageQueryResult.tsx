@@ -11,7 +11,6 @@ import Badge from "react-bootstrap/Badge";
 import * as dateformat from 'dateformat';
 import {Link} from 'react-router-dom';
 import {BasicPayload} from 'app/components/BasicPayload'
-import {DrngPayload} from 'app/components/DrngPayload'
 import {TransactionPayload} from 'app/components/TransactionPayload'
 import {ChatPayload} from 'app/components/ChatPayload'
 import {getPayloadType, PayloadType} from 'app/misc/Payload'
@@ -55,8 +54,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
 
     renderPayload() {
         switch (this.props.explorerStore.msg.payload_type) {
-            case PayloadType.Drng:
-                return <DrngPayload/>
             case PayloadType.Transaction:
                 if (!this.props.explorerStore.msg.objectivelyInvalid) {
                     return <TransactionPayload/>
@@ -222,9 +219,6 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                         </ListGroup.Item>
                                         <ListGroup.Item>
                                             Past markers: {msg.pastMarkers}
-                                        </ListGroup.Item>
-                                        <ListGroup.Item>
-                                            Future markers: {msg.futureMarkers}
                                         </ListGroup.Item>
                                     </ListGroup>
                                 </Col>

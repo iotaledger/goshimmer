@@ -81,7 +81,14 @@ func (f *MessageFactory) IssuePayloadWithReferences(p payload.Payload, reference
 // It also triggers the MessageConstructed event once it's done, which is for example used by the plugins to listen for
 // messages that shall be attached to the tangle.
 func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessageIDs, parentsCount ...int) (*Message, error) {
-	payloadLen := len(p.Bytes())
+	payloadBytes, err := p.Bytes()
+	if err != nil {
+		err = errors.Errorf("could not serialize payload: %w", err)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
+	payloadLen := len(payloadBytes)
 	if payloadLen > payload.MaxSize {
 		err := fmt.Errorf("maximum payload size of %d bytes exceeded", payloadLen)
 		f.Events.Error.Trigger(err)
@@ -156,7 +163,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	msg, err := NewMessage(
+	msg, err := NewMessageWithValidation(
 		references,
 		issuingTime,
 		issuerPublicKey,
@@ -172,6 +179,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		f.Events.Error.Trigger(err)
 		return nil, err
 	}
+	_ = msg.DetermineID()
 
 	f.Events.MessageConstructed.Trigger(&MessageConstructedEvent{msg})
 	return msg, nil
@@ -256,12 +264,11 @@ func (f *MessageFactory) Shutdown() {
 // doPOW performs pow on the message and returns a nonce.
 func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message, err := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, 0, nil)
+	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, 0, nil)
+	dummy, err := message.Bytes()
 	if err != nil {
 		return 0, err
 	}
-
-	dummy := message.Bytes()
 
 	f.workerMutex.RLock()
 	defer f.workerMutex.RUnlock()
@@ -270,11 +277,11 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 
 func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, epochCommitment *epoch.EpochCommitment) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, 0, epochCommitment)
+	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, 0, epochCommitment)
+	dummyBytes, err := dummy.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err
 	}
-	dummyBytes := dummy.Bytes()
 
 	contentLength := len(dummyBytes) - len(dummy.Signature())
 	return f.localIdentity.Sign(dummyBytes[:contentLength]), nil

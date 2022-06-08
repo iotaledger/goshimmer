@@ -10,7 +10,9 @@ import (
 type VM struct{}
 
 func (d *VM) ParseTransaction(transactionBytes []byte) (transaction utxo.Transaction, err error) {
-	return new(Transaction).FromBytes(transactionBytes)
+	tx := new(Transaction)
+	err = tx.FromBytes(transactionBytes)
+	return tx, err
 }
 
 func (d *VM) ParseOutput(outputBytes []byte) (output utxo.Output, err error) {

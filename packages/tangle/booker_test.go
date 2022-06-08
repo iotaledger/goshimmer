@@ -3937,6 +3937,7 @@ func TestFutureConeDislike(t *testing.T) {
 }
 
 func TestMultiThreadedBookingAndForkingParallel(t *testing.T) {
+	debug.SetEnabled(true)
 	const layersNum = 127
 	const widthSize = 8 // since we reference all messages in the layer below, this is limited by the max parents
 
@@ -4147,7 +4148,7 @@ func TestMultiThreadedBookingAndForkingNested(t *testing.T) {
 func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMarkers map[string]*markers.Markers) {
 	for messageID, expectedMarkersOfMessage := range expectedMarkers {
 		assert.True(t, testFramework.tangle.Storage.MessageMetadata(testFramework.Message(messageID).ID()).Consume(func(messageMetadata *MessageMetadata) {
-			assert.True(t, expectedMarkersOfMessage.Equals(messageMetadata.StructureDetails().PastMarkers), "Markers of %s are wrong.\n"+
+			assert.True(t, expectedMarkersOfMessage.Equals(messageMetadata.StructureDetails().PastMarkers()), "Markers of %s are wrong.\n"+
 				"Expected: %+v\nActual: %+v", messageID, expectedMarkersOfMessage, messageMetadata.StructureDetails().PastMarkers)
 		}))
 
@@ -4167,7 +4168,11 @@ func checkMarkers(t *testing.T, testFramework *MessageTestFramework, expectedMar
 				if currentMarker.SequenceID() == 0 && currentMarker.Index() == 0 {
 					return
 				}
-				assert.True(t, messageMetadata.StructureDetails().IsPastMarker && *messageMetadata.StructureDetails().PastMarkers.Marker() == *currentMarker, "%s was mapped to wrong %s", currentMarker, messageMetadata.ID())
+
+				if assert.True(t, messageMetadata.StructureDetails().IsPastMarker(), "Message with %s should be PastMarker", messageMetadata.ID()) {
+					assert.True(t, messageMetadata.StructureDetails().PastMarkers().Marker() == currentMarker, "PastMarker of %s is wrong.\n"+
+						"Expected: %+v\nActual: %+v", messageMetadata.ID(), currentMarker, messageMetadata.StructureDetails().PastMarkers().Marker())
+				}
 			}), "failed to load Message with %s", mappedMessageIDOfMarker)
 		}
 	}

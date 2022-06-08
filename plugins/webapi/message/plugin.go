@@ -106,6 +106,8 @@ func GetMessage(c echo.Context) (err error) {
 	}
 
 	if deps.Tangle.Storage.Message(messageID).Consume(func(message *tangle.Message) {
+		var payloadBytes []byte
+		payloadBytes, err = message.Payload().Bytes()
 		err = c.JSON(http.StatusOK, jsonmodels.Message{
 			ID:                      message.ID().Base58(),
 			StrongParents:           message.ParentsByType(tangle.StrongParentType).Base58(),
@@ -127,7 +129,7 @@ func GetMessage(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			Payload:   message.Payload().Bytes(),
+			Payload:   payloadBytes,
 			Signature: message.Signature().String(),
 		})
 	}) {
@@ -217,7 +219,7 @@ func messageIDFromContext(c echo.Context) (messageID tangle.MessageID, err error
 	case "EmptyMessageID":
 		messageID = tangle.EmptyMessageID
 	default:
-		messageID, err = tangle.NewMessageID(messageIDString)
+		err = messageID.FromBase58(messageIDString)
 	}
 
 	return

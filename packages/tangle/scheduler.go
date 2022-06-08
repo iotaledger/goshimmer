@@ -299,7 +299,7 @@ func (s *Scheduler) Clear() {
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
 		for _, id := range q.IDs() {
-			messageID := MessageID(id)
+			messageID := NewMessageID(id)
 			s.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
 				messageMetadata.SetDiscardedTime(clock.SyncedTime())
 			})
@@ -364,10 +364,10 @@ func (s *Scheduler) submit(message *Message) error {
 		panic(errors.Errorf("failed to submit %s: %w", message.ID(), err))
 	}
 	for _, droppedMsgID := range droppedMessageIDs {
-		s.tangle.Storage.MessageMetadata(MessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
+		s.tangle.Storage.MessageMetadata(NewMessageID(droppedMsgID)).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetDiscardedTime(clock.SyncedTime())
 		})
-		s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{MessageID(droppedMsgID)})
+		s.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{NewMessageID(droppedMsgID)})
 	}
 	return nil
 }
@@ -400,8 +400,8 @@ func (s *Scheduler) schedule() *Message {
 		// (its issuing time is not in the future and all of its parents are eligible).
 		// while loop to skip all the confirmed messages
 		for msg != nil && !clock.SyncedTime().Before(msg.IssuingTime()) {
-			msgID, _, err := MessageIDFromBytes(msg.IDBytes())
-			if err != nil {
+			var msgID MessageID
+			if _, err := msgID.Decode(msg.IDBytes()); err != nil {
 				panic("MessageID could not be parsed!")
 			}
 			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
