@@ -591,19 +591,16 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newBranchID utxo
 	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
 
 	// update BranchID mapping
-	newBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
+	newBranchIDs := b.MarkersManager.BranchIDs(currentMarker)
+	if !newBranchIDs.HasAll(removedBranchIDs) {
+		return nil
+	}
+
 	if !newBranchIDs.Add(newBranchID) {
 		return nil
 	}
 
-	// carry forward parent branchIDs
-	for it := removedBranchIDs.Iterator(); it.HasNext(); {
-		if !newBranchIDs.Has(it.Next()) {
-			return
-		}
-	}
-
-	if !b.MarkersManager.SetBranchIDs(currentMarker, newBranchIDs) {
+	if !b.MarkersManager.SetBranchIDs(currentMarker, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(newBranchIDs)) {
 		return nil
 	}
 

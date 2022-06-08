@@ -2,6 +2,10 @@ module github.com/iotaledger/goshimmer
 
 go 1.18
 
+replace (
+	github.com/iotaledger/hive.go => ../hive.go
+)
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.4
 	github.com/ReneKroon/ttlcache/v2 v2.11.0
