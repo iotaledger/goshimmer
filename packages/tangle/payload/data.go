@@ -25,7 +25,6 @@ var GenericDataPayloadType = NewType(0, "GenericDataPayloadType")
 // GenericDataPayload represents a payload which just contains a blob of data.
 type GenericDataPayload struct {
 	model.Immutable[GenericDataPayload, *GenericDataPayload, genericDataPayloadInner] `serix:"0"`
-
 }
 type genericDataPayloadInner struct {
 	Data []byte `serix:"0,lengthPrefixType=uint32"`
@@ -45,5 +44,5 @@ func (g *GenericDataPayload) Type() Type {
 
 // Blob returns the contained data of the GenericDataPayload (without its type and size headers).
 func (g *GenericDataPayload) Blob() []byte {
-	return g.Data
+	return g.M.Data
 }
