@@ -55,7 +55,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
+		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(output).Release()
 		m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
 		return nil
 	})
@@ -65,7 +65,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
 
 	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *epoch.EpochDiff) bool {
-		m.epochCommitmentFactory.storage.diffsStore.Store(epochdiff).Release()
+		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochdiff).Release()
 
 		epochdiff.M.Spent.ForEach(func(spent utxo.Output) error {
 			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
@@ -106,7 +106,7 @@ func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
 		m.epochCommitmentFactory.LastCommittedEpoch = nextEI
 	}
 
-	if commitment, err =  m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
+	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
 
