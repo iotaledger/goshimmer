@@ -483,6 +483,8 @@ github.com/iotaledger/hive.go v0.0.0-20220608092137-d32db2220a45 h1:1XwZGNW+F9yG
 github.com/iotaledger/hive.go v0.0.0-20220608092137-d32db2220a45/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/iotaledger/hive.go v0.0.0-20220608092811-2214020f9f5a h1:DC5Y7qI45BYLMhMzVayIYREENm/Zo/rIQyJbKn2x6eY=
 github.com/iotaledger/hive.go v0.0.0-20220608092811-2214020f9f5a/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220608125956-712c82386fc1 h1:XYW00YsL7n9DjkFBMLu9YGHaNbvyINx/dUGQrikibpI=
+github.com/iotaledger/hive.go v0.0.0-20220608125956-712c82386fc1/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=

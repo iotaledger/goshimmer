@@ -6,7 +6,7 @@ import (
 )
 
 type ECRecord struct {
-	model.Storable[epoch.EI, ecRecord] `serix:"0"`
+	model.Storable[epoch.EI, ECRecord, *ECRecord, ecRecord] `serix:"0"`
 }
 
 type ecRecord struct {
@@ -15,9 +15,7 @@ type ecRecord struct {
 }
 
 func NewECRecord(ei epoch.EI) (new *ECRecord) {
-	new = &ECRecord{
-		model.NewStorable[epoch.EI](ecRecord{}),
-	}
+	new = model.NewStorable[epoch.EI, ECRecord](&ecRecord{})
 	new.SetID(ei)
 	return
 }
