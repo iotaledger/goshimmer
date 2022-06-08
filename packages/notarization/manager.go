@@ -1,10 +1,10 @@
 package notarization
 
 import (
+	"github.com/cockroachdb/errors"
 	"sync"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
@@ -102,13 +102,13 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
 	nextEI := m.epochCommitmentFactory.LastCommittedEpoch + 1
 	if m.IsCommittable(nextEI) {
-		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
 		m.epochCommitmentFactory.LastCommittedEpoch = nextEI
 	}
 
-	if commitment, err =  m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
+	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: m.epochCommitmentFactory.LastCommittedEpoch})
 
 	return
 }

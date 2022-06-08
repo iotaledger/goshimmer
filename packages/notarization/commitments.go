@@ -25,12 +25,11 @@ const (
 	ECCreationMaxDepth = 10
 )
 
-type Commitment struct {
+type CommitmentRoots struct {
 	EI                epoch.EI
 	tangleRoot        epoch.MerkleRoot
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
-	prevECR           *epoch.ECR
 }
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -38,7 +37,6 @@ type CommitmentTrees struct {
 	EI                epoch.EI
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
-	prevECR           *epoch.ECR
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -73,9 +71,8 @@ type EpochCommitmentFactory struct {
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
 
-	tangle     *tangle.Tangle
-	hasher     hash.Hash
-	ECMaxDepth uint64
+	tangle *tangle.Tangle
+	hasher hash.Hash
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -93,7 +90,6 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 		storage:         epochCommitmentStorage,
 		hasher:          hasher,
 		tangle:          tangle,
-		ECMaxDepth:      ECCreationMaxDepth, // TODO replace this with the snapshotting time parameter
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
 	}
 }
@@ -116,7 +112,6 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.
 		EI:                ei,
 		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
-		prevECR:           prevECR,
 	}
 
 	return commitmentTrees
@@ -134,20 +129,16 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
-	branch1 := types.NewIdentifier(append(commitment.prevECR.Bytes(), commitment.tangleRoot.Bytes()...))
-	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	branch1 := types.NewIdentifier(append(commitment.tangleRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes()))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)
 	root = append(root, branch2.Bytes()...)
-	return &epoch.ECR{types.NewIdentifier(root)}, nil
+	return &epoch.ECR{Identifier: types.NewIdentifier(root)}, nil
 }
 
 // EC retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) EC(ei epoch.EI, depth uint64) (ec *epoch.EC, err error) {
-	// TODO: do we need this?
-	if depth == 0 {
-		return nil, errors.New("could not create EC, max depth achieved")
-	}
+func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
 	if ec, ok := f.ecc[ei]; ok {
 		return ec, nil
 	}
@@ -155,14 +146,14 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI, depth uint64) (ec *epoch.EC, er
 	if err != nil {
 		return nil, err
 	}
-	prevEC, err := f.EC(ei-1, depth-1)
+	prevEC, err := f.EC(ei - 1)
 	if err != nil {
 		return nil, err
 	}
 
 	concatenated := append(prevEC.Bytes(), ecr.Bytes()...)
 	concatenated = append(concatenated, byte(ei))
-	EC := &epoch.EC{types.NewIdentifier(concatenated)}
+	EC := &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 
 	ecRecord := &ECRecord{model.NewStorable[epoch.EI](ecRecord{
 		ECR:    ecr,
@@ -186,10 +177,6 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei epoch.EI, msgID tangle.Mess
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting tangle leaf")
-	}
 	return nil
 }
 
@@ -198,10 +185,6 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(ei epoch.EI, outputID utxo.Outp
 	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
-	}
-	err = f.updateFuturePrevECRs(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting state leaf")
 	}
 	return nil
 }
@@ -216,10 +199,6 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei epoch.EI, txID utxo.
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
 	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting state mutation leaf")
-	}
 	return nil
 }
 
@@ -232,10 +211,6 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei epoch.EI, txID utxo.
 	_, err = commitment.stateMutationTree.Delete(txID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
-	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while deleting state mutation leaf")
 	}
 	return nil
 }
@@ -252,10 +227,6 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.Mess
 		if err2 != nil {
 			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
-		err2 = f.updateFuturePrevECRs(commitment.EI)
-		if err2 != nil {
-			return errors.Wrap(err, "could not update prevECR while deleting tangle leaf")
-		}
 	}
 	return nil
 }
@@ -268,16 +239,12 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(ei epoch.EI, outID utxo.OutputI
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
-		err = f.updateFuturePrevECRs(ei)
-		if err != nil {
-			return errors.Wrap(err, "could not update prevECR while deleting state leaf")
-		}
 	}
 	return nil
 }
 
 // newCommitment creates a new commitment with the given ei, by advancing the corresponding trees.
-func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*Commitment, error) {
+func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, error) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 
@@ -292,14 +259,13 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*Commitment, error)
 	if err != nil {
 		return nil, err
 	}
-	commitment := &Commitment{}
+	commitment := &CommitmentRoots{}
 	commitment.EI = ei
 
 	// convert []byte to [32]byte type
 	copy(commitment.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
 	copy(commitment.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
 	copy(commitment.stateRoot.Bytes(), stateRoot)
-	commitment.prevECR = commitmentTrees.prevECR
 
 	return commitment, nil
 }
@@ -310,7 +276,7 @@ func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCo
 	if err != nil {
 		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
 	}
-	prevEC, err := f.EC(ei-1, f.ECMaxDepth)
+	prevEC, err := f.EC(ei - 1)
 	if err != nil {
 		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
 	}
@@ -389,22 +355,6 @@ func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, 
 
 func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
-}
-
-func (f *EpochCommitmentFactory) updateFuturePrevECRs(prevEI epoch.EI) error {
-	f.commitmentsMutex.RLock()
-	defer f.commitmentsMutex.RUnlock()
-
-	forwardCommitment, ok := f.commitmentTrees[prevEI+1]
-	if !ok {
-		return nil
-	}
-	prevECR, err := f.ECR(prevEI)
-	if err != nil {
-		return errors.Wrap(err, "could not update previous ECR")
-	}
-	forwardCommitment.prevECR = prevECR
-	return nil
 }
 
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, err error) {
