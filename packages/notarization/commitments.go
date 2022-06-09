@@ -169,7 +169,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI) *CommitmentTree
 
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
-	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *ECRecord) {
+	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *epoch.ECRecord) {
 		ecr = ecRecord.ECR()
 	}) {
 		return
@@ -189,14 +189,17 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 }
 
 // EC retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
-	if f.storage.CachedECRecord(ei).Consume(func(record *ECRecord) {
-		ecr := record.ECR()
-		prevEC := record.PrevEC()
-		ec = f.ecHash(prevEC, ecr, ei)
+func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ecRecord *epoch.ECRecord, err error) {
+	ecRecord = new(epoch.ECRecord)
+	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
+		ecRecord.SetEI(ei)
+		ecRecord.SetECR(record.ECR())
+		ecRecord.SetPrevEC(record.PrevEC())
 	}) {
-		return ec, nil
+		return ecRecord, nil
 	}
+
+	// Create and possibly roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
 		return nil, err
@@ -206,11 +209,13 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
 		return nil, err
 	}
 
-	f.storage.CachedECRecord(ei, NewECRecord).Consume(func(e *ECRecord) {
+	// Store and return.
+	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
-		e.SetPrevEC(prevEC)
+		e.SetPrevEC(prevEC.PrevEC())
+		ecRecord = e
 	})
-	ec = f.ecHash(prevEC, ecr, ei)
+
 	return
 }
 
@@ -348,24 +353,6 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
 	f.storage.epochDiffStorage.Delete(ei.Bytes())
 
 	return nil
-}
-
-// getEpochCommitment returns the epoch commitment with the given ei.
-// The requested epoch must be committable.
-func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
-	ecr, err := f.ECR(ei)
-	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment root could not be created for epoch %d", ei)
-	}
-	prevEC, err := f.EC(ei - 1)
-	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei-1)
-	}
-	return &epoch.EpochCommitment{
-		EI:         ei,
-		ECR:        ecr,
-		PreviousEC: prevEC,
-	}, nil
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.EI) (commitmentTrees *CommitmentTrees, err error) {

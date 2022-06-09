@@ -15,9 +15,7 @@ type Snapshot struct {
 	FullEpochIndex  epoch.EI                 `serix:"2"`
 	DiffEpochIndex  epoch.EI                 `serix:"3"`
 	EpochDiffs      *notarization.EpochDiffs `serix:"4"`
-
-	// EC of DiffEpochIndex
-	EC epoch.EC `serix:"5"`
+	LatestECRecord  *epoch.ECRecord   `serix:"5"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
