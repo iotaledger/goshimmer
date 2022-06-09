@@ -146,7 +146,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		likedConflictID, conflictSetMembers := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
+		likedConflictID, dislikedConflictIDs := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
 		// only triggers in first iteration
 		if likedConflictID == conflictID {
 			return false, EmptyMessageID, nil
@@ -157,20 +157,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 				continue
 			}
 
-			// Walk future cone of disliked conflictSetMembers to find all conflicts that are excluded.
-			exclusionWalker := walker.New[utxo.TransactionID](false)
-			exclusionWalker.PushAll(conflictSetMembers.Filter(func(conflictSetMemberID utxo.TransactionID) bool {
-				return conflictSetMemberID != likedConflictID
-			}).Slice()...)
-
-			for exclusionWalker.HasNext() {
-				excludedConflict := exclusionWalker.Next()
-				excludedConflictIDs.Add(excludedConflict)
-
-				r.tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(excludedConflict).Consume(func(childID *conflictdag.ChildBranch[utxo.TransactionID]) {
-					exclusionWalker.Push(childID.ChildBranchID())
-				})
-			}
+			excludedConflictIDs.AddAll(r.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedConflictIDs))
 
 			return true, msgID, nil
 		}
