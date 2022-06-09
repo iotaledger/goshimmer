@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -336,7 +337,7 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, e
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
 func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
-	if !f.storage.CachedDiff(ei).Consume(func(diff *EpochDiff) {
+	if !f.storage.CachedDiff(ei).Consume(func(diff *ledger.EpochDiff) {
 		_ = diff.Spent().ForEach(func(spent utxo.Output) error {
 			f.storage.ledgerstateStorage.Delete(spent.ID().Bytes())
 			return nil
@@ -462,7 +463,7 @@ func (f *EpochCommitmentFactory) isNextCommittableEpoch(ei epoch.EI) (isNextComm
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
-	f.storage.CachedDiff(ei, NewEpochDiff).Consume(func(epochDiff *EpochDiff) {
+	f.storage.CachedDiff(ei, ledger.NewEpochDiff).Consume(func(epochDiff *ledger.EpochDiff) {
 		for _, o := range created {
 			epochDiff.AddCreated(o)
 		}
@@ -486,7 +487,7 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputIDs, created devnetvm.Outputs) {
 	created = make(devnetvm.Outputs, 0)
 	// TODO: this Load should be cached
-	f.storage.CachedDiff(ei).Consume(func(epochDiff *EpochDiff) {
+	f.storage.CachedDiff(ei).Consume(func(epochDiff *ledger.EpochDiff) {
 		spent = epochDiff.Spent().IDs()
 		_ = epochDiff.Created().ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))

@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/packages/notarization"
 )
 
 type Snapshot struct {
@@ -53,7 +52,7 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 		outputMetadata.SetID(outputID)
 		return true
 	})
-	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *notarization.EpochDiff) bool {
+	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *ledger.EpochDiff) bool {
 		epochDiff.SetID(ei)
 		return true
 	})

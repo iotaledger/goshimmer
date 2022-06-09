@@ -82,7 +82,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 
-	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *EpochDiff) bool {
+	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *ledger.EpochDiff) bool {
 		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochDiff).Release()
 
 		_ = epochDiff.Spent().ForEach(func(spent utxo.Output) error {
