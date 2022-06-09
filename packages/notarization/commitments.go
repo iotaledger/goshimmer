@@ -331,7 +331,7 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, e
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
 func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
-	if !f.storage.CachedDiff(ei).Consume(func(diff *epoch.EpochDiff) {
+	if !f.storage.CachedDiff(ei).Consume(func(diff *EpochDiff) {
 		_ = diff.Spent().ForEach(func(spent utxo.Output) error {
 			f.storage.ledgerstateStorage.Delete(spent.ID().Bytes())
 			return nil

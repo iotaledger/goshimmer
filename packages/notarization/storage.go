@@ -71,9 +71,9 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 }
 
 // CachedDiff retrieves cached EpochDiff of the given EI. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *epoch.EpochDiff) (cachedEpochDiff *objectstorage.CachedObject[*epoch.EpochDiff]) {
+func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *EpochDiff) (cachedEpochDiff *objectstorage.CachedObject[*EpochDiff]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.epochDiffStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *epoch.EpochDiff {
+		return s.epochDiffStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *EpochDiff {
 			return computeIfAbsentCallback[0](ei)
 		})
 	}
