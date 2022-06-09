@@ -92,8 +92,8 @@ func newRevokeEvent() *RevokedEvent {
 func newUpdateEvent() *UpdatedEvent {
 	return &UpdatedEvent{
 		NodeID:   randomNodeID(),
-		OldMana:  &ConsensusBaseMana{},
-		NewMana:  &ConsensusBaseMana{},
+		OldMana:  &ManaBase{},
+		NewMana:  &ManaBase{},
 		ManaType: ConsensusMana,
 	}
 }

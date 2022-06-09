@@ -17,9 +17,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
-	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -139,7 +137,6 @@ type ExplorerOutput struct {
 	Output          *jsonmodels.Output         `json:"output"`
 	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
 	TxTimestamp     int                        `json:"txTimestamp"`
-	PendingMana     float64                    `json:"pendingMana"`
 	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
 }
 
@@ -181,7 +178,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
 	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
 	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
-	routeGroup.GET("/mana/pending", manaAPI.GetPendingMana)
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
@@ -266,9 +262,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					}
 				})
 
-				// how much pending mana the output has?
-				pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
-
 				// obtain information about the consumer of the output being considered
 				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
@@ -277,7 +270,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					Output:          jsonmodels.NewOutput(output),
 					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 					TxTimestamp:     int(timestamp),
-					PendingMana:     pendingMana,
 					GradeOfFinality: metaData.GradeOfFinality(),
 				})
 			}

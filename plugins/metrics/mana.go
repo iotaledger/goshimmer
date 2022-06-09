@@ -7,7 +7,6 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/mana"
-	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	manaPlugin "github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
 
@@ -202,6 +201,4 @@ func measureMana() {
 		consensusAvg = consensusSum / float64(len(neighborConsensusMap))
 	}
 	averageNeighborsConsensus.Store(consensusAvg)
-
-	delegationAmount.Store(manarefresher.TotalDelegatedFunds())
 }
