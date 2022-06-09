@@ -52,8 +52,6 @@ type EpochCommitmentFactory struct {
 	commitmentTrees  map[epoch.EI]*CommitmentTrees
 	commitmentsMutex sync.RWMutex
 
-	ecc map[epoch.EI]*epoch.EC
-
 	storage *EpochCommitmentStorage
 	tangle  *tangle.Tangle
 	hasher  hash.Hash
@@ -192,7 +190,12 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 
 // EC retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
-	if ec, ok := f.ecc[ei]; ok {
+	f.storage.ecRecordStorage.Get(ei.Bytes()).Consume(func(record *ECRecord) {
+		ecr := record.ECR()
+		prevEC := record.PrevEC()
+		ec = f.ecHash(prevEC, ecr, ei)
+	})
+	if ec != nil {
 		return ec, nil
 	}
 	ecr, err := f.ECR(ei)
@@ -208,14 +211,14 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
 		e.SetECR(ecr)
 		e.SetPrevEC(prevEC)
 	})
+	ec = f.ecHash(prevEC, ecr, ei)
+	return
+}
 
+func (f *EpochCommitmentFactory) ecHash(prevEC *epoch.EC, ecr *epoch.ECR, ei epoch.EI) *epoch.EC {
 	concatenated := append(prevEC.Bytes(), ecr.Bytes()...)
 	concatenated = append(concatenated, byte(ei))
-	EC := &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
-
-	f.ecc[ei] = EC
-
-	return EC, nil
+	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
