@@ -17,10 +17,8 @@ const (
 	// access mana stop when the base mana value AND the effective value is in DeltaStopUpdates interval of 0.
 	DeltaStopUpdate float64 = 0.001
 
-	// MinEffectiveMana defines the threshold to consider an effective mana value zero.
-	MinEffectiveMana = 0.001
-	// MinBaseMana defines the threshold to consider the base mana value zero.
-	MinBaseMana = 0.001
+	// MinMana defines the threshold to consider the mana value zero.
+	MinMana = 0.001
 )
 
 var (

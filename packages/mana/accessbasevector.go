@@ -285,7 +285,7 @@ func (a *AccessBaseManaVector) RemoveZeroNodes() {
 	a.Lock()
 	defer a.Unlock()
 	for nodeID, baseMana := range a.M.Vector {
-		if baseMana.EffectiveValue() < MinEffectiveMana && baseMana.EffectiveValue() < MinBaseMana {
+		if baseMana.EffectiveValue() < MinMana {
 			delete(a.M.Vector, nodeID)
 		}
 	}
