@@ -28,7 +28,7 @@ func TestOutputCommitment(t *testing.T) {
 
 // MockedOutput is the container for the data produced by executing a MockedTransaction.
 type MockedOutput struct {
-	model.Storable[OutputID, mockedOutput] `serix:"0"`
+	model.Storable[OutputID, MockedOutput, *MockedOutput, mockedOutput] `serix:"0"`
 }
 
 type mockedOutput struct {
@@ -37,9 +37,9 @@ type mockedOutput struct {
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
 func NewMockedOutput() (new *MockedOutput) {
-	return &MockedOutput{model.NewStorable[OutputID](mockedOutput{
+	return model.NewStorable[OutputID, MockedOutput](&mockedOutput{
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
-	})}
+	})
 }
 
 var _uniqueEssenceCounter uint64

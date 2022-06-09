@@ -69,7 +69,7 @@ An example of a snaphot used in the code is as such:
 ```
 var ConsensusSnapshotDetails = framework.SnapshotInfo{
 	FilePath: "/assets/dynamic_snapshots/consensus_snapshot.bin",
-	// node ID: 4AeXyZ26e4G
+	// node ID: 2GtxMQD9
 	MasterSeed:         "EYsaGXnUVA9aTYL9FwYEvoQ8d1HCJveQVL7vogu6pqCP",
 	GenesisTokenAmount: 800_000, // pledged to peer master
 	// peer IDs: jnaC6ZyWuw, iNvPFvkfSDp

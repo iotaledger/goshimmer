@@ -128,7 +128,7 @@ type EpochDiffs struct {
 }
 
 type EpochDiff struct {
-	model.Storable[EI, epochDiff] `serix:"0"`
+	model.Storable[EI, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
 }
 
 type epochDiff struct {
@@ -137,14 +137,12 @@ type epochDiff struct {
 	Spent   utxo.Outputs `serix:"2"`
 }
 
-func NewEpochDiff(ei EI) *EpochDiff {
-	return &EpochDiff{
-		model.NewStorable(epochDiff{
-			EI: ei,
-		}, func(model *epochDiff) EI {
-			return model.EI
-		}),
-	}
+func NewEpochDiff(ei EI) (new *EpochDiff) {
+	new = model.NewStorable[EI, EpochDiff](&epochDiff{
+		EI: ei,
+	})
+	new.SetID(ei)
+	return
 }
 
 func (e *EpochDiff) EI() EI {

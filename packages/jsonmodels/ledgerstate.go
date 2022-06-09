@@ -631,7 +631,7 @@ func NewTransaction(transaction *devnetvm.Transaction) *Transaction {
 
 	dataPayload := make([]byte, 0)
 	if transaction.Essence().Payload() != nil {
-		dataPayload = transaction.Essence().Payload().Bytes()
+		dataPayload = lo.PanicOnErr(transaction.Essence().Payload().Bytes())
 	}
 
 	return &Transaction{
@@ -701,7 +701,7 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 
 	switch unlockBlock.Type() {
 	case devnetvm.SignatureUnlockBlockType:
-		signature, _, _ := devnetvm.SignatureFromBytes(unlockBlock.Bytes())
+		signature, _, _ := devnetvm.SignatureFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
 		result.SignatureType = signature.Type()
 		switch signature.Type() {
 		case devnetvm.ED25519SignatureType:
@@ -714,7 +714,7 @@ func NewUnlockBlock(unlockBlock devnetvm.UnlockBlock) *UnlockBlock {
 			result.Signature = signature.Signature.String()
 		}
 	case devnetvm.ReferenceUnlockBlockType:
-		referenceUnlockBlock, _, _ := devnetvm.ReferenceUnlockBlockFromBytes(unlockBlock.Bytes())
+		referenceUnlockBlock, _, _ := devnetvm.ReferenceUnlockBlockFromBytes(lo.PanicOnErr(unlockBlock.Bytes()))
 		result.ReferencedIndex = referenceUnlockBlock.ReferencedIndex()
 	}
 

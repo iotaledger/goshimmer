@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -73,7 +74,7 @@ type UnlockBlock interface {
 	Type() UnlockBlockType
 
 	// Bytes returns a marshaled version of the UnlockBlock.
-	Bytes() []byte
+	Bytes() ([]byte, error)
 
 	// String returns a human readable version of the UnlockBlock.
 	String() string
@@ -123,29 +124,17 @@ func (u UnlockBlocks) String() string {
 
 // SignatureUnlockBlock represents an UnlockBlock that contains a Signature for an Address.
 type SignatureUnlockBlock struct {
-	signatureUnlockBlockInner `serix:"0"`
+	model.Immutable[SignatureUnlockBlock, *SignatureUnlockBlock, signatureUnlockBlockModel] `serix:"0"`
 }
-type signatureUnlockBlockInner struct {
+type signatureUnlockBlockModel struct {
 	Signature Signature `serix:"0"`
 }
 
 // NewSignatureUnlockBlock is the constructor for SignatureUnlockBlock objects.
 func NewSignatureUnlockBlock(signature Signature) *SignatureUnlockBlock {
-	return &SignatureUnlockBlock{
-		signatureUnlockBlockInner{
-			Signature: signature,
-		},
-	}
-}
-
-// SignatureUnlockBlockFromBytes unmarshals a SignatureUnlockBlock from a sequence of bytes.
-func SignatureUnlockBlockFromBytes(bytes []byte) (unlockBlock *SignatureUnlockBlock, consumedBytes int, err error) {
-	unlockBlock = new(SignatureUnlockBlock)
-	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, unlockBlock, serix.WithValidation())
-	if err != nil {
-		return nil, consumedBytes, err
-	}
-	return
+	return model.NewImmutable[SignatureUnlockBlock](&signatureUnlockBlockModel{
+		Signature: signature,
+	})
 }
 
 // AddressSignatureValid returns true if the UnlockBlock correctly signs the given Address.
@@ -158,26 +147,9 @@ func (s *SignatureUnlockBlock) Type() UnlockBlockType {
 	return SignatureUnlockBlockType
 }
 
-// Bytes returns a marshaled version of the UnlockBlock.
-func (s *SignatureUnlockBlock) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), s, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		return nil
-	}
-	return objBytes
-}
-
-// String returns a human readable version of the UnlockBlock.
-func (s *SignatureUnlockBlock) String() string {
-	return stringify.Struct("SignatureUnlockBlock",
-		stringify.StructField("signature", s.Signature()),
-	)
-}
-
 // Signature return the signature itself.
 func (s *SignatureUnlockBlock) Signature() Signature {
-	return s.signatureUnlockBlockInner.Signature
+	return s.M.Signature
 }
 
 // code contract (make sure the type implements all required methods)
@@ -190,19 +162,17 @@ var _ UnlockBlock = &SignatureUnlockBlock{}
 // ReferenceUnlockBlock defines an UnlockBlock which references a previous UnlockBlock (which must not be another
 // ReferenceUnlockBlock).
 type ReferenceUnlockBlock struct {
-	referenceUnlockBlockInner `serix:"0"`
+	model.Immutable[ReferenceUnlockBlock, *ReferenceUnlockBlock, referenceUnlockBlockModel] `serix:"0"`
 }
-type referenceUnlockBlockInner struct {
+type referenceUnlockBlockModel struct {
 	ReferencedIndex uint16 `serix:"0"`
 }
 
 // NewReferenceUnlockBlock is the constructor for ReferenceUnlockBlocks.
 func NewReferenceUnlockBlock(referencedIndex uint16) *ReferenceUnlockBlock {
-	return &ReferenceUnlockBlock{
-		referenceUnlockBlockInner{
-			ReferencedIndex: referencedIndex,
-		},
-	}
+	return model.NewImmutable[ReferenceUnlockBlock](&referenceUnlockBlockModel{
+		ReferencedIndex: referencedIndex,
+	})
 }
 
 // ReferenceUnlockBlockFromBytes unmarshals a ReferenceUnlockBlock from a sequence of bytes.
@@ -217,29 +187,12 @@ func ReferenceUnlockBlockFromBytes(bytes []byte) (unlockBlock *ReferenceUnlockBl
 
 // ReferencedIndex returns the index of the referenced UnlockBlock.
 func (r *ReferenceUnlockBlock) ReferencedIndex() uint16 {
-	return r.referenceUnlockBlockInner.ReferencedIndex
+	return r.M.ReferencedIndex
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
 func (r *ReferenceUnlockBlock) Type() UnlockBlockType {
 	return ReferenceUnlockBlockType
-}
-
-// Bytes returns a marshaled version of the Address.
-func (r *ReferenceUnlockBlock) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		return nil
-	}
-	return objBytes
-}
-
-// String returns a human readable version of the UnlockBlock.
-func (r *ReferenceUnlockBlock) String() string {
-	return stringify.Struct("ReferenceUnlockBlock",
-		stringify.StructField("referencedIndex", int(r.ReferencedIndex())),
-	)
 }
 
 // code contract (make sure the type implements all required methods)
@@ -251,46 +204,27 @@ var _ UnlockBlock = &ReferenceUnlockBlock{}
 
 // AliasUnlockBlock defines an UnlockBlock which contains an index of corresponding AliasOutput.
 type AliasUnlockBlock struct {
-	aliasUnlockBlockInner `serix:"0"`
+	model.Immutable[AliasUnlockBlock, *AliasUnlockBlock, aliasUnlockBlockModel] `serix:"0"`
 }
-type aliasUnlockBlockInner struct {
+type aliasUnlockBlockModel struct {
 	ReferencedIndex uint16 `serix:"0"`
 }
 
 // NewAliasUnlockBlock is the constructor for AliasUnlockBlocks.
 func NewAliasUnlockBlock(chainInputIndex uint16) *AliasUnlockBlock {
-	return &AliasUnlockBlock{
-		aliasUnlockBlockInner{
-			ReferencedIndex: chainInputIndex,
-		},
-	}
+	return model.NewImmutable[AliasUnlockBlock](&aliasUnlockBlockModel{
+		ReferencedIndex: chainInputIndex,
+	})
 }
 
 // AliasInputIndex returns the index of the input, the AliasOutput which contains AliasAddress.
 func (r *AliasUnlockBlock) AliasInputIndex() uint16 {
-	return r.ReferencedIndex
+	return r.M.ReferencedIndex
 }
 
 // Type returns the UnlockBlockType of the UnlockBlock.
 func (r *AliasUnlockBlock) Type() UnlockBlockType {
 	return AliasUnlockBlockType
-}
-
-// Bytes returns a marshaled version of the Address.
-func (r *AliasUnlockBlock) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), r, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		return nil
-	}
-	return objBytes
-}
-
-// String returns a human readable version of the UnlockBlock.
-func (r *AliasUnlockBlock) String() string {
-	return stringify.Struct("AliasUnlockBlock",
-		stringify.StructField("ReferencedIndex", int(r.ReferencedIndex)),
-	)
 }
 
 // code contract (make sure the type implements all required methods).

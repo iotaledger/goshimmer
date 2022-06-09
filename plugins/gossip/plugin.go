@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"github.com/iotaledger/hive.go/generics/lo"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
@@ -84,7 +85,7 @@ func configureMessageLayer() {
 	// configure flow of outgoing messages (gossip upon dispatched messages)
 	deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
 		deps.Tangle.Storage.Message(event.MessageID).Consume(func(message *tangle.Message) {
-			deps.GossipMgr.SendMessage(message.Bytes())
+			deps.GossipMgr.SendMessage(lo.PanicOnErr(message.Bytes()))
 		})
 	}))
 
@@ -93,6 +94,6 @@ func configureMessageLayer() {
 		id := event.MessageID
 		Plugin.LogDebugf("requesting missing Message with %s", id)
 
-		deps.GossipMgr.RequestMessage(id[:])
+		deps.GossipMgr.RequestMessage(id.Bytes())
 	}))
 }

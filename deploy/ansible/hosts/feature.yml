@@ -18,16 +18,16 @@ goshimmers:
           bootstrap: true
         vanilla-01.feature.shimmer.iota.cafe:
           seed: "{{ VANILLA_01_SEED }}"
-        drng-01.feature.shimmer.iota.cafe:
-          seed: "{{ DRNG_01_SEED }}"
-        drng-02.feature.shimmer.iota.cafe:
-          seed: "{{ DRNG_02_SEED }}"
-        drng-03.feature.shimmer.iota.cafe:
-          seed: "{{ DRNG_03_SEED }}"
-        drng-04.feature.shimmer.iota.cafe:
-          seed: "{{ DRNG_04_SEED }}"
-        drng-05.feature.shimmer.iota.cafe:
-          seed: "{{ DRNG_05_SEED }}"
+        node-01.feature.shimmer.iota.cafe:
+          seed: "{{ NODE_01_SEED }}"
+        node-02.feature.shimmer.iota.cafe:
+          seed: "{{ NODE_02_SEED }}"
+        node-03.feature.shimmer.iota.cafe:
+          seed: "{{ NODE_03_SEED }}"
+        node-04.feature.shimmer.iota.cafe:
+          seed: "{{ NODE_04_SEED }}"
+        node-05.feature.shimmer.iota.cafe:
+          seed: "{{ NODE_05_SEED }}"
         faucet-01.feature.shimmer.iota.cafe:
           seed: "{{ FAUCET_01_SEED }}"
           faucet: true
@@ -44,9 +44,3 @@ goshimmers:
     remoteDebugging: true
     snapshotResetTime: true
     spammer: true
-
-drands:
-  hosts:
-    drand-01.feature.shimmer.iota.cafe:
-  vars:
-    drngHostTemplate: "drng-0{drandNumber}.feature.shimmer.iota.cafe"

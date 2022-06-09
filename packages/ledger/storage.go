@@ -45,8 +45,8 @@ type Storage struct {
 }
 
 // newStorage returns a new storage instance for the given Ledger.
-func newStorage(ledger *Ledger) (new *Storage) {
-	new = &Storage{
+func newStorage(ledger *Ledger) (storage *Storage) {
+	storage = &Storage{
 		transactionStorage: objectstorage.NewInterfaceStorage[utxo.Transaction](
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixTransactionStorage),
 			transactionFactory(ledger.options.vm),
@@ -75,12 +75,11 @@ func newStorage(ledger *Ledger) (new *Storage) {
 			objectstorage.NewStoreWithRealm(ledger.options.store, database.PrefixLedger, PrefixConsumerStorage),
 			ledger.options.cacheTimeProvider.CacheTime(ledger.options.consumerCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
-			objectstorage.PartitionKey(Consumer{}.KeyPartitions()...),
+			objectstorage.PartitionKey(new(Consumer).KeyPartitions()...),
 		),
 		ledger: ledger,
 	}
-
-	return new
+	return storage
 }
 
 // CachedTransaction retrieves the CachedObject representing the named Transaction. The optional computeIfAbsentCallback

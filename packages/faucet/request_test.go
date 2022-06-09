@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
@@ -25,7 +26,7 @@ func ExampleRequest() {
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
 	// 2. build actual message
-	tx, _ := tangle.NewMessage(map[tangle.ParentsType]tangle.MessageIDs{
+	tx := tangle.NewMessage(map[tangle.ParentsType]tangle.MessageIDs{
 		tangle.StrongParentType: {
 			tangle.EmptyMessageID: types.Void,
 		},
@@ -50,7 +51,7 @@ func TestRequest(t *testing.T) {
 
 	originalRequest := NewRequest(address, access, consensus, 0)
 
-	clonedRequest, _, err := FromBytes(originalRequest.Bytes())
+	clonedRequest, _, err := FromBytes(lo.PanicOnErr(originalRequest.Bytes()))
 	if err != nil {
 		panic(err)
 	}
@@ -58,7 +59,7 @@ func TestRequest(t *testing.T) {
 	assert.Equal(t, originalRequest.AccessManaPledgeID(), clonedRequest.AccessManaPledgeID())
 	assert.Equal(t, originalRequest.ConsensusManaPledgeID(), clonedRequest.ConsensusManaPledgeID())
 
-	clonedRequest2, _, err := FromBytes(clonedRequest.Bytes())
+	clonedRequest2, _, err := FromBytes(lo.PanicOnErr(clonedRequest.Bytes()))
 	if err != nil {
 		panic(err)
 	}
@@ -74,7 +75,7 @@ func TestIsFaucetReq(t *testing.T) {
 
 	faucetRequest := NewRequest(address, emptyID, emptyID, 0)
 
-	faucetMsg, _ := tangle.NewMessage(
+	faucetMsg := tangle.NewMessage(
 		map[tangle.ParentsType]tangle.MessageIDs{
 			tangle.StrongParentType: {
 				tangle.EmptyMessageID: types.Void,
@@ -90,7 +91,7 @@ func TestIsFaucetReq(t *testing.T) {
 		nil,
 	)
 
-	dataMsg, _ := tangle.NewMessage(
+	dataMsg := tangle.NewMessage(
 		map[tangle.ParentsType]tangle.MessageIDs{
 			tangle.StrongParentType: {
 				tangle.EmptyMessageID: types.Void,

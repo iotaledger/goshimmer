@@ -51,17 +51,11 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 		if message.Payload().Type() != chat.Type {
 			return
 		}
-
-		chatPayload, _, err := chat.FromBytes(message.Payload().Bytes())
-		if err != nil {
-			Plugin.LogError(err)
-			return
-		}
-
+		chatPayload := message.Payload().(*chat.Payload)
 		chatEvent = &chat.MessageReceivedEvent{
-			From:      chatPayload.From,
-			To:        chatPayload.To,
-			Message:   chatPayload.Message,
+			From:      chatPayload.From(),
+			To:        chatPayload.To(),
+			Message:   chatPayload.Message(),
 			Timestamp: message.IssuingTime(),
 			MessageID: message.ID().Base58(),
 		}

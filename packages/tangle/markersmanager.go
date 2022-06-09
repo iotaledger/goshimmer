@@ -2,7 +2,6 @@ package tangle
 
 import (
 	"github.com/iotaledger/hive.go/generics/set"
-	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -15,8 +14,6 @@ import (
 type BranchMarkersMapper struct {
 	tangle *Tangle
 	*markers.Manager
-
-	Events *BranchMarkersMapperEvents
 }
 
 // NewBranchMarkersMapper is the constructor of the MarkersManager.
@@ -24,7 +21,6 @@ func NewBranchMarkersMapper(tangle *Tangle) (b *BranchMarkersMapper) {
 	b = &BranchMarkersMapper{
 		tangle:  tangle,
 		Manager: markers.NewManager(markers.WithStore(tangle.Options.Store)),
-		Events:  newBranchMarkersMapperEvents(),
 	}
 
 	// Always set Genesis to MasterBranch.
@@ -52,16 +48,15 @@ func (b *BranchMarkersMapper) InheritStructureDetails(message *Message, structur
 	// })
 
 	newStructureDetails, newSequenceCreated = b.Manager.InheritStructureDetails(structureDetails, b.tangle.Options.IncreaseMarkersIndexCallback)
-	if newStructureDetails.IsPastMarker {
-		b.SetMessageID(newStructureDetails.PastMarkers.Marker(), message.ID())
-		b.tangle.Utils.WalkMessageMetadata(b.propagatePastMarkerToFutureMarkers(newStructureDetails.PastMarkers.Marker()), message.ParentsByType(StrongParentType))
+	if newStructureDetails.IsPastMarker() {
+		b.SetMessageID(newStructureDetails.PastMarkers().Marker(), message.ID())
 	}
 
 	return
 }
 
 // MessageID retrieves the MessageID of the given Marker.
-func (b *BranchMarkersMapper) MessageID(marker *markers.Marker) (messageID MessageID) {
+func (b *BranchMarkersMapper) MessageID(marker markers.Marker) (messageID MessageID) {
 	b.tangle.Storage.MarkerMessageMapping(marker).Consume(func(markerMessageMapping *MarkerMessageMapping) {
 		messageID = markerMessageMapping.MessageID()
 	})
@@ -70,17 +65,17 @@ func (b *BranchMarkersMapper) MessageID(marker *markers.Marker) (messageID Messa
 }
 
 // SetMessageID associates a MessageID with the given Marker.
-func (b *BranchMarkersMapper) SetMessageID(marker *markers.Marker, messageID MessageID) {
+func (b *BranchMarkersMapper) SetMessageID(marker markers.Marker, messageID MessageID) {
 	b.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
 }
 
 // PendingBranchIDs returns the pending BranchIDs that are associated with the given Marker.
-func (b *BranchMarkersMapper) PendingBranchIDs(marker *markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (b *BranchMarkersMapper) PendingBranchIDs(marker markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	return b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(b.branchIDs(marker))
 }
 
 // SetBranchIDs associates ledger.BranchIDs with the given Marker.
-func (b *BranchMarkersMapper) SetBranchIDs(marker *markers.Marker, branchIDs *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
+func (b *BranchMarkersMapper) SetBranchIDs(marker markers.Marker, branchIDs *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if floorMarker, floorBranchIDs, exists := b.Floor(marker); exists {
 		if floorBranchIDs.Equal(branchIDs) {
 			return false
@@ -97,7 +92,7 @@ func (b *BranchMarkersMapper) SetBranchIDs(marker *markers.Marker, branchIDs *se
 }
 
 // branchIDs returns the BranchID that is associated with the given Marker.
-func (b *BranchMarkersMapper) branchIDs(marker *markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+func (b *BranchMarkersMapper) branchIDs(marker markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		branchIDs = markerIndexBranchIDMapping.BranchIDs(marker.Index())
 	})
@@ -105,13 +100,13 @@ func (b *BranchMarkersMapper) branchIDs(marker *markers.Marker) (branchIDs *set.
 	return
 }
 
-func (b *BranchMarkersMapper) setBranchIDMapping(marker *markers.Marker, branchIDs *set.AdvancedSet[utxo.TransactionID]) bool {
+func (b *BranchMarkersMapper) setBranchIDMapping(marker markers.Marker, branchIDs *set.AdvancedSet[utxo.TransactionID]) bool {
 	return b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		markerIndexBranchIDMapping.SetBranchIDs(marker.Index(), branchIDs)
 	})
 }
 
-func (b *BranchMarkersMapper) deleteBranchIDMapping(marker *markers.Marker) bool {
+func (b *BranchMarkersMapper) deleteBranchIDMapping(marker markers.Marker) bool {
 	return b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		markerIndexBranchIDMapping.DeleteBranchID(marker.Index())
 	})
@@ -119,7 +114,7 @@ func (b *BranchMarkersMapper) deleteBranchIDMapping(marker *markers.Marker) bool
 
 // Floor returns the largest Index that is <= the given Marker, it's BranchIDs and a boolean value indicating if it
 // exists.
-func (b *BranchMarkersMapper) Floor(referenceMarker *markers.Marker) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
+func (b *BranchMarkersMapper) Floor(referenceMarker markers.Marker) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
 	b.tangle.Storage.MarkerIndexBranchIDMapping(referenceMarker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		marker, branchIDs, exists = markerIndexBranchIDMapping.Floor(referenceMarker.Index())
 	})
@@ -129,7 +124,7 @@ func (b *BranchMarkersMapper) Floor(referenceMarker *markers.Marker) (marker mar
 
 // Ceiling returns the smallest Index that is >= the given Marker, it's BranchID and a boolean value indicating if it
 // exists.
-func (b *BranchMarkersMapper) Ceiling(referenceMarker *markers.Marker) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
+func (b *BranchMarkersMapper) Ceiling(referenceMarker markers.Marker) (marker markers.Index, branchIDs *set.AdvancedSet[utxo.TransactionID], exists bool) {
 	b.tangle.Storage.MarkerIndexBranchIDMapping(referenceMarker.SequenceID(), NewMarkerIndexBranchIDMapping).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		marker, branchIDs, exists = markerIndexBranchIDMapping.Ceiling(referenceMarker.Index())
 	})
@@ -139,7 +134,7 @@ func (b *BranchMarkersMapper) Ceiling(referenceMarker *markers.Marker) (marker m
 
 // ForEachBranchIDMapping iterates over all BranchID mappings in the given Sequence that are bigger than the given
 // thresholdIndex. Setting the thresholdIndex to 0 will iterate over all existing mappings.
-func (b *BranchMarkersMapper) ForEachBranchIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker *markers.Marker, mappedBranchIDs *set.AdvancedSet[utxo.TransactionID])) {
+func (b *BranchMarkersMapper) ForEachBranchIDMapping(sequenceID markers.SequenceID, thresholdIndex markers.Index, callback func(mappedMarker markers.Marker, mappedBranchIDs *set.AdvancedSet[utxo.TransactionID])) {
 	currentMarker := markers.NewMarker(sequenceID, thresholdIndex)
 	referencingMarkerIndexInSameSequence, mappedBranchIDs, exists := b.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1))
 	for ; exists; referencingMarkerIndexInSameSequence, mappedBranchIDs, exists = b.Ceiling(markers.NewMarker(currentMarker.SequenceID(), currentMarker.Index()+1)) {
@@ -150,7 +145,7 @@ func (b *BranchMarkersMapper) ForEachBranchIDMapping(sequenceID markers.Sequence
 
 // ForEachMarkerReferencingMarker executes the callback function for each Marker of other Sequences that directly
 // reference the given Marker.
-func (b *BranchMarkersMapper) ForEachMarkerReferencingMarker(referencedMarker *markers.Marker, callback func(referencingMarker *markers.Marker)) {
+func (b *BranchMarkersMapper) ForEachMarkerReferencingMarker(referencedMarker markers.Marker, callback func(referencingMarker markers.Marker)) {
 	b.Sequence(referencedMarker.SequenceID()).Consume(func(sequence *markers.Sequence) {
 		sequence.ReferencingMarkers(referencedMarker.Index()).ForEachSorted(func(referencingSequenceID markers.SequenceID, referencingIndex markers.Index) bool {
 			if referencingSequenceID == referencedMarker.SequenceID() {
@@ -162,29 +157,6 @@ func (b *BranchMarkersMapper) ForEachMarkerReferencingMarker(referencedMarker *m
 			return true
 		})
 	})
-}
-
-// propagatePastMarkerToFutureMarkers updates the FutureMarkers of the strong parents of a given message when a new
-// PastMaster was assigned.
-func (b *BranchMarkersMapper) propagatePastMarkerToFutureMarkers(pastMarkerToInherit *markers.Marker) func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
-	return func(messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
-		updated, inheritFurther := b.UpdateStructureDetails(messageMetadata.StructureDetails(), pastMarkerToInherit)
-		if updated {
-			messageMetadata.SetModified(true)
-
-			b.Events.FutureMarkerUpdated.Trigger(&FutureMarkerUpdateEvent{
-				ID:           messageMetadata.ID(),
-				FutureMarker: b.MessageID(pastMarkerToInherit),
-			})
-		}
-		if inheritFurther {
-			b.tangle.Storage.Message(messageMetadata.ID()).Consume(func(message *Message) {
-				for strongParentMessageID := range message.ParentsByType(StrongParentType) {
-					walker.Push(strongParentMessageID)
-				}
-			})
-		}
-	}
 }
 
 // increaseMarkersIndexCallbackStrategy implements the default strategy for increasing marker Indexes in the Tangle.

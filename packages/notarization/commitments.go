@@ -130,6 +130,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
 	branch1 := types.NewIdentifier(append(commitment.tangleRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	// TODO: append mana root here...
 	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes()))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)

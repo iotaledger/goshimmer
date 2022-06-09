@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/generics/lo"
+
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -97,13 +99,13 @@ func main() {
 			}), destAddr.Address())
 			txEssence := devnetvm.NewTransactionEssence(0, time.Now(), identity.ID{}, identity.ID{}, devnetvm.NewInputs(devnetvm.NewUTXOInput(out)), devnetvm.NewOutputs(output))
 			kp := *mySeed.KeyPair(0)
-			sig := devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(txEssence.Bytes()))
+			sig := devnetvm.NewED25519Signature(kp.PublicKey, kp.PrivateKey.Sign(lo.PanicOnErr(txEssence.Bytes())))
 			unlockBlock := devnetvm.NewSignatureUnlockBlock(sig)
 			tx := devnetvm.NewTransaction(txEssence, devnetvm.UnlockBlocks{unlockBlock})
 			conflictingTxs[i] = tx
 
 			// issue the tx
-			resp, err2 := clients[i].PostTransaction(tx.Bytes())
+			resp, err2 := clients[i].PostTransaction(lo.PanicOnErr(tx.Bytes()))
 			if err2 != nil {
 				panic(err2)
 			}

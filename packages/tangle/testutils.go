@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
@@ -131,7 +132,11 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 		}
 	}
 
-	RegisterMessageIDAlias(m.messagesByAlias[messageAlias].ID(), messageAlias)
+	if err := m.messagesByAlias[messageAlias].DetermineID(); err != nil {
+		panic(err)
+	}
+
+	m.messagesByAlias[messageAlias].ID().RegisterAlias(messageAlias)
 
 	return m.messagesByAlias[messageAlias]
 }
@@ -621,25 +626,41 @@ func randomConflictID() (randomConflictID utxo.OutputID) {
 }
 
 func newTestNonceMessage(nonce uint64) *Message {
-	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
 		time.Time{}, ed25519.PublicKey{}, 0, payload.NewGenericDataPayload([]byte("test")), nonce, ed25519.Signature{}, 0, nil)
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 
 func newTestDataMessage(payloadString string) *Message {
-	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
 		time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 
 func newTestDataMessagePublicKey(payloadString string, publicKey ed25519.PublicKey) *Message {
-	message, _ := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
+	message := NewMessage(NewParentMessageIDs().AddStrong(EmptyMessageID),
 		time.Now(), publicKey, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 
 func newTestParentsDataMessage(payloadString string, references ParentMessageIDs) (message *Message) {
-	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -651,15 +672,23 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message, _ = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
 	} else {
-		message, _ = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+	}
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
 	}
 	return
 }
 
 func newTestParentsPayloadMessage(p payload.Payload, references ParentMessageIDs) (message *Message) {
-	message, _ = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+	message = NewMessage(references, time.Now(), ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return
 }
 
@@ -672,18 +701,24 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message, err = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	} else {
-		message, err = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
 	}
 	if err != nil {
+		panic(err)
+	}
+	if err = message.DetermineID(); err != nil {
 		panic(err)
 	}
 	return
 }
 
 func newTestParentsPayloadWithTimestamp(p payload.Payload, references ParentMessageIDs, timestamp time.Time) *Message {
-	message, _ := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+	message := NewMessage(references, timestamp, ed25519.PublicKey{}, nextSequenceNumber(), p, 0, ed25519.Signature{}, 0, nil)
+	if err := message.DetermineID(); err != nil {
+		panic(err)
+	}
 	return message
 }
 
@@ -713,7 +748,7 @@ func createWallets(n int) []wallet {
 }
 
 func (w wallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
-	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }
 
 // addressFromInput retrieves the Address belonging to an Input by looking it up in the outputs that we have created for
@@ -840,7 +875,7 @@ func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.
 }
 
 // IsMarkerConfirmed mocks its interface function.
-func (m *MockConfirmationOracle) IsMarkerConfirmed(*markers.Marker) bool {
+func (m *MockConfirmationOracle) IsMarkerConfirmed(markers.Marker) bool {
 	// We do not use the optimization in the AW manager via map for tests. Thus, in the test it always needs to start checking from the
 	// beginning of the sequence for all markers.
 	return false

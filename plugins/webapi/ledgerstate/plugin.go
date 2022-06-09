@@ -528,7 +528,8 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	// parse tx
-	tx, err := new(devnetvm.Transaction).FromBytes(request.TransactionBytes)
+	tx := new(devnetvm.Transaction)
+	err := tx.FromBytes(request.TransactionBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}

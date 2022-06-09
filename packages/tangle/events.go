@@ -121,7 +121,7 @@ type MessageBranchUpdatedEvent struct {
 }
 
 type MarkerBranchAddedEvent struct {
-	Marker      *markers.Marker
+	Marker      markers.Marker
 	NewBranchID utxo.TransactionID
 }
 
@@ -196,7 +196,7 @@ type MessageProcessedEvent struct {
 
 // MarkerWeightChangedEvent holds information about a marker and its updated weight.
 type MarkerWeightChangedEvent struct {
-	Marker *markers.Marker
+	Marker markers.Marker
 	Weight float64
 }
 
@@ -291,24 +291,6 @@ type MessageDispatchedEvent struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// BranchMarkersMapperEvents represents events happening in the BranchMarkersMapper.
-type BranchMarkersMapperEvents struct {
-	// FutureMarkerUpdated is triggered when a message's future marker is updated.
-	FutureMarkerUpdated *event.Event[*FutureMarkerUpdateEvent]
-}
-
-func newBranchMarkersMapperEvents() (new *BranchMarkersMapperEvents) {
-	return &BranchMarkersMapperEvents{
-		FutureMarkerUpdated: event.New[*FutureMarkerUpdateEvent](),
-	}
-}
-
-// FutureMarkerUpdate contains the messageID of the future marker of a message.
-type FutureMarkerUpdateEvent struct {
-	ID           MessageID
-	FutureMarker MessageID
-}
 
 // region ParserEvents /////////////////////////////////////////////////////////////////////////////////////////////////
 
