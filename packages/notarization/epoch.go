@@ -14,7 +14,7 @@ type EpochDiffs struct {
 }
 
 type EpochDiff struct {
-	model.Storable[epoch.EI, epochDiff] `serix:"0"`
+	model.Storable[epoch.EI, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
 }
 
 type epochDiff struct {
