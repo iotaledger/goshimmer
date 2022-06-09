@@ -80,7 +80,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		m.log.Error(err)
 	}
 
-	// TODO: store EC coming from the snapshot corresponding to DiffEpochIndex
+	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 
 	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *epoch.EpochDiff) bool {
 		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochDiff).Release()
