@@ -1,9 +1,10 @@
 package notarization
 
 import (
-	"github.com/iotaledger/hive.go/generics/event"
 	"hash"
 	"sync"
+
+	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
+// CommitmentRoots contains roots of trees of an epoch.
 type CommitmentRoots struct {
 	EI                epoch.EI
 	tangleRoot        epoch.MerkleRoot

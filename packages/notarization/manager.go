@@ -1,9 +1,10 @@
 package notarization
 
 import (
-	"github.com/cockroachdb/errors"
 	"sync"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
@@ -53,6 +54,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 	}
 }
 
+// LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(output).Release()
@@ -126,6 +128,7 @@ func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
 	return
 }
 
+// CommitmentFactoryEvents returns the events of CommitmentFactory.
 func (m *Manager) CommitmentFactoryEvents() *FactoryEvents {
 	return m.epochCommitmentFactory.Events
 }
