@@ -849,7 +849,7 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
-	options = append(options, CommitmentFunc(func() (*epoch.EpochCommitment, error) {
+	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, error) {
 		return nil, nil
 	}))
 

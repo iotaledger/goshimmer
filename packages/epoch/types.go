@@ -57,13 +57,6 @@ type Epoch struct {
 	commitmentMutex sync.RWMutex
 }
 
-// EpochCommitment contains the ECR and PreviousEC of an epoch.
-type EpochCommitment struct {
-	EI         EI
-	ECR        *ECR
-	PreviousEC *EC
-}
-
 // NewEpoch is the constructor for an Epoch.
 func NewEpoch(ei EI) (epoch *Epoch) {
 	epoch = &Epoch{
@@ -234,5 +227,76 @@ func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
 	defer e.Unlock()
 
 	e.M.Spent = spent
+	e.SetModified()
+}
+
+// ECRecord is a storable object represents the ecRecord of an epoch.
+type ECRecord struct {
+	model.Storable[EI, ECRecord, *ECRecord, ecRecord] `serix:"0"`
+}
+
+type ecRecord struct {
+	EI     EI   `serix:"0"`
+	ECR    *ECR `serix:"1"`
+	PrevEC *EC  `serix:"2"`
+}
+
+// NewECRecord creates and returns a ECRecord of the given EI.
+func NewECRecord(ei EI) (new *ECRecord) {
+	new = model.NewStorable[EI, ECRecord](&ecRecord{
+		EI: ei,
+	})
+	new.SetID(ei)
+	return
+}
+
+func (e *ECRecord) EI() EI {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.EI
+}
+
+func (e *ECRecord) SetEI(ei EI) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.EI = ei
+	e.SetID(ei)
+
+	e.SetModified()
+}
+
+// ECR returns the ECR of an ECRecord.
+func (e *ECRecord) ECR() *ECR {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.ECR
+}
+
+// SetECR sets the ECR of an ECRecord.
+func (e *ECRecord) SetECR(ecr *ECR) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.ECR = ecr
+	e.SetModified()
+}
+
+// PrevEC returns the EC of an ECRecord.
+func (e *ECRecord) PrevEC() *EC {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.PrevEC
+}
+
+// SetPrevEC sets the PrevEC of an ECRecord.
+func (e *ECRecord) SetPrevEC(prevEC *EC) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.PrevEC = prevEC
 	e.SetModified()
 }

@@ -123,7 +123,7 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
+func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
@@ -136,7 +136,7 @@ func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
 		}
 	}
 
-	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(lastCommittedEpoch); err != nil {
+	if ecRecord, err = m.epochCommitmentFactory.EC(lastCommittedEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
 	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: lastCommittedEpoch})
@@ -297,7 +297,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec
 		// roll the state trees
-		if _, err := m.epochCommitmentFactory.getEpochCommitment(ei); err != nil {
+		if _, err := m.epochCommitmentFactory.EC(ei); err != nil {
 			m.log.Error(err)
 		}
 		// update last committed index
