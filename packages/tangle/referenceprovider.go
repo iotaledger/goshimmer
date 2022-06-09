@@ -58,8 +58,10 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 		}
 	}
 
+	excludedConflictIDs := utxo.NewTransactionIDs()
+
 	for strongParent := range strongParents {
-		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime)
+		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime, excludedConflictIDs)
 		if !validStrongParent {
 			if err = r.checkPayloadLiked(strongParent); err != nil {
 				r.Events.Error.Trigger(errors.Errorf("failed to pick up %s as a weak parent: %w", strongParent, err))
@@ -83,7 +85,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 }
 
 // addedReferenceForMessage returns the reference that is necessary to correct our opinion on the given message.
-func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTime time.Time) (addedReferences ParentMessageIDs, success bool) {
+func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (addedReferences ParentMessageIDs, success bool) {
 	msgConflictIDs, err := r.tangle.Booker.MessageBranchIDs(msgID)
 	if err != nil {
 		r.Events.Error.Trigger(errors.Errorf("conflictID of %s can't be retrieved: %w", msgID, err))
@@ -96,7 +98,7 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 		return addedReferences, true
 	}
 
-	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime); err != nil {
+	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime, excludedConflictIDs); err != nil {
 		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
 		r.Events.ReferenceImpossible.Trigger(msgID)
 		return nil, false
@@ -115,12 +117,16 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 }
 
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
-func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, issuingTime time.Time) (referencesToAdd ParentMessageIDs, err error) {
+func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (referencesToAdd ParentMessageIDs, err error) {
 	referencesToAdd = NewParentMessageIDs()
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
-		if adjust, referencedMsg, referenceErr := r.adjustOpinion(conflictID, issuingTime); referenceErr != nil {
+		if excludedConflictIDs.Has(conflictID) {
+			continue
+		}
+
+		if adjust, referencedMsg, referenceErr := r.adjustOpinion(conflictID, issuingTime, excludedConflictIDs); referenceErr != nil {
 			return nil, errors.Errorf("failed to create reference for %s: %w", conflictID, referenceErr)
 		} else if adjust {
 			referencesToAdd.Add(ShallowLikeParentType, referencedMsg)
@@ -131,7 +137,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 }
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuingTime time.Time) (adjust bool, msgID MessageID, err error) {
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (adjust bool, msgID MessageID, err error) {
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
@@ -145,6 +151,8 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 			if msgID, err = r.firstValidAttachment(currentConflictID, issuingTime); err != nil {
 				continue
 			}
+
+			// TODO: WALK TO FUTURE CONE + DETERMINE WHAT IS EXCLUDED
 
 			return true, msgID, nil
 		}
