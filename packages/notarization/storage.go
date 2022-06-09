@@ -52,6 +52,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
+
 	new.ecRecordStorage = objectstorage.NewStructStorage[ECRecord](
 		specializeStore(new.baseStore, PrefixEC),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),

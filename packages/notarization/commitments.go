@@ -58,16 +58,6 @@ type EpochCommitmentFactory struct {
 	tangle  *tangle.Tangle
 	hasher  hash.Hash
 
-	// FullEpochIndex is the epoch index we have the full ledger state for.
-	// This index also represents the full ledger state dumped at snapshot.
-	FullEpochIndex epoch.EI
-
-	// DiffEpochIndex is the epoch index up to which we have a diff for, starting from FullEpochIndex.
-	DiffEpochIndex epoch.EI
-
-	// LastCommittedEpoch is the last epoch that was committed.
-	LastCommittedEpoch epoch.EI
-
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
 
@@ -99,6 +89,66 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 // StateRoot returns the root of the state sparse merkle tree at the latest committed epoch.
 func (f *EpochCommitmentFactory) StateRoot() []byte {
 	return f.stateRootTree.Root()
+}
+
+func (f *EpochCommitmentFactory) SetFullEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("fullEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set fullEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) FullEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("fullEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get fullEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
+func (f *EpochCommitmentFactory) SetDiffEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("diffEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set diffEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) DiffEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("diffEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get diffEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
+func (f *EpochCommitmentFactory) SetLastCommittedEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("lastCommittedEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set lastCommittedEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) LastCommittedEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("lastCommittedEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get lastCommittedEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
 }
 
 // NewCommitment returns an empty commitment for the epoch.
@@ -233,10 +283,10 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.Mess
 }
 
 // RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(outID utxo.OutputID) error {
-	exists, _ := f.stateRootTree.Has(outID.Bytes())
+func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
+	exists, _ := f.stateRootTree.Has(outputID.Bytes())
 	if exists {
-		_, err := f.stateRootTree.Delete(outID.Bytes())
+		_, err := f.stateRootTree.Delete(outputID.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
@@ -380,7 +430,11 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 }
 
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, err error) {
-	if ei != f.LastCommittedEpoch+1 {
+	isNextCommittableEpoch, isNextCommittableEpochErr := f.isNextCommittableEpoch(ei)
+	if isNextCommittableEpochErr != nil {
+		return nil, errors.Wrap(isNextCommittableEpochErr, "could not determine if next epoch is committable")
+	}
+	if !isNextCommittableEpoch {
 		return nil, errors.Errorf("getting the state root of not next committable epoch is not supported")
 	}
 
@@ -409,6 +463,15 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 	return f.StateRoot(), nil
 }
 
+func (f *EpochCommitmentFactory) isNextCommittableEpoch(ei epoch.EI) (isNextCommittableEpoch bool, err error) {
+	lastCommittedEpochIndex, lastCommittedEpochIndexErr := f.LastCommittedEpochIndex()
+	if lastCommittedEpochIndexErr != nil {
+		return false, errors.Errorf("failed to retrieve LastCommittedEpochIndex")
+	}
+
+	return ei == lastCommittedEpochIndex+1, nil
+}
+
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
 	f.storage.CachedDiff(ei, epoch.NewEpochDiff).Consume(func(epochDiff *epoch.EpochDiff) {
 		for _, o := range created {
@@ -420,6 +483,7 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 			if epochDiff.DeleteCreated(outputID) {
 				continue
 			}
+			// TODO: maybe we can avoid having the tangle as a dependency if we only stored the spent IDs, do we need the entire output?
 			f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 				outVM := o.(devnetvm.Output)
 				epochDiff.AddSpent(outVM)

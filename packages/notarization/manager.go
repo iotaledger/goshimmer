@@ -67,9 +67,18 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 	// TODO: mana root
 
-	m.epochCommitmentFactory.FullEpochIndex = snapshot.FullEpochIndex
-	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
-	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
+	if err := m.epochCommitmentFactory.SetFullEpochIndex(snapshot.FullEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	if err := m.epochCommitmentFactory.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
+	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
 
 	// TODO: store EC coming from the snapshot corresponding to DiffEpochIndex
 
@@ -115,15 +124,22 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
-	nextEI := m.epochCommitmentFactory.LastCommittedEpoch + 1
-	if m.IsCommittable(nextEI) {
-		m.epochCommitmentFactory.LastCommittedEpoch = nextEI
+	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
 	}
 
-	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
+	if m.IsCommittable(lastCommittedEpoch + 1) {
+		lastCommittedEpoch++
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(lastCommittedEpoch); err != nil {
+			return nil, errors.Wrap(err, "could not set last committed epoch")
+		}
+	}
+
+	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(lastCommittedEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: m.epochCommitmentFactory.LastCommittedEpoch})
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: lastCommittedEpoch})
 
 	return
 }
@@ -190,7 +206,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] -= 1
+	m.pendingConflictsCount[ei]--
 }
 
 // OnBranchCreated is the handler for branch created event.
@@ -199,7 +215,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] += 1
+	m.pendingConflictsCount[ei]++
 }
 
 // OnBranchRejected is the handler for branch created event.
@@ -208,21 +224,27 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] -= 1
+	m.pendingConflictsCount[ei]--
 }
 
 // OnCommitmentTreeCreated progress commitment if the LastCommittedEpoch is at least two commitments behind the nex committable epoch.
 func (m *Manager) OnCommitmentTreeCreated(ei epoch.EI) {
 	var latestCommittableEpoch epoch.EI
-	for currentEi := m.epochCommitmentFactory.LastCommittedEpoch; currentEi < ei; currentEi++ {
+	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		m.log.Error(lastCommittedEpochErr)
+		return
+	}
+
+	for currentEi := lastCommittedEpoch; currentEi < ei; currentEi++ {
 		if m.IsCommittable(currentEi) {
 			latestCommittableEpoch = currentEi
 			continue
 		}
 		break
 	}
-	if latestCommittableEpoch-m.epochCommitmentFactory.LastCommittedEpoch > 1 {
-		m.updateCommitmentsUpToLatestCommittableEpoch(m.epochCommitmentFactory.LastCommittedEpoch, latestCommittableEpoch)
+	if latestCommittableEpoch-lastCommittedEpoch > 1 {
+		m.updateCommitmentsUpToLatestCommittableEpoch(lastCommittedEpoch, latestCommittableEpoch)
 	}
 }
 
@@ -279,7 +301,9 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 			m.log.Error(err)
 		}
 		// update last committed index
-		m.epochCommitmentFactory.LastCommittedEpoch += 1
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(ei); err != nil {
+			m.log.Error(err)
+		}
 	}
 
 }
