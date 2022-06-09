@@ -553,6 +553,16 @@ type EpochDiffs struct {
 	orderedmap.OrderedMap[epoch.EI, *EpochDiff] `serix:"0"`
 }
 
+func (e *EpochDiffs) String() string {
+	structBuilder := stringify.StructBuilder("EpochDiffs")
+	e.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *EpochDiff) bool {
+		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
+		return true
+	})
+
+	return structBuilder.String()
+}
+
 type EpochDiff struct {
 	model.Storable[epoch.EI, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
 }

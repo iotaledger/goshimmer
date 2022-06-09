@@ -30,5 +30,9 @@ func (s *Snapshot) String() (humanReadable string) {
 	return stringify.Struct("Snapshot",
 		stringify.StructField("Outputs", s.Outputs),
 		stringify.StructField("OutputsMetadata", s.OutputsMetadata),
+		stringify.StructField("FullEpochIndex", s.FullEpochIndex),
+		stringify.StructField("DiffEpochIndex", s.DiffEpochIndex),
+		stringify.StructField("EpochDiffs", s.EpochDiffs),
+		stringify.StructField("LatestECRecord", s.LatestECRecord),
 	)
 }
