@@ -1,6 +1,8 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/hive.go/identity"
 	"hash"
 	"sync"
 
@@ -260,14 +262,23 @@ func (f *EpochCommitmentFactory) UpdateManaLeaf(outputID utxo.OutputID, increase
 	if err != nil {
 		return err
 	}
+	var leafHasBalance bool
 	balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
 		if increaseBalance {
 			updatedBalances.Map()[color] += balance
 		} else {
 			updatedBalances.Map()[color] -= balance
+			if updatedBalances.Map()[color] > 0 {
+				leafHasBalance = true
+			}
 		}
 		return true
 	})
+	// remove leaf if mana is zero
+	if !leafHasBalance {
+		err = f.removeManaRoot(pledgeID)
+		return err
+	}
 	_, err = f.stateRootTree.Update(pledgeID.Bytes(), updatedBalances.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
@@ -342,6 +353,17 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
 	exists, _ := f.stateRootTree.Has(outputID.Bytes())
 	if exists {
 		_, err := f.stateRootTree.Delete(outputID.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the state tree")
+		}
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) removeManaRoot(id identity.ID) error {
+	exists, _ := f.stateRootTree.Has(id.Bytes())
+	if exists {
+		_, err := f.stateRootTree.Delete(id.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
 		}
