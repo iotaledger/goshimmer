@@ -1,7 +1,9 @@
 package notarization
 
 import (
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/identity"
 	"hash"
 	"sync"
 
@@ -26,6 +28,7 @@ type CommitmentRoots struct {
 	tangleRoot        epoch.MerkleRoot
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
+	manaRoot          epoch.MerkleRoot
 }
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -66,8 +69,10 @@ type EpochCommitmentFactory struct {
 	// LastCommittedEpoch is the last epoch that was committed.
 	LastCommittedEpoch epoch.EI
 
-	// stateRootTree stores the state tree at the LastCommittedEpoch.
+	// stateRootTree stores the state tree at the LastCommittedEpoch + 1.
 	stateRootTree *smt.SparseMerkleTree
+	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
+	manaRootTree *smt.SparseMerkleTree
 
 	Events *FactoryEvents
 }
@@ -78,9 +83,13 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store), WithVM(vm))
 
-	stateRootTreeStore := specializeStore(epochCommitmentStorage.baseStore, PrefixTree)
-	stateRootTreeNodeStore := specializeStore(stateRootTreeStore, PrefixTreeNodes)
-	stateRootTreeValueStore := specializeStore(stateRootTreeStore, PrefixTreeValues)
+	stateRootTreeStore := specializeStore(epochCommitmentStorage.baseStore, PrefixStateTree)
+	stateRootTreeNodeStore := specializeStore(stateRootTreeStore, PrefixStateTreeNodes)
+	stateRootTreeValueStore := specializeStore(stateRootTreeStore, PrefixStateTreeValues)
+
+	manaRootTreeStore := specializeStore(epochCommitmentStorage.baseStore, PrefixManaTree)
+	manaRootTreeNodeStore := specializeStore(manaRootTreeStore, PrefixManaTreeNodes)
+	manaRootTreeValueStore := specializeStore(manaRootTreeStore, PrefixManaTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: make(map[epoch.EI]*CommitmentTrees),
@@ -88,6 +97,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 		hasher:          hasher,
 		tangle:          tangle,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
+		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, hasher),
 		Events: &FactoryEvents{
 			NewCommitmentTreesCreated: event.New[*CommitmentTreesCreatedEvent](),
 		},
@@ -97,6 +107,11 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 // StateRoot returns the root of the state sparse merkle tree at the latest committed epoch.
 func (f *EpochCommitmentFactory) StateRoot() []byte {
 	return f.stateRootTree.Root()
+}
+
+// ManaRoot returns the root of the state sparse merkle tree at the latest committed epoch.
+func (f *EpochCommitmentFactory) ManaRoot() []byte {
+	return f.manaRootTree.Root()
 }
 
 // NewCommitment returns an empty commitment for the epoch.
@@ -130,8 +145,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
 	branch1 := types.NewIdentifier(append(commitment.tangleRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
-	// TODO: append mana root here...
-	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes()))
+	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes(), commitment.manaRoot.Bytes()...))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)
 	root = append(root, branch2.Bytes()...)
@@ -186,6 +200,47 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(outputID utxo.OutputID) error {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
 	}
 	return nil
+}
+
+// UpdateManaLeaf updates the mana balance in the mana sparse merkle tree.
+func (f *EpochCommitmentFactory) UpdateManaLeaf(outputID utxo.OutputID, increaseBalance bool) error {
+	pledgeID, balances, updatedBalances, err := f.getPledgeIDAndBalances(outputID)
+	if err != nil {
+		return err
+	}
+	balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+		if increaseBalance {
+			updatedBalances.Map()[color] += balance
+		} else {
+			updatedBalances.Map()[color] -= balance
+		}
+		return true
+	})
+	_, err = f.stateRootTree.Update(pledgeID.Bytes(), updatedBalances.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the state tree")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) getPledgeIDAndBalances(outputID utxo.OutputID) (identity.ID, *devnetvm.ColoredBalances, *devnetvm.ColoredBalances, error) {
+	var pledgeID identity.ID
+	f.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
+		pledgeID = metadata.ConsensusManaPledgeID()
+	})
+	var balances *devnetvm.ColoredBalances
+	f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		balances = output.(devnetvm.Output).Balances()
+	})
+	balanceBytes, err := f.stateRootTree.Get(pledgeID.Bytes())
+	if err != nil {
+		return identity.ID{}, nil, nil, errors.Wrap(err, "could not get leaf from mana tree")
+	}
+	updatedBalances, _, err := devnetvm.ColoredBalancesFromBytes(balanceBytes)
+	if err != nil {
+		return identity.ID{}, nil, nil, errors.Wrap(err, "could not decode balances")
+	}
+	return pledgeID, balances, updatedBalances, nil
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.

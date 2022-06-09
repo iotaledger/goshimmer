@@ -120,11 +120,17 @@ const (
 
 	PrefixEpochDiff
 
-	PrefixTree
+	PrefixStateTree
 
-	PrefixTreeNodes
+	PrefixStateTreeNodes
 
-	PrefixTreeValues
+	PrefixStateTreeValues
+
+	PrefixManaTree
+
+	PrefixManaTreeNodes
+
+	PrefixManaTreeValues
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////
