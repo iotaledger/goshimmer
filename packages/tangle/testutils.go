@@ -113,9 +113,6 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	if parents := m.weakParentIDs(options); len(parents) > 0 {
 		references.AddAll(WeakParentType, parents)
 	}
-	if parents := m.shallowDislikeParentIDs(options); len(parents) > 0 {
-		references.AddAll(DislikeParentType, parents)
-	}
 	if parents := m.shallowLikeParentIDs(options); len(parents) > 0 {
 		references.AddAll(ShallowLikeParentType, parents)
 	}
@@ -375,12 +372,6 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 	return m.parentIDsByMessageAlias(options.weakParents)
 }
 
-// shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
-// MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	return m.parentIDsByMessageAlias(options.shallowDislikeParents)
-}
-
 // shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
@@ -473,7 +464,6 @@ type MessageTestFrameworkMessageOptions struct {
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
 	shallowLikeParents       map[string]types.Empty
-	shallowDislikeParents    map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
@@ -484,12 +474,11 @@ type MessageTestFrameworkMessageOptions struct {
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:                make(map[string]types.Empty),
-		outputs:               make(map[string]uint64),
-		strongParents:         make(map[string]types.Empty),
-		weakParents:           make(map[string]types.Empty),
-		shallowLikeParents:    make(map[string]types.Empty),
-		shallowDislikeParents: make(map[string]types.Empty),
+		inputs:             make(map[string]types.Empty),
+		outputs:            make(map[string]uint64),
+		strongParents:      make(map[string]types.Empty),
+		weakParents:        make(map[string]types.Empty),
+		shallowLikeParents: make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -549,15 +538,6 @@ func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
 			options.shallowLikeParents[messageAlias] = types.Void
-		}
-	}
-}
-
-// WithDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
-func WithDislikeParents(messageAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		for _, messageAlias := range messageAliases {
-			options.shallowDislikeParents[messageAlias] = types.Void
 		}
 	}
 }

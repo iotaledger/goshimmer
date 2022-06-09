@@ -172,7 +172,7 @@ func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 		}
 
 		s.tangle.Storage.Message(parent.ID).Consume(func(parentMessage *Message) {
-			if parent.Type == DislikeParentType || parent.Type == ShallowLikeParentType {
+			if parent.Type == ShallowLikeParentType {
 				if _, valid = parentMessage.Payload().(utxo.Transaction); !valid {
 					return
 				}

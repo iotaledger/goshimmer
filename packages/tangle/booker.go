@@ -282,28 +282,20 @@ func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDeta
 		err = errors.Errorf("failed to retrieve booking details of parents of Message with %s: %w", message.ID(), bookingDetailsErr)
 		return
 	}
-	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
 
 	weakPayloadBranchIDs, weakParentsErr := b.collectWeakParentsBranchIDs(message)
 	if weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", message.ID(), weakParentsErr)
 	}
-	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 
-	dislikedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
-	likedBranchIDs, dislikedBranchesFromShallowLike, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
+	likedBranchIDs, dislikedBranchIDs, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
 	if shallowLikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", message.ID(), shallowLikeErr)
 	}
+
+	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
+	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 	inheritedBranchIDs.AddAll(likedBranchIDs)
-	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowLike)
-
-	dislikedBranchesFromShallowDislike, shallowDislikeErr := b.collectShallowDislikedParentsBranchIDs(message)
-	if shallowDislikeErr != nil {
-		return nil, nil, nil, errors.Errorf("failed to collect shallow dislikes of %s: %w", message.ID(), shallowDislikeErr)
-	}
-	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowDislike)
-
 	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedBranchIDs), nil
@@ -413,34 +405,6 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 	})
 
 	return collectedLikedBranchIDs, collectedDislikedBranchIDs, err
-}
-
-// collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
-// the supplied ArithmeticBranchIDs.
-func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	message.ForEachParentByType(DislikeParentType, func(parentMessageID MessageID) bool {
-		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
-			transaction, isTransaction := message.Payload().(utxo.Transaction)
-			if !isTransaction {
-				err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentMessageID, message.ID(), cerrors.ErrFatal)
-				return
-			}
-
-			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
-			if referenceDislikedBranchIDsErr != nil {
-				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), referenceDislikedBranchIDsErr)
-				return
-			}
-			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
-		}) {
-			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
-		}
-
-		return err == nil
-	})
-
-	return collectedDislikedBranchIDs, err
 }
 
 // collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from

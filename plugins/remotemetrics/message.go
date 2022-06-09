@@ -126,9 +126,6 @@ func onMessageFinalized(message *tangle.Message) {
 	if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
 		record.ShallowLikeEdgeCount = shallowLikeParentsCount
 	}
-	if shallowDislikeParentsCount := len(message.ParentsByType(tangle.DislikeParentType)); shallowDislikeParentsCount > 0 {
-		record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
-	}
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {
 		record.ScheduledTimestamp = messageMetadata.ScheduledTime()
 		record.DeltaScheduled = messageMetadata.ScheduledTime().Sub(record.IssuedTimestamp).Nanoseconds()

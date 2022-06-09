@@ -77,22 +77,13 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents.
 func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
-	additiveParents := NewMessageIDs()
-	subtractiveParents := NewMessageIDs()
+	seenMessageIDs := NewMessageIDs()
 
-	for parentsType, parentBlockReferences := range parentsBlocks {
+	for _, parentBlockReferences := range parentsBlocks {
 		for _, parent := range parentBlockReferences.Slice() {
-			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
-				additiveParents.Add(parent)
-			} else if parentsType == DislikeParentType {
-				subtractiveParents.Add(parent)
+			if _, messageSeenAlready := seenMessageIDs[parent]; messageSeenAlready {
+				return true
 			}
-		}
-	}
-
-	for parent := range subtractiveParents {
-		if _, exists := additiveParents[parent]; exists {
-			return true
 		}
 	}
 
@@ -284,7 +275,7 @@ func (m MessageIDs) String() string {
 
 const (
 	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
-	LastValidBlockType = DislikeParentType
+	LastValidBlockType = ShallowLikeParentType
 )
 
 // Message represents the core message for the base layer Tangle.
@@ -481,9 +472,6 @@ func (m *Message) String() string {
 	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	for index, parent := range sortParents(m.ParentsByType(DislikeParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
-	}
 	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
@@ -525,8 +513,6 @@ const (
 	WeakParentType
 	// ShallowLikeParentType is the ParentsType for the shallow like parent.
 	ShallowLikeParentType
-	// DislikeParentType is the ParentsType for a shallow dislike parent.
-	DislikeParentType
 )
 
 // String returns string representation of ParentsType.

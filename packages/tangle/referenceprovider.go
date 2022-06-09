@@ -146,13 +146,12 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		likedConflictID, dislikedConflictIDs := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
-		// only triggers in first iteration
-		if likedConflictID == conflictID {
-			return false, EmptyMessageID, nil
-		}
+		if likedConflictID, dislikedConflictIDs := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID); !likedConflictID.IsEmpty() {
+			// only triggers in first iteration
+			if likedConflictID == conflictID {
+				return false, EmptyMessageID, nil
+			}
 
-		if !likedConflictID.IsEmpty() {
 			if msgID, err = r.firstValidAttachment(likedConflictID, issuingTime); err != nil {
 				continue
 			}
