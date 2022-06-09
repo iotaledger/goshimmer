@@ -190,12 +190,11 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 
 // EC retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
-	f.storage.ecRecordStorage.Get(ei.Bytes()).Consume(func(record *ECRecord) {
+	if f.storage.CachedECRecord(ei).Consume(func(record *ECRecord) {
 		ecr := record.ECR()
 		prevEC := record.PrevEC()
 		ec = f.ecHash(prevEC, ecr, ei)
-	})
-	if ec != nil {
+	}) {
 		return ec, nil
 	}
 	ecr, err := f.ECR(ei)
