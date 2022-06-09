@@ -32,7 +32,6 @@ func NewAccessManaCache(accessManaMapRetrieverFunc func() map[identity.ID]float6
 		accessManaMapRetrieverFunc: accessManaMapRetrieverFunc,
 		totalManaRetrieverFunc:     totalAccessManaRetrieverFunc,
 	}
-	accessManaCache.RefreshCacheIfNecessary()
 	return accessManaCache
 }
 

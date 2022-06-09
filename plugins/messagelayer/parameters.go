@@ -59,7 +59,7 @@ type ManaParametersDefinition struct {
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
 type RateSetterParametersDefinition struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"20" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"0" usage:"the initial rate of rate setting. Set 0 to automatically estimate the value based on access mana."`
 	// RateSettingPause defines for how long to pause updates after decrease of rate.
 	RateSettingPause time.Duration `default:"2s" usage:"for how long to pause updates after decrease of rate"`
 	// Enable is the flag that enables the rate setting mechanism on node startup.

@@ -75,7 +75,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 			0,
 			ed25519.Signature{},
 		)
-	assert.NoError(t, msg.DetermineID())
+		assert.NoError(t, msg.DetermineID())
 		assert.NoError(t, rateSetter.Issue(msg))
 	}
 

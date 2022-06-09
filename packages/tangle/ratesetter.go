@@ -7,6 +7,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 
@@ -17,9 +18,15 @@ const (
 	// MaxLocalQueueSize is the maximum local (containing the message to be issued) queue size in bytes.
 	MaxLocalQueueSize = 20
 	// RateSettingIncrease is the global additive increase parameter.
+	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "A".
 	RateSettingIncrease = 1.0
 	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
+	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "β".
 	RateSettingDecrease = 1.5
+	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
+	Wmax = 50
+	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
+	Wmin = 2
 )
 
 var (
@@ -32,9 +39,8 @@ var (
 var (
 	// Enabled is the flag that enables the rate setting mechanism on node startup.
 	Enabled bool
-	// Initial is the rate in bytes per second.
-	Initial float64
 	// RateSettingPause is the amount of scheduler ticks to pause updating own rate.
+	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "τ".
 	RateSettingPause uint
 	// MaxRate is the maximum rate at which node can ever issue (scheduler rate).
 	MaxRate float64
@@ -64,11 +70,11 @@ type RateSetter struct {
 	pauseUpdates   uint
 	shutdownSignal chan struct{}
 	shutdownOnce   sync.Once
+	initOnce       sync.Once
 }
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
-	Initial = tangle.Options.RateSetterParams.Initial
 	RateSettingPause = uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate())
 	MaxRate = float64(time.Second / tangle.Scheduler.Rate())
 	Enabled = tangle.Options.RateSetterParams.Enabled
@@ -78,7 +84,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:      make(chan *Message),
-		ownRate:        atomic.NewFloat64(Initial),
+		ownRate:        atomic.NewFloat64(0),
 		pauseUpdates:   0,
 		shutdownSignal: make(chan struct{}),
 		shutdownOnce:   sync.Once{},
@@ -96,6 +102,7 @@ func (r *RateSetter) Setup() {
 		}))
 		return
 	}
+
 	r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
 		if err := r.Issue(event.Message); err != nil {
 			r.Events.Error.Trigger(errors.Errorf("failed to submit to rate setter: %w", err))
@@ -118,6 +125,10 @@ func (r *RateSetter) Issue(message *Message) error {
 	if identity.NewID(message.IssuerPublicKey()) != r.self {
 		return ErrInvalidIssuer
 	}
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.initializeInitialRate()
+	})
 
 	select {
 	case r.issueChan <- message:
@@ -146,7 +157,10 @@ func (r *RateSetter) Size() int {
 
 // Estimate estimates the issuing time of new message.
 func (r *RateSetter) Estimate() time.Duration {
-	// TODO: https://github.com/iotaledger/goshimmer/issues/1483
+	r.initOnce.Do(func() {
+		// initialize mana vectors in cache here when mana vectors are already loaded
+		r.initializeInitialRate()
+	})
 
 	// dummy estimate
 	return time.Duration(math.Ceil(float64(r.Size()) / r.ownRate.Load() * float64(time.Second)))
@@ -154,14 +168,15 @@ func (r *RateSetter) Estimate() time.Duration {
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
 func (r *RateSetter) rateSetting() {
-	var ownMana float64
 	// Return access mana or MinMana to allow zero mana nodes issue.
-	ownMana = math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
+	ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.self], MinMana)
+	maxManaValue := lo.Max(append(lo.Values(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()), MinMana)...)
 	totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
 
 	ownRate := r.ownRate.Load()
-	// TODO: is this condition correct? what was used in simulations?
-	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)) > 10 {
+
+	// TODO: make sure not to issue or scheduled blocks older than TSC
+	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
 		ownRate /= RateSettingDecrease
 		r.pauseUpdates = RateSettingPause
 	} else {
@@ -193,7 +208,7 @@ loop:
 			lastIssueTime = time.Now()
 
 			if next := r.issuingQueue.Front(); next != nil {
-				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
+				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval())))
 				timerStopped = false
 			}
 
@@ -213,7 +228,7 @@ loop:
 				break
 			}
 			if next := r.issuingQueue.Front(); next != nil {
-				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval(next.(*Message)))))
+				issueTimer.Reset(time.Until(lastIssueTime.Add(r.issueInterval())))
 			}
 
 		// on close, exit the loop
@@ -228,10 +243,19 @@ loop:
 	}
 }
 
-func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	// TODO: can this be counted as 1 or do we want to use bytes as work func?
+func (r *RateSetter) issueInterval() time.Duration {
 	wait := time.Duration(math.Ceil(float64(1) / r.ownRate.Load() * float64(time.Second)))
 	return wait
+}
+
+func (r *RateSetter) initializeInitialRate() {
+	if r.tangle.Options.RateSetterParams.Initial > 0.0 {
+		r.ownRate.Store(r.tangle.Options.RateSetterParams.Initial)
+	} else {
+		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
+		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
+		r.ownRate.Store(math.Max(ownMana/totalMana*MaxRate, 0.001))
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
