@@ -5,11 +5,12 @@ import (
 	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/hive.go/generics/event"
+
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
@@ -21,16 +22,12 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-const (
-	ECCreationMaxDepth = 10
-)
-
-type Commitment struct {
+// CommitmentRoots contains roots of trees of an epoch.
+type CommitmentRoots struct {
 	EI                epoch.EI
 	tangleRoot        epoch.MerkleRoot
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
-	prevECR           *epoch.ECR
 }
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -38,7 +35,6 @@ type CommitmentTrees struct {
 	EI                epoch.EI
 	tangleTree        *smt.SparseMerkleTree
 	stateMutationTree *smt.SparseMerkleTree
-	prevECR           *epoch.ECR
 }
 
 // TangleRoot returns the root of the tangle sparse merkle tree.
@@ -56,26 +52,14 @@ type EpochCommitmentFactory struct {
 	commitmentTrees  map[epoch.EI]*CommitmentTrees
 	commitmentsMutex sync.RWMutex
 
-	ecc map[epoch.EI]*epoch.EC
-
 	storage *EpochCommitmentStorage
-
-	// FullEpochIndex is the epoch index we have the full ledger state for.
-	// This index also represents the full ledger state dumped at snapshot.
-	FullEpochIndex epoch.EI
-
-	// DiffEpochIndex is the epoch index up to which we have a diff for, starting from FullEpochIndex.
-	DiffEpochIndex epoch.EI
-
-	// LastCommittedEpoch is the last epoch that was committed.
-	LastCommittedEpoch epoch.EI
+	tangle  *tangle.Tangle
+	hasher  hash.Hash
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
 
-	tangle     *tangle.Tangle
-	hasher     hash.Hash
-	ECMaxDepth uint64
+	Events *FactoryEvents
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -93,8 +77,10 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 		storage:         epochCommitmentStorage,
 		hasher:          hasher,
 		tangle:          tangle,
-		ECMaxDepth:      ECCreationMaxDepth, // TODO replace this with the snapshotting time parameter
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
+		Events: &FactoryEvents{
+			NewCommitmentTreesCreated: event.New[*CommitmentTreesCreatedEvent](),
+		},
 	}
 }
 
@@ -103,8 +89,68 @@ func (f *EpochCommitmentFactory) StateRoot() []byte {
 	return f.stateRootTree.Root()
 }
 
+func (f *EpochCommitmentFactory) SetFullEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("fullEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set fullEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) FullEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("fullEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get fullEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
+func (f *EpochCommitmentFactory) SetDiffEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("diffEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set diffEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) DiffEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("diffEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get diffEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
+func (f *EpochCommitmentFactory) SetLastCommittedEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("lastCommittedEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set lastCommittedEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) LastCommittedEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("lastCommittedEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get lastCommittedEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
 // NewCommitment returns an empty commitment for the epoch.
-func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.MerkleRoot) *CommitmentTrees {
+func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI) *CommitmentTrees {
 	// Volatile storage for small trees
 	db, _ := database.NewMemDB()
 	messageIDStore := db.NewStore()
@@ -116,7 +162,6 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.
 		EI:                ei,
 		tangleTree:        smt.NewSparseMerkleTree(messageIDStore, messageValueStore, f.hasher),
 		stateMutationTree: smt.NewSparseMerkleTree(stateMutationIDStore, stateMutationValueStore, f.hasher),
-		prevECR:           prevECR,
 	}
 
 	return commitmentTrees
@@ -124,8 +169,8 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI, prevECR *epoch.
 
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
-	if f.storage.ecStorage.Load(ei.Bytes()).Consume(func(ecRecord *ECRecord) {
-		ecr = ecRecord.M.ECR
+	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *ECRecord) {
+		ecr = ecRecord.ECR()
 	}) {
 		return
 	}
@@ -134,46 +179,45 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
-	branch1 := types.NewIdentifier(append(commitment.prevECR.Bytes(), commitment.tangleRoot.Bytes()...))
-	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	branch1 := types.NewIdentifier(append(commitment.tangleRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	// TODO: append mana root here...
+	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes()))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)
 	root = append(root, branch2.Bytes()...)
-	return &epoch.ECR{types.NewIdentifier(root)}, nil
+	return &epoch.ECR{Identifier: types.NewIdentifier(root)}, nil
 }
 
 // EC retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) EC(ei epoch.EI, depth uint64) (ec *epoch.EC, err error) {
-	// TODO: do we need this?
-	if depth == 0 {
-		return nil, errors.New("could not create EC, max depth achieved")
-	}
-	if ec, ok := f.ecc[ei]; ok {
+func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ec *epoch.EC, err error) {
+	if f.storage.CachedECRecord(ei).Consume(func(record *ECRecord) {
+		ecr := record.ECR()
+		prevEC := record.PrevEC()
+		ec = f.ecHash(prevEC, ecr, ei)
+	}) {
 		return ec, nil
 	}
 	ecr, err := f.ECR(ei)
 	if err != nil {
 		return nil, err
 	}
-	prevEC, err := f.EC(ei-1, depth-1)
+	prevEC, err := f.EC(ei - 1)
 	if err != nil {
 		return nil, err
 	}
 
+	f.storage.CachedECRecord(ei, NewECRecord).Consume(func(e *ECRecord) {
+		e.SetECR(ecr)
+		e.SetPrevEC(prevEC)
+	})
+	ec = f.ecHash(prevEC, ecr, ei)
+	return
+}
+
+func (f *EpochCommitmentFactory) ecHash(prevEC *epoch.EC, ecr *epoch.ECR, ei epoch.EI) *epoch.EC {
 	concatenated := append(prevEC.Bytes(), ecr.Bytes()...)
 	concatenated = append(concatenated, byte(ei))
-	EC := &epoch.EC{types.NewIdentifier(concatenated)}
-
-	ecRecord := &ECRecord{model.NewStorable[epoch.EI](ecRecord{
-		ECR:    ecr,
-		PrevEC: prevEC,
-	})}
-	ecRecord.SetID(ei)
-
-	f.storage.ecStorage.Store(ecRecord).Release()
-	f.ecc[ei] = EC
-
-	return EC, nil
+	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
 
 // InsertTangleLeaf inserts msg to the Tangle sparse merkle tree.
@@ -186,22 +230,14 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei epoch.EI, msgID tangle.Mess
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the tangle tree")
 	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting tangle leaf")
-	}
 	return nil
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
-func (f *EpochCommitmentFactory) InsertStateLeaf(ei epoch.EI, outputID utxo.OutputID) error {
+func (f *EpochCommitmentFactory) InsertStateLeaf(outputID utxo.OutputID) error {
 	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
-	}
-	err = f.updateFuturePrevECRs(ei)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting state leaf")
 	}
 	return nil
 }
@@ -216,10 +252,6 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei epoch.EI, txID utxo.
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state mutation tree")
 	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while inserting state mutation leaf")
-	}
 	return nil
 }
 
@@ -232,10 +264,6 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei epoch.EI, txID utxo.
 	_, err = commitment.stateMutationTree.Delete(txID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not delete leaf from the state mutation tree")
-	}
-	err = f.updateFuturePrevECRs(commitment.EI)
-	if err != nil {
-		return errors.Wrap(err, "could not update prevECR while deleting state mutation leaf")
 	}
 	return nil
 }
@@ -252,32 +280,24 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.Mess
 		if err2 != nil {
 			return errors.Wrap(err, "could not delete leaf from the tangle tree")
 		}
-		err2 = f.updateFuturePrevECRs(commitment.EI)
-		if err2 != nil {
-			return errors.Wrap(err, "could not update prevECR while deleting tangle leaf")
-		}
 	}
 	return nil
 }
 
 // RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(ei epoch.EI, outID utxo.OutputID) error {
-	exists, _ := f.stateRootTree.Has(outID.Bytes())
+func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
+	exists, _ := f.stateRootTree.Has(outputID.Bytes())
 	if exists {
-		_, err := f.stateRootTree.Delete(outID.Bytes())
+		_, err := f.stateRootTree.Delete(outputID.Bytes())
 		if err != nil {
 			return errors.Wrap(err, "could not delete leaf from the state tree")
-		}
-		err = f.updateFuturePrevECRs(ei)
-		if err != nil {
-			return errors.Wrap(err, "could not update prevECR while deleting state leaf")
 		}
 	}
 	return nil
 }
 
-// newCommitment creates a new commitment with the given ei, by advancing the corresponding trees.
-func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*Commitment, error) {
+// newCommitment creates a new commitment with the given ei, by advancing the corresponding data structures.
+func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, error) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 
@@ -288,31 +308,58 @@ func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*Commitment, error)
 	}
 
 	// We advance the StateRootTree to the next epoch.
+	// This call will fail if we are trying to commit an epoch other than the next of the last committed epoch.
 	stateRoot, err := f.newStateRoot(ei)
 	if err != nil {
 		return nil, err
 	}
-	commitment := &Commitment{}
+	// We advance the LedgerState to the next epoch.
+	if err := f.commitLedgerState(ei); err != nil {
+		return nil, errors.Wrap(err, "could not commit ledger state")
+	}
+
+	commitment := &CommitmentRoots{}
 	commitment.EI = ei
 
 	// convert []byte to [32]byte type
 	copy(commitment.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
 	copy(commitment.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
 	copy(commitment.stateRoot.Bytes(), stateRoot)
-	commitment.prevECR = commitmentTrees.prevECR
 
 	return commitment, nil
 }
 
+// commitLedgerState commits the corresponding diff to the ledger state and drops it.
+func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
+	if !f.storage.CachedDiff(ei).Consume(func(diff *epoch.EpochDiff) {
+		_ = diff.Spent().ForEach(func(spent utxo.Output) error {
+			f.storage.ledgerstateStorage.Delete(spent.ID().Bytes())
+			return nil
+		})
+
+		_ = diff.Created().ForEach(func(created utxo.Output) error {
+			f.storage.ledgerstateStorage.Store(created).Release()
+			return nil
+		})
+	}) {
+		return errors.Errorf("could not commit ledger state for epoch %d, unavailable diff", ei)
+	}
+
+	f.storage.epochDiffStorage.Delete(ei.Bytes())
+
+	return nil
+}
+
 // getEpochCommitment returns the epoch commitment with the given ei.
+// The requested epoch must be committable.
 func (f *EpochCommitmentFactory) getEpochCommitment(ei epoch.EI) (*epoch.EpochCommitment, error) {
 	ecr, err := f.ECR(ei)
 	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
+		return nil, errors.Wrapf(err, "epoch commitment root could not be created for epoch %d", ei)
 	}
-	prevEC, err := f.EC(ei-1, f.ECMaxDepth)
+	prevEC, err := f.EC(ei - 1)
 	if err != nil {
-		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei)
+		return nil, errors.Wrapf(err, "epoch commitment could not be created for epoch %d", ei-1)
 	}
 	return &epoch.EpochCommitment{
 		EI:         ei,
@@ -326,18 +373,11 @@ func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.EI) (commitmentTree
 	commitmentTrees, ok := f.commitmentTrees[ei]
 	f.commitmentsMutex.RUnlock()
 	if !ok {
-		var previousECR *epoch.ECR
-
-		if ei > 0 {
-			previousECR, err = f.ECR(ei - 1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		commitmentTrees = f.newCommitmentTrees(ei, previousECR)
+		commitmentTrees = f.newCommitmentTrees(ei)
 		f.commitmentsMutex.Lock()
 		f.commitmentTrees[ei] = commitmentTrees
 		f.commitmentsMutex.Unlock()
+		f.Events.NewCommitmentTreesCreated.Trigger(&CommitmentTreesCreatedEvent{EI: ei})
 	}
 	return
 }
@@ -391,33 +431,24 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
-func (f *EpochCommitmentFactory) updateFuturePrevECRs(prevEI epoch.EI) error {
-	f.commitmentsMutex.RLock()
-	defer f.commitmentsMutex.RUnlock()
-
-	forwardCommitment, ok := f.commitmentTrees[prevEI+1]
-	if !ok {
-		return nil
-	}
-	prevECR, err := f.ECR(prevEI)
-	if err != nil {
-		return errors.Wrap(err, "could not update previous ECR")
-	}
-	forwardCommitment.prevECR = prevECR
-	return nil
-}
-
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, err error) {
-	if ei != f.LastCommittedEpoch+1 {
-		return []byte{}, errors.Errorf("getting the state root of not next committable epoch is not supported")
+	isNextCommittableEpoch, isNextCommittableEpochErr := f.isNextCommittableEpoch(ei)
+	if isNextCommittableEpochErr != nil {
+		return nil, errors.Wrap(isNextCommittableEpochErr, "could not determine if next epoch is committable")
+	}
+	if !isNextCommittableEpoch {
+		return nil, errors.Errorf("getting the state root of not next committable epoch is not supported")
 	}
 
 	// By the time we want the state root for a specific epoch, the diff should be complete.
 	spent, created := f.loadDiffUTXOs(ei)
+	if spent == nil || created == nil {
+		return nil, errors.Errorf("could not load diff for epoch %d", ei)
+	}
 
 	// Insert created UTXOs into the state tree.
 	for _, o := range created {
-		err := f.InsertStateLeaf(ei, o.ID())
+		err := f.InsertStateLeaf(o.ID())
 		if err != nil {
 			return nil, errors.Wrap(err, "could not insert the state leaf")
 		}
@@ -425,30 +456,39 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 
 	// Remove spent UTXOs from the state tree.
 	for it := spent.Iterator(); it.HasNext(); {
-		err := f.RemoveStateLeaf(ei, it.Next())
+		err := f.RemoveStateLeaf(it.Next())
 		if err != nil {
 			return nil, errors.Wrap(err, "could not remove state leaf")
 		}
 	}
 
-	return f.stateRootTree.Root(), nil
+	return f.StateRoot(), nil
+}
+
+func (f *EpochCommitmentFactory) isNextCommittableEpoch(ei epoch.EI) (isNextCommittableEpoch bool, err error) {
+	lastCommittedEpochIndex, lastCommittedEpochIndexErr := f.LastCommittedEpochIndex()
+	if lastCommittedEpochIndexErr != nil {
+		return false, errors.Errorf("failed to retrieve LastCommittedEpochIndex")
+	}
+
+	return ei == lastCommittedEpochIndex+1, nil
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
-	// TODO: this Load should be cached
-	f.storage.diffsStore.Load(ei.Bytes()).Consume(func(epochDiff *EpochDiff) {
+	f.storage.CachedDiff(ei, NewEpochDiff).Consume(func(epochDiff *EpochDiff) {
 		for _, o := range created {
-			epochDiff.M.Created.Add(o)
+			epochDiff.AddCreated(o)
 		}
 		for it := spent.Iterator(); it.HasNext(); {
 			outputID := it.Next()
 			// We won't mark the output as spent if it was created in this epoch.
-			if epochDiff.M.Created.Delete(outputID) {
+			if epochDiff.DeleteCreated(outputID) {
 				continue
 			}
+			// TODO: maybe we can avoid having the tangle as a dependency if we only stored the spent IDs, do we need the entire output?
 			f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(o utxo.Output) {
 				outVM := o.(devnetvm.Output)
-				epochDiff.M.Spent.Add(outVM)
+				epochDiff.AddSpent(outVM)
 			})
 		}
 		epochDiff.SetModified()
@@ -459,9 +499,9 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputID
 func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputIDs, created devnetvm.Outputs) {
 	created = make(devnetvm.Outputs, 0)
 	// TODO: this Load should be cached
-	f.storage.diffsStore.Load(ei.Bytes()).Consume(func(epochDiff *EpochDiff) {
-		spent = epochDiff.M.Spent.IDs()
-		epochDiff.M.Created.ForEach(func(output utxo.Output) error {
+	f.storage.CachedDiff(ei).Consume(func(epochDiff *EpochDiff) {
+		spent = epochDiff.Spent().IDs()
+		_ = epochDiff.Created().ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))
 			return nil
 		})
@@ -473,4 +513,16 @@ type CommitmentProof struct {
 	EI    epoch.EI
 	proof smt.SparseMerkleProof
 	root  []byte
+}
+
+// FactoryEvents is a container that acts as a dictionary for the existing events of a commitment factory.
+type FactoryEvents struct {
+	// EpochCommitted is an event that gets triggered whenever a new commitment trees are created and start to be updated.
+	NewCommitmentTreesCreated *event.Event[*CommitmentTreesCreatedEvent]
+}
+
+// CommitmentTreesCreatedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type CommitmentTreesCreatedEvent struct {
+	// EI is the index of committable epoch.
+	EI epoch.EI
 }

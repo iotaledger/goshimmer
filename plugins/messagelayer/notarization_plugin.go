@@ -79,6 +79,9 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
 		notarizationManager.OnBranchRejected(event.ID)
 	}))
+	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
+		notarizationManager.OnCommitmentTreeCreated(event.EI)
+	}))
 }
 
 func runNotarizationPlugin(*node.Plugin) {

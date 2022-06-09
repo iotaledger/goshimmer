@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -15,41 +14,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
-
-type ECRecord struct {
-	model.Storable[epoch.EI, ecRecord] `serix:"0"`
-}
-
-type ecRecord struct {
-	ECR    *epoch.ECR `serix:"0"`
-	PrevEC *epoch.EC  `serix:"1"`
-}
-
-// region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type TangleLeaf struct {
-	model.Storable[epoch.EI, tangle.MessageID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TangleLeaf ///////////////////////////////////////////////////////////////////////////////////////////////
-
-type MutationLeaf struct {
-	model.Storable[epoch.EI, utxo.TransactionID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region OutputID /////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type OutputID struct {
-	model.Storable[utxo.OutputID, utxo.OutputID] `serix:"0"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -58,12 +23,12 @@ type EpochCommitmentStorage struct {
 	// Base store for all other storages, prefixed by the package
 	baseStore kvstore.KVStore
 
-	ledgerstateStore *objectstorage.ObjectStorage[utxo.Output]
+	ledgerstateStorage *objectstorage.ObjectStorage[utxo.Output]
 
-	ecStorage *objectstorage.ObjectStorage[*ECRecord]
+	ecRecordStorage *objectstorage.ObjectStorage[*ECRecord]
 
 	// Delta storages
-	diffsStore *objectstorage.ObjectStorage[*EpochDiff]
+	epochDiffStorage *objectstorage.ObjectStorage[*EpochDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -75,25 +40,27 @@ type EpochCommitmentStorage struct {
 // newEpochCommitmentStorage returns a new storage instance for the given Ledger.
 func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) {
 	new = &EpochCommitmentStorage{
-		baseStore:                     specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization),
 		epochCommitmentStorageOptions: newOptions(options...),
 	}
 
-	new.ledgerstateStore = objectstorage.NewInterfaceStorage[utxo.Output](
+	new.baseStore = specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization)
+
+	new.ledgerstateStorage = objectstorage.NewInterfaceStorage[utxo.Output](
 		specializeStore(new.baseStore, PrefixLedgerState),
 		ledger.OutputFactory(new.epochCommitmentStorageOptions.vm),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
-	new.ecStorage = objectstorage.NewStructStorage[ECRecord](
+
+	new.ecRecordStorage = objectstorage.NewStructStorage[ECRecord](
 		specializeStore(new.baseStore, PrefixEC),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.diffsStore = objectstorage.NewStructStorage[EpochDiff](
+	new.epochDiffStorage = objectstorage.NewStructStorage[EpochDiff](
 		specializeStore(new.baseStore, PrefixEpochDiff),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -103,14 +70,34 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 	return new
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+// CachedDiff retrieves cached EpochDiff of the given EI. (Make sure to Release or Consume the return object.)
+func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *epoch.EpochDiff) (cachedEpochDiff *objectstorage.CachedObject[*epoch.EpochDiff]) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.epochDiffStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *epoch.EpochDiff {
+			return computeIfAbsentCallback[0](ei)
+		})
+	}
+
+	return s.epochDiffStorage.Load(ei.Bytes())
+}
+
+// CachedECRecord retrieves cached ECRecord of the given EI. (Make sure to Release or Consume the return object.)
+func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *ECRecord) (cachedEpochDiff *objectstorage.CachedObject[*ECRecord]) {
+	if len(computeIfAbsentCallback) >= 1 {
+		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *ECRecord {
+			return computeIfAbsentCallback[0](ei)
+		})
+	}
+
+	return s.ecRecordStorage.Load(ei.Bytes())
+}
 
 // Shutdown shuts down the KVStore used to persist data.
 func (s *EpochCommitmentStorage) Shutdown() {
 	s.shutdownOnce.Do(func() {
-		s.ledgerstateStore.Shutdown()
-		s.ecStorage.Shutdown()
-		s.diffsStore.Shutdown()
+		s.ledgerstateStorage.Shutdown()
+		s.ecRecordStorage.Shutdown()
+		s.epochDiffStorage.Shutdown()
 	})
 }
 
@@ -121,6 +108,8 @@ func specializeStore(baseStore kvstore.KVStore, prefixes ...byte) (specializedSt
 	}
 	return specializedStore
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
 

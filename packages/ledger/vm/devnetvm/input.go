@@ -2,11 +2,12 @@ package devnetvm
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"sort"
 	"strconv"
 
+	"github.com/iotaledger/hive.go/generics/lo"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -66,7 +67,7 @@ type Input interface {
 	Type() InputType
 
 	// Bytes returns a marshaled version of the Input.
-	Bytes() []byte
+	Bytes() ([]byte, error)
 
 	// String returns a human readable version of the Input.
 	String() string
@@ -96,7 +97,7 @@ func NewInputs(optionalInputs ...Input) (inputs Inputs) {
 
 	// filter duplicates (store marshaled version so we don't need to marshal a second time during sort)
 	for _, input := range optionalInputs {
-		marshaledInput := input.Bytes()
+		marshaledInput := lo.PanicOnErr(input.Bytes())
 		marshaledInputAsString := typeutils.BytesToString(marshaledInput)
 
 		if _, seenAlready := seenInputs[marshaledInputAsString]; seenAlready {
@@ -160,19 +161,17 @@ func (i Inputs) Strings() (result []string) {
 
 // UTXOInput represents a reference to an Output in the UTXODAG.
 type UTXOInput struct {
-	utxoInputInner `serix:"0"`
+	model.Immutable[UTXOInput, *UTXOInput, utxoInputModel] `serix:"0"`
 }
-type utxoInputInner struct {
+type utxoInputModel struct {
 	ReferencedOutputID utxo.OutputID `serix:"0"`
 }
 
 // NewUTXOInput is the constructor for UTXOInputs.
 func NewUTXOInput(referencedOutputID utxo.OutputID) *UTXOInput {
-	return &UTXOInput{
-		utxoInputInner{
-			ReferencedOutputID: referencedOutputID,
-		},
-	}
+	return model.NewImmutable[UTXOInput](&utxoInputModel{
+		ReferencedOutputID: referencedOutputID,
+	})
 }
 
 // Type returns the type of the Input.
@@ -182,35 +181,18 @@ func (u *UTXOInput) Type() InputType {
 
 // ReferencedOutputID returns the OutputID that this Input references.
 func (u *UTXOInput) ReferencedOutputID() utxo.OutputID {
-	return u.utxoInputInner.ReferencedOutputID
-}
-
-// Bytes returns a marshaled version of the Input.
-func (u *UTXOInput) Bytes() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), u, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		return nil
-	}
-	return objBytes
+	return u.M.ReferencedOutputID
 }
 
 // Base58 returns the base58 encoded referenced output ID of this input.
 func (u *UTXOInput) Base58() string {
-	return u.utxoInputInner.ReferencedOutputID.Base58()
+	return u.M.ReferencedOutputID.Base58()
 }
 
 // Compare offers a comparator for Inputs which returns -1 if other Input is bigger, 1 if it is smaller and 0 if they
 // are the same.
 func (u *UTXOInput) Compare(other Input) int {
-	return bytes.Compare(u.Bytes(), other.Bytes())
-}
-
-// String returns a human readable version of the Input.
-func (u *UTXOInput) String() string {
-	return stringify.Struct("UTXOInput",
-		stringify.StructField("ReferencedOutputID", u.ReferencedOutputID()),
-	)
+	return bytes.Compare(lo.PanicOnErr(u.Bytes()), lo.PanicOnErr(other.Bytes()))
 }
 
 // code contract (make sure the struct implements all required methods)

@@ -79,7 +79,7 @@ func registerTangleEvents() {
 				Type: MsgTypeTangleBooked,
 				Data: &tangleBooked{
 					ID:        messageID.Base58(),
-					IsMarker:  msgMetadata.StructureDetails().IsPastMarker,
+					IsMarker:  msgMetadata.StructureDetails().IsPastMarker(),
 					BranchIDs: lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 				},
 			}
@@ -121,21 +121,8 @@ func registerTangleEvents() {
 		storeWsMessage(wsMsg)
 	})
 
-	fmUpdateClosure := event.NewClosure(func(event *tangle.FutureMarkerUpdateEvent) {
-		wsMsg := &wsMessage{
-			Type: MsgTypeFutureMarkerUpdated,
-			Data: &tangleFutureMarkerUpdated{
-				ID:             event.ID.Base58(),
-				FutureMarkerID: event.FutureMarker.Base58(),
-			},
-		}
-		visualizerWorkerPool.TrySubmit(wsMsg)
-		storeWsMessage(wsMsg)
-	})
-
 	deps.Tangle.Storage.Events.MessageStored.Attach(storeClosure)
 	deps.Tangle.Booker.Events.MessageBooked.Attach(bookedClosure)
-	deps.Tangle.Booker.MarkersManager.Events.FutureMarkerUpdated.Attach(fmUpdateClosure)
 	deps.FinalityGadget.Events().MessageConfirmed.Attach(msgConfirmedClosure)
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(txGoFChangedClosure)
 }
@@ -364,7 +351,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
 			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
 			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
-			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker,
+			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,
 			IsConfirmed:             deps.FinalityGadget.IsMessageConfirmed(message.ID()),
 			ConfirmedTime:           msgMetadata.GradeOfFinalityTime().UnixNano(),

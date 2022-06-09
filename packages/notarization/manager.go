@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
@@ -53,28 +54,53 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 	}
 }
 
+// LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
-	snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		m.epochCommitmentFactory.storage.ledgerstateStore.Store(output).Release()
-		m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
+	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
+		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(output).Release()
+		_, err := m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
+		if err != nil {
+			m.log.Error(err)
+		}
 		return nil
 	})
-	m.epochCommitmentFactory.FullEpochIndex = snapshot.FullEpochIndex
-	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
-	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
 
-	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *EpochDiff) bool {
-		m.epochCommitmentFactory.storage.diffsStore.Store(epochdiff).Release()
-		epochdiff.M.Spent.ForEach(func(spent utxo.Output) error {
+	// TODO: mana root
+
+	if err := m.epochCommitmentFactory.SetFullEpochIndex(snapshot.FullEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	if err := m.epochCommitmentFactory.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
+	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	// TODO: store EC coming from the snapshot corresponding to DiffEpochIndex
+
+	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *EpochDiff) bool {
+		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochDiff).Release()
+
+		_ = epochDiff.Spent().ForEach(func(spent utxo.Output) error {
 			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
 				panic("epoch diff spends an output not contained in the ledger state")
 			}
-			m.epochCommitmentFactory.stateRootTree.Delete(spent.ID().Bytes())
+			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spent.ID().Bytes())
+			if err != nil {
+				m.log.Error(err)
+			}
 			return nil
 		})
 
-		epochdiff.M.Created.ForEach(func(created utxo.Output) error {
-			m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
+		_ = epochDiff.Created().ForEach(func(created utxo.Output) error {
+			_, err := m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
+			if err != nil {
+				m.log.Error(err)
+			}
 			return nil
 		})
 
@@ -91,24 +117,36 @@ func (m *Manager) PendingConflictsCount(ei epoch.EI) uint64 {
 
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) IsCommittable(ei epoch.EI) bool {
-	t := m.epochManager.EIToStartTime(ei)
+	t := m.epochManager.EIToEndTime(ei)
 	diff := time.Since(t)
 	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
-	nextEI := m.epochCommitmentFactory.LastCommittedEpoch + 1
-	if m.IsCommittable(nextEI) {
-		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
-		m.epochCommitmentFactory.LastCommittedEpoch = nextEI
+	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
 	}
 
-	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(m.epochCommitmentFactory.LastCommittedEpoch); err != nil {
+	if m.IsCommittable(lastCommittedEpoch + 1) {
+		lastCommittedEpoch++
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(lastCommittedEpoch); err != nil {
+			return nil, errors.Wrap(err, "could not set last committed epoch")
+		}
+	}
+
+	if commitment, err = m.epochCommitmentFactory.getEpochCommitment(lastCommittedEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: lastCommittedEpoch})
 
 	return
+}
+
+// CommitmentFactoryEvents returns the events of CommitmentFactory.
+func (m *Manager) CommitmentFactoryEvents() *FactoryEvents {
+	return m.epochCommitmentFactory.Events
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -150,9 +188,14 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 		return
 	}
 
-	m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
-	m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID)
-
+	err := m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
+	if err != nil {
+		m.log.Error(err)
+	}
+	err = m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID)
+	if err != nil {
+		m.log.Error(err)
+	}
 	// TODO: propagate updates to future epochs
 	// TODO: update state tree
 }
@@ -163,7 +206,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] -= 1
+	m.pendingConflictsCount[ei]--
 }
 
 // OnBranchCreated is the handler for branch created event.
@@ -172,7 +215,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] += 1
+	m.pendingConflictsCount[ei]++
 }
 
 // OnBranchRejected is the handler for branch created event.
@@ -181,7 +224,28 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	defer m.pccMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei] -= 1
+	m.pendingConflictsCount[ei]--
+}
+
+// OnCommitmentTreeCreated progress commitment if the LastCommittedEpoch is at least two commitments behind the nex committable epoch.
+func (m *Manager) OnCommitmentTreeCreated(ei epoch.EI) {
+	var latestCommittableEpoch epoch.EI
+	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	if lastCommittedEpochErr != nil {
+		m.log.Error(lastCommittedEpochErr)
+		return
+	}
+
+	for currentEi := lastCommittedEpoch; currentEi < ei; currentEi++ {
+		if m.IsCommittable(currentEi) {
+			latestCommittableEpoch = currentEi
+			continue
+		}
+		break
+	}
+	if latestCommittableEpoch-lastCommittedEpoch > 1 {
+		m.updateCommitmentsUpToLatestCommittableEpoch(lastCommittedEpoch, latestCommittableEpoch)
+	}
 }
 
 func (m *Manager) storeTXDiff(ei epoch.EI, tx *devnetvm.Transaction) {
@@ -226,6 +290,22 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 		return nil, err
 	}
 	return proof, nil
+}
+
+// updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
+func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.EI) {
+	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
+		// read the roots and store the ec
+		// roll the state trees
+		if _, err := m.epochCommitmentFactory.getEpochCommitment(ei); err != nil {
+			m.log.Error(err)
+		}
+		// update last committed index
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(ei); err != nil {
+			m.log.Error(err)
+		}
+	}
+
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.

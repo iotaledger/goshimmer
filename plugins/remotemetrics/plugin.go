@@ -21,7 +21,6 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/drng"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -55,7 +54,6 @@ type dependencies struct {
 	Local        *peer.Local
 	Tangle       *tangle.Tangle
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
-	DrngInstance *drng.DRNG                  `optional:"true"`
 	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
 
@@ -71,9 +69,6 @@ func configure(_ *node.Plugin) {
 	}
 	measureInitialBranchCounts()
 	configureSyncMetrics()
-	if deps.DrngInstance != nil {
-		configureDRNGMetrics()
-	}
 	configureBranchConfirmationMetrics()
 	configureMessageFinalizedMetrics()
 	configureMessageScheduledMetrics()
@@ -117,13 +112,6 @@ func configureSchedulerQueryMetrics() {
 		return
 	}
 	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
-}
-
-func configureDRNGMetrics() {
-	if Parameters.MetricsLevel > Info {
-		return
-	}
-	deps.DrngInstance.Events.Randomness.Attach(event.NewClosure(func(event *drng.RandomnessEvent) { onRandomnessReceived(event.State) }))
 }
 
 func configureBranchConfirmationMetrics() {

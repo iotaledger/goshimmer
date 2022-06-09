@@ -2157,8 +2157,8 @@
         "allValue": null,
         "current": {
           "selected": true,
-          "text": "4AeXyZ26e4G",
-          "value": "4AeXyZ26e4G"
+          "text": "2GtxMQD9",
+          "value": "2GtxMQD9"
         },
         "datasource": "Prometheus",
         "definition": "label_values(iota_info_app, nodeID)",
@@ -2172,8 +2172,8 @@
         "options": [
           {
             "selected": true,
-            "text": "4AeXyZ26e4G",
-            "value": "4AeXyZ26e4G"
+            "text": "2GtxMQD9",
+            "value": "2GtxMQD9"
           }
         ],
         "query": "label_values(iota_info_app, nodeID)",

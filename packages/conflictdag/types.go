@@ -11,7 +11,7 @@ import (
 
 // Conflict represents a container for transactions and outputs spawning off from a conflicting transaction.
 type Conflict[ConflictID, ConflictSetID comparable] struct {
-	model.Storable[ConflictID, conflict[ConflictID, ConflictSetID]] `serix:"0"`
+	model.Storable[ConflictID, Conflict[ConflictID, ConflictSetID], *Conflict[ConflictID, ConflictSetID], conflict[ConflictID, ConflictSetID]] `serix:"0"`
 }
 
 type conflict[ConflictID, ConflictSetID comparable] struct {
@@ -26,11 +26,11 @@ type conflict[ConflictID, ConflictSetID comparable] struct {
 }
 
 func NewConflict[ConflictID comparable, ConflictSetID comparable](id ConflictID, parents *set.AdvancedSet[ConflictID], conflicts *set.AdvancedSet[ConflictSetID]) (new *Conflict[ConflictID, ConflictSetID]) {
-	new = &Conflict[ConflictID, ConflictSetID]{model.NewStorable[ConflictID](conflict[ConflictID, ConflictSetID]{
+	new = model.NewStorable[ConflictID, Conflict[ConflictID, ConflictSetID]](&conflict[ConflictID, ConflictSetID]{
 		Parents:        parents,
 		ConflictIDs:    conflicts,
 		InclusionState: Pending,
-	})}
+	})
 	new.SetID(id)
 
 	return new
@@ -104,22 +104,22 @@ func (b *Conflict[ConflictID, ConflictSetID]) setInclusionState(inclusionState I
 
 // ChildBranch represents the reference between a Conflict and its children.
 type ChildBranch[ConflictID comparable] struct {
-	model.StorableReference[ConflictID, ConflictID] `serix:"0"`
+	model.StorableReference[ChildBranch[ConflictID], *ChildBranch[ConflictID], ConflictID, ConflictID] `serix:"0"`
 }
 
 // NewChildBranch return a new ChildBranch reference from the named parent to the named child.
-func NewChildBranch[ConflictID comparable](parentBranchID, childBranchID ConflictID) (new *ChildBranch[ConflictID]) {
-	return &ChildBranch[ConflictID]{model.NewStorableReference(parentBranchID, childBranchID)}
+func NewChildBranch[ConflictID comparable](parentBranchID, childBranchID ConflictID) *ChildBranch[ConflictID] {
+	return model.NewStorableReference[ChildBranch[ConflictID]](parentBranchID, childBranchID)
 }
 
 // ParentBranchID returns the identifier of the parent Conflict.
 func (c *ChildBranch[ConflictID]) ParentBranchID() (parentBranchID ConflictID) {
-	return c.SourceID
+	return c.SourceID()
 }
 
 // ChildBranchID returns the identifier of the child Conflict.
 func (c *ChildBranch[ConflictID]) ChildBranchID() (childBranchID ConflictID) {
-	return c.TargetID
+	return c.TargetID()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,22 +128,22 @@ func (c *ChildBranch[ConflictID]) ChildBranchID() (childBranchID ConflictID) {
 
 // ConflictMember represents the reference between a Conflict and its contained Conflict.
 type ConflictMember[ConflictSetID comparable, ConflictID comparable] struct {
-	model.StorableReference[ConflictSetID, ConflictID] `serix:"0"`
+	model.StorableReference[ConflictMember[ConflictSetID, ConflictID], *ConflictMember[ConflictSetID, ConflictID], ConflictSetID, ConflictID] `serix:"0"`
 }
 
 // NewConflictMember return a new ConflictMember reference from the named conflict to the named Conflict.
 func NewConflictMember[ConflictSetID comparable, ConflictID comparable](conflictSetID ConflictSetID, conflictID ConflictID) (new *ConflictMember[ConflictSetID, ConflictID]) {
-	return &ConflictMember[ConflictSetID, ConflictID]{model.NewStorableReference(conflictSetID, conflictID)}
+	return model.NewStorableReference[ConflictMember[ConflictSetID, ConflictID]](conflictSetID, conflictID)
 }
 
 // ConflictSetID returns the identifier of the Conflict.
 func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictSetID() (conflictID ConflictSetID) {
-	return c.SourceID
+	return c.SourceID()
 }
 
 // ConflictID returns the identifier of the Conflict.
 func (c *ConflictMember[ConflictSetID, ConflictID]) ConflictID() (branchID ConflictID) {
-	return c.TargetID
+	return c.TargetID()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

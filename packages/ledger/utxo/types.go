@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/byteutils"
 	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/generics/set"
+	"github.com/iotaledger/hive.go/serializer"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
@@ -24,14 +25,14 @@ type TransactionID struct {
 }
 
 // NewTransactionID returns a new TransactionID for the given data.
-func NewTransactionID(txData []byte) (new TransactionID) {
+func NewTransactionID(txData []byte) (newTransactionID TransactionID) {
 	return TransactionID{
 		types.NewIdentifier(txData),
 	}
 }
 
 // Length returns the byte length of a serialized TransactionID.
-func (t TransactionID) Length() int {
+func (t TransactionID) Length() (length int) {
 	return types.IdentifierLength
 }
 
@@ -51,8 +52,8 @@ var EmptyTransactionID TransactionID
 type TransactionIDs = *set.AdvancedSet[TransactionID]
 
 // NewTransactionIDs returns a new TransactionID collection with the given elements.
-func NewTransactionIDs(ids ...TransactionID) (new TransactionIDs) {
-	return set.NewAdvancedSet[TransactionID](ids...)
+func NewTransactionIDs(ids ...TransactionID) (newTransactionIDs TransactionIDs) {
+	return set.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,15 +130,16 @@ func (o OutputID) Base58() (base58Encoded string) {
 	return base58.Encode(o.Bytes())
 }
 
+// Length returns number of bytes of OutputID
 func (o OutputID) Length() int {
-	return o.TransactionID.Length() + 2
+	return o.TransactionID.Length() + serializer.UInt16ByteSize
 }
 
 // Bytes returns a serialized version of the OutputID.
 func (o OutputID) Bytes() (serialized []byte) {
 	serialized = o.TransactionID.Bytes()
 
-	b := make([]byte, 2)
+	b := make([]byte, serializer.UInt16ByteSize)
 	binary.LittleEndian.PutUint16(b, o.Index)
 
 	return byteutils.ConcatBytes(serialized, b)
@@ -167,8 +169,8 @@ var (
 type OutputIDs = *set.AdvancedSet[OutputID]
 
 // NewOutputIDs returns a new OutputID collection with the given elements.
-func NewOutputIDs(ids ...OutputID) (new OutputIDs) {
-	return set.NewAdvancedSet[OutputID](ids...)
+func NewOutputIDs(ids ...OutputID) (newOutputIDs OutputIDs) {
+	return set.NewAdvancedSet(ids...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -182,13 +184,13 @@ type Outputs struct {
 }
 
 // NewOutputs returns a new Output collection with the given elements.
-func NewOutputs(outputs ...Output) (new *Outputs) {
-	new = &Outputs{*orderedmap.New[OutputID, Output]()}
+func NewOutputs(outputs ...Output) (newOutputs *Outputs) {
+	newOutputs = &Outputs{*orderedmap.New[OutputID, Output]()}
 	for _, output := range outputs {
-		new.Set(output.ID(), output)
+		newOutputs.Set(output.ID(), output)
 	}
 
-	return new
+	return newOutputs
 }
 
 // Add adds the given Output to the collection.

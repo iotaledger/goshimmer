@@ -23,6 +23,15 @@ func (e EI) Bytes() []byte {
 	return bytes
 }
 
+func EIFromBytes(bytes []byte) (ei EI, consumedBytes int, err error) {
+	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
+	if err != nil {
+		panic(err)
+	}
+
+	return
+}
+
 type MerkleRoot struct {
 	types.Identifier `serix:"0"`
 }

@@ -18,7 +18,7 @@ import (
 
 // TransactionMetadata represents a container for additional information about a Transaction.
 type TransactionMetadata struct {
-	model.Storable[utxo.TransactionID, transactionMetadata] `serix:"0"`
+	model.Storable[utxo.TransactionID, TransactionMetadata, *TransactionMetadata, transactionMetadata] `serix:"0"`
 }
 
 type transactionMetadata struct {
@@ -46,10 +46,10 @@ type transactionMetadata struct {
 
 // NewTransactionMetadata returns new TransactionMetadata for the given TransactionID.
 func NewTransactionMetadata(txID utxo.TransactionID) (new *TransactionMetadata) {
-	new = &TransactionMetadata{model.NewStorable[utxo.TransactionID](transactionMetadata{
+	new = model.NewStorable[utxo.TransactionID, TransactionMetadata](&transactionMetadata{
 		BranchIDs: utxo.NewTransactionIDs(),
 		OutputIDs: utxo.NewOutputIDs(),
-	})}
+	})
 	new.SetID(txID)
 
 	return new
@@ -203,7 +203,7 @@ func (t *TransactionMetadata) IsConflicting() (isConflicting bool) {
 
 // OutputMetadata represents a container for additional information about an Output.
 type OutputMetadata struct {
-	model.Storable[utxo.OutputID, outputMetadata] `serix:"0"`
+	model.Storable[utxo.OutputID, OutputMetadata, *OutputMetadata, outputMetadata] `serix:"0"`
 }
 
 type outputMetadata struct {
@@ -234,9 +234,9 @@ type outputMetadata struct {
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
 func NewOutputMetadata(outputID utxo.OutputID) (new *OutputMetadata) {
-	new = &OutputMetadata{model.NewStorable[utxo.OutputID](outputMetadata{
+	new = model.NewStorable[utxo.OutputID, OutputMetadata](&outputMetadata{
 		BranchIDs: utxo.NewTransactionIDs(),
-	})}
+	})
 	new.SetID(outputID)
 
 	return new
@@ -497,7 +497,7 @@ func (o *OutputsMetadata) String() (humanReadable string) {
 
 // Consumer represents the reference between an Output and its spending Transaction.
 type Consumer struct {
-	model.StorableReferenceWithMetadata[utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
+	model.StorableReferenceWithMetadata[Consumer, *Consumer, utxo.OutputID, utxo.TransactionID, consumer] `serix:"0"`
 }
 
 type consumer struct {
@@ -507,17 +507,17 @@ type consumer struct {
 
 // NewConsumer return a new Consumer reference from the named Output to the named Transaction.
 func NewConsumer(consumedInput utxo.OutputID, transactionID utxo.TransactionID) (new *Consumer) {
-	return &Consumer{model.NewStorableReferenceWithMetadata(consumedInput, transactionID, consumer{})}
+	return model.NewStorableReferenceWithMetadata[Consumer](consumedInput, transactionID, &consumer{})
 }
 
 // ConsumedInput returns the identifier of the Output that was spent.
 func (c *Consumer) ConsumedInput() (outputID utxo.OutputID) {
-	return c.SourceID
+	return c.SourceID()
 }
 
 // TransactionID returns the identifier of the spending Transaction.
 func (c *Consumer) TransactionID() (spendingTransaction utxo.TransactionID) {
-	return c.TargetID
+	return c.TargetID()
 }
 
 // IsBooked returns a boolean flag that indicates whether the Consumer was completely booked.
