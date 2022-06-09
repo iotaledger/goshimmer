@@ -302,17 +302,19 @@ type MessageModel struct {
 	SequenceNumber  uint64            `serix:"4"`
 	PayloadBytes    []byte            `serix:"5,lengthPrefixType=uint32"`
 	Nonce           uint64            `serix:"6"`
+	EI              epoch.EI
+	ECR             *epoch.ECR
+	PrevEC          *epoch.EC
 	Signature       ed25519.Signature `serix:"7"`
-	// commitments
-	EpochCommitment      *epoch.EpochCommitment
-	LatestConfirmedEpoch uint64
 
+	// Not covered by signature.
+	LatestConfirmedEpoch epoch.EI
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature,
-	latestConfirmedEpoch uint64, epochCommitment *epoch.EpochCommitment, versionOpt ...uint8) *Message {
+	latestConfirmedEpoch epoch.EI, ecRecord *epoch.ECRecord, versionOpt ...uint8) *Message {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
@@ -323,8 +325,10 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 		IssuerPublicKey:      issuerPublicKey,
 		IssuingTime:          issuingTime,
 		SequenceNumber:       sequenceNumber,
-		PayloadBytes:    lo.PanicOnErr(msgPayload.Bytes()),
-		EpochCommitment:      epochCommitment,
+		PayloadBytes:         lo.PanicOnErr(msgPayload.Bytes()),
+		EI:                   ecRecord.EI(),
+		ECR:                  ecRecord.ECR(),
+		PrevEC:               ecRecord.PrevEC(),
 		LatestConfirmedEpoch: latestConfirmedEpoch,
 		Nonce:                nonce,
 		Signature:            signature,
@@ -343,7 +347,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 7. Blocks should be ordered by type in ascending order.
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 func NewMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch uint64, epochCommitment *epoch.EpochCommitment, version ...uint8) (result *Message, err error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch epoch.EI, epochCommitment *epoch.ECRecord, version ...uint8) (result *Message, err error) {
 	msg := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
 
 	if _, err = msg.Bytes(); err != nil {

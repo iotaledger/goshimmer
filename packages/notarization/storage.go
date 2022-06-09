@@ -25,7 +25,7 @@ type EpochCommitmentStorage struct {
 
 	ledgerstateStorage *objectstorage.ObjectStorage[utxo.Output]
 
-	ecRecordStorage *objectstorage.ObjectStorage[*ECRecord]
+	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
 
 	// Delta storages
 	epochDiffStorage *objectstorage.ObjectStorage[*epoch.EpochDiff]
@@ -53,7 +53,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.ecRecordStorage = objectstorage.NewStructStorage[ECRecord](
+	new.ecRecordStorage = objectstorage.NewStructStorage[epoch.ECRecord](
 		specializeStore(new.baseStore, PrefixEC),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -82,9 +82,9 @@ func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback
 }
 
 // CachedECRecord retrieves cached ECRecord of the given EI. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *ECRecord) (cachedEpochDiff *objectstorage.CachedObject[*ECRecord]) {
+func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *epoch.ECRecord) (cachedEpochDiff *objectstorage.CachedObject[*epoch.ECRecord]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *ECRecord {
+		return s.ecRecordStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *epoch.ECRecord {
 			return computeIfAbsentCallback[0](ei)
 		})
 	}
