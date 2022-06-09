@@ -110,7 +110,7 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 
 		// abort if message was sent more than 1min ago
 		// this should only happen due to a node resyncing
-		if time.Duration(now-networkDelayObject.SentTime) > time.Minute {
+		if time.Duration(now-networkDelayObject.SentTime()) > time.Minute {
 			app.LogDebugf("Received network delay message with >1min delay\n%s", networkDelayObject)
 			return
 		}
@@ -122,10 +122,10 @@ func onReceiveMessageFromMessageLayer(messageID tangle.MessageID) {
 func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 	m := networkDelay{
 		NodeID:      myID,
-		ID:          networkDelayObject.ID.String(),
-		SentTime:    networkDelayObject.SentTime,
+		ID:          networkDelayObject.ID().String(),
+		SentTime:    networkDelayObject.SentTime(),
 		ReceiveTime: receiveTime,
-		Delta:       receiveTime - networkDelayObject.SentTime,
+		Delta:       receiveTime - networkDelayObject.SentTime(),
 		Clock:       clockEnabled,
 		Synced:      deps.Tangle.Synced(),
 		Type:        remoteLogType,
@@ -136,7 +136,7 @@ func sendToRemoteLog(networkDelayObject *Payload, receiveTime int64) {
 func sendPoWInfo(payload *Payload, powDelta time.Duration) {
 	m := networkDelay{
 		NodeID:      myID,
-		ID:          payload.ID.String(),
+		ID:          payload.ID().String(),
 		SentTime:    0,
 		ReceiveTime: 0,
 		Delta:       powDelta.Nanoseconds(),

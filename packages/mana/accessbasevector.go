@@ -13,7 +13,7 @@ import (
 
 // AccessBaseManaVector represents a base mana vector.
 type AccessBaseManaVector struct {
-	model.Model[accessBaseManaVectorModel] `serix:"0"`
+	model.Mutable[AccessBaseManaVector, *AccessBaseManaVector, accessBaseManaVectorModel] `serix:"0"`
 }
 
 type accessBaseManaVectorModel struct {
@@ -74,7 +74,7 @@ func (a *AccessBaseManaVector) Book(txInfo *TxInfo) {
 		pledgeNodeID := txInfo.PledgeID[a.Type()]
 		if _, exist := a.M.Vector[pledgeNodeID]; !exist {
 			// first time we see this node
-			a.M.Vector[pledgeNodeID] = &AccessBaseMana{}
+			a.M.Vector[pledgeNodeID] = NewAccessBaseMana(0, 0, time.Time{})
 		}
 		// save it for proper event trigger
 		oldMana := *a.M.Vector[pledgeNodeID]

@@ -13,7 +13,7 @@ import (
 
 // ConsensusBaseManaVector represents a base mana vector.
 type ConsensusBaseManaVector struct {
-	model.Model[consensusBaseManaVectorModel] `serix:"0"`
+	model.Mutable[ConsensusBaseManaVector, *ConsensusBaseManaVector, consensusBaseManaVectorModel] `serix:"0"`
 }
 
 type consensusBaseManaVectorModel struct {
@@ -119,9 +119,7 @@ func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*Snapsho
 			})
 		}
 
-		c.M.Vector[nodeID] = &ConsensusBaseMana{
-			model.New(consensusBaseManaModel{BaseMana1: value}),
-		}
+		c.M.Vector[nodeID] = model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: value})
 	}
 }
 
@@ -142,6 +140,7 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 			if _, exist := c.M.Vector[oldPledgeNodeID]; !exist {
 				// first time we see this node
 				c.M.Vector[oldPledgeNodeID] = &ConsensusBaseMana{}
+				c.M.Vector[oldPledgeNodeID].Init()
 			}
 			// save old mana
 			oldMana := *c.M.Vector[oldPledgeNodeID]
@@ -158,7 +157,7 @@ func (c *ConsensusBaseManaVector) Book(txInfo *TxInfo) {
 		newPledgeNodeID := txInfo.PledgeID[c.Type()]
 		if _, exist := c.M.Vector[newPledgeNodeID]; !exist {
 			// first time we see this node
-			c.M.Vector[newPledgeNodeID] = &ConsensusBaseMana{}
+			c.M.Vector[newPledgeNodeID] = NewConsensusBaseMana(0)
 		}
 		// save it for proper event trigger
 		oldMana := *c.M.Vector[newPledgeNodeID]
@@ -354,9 +353,7 @@ func (c *ConsensusBaseManaVector) FromPersistable(p *PersistableBaseMana) (err e
 	}
 	c.Lock()
 	defer c.Unlock()
-	c.M.Vector[p.NodeID()] = &ConsensusBaseMana{
-		model.New(consensusBaseManaModel{BaseMana1: p.BaseValues()[0]}),
-	}
+	c.M.Vector[p.NodeID()] = model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: p.BaseValues()[0]})
 	return
 }
 

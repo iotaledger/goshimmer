@@ -4,10 +4,23 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
+
+func TestMarkerIndexBranchIDMapping_Serialization(t *testing.T) {
+	m := NewMarkerIndexBranchIDMapping(1)
+	txID := utxo.NewTransactionID([]byte("1"))
+	txID.RegisterAlias("txID")
+	m.SetBranchIDs(10, utxo.NewTransactionIDs(txID))
+
+	restored := new(MarkerIndexBranchIDMapping)
+	err := restored.FromBytes(lo.PanicOnErr(m.Bytes()))
+	assert.NoError(t, err)
+	assert.Equal(t, m.BranchIDs(11), restored.BranchIDs(11))
+}
 
 func TestStorage_StoreAttachment(t *testing.T) {
 	tangle := NewTestTangle()

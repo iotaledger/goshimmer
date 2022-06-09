@@ -380,7 +380,7 @@ func TestAccessBaseManaVector_GetMana(t *testing.T) {
 	mana, _, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)
-	bmv.SetMana(randID, &AccessBaseMana{})
+	bmv.SetMana(randID, NewAccessBaseMana(0, 0, time.Time{}))
 	mana, _, err = bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)

@@ -1,13 +1,11 @@
 package networkdelay
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
@@ -40,10 +38,10 @@ func (id ID) String() string {
 
 // Payload represents the network delay payload type.
 type Payload struct {
-	payloadInner `serix:"0"`
+	model.Immutable[Payload, *Payload, payloadModel] `serix:"0"`
 }
 
-type payloadInner struct {
+type payloadModel struct {
 	ID       ID    `serix:"0"`
 	SentTime int64 `serix:"1"` // [ns]
 
@@ -53,51 +51,22 @@ type payloadInner struct {
 
 // NewPayload creates a new  network delay payload.
 func NewPayload(id ID, sentTime int64) *Payload {
-	return &Payload{
-		payloadInner{
+	return model.NewImmutable[Payload](
+		&payloadModel{
 			ID:       id,
 			SentTime: sentTime,
 		},
-	}
-}
-
-// FromBytes parses the marshaled version of a Payload into a Go object.
-// It either returns a new Payload or fills an optionally provided Payload with the parsed information.
-func FromBytes(bytes []byte) (payload *Payload, consumedBytes int, err error) {
-	payload = new(Payload)
-
-	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, payload, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse NetworkDelayPayload: %w", err)
-		return
-	}
-
-	return
-}
-
-// Bytes returns a marshaled version of this Payload.
-func (p *Payload) Bytes() []byte {
-	p.bytesMutex.Lock()
-	defer p.bytesMutex.Unlock()
-	if objBytes := p.payloadInner.bytes; objBytes != nil {
-		return objBytes
-	}
-
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), p, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	p.payloadInner.bytes = objBytes
-	return objBytes
-}
-
-// String returns a human-friendly representation of the Payload.
-func (p *Payload) String() string {
-	return stringify.Struct("NetworkDelayPayload",
-		stringify.StructField("id", p.ID),
-		stringify.StructField("sentTime", uint64(p.SentTime)),
 	)
+}
+
+// ID returns the ID of the Payload.
+func (p *Payload) ID() ID {
+	return p.M.ID
+}
+
+// SentTime returns the type of the Payload.
+func (p *Payload) SentTime() int64 {
+	return p.M.SentTime
 }
 
 // region Payload implementation ///////////////////////////////////////////////////////////////////////////////////////

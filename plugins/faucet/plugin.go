@@ -231,10 +231,15 @@ func onMessageProcessed(messageID tangle.MessageID) {
 		fundingRequest := message.Payload().(*faucet.Payload)
 		addr := fundingRequest.Address()
 
-		// verify PoW
-		leadingZeroes, err := powVerifier.LeadingZeros(fundingRequest.Bytes())
+		requestBytes, err := fundingRequest.Bytes()
 		if err != nil {
-			Plugin.LogInfof("couldn't verify PoW of funding request for address %s", addr.Base58())
+			Plugin.LogInfof("couldn't serialize faucet request: %w", err)
+			return
+		}
+		// verify PoW
+		leadingZeroes, err := powVerifier.LeadingZeros(requestBytes)
+		if err != nil {
+			Plugin.LogInfof("couldn't verify PoW of funding request for address %s: %w", addr.Base58(), err)
 			return
 		}
 

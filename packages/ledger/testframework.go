@@ -358,7 +358,7 @@ var _ utxo.Input = new(MockedInput)
 
 // MockedOutput is the container for the data produced by executing a MockedTransaction.
 type MockedOutput struct {
-	model.Storable[utxo.OutputID, mockedOutput] `serix:"0"`
+	model.Storable[utxo.OutputID, MockedOutput, *MockedOutput, mockedOutput] `serix:"0"`
 }
 
 type mockedOutput struct {
@@ -372,10 +372,10 @@ type mockedOutput struct {
 
 // NewMockedOutput creates a new MockedOutput based on the utxo.TransactionID and its index within the MockedTransaction.
 func NewMockedOutput(txID utxo.TransactionID, index uint16) (out *MockedOutput) {
-	out = &MockedOutput{model.NewStorable[utxo.OutputID](mockedOutput{
+	out = model.NewStorable[utxo.OutputID, MockedOutput](&mockedOutput{
 		TxID:  txID,
 		Index: index,
-	})}
+	})
 	out.SetID(utxo.OutputID{TransactionID: txID, Index: index})
 	return out
 }
@@ -389,7 +389,7 @@ var _ utxo.Output = new(MockedOutput)
 
 // MockedTransaction is the type that is used to describe instructions how to modify the ledger state for MockedVM.
 type MockedTransaction struct {
-	model.Storable[utxo.TransactionID, mockedTransaction] `serix:"0"`
+	model.Storable[utxo.TransactionID, MockedTransaction, *MockedTransaction, mockedTransaction] `serix:"0"`
 }
 
 type mockedTransaction struct {
@@ -406,11 +406,11 @@ type mockedTransaction struct {
 // NewMockedTransaction creates a new MockedTransaction with the given inputs and specified outputCount.
 // A unique essence is simulated by an atomic counter, incremented globally for each MockedTransaction created.
 func NewMockedTransaction(inputs []*MockedInput, outputCount uint16) (tx *MockedTransaction) {
-	tx = &MockedTransaction{model.NewStorable[utxo.TransactionID](mockedTransaction{
+	tx = model.NewStorable[utxo.TransactionID, MockedTransaction](&mockedTransaction{
 		Inputs:        inputs,
 		OutputCount:   outputCount,
 		UniqueEssence: atomic.AddUint64(&_uniqueEssenceCounter, 1),
-	})}
+	})
 
 	b := types.Identifier{}
 	binary.BigEndian.PutUint64(b[:], tx.M.UniqueEssence)
