@@ -61,7 +61,8 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
 	for strongParent := range strongParents {
-		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime, excludedConflictIDs)
+		excludedConflictIDsCopy := excludedConflictIDs.Clone()
+		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime, excludedConflictIDsCopy)
 		if !validStrongParent {
 			if err = r.checkPayloadLiked(strongParent); err != nil {
 				r.Events.Error.Trigger(errors.Errorf("failed to pick up %s as a weak parent: %w", strongParent, err))
@@ -74,6 +75,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 
 		if combinedReferences, success := r.tryExtendReferences(references, referencesToAdd); success {
 			references = combinedReferences
+			excludedConflictIDs = excludedConflictIDsCopy
 		}
 	}
 
@@ -104,7 +106,8 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 		return nil, false
 	}
 
-	fmt.Println("addedReferencesForMessage", msgID, addedReferences)
+	// fmt.Println("excludedConflictIDs", excludedConflictIDs)
+	// fmt.Println("addedReferencesForMessage", msgID, addedReferences)
 	// A message might introduce too many references and cannot be picked up as a strong parent.
 	if _, success := r.tryExtendReferences(NewParentMessageIDs(), addedReferences); !success {
 		fmt.Println("too many references for", msgID)
@@ -122,7 +125,9 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
+		// If we already expressed a dislike of the conflict (through another liked instead) we don't need to revisit this conflictID.
 		if excludedConflictIDs.Has(conflictID) {
+			// fmt.Println(">>>> Skipping", conflictID, "because it is already excluded")
 			continue
 		}
 
@@ -141,18 +146,31 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuing
 	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
 		currentConflictID := w.Next()
 
-		likedConflictID, _ := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
+		likedConflictID, conflictSetMembers := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
 		// only triggers in first iteration
 		if likedConflictID == conflictID {
 			return false, EmptyMessageID, nil
 		}
 
 		if !likedConflictID.IsEmpty() {
-			if msgID, err = r.firstValidAttachment(currentConflictID, issuingTime); err != nil {
+			if msgID, err = r.firstValidAttachment(likedConflictID, issuingTime); err != nil {
 				continue
 			}
 
-			// TODO: WALK TO FUTURE CONE + DETERMINE WHAT IS EXCLUDED
+			// Walk future cone of disliked conflictSetMembers to find all conflicts that are excluded.
+			exclusionWalker := walker.New[utxo.TransactionID](false)
+			exclusionWalker.PushAll(conflictSetMembers.Filter(func(conflictSetMemberID utxo.TransactionID) bool {
+				return conflictSetMemberID != likedConflictID
+			}).Slice()...)
+
+			for exclusionWalker.HasNext() {
+				excludedConflict := exclusionWalker.Next()
+				excludedConflictIDs.Add(excludedConflict)
+
+				r.tangle.Ledger.ConflictDAG.Storage.CachedChildBranches(excludedConflict).Consume(func(childID *conflictdag.ChildBranch[utxo.TransactionID]) {
+					exclusionWalker.Push(childID.ChildBranchID())
+				})
+			}
 
 			return true, msgID, nil
 		}
