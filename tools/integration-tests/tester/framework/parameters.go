@@ -109,7 +109,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
-		"manarefresher", "manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
+		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall",
 		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization")
 	c.Gossip.Enabled = false
