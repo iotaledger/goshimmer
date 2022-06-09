@@ -272,13 +272,10 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 // determineBookingDetails determines the booking details of an unbooked Message.
 func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	inheritedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-
-	branchIDsOfPayload, err := b.PayloadBranchIDs(message.ID())
+	inheritedBranchIDs, err = b.PayloadBranchIDs(message.ID())
 	if err != nil {
 		return
 	}
-	inheritedBranchIDs.AddAll(branchIDsOfPayload)
 
 	parentsStructureDetails, parentsPastMarkersBranchIDs, strongParentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
 	if bookingDetailsErr != nil {
@@ -422,7 +419,7 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 // the supplied ArithmeticBranchIDs.
 func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
 	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	message.ForEachParentByType(ShallowDislikeParentType, func(parentMessageID MessageID) bool {
+	message.ForEachParentByType(DislikeParentType, func(parentMessageID MessageID) bool {
 		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
 			transaction, isTransaction := message.Payload().(utxo.Transaction)
 			if !isTransaction {
@@ -436,16 +433,6 @@ func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (colle
 				return
 			}
 			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
-
-			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
-				conflictingTransactionID := it.Next()
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
-				if dislikedBranchesErr != nil {
-					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
-					return
-				}
-				collectedDislikedBranchIDs.AddAll(dislikedBranches)
-			}
 		}) {
 			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
 		}

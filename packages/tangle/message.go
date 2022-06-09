@@ -84,7 +84,7 @@ func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageI
 		for _, parent := range parentBlockReferences.Slice() {
 			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
 				additiveParents.Add(parent)
-			} else if parentsType == ShallowDislikeParentType {
+			} else if parentsType == DislikeParentType {
 				subtractiveParents.Add(parent)
 			}
 		}
@@ -284,7 +284,7 @@ func (m MessageIDs) String() string {
 
 const (
 	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
-	LastValidBlockType = ShallowDislikeParentType
+	LastValidBlockType = DislikeParentType
 )
 
 // Message represents the core message for the base layer Tangle.
@@ -481,7 +481,7 @@ func (m *Message) String() string {
 	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	for index, parent := range sortParents(m.ParentsByType(ShallowDislikeParentType)) {
+	for index, parent := range sortParents(m.ParentsByType(DislikeParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
 	}
 	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
@@ -525,8 +525,8 @@ const (
 	WeakParentType
 	// ShallowLikeParentType is the ParentsType for the shallow like parent.
 	ShallowLikeParentType
-	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
-	ShallowDislikeParentType
+	// DislikeParentType is the ParentsType for a shallow dislike parent.
+	DislikeParentType
 )
 
 // String returns string representation of ParentsType.

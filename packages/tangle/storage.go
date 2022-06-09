@@ -502,10 +502,10 @@ type ApproverType uint8
 
 // ParentTypeToApproverType represents a convenient mapping between a parent type and the approver type.
 var ParentTypeToApproverType = map[ParentsType]ApproverType{
-	StrongParentType:         StrongApprover,
-	WeakParentType:           WeakApprover,
-	ShallowLikeParentType:    ShallowLikeApprover,
-	ShallowDislikeParentType: ShallowDislikeApprover,
+	StrongParentType:      StrongApprover,
+	WeakParentType:        WeakApprover,
+	ShallowLikeParentType: ShallowLikeApprover,
+	DislikeParentType:     ShallowDislikeApprover,
 }
 
 // Bytes returns a marshaled version of the ApproverType.

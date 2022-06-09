@@ -113,7 +113,7 @@ func GetMessage(c echo.Context) (err error) {
 			StrongParents:           message.ParentsByType(tangle.StrongParentType).Base58(),
 			WeakParents:             message.ParentsByType(tangle.WeakParentType).Base58(),
 			ShallowLikeParents:      message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			ShallowDislikeParents:   message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
+			ShallowDislikeParents:   message.ParentsByType(tangle.DislikeParentType).Base58(),
 			StrongApprovers:         deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.StrongApprover).Base58(),
 			WeakApprovers:           deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.WeakApprover).Base58(),
 			ShallowLikeApprovers:    deps.Tangle.Utils.ApprovingMessageIDs(message.ID(), tangle.ShallowLikeApprover).Base58(),

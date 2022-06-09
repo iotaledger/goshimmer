@@ -238,7 +238,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(DislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -268,7 +268,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(DislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -415,7 +415,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			parentBlocks := NewParentMessageIDs()
 			parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 			parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
-			parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(dislikeParents...))
+			parentBlocks.AddAll(DislikeParentType, NewMessageIDs(dislikeParents...))
 
 			_, err := NewMessageWithValidation(
 				parentBlocks,
@@ -541,10 +541,10 @@ func TestMessage_Bytes(t *testing.T) {
 		data := make([]byte, payload.MaxSize-8)
 		msg, err := NewMessageWithValidation(
 			ParentMessageIDs{
-				StrongParentType:         randomParents(MaxParentsCount),
-				WeakParentType:           randomParents(MaxParentsCount),
-				ShallowDislikeParentType: randomParents(MaxParentsCount),
-				ShallowLikeParentType:    randomParents(MaxParentsCount),
+				StrongParentType:      randomParents(MaxParentsCount),
+				WeakParentType:        randomParents(MaxParentsCount),
+				DislikeParentType:     randomParents(MaxParentsCount),
+				ShallowLikeParentType: randomParents(MaxParentsCount),
 			},
 			time.Now(),
 			ed25519.PublicKey{},

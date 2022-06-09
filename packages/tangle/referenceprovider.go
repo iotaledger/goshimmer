@@ -6,8 +6,10 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -118,35 +120,42 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
-		referenceType, referencedMsg, referenceErr := r.addedReferenceForConflict(conflictID, issuingTime)
-		if referenceErr != nil {
+		if adjust, referencedMsg, referenceErr := r.adjustOpinion(conflictID, issuingTime); referenceErr != nil {
 			return nil, errors.Errorf("failed to create reference for %s: %w", conflictID, referenceErr)
-		}
-
-		if referenceType != UndefinedParentType {
-			referencesToAdd.Add(referenceType, referencedMsg)
+		} else if adjust {
+			referencesToAdd.Add(ShallowLikeParentType, referencedMsg)
 		}
 	}
 
 	return referencesToAdd, nil
 }
 
-// addedReferenceForConflict returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) addedReferenceForConflict(conflictID utxo.TransactionID, issuingTime time.Time) (parentType ParentsType, msgID MessageID, err error) {
-	likedConflictID, conflictSetMembers := r.tangle.OTVConsensusManager.LikedConflictMember(conflictID)
-	if likedConflictID == conflictID {
-		return UndefinedParentType, EmptyMessageID, nil
+// adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, issuingTime time.Time) (adjust bool, msgID MessageID, err error) {
+	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
+		currentConflictID := w.Next()
+
+		likedConflictID, _ := r.tangle.OTVConsensusManager.LikedConflictMember(currentConflictID)
+		// only triggers in first iteration
+		if likedConflictID == conflictID {
+			return false, EmptyMessageID, nil
+		}
+
+		if !likedConflictID.IsEmpty() {
+			if msgID, err = r.firstValidAttachment(currentConflictID, issuingTime); err != nil {
+				continue
+			}
+
+			return true, msgID, nil
+		}
+
+		// only walk deeper if we don't like "something else"
+		r.tangle.Ledger.ConflictDAG.Storage.CachedConflict(currentConflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+			w.PushFront(conflict.Parents().Slice()...)
+		})
 	}
 
-	if likedConflictID.IsEmpty() {
-		return r.dislikeReference(conflictID, conflictSetMembers, issuingTime)
-	}
-
-	if msgID, err = r.firstValidAttachment(likedConflictID, issuingTime); err != nil {
-		return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to create like reference for %s: %w", likedConflictID, err)
-	}
-
-	return ShallowLikeParentType, msgID, nil
+	return false, EmptyMessageID, errors.Newf("failed to create dislike for %s", conflictID)
 }
 
 // firstValidAttachment returns the first valid attachment of the given transaction.
@@ -174,27 +183,6 @@ func (r *ReferenceProvider) validTimeForStrongParent(msgID MessageID, issuingTim
 		valid = r.validTime(msg.IssuingTime(), issuingTime)
 	})
 	return valid
-}
-
-// dislikeReference returns the reference that is necessary to remove the given conflict.
-func (r *ReferenceProvider) dislikeReference(conflictID utxo.TransactionID, conflictMembers utxo.TransactionIDs, issuingTime time.Time) (parentType ParentsType, msgID MessageID, err error) {
-	for it := conflictMembers.Iterator(); it.HasNext(); {
-		conflictMember := it.Next()
-		if conflictMember == conflictID {
-			// Always point to another branch, to make sure the receiver forks the branch.
-			continue
-		}
-
-		// TODO: set dislike reference on oldest disliked parent conflict
-		// maybe remember branches that are removed
-		// recursively: get parents, check with OTV, if disliked and still referenceable continue
-
-		if msgID, err = r.firstValidAttachment(conflictMember, issuingTime); err == nil {
-			return ShallowDislikeParentType, msgID, nil
-		}
-	}
-
-	return UndefinedParentType, EmptyMessageID, errors.Errorf("failed to create dislike reference for any of %s: %w", conflictMembers, err)
 }
 
 // checkPayloadLiked checks if the payload of a Message is liked.

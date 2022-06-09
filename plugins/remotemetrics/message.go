@@ -126,7 +126,7 @@ func onMessageFinalized(message *tangle.Message) {
 	if shallowLikeParentsCount := len(message.ParentsByType(tangle.ShallowLikeParentType)); shallowLikeParentsCount > 0 {
 		record.ShallowLikeEdgeCount = shallowLikeParentsCount
 	}
-	if shallowDislikeParentsCount := len(message.ParentsByType(tangle.ShallowDislikeParentType)); shallowDislikeParentsCount > 0 {
+	if shallowDislikeParentsCount := len(message.ParentsByType(tangle.DislikeParentType)); shallowDislikeParentsCount > 0 {
 		record.ShallowDislikeEdgeCount = shallowDislikeParentsCount
 	}
 	deps.Tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *tangle.MessageMetadata) {

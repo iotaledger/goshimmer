@@ -349,7 +349,7 @@ func newTangleVertex(message *tangle.Message) (ret *tangleVertex) {
 			StrongParentIDs:         message.ParentsByType(tangle.StrongParentType).Base58(),
 			WeakParentIDs:           message.ParentsByType(tangle.WeakParentType).Base58(),
 			ShallowLikeParentIDs:    message.ParentsByType(tangle.ShallowLikeParentType).Base58(),
-			ShallowDislikeParentIDs: message.ParentsByType(tangle.ShallowDislikeParentType).Base58(),
+			ShallowDislikeParentIDs: message.ParentsByType(tangle.DislikeParentType).Base58(),
 			BranchIDs:               lo.Map(branchIDs.Slice(), utxo.TransactionID.Base58),
 			IsMarker:                msgMetadata.StructureDetails() != nil && msgMetadata.StructureDetails().IsPastMarker(),
 			IsTx:                    message.Payload().Type() == devnetvm.TransactionType,

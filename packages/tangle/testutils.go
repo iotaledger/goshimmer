@@ -114,7 +114,7 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 		references.AddAll(WeakParentType, parents)
 	}
 	if parents := m.shallowDislikeParentIDs(options); len(parents) > 0 {
-		references.AddAll(ShallowDislikeParentType, parents)
+		references.AddAll(DislikeParentType, parents)
 	}
 	if parents := m.shallowLikeParentIDs(options); len(parents) > 0 {
 		references.AddAll(ShallowLikeParentType, parents)
@@ -553,8 +553,8 @@ func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	}
 }
 
-// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
-func WithShallowDislikeParents(messageAliases ...string) MessageOption {
+// WithDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
+func WithDislikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
 			options.shallowDislikeParents[messageAlias] = types.Void

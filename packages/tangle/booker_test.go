@@ -1605,7 +1605,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message15
 	{
-		testFramework.CreateMessage("Message15", WithStrongParents("Message9"), WithShallowDislikeParents("Message2", "Message5"))
+		testFramework.CreateMessage("Message15", WithStrongParents("Message9"), WithDislikeParents("Message2", "Message5"))
 
 		testFramework.IssueMessages("Message15").WaitUntilAllTasksProcessed()
 
@@ -2054,7 +2054,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 	}
 	// ISSUE Message21
 	{
-		msg := testFramework.CreateMessage("Message21", WithStrongParents("Message17"), WithWeakParents("Message2"), WithShallowDislikeParents("Message12"))
+		msg := testFramework.CreateMessage("Message21", WithStrongParents("Message17"), WithWeakParents("Message2"), WithDislikeParents("Message12"))
 
 		testFramework.IssueMessages("Message21").WaitUntilAllTasksProcessed()
 
@@ -2141,7 +2141,7 @@ func TestBookerMarkerMappings(t *testing.T) {
 
 	// ISSUE Message22
 	{
-		msg := testFramework.CreateMessage("Message22", WithStrongParents("Message17"), WithWeakParents("Message2"), WithShallowDislikeParents("Message12", "Message1"))
+		msg := testFramework.CreateMessage("Message22", WithStrongParents("Message17"), WithWeakParents("Message2"), WithDislikeParents("Message12", "Message1"))
 
 		testFramework.IssueMessages("Message22").WaitUntilAllTasksProcessed()
 
@@ -3848,7 +3848,7 @@ func TestObjectiveInvalidity(t *testing.T) {
 
 	// ISSUE Message5
 	{
-		msg := testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithShallowDislikeParents("Message4"))
+		msg := testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithDislikeParents("Message4"))
 		testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 
 		tangle.Storage.MessageMetadata(msg.ID()).Consume(func(messageMetadata *MessageMetadata) {
@@ -3891,8 +3891,8 @@ func TestFutureConeDislike(t *testing.T) {
 	testFramework.CreateMessage("Message1*", WithStrongParents("Genesis"), WithInputs("G"), WithOutput("A*", 1))
 	testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithInputs("A"), WithOutput("B", 1))
 	testFramework.CreateMessage("Message2*", WithStrongParents("Message1"), WithInputs("A"), WithOutput("B*", 1))
-	testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithShallowDislikeParents("Message1*"))
-	testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithShallowDislikeParents("Message1*"))
+	testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithDislikeParents("Message1"))
+	testFramework.CreateMessage("Message4", WithStrongParents("Message2"), WithDislikeParents("Message1"))
 
 	testFramework.RegisterBranchID("A", "Message1")
 	testFramework.RegisterBranchID("A*", "Message1*")
@@ -3909,32 +3909,32 @@ func TestFutureConeDislike(t *testing.T) {
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A"),
-			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
+			"Message3":  utxo.NewTransactionIDs(),
 		})
 	}
 
 	{
 		testFramework.IssueMessages("Message2*").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A", "B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
+			"Message3":  utxo.NewTransactionIDs(),
 		})
 	}
 
 	{
 		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 
-		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
+		checkBranchIDs(t, testFramework, map[string]utxo.TransactionIDs{
 			"Message1":  testFramework.BranchIDs("A"),
 			"Message1*": testFramework.BranchIDs("A*"),
 			"Message2":  testFramework.BranchIDs("A", "B"),
 			"Message2*": testFramework.BranchIDs("A", "B*"),
-			"Message3":  set.NewAdvancedSet[utxo.TransactionID](),
-			"Message4":  set.NewAdvancedSet[utxo.TransactionID](),
+			"Message3":  utxo.NewTransactionIDs(),
+			"Message4":  utxo.NewTransactionIDs(),
 		})
 	}
 }
