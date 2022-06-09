@@ -1,17 +1,14 @@
-package ledger
+package epoch
 
 import (
 	"context"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // EI is the ID of an epoch.
@@ -120,19 +117,4 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	}
 
 	return
-}
-
-type EpochDiffs struct {
-	orderedmap.OrderedMap[EI, *EpochDiff] `serix:"0"`
-}
-
-type EpochDiff struct {
-	model.Storable[EI, epochDiff] `serix:"0"`
-}
-
-type epochDiff struct {
-	EI              EI               `serix:"0"`
-	Created         utxo.Outputs     `serix:"1"`
-	CreatedMetadata *OutputsMetadata `serix:"2"`
-	Spent           utxo.Outputs     `serix:"3"`
 }

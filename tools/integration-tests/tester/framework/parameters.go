@@ -94,7 +94,6 @@ func PeerConfig() config.GoShimmer {
 	c.Faucet.GenesisTokenAmount = 2500000000000000
 
 	c.Mana.Enabled = true
-	c.Mana.SnapshotResetTime = true
 
 	c.Consensus.Enabled = false
 

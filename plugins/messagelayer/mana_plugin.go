@@ -201,7 +201,7 @@ func runManaPlugin(_ *node.Plugin) {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 
-				loadSnapshot(nodeSnapshot.ManaSnapshot)
+				loadSnapshot(nodeSnapshot.LedgerSnapshot)
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -799,11 +799,45 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *mana.Snapshot) {
-	if ManaParameters.SnapshotResetTime {
-		snapshot.ResetTime()
+func loadSnapshot(snapshot *ledger.Snapshot) {
+	consensusManaByNode := map[identity.ID]float64{}
+	accessManaByNode := map[identity.ID]float64{}
+	processOutputs := func(outputs utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) {
+		_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
+			metadata, exists := snapshot.OutputsMetadata.Get(output.ID())
+			if !exists {
+				return nil
+			}
+			devnetOutput, ok := output.(devnetvm.Output)
+			if !ok {
+				return nil
+			}
+			var manaValue float64
+			devnetOutput.Balances().ForEach(func(_ devnetvm.Color, balance uint64) bool {
+				manaValue += float64(balance)
+				return true
+			})
+			if isCreated {
+				consensusManaByNode[metadata.ConsensusManaPledgeID()] += manaValue
+				accessManaByNode[metadata.AccessManaPledgeID()] += manaValue
+			} else {
+				consensusManaByNode[metadata.ConsensusManaPledgeID()] -= manaValue
+				accessManaByNode[metadata.AccessManaPledgeID()] -= manaValue
+			}
+			return nil
+		})
+
+	}
+	processOutputs(*snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */)
+	for i := snapshot.DiffEpochIndex; i < snapshot.FullEpochIndex; i++ {
+		diff, exists := snapshot.EpochDiffs.Get(i)
+		if !exists {
+			continue
+		}
+		processOutputs(diff.M.Created, diff.M.CreatedMetadata, true /* isCreated */)
+		processOutputs(diff.M.Spent, diff.M.SpentMetadata, false /* isCreated */)
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshot.ByNodeID)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshot.ByNodeID)
+	baseManaVectors[mana.ConsensusMana].LoadSnapshot(consensusManaByNode)
+	baseManaVectors[mana.AccessMana].LoadSnapshot(accessManaByNode)
 }

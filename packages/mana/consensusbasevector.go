@@ -92,29 +92,29 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 }
 
 // LoadSnapshot loads the snapshot.
-func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
-	c.Lock()
-	defer c.Unlock()
-
-	for nodeID, records := range snapshot {
-		var value float64
-		for _, record := range records.SortedTxSnapshot {
-			value += record.Value
-
-			// trigger event
-			Events.Pledged.Trigger(&PledgedEvent{
-				NodeID:        nodeID,
-				Amount:        record.Value,
-				Time:          record.Timestamp,
-				ManaType:      c.Type(),
-				TransactionID: record.TxID,
-			})
-		}
-
-		c.vector[nodeID] = &ConsensusBaseMana{
-			BaseMana1: value,
-		}
-	}
+func (c *ConsensusBaseManaVector) LoadSnapshot(snapshot map[identity.ID]float64) {
+	//c.Lock()
+	//defer c.Unlock()
+	//
+	//for nodeID, records := range snapshot {
+	//	var value float64
+	//	for _, record := range records.SortedTxSnapshot {
+	//		value += record.Value
+	//
+	//		// trigger event
+	//		Events.Pledged.Trigger(&PledgedEvent{
+	//			NodeID:        nodeID,
+	//			Amount:        record.Value,
+	//			Time:          record.Timestamp,
+	//			ManaType:      c.Type(),
+	//			TransactionID: record.TxID,
+	//		})
+	//	}
+	//
+	//	c.vector[nodeID] = &ConsensusBaseMana{
+	//		BaseMana1: value,
+	//	}
+	//}
 }
 
 // Book books mana for a transaction.

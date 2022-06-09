@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -24,7 +25,7 @@ type Manager struct {
 	epochManager           *EpochManager
 	epochCommitmentFactory *EpochCommitmentFactory
 	options                *ManagerOptions
-	pendingConflictsCount  map[ledger.EI]uint64
+	pendingConflictsCount  map[epoch.EI]uint64
 	pccMutex               sync.RWMutex
 	log                    *logger.Logger
 	Events                 *Events
@@ -43,7 +44,7 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		tangle:                 tangle,
 		epochManager:           epochManager,
 		epochCommitmentFactory: epochCommitmentFactory,
-		pendingConflictsCount:  make(map[ledger.EI]uint64),
+		pendingConflictsCount:  make(map[epoch.EI]uint64),
 		log:                    options.Log,
 		options:                options,
 		Events: &Events{
@@ -62,7 +63,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.DiffEpochIndex = snapshot.DiffEpochIndex
 	m.epochCommitmentFactory.LastCommittedEpoch = snapshot.DiffEpochIndex
 
-	snapshot.EpochDiffs.ForEach(func(_ ledger.EI, epochdiff *ledger.EpochDiff) bool {
+	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochdiff *EpochDiff) bool {
 		m.epochCommitmentFactory.storage.diffsStore.Store(epochdiff).Release()
 		epochdiff.M.Spent.ForEach(func(spent utxo.Output) error {
 			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
@@ -82,21 +83,21 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei ledger.EI) uint64 {
+func (m *Manager) PendingConflictsCount(ei epoch.EI) uint64 {
 	m.pccMutex.RLock()
 	defer m.pccMutex.RUnlock()
 	return m.pendingConflictsCount[ei]
 }
 
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) IsCommittable(ei ledger.EI) bool {
+func (m *Manager) IsCommittable(ei epoch.EI) bool {
 	t := m.epochManager.EIToStartTime(ei)
 	diff := time.Since(t)
 	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func (m *Manager) GetLatestEC() (commitment *ledger.EpochCommitment, err error) {
+func (m *Manager) GetLatestEC() (commitment *epoch.EpochCommitment, err error) {
 	nextEI := m.epochCommitmentFactory.LastCommittedEpoch + 1
 	if m.IsCommittable(nextEI) {
 		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: nextEI})
@@ -183,7 +184,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei] -= 1
 }
 
-func (m *Manager) storeTXDiff(ei ledger.EI, tx *devnetvm.Transaction) {
+func (m *Manager) storeTXDiff(ei epoch.EI, tx *devnetvm.Transaction) {
 	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
 	outputsCreated := tx.Essence().Outputs()
 
@@ -191,7 +192,7 @@ func (m *Manager) storeTXDiff(ei ledger.EI, tx *devnetvm.Transaction) {
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
 }
 
-func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei ledger.EI) {
+func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
 		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
 		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
@@ -201,7 +202,7 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei ledger.EI) {
 
 // GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
 func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
-	var ei ledger.EI
+	var ei epoch.EI
 	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
 		t := block.IssuingTime()
 		ei = m.epochManager.TimeToEI(t)
@@ -215,7 +216,7 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 
 // GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
 func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
-	var ei ledger.EI
+	var ei epoch.EI
 	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
 		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
 		ei = m.epochManager.TimeToEI(t)
@@ -259,5 +260,5 @@ type Events struct {
 // EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
 type EpochCommittedEvent struct {
 	// EI is the index of committable epoch.
-	EI ledger.EI
+	EI epoch.EI
 }

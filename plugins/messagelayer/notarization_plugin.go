@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -99,6 +100,6 @@ func newNotarizationManager(deps *notarizationDependencies) *notarization.Manage
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() (*ledger.EpochCommitment, error) {
+func GetLatestEC() (*epoch.EpochCommitment, error) {
 	return notarizationManager.GetLatestEC()
 }

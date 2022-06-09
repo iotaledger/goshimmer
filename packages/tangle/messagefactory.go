@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -268,7 +268,7 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, epochCommitment *ledger.EpochCommitment) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, epochCommitment *epoch.EpochCommitment) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
 	dummy, err := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, 0, epochCommitment)
 	if err != nil {

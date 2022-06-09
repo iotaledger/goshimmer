@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
 const (
@@ -43,17 +43,17 @@ func NewEpochManager(opts ...EpochManagerOption) *EpochManager {
 }
 
 // TimeToEI calculates the EI for the given time.
-func (m *EpochManager) TimeToEI(t time.Time) (ei ledger.EI) {
+func (m *EpochManager) TimeToEI(t time.Time) (ei epoch.EI) {
 	elapsedSeconds := t.Unix() - m.options.GenesisTime
 	if elapsedSeconds <= 0 {
 		return 0
 	}
 
-	return ledger.EI(elapsedSeconds / m.options.Interval)
+	return epoch.EI(elapsedSeconds / m.options.Interval)
 }
 
 // TimeToOracleEI calculates the oracle EI for the given time.
-func (m *EpochManager) TimeToOracleEI(t time.Time) (oracleEI ledger.EI) {
+func (m *EpochManager) TimeToOracleEI(t time.Time) (oracleEI epoch.EI) {
 	ei := m.TimeToEI(t)
 	oracleEI = ei - m.options.OracleEpochShift
 
@@ -66,19 +66,19 @@ func (m *EpochManager) TimeToOracleEI(t time.Time) (oracleEI ledger.EI) {
 }
 
 // EIToStartTime calculates the start time of the given epoch.
-func (m *EpochManager) EIToStartTime(ei ledger.EI) time.Time {
+func (m *EpochManager) EIToStartTime(ei epoch.EI) time.Time {
 	startUnix := m.options.GenesisTime + int64(ei)*m.options.Interval
 	return time.Unix(startUnix, 0)
 }
 
 // EIToEndTime calculates the end time of the given epoch.
-func (m *EpochManager) EIToEndTime(ei ledger.EI) time.Time {
+func (m *EpochManager) EIToEndTime(ei epoch.EI) time.Time {
 	endUnix := m.options.GenesisTime + int64(ei)*m.options.Interval + m.options.Interval - 1
 	return time.Unix(endUnix, 0)
 }
 
 // CurrentEI returns the EI at the current synced time.
-func (m *EpochManager) CurrentEI() ledger.EI {
+func (m *EpochManager) CurrentEI() epoch.EI {
 	return m.TimeToEI(clock.SyncedTime())
 }
 
@@ -94,7 +94,7 @@ type EpochManagerOption func(options *EpochManagerOptions)
 type EpochManagerOptions struct {
 	GenesisTime      int64
 	Interval         int64
-	OracleEpochShift ledger.EI
+	OracleEpochShift epoch.EI
 }
 
 // GenesisTime is a EpochManagerOption that allows to define the time of the genesis, i.e., the start of the epochs,
@@ -116,7 +116,7 @@ func Interval(interval int64) EpochManagerOption {
 // OracleEpochShift is a EpochManagerOption that allows to define the shift of the oracle epoch.
 func OracleEpochShift(shift int) EpochManagerOption {
 	return func(options *EpochManagerOptions) {
-		options.OracleEpochShift = ledger.EI(shift)
+		options.OracleEpochShift = epoch.EI(shift)
 	}
 }
 

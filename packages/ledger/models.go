@@ -211,25 +211,25 @@ type outputMetadata struct {
 	ConsensusManaPledgeID identity.ID `serix:"0"`
 
 	// ConsensusManaPledgeID contains the identifier of the node that received the access mana pledge.
-	AccessManaPledgeID identity.ID `serix:"7"`
+	AccessManaPledgeID identity.ID `serix:"1"`
 
 	// CreationTime contains the time when the Output was created.
-	CreationTime time.Time `serix:"1"`
+	CreationTime time.Time `serix:"2"`
 
 	// BranchIDs contains the conflicting BranchIDs that this Output depends on.
-	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"2"`
+	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
-	FirstConsumer utxo.TransactionID `serix:"3"`
+	FirstConsumer utxo.TransactionID `serix:"4"`
 
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
-	FirstConsumerForked bool `serix:"4"`
+	FirstConsumerForked bool `serix:"5"`
 
 	// GradeOfFinality contains the confirmation status of the Output.
-	GradeOfFinality gof.GradeOfFinality `serix:"5"`
+	GradeOfFinality gof.GradeOfFinality `serix:"6"`
 
 	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"6"`
+	GradeOfFinalityTime time.Time `serix:"7"`
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.

@@ -56,7 +56,6 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 
 	return &snapshot.Snapshot{
 		LedgerSnapshot: ledger.NewSnapshot(outputs, outputsMetadata),
-		ManaSnapshot:   manaSnapshot,
 	}, nil
 }
 
@@ -116,7 +115,6 @@ func CreateSnapshotForIntegrationTest(genesisTokenAmount uint64, seedBytes []byt
 
 	return &snapshot.Snapshot{
 		LedgerSnapshot: ledger.NewSnapshot(outputs, outputsMetadata),
-		ManaSnapshot:   manaSnapshot,
 	}, nil
 }
 
