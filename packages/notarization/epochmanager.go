@@ -13,9 +13,6 @@ const (
 
 	// defaultInterval is the default interval of epochs, i.e., their duration, and is 5 minutes (specified in seconds).
 	defaultInterval int64 = 5 * 60
-
-	// defaultOracleEpochShift is the default shift of the oracle epoch. E.g., current epoch=4 -> oracle epoch=2.
-	defaultOracleEpochShift = 2
 )
 
 // region EpochManager ////////////////////////////////////////////////////////////////////////////////////
@@ -28,9 +25,8 @@ type EpochManager struct {
 // NewEpochManager is the constructor of the EpochManager that takes a KVStore to persist its state.
 func NewEpochManager(opts ...EpochManagerOption) *EpochManager {
 	options := &EpochManagerOptions{
-		GenesisTime:      DefaultGenesisTime,
-		Interval:         defaultInterval,
-		OracleEpochShift: defaultOracleEpochShift,
+		GenesisTime: DefaultGenesisTime,
+		Interval:    defaultInterval,
 	}
 
 	for _, option := range opts {
@@ -50,19 +46,6 @@ func (m *EpochManager) TimeToEI(t time.Time) (ei epoch.EI) {
 	}
 
 	return epoch.EI(elapsedSeconds / m.options.Interval)
-}
-
-// TimeToOracleEI calculates the oracle EI for the given time.
-func (m *EpochManager) TimeToOracleEI(t time.Time) (oracleEI epoch.EI) {
-	ei := m.TimeToEI(t)
-	oracleEI = ei - m.options.OracleEpochShift
-
-	// default to EI 0 if oracle epoch < shift as it is not defined
-	if ei < m.options.OracleEpochShift || oracleEI < m.options.OracleEpochShift {
-		return 0
-	}
-
-	return
 }
 
 // EIToStartTime calculates the start time of the given epoch.
@@ -110,13 +93,6 @@ func GenesisTime(genesisTime int64) EpochManagerOption {
 func Interval(interval int64) EpochManagerOption {
 	return func(options *EpochManagerOptions) {
 		options.Interval = interval
-	}
-}
-
-// OracleEpochShift is a EpochManagerOption that allows to define the shift of the oracle epoch.
-func OracleEpochShift(shift int) EpochManagerOption {
-	return func(options *EpochManagerOptions) {
-		options.OracleEpochShift = epoch.EI(shift)
 	}
 }
 
