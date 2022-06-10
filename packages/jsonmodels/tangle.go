@@ -23,7 +23,11 @@ type Message struct {
 	PayloadType             string   `json:"payloadType"`
 	TransactionID           string   `json:"transactionID,omitempty"`
 	Payload                 []byte   `json:"payload"`
+	EI                      uint64   `json:"ei"`
+	ECR                     string   `json:"ecr"`
+	PrevEC                  string   `json:"prevEC"`
 	Signature               string   `json:"signature"`
+	LatestConfirmedEpoch    uint64   `json:"latestConfirmedEpoch"`
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

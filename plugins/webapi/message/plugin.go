@@ -129,8 +129,12 @@ func GetMessage(c echo.Context) (err error) {
 
 				return ""
 			}(),
-			Payload:   payloadBytes,
-			Signature: message.Signature().String(),
+			EI:                   uint64(message.EI()),
+			ECR:                  message.ECR().Base58(),
+			PrevEC:               message.PrevEC().Base58(),
+			Payload:              payloadBytes,
+			Signature:            message.Signature().String(),
+			LatestConfirmedEpoch: uint64(message.LatestConfirmedEpoch()),
 		})
 	}) {
 		return

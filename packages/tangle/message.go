@@ -295,20 +295,18 @@ type Message struct {
 }
 type MessageModel struct {
 	// core properties (get sent over the wire)
-	Version         uint8             `serix:"0"`
-	Parents         ParentMessageIDs  `serix:"1"`
-	IssuerPublicKey ed25519.PublicKey `serix:"2"`
-	IssuingTime     time.Time         `serix:"3"`
-	SequenceNumber  uint64            `serix:"4"`
-	PayloadBytes    []byte            `serix:"5,lengthPrefixType=uint32"`
-	Nonce           uint64            `serix:"6"`
-	EI              epoch.EI
-	ECR             *epoch.ECR
-	PrevEC          *epoch.EC
-	Signature       ed25519.Signature `serix:"7"`
-
-	// Not covered by signature.
-	LatestConfirmedEpoch epoch.EI
+	Version              uint8             `serix:"0"`
+	Parents              ParentMessageIDs  `serix:"1"`
+	IssuerPublicKey      ed25519.PublicKey `serix:"2"`
+	IssuingTime          time.Time         `serix:"3"`
+	SequenceNumber       uint64            `serix:"4"`
+	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
+	Nonce                uint64            `serix:"6"`
+	EI                   epoch.EI          `serix:"7"`
+	ECR                  *epoch.ECR        `serix:"8"`
+	PrevEC               *epoch.EC         `serix:"9"`
+	LatestConfirmedEpoch epoch.EI          `serix:"10"`
+	Signature            ed25519.Signature `serix:"11"`
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
@@ -461,6 +459,26 @@ func (m *Message) Payload() payload.Payload {
 // Nonce returns the Nonce of the message.
 func (m *Message) Nonce() uint64 {
 	return m.M.Nonce
+}
+
+// EI returns the EI of the message.
+func (m *Message) EI() epoch.EI {
+	return m.M.EI
+}
+
+// ECR returns the ECR of the message.
+func (m *Message) ECR() *epoch.ECR {
+	return m.M.ECR
+}
+
+// PrevEC returns the PrevEC of the message.
+func (m *Message) PrevEC() *epoch.EC {
+	return m.M.PrevEC
+}
+
+// LatestConfirmedEpoch returns the LatestConfirmedEpoch of the message.
+func (m *Message) LatestConfirmedEpoch() epoch.EI {
+	return m.M.LatestConfirmedEpoch
 }
 
 // Signature returns the Signature of the message.

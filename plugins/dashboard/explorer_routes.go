@@ -67,6 +67,12 @@ type ExplorerMessage struct {
 	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
+
+	// Epoch commitment
+	EI                 uint64 `json:"ei"`
+	ECR                string `json:"ecr"`
+	PrevEC             string `json:"prevEC"`
+	LastConfirmedEpoch uint64 `json:"lastConfirmedEpoch"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -102,6 +108,10 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+		EI:                      uint64(msg.EI()),
+		ECR:                     msg.ECR().Base58(),
+		PrevEC:                  msg.PrevEC().Base58(),
+		LastConfirmedEpoch:      uint64(msg.LatestConfirmedEpoch()),
 	}
 
 	if d := messageMetadata.StructureDetails(); d != nil {
