@@ -274,7 +274,7 @@ func (m MessageIDs) String() string {
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
+	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents.
 	LastValidBlockType = ShallowLikeParentType
 )
 
@@ -517,7 +517,7 @@ const (
 
 // String returns string representation of ParentsType.
 func (bp ParentsType) String() string {
-	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
+	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like"}[bp])
 }
 
 // Parent is a parent that can be either strong or weak.

@@ -34,7 +34,6 @@ export class Message {
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     shallowLikeApprovers: Array<string>;
-    shallowDislikeApprovers: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;

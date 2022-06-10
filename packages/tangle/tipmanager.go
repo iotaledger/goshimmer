@@ -175,7 +175,9 @@ func (t *TipManager) AddTip(message *Message) {
 		return
 	}
 
-	t.addTip(message)
+	if !t.addTip(message) {
+		return
+	}
 
 	// skip removing tips if TangleWidth is enabled
 	if t.TipCount() <= t.tangle.Options.TangleWidth {
@@ -203,8 +205,18 @@ func (t *TipManager) reAddParents(message *Message) {
 	})
 }
 
-func (t *TipManager) addTip(message *Message) {
+func (t *TipManager) addTip(message *Message) (added bool) {
 	messageID := message.ID()
+
+	var invalid bool
+	t.tangle.Storage.MessageMetadata(messageID).Consume(func(messageMetadata *MessageMetadata) {
+		invalid = messageMetadata.IsSubjectivelyInvalid()
+	})
+	if invalid {
+		// fmt.Println("TipManager: skipping adding tip because it is subjectively invalid", messageID)
+		return false
+	}
+
 	if t.tips.Set(messageID, messageID) {
 		t.increaseTipBranchesCount(messageID)
 		t.Events.TipAdded.Trigger(&TipEvent{
@@ -214,7 +226,11 @@ func (t *TipManager) addTip(message *Message) {
 		t.tipsCleaner.ExecuteAt(messageID, func() {
 			t.deleteTip(messageID)
 		}, message.IssuingTime().Add(tipLifeGracePeriod))
+
+		return true
 	}
+
+	return false
 }
 
 func (t *TipManager) deleteTip(msgID MessageID) (deleted bool) {

@@ -3,6 +3,7 @@
 .github/
 docs/
 .idea/
+go.work*
 
 LICENSE
 README.md
