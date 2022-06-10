@@ -267,7 +267,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
