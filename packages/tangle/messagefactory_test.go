@@ -427,7 +427,7 @@ func checkReferences(t *testing.T, tangle *Tangle, payload payload.Payload, pare
 	}
 	require.NoError(t, err)
 
-	for _, referenceType := range []ParentsType{StrongParentType, DislikeParentType, ShallowLikeParentType, WeakParentType} {
+	for _, referenceType := range []ParentsType{StrongParentType, ShallowLikeParentType, WeakParentType} {
 		assert.Equalf(t, expectedReferences[referenceType], actualReferences[referenceType], "references type %s do not match: expected %s - actual %s", referenceType, expectedReferences[referenceType], actualReferences[referenceType])
 	}
 }

@@ -238,7 +238,6 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(DislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -268,7 +267,6 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(DislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -415,7 +413,6 @@ func TestNewMessageWithValidation(t *testing.T) {
 			parentBlocks := NewParentMessageIDs()
 			parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 			parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
-			parentBlocks.AddAll(DislikeParentType, NewMessageIDs(dislikeParents...))
 
 			_, err := NewMessageWithValidation(
 				parentBlocks,
@@ -543,7 +540,6 @@ func TestMessage_Bytes(t *testing.T) {
 			ParentMessageIDs{
 				StrongParentType:      randomParents(MaxParentsCount),
 				WeakParentType:        randomParents(MaxParentsCount),
-				DislikeParentType:     randomParents(MaxParentsCount),
 				ShallowLikeParentType: randomParents(MaxParentsCount),
 			},
 			time.Now(),
@@ -574,10 +570,9 @@ func TestMessage_Bytes(t *testing.T) {
 		)
 		assert.NoError(t, err)
 
-		t.Logf("%s", msg)
 		msgBytes := lo.PanicOnErr(msg.Bytes())
 		// 4 full parents blocks - 1 parent block with 1 parent
-		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(3*(1+1+8*32)+(7*32)), len(msgBytes))
+		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(2*(1+1+8*32)+(7*32)), len(msgBytes))
 	})
 }
 

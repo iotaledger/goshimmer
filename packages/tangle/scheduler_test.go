@@ -531,10 +531,14 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
+var timeOffset = 0 * time.Nanosecond
+
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
+	timeOffset++
+
 	message := NewMessage(
 		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
-		time.Now(),
+		time.Now().Add(timeOffset),
 		issuerPublicKey,
 		0,
 		payload.NewGenericDataPayload([]byte("")),
