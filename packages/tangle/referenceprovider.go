@@ -1,11 +1,9 @@
 package tangle
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/walker"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -18,15 +16,12 @@ import (
 
 // ReferenceProvider is a component that takes care of creating the correct references when selecting tips.
 type ReferenceProvider struct {
-	Events *ReferenceProviderEvents
-
 	tangle *Tangle
 }
 
 // NewReferenceProvider creates a new ReferenceProvider instance.
 func NewReferenceProvider(tangle *Tangle) (newInstance *ReferenceProvider) {
 	return &ReferenceProvider{
-		Events: newReferenceProviderEvents(),
 		tangle: tangle,
 	}
 }
@@ -65,9 +60,9 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 		referencesToAdd, validStrongParent := r.addedReferencesForMessage(strongParent, issuingTime, excludedConflictIDsCopy)
 		if !validStrongParent {
 			if err = r.checkPayloadLiked(strongParent); err != nil {
-				r.Events.Error.Trigger(errors.Errorf("failed to pick up %s as a weak parent: %w", strongParent, err))
 				continue
 			}
+			
 			referencesToAdd = NewParentMessageIDs().Add(WeakParentType, strongParent)
 		} else {
 			referencesToAdd.AddStrong(strongParent)
@@ -90,8 +85,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTime time.Time, excludedConflictIDs utxo.TransactionIDs) (addedReferences ParentMessageIDs, success bool) {
 	msgConflictIDs, err := r.tangle.Booker.MessageBranchIDs(msgID)
 	if err != nil {
-		r.Events.Error.Trigger(errors.Errorf("conflictID of %s can't be retrieved: %w", msgID, err))
-		r.Events.ReferenceImpossible.Trigger(msgID)
+		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("conflictID of %s can't be retrieved: %w", msgID, err))
 		return nil, false
 	}
 
@@ -101,8 +95,7 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 	}
 
 	if addedReferences, err = r.addedReferencesForConflicts(msgConflictIDs, issuingTime, excludedConflictIDs); err != nil {
-		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
-		r.Events.ReferenceImpossible.Trigger(msgID)
+		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
 		return nil, false
 	}
 
@@ -110,9 +103,7 @@ func (r *ReferenceProvider) addedReferencesForMessage(msgID MessageID, issuingTi
 	// fmt.Println("addedReferencesForMessage", msgID, addedReferences)
 	// A message might introduce too many references and cannot be picked up as a strong parent.
 	if _, success := r.tryExtendReferences(NewParentMessageIDs(), addedReferences); !success {
-		fmt.Println("too many references for", msgID)
-		r.Events.Error.Trigger(errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
-		r.Events.ReferenceImpossible.Trigger(msgID)
+		r.tangle.OrphanageManager.OrphanBlock(msgID, errors.Errorf("cannot pick up %s as strong parent: %w", msgID, err))
 		return nil, false
 	}
 
@@ -227,22 +218,6 @@ func (r *ReferenceProvider) tryExtendReferences(references ParentMessageIDs, ref
 	}
 
 	return extendedReferences, true
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region ReferenceProviderEvents //////////////////////////////////////////////////////////////////////////////////////
-
-type ReferenceProviderEvents struct {
-	ReferenceImpossible *event.Event[MessageID]
-	Error               *event.Event[error]
-}
-
-func newReferenceProviderEvents() (newInstance *ReferenceProviderEvents) {
-	return &ReferenceProviderEvents{
-		ReferenceImpossible: event.New[MessageID](),
-		Error:               event.New[error](),
-	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

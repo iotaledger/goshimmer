@@ -52,6 +52,7 @@ type Tangle struct {
 	WeightProvider        WeightProvider
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
+	OrphanageManager      *OrphanageManager
 }
 
 // ConfirmationOracle answers questions about entities' confirmation.
@@ -80,6 +81,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.OrphanageManager = NewOrphanageManager(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
@@ -114,6 +116,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Booker.Setup()
+	t.OrphanageManager.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.Scheduler.Setup()
 	t.TimeManager.Setup()
@@ -121,10 +124,6 @@ func (t *Tangle) Setup() {
 
 	t.MessageFactory.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in MessageFactory: %w", err))
-	}))
-
-	t.MessageFactory.ReferenceProvider.Events.Error.Attach(event.NewClosure(func(err error) {
-		t.Events.Error.Trigger(errors.Errorf("error in ReferenceProvider: %w", err))
 	}))
 
 	t.Booker.Events.Error.Attach(event.NewClosure(func(err error) {

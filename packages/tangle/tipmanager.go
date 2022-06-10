@@ -148,9 +148,16 @@ func (t *TipManager) Setup() {
 		t.removeStrongParents(event.Message)
 	}))
 
-	// Hook into this so that next time we try to select tips, the parents are already removed.
-	t.tangle.MessageFactory.ReferenceProvider.Events.ReferenceImpossible.Hook(event.NewClosure(func(msgID MessageID) {
-		t.tangle.Storage.Message(msgID).Consume(t.reAddParents)
+	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
+		t.deleteTip(event.Block.ID())
+	}))
+
+	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {
+		if clock.Since(block.IssuingTime()) > tipLifeGracePeriod {
+			return
+		}
+
+		t.addTip(block)
 	}))
 }
 
@@ -186,23 +193,6 @@ func (t *TipManager) AddTip(message *Message) {
 
 	// a tip loses its tip status if it is referenced by another message
 	t.removeStrongParents(message)
-}
-
-// reAddParents removes the given message from the tips and adds all its parents back to the tips.
-func (t *TipManager) reAddParents(message *Message) {
-	msgID := message.ID()
-	t.deleteTip(msgID)
-
-	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
-		t.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-			if clock.Since(message.IssuingTime()) > tipLifeGracePeriod {
-				return
-			}
-
-			t.addTip(parentMessage)
-		})
-		return true
-	})
 }
 
 func (t *TipManager) addTip(message *Message) (added bool) {
