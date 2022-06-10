@@ -68,8 +68,8 @@ func configureManaPlugin(*node.Plugin) {
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
-	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
-	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
+	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector()
+	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector()
 
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])

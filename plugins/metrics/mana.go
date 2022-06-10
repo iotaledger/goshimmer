@@ -68,9 +68,6 @@ var (
 	averageNeighborsAccess    atomic.Float64
 	averageNeighborsConsensus atomic.Float64
 
-	// internal metrics for delegated mana.
-	delegationAmount atomic.Uint64
-
 	// internal metrics for pledges.
 	pledges     = NodePledgeMap{}
 	pledgesLock sync.RWMutex
@@ -145,11 +142,6 @@ func AveragePledgeAccess() mana.NodeMap {
 		result[nodeID] = pledgeLog.GetAccessAverage()
 	}
 	return result
-}
-
-// DelegatedMana returns how much mana is currently delegated to the node.
-func DelegatedMana() uint64 {
-	return delegationAmount.Load()
 }
 
 // addPledge populates the pledge logs for the node.
