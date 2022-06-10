@@ -170,19 +170,13 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI) *CommitmentTree
 
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
-	if f.storage.CachedECRecord(ei).Consume(func(ecRecord *epoch.ECRecord) {
-		ecr = ecRecord.ECR()
-	}) {
-		return
-	}
-
-	commitment, err := f.newCommitment(ei)
+	epochRoots, err := f.epochRoots(ei)
 	if err != nil {
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
-	branch1 := types.NewIdentifier(append(commitment.tangleRoot.Bytes(), commitment.stateMutationRoot.Bytes()...))
+	branch1 := types.NewIdentifier(append(epochRoots.tangleRoot.Bytes(), epochRoots.stateMutationRoot.Bytes()...))
 	// TODO: append mana root here...
-	branch2 := types.NewIdentifier(append(commitment.stateRoot.Bytes()))
+	branch2 := types.NewIdentifier(append(epochRoots.stateRoot.Bytes()))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)
 	root = append(root, branch2.Bytes()...)
@@ -200,7 +194,7 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ecRecord *epoch.ECRecord, err 
 		return ecRecord, nil
 	}
 
-	// Create and possibly roll to a new epoch.
+	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
 		return nil, err
@@ -302,37 +296,36 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
 	return nil
 }
 
-// newCommitment creates a new commitment with the given ei, by advancing the corresponding data structures.
-func (f *EpochCommitmentFactory) newCommitment(ei epoch.EI) (*CommitmentRoots, error) {
+// epochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
+func (f *EpochCommitmentFactory) epochRoots(ei epoch.EI) (roots *CommitmentRoots, commitmentTreesErr error) {
 	f.commitmentsMutex.RLock()
 	defer f.commitmentsMutex.RUnlock()
 
-	// CommitmentTrees must exist at this point.
-	commitmentTrees, exists := f.commitmentTrees[ei]
-	if !exists {
-		return nil, errors.Errorf("commitment with epoch %d does not exist", ei)
+	// TODO: what if a node restarts and we have incomplete trees?
+	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
+	if commitmentTreesErr != nil {
+		return nil, errors.Wrapf(commitmentTreesErr, "cannot get commitment tree for epoch %d", ei)
 	}
 
 	// We advance the StateRootTree to the next epoch.
 	// This call will fail if we are trying to commit an epoch other than the next of the last committed epoch.
-	stateRoot, err := f.newStateRoot(ei)
-	if err != nil {
-		return nil, err
+	stateRoot, commitmentTreesErr := f.newStateRoot(ei)
+	if commitmentTreesErr != nil {
+		return nil, commitmentTreesErr
 	}
 	// We advance the LedgerState to the next epoch.
 	if err := f.commitLedgerState(ei); err != nil {
-		return nil, errors.Wrap(err, "could not commit ledger state")
+		return nil, errors.Wrapf(err, "could not commit ledger state for epoch %d", ei)
 	}
 
-	commitment := &CommitmentRoots{}
-	commitment.EI = ei
+	roots = &CommitmentRoots{}
+	roots.EI = ei
 
-	// convert []byte to [32]byte type
-	copy(commitment.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
-	copy(commitment.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
-	copy(commitment.stateRoot.Bytes(), stateRoot)
+	copy(roots.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
+	copy(roots.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
+	copy(roots.stateRoot.Bytes(), stateRoot)
 
-	return commitment, nil
+	return roots, nil
 }
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
