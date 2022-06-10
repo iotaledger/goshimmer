@@ -64,6 +64,7 @@ type Scheduler struct {
 	MaxBufferSize     int            `json:"maxBufferSize"`
 	CurrentBufferSize int            `json:"currentBufferSizer"`
 	NodeQueueSizes    map[string]int `json:"nodeQueueSizes"`
+	Deficit           float64        `json:"deficit"`
 }
 
 // RateSetter is the rate setter details.

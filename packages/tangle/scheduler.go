@@ -48,8 +48,9 @@ type Scheduler struct {
 	started               typeutils.AtomicBool
 	stopped               typeutils.AtomicBool
 	accessManaCache       *schedulerutils.AccessManaCache
-	mu                    sync.RWMutex
+	bufferMutex           sync.RWMutex
 	buffer                *schedulerutils.BufferQueue
+	deficitsMutex         sync.RWMutex
 	deficits              map[identity.ID]*big.Rat
 	rate                  *atomic.Duration
 	confirmedMsgThreshold time.Duration
@@ -111,8 +112,8 @@ func (s *Scheduler) Running() bool {
 func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		// lock the scheduler to make sure that any Submit() has been finished
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 		s.stopped.Set()
 		close(s.shutdownSignal)
 	})
@@ -177,8 +178,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // NodeQueueSize returns the size of the nodeIDs queue.
 func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	nodeQueue := s.buffer.NodeQueue(nodeID)
 	if nodeQueue == nil {
@@ -189,8 +190,8 @@ func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 
 // NodeQueueSizes returns the size for each node queue.
 func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
@@ -202,29 +203,29 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.MaxSize()
 }
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.Size()
 }
 
 // ReadyMessagesCount returns the size buffer.
 func (s *Scheduler) ReadyMessagesCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.ReadyMessagesCount()
 }
 
 // TotalMessagesCount returns the size buffer.
 func (s *Scheduler) TotalMessagesCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.TotalMessagesCount()
 }
 
@@ -238,8 +239,8 @@ func (s *Scheduler) AccessManaCache() *schedulerutils.AccessManaCache {
 // scheduled until Ready(messageID) has been called.
 func (s *Scheduler) Submit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 		err = s.submit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
@@ -251,8 +252,8 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 // If that message is already marked as ready, Unsubmit has no effect.
 func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 
 		s.unsubmit(message)
 	}) {
@@ -265,8 +266,8 @@ func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 // If Ready is called without a previous Submit, it has no effect.
 func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 
 		s.ready(message)
 	}) {
@@ -277,8 +278,8 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
 func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	if err = s.submit(message); err != nil {
 		return err
@@ -297,8 +298,8 @@ func (s *Scheduler) GetManaFromCache(nodeID identity.ID) int64 {
 // Clear removes all submitted messages (ready or not) from the scheduler.
 // The MessageDiscarded event is triggered for each of these messages.
 func (s *Scheduler) Clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
@@ -391,8 +392,8 @@ func (s *Scheduler) Quanta(nodeID identity.ID) *big.Rat {
 }
 
 func (s *Scheduler) schedule() *Message {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
 	// updated in the middle of the execution, as it could result in negative deficit values.
 	s.AccessManaCache().RefreshCacheIfNecessary()
@@ -468,12 +469,14 @@ func (s *Scheduler) schedule() *Message {
 	// remove the message from the buffer and adjust node's deficit
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	s.updateDeficit(nodeID, new(big.Rat).SetInt64(int64(msg.Size())))
+	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(msg.Size())))
 
 	return msg.(*Message)
 }
 
 func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
 	currentNode := s.buffer.Current()
 	// use counter to avoid infinite loop in case the start element is removed
 	activeNodes := s.buffer.NumActiveNodes()
@@ -531,6 +534,8 @@ loop:
 }
 
 func (s *Scheduler) GetDeficit(nodeID identity.ID) *big.Rat {
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
 	if deficit, exists := s.deficits[nodeID]; !exists {
 		return new(big.Rat).SetInt64(0)
 	} else {
@@ -545,6 +550,9 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
 		// TODO: remove print
 		panic("scheduler: deficit is less than 0")
 	}
+
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
 	s.deficits[nodeID] = maxRat(deficit, MaxDeficit)
 }
 
