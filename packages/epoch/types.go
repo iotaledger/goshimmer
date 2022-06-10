@@ -2,14 +2,12 @@ package epoch
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/model"
-	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/serix"
-
 	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -25,6 +23,10 @@ func (e EI) Bytes() []byte {
 	}
 
 	return bytes
+}
+
+func (e EI) String() string {
+	return fmt.Sprintf("EI(%d)", e)
 }
 
 func EIFromBytes(bytes []byte) (ei EI, consumedBytes int, err error) {
@@ -123,111 +125,6 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 	}
 
 	return
-}
-
-type EpochDiffs struct {
-	orderedmap.OrderedMap[EI, *EpochDiff] `serix:"0"`
-}
-
-type EpochDiff struct {
-	model.Storable[EI, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
-}
-
-type epochDiff struct {
-	EI      EI           `serix:"0"`
-	Created utxo.Outputs `serix:"1"`
-	Spent   utxo.Outputs `serix:"2"`
-}
-
-func NewEpochDiff(ei EI) (new *EpochDiff) {
-	new = model.NewStorable[EI, EpochDiff](&epochDiff{
-		EI: ei,
-	})
-	new.SetID(ei)
-	return
-}
-
-func (e *EpochDiff) EI() EI {
-	e.RLock()
-	defer e.RUnlock()
-
-	return e.M.EI
-}
-
-func (e *EpochDiff) SetEI(ei EI) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.EI = ei
-	e.SetModified()
-}
-
-func (e *EpochDiff) AddCreated(created utxo.Output) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Created.Add(created)
-	e.SetModified()
-}
-
-func (e *EpochDiff) DeleteCreated(id utxo.OutputID) (existed bool) {
-	e.Lock()
-	defer e.Unlock()
-
-	if existed = e.M.Created.OrderedMap.Delete(id); existed {
-		e.SetModified()
-	}
-
-	return
-}
-
-func (e *EpochDiff) AddSpent(spent utxo.Output) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Spent.Add(spent)
-	e.SetModified()
-}
-
-func (e *EpochDiff) DeleteSpent(id utxo.OutputID) (existed bool) {
-	e.Lock()
-	defer e.Unlock()
-
-	if existed = e.M.Spent.OrderedMap.Delete(id); existed {
-		e.SetModified()
-	}
-
-	return
-}
-
-func (e *EpochDiff) Created() *utxo.Outputs {
-	e.RLock()
-	defer e.RUnlock()
-
-	return &utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
-}
-
-func (e *EpochDiff) SetCreated(created utxo.Outputs) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Created = created
-	e.SetModified()
-}
-
-func (e *EpochDiff) Spent() *utxo.Outputs {
-	e.RLock()
-	defer e.RUnlock()
-
-	return &utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
-}
-
-func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Spent = spent
-	e.SetModified()
 }
 
 // ECRecord is a storable object represents the ecRecord of an epoch.

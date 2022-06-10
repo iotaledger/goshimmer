@@ -28,7 +28,7 @@ type EpochCommitmentStorage struct {
 	ecRecordStorage *objectstorage.ObjectStorage[*epoch.ECRecord]
 
 	// Delta storages
-	epochDiffStorage *objectstorage.ObjectStorage[*epoch.EpochDiff]
+	epochDiffStorage *objectstorage.ObjectStorage[*ledger.EpochDiff]
 
 	// epochCommitmentStorageOptions is a dictionary for configuration parameters of the Storage.
 	epochCommitmentStorageOptions *options
@@ -60,7 +60,7 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		objectstorage.StoreOnCreation(true),
 	)
 
-	new.epochDiffStorage = objectstorage.NewStructStorage[epoch.EpochDiff](
+	new.epochDiffStorage = objectstorage.NewStructStorage[ledger.EpochDiff](
 		specializeStore(new.baseStore, PrefixEpochDiff),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
@@ -71,9 +71,9 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 }
 
 // CachedDiff retrieves cached EpochDiff of the given EI. (Make sure to Release or Consume the return object.)
-func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *epoch.EpochDiff) (cachedEpochDiff *objectstorage.CachedObject[*epoch.EpochDiff]) {
+func (s *EpochCommitmentStorage) CachedDiff(ei epoch.EI, computeIfAbsentCallback ...func(ei epoch.EI) *ledger.EpochDiff) (cachedEpochDiff *objectstorage.CachedObject[*ledger.EpochDiff]) {
 	if len(computeIfAbsentCallback) >= 1 {
-		return s.epochDiffStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *epoch.EpochDiff {
+		return s.epochDiffStorage.ComputeIfAbsent(ei.Bytes(), func(key []byte) *ledger.EpochDiff {
 			return computeIfAbsentCallback[0](ei)
 		})
 	}

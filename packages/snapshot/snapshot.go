@@ -2,13 +2,10 @@ package snapshot
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
@@ -22,12 +19,10 @@ import (
 
 type Snapshot struct {
 	LedgerSnapshot *ledger.Snapshot
-	ManaSnapshot   *mana.Snapshot
 }
 
-func (s *Snapshot) FromNode(ledger *ledger.Ledger, accessManaByNode mana.NodeMap, accessManaTime time.Time) {
+func (s *Snapshot) FromNode(ledger *ledger.Ledger) {
 	s.LedgerSnapshot = ledger.TakeSnapshot()
-	s.ManaSnapshot = s.takeManaSnapshot(accessManaByNode, accessManaTime)
 }
 
 func (s *Snapshot) FromFile(fileName string) (err error) {
@@ -45,7 +40,7 @@ func (s *Snapshot) FromFile(fileName string) (err error) {
 
 func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 	s.LedgerSnapshot = new(ledger.Snapshot)
-	consumedBytes, err := serix.DefaultAPI.Decode(context.Background(), bytes, s.LedgerSnapshot)
+	_, err = serix.DefaultAPI.Decode(context.Background(), bytes, s.LedgerSnapshot)
 	if err != nil {
 		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
@@ -57,15 +52,10 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 		outputMetadata.SetID(outputID)
 		return true
 	})
-	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *epoch.EpochDiff) bool {
+	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *ledger.EpochDiff) bool {
 		epochDiff.SetID(ei)
 		return true
 	})
-
-	s.ManaSnapshot = mana.NewSnapshot()
-	if err = s.ManaSnapshot.FromMarshalUtil(marshalutil.New(bytes[consumedBytes:])); err != nil {
-		return errors.Errorf("failed to read ManaSnapshot: %w", err)
-	}
 
 	return nil
 }
@@ -82,41 +72,13 @@ func (s *Snapshot) WriteFile(fileName string) (err error) {
 func (s *Snapshot) Bytes() (serialized []byte) {
 	return marshalutil.New().
 		WriteBytes(lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), s.LedgerSnapshot))).
-		Write(s.ManaSnapshot).
 		Bytes()
 }
 
 func (s *Snapshot) String() (humanReadable string) {
 	return stringify.Struct("Snapshot",
 		stringify.StructField("LedgerSnapshot", s.LedgerSnapshot),
-		stringify.StructField("ManaSnapshot", s.ManaSnapshot),
 	)
-}
-
-func (s *Snapshot) takeManaSnapshot(accessManaByNode mana.NodeMap, accessManaTime time.Time) (snapshot *mana.Snapshot) {
-	snapshot = &mana.Snapshot{
-		ByNodeID: make(map[identity.ID]*mana.SnapshotNode),
-	}
-
-	for nodeID, accessManaValue := range accessManaByNode {
-		snapshot.NodeSnapshot(nodeID).AccessMana = &mana.AccessManaSnapshot{
-			Value:     accessManaValue,
-			Timestamp: accessManaTime,
-		}
-	}
-
-	_ = s.LedgerSnapshot.Outputs.ForEach(func(output utxo.Output) error {
-		outputMetadata, exists := s.LedgerSnapshot.OutputsMetadata.Get(output.ID())
-		if !exists {
-			panic(fmt.Sprintf("output metadata with %s not found in snapshot", output.ID()))
-		}
-
-		s.updateConsensusManaDetails(snapshot.NodeSnapshot(outputMetadata.ConsensusManaPledgeID()), output.(devnetvm.Output), outputMetadata)
-
-		return nil
-	})
-
-	return snapshot
 }
 
 func (s *Snapshot) updateConsensusManaDetails(nodeSnapshot *mana.SnapshotNode, output devnetvm.Output, outputMetadata *ledger.OutputMetadata) {

@@ -80,9 +80,14 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		m.log.Error(err)
 	}
 
+	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
+	if err := m.epochCommitmentFactory.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 
-	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *epoch.EpochDiff) bool {
+	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *ledger.EpochDiff) bool {
 		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochDiff).Release()
 
 		_ = epochDiff.Spent().ForEach(func(spent utxo.Output) error {
@@ -129,17 +134,22 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
 	}
 
+	committingToEpoch := lastCommittedEpoch
 	if m.IsCommittable(lastCommittedEpoch + 1) {
-		lastCommittedEpoch++
-		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(lastCommittedEpoch); err != nil {
-			return nil, errors.Wrap(err, "could not set last committed epoch")
-		}
+		committingToEpoch++
 	}
 
-	if ecRecord, err = m.epochCommitmentFactory.EC(lastCommittedEpoch); err != nil {
+	if ecRecord, err = m.epochCommitmentFactory.ecRecord(committingToEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: lastCommittedEpoch})
+
+	if committingToEpoch != lastCommittedEpoch {
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(committingToEpoch); err != nil {
+			return nil, errors.Wrap(err, "could not set last committed epoch")
+		}
+
+		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: committingToEpoch})
+	}
 
 	return
 }
@@ -147,6 +157,10 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 // CommitmentFactoryEvents returns the events of CommitmentFactory.
 func (m *Manager) CommitmentFactoryEvents() *FactoryEvents {
 	return m.epochCommitmentFactory.Events
+}
+
+func (m *Manager) LatestConfirmedEpochIndex() (epoch.EI, error) {
+	return m.epochCommitmentFactory.LastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -227,8 +241,8 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei]--
 }
 
-// OnCommitmentTreeCreated progress commitment if the LastCommittedEpoch is at least two commitments behind the nex committable epoch.
-func (m *Manager) OnCommitmentTreeCreated(ei epoch.EI) {
+// OnCommitmentTreesCreated keeps commitments up-to-date if LastCommittedEpoch is at least two commitments behind the next committable epoch.
+func (m *Manager) OnCommitmentTreesCreated(ei epoch.EI) {
 	var latestCommittableEpoch epoch.EI
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -297,7 +311,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec
 		// roll the state trees
-		if _, err := m.epochCommitmentFactory.EC(ei); err != nil {
+		if _, err := m.epochCommitmentFactory.ecRecord(ei); err != nil {
 			m.log.Error(err)
 		}
 		// update last committed index
