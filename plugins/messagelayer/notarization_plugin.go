@@ -81,7 +81,7 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationManager.OnBranchRejected(event.ID)
 	}))
 	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
-		notarizationManager.OnCommitmentTreeCreated(event.EI)
+		notarizationManager.OnCommitmentTreesCreated(event.EI)
 	}))
 }
 

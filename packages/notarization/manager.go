@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -124,22 +125,28 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
+	fmt.Println(">> GetLatestEC")
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
 		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
 	}
 
+	committingToEpoch := lastCommittedEpoch
 	if m.IsCommittable(lastCommittedEpoch + 1) {
-		lastCommittedEpoch++
-		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(lastCommittedEpoch); err != nil {
-			return nil, errors.Wrap(err, "could not set last committed epoch")
-		}
+		committingToEpoch++
 	}
 
-	if ecRecord, err = m.epochCommitmentFactory.EC(lastCommittedEpoch); err != nil {
+	if ecRecord, err = m.epochCommitmentFactory.EC(committingToEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: lastCommittedEpoch})
+
+	if committingToEpoch != lastCommittedEpoch {
+		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(committingToEpoch); err != nil {
+			return nil, errors.Wrap(err, "could not set last committed epoch")
+		}
+
+		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: committingToEpoch})
+	}
 
 	return
 }
@@ -227,8 +234,8 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei]--
 }
 
-// OnCommitmentTreeCreated progress commitment if the LastCommittedEpoch is at least two commitments behind the nex committable epoch.
-func (m *Manager) OnCommitmentTreeCreated(ei epoch.EI) {
+// OnCommitmentTreesCreated keeps commitments up-to-date if LastCommittedEpoch is at least two commitments behind the next committable epoch.
+func (m *Manager) OnCommitmentTreesCreated(ei epoch.EI) {
 	var latestCommittableEpoch epoch.EI
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -294,6 +301,7 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 
 // updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
 func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.EI) {
+	fmt.Println(">> updateCommitmentsUpToLatestCommittableEpoch")
 	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec
 		// roll the state trees

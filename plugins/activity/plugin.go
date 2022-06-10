@@ -2,6 +2,7 @@ package activity
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -36,6 +37,7 @@ func configure(plugin *node.Plugin) {
 
 // broadcastActivityMessage broadcasts a sync beacon via communication layer.
 func broadcastActivityMessage() {
+	fmt.Println(">> broadcasting activity message")
 	activityPayload := payload.NewGenericDataPayload([]byte("activity"))
 	msg, err := deps.Tangle.IssuePayload(activityPayload, Parameters.ParentsCount)
 	if err != nil {

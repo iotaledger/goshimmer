@@ -577,7 +577,11 @@ type epochDiff struct {
 
 func NewEpochDiff(ei epoch.EI) (new *EpochDiff) {
 	new = model.NewStorable[epoch.EI, EpochDiff](&epochDiff{
-		EI: ei,
+		EI:              ei,
+		Created:         *utxo.NewOutputs(),
+		CreatedMetadata: NewOutputsMetadata(),
+		Spent:           *utxo.NewOutputs(),
+		SpentMetadata:   NewOutputsMetadata(),
 	})
 	new.SetID(ei)
 	return
