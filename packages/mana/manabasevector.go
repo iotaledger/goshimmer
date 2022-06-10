@@ -99,8 +99,8 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 	}
 }
 
-// LoadSnapshot loads the snapshot.
-func (m *ManaBaseVector) LoadSnapshot(snapshot map[identity.ID]float64) {
+// InitializeWithData loads the snapshot.
+func (m *ManaBaseVector) InitializeWithData(snapshot map[identity.ID]float64) {
 	//m.Lock()
 	//defer m.Unlock()
 	//

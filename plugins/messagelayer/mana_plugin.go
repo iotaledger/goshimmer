@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -196,7 +197,9 @@ func runManaPlugin(_ *node.Plugin) {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 
-				loadSnapshot(nodeSnapshot.LedgerSnapshot)
+				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
+					Plugin.Panicf("Couldn't load snapshot: %s", err)
+				}
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -752,19 +755,16 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *ledger.Snapshot) {
+func loadSnapshot(snapshot *ledger.Snapshot) error {
 	consensusManaByNode := map[identity.ID]float64{}
 	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputs utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) {
-		_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
+	processOutputs := func(outputs utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) error {
+		return snapshot.Outputs.ForEach(func(output utxo.Output) error {
 			metadata, exists := snapshot.OutputsMetadata.Get(output.ID())
 			if !exists {
-				return nil
+				return errors.Errorf("metadata not found for output %s", output.ID())
 			}
-			devnetOutput, ok := output.(devnetvm.Output)
-			if !ok {
-				return nil
-			}
+			devnetOutput := output.(devnetvm.Output)
 			var manaValue float64
 			devnetOutput.Balances().ForEach(func(_ devnetvm.Color, balance uint64) bool {
 				manaValue += float64(balance)
@@ -781,16 +781,23 @@ func loadSnapshot(snapshot *ledger.Snapshot) {
 		})
 
 	}
-	processOutputs(*snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */)
-	for i := snapshot.DiffEpochIndex; i < snapshot.FullEpochIndex; i++ {
+	if err := processOutputs(*snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */); err != nil {
+		return errors.WithStack(err)
+	}
+	for i := snapshot.FullEpochIndex; i < snapshot.DiffEpochIndex; i++ {
 		diff, exists := snapshot.EpochDiffs.Get(i)
 		if !exists {
-			continue
+			return errors.Errorf("diff with index %d not found", i)
 		}
-		processOutputs(diff.M.Created, diff.M.CreatedMetadata, true /* isCreated */)
-		processOutputs(diff.M.Spent, diff.M.SpentMetadata, false /* isCreated */)
+		if err := processOutputs(diff.M.Created, diff.M.CreatedMetadata, true /* isCreated */); err != nil {
+			return errors.WithStack(err)
+		}
+		if err := processOutputs(diff.M.Spent, diff.M.SpentMetadata, false /* isCreated */); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(consensusManaByNode)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(accessManaByNode)
+	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
+	return nil
 }
