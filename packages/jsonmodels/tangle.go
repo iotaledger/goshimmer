@@ -23,6 +23,7 @@ type Message struct {
 	PayloadType             string   `json:"payloadType"`
 	TransactionID           string   `json:"transactionID,omitempty"`
 	Payload                 []byte   `json:"payload"`
+	EC                      string   `json:"ec"`
 	EI                      uint64   `json:"ei"`
 	ECR                     string   `json:"ecr"`
 	PrevEC                  string   `json:"prevEC"`

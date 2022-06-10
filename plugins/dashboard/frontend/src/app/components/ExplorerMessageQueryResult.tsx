@@ -205,13 +205,20 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                     <h5>Epoch Commitment</h5>
                                     <ListGroup>
                                         <ListGroup.Item>
-                                            EI: {msg.ei}
+                                            EC: {msg.ec}
                                         </ListGroup.Item>
                                         <ListGroup.Item>
-                                            ECR: {msg.ecr}
-                                        </ListGroup.Item>
-                                        <ListGroup.Item>
-                                            PrevEC: {msg.prevEC}
+                                            <ListGroup>
+                                                <ListGroup.Item>
+                                                    EI: {msg.ei}
+                                                </ListGroup.Item>
+                                                <ListGroup.Item>
+                                                    ECR: {msg.ecr}
+                                                </ListGroup.Item>
+                                                <ListGroup.Item>
+                                                    PrevEC: {msg.prevEC}
+                                                </ListGroup.Item>
+                                            </ListGroup>
                                         </ListGroup.Item>
                                         <ListGroup.Item>
                                             LatestConfirmedEpoch: {msg.latestConfirmedEpoch}
