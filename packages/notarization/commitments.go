@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"hash"
 	"sync"
 
@@ -191,7 +190,6 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI) *CommitmentTree
 
 // ECR retrieves the epoch commitment root.
 func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
-	fmt.Println(">> ECR:", ei)
 	epochRoots, err := f.newEpochRoots(ei)
 	if err != nil {
 		return nil, errors.Wrap(err, "ECR could not be created")
@@ -207,7 +205,6 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 
 // ecRecord retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) ecRecord(ei epoch.EI) (ecRecord *epoch.ECRecord, err error) {
-	fmt.Println(">> EC:", ei)
 	ecRecord = epoch.NewECRecord(ei)
 	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
 		ecRecord.SetECR(record.ECR())
@@ -477,7 +474,6 @@ func (f *EpochCommitmentFactory) isNextCommittableEpoch(ei epoch.EI) (isNextComm
 		return false, errors.Errorf("failed to retrieve LastCommittedEpochIndex")
 	}
 
-	fmt.Println(">> isNextCommittableEpoch", "requested", ei, "last", lastCommittedEpochIndex)
 	return ei == lastCommittedEpochIndex+1, nil
 }
 
