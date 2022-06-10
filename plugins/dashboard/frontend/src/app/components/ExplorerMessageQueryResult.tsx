@@ -214,7 +214,7 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                                             PrevEC: {msg.prevEC}
                                         </ListGroup.Item>
                                         <ListGroup.Item>
-                                            LastConfirmedEpoch: {msg.latestConfirmedEpoch}
+                                            LatestConfirmedEpoch: {msg.latestConfirmedEpoch}
                                         </ListGroup.Item>
                                     </ListGroup>
                                 </Col>

@@ -69,10 +69,10 @@ type ExplorerMessage struct {
 	PastMarkers   string `json:"pastMarkers"`
 
 	// Epoch commitment
-	EI                 uint64 `json:"ei"`
-	ECR                string `json:"ecr"`
-	PrevEC             string `json:"prevEC"`
-	LastConfirmedEpoch uint64 `json:"lastConfirmedEpoch"`
+	EI                   uint64 `json:"ei"`
+	ECR                  string `json:"ecr"`
+	PrevEC               string `json:"prevEC"`
+	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -111,7 +111,7 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		EI:                      uint64(msg.EI()),
 		ECR:                     msg.ECR().Base58(),
 		PrevEC:                  msg.PrevEC().Base58(),
-		LastConfirmedEpoch:      uint64(msg.LatestConfirmedEpoch()),
+		LatestConfirmedEpoch:    uint64(msg.LatestConfirmedEpoch()),
 	}
 
 	if d := messageMetadata.StructureDetails(); d != nil {
