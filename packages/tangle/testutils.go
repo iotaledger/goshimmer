@@ -479,6 +479,8 @@ type MessageTestFrameworkMessageOptions struct {
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
 	overrideSequenceNumber   bool
+	ecRecord                 *epoch.ECRecord
+	latestConfirmedEpoch     epoch.EI
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -591,6 +593,20 @@ func WithSequenceNumber(sequenceNumber uint64) MessageOption {
 	}
 }
 
+// WithECRecord returns a MessageOption that is used to define the ecr of the Message.
+func WithECRecord(ecRecord *epoch.ECRecord) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.ecRecord = ecRecord
+	}
+}
+
+// WithLatestConfirmedEpoch returns a MessageOption that is used to define the latestConfirmedEpoch of the Message.
+func WithLatestConfirmedEpoch(ei epoch.EI) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.latestConfirmedEpoch = ei
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -672,9 +688,9 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 
 	if err := message.DetermineID(); err != nil {
@@ -701,9 +717,9 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 	if err != nil {
 		panic(err)
