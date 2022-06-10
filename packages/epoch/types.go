@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -22,6 +23,10 @@ func (e EI) Bytes() []byte {
 	}
 
 	return bytes
+}
+
+func (e EI) String() string {
+	return fmt.Sprintf("EI(%d)", e)
 }
 
 func EIFromBytes(bytes []byte) (ei EI, consumedBytes int, err error) {
