@@ -116,6 +116,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		countParents = parentsCount[0]
 	}
 
+	fmt.Println(">> calling CommittmentFunc from MessageFactory")
 	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
 	if epochCommitmentErr != nil {
 		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
