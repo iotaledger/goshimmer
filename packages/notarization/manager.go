@@ -141,7 +141,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 		committingToEpoch++
 	}
 
-	if ecRecord, err = m.epochCommitmentFactory.EC(committingToEpoch); err != nil {
+	if ecRecord, err = m.epochCommitmentFactory.ecRecord(committingToEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
 
@@ -314,7 +314,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec
 		// roll the state trees
-		if _, err := m.epochCommitmentFactory.EC(ei); err != nil {
+		if _, err := m.epochCommitmentFactory.ecRecord(ei); err != nil {
 			m.log.Error(err)
 		}
 		// update last committed index

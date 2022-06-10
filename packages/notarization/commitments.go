@@ -205,8 +205,8 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.EI) (ecr *epoch.ECR, err error) {
 	return &epoch.ECR{Identifier: types.NewIdentifier(root)}, nil
 }
 
-// EC retrieves the epoch commitment.
-func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ecRecord *epoch.ECRecord, err error) {
+// ecRecord retrieves the epoch commitment.
+func (f *EpochCommitmentFactory) ecRecord(ei epoch.EI) (ecRecord *epoch.ECRecord, err error) {
 	fmt.Println(">> EC:", ei)
 	ecRecord = epoch.NewECRecord(ei)
 	if f.storage.CachedECRecord(ei).Consume(func(record *epoch.ECRecord) {
@@ -224,25 +224,20 @@ func (f *EpochCommitmentFactory) EC(ei epoch.EI) (ecRecord *epoch.ECRecord, err 
 	if err != nil {
 		return nil, err
 	}
-	prevEC, err := f.EC(ei - 1)
+	prevECRecord, err := f.ecRecord(ei - 1)
 	if err != nil {
 		return nil, err
 	}
+	prevEC := EC(prevECRecord)
 
 	// Store and return.
 	f.storage.CachedECRecord(ei, epoch.NewECRecord).Consume(func(e *epoch.ECRecord) {
 		e.SetECR(ecr)
-		e.SetPrevEC(prevEC.PrevEC())
+		e.SetPrevEC(prevEC)
 		ecRecord = e
 	})
 
 	return
-}
-
-func (f *EpochCommitmentFactory) ecHash(prevEC *epoch.EC, ecr *epoch.ECR, ei epoch.EI) *epoch.EC {
-	concatenated := append(prevEC.Bytes(), ecr.Bytes()...)
-	concatenated = append(concatenated, byte(ei))
-	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
 
 // InsertStateLeaf inserts the outputID to the state sparse merkle tree.
@@ -519,6 +514,13 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.EI) (spent utxo.OutputID
 	})
 	return
 }
+
+func EC(ecRecord *epoch.ECRecord) *epoch.EC {
+	concatenated := append(ecRecord.PrevEC().Bytes(), ecRecord.ECR().Bytes()...)
+	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
+	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
+}
+
 
 type CommitmentProof struct {
 	EI    epoch.EI
