@@ -43,10 +43,10 @@ type InfoResponse struct {
 // TangleTime contains the TangleTime sync detailed status.
 type TangleTime struct {
 	MessageID string `json:"messageID"`
-	CTT       int64  `json:"time"`
-	RCTT      int64  `json:"RCTT"`
-	FTT       int64  `json:"FTT"`
-	RFTT      int64  `json:"RFTT"`
+	AT        int64  `json:"AT"`
+	RAT       int64  `json:"RAT"`
+	CT        int64  `json:"CT"`
+	RCT       int64  `json:"RCT"`
 	Synced    bool   `json:"synced"`
 }
 

@@ -349,7 +349,7 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 }
 
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
-	minSupportedTimestamp := t.tangle.TimeManager.CTT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
+	minSupportedTimestamp := t.tangle.TimeManager.AT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
 	timestampValid = true
 
 	// skip TSC check if no message has been confirmed to allow attaching to genesis

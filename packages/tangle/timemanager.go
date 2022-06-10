@@ -110,20 +110,35 @@ func (t *TimeManager) LastConfirmedMessage() LastConfirmedMessage {
 	return t.lastConfirmedMessage
 }
 
-// CTT returns the confirmed tangle Time, i.e., the issuing time of the last confirmed message.
-func (t *TimeManager) CTT() time.Time {
+// AT returns the Acceptance Time, i.e., the issuing time of the last accepted message.
+func (t *TimeManager) AT() time.Time {
 	t.lastConfirmedMutex.RLock()
 	defer t.lastConfirmedMutex.RUnlock()
 
 	return t.lastConfirmedMessage.MessageTime
 }
 
-// FTT returns the finalized tangle time. For now, it's just a stub, it actually returns CTT.
-func (t *TimeManager) FTT() time.Time {
-	return t.CTT()
+// CT returns the confirmed time, i.e. the issuing time of the last confirmed message.
+// For now, it's just a stub, it actually returns AT.
+func (t *TimeManager) CT() time.Time {
+	return t.AT()
 }
 
-// Bootstrapped returns whether the node has bootstrapped based on the difference between FTT and the current wall time which can
+// RAT return relative acceptance time, i.e., AT + time since last update of AT.
+func (t *TimeManager) RAT() time.Time {
+	now := time.Now()
+	lastConfirmedTime := t.lastConfirmedTime()
+	ctt := t.AT()
+	return ctt.Add(now.Sub(lastConfirmedTime))
+}
+
+// RCT return relative acceptance time, i.e., CT + time since last update of CT.
+// For now, it's just a stub, it actually returns RAT.
+func (t *TimeManager) RCT() time.Time {
+	return t.RAT()
+}
+
+// Bootstrapped returns whether the node has bootstrapped based on the difference between CT and the current wall time which can
 // be configured via SyncTimeWindow.
 // When the node becomes bootstrapped and this method returns true, it can't return false after that.
 func (t *TimeManager) Bootstrapped() bool {
@@ -132,7 +147,7 @@ func (t *TimeManager) Bootstrapped() bool {
 	return t.bootstrapped
 }
 
-// Synced returns whether the node is in sync based on the difference between FTT and the current wall time which can
+// Synced returns whether the node is in sync based on the difference between CT and the current wall time which can
 // be configured via SyncTimeWindow.
 func (t *TimeManager) Synced() bool {
 	t.lastSyncedMutex.RLock()
@@ -141,11 +156,11 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.FTT().Unix() == DefaultGenesisTime {
+	if t.startSynced && t.CT().Unix() == DefaultGenesisTime {
 		return true
 	}
 
-	return clock.Since(t.FTT()) < t.tangle.Options.SyncTimeWindow
+	return clock.Since(t.CT()) < t.tangle.Options.SyncTimeWindow
 }
 
 // checks whether the synced state needs to be updated and if so,
@@ -176,19 +191,6 @@ func (t *TimeManager) updateTime(message *Message) {
 		MessageTime:   message.IssuingTime(),
 		ConfirmedTime: time.Now(),
 	}
-}
-
-// RCTT return relative confirmed tangle time.
-func (t *TimeManager) RCTT() time.Time {
-	now := time.Now()
-	lastConfirmedTime := t.lastConfirmedTime()
-	ctt := t.CTT()
-	return ctt.Add(now.Sub(lastConfirmedTime))
-}
-
-// RFTT return relative finalized tangle time. For now, it's the same as RCTT.
-func (t *TimeManager) RFTT() time.Time {
-	return t.RCTT()
 }
 
 func (t *TimeManager) lastConfirmedTime() time.Time {

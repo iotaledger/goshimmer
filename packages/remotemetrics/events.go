@@ -13,7 +13,7 @@ type CollectionLogEvents struct {
 	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-func newCollectionLogEvents() (new *CollectionLogEvents) {
+func newCollectionLogEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
 		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
@@ -34,14 +34,14 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// CTT contains time of the last confirmed message
-	CTT time.Time `json:"CurrentTangleTime" bson:"CurrentTangleTime"`
-	// RCTT contains relative time of the last confirmed message
-	RCTT time.Time `json:"RelativeCurrentTangleTime" bson:"RelativeCurrentTangleTime"`
-	// FTT contains time of the last finalized message
-	FTT time.Time `json:"FinalizedTangleTime" bson:"FinalizedTangleTime"`
-	// RFTT contains relative time of the last finalized message
-	RFTT time.Time `json:"RelativeFinalizedTangleTime" bson:"RelativeFinalizedTangleTime"`
+	// AT contains time of the last confirmed message
+	AT time.Time `json:"AcceptanceTime" bson:"AcceptanceTime"`
+	// RAT contains relative time of the last confirmed message
+	RAT time.Time `json:"RelativeAcceptanceTime" bson:"RelativeAcceptanceTime"`
+	// CT contains time of the last finalized message
+	CT time.Time `json:"ConfirmedTime" bson:"ConfirmedTime"`
+	// RCT contains relative time of the last finalized message
+	RCT time.Time `json:"RelativeConfirmedTime" bson:"RelativeConfirmedTime"`
 }
 
 type SchedulerQueryEvent struct {
