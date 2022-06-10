@@ -81,6 +81,11 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		m.log.Error(err)
 	}
 
+	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
+	if err := m.epochCommitmentFactory.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 
 	snapshot.EpochDiffs.ForEach(func(_ epoch.EI, epochDiff *ledger.EpochDiff) bool {
@@ -154,6 +159,10 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 // CommitmentFactoryEvents returns the events of CommitmentFactory.
 func (m *Manager) CommitmentFactoryEvents() *FactoryEvents {
 	return m.epochCommitmentFactory.Events
+}
+
+func (m *Manager) LatestConfirmedEpochIndex() (epoch.EI, error) {
+	return m.epochCommitmentFactory.LastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.

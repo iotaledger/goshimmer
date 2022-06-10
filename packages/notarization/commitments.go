@@ -151,6 +151,26 @@ func (f *EpochCommitmentFactory) LastCommittedEpochIndex() (ei epoch.EI, err err
 	return
 }
 
+func (f *EpochCommitmentFactory) SetLastConfirmedEpochIndex(ei epoch.EI) error {
+	if err := f.storage.baseStore.Set([]byte("lastConfirmedEpochIndex"), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set lastConfirmedEpochIndex in database")
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) LastConfirmedEpochIndex() (ei epoch.EI, err error) {
+	var value []byte
+	if value, err = f.storage.baseStore.Get([]byte("lastConfirmedEpochIndex")); err != nil {
+		return ei, errors.Wrap(err, "failed to get lastConfirmedEpochIndex from database")
+	}
+
+	if ei, _, err = epoch.EIFromBytes(value); err != nil {
+		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
+	}
+
+	return
+}
+
 // NewCommitment returns an empty commitment for the epoch.
 func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.EI) *CommitmentTrees {
 	// Volatile storage for small trees
