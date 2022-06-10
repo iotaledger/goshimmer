@@ -102,7 +102,8 @@ class Branch {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number
+    gradeOfFinality: number;
+    inclusionState: string;
 }
 
 class BranchChildren {
