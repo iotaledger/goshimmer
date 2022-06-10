@@ -237,7 +237,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(1))
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -250,6 +250,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			ed25519.Signature{},
 			MessageVersion,
 		)
+		assert.NoError(t, err)
 		assert.NoError(t, msg.DetermineID())
 		msgBytes := lo.PanicOnErr(msg.Bytes())
 
@@ -399,16 +400,13 @@ func TestNewMessageWithValidation(t *testing.T) {
 				ed25519.Signature{},
 				MessageVersion,
 			)
-			assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
+			assert.Error(t, err, "messages in weak references may allow to overlap with strong references")
 		}
 
 		{
 			// check for repeating message across weak and dislike block
 			weakParents := testSortParents(randomParents(4))
-			dislikeParents := randomParents(4).Slice()
-			// create duplicate
-			dislikeParents[2] = weakParents[2]
-			dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
+			weakParents[2] = parents[2]
 
 			parentBlocks := NewParentMessageIDs()
 			parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
