@@ -353,7 +353,7 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 	timestampValid = true
 
 	// skip TSC check if no message has been confirmed to allow attaching to genesis
-	if t.tangle.TimeManager.LastConfirmedMessage().MessageID == EmptyMessageID {
+	if t.tangle.TimeManager.LastAcceptedMessage().MessageID == EmptyMessageID {
 		// if the genesis message is the last confirmed message, then there is no point in performing tangle walk
 		// return true so that the network can start issuing messages when the tangle starts
 		return true

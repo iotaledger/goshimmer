@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	lastConfirmedKey = "LastConfirmedMessage"
+	lastConfirmedKey = "LastAcceptedMessage"
 )
 
 // region TimeManager //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,11 +31,11 @@ type TimeManager struct {
 	tangle      *Tangle
 	startSynced bool
 
-	lastConfirmedMutex   sync.RWMutex
-	lastConfirmedMessage LastConfirmedMessage
-	lastSyncedMutex      sync.RWMutex
-	lastSynced           bool
-	bootstrapped         bool
+	lastAcceptedMutex   sync.RWMutex
+	lastAcceptedMessage LastMessage
+	lastSyncedMutex     sync.RWMutex
+	lastSynced          bool
+	bootstrapped        bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -51,10 +51,10 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	// initialize with Genesis
-	t.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID:     EmptyMessageID,
-		MessageTime:   time.Unix(DefaultGenesisTime, 0),
-		ConfirmedTime: time.Unix(DefaultGenesisTime, 0),
+	t.lastAcceptedMessage = LastMessage{
+		MessageID:   EmptyMessageID,
+		MessageTime: time.Unix(DefaultGenesisTime, 0),
+		UpdateTime:  time.Unix(DefaultGenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -63,7 +63,7 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	}
 	// load from storage if key was found
 	if marshaledLastConfirmedMessage != nil {
-		if t.lastConfirmedMessage, _, err = lastConfirmedMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
+		if t.lastAcceptedMessage, _, err = lastMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
 			panic(err)
 		}
 	}
@@ -90,11 +90,11 @@ func (t *TimeManager) Setup() {
 
 // Shutdown shuts down the TimeManager and persists its state.
 func (t *TimeManager) Shutdown() {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastConfirmedMessage.Bytes()); err != nil {
-		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
+	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastAcceptedMessage.Bytes()); err != nil {
+		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastAcceptedMessage (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 
@@ -102,20 +102,28 @@ func (t *TimeManager) Shutdown() {
 	t.cancel()
 }
 
-// LastConfirmedMessage returns the last confirmed message.
-func (t *TimeManager) LastConfirmedMessage() LastConfirmedMessage {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+// LastAcceptedMessage returns the last confirmed message.
+func (t *TimeManager) LastAcceptedMessage() LastMessage {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastConfirmedMessage
+	return t.lastAcceptedMessage
+}
+
+// LastConfirmedMessage returns the last confirmed message.
+func (t *TimeManager) LastConfirmedMessage() LastMessage {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
+
+	return t.lastAcceptedMessage
 }
 
 // AT returns the Acceptance Time, i.e., the issuing time of the last accepted message.
 func (t *TimeManager) AT() time.Time {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastConfirmedMessage.MessageTime
+	return t.lastAcceptedMessage.MessageTime
 }
 
 // CT returns the confirmed time, i.e. the issuing time of the last confirmed message.
@@ -127,7 +135,7 @@ func (t *TimeManager) CT() time.Time {
 // RAT return relative acceptance time, i.e., AT + time since last update of AT.
 func (t *TimeManager) RAT() time.Time {
 	now := time.Now()
-	lastConfirmedTime := t.lastConfirmedTime()
+	lastConfirmedTime := t.lastAcceptedTime()
 	ctt := t.AT()
 	return ctt.Add(now.Sub(lastConfirmedTime))
 }
@@ -180,23 +188,23 @@ func (t *TimeManager) updateSyncedState() {
 
 // updateTime updates the last confirmed message.
 func (t *TimeManager) updateTime(message *Message) {
-	t.lastConfirmedMutex.Lock()
-	defer t.lastConfirmedMutex.Unlock()
+	t.lastAcceptedMutex.Lock()
+	defer t.lastAcceptedMutex.Unlock()
 
-	if t.lastConfirmedMessage.MessageTime.After(message.IssuingTime()) {
+	if t.lastAcceptedMessage.MessageTime.After(message.IssuingTime()) {
 		return
 	}
-	t.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID:     message.ID(),
-		MessageTime:   message.IssuingTime(),
-		ConfirmedTime: time.Now(),
+	t.lastAcceptedMessage = LastMessage{
+		MessageID:   message.ID(),
+		MessageTime: message.IssuingTime(),
+		UpdateTime:  time.Now(),
 	}
 }
 
-func (t *TimeManager) lastConfirmedTime() time.Time {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
-	return t.lastConfirmedMessage.ConfirmedTime
+func (t *TimeManager) lastAcceptedTime() time.Time {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
+	return t.lastAcceptedMessage.UpdateTime
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
@@ -212,19 +220,19 @@ func (t *TimeManager) mainLoop() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LastConfirmedMessage /////////////////////////////////////////////////////////////////////////////////////////
+// region LastAcceptedMessage /////////////////////////////////////////////////////////////////////////////////////////
 
-// LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID, MessageTime and ConfirmedTime.
-type LastConfirmedMessage struct {
+// LastMessage is a wrapper type for the last confirmed message, consisting of MessageID, MessageTime and UpdateTime.
+type LastMessage struct {
 	MessageID MessageID `serix:"0"`
 	// MessageTime field is the time of the last confirmed message.
 	MessageTime time.Time `serix:"1"`
-	// ConfirmedTime field is the time when the last confirmed message was updated.
-	ConfirmedTime time.Time `serix:"2"`
+	// UpdateTime field is the time when the last confirmed message was updated.
+	UpdateTime time.Time `serix:"2"`
 }
 
-// lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
-func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
+// lastMessageFromBytes unmarshals a LastMessage object from a sequence of bytes.
+func lastMessageFromBytes(data []byte) (lcm LastMessage, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &lcm, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Background: %w", err)
@@ -233,8 +241,8 @@ func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consu
 	return
 }
 
-// Bytes returns a marshaled version of the LastConfirmedMessage.
-func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
+// Bytes returns a marshaled version of the LastMessage.
+func (l LastMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -243,12 +251,12 @@ func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	return objBytes
 }
 
-// String returns a human readable version of the LastConfirmedMessage.
-func (l LastConfirmedMessage) String() string {
-	return stringify.Struct("LastConfirmedMessage",
+// String returns a human-readable version of the LastMessage.
+func (l LastMessage) String() string {
+	return stringify.Struct("LastMessage",
 		stringify.StructField("MessageID", l.MessageID),
 		stringify.StructField("MessageTime", l.MessageTime),
-		stringify.StructField("ConfirmedTime", l.ConfirmedTime),
+		stringify.StructField("UpdateTime", l.UpdateTime),
 	)
 }
 

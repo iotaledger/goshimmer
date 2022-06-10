@@ -189,8 +189,6 @@ const (
 	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgTypeMsgOpinionFormed defines a tip info message.
-	MsgTypeMsgOpinionFormed
 	// MsgTypeChat defines a chat message.
 	MsgTypeChat
 	// MsgTypeConflictsConflict defines a message that contains a conflict update for the conflict tab.
@@ -225,7 +223,8 @@ type tangleTime struct {
 	CT     int64 `json:"CT"`
 	RCT    int64 `json:"RCT"`
 
-	MessageID string `json:"messageID"`
+	AcceptedMessageID  string `json:"acceptedMessageID"`
+	ConfirmedMessageID string `json:"confirmedMessageID"`
 }
 
 type memmetrics struct {
@@ -318,14 +317,14 @@ func currentNodeStatus() *nodestatus {
 
 	// get TangleTime
 	tm := deps.Tangle.TimeManager
-	lcm := tm.LastConfirmedMessage()
 	status.TangleTime = tangleTime{
-		Synced:    tm.Synced(),
-		MessageID: lcm.MessageID.Base58(),
-		AT:        tm.AT().UnixNano(),
-		RAT:       tm.RAT().UnixNano(),
-		CT:        tm.CT().UnixNano(),
-		RCT:       tm.RCT().UnixNano(),
+		Synced:             tm.Synced(),
+		AcceptedMessageID:  tm.LastAcceptedMessage().MessageID.Base58(),
+		ConfirmedMessageID: tm.LastConfirmedMessage().MessageID.Base58(),
+		AT:                 tm.AT().UnixNano(),
+		RAT:                tm.RAT().UnixNano(),
+		CT:                 tm.CT().UnixNano(),
+		RCT:                tm.RCT().UnixNano(),
 	}
 	return status
 }

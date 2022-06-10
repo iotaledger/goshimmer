@@ -39,7 +39,7 @@ type TangleTimeSyncChangedEvent struct {
 	// RAT contains relative time of the last confirmed message
 	RAT time.Time `json:"RelativeAcceptanceTime" bson:"RelativeAcceptanceTime"`
 	// CT contains time of the last finalized message
-	CT time.Time `json:"ConfirmedTime" bson:"ConfirmedTime"`
+	CT time.Time `json:"UpdateTime" bson:"UpdateTime"`
 	// RCT contains relative time of the last finalized message
 	RCT time.Time `json:"RelativeConfirmedTime" bson:"RelativeConfirmedTime"`
 }

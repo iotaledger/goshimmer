@@ -21,7 +21,9 @@ class TangleTime {
     RAT: number;
     CT: number;
     RCT: number;
-    messageID: string;
+    acceptedMessageID: string;
+    confirmedMessageID: string;
+
 }
 
 class MemoryMetrics {

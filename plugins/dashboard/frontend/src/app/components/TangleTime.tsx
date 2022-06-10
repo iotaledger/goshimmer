@@ -21,28 +21,42 @@ export default class TangleTime extends React.Component<Props, any> {
                     <small>
                         <div>
                             <hr/>
-                            <div>Message: <Link
-                                to={`/explorer/message/${this.props.nodeStore.status.tangleTime.messageID}`}>
-                                {this.props.nodeStore.status.tangleTime.messageID}
-                            </Link></div>
                             <div className={"row"}>
-                                <div className={"col"}>
-                                    Acceptance
-                                    Time:&nbsp;&nbsp;&nbsp;{dateformat(new Date(this.props.nodeStore.status.tangleTime.AT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                <div className={"col"}>Last Accepted Message: <Link
+                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.acceptedMessageID}`}>
+                                    {this.props.nodeStore.status.tangleTime.acceptedMessageID}
+                                </Link></div>
+                                <div className={"col"}>Last Confirmed Message: <Link
+                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.confirmedMessageID}`}>
+                                    {this.props.nodeStore.status.tangleTime.confirmedMessageID}
+                                </Link></div>
+                            </div>
+                            <div className={"row"}>
+                                <div className={"col-3"}>
+                                    Acceptance Time:
                                 </div>
-                                <div className={"col"}>
-                                    Relative Acceptance
-                                    Time:&nbsp;&nbsp;&nbsp;{dateformat(new Date(this.props.nodeStore.status.tangleTime.RAT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.AT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                                <div className={"col-3"}>
+                                    Confirmation Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.CT / 1000000), "dd.mm.yyyy HH:MM:ss")}
                                 </div>
                             </div>
                             <div className={"row"}>
-                                <div className={"col"}>
-                                    Confirmation
-                                    Time: {dateformat(new Date(this.props.nodeStore.status.tangleTime.CT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                <div className={"col-3"}>
+                                    Relative Acceptance Time:
                                 </div>
-                                <div className={"col"}>
-                                    Relative Confirmation
-                                    Time: {dateformat(new Date(this.props.nodeStore.status.tangleTime.RCT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.RAT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                                <div className={"col-3"}>
+                                    Relative Confirmation Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.RCT / 1000000), "dd.mm.yyyy HH:MM:ss")}
                                 </div>
                             </div>
                         </div>

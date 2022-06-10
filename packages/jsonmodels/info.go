@@ -42,12 +42,12 @@ type InfoResponse struct {
 
 // TangleTime contains the TangleTime sync detailed status.
 type TangleTime struct {
-	MessageID string `json:"messageID"`
-	AT        int64  `json:"AT"`
-	RAT       int64  `json:"RAT"`
-	CT        int64  `json:"CT"`
-	RCT       int64  `json:"RCT"`
-	Synced    bool   `json:"synced"`
+	AcceptedMessageID string `json:"messageID"`
+	AT                int64  `json:"AT"`
+	RAT               int64  `json:"RAT"`
+	CT                int64  `json:"CT"`
+	RCT               int64  `json:"RCT"`
+	Synced            bool   `json:"synced"`
 }
 
 // Mana contains the different mana values of the node.
