@@ -81,7 +81,7 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 		notarizationManager.OnBranchRejected(event.ID)
 	}))
 	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
-		notarizationManager.OnCommitmentTreeCreated(event.EI)
+		notarizationManager.OnCommitmentTreesCreated(event.EI)
 	}))
 }
 
@@ -104,6 +104,11 @@ func newNotarizationManager(deps notarizationDependencies) *notarization.Manager
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() (*epoch.ECRecord, error) {
-	return notarizationManager.GetLatestEC()
+func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.EI, err error) {
+	ecRecord, err = notarizationManager.GetLatestEC()
+	if err != nil {
+		return
+	}
+	latestConfirmedEpoch, err = notarizationManager.LatestConfirmedEpochIndex()
+	return
 }

@@ -19,9 +19,6 @@ func TestEpochManager(t *testing.T) {
 		ei := manager.TimeToEI(testTime)
 		assert.Equal(t, ei, epoch.EI(0))
 
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
-
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Unix(), 0))
 		endTime := manager.EIToEndTime(ei)
@@ -33,9 +30,6 @@ func TestEpochManager(t *testing.T) {
 		testTime := genesisTime.Add(10 * time.Second)
 		ei := manager.TimeToEI(testTime)
 		assert.Equal(t, ei, epoch.EI(1))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
 
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(10*time.Second).Unix(), 0))
@@ -49,9 +43,6 @@ func TestEpochManager(t *testing.T) {
 		ei := manager.TimeToEI(testTime)
 		assert.Equal(t, ei, epoch.EI(3))
 
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
-
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(30*time.Second).Unix(), 0))
 		endTime := manager.EIToEndTime(ei)
@@ -64,8 +55,6 @@ func TestEpochManager(t *testing.T) {
 		ei := manager.TimeToEI(testTime)
 		assert.Equal(t, ei, epoch.EI(4))
 
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(2))
 	}
 
 	{
@@ -73,8 +62,5 @@ func TestEpochManager(t *testing.T) {
 		testTime := genesisTime.Add(-10 * time.Second)
 		ei := manager.TimeToEI(testTime)
 		assert.Equal(t, ei, epoch.EI(0))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
 	}
 }

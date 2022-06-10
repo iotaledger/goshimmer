@@ -200,6 +200,35 @@ export class ExplorerMessageQueryResult extends React.Component<Props, any> {
                         </Row>
 
                         {
+                            <Row className={"mb-3"}>
+                                <Col>
+                                    <h5>Epoch Commitment</h5>
+                                    <ListGroup>
+                                        <ListGroup.Item>
+                                            EC: {msg.ec}
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            <ListGroup>
+                                                <ListGroup.Item>
+                                                    EI: {msg.ei}
+                                                </ListGroup.Item>
+                                                <ListGroup.Item>
+                                                    ECR: {msg.ecr}
+                                                </ListGroup.Item>
+                                                <ListGroup.Item>
+                                                    PrevEC: {msg.prevEC}
+                                                </ListGroup.Item>
+                                            </ListGroup>
+                                        </ListGroup.Item>
+                                        <ListGroup.Item>
+                                            LatestConfirmedEpoch: {msg.latestConfirmedEpoch}
+                                        </ListGroup.Item>
+                                    </ListGroup>
+                                </Col>
+                            </Row>
+                        }
+
+                        {
                             !!msg.rank &&
                             <Row className={"mb-3"}>
                                 <Col>
