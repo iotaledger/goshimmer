@@ -45,84 +45,13 @@ func (m *ManaBaseVector) Has(nodeID identity.ID) bool {
 	return exists
 }
 
-// // BuildPastBaseVector builds a consensus base mana vector from past events upto time `t`.
-// // `eventLogs` is expected to be sorted chronologically.
-// func (c *ConsensusBaseManaVector) BuildPastBaseVector(eventsLog []Event, t time.Time) error {
-//	if m.vector == nil {
-//		m.vector = make(map[identity.ID]*ConsensusBaseMana)
-//	}
-//	for _, _ev := range eventsLog {
-//		switch _ev.Type() {
-//		case EventTypePledge:
-//			ev := _ev.(*PledgedEvent)
-//			if ev.Time.After(t) {
-//				return nil
-//			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
-//			}
-//			m.vector[ev.NodeID].pledge(txInfoFromPledgeEvent(ev))
-//		case EventTypeRevoke:
-//			ev := _ev.(*RevokedEvent)
-//			if ev.Time.After(t) {
-//				return nil
-//			}
-//			if _, exist := m.vector[ev.NodeID]; !exist {
-//				m.vector[ev.NodeID] = &ConsensusBaseMana{}
-//			}
-//			err := m.vector[ev.NodeID].revoke(ev.Amount, ev.Time)
-//			if err != nil {
-//				return err
-//			}
-//		}
-//	}
-//	return nil
-// }
-
-func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
-	return &TxInfo{
-		TimeStamp:     ev.Time,
-		TransactionID: ev.TransactionID,
-		TotalBalance:  ev.Amount,
-		PledgeID: map[Type]identity.ID{
-			ConsensusMana: ev.NodeID,
-		},
-		InputInfos: []InputInfo{
-			{
-				TimeStamp: ev.Time,
-				Amount:    ev.Amount,
-				PledgeID: map[Type]identity.ID{
-					ConsensusMana: ev.NodeID,
-				},
-			},
-		},
+// InitializeWithData initializes the mana vector data.
+func (m *ManaBaseVector) InitializeWithData(dataByNode map[identity.ID]float64) {
+	m.Lock()
+	defer m.Unlock()
+	for nodeID, value := range dataByNode {
+		m.M.Vector[nodeID] = NewManaBase(value)
 	}
-}
-
-// InitializeWithData loads the snapshot.
-func (m *ManaBaseVector) InitializeWithData(snapshot map[identity.ID]float64) {
-	//m.Lock()
-	//defer m.Unlock()
-	//
-	//for nodeID, records := range snapshot {
-	//	var value float64
-	//	for _, record := range records.SortedTxSnapshot {
-	//		value += record.Value
-	//
-	//		// trigger event
-	//		Events.Pledged.Trigger(&PledgedEvent{
-	//			NodeID:        nodeID,
-	//			Amount:        record.Value,
-	//			Time:          record.Timestamp,
-	//			ManaType:      m.Type(),
-	//			TransactionID: record.TxID,
-	//		})
-	//	}
-	//
-	//	m.vector[nodeID] = &ConsensusBaseMana{
-	//		BaseMana1: value,
-	//	}
-	//}
 }
 
 // Book books mana for a transaction.
