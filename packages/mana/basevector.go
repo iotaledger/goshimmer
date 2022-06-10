@@ -3,7 +3,6 @@ package mana
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -20,14 +19,10 @@ type BaseManaVector interface {
 	InitializeWithData(map[identity.ID]float64)
 	// Book books mana into the base mana vector.
 	Book(*TxInfo)
-	// Update updates the mana entries for a particular node wrt time.
-	Update(identity.ID, time.Time) error
-	// UpdateAll updates all entries in the base mana vector wrt to time.
-	UpdateAll(time.Time) error
 	// GetMana returns the mana value of a node with default weights.
-	GetMana(identity.ID, ...time.Time) (float64, time.Time, error)
+	GetMana(identity.ID) (float64, time.Time, error)
 	// GetManaMap returns the map derived from the vector.
-	GetManaMap(...time.Time) (NodeMap, time.Time, error)
+	GetManaMap() (NodeMap, time.Time, error)
 	// GetHighestManaNodes returns the n highest mana nodes in descending order.
 	GetHighestManaNodes(uint) ([]Node, time.Time, error)
 	// GetHighestManaNodesFraction returns the highest mana that own 'p' percent of total mana.
@@ -45,13 +40,6 @@ type BaseManaVector interface {
 }
 
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.
-func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
-	switch vectorType {
-	case AccessMana:
-		return model.NewMutable[AccessBaseManaVector](&accessBaseManaVectorModel{Vector: make(map[identity.ID]*AccessBaseMana)}), nil
-	case ConsensusMana:
-		return model.NewMutable[ConsensusBaseManaVector](&consensusBaseManaVectorModel{Vector: make(map[identity.ID]*ConsensusBaseMana)}), nil
-	default:
-		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
-	}
+func NewBaseManaVector() BaseManaVector {
+	return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{Vector: make(map[identity.ID]*ManaBase)})
 }

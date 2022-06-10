@@ -125,6 +125,4 @@ func collectManaMetrics() {
 	for nodeID, value := range consensusPledges {
 		averageConsensusPledge.WithLabelValues(nodeID.String(), "bm1").Set(value)
 	}
-
-	delegatedMana.Set(float64(metrics.DelegatedMana()))
 }
