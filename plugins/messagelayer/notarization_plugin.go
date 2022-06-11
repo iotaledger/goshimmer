@@ -80,9 +80,6 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
 		notarizationManager.OnBranchRejected(event.ID)
 	}))
-	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
-		notarizationManager.OnCommitmentTreesCreated(event.EI)
-	}))
 }
 
 func runNotarizationPlugin(*node.Plugin) {
@@ -99,7 +96,7 @@ func newNotarizationManager(deps notarizationDependencies) *notarization.Manager
 		notarization.NewEpochManager(),
 		notarization.NewEpochCommitmentFactory(deps.Storage, new(devnetvm.VM), deps.Tangle),
 		notarizationDeps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
 		notarization.Log(Plugin.Logger()))
 }
 

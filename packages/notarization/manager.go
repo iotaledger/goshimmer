@@ -18,25 +18,26 @@ import (
 )
 
 const (
-	minEpochCommittableDuration = 24 * time.Minute
+	defaultMinEpochCommittableAge = 1 * time.Minute
 )
 
 // Manager is the notarization manager.
 type Manager struct {
-	tangle                 *tangle.Tangle
-	epochManager           *EpochManager
-	epochCommitmentFactory *EpochCommitmentFactory
-	options                *ManagerOptions
-	pendingConflictsCount  map[epoch.EI]uint64
-	pccMutex               sync.RWMutex
-	log                    *logger.Logger
-	Events                 *Events
+	tangle                      *tangle.Tangle
+	epochManager                *EpochManager
+	epochCommitmentFactory      *EpochCommitmentFactory
+	epochCommitmentFactoryMutex sync.RWMutex
+	options                     *ManagerOptions
+	pendingConflictsCount       map[epoch.EI]uint64
+	pccMutex                    sync.RWMutex
+	log                         *logger.Logger
+	Events                      *Events
 }
 
 // NewManager creates and returns a new notarization manager.
 func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, tangle *tangle.Tangle, opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
-		MinCommittableEpochAge: minEpochCommittableDuration,
+		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
 	}
 	for _, option := range opts {
@@ -130,35 +131,31 @@ func (m *Manager) IsCommittable(ei epoch.EI) bool {
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	fmt.Println(">> GetLatestEC")
-	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
-	if lastCommittedEpochErr != nil {
-		return nil, errors.Wrap(lastCommittedEpochErr, "could not get last committed epoch")
+	lastCommittedEpoch, latestCommittableEpoch, lastCommittableEpochErr := m.latestCommittableEpoch()
+	if lastCommittableEpochErr != nil {
+		return nil, errors.Wrap(lastCommittableEpochErr, "could not get last committable epoch")
 	}
 
-	committingToEpoch := lastCommittedEpoch
-	if m.IsCommittable(lastCommittedEpoch + 1) {
-		committingToEpoch++
+	if updateErr := m.updateCommitmentsUpToLatestCommittableEpoch(lastCommittedEpoch, latestCommittableEpoch); updateErr != nil {
+		err = errors.Wrap(updateErr, "could not update commitments up to latest committable epoch")
+		return nil, err
 	}
 
-	if ecRecord, err = m.epochCommitmentFactory.ecRecord(committingToEpoch); err != nil {
+	if ecRecord, err = m.epochCommitmentFactory.ecRecord(latestCommittableEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
 
-	if committingToEpoch != lastCommittedEpoch {
-		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(committingToEpoch); err != nil {
-			return nil, errors.Wrap(err, "could not set last committed epoch")
-		}
-
-		m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: committingToEpoch})
+	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
+		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
 
-	return
-}
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
 
-// CommitmentFactoryEvents returns the events of CommitmentFactory.
-func (m *Manager) CommitmentFactoryEvents() *FactoryEvents {
-	return m.epochCommitmentFactory.Events
+	return
 }
 
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.EI, error) {
@@ -167,6 +164,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.EI, error) {
 
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+	fmt.Println(">> OnMessageConfirmed")
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	err := m.epochCommitmentFactory.InsertTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
@@ -176,6 +174,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 
 // OnMessageOrphaned is the handler for message orphaned event.
 func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+	fmt.Println(">> OnMessageOrphaned")
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	err := m.epochCommitmentFactory.RemoveTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
@@ -186,6 +185,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
 func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
+	fmt.Println(">> OnTransactionConfirmed")
 	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
 	ei := m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	err := m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
@@ -197,6 +197,7 @@ func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	fmt.Println(">> OnTransactionInclusionUpdated")
 	prevEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
 	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
 
@@ -218,6 +219,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
+	fmt.Println(">> OnBranchConfirmed")
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -227,6 +229,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
+	fmt.Println(">> OnBranchCreated")
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -236,6 +239,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 
 // OnBranchRejected is the handler for branch created event.
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
+	fmt.Println(">> OnBranchRejected")
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
 
@@ -243,25 +247,29 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pendingConflictsCount[ei]--
 }
 
-// OnCommitmentTreesCreated keeps commitments up-to-date if LastCommittedEpoch is at least two commitments behind the next committable epoch.
-func (m *Manager) OnCommitmentTreesCreated(ei epoch.EI) {
-	var latestCommittableEpoch epoch.EI
+func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.EI, err error) {
+	currentEpoch := m.epochManager.TimeToEI(time.Now())
+
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
-		m.log.Error(lastCommittedEpochErr)
+		err = errors.Wrap(lastCommittedEpochErr, "could not obtain last committed epoch index")
 		return
 	}
 
-	for currentEi := lastCommittedEpoch; currentEi < ei; currentEi++ {
-		if m.IsCommittable(currentEi) {
-			latestCommittableEpoch = currentEi
+	for ei := lastCommittedEpoch; ei < currentEpoch; ei++ {
+		if m.IsCommittable(ei) {
+			latestCommittableEpoch = ei
 			continue
 		}
 		break
 	}
-	if latestCommittableEpoch-lastCommittedEpoch > 1 {
-		m.updateCommitmentsUpToLatestCommittableEpoch(lastCommittedEpoch, latestCommittableEpoch)
+
+	if latestCommittableEpoch == currentEpoch {
+		err = errors.Errorf("latestCommittableEpoch cannot be current epoch")
+		return
 	}
+
+	return lastCommittedEpoch, latestCommittableEpoch, nil
 }
 
 func (m *Manager) storeTXDiff(ei epoch.EI, tx *devnetvm.Transaction) {
@@ -309,20 +317,26 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 }
 
 // updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
-func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.EI) {
-	fmt.Println(">> updateCommitmentsUpToLatestCommittableEpoch")
-	for ei := lastCommitted + 1; ei < latestCommittable; ei++ {
+func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.EI) (err error) {
+	fmt.Println("\t>> updateCommitmentsUpToLatestCommittableEpoch", lastCommitted, latestCommittable)
+
+	var ei epoch.EI
+	for ei = lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec
 		// roll the state trees
-		if _, err := m.epochCommitmentFactory.ecRecord(ei); err != nil {
-			m.log.Error(err)
+		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
+			err = errors.Wrapf(ecRecordErr, "could not update committments for epoch %d", ei)
+			return
 		}
+
 		// update last committed index
-		if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(ei); err != nil {
-			m.log.Error(err)
+		if setLastCommittedEpochIndexErr := m.epochCommitmentFactory.SetLastCommittedEpochIndex(ei); setLastCommittedEpochIndexErr != nil {
+			err = errors.Wrap(setLastCommittedEpochIndexErr, "could not set last committed epoch")
+			return
 		}
 	}
 
+	return
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.

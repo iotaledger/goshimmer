@@ -141,7 +141,9 @@ type ecRecord struct {
 // NewECRecord creates and returns a ECRecord of the given EI.
 func NewECRecord(ei EI) (new *ECRecord) {
 	new = model.NewStorable[EI, ECRecord](&ecRecord{
-		EI: ei,
+		EI:     ei,
+		ECR:    &MerkleRoot{},
+		PrevEC: &MerkleRoot{},
 	})
 	new.SetID(ei)
 	return

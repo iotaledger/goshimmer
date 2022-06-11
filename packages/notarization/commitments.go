@@ -7,7 +7,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/hive.go/generics/event"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -60,8 +59,6 @@ type EpochCommitmentFactory struct {
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
-
-	Events *FactoryEvents
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -80,9 +77,6 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, vm vm.VM, tangle *tangle.T
 		hasher:          hasher,
 		tangle:          tangle,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
-		Events: &FactoryEvents{
-			NewCommitmentTreesCreated: event.New[*CommitmentTreesCreatedEvent](),
-		},
 	}
 }
 
@@ -216,9 +210,6 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.EI) (ecRecord *epoch.ECRecord
 		return ecRecord, nil
 	}
 
-	f.commitmentsMutex.Lock()
-	defer f.commitmentsMutex.Unlock()
-
 	// We never committed this epoch before, create and roll to a new epoch.
 	ecr, err := f.ECR(ei)
 	if err != nil {
@@ -329,7 +320,8 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.Mess
 }
 
 // newEpochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
-func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.EI) (roots *CommitmentRoots, commitmentTreesErr error) {
+func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.EI) (commitmentRoots *CommitmentRoots, commitmentTreesErr error) {
+	fmt.Println(">> newEpochRoots", ei)
 	// TODO: what if a node restarts and we have incomplete trees?
 	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
 	if commitmentTreesErr != nil {
@@ -347,14 +339,15 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.EI) (roots *CommitmentRo
 		return nil, errors.Wrapf(err, "could not commit ledger state for epoch %d", ei)
 	}
 
-	roots = &CommitmentRoots{}
-	roots.EI = ei
+	commitmentRoots = &CommitmentRoots{
+		EI: ei,
+	}
 
-	copy(roots.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
-	copy(roots.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
-	copy(roots.stateRoot.Bytes(), stateRoot)
+	copy(commitmentRoots.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
+	copy(commitmentRoots.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
+	copy(commitmentRoots.stateRoot.Bytes(), stateRoot)
 
-	return roots, nil
+	return commitmentRoots, nil
 }
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
@@ -379,11 +372,11 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.EI) (err error) {
 }
 
 func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.EI) (commitmentTrees *CommitmentTrees, err error) {
+	fmt.Println(">> getCommitmentTrees", ei)
 	commitmentTrees, ok := f.commitmentTrees[ei]
 	if !ok {
 		commitmentTrees = f.newCommitmentTrees(ei)
 		f.commitmentTrees[ei] = commitmentTrees
-		f.Events.NewCommitmentTreesCreated.Trigger(&CommitmentTreesCreatedEvent{EI: ei})
 	}
 	return
 }
@@ -438,14 +431,6 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 }
 
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, err error) {
-	isNextCommittableEpoch, isNextCommittableEpochErr := f.isNextCommittableEpoch(ei)
-	if isNextCommittableEpochErr != nil {
-		return nil, errors.Wrap(isNextCommittableEpochErr, "could not determine if next epoch is committable")
-	}
-	if !isNextCommittableEpoch {
-		return nil, errors.Errorf("getting the state root of not next committable epoch is not supported")
-	}
-
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spent, created := f.loadDiffUTXOs(ei)
 	if spent == nil || created == nil {
@@ -469,16 +454,6 @@ func (f *EpochCommitmentFactory) newStateRoot(ei epoch.EI) (stateRoot []byte, er
 	}
 
 	return f.StateRoot(), nil
-}
-
-func (f *EpochCommitmentFactory) isNextCommittableEpoch(ei epoch.EI) (isNextCommittableEpoch bool, err error) {
-	lastCommittedEpochIndex, lastCommittedEpochIndexErr := f.LastCommittedEpochIndex()
-	if lastCommittedEpochIndexErr != nil {
-		return false, errors.Errorf("failed to retrieve LastCommittedEpochIndex")
-	}
-
-	fmt.Println(">> isNextCommittableEpoch", "requested", ei, "last", lastCommittedEpochIndex)
-	return ei == lastCommittedEpochIndex+1, nil
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.EI, spent utxo.OutputIDs, created devnetvm.Outputs) {
@@ -521,21 +496,8 @@ func EC(ecRecord *epoch.ECRecord) *epoch.EC {
 	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
 
-
 type CommitmentProof struct {
 	EI    epoch.EI
 	proof smt.SparseMerkleProof
 	root  []byte
-}
-
-// FactoryEvents is a container that acts as a dictionary for the existing events of a commitment factory.
-type FactoryEvents struct {
-	// EpochCommitted is an event that gets triggered whenever a new commitment trees are created and start to be updated.
-	NewCommitmentTreesCreated *event.Event[*CommitmentTreesCreatedEvent]
-}
-
-// CommitmentTreesCreatedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
-type CommitmentTreesCreatedEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.EI
 }

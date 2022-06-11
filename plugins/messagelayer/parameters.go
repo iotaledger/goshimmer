@@ -66,8 +66,8 @@ type SchedulerParametersDefinition struct {
 
 // NotarizationParameterDefinition contains the definition of the parameters used by the notarization plugin.
 type NotarizationParameterDefinition struct {
-	// MinEpochCommitableDuration defines the min age of a commitable epoch.
-	MinEpochCommitableDuration time.Duration `default:"24m" usage:"min age of a commitable epoch"`
+	// MinEpochCommitableAge defines the min age of a commitable epoch.
+	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.

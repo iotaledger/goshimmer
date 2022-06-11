@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
@@ -76,7 +75,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 func testNotarizationManager() *Manager {
 	t := time.Now().Add(-25 * time.Minute).Unix()
 	testTangle := tangle.NewTestTangle()
-	interval := int64(5 * 60)
+	interval := 5 * time.Minute
 	vm := new(devnetvm.VM)
-	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
+	return NewManager(NewEpochManager(GenesisTime(t), Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
 }
