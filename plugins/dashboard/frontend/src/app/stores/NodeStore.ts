@@ -17,10 +17,10 @@ class Status {
 
 class TangleTime {
     synced: boolean;
-    AT: number;
-    RAT: number;
-    CT: number;
-    RCT: number;
+    ATT: number;
+    RATT: number;
+    CTT: number;
+    RCTT: number;
     acceptedMessageID: string;
     confirmedMessageID: string;
 
@@ -183,10 +183,10 @@ export class NodeStore {
 
     constructor() {
         this.status.tangleTime = new TangleTime;
-        this.status.tangleTime.AT = 0;
-        this.status.tangleTime.RAT = 0;
-        this.status.tangleTime.CT = 0;
-        this.status.tangleTime.RCT = 0;
+        this.status.tangleTime.ATT = 0;
+        this.status.tangleTime.RATT = 0;
+        this.status.tangleTime.CTT = 0;
+        this.status.tangleTime.RCTT = 0;
         this.registerHandlers();
     }
 

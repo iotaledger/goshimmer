@@ -34,14 +34,14 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// AT contains time of the last confirmed message
-	AT time.Time `json:"AcceptanceTime" bson:"AcceptanceTime"`
-	// RAT contains relative time of the last confirmed message
-	RAT time.Time `json:"RelativeAcceptanceTime" bson:"RelativeAcceptanceTime"`
-	// CT contains time of the last finalized message
-	CT time.Time `json:"UpdateTime" bson:"UpdateTime"`
-	// RCT contains relative time of the last finalized message
-	RCT time.Time `json:"RelativeConfirmedTime" bson:"RelativeConfirmedTime"`
+	// ATT contains time of the last accepted message
+	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
+	// RATT contains relative time of the last accepted message
+	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
+	// CTT contains time of the last confirmed message
+	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
+	// RCTT contains relative time of the last confirmed message
+	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
 type SchedulerQueryEvent struct {

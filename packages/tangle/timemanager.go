@@ -118,35 +118,35 @@ func (t *TimeManager) LastConfirmedMessage() LastMessage {
 	return t.lastAcceptedMessage
 }
 
-// AT returns the Acceptance Time, i.e., the issuing time of the last accepted message.
-func (t *TimeManager) AT() time.Time {
+// ATT returns the Acceptance Tangle Time, i.e., the issuing time of the last accepted message.
+func (t *TimeManager) ATT() time.Time {
 	t.lastAcceptedMutex.RLock()
 	defer t.lastAcceptedMutex.RUnlock()
 
 	return t.lastAcceptedMessage.MessageTime
 }
 
-// CT returns the confirmed time, i.e. the issuing time of the last confirmed message.
-// For now, it's just a stub, it actually returns AT.
-func (t *TimeManager) CT() time.Time {
-	return t.AT()
+// CTT returns the confirmed tangle time, i.e. the issuing time of the last confirmed message.
+// For now, it's just a stub, it actually returns ATT.
+func (t *TimeManager) CTT() time.Time {
+	return t.ATT()
 }
 
-// RAT return relative acceptance time, i.e., AT + time since last update of AT.
-func (t *TimeManager) RAT() time.Time {
+// RATT return relative acceptance tangle time, i.e., ATT + time since last update of ATT.
+func (t *TimeManager) RATT() time.Time {
 	now := time.Now()
 	lastConfirmedTime := t.lastAcceptedTime()
-	ctt := t.AT()
+	ctt := t.ATT()
 	return ctt.Add(now.Sub(lastConfirmedTime))
 }
 
-// RCT return relative acceptance time, i.e., CT + time since last update of CT.
-// For now, it's just a stub, it actually returns RAT.
-func (t *TimeManager) RCT() time.Time {
-	return t.RAT()
+// RCTT return relative acceptance tangle time, i.e., CTT + time since last update of CTT.
+// For now, it's just a stub, it actually returns RATT.
+func (t *TimeManager) RCTT() time.Time {
+	return t.RATT()
 }
 
-// Bootstrapped returns whether the node has bootstrapped based on the difference between CT and the current wall time which can
+// Bootstrapped returns whether the node has bootstrapped based on the difference between CTT and the current wall time which can
 // be configured via SyncTimeWindow.
 // When the node becomes bootstrapped and this method returns true, it can't return false after that.
 func (t *TimeManager) Bootstrapped() bool {
@@ -155,7 +155,7 @@ func (t *TimeManager) Bootstrapped() bool {
 	return t.bootstrapped
 }
 
-// Synced returns whether the node is in sync based on the difference between CT and the current wall time which can
+// Synced returns whether the node is in sync based on the difference between CTT and the current wall time which can
 // be configured via SyncTimeWindow.
 func (t *TimeManager) Synced() bool {
 	t.lastSyncedMutex.RLock()
@@ -164,11 +164,11 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.CT().Unix() == DefaultGenesisTime {
+	if t.startSynced && t.CTT().Unix() == DefaultGenesisTime {
 		return true
 	}
 
-	return clock.Since(t.CT()) < t.tangle.Options.SyncTimeWindow
+	return clock.Since(t.CTT()) < t.tangle.Options.SyncTimeWindow
 }
 
 // checks whether the synced state needs to be updated and if so,
