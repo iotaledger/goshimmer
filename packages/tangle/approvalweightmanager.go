@@ -155,19 +155,20 @@ func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
 // computes the branches that will receive additional weight, the ones that will see their weight revoked, and if the
 // result constitutes an overrall valid state transition.
 func (a *ApprovalWeightManager) determineVotes(votedBranchIDs *set.AdvancedSet[utxo.TransactionID], vote *BranchVote) (addedBranches, revokedBranches *set.AdvancedSet[utxo.TransactionID], isInvalid bool) {
-	addedBranches = set.NewAdvancedSet[utxo.TransactionID]()
+	addedBranches = utxo.NewTransactionIDs()
 	for it := votedBranchIDs.Iterator(); it.HasNext(); {
 		votedBranchID := it.Next()
-		conflictingBranchWithHigherVoteExists := false
-		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
-			conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
-
-			return !conflictingBranchWithHigherVoteExists
-		})
-
-		if conflictingBranchWithHigherVoteExists {
-			continue
-		}
+		// TODO: do not exit earlier to always determine subjectively invalid messages correctly
+		// conflictingBranchWithHigherVoteExists := false
+		// a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
+		// 	conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
+		//
+		// 	return !conflictingBranchWithHigherVoteExists
+		// })
+		//
+		// if conflictingBranchWithHigherVoteExists {
+		// 	continue
+		// }
 
 		// The starting branches should not be considered as having common Parents, hence we treat them separately.
 		conflictAddedBranches, _ := a.determineBranchesToAdd(set.NewAdvancedSet(votedBranchID), vote.WithOpinion(Confirmed))
@@ -185,12 +186,13 @@ func (a *ApprovalWeightManager) determineBranchesToAdd(branchIDs *set.AdvancedSe
 
 	for it := branchIDs.Iterator(); it.HasNext(); {
 		currentBranchID := it.Next()
-		currentVote := branchVote.WithBranchID(currentBranchID)
+		// currentVote := branchVote.WithBranchID(currentBranchID)
 
 		// Do not queue parents if a newer vote exists for this branch for this voter.
-		if a.identicalVoteWithHigherPowerExists(currentVote) {
-			continue
-		}
+		// TODO: do not exit earlier to always determine subjectively invalid messages correctly
+		// if a.identicalVoteWithHigherPowerExists(currentVote) {
+		// 	continue
+		// }
 
 		a.tangle.Ledger.ConflictDAG.Storage.CachedConflict(currentBranchID).Consume(func(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 			addedBranchesOfCurrentBranch, allParentsOfCurrentBranchAdded := a.determineBranchesToAdd(branch.Parents(), branchVote)
