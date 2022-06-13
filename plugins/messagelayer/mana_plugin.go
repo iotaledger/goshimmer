@@ -758,7 +758,7 @@ func QueryAllowed() (allowed bool) {
 func loadSnapshot(snapshot *ledger.Snapshot) error {
 	consensusManaByNode := map[identity.ID]float64{}
 	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputs utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) error {
+	processOutputs := func(outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) error {
 		return snapshot.Outputs.ForEach(func(output utxo.Output) error {
 			metadata, exists := snapshot.OutputsMetadata.Get(output.ID())
 			if !exists {
@@ -781,7 +781,7 @@ func loadSnapshot(snapshot *ledger.Snapshot) error {
 		})
 
 	}
-	if err := processOutputs(*snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */); err != nil {
+	if err := processOutputs(snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */); err != nil {
 		return errors.WithStack(err)
 	}
 	for i := snapshot.FullEpochIndex; i < snapshot.DiffEpochIndex; i++ {

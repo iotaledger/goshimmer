@@ -52,7 +52,7 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 		outputMetadata.SetID(outputID)
 		return true
 	})
-	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *ledger.EpochDiff) bool {
+	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *ledger.EpochDiff) bool {
 		epochDiff.SetID(ei)
 		return true
 	})

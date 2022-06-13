@@ -550,12 +550,12 @@ func (c *Consumer) SetBooked() (updated bool) {
 // region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EpochDiffs struct {
-	orderedmap.OrderedMap[epoch.EI, *EpochDiff] `serix:"0"`
+	orderedmap.OrderedMap[epoch.Index, *EpochDiff] `serix:"0"`
 }
 
 func (e *EpochDiffs) String() string {
 	structBuilder := stringify.StructBuilder("EpochDiffs")
-	e.OrderedMap.ForEach(func(ei epoch.EI, epochDiff *EpochDiff) bool {
+	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *EpochDiff) bool {
 		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
 		return true
 	})
@@ -564,37 +564,37 @@ func (e *EpochDiffs) String() string {
 }
 
 type EpochDiff struct {
-	model.Storable[epoch.EI, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
+	model.Storable[epoch.Index, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
 }
 
 type epochDiff struct {
-	EI              epoch.EI         `serix:"0"`
-	Created         utxo.Outputs     `serix:"1"`
+	EI              epoch.Index      `serix:"0"`
+	Created         *utxo.Outputs    `serix:"1"`
 	CreatedMetadata *OutputsMetadata `serix:"2"`
-	Spent           utxo.Outputs     `serix:"3"`
+	Spent           *utxo.Outputs    `serix:"3"`
 	SpentMetadata   *OutputsMetadata `serix:"4"`
 }
 
-func NewEpochDiff(ei epoch.EI) (new *EpochDiff) {
-	new = model.NewStorable[epoch.EI, EpochDiff](&epochDiff{
+func NewEpochDiff(ei epoch.Index) (new *EpochDiff) {
+	new = model.NewStorable[epoch.Index, EpochDiff](&epochDiff{
 		EI:              ei,
-		Created:         *utxo.NewOutputs(),
+		Created:         utxo.NewOutputs(),
 		CreatedMetadata: NewOutputsMetadata(),
-		Spent:           *utxo.NewOutputs(),
+		Spent:           utxo.NewOutputs(),
 		SpentMetadata:   NewOutputsMetadata(),
 	})
 	new.SetID(ei)
 	return
 }
 
-func (e *EpochDiff) EI() epoch.EI {
+func (e *EpochDiff) EI() epoch.Index {
 	e.RLock()
 	defer e.RUnlock()
 
 	return e.M.EI
 }
 
-func (e *EpochDiff) SetEI(ei epoch.EI) {
+func (e *EpochDiff) SetEI(ei epoch.Index) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -647,7 +647,7 @@ func (e *EpochDiff) Created() *utxo.Outputs {
 	return &utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
 }
 
-func (e *EpochDiff) SetCreated(created utxo.Outputs) {
+func (e *EpochDiff) SetCreated(created *utxo.Outputs) {
 	e.Lock()
 	defer e.Unlock()
 
@@ -662,7 +662,7 @@ func (e *EpochDiff) Spent() *utxo.Outputs {
 	return &utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
 }
 
-func (e *EpochDiff) SetSpent(spent utxo.Outputs) {
+func (e *EpochDiff) SetSpent(spent *utxo.Outputs) {
 	e.Lock()
 	defer e.Unlock()
 

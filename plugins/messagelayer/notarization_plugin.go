@@ -94,14 +94,14 @@ func runNotarizationPlugin(*node.Plugin) {
 func newNotarizationManager(deps notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(deps.Storage, new(devnetvm.VM), deps.Tangle),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle),
 		notarizationDeps.Tangle,
 		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
 		notarization.Log(Plugin.Logger()))
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.EI, err error) {
+func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 	ecRecord, err = notarizationManager.GetLatestEC()
 	if err != nil {
 		return

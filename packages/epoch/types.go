@@ -13,10 +13,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
-// EI is the ID of an epoch.
-type EI uint64
+// Index is the ID of an epoch.
+type Index uint64
 
-func (e EI) Bytes() []byte {
+func (e Index) Bytes() []byte {
 	bytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())
 	if err != nil {
 		panic(err)
@@ -25,11 +25,11 @@ func (e EI) Bytes() []byte {
 	return bytes
 }
 
-func (e EI) String() string {
+func (e Index) String() string {
 	return fmt.Sprintf("EI(%d)", e)
 }
 
-func EIFromBytes(bytes []byte) (ei EI, consumedBytes int, err error) {
+func EIFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
 	if err != nil {
 		panic(err)
@@ -47,7 +47,7 @@ type EC = MerkleRoot
 
 // Epoch is a time range used to define a bucket of messages.
 type Epoch struct {
-	ei EI
+	ei Index
 
 	confirmed     bool
 	confirmedTime time.Time
@@ -60,7 +60,7 @@ type Epoch struct {
 }
 
 // NewEpoch is the constructor for an Epoch.
-func NewEpoch(ei EI) (epoch *Epoch) {
+func NewEpoch(ei Index) (epoch *Epoch) {
 	epoch = &Epoch{
 		ei: ei,
 	}
@@ -69,7 +69,7 @@ func NewEpoch(ei EI) (epoch *Epoch) {
 }
 
 // EI returns the Epoch's EI.
-func (e *Epoch) EI() EI {
+func (e *Epoch) EI() Index {
 	return e.ei
 }
 
@@ -129,18 +129,18 @@ func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
 
 // ECRecord is a storable object represents the ecRecord of an epoch.
 type ECRecord struct {
-	model.Storable[EI, ECRecord, *ECRecord, ecRecord] `serix:"0"`
+	model.Storable[Index, ECRecord, *ECRecord, ecRecord] `serix:"0"`
 }
 
 type ecRecord struct {
-	EI     EI   `serix:"0"`
-	ECR    *ECR `serix:"1"`
-	PrevEC *EC  `serix:"2"`
+	EI     Index `serix:"0"`
+	ECR    *ECR  `serix:"1"`
+	PrevEC *EC   `serix:"2"`
 }
 
 // NewECRecord creates and returns a ECRecord of the given EI.
-func NewECRecord(ei EI) (new *ECRecord) {
-	new = model.NewStorable[EI, ECRecord](&ecRecord{
+func NewECRecord(ei Index) (new *ECRecord) {
+	new = model.NewStorable[Index, ECRecord](&ecRecord{
 		EI:     ei,
 		ECR:    &MerkleRoot{},
 		PrevEC: &MerkleRoot{},
@@ -149,14 +149,14 @@ func NewECRecord(ei EI) (new *ECRecord) {
 	return
 }
 
-func (e *ECRecord) EI() EI {
+func (e *ECRecord) EI() Index {
 	e.RLock()
 	defer e.RUnlock()
 
 	return e.M.EI
 }
 
-func (e *ECRecord) SetEI(ei EI) {
+func (e *ECRecord) SetEI(ei Index) {
 	e.Lock()
 	defer e.Unlock()
 

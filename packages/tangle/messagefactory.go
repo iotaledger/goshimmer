@@ -116,7 +116,6 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		countParents = parentsCount[0]
 	}
 
-	fmt.Println(">> calling CommittmentFunc from MessageFactory")
 	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
 	if epochCommitmentErr != nil {
 		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
@@ -263,7 +262,7 @@ func (f *MessageFactory) Shutdown() {
 }
 
 // doPOW performs pow on the message and returns a nonce.
-func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, latestConfirmedEpoch epoch.EI, epochCommitment *epoch.ECRecord) (uint64, error) {
+func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (uint64, error) {
 	// create a dummy message to simplify marshaling
 	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummy, err := message.Bytes()
@@ -276,7 +275,7 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.EI, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
 	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummyBytes, err := dummy.Bytes()
