@@ -29,12 +29,6 @@ type ParametersDefinition struct {
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
 type ManaParametersDefinition struct {
-	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
-	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
-	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
-	EmaCoefficient2 float64 `default:"0.0057762265" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
-	// Decay defines the decay coefficient used for Base Mana 2 calculation.
-	Decay float64 `default:"0.00003209" usage:"decay coefficient used for Base Mana 2 calculation"`
 	// AllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
 	AllowedAccessPledge []string `usage:"list of nodes that access mana is allowed to be pledged to"`
 	// AllowedAccessFilterEnabled defines if access mana pledge filter is enabled.
