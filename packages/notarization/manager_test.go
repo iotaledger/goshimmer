@@ -104,30 +104,31 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	{
 		time.Sleep(time.Duration(epochInterval) * time.Second)
 
-		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
 		testEventMock.Expect("EpochCommitted", epoch.EI(0))
 
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
+		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
 		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 
 		// TODO: check if leaf is inserted
+		_, err = m.GetBlockInclusionProof(testFramework.Message("Message1").ID())
+		require.NoError(t, err)
 	}
 
 	//  ISSUE Message2, issuing time epoch 2
 	{
 		time.Sleep(time.Duration(epochInterval) * time.Second)
 
-		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(2))
 		testEventMock.Expect("EpochCommitted", epoch.EI(1))
-
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
+		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(2))
 		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 
