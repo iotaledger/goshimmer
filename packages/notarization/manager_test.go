@@ -92,6 +92,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle)
 	epochMgr := NewEpochManager(Interval(epochInterval), GenesisTime(genesisTime.Unix()))
 	m := NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
+
+	testTangle.Setup()
 	registerToTangleEvents(m, testTangle)
 	testFramework := tangle.NewMessageTestFramework(testTangle, tangle.WithGenesisOutput("A", 500), tangle.WithGenesisOutput("B", 500))
 	testEventMock := NewEventMock(t, m, ecFactory)
@@ -110,6 +112,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
 		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 
 		// TODO: check if leaf is inserted
 	}
@@ -126,6 +129,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
 		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 
 		// TODO: check if leaf is inserted
 	}
@@ -142,6 +146,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		assert.Equal(t, epoch.EI(1), ecRecord.EI())
 
 		testFramework.CreateMessage("Message3", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 
 		// TODO: check if leaf is inserted
 
