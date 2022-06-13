@@ -35,8 +35,6 @@ const (
 	PriorityBroadcast
 	// PrioritySynchronization defines the shutdown priority for synchronization.
 	PrioritySynchronization
-	// PriorityManaRefresher defines the shutdown priority for the manarefresher plugin.
-	PriorityManaRefresher
 	// PriorityActivity defines the shutdown priority for the activity plugin.
 	PriorityActivity
 	// PrioritySpammer defines the shutdown priority for spammer.

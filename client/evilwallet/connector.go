@@ -82,8 +82,6 @@ func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err 
 	status.ID = response.IdentityID
 	status.Synced = response.TangleTime.Synced
 	status.Version = response.Version
-	status.ManaDecay = response.ManaDecay
-	status.DelegationAddress = response.ManaDelegationAddress
 	return status, nil
 }
 

@@ -19,7 +19,6 @@ services:
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
       --mana.enableResearchVectors=false
-      --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
@@ -59,7 +58,6 @@ services:
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock,Firewall
-      --mana.snapshotResetTime=true
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
@@ -84,7 +82,6 @@ services:
       --node.disablePlugins=portcheck,clock,Firewall
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --mana.snapshotResetTime=true
       --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
@@ -142,7 +139,6 @@ services:
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
       --node.disablePlugins=portcheck,clock,Firewall
-      --mana.snapshotResetTime=true
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin

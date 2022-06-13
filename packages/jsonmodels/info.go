@@ -30,10 +30,6 @@ type InfoResponse struct {
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// Mana values
 	Mana Mana `json:"mana,omitempty"`
-	// Mana Delegation Address
-	ManaDelegationAddress string `json:"manaDelegationAddress,omitempty"`
-	// ManaDecay is the decay coefficient of bm2.
-	ManaDecay float64 `json:"mana_decay"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
 	// RateSetter is the rate setter.
