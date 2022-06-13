@@ -101,8 +101,8 @@ func txInfoFromPledgeEvent(ev *PledgedEvent) *TxInfo {
 
 // LoadSnapshot loads the snapshot.
 func (m *ManaBaseVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
-	c.Lock()
-	defer c.Unlock()
+	m.Lock()
+	defer m.Unlock()
 
 	for nodeID, records := range snapshot {
 		var value float64
@@ -119,7 +119,7 @@ func (m *ManaBaseVector) LoadSnapshot(snapshot map[identity.ID]*SnapshotNode) {
 			})
 		}
 
-		c.M.Vector[nodeID] = model.NewMutable[ConsensusBaseMana](&consensusBaseManaModel{BaseMana1: value})
+		m.M.Vector[nodeID] = NewManaBase(value)
 	}
 }
 
@@ -343,7 +343,7 @@ func (m *ManaBaseVector) FromPersistable(p *PersistableBaseMana) (err error) {
 	}
 	m.Lock()
 	defer m.Unlock()
-	m.M.Vector[p.NodeID()] = model.NewMutable[ManaBase](&ManaBaseModel{BaseMana1: p.BaseValues()[0]})
+	m.M.Vector[p.NodeID()] = model.NewMutable[ManaBase](&manaBaseModel{Value: p.BaseValues()[0]})
 	return
 }
 
