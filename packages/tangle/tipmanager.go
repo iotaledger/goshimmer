@@ -332,9 +332,9 @@ func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
 func (t *TipManager) removeStrongParents(message *Message) {
 	message.ForEachParentByType(StrongParentType, func(parentMessageID MessageID) bool {
 		// We do not want to remove the tip if it is the last one representing a pending branch.
-		if t.isLastTipForBranch(parentMessageID) {
-			return true
-		}
+		// if t.isLastTipForBranch(parentMessageID) {
+		// 	return true
+		// }
 
 		t.deleteTip(parentMessageID)
 
