@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/debug"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/stretchr/testify/assert"
 
@@ -46,30 +47,35 @@ func TestScenario_1(t *testing.T) {
 	testFramework.RegisterBranchID("Branch6", "Message6")
 	testFramework.RegisterBranchID("Branch8", "Message8")
 
-	testFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6").WaitUntilAllTasksProcessed()
-	testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
-	testFramework.IssueMessages("Message7", "Message9").WaitUntilAllTasksProcessed()
-
+	testFramework.IssueMessages("Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8", "Message9").WaitUntilAllTasksProcessed()
 	// Message8 combines conflicting branches on UTXO level
-	for _, messageAlias := range []string{"Message8"} {
+	for _, messageAlias := range []string{"Message7", "Message8", "Message9"} {
 		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not subjectively invalid", messageAlias)
 	}
 
-	// Message9 combines conflicting branches on message level
-	for _, messageAlias := range []string{"Message9"} {
-		assert.Truef(t, testFramework.MessageMetadata(messageAlias).IsSubjectivelyInvalid(), "%s not subjectively invalid", messageAlias)
+	for _, alias := range []string{"Message1", "Message2", "Message3", "Message4", "Message5", "Message6", "Message7", "Message8", "Message9"} {
+		fmt.Println(alias, lo.PanicOnErr(tangle.Booker.MessageBranchIDs(testFramework.Message(alias).ID())))
+		tangle.Storage.MessageMetadata(testFramework.Message(alias).ID()).Consume(func(messageMetadata *MessageMetadata) {
+			fmt.Println(alias, "added", messageMetadata.AddedBranchIDs(), "subtracted", messageMetadata.SubtractedBranchIDs())
+			fmt.Println(alias, "all", messageMetadata.StructureDetails())
+			meta := testFramework.TransactionMetadata(alias)
+			if meta != nil {
+				fmt.Println("UTXO", meta.BranchIDs())
+			}
+			fmt.Println("-----------------------------------------------------")
+		})
 	}
 
 	checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{
-		"Message1": set.NewAdvancedSet[utxo.TransactionID](),
-		"Message3": set.NewAdvancedSet[utxo.TransactionID](),
-		"Message2": set.NewAdvancedSet[utxo.TransactionID](),
+		"Message1": utxo.NewTransactionIDs(),
+		"Message3": utxo.NewTransactionIDs(),
+		"Message2": utxo.NewTransactionIDs(),
 		"Message4": testFramework.BranchIDs("Branch4"),
 		"Message5": testFramework.BranchIDs("Branch5"),
-		"Message6": testFramework.BranchIDs("Branch6"),
+		"Message6": testFramework.BranchIDs("Branch5", "Branch6"),
 		"Message7": testFramework.BranchIDs("Branch4", "Branch5"),
 		"Message8": testFramework.BranchIDs("Branch4", "Branch5", "Branch8"),
-		"Message9": testFramework.BranchIDs("Branch4", "Branch6"),
+		"Message9": testFramework.BranchIDs("Branch4", "Branch5", "Branch6"),
 	})
 }
 
@@ -699,7 +705,7 @@ func TestBookerIndividuallyMappedMessagesSameSequence(t *testing.T) {
 		checkMessageMetadataDiffBranchIDs(t, testFramework, map[string][]*set.AdvancedSet[utxo.TransactionID]{
 			"A1":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A3":  {testFramework.BranchIDs("A3"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A3":  {testFramework.BranchIDs("A1", "A3"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A4":  {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3*": {testFramework.BranchIDs("A3*"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A1*": {testFramework.BranchIDs("A1*"), set.NewAdvancedSet[utxo.TransactionID]()},
@@ -986,7 +992,7 @@ func TestBookerMarkerMappingsGap(t *testing.T) {
 			"A2":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A3":   {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A+C1": {set.NewAdvancedSet[utxo.TransactionID](), set.NewAdvancedSet[utxo.TransactionID]()},
-			"A+C2": {testFramework.BranchIDs("C"), set.NewAdvancedSet[utxo.TransactionID]()},
+			"A+C2": {testFramework.BranchIDs("A2", "C"), set.NewAdvancedSet[utxo.TransactionID]()},
 			"A2*":  {testFramework.BranchIDs("A2*"), set.NewAdvancedSet[utxo.TransactionID]()},
 		})
 		checkBranchIDs(t, testFramework, map[string]*set.AdvancedSet[utxo.TransactionID]{

@@ -328,16 +328,32 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
 }
 
+func (b *Booker) branchIDsFromMetadata(meta *MessageMetadata) (branchIDs utxo.TransactionIDs, err error) {
+	if branchIDs, err = b.branchIDsFromStructureDetails(meta.StructureDetails()); err != nil {
+		return nil, errors.Errorf("failed to retrieve BranchIDs from Structure Details %s of message with %s: %w", meta.StructureDetails(), meta.ID(), err)
+	}
+
+	if addedBranchIDs := meta.AddedBranchIDs(); !addedBranchIDs.IsEmpty() {
+		branchIDs.AddAll(addedBranchIDs)
+	}
+
+	if subtractedBranchIDs := meta.SubtractedBranchIDs(); !subtractedBranchIDs.IsEmpty() {
+		branchIDs.DeleteAll(subtractedBranchIDs)
+	}
+
+	return branchIDs, nil
+}
+
 // branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
-func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs utxo.TransactionIDs, err error) {
 	if structureDetails == nil {
 		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
 	}
 
-	structureDetailsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	structureDetailsBranchIDs = utxo.NewTransactionIDs()
 	// obtain all the Markers
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchIDs := b.MarkersManager.PendingBranchIDs(markers.NewMarker(sequenceID, index))
+		branchIDs := b.MarkersManager.BranchIDs(markers.NewMarker(sequenceID, index))
 		structureDetailsBranchIDs.AddAll(branchIDs)
 		return true
 	})
@@ -485,37 +501,33 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 	return b.updateMessageBranches(messageMetadata, addedBranchID, removedBranchIDs)
 }
 
-func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch utxo.TransactionID, removedBranches *set.AdvancedSet[utxo.TransactionID]) (updated bool, err error) {
-	addedBranchIDs := messageMetadata.AddedBranchIDs()
-	if !addedBranchIDs.Add(addedBranch) {
-		return false, nil
-	}
+func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool, err error) {
+	messageMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.sequenceMutex.RLock(sequenceID)
+		return true
+	})
 
-	pastMarkerBranchIDs, err := b.branchIDsFromStructureDetails(messageMetadata.StructureDetails())
+	defer func() {
+		messageMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+			b.sequenceMutex.RUnlock(sequenceID)
+			return true
+		})
+	}()
+
+	branchIDs, err := b.branchIDsFromMetadata(messageMetadata)
 	if err != nil {
-		return false, errors.Errorf("failed to retrieve BranchIDs from Structure Details of %s: %w", messageMetadata.ID(), err)
+		return false, errors.Errorf("failed to retrieve BranchIDs of %s: %w", messageMetadata.ID(), err)
 	}
-	if pastMarkerBranchIDs.Has(addedBranch) {
+
+	if !branchIDs.HasAll(parentConflicts) {
 		return false, nil
 	}
 
-	removedBranchIDsFromPastMarkers := pastMarkerBranchIDs.DeleteAll(removedBranches)
-	removedBranchIDsFromAddedBranchIDs := addedBranchIDs.DeleteAll(removedBranches)
-
-	allRemovedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
-	allRemovedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
-	allRemovedBranchIDs.AddAll(removedBranchIDsFromAddedBranchIDs)
-	if !allRemovedBranchIDs.Equal(removedBranches) {
+	if !messageMetadata.AddBranchID(addedBranch) {
 		return false, nil
 	}
 
-	subtractedBranchIDs := messageMetadata.SubtractedBranchIDs()
-	subtractedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
-
-	updated = messageMetadata.SetAddedBranchIDs(addedBranchIDs)
-	updated = messageMetadata.SetSubtractedBranchIDs(subtractedBranchIDs) || updated
-
-	return updated, nil
+	return true, nil
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
@@ -551,7 +563,7 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newBranchID utxo
 		return nil
 	}
 
-	if !b.MarkersManager.SetBranchIDs(currentMarker, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(newBranchIDs)) {
+	if !b.MarkersManager.SetBranchIDs(currentMarker, newBranchIDs) {
 		return nil
 	}
 

@@ -86,7 +86,7 @@ func (b *BranchMarkersMapper) SetBranchIDs(marker markers.Marker, branchIDs *set
 		}
 	}
 
-	b.setBranchIDMapping(marker, branchIDs)
+	b.setBranchIDMapping(marker, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(branchIDs))
 
 	return true
 }
