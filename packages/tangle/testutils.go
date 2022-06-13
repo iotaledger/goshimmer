@@ -42,6 +42,7 @@ type MessageTestFramework struct {
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	snapshot                 *ledger.Snapshot
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -61,6 +62,11 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	messageTestFramework.createGenesisOutputs()
 
 	return
+}
+
+// Snapshot returns the Snapshot of the test framework.
+func (m *MessageTestFramework) Snapshot() (snapshot *ledger.Snapshot) {
+	return m.snapshot
 }
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
@@ -290,7 +296,8 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputs, outputsMetadata))
+	m.snapshot = ledger.NewSnapshot(outputs, outputsMetadata)
+	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
 func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
