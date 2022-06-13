@@ -45,7 +45,7 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 	ledgerSnapshot := ledger.NewSnapshot(outputs, outputsMetadata)
 	ledgerSnapshot.FullEpochIndex = 0
 	ledgerSnapshot.DiffEpochIndex = 0
-	ledgerSnapshot.EpochDiffs = &ledger.EpochDiffs{*orderedmap.New[epoch.EI, *ledger.EpochDiff]()}
+	ledgerSnapshot.EpochDiffs = &ledger.EpochDiffs{*orderedmap.New[epoch.Index, *ledger.EpochDiff]()}
 	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
 	ledgerSnapshot.LatestECRecord.SetECR(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})
 	ledgerSnapshot.LatestECRecord.SetPrevEC(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})

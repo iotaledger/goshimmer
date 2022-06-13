@@ -3,7 +3,6 @@ package mana
 import (
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 )
@@ -16,8 +15,8 @@ type BaseManaVector interface {
 	Size() int
 	// Has tells if a certain node is present in the base mana vactor.
 	Has(identity.ID) bool
-	// LoadSnapshot loads the initial mana state into the base mana vector.
-	LoadSnapshot(map[identity.ID]float64)
+	// InitializeWithData loads the initial mana state into the base mana vector.
+	InitializeWithData(map[identity.ID]float64)
 	// Book books mana into the base mana vector.
 	Book(*TxInfo)
 	// GetMana returns the mana value of a node with default weights.
@@ -41,13 +40,6 @@ type BaseManaVector interface {
 }
 
 // NewBaseManaVector creates and returns a new base mana vector for the specified type.
-func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
-	switch vectorType {
-	case AccessMana:
-		return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{Vector: make(map[identity.ID]*ManaBase)}), nil
-	case ConsensusMana:
-		return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{Vector: make(map[identity.ID]*ManaBase)}), nil
-	default:
-		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
-	}
+func NewBaseManaVector() BaseManaVector {
+	return model.NewMutable[ManaBaseVector](&manaBaseVectorModel{Vector: make(map[identity.ID]*ManaBase)})
 }

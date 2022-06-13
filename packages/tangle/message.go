@@ -302,17 +302,17 @@ type MessageModel struct {
 	SequenceNumber       uint64            `serix:"4"`
 	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
 	Nonce                uint64            `serix:"6"`
-	EI                   epoch.EI          `serix:"7"`
+	EI                   epoch.Index       `serix:"7"`
 	ECR                  *epoch.ECR        `serix:"8"`
 	PrevEC               *epoch.EC         `serix:"9"`
-	LatestConfirmedEpoch epoch.EI          `serix:"10"`
+	LatestConfirmedEpoch epoch.Index       `serix:"10"`
 	Signature            ed25519.Signature `serix:"11"`
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
 func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
 	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature,
-	latestConfirmedEpoch epoch.EI, ecRecord *epoch.ECRecord, versionOpt ...uint8) *Message {
+	latestConfirmedEpoch epoch.Index, ecRecord *epoch.ECRecord, versionOpt ...uint8) *Message {
 	version := MessageVersion
 	if len(versionOpt) == 1 {
 		version = versionOpt[0]
@@ -345,7 +345,7 @@ func NewMessage(references ParentMessageIDs, issuingTime time.Time, issuerPublic
 // 7. Blocks should be ordered by type in ascending order.
 // 6. A Parent(s) repetition is only allowed when it occurs across Strong and Like parents.
 func NewMessageWithValidation(references ParentMessageIDs, issuingTime time.Time, issuerPublicKey ed25519.PublicKey,
-	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch epoch.EI, epochCommitment *epoch.ECRecord, version ...uint8) (result *Message, err error) {
+	sequenceNumber uint64, msgPayload payload.Payload, nonce uint64, signature ed25519.Signature, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord, version ...uint8) (result *Message, err error) {
 	msg := NewMessage(references, issuingTime, issuerPublicKey, sequenceNumber, msgPayload, nonce, signature, latestConfirmedEpoch, epochCommitment, version...)
 
 	if _, err = msg.Bytes(); err != nil {
@@ -462,7 +462,7 @@ func (m *Message) Nonce() uint64 {
 }
 
 // EI returns the EI of the message.
-func (m *Message) EI() epoch.EI {
+func (m *Message) EI() epoch.Index {
 	return m.M.EI
 }
 
@@ -477,7 +477,7 @@ func (m *Message) PrevEC() *epoch.EC {
 }
 
 // LatestConfirmedEpoch returns the LatestConfirmedEpoch of the message.
-func (m *Message) LatestConfirmedEpoch() epoch.EI {
+func (m *Message) LatestConfirmedEpoch() epoch.Index {
 	return m.M.LatestConfirmedEpoch
 }
 

@@ -11,8 +11,8 @@ import (
 type Snapshot struct {
 	Outputs         *utxo.Outputs    `serix:"0"`
 	OutputsMetadata *OutputsMetadata `serix:"1"`
-	FullEpochIndex  epoch.EI         `serix:"2"`
-	DiffEpochIndex  epoch.EI         `serix:"3"`
+	FullEpochIndex  epoch.Index      `serix:"2"`
+	DiffEpochIndex  epoch.Index      `serix:"3"`
 	EpochDiffs      *EpochDiffs      `serix:"4"`
 	LatestECRecord  *epoch.ECRecord  `serix:"5"`
 }
