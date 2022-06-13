@@ -545,7 +545,7 @@ func (s *Scheduler) GetDeficit(nodeID identity.ID) *big.Rat {
 
 func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
 	deficit := new(big.Rat).Add(s.GetDeficit(nodeID), d)
-	if deficit.Cmp(big.NewRat(0, 1)) < 0 {
+	if deficit.Sign() < 0 {
 		// this will never happen and is just here for debugging purposes
 		// TODO: remove print
 		panic("scheduler: deficit is less than 0")
@@ -553,7 +553,14 @@ func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
 
 	s.deficitsMutex.Lock()
 	defer s.deficitsMutex.Unlock()
-	s.deficits[nodeID] = maxRat(deficit, MaxDeficit)
+	s.deficits[nodeID] = minRat(deficit, MaxDeficit)
+}
+
+func minRat(x, y *big.Rat) *big.Rat {
+	if x.Cmp(y) < 0 {
+		return x
+	}
+	return y
 }
 
 func maxRat(x, y *big.Rat) *big.Rat {
