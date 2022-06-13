@@ -12,7 +12,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/orderedmap"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +79,7 @@ func TestManager_GetLatestEC(t *testing.T) {
 
 func TestManager_UpdateTangleTree(t *testing.T) {
 	var epochInterval int64 = 1
-	var minCommittable time.Duration = 0
+	var minCommittable time.Duration = 2 * time.Second
 	genesisTime := time.Now()
 
 	testTangle := tangle.NewTestTangle()
@@ -88,45 +90,61 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	}
 
 	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle)
-	m := NewManager(NewEpochManager(Interval(epochInterval), GenesisTime(genesisTime.Unix())), ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
+	epochMgr := NewEpochManager(Interval(epochInterval), GenesisTime(genesisTime.Unix()))
+	m := NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
 	registerToTangleEvents(m, testTangle)
 	testFramework := tangle.NewMessageTestFramework(testTangle, tangle.WithGenesisOutput("A", 500), tangle.WithGenesisOutput("B", 500))
 	testEventMock := NewEventMock(t, m, ecFactory)
 
-	// ISSUE Message1
+	loadSnapshot(m, testFramework)
+
+	// ISSUE Message1, issuing time epoch 1
 	{
+		time.Sleep(time.Duration(epochInterval) * time.Second)
+
+		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
+		testEventMock.Expect("EpochCommitted", epoch.EI(0))
+
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
+		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
 		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 
 		// TODO: check if leaf is inserted
 	}
 
-	//  ISSUE Message2, issuing time epoch 1
+	//  ISSUE Message2, issuing time epoch 2
 	{
-		ecRecord, err := m.GetLatestEC()
-		require.NoError(t, err)
-		issuingTime := genesisTime.Add(time.Duration(1 * epochInterval))
-		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithIssuingTime(issuingTime), tangle.WithECRecord(ecRecord))
-
-		// TODO: check if leaf is inserted
-
-		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
-
-	}
-
-	//  ISSUE Message3, issuing time epoch 2
-	{
-		ecRecord, err := m.GetLatestEC()
-		require.NoError(t, err)
-		issuingTime := genesisTime.Add(time.Duration(2 * epochInterval))
-		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithIssuingTime(issuingTime), tangle.WithECRecord(ecRecord))
-
-		// TODO: check if leaf is inserted
+		time.Sleep(time.Duration(epochInterval) * time.Second)
 
 		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(2))
-		testEventMock.Expect("EpochCommitted", epoch.EI(2))
+		testEventMock.Expect("EpochCommitted", epoch.EI(1))
+
+		ecRecord, err := m.GetLatestEC()
+		require.NoError(t, err)
+		assert.Equal(t, epoch.EI(0), ecRecord.EI())
+
+		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+
+		// TODO: check if leaf is inserted
+	}
+
+	//  ISSUE Message3, issuing time epoch 3
+	{
+		time.Sleep(time.Duration(epochInterval) * time.Second)
+
+		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(3))
+		testEventMock.Expect("EpochCommitted", epoch.EI(1))
+
+		ecRecord, err := m.GetLatestEC()
+		require.NoError(t, err)
+		assert.Equal(t, epoch.EI(1), ecRecord.EI())
+
+		testFramework.CreateMessage("Message3", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+
+		// TODO: check if leaf is inserted
+
 	}
 }
 
@@ -136,6 +154,28 @@ func testNotarizationManager() *Manager {
 	interval := int64(5 * 60)
 	vm := new(devnetvm.VM)
 	return NewManager(NewEpochManager(GenesisTime(t), Interval(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
+}
+
+func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {
+	snapshot := testFramework.Snapshot()
+	snapshot.DiffEpochIndex = epoch.EI(0)
+	snapshot.FullEpochIndex = epoch.EI(0)
+
+	diffs := orderedmap.New[epoch.EI, *ledger.EpochDiff]()
+	diff := ledger.NewEpochDiff(snapshot.DiffEpochIndex)
+	snapshot.Outputs.ForEach(func(output utxo.Output) error {
+		diff.AddCreated(output)
+		return nil
+	})
+	diffs.Set(snapshot.DiffEpochIndex, ledger.NewEpochDiff(snapshot.DiffEpochIndex))
+	snapshot.EpochDiffs = &ledger.EpochDiffs{*diffs}
+
+	ecRecord := epoch.NewECRecord(snapshot.FullEpochIndex)
+	ecRecord.SetECR(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})
+	ecRecord.SetPrevEC(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})
+	snapshot.LatestECRecord = ecRecord
+
+	m.LoadSnapshot(snapshot)
 }
 
 func registerToTangleEvents(m *Manager, testTangle *tangle.Tangle) {
