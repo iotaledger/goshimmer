@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"hash"
 	"sync"
 
@@ -354,10 +353,10 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) (err error) {
 			return nil
 		})
 
-		diff.Created().ForEach(func(created utxo.Output) error {
-			fmt.Println(">> commitLedgerState", created)
-			f.storage.ledgerstateStorage.Store(created).Release()
-			return nil
+		_ = diff.M.Created.OrderedMap.ForEach(func(outputID utxo.OutputID, output utxo.Output) bool {
+			output.SetID(outputID)
+			f.storage.ledgerstateStorage.Store(output).Release()
+			return true
 		})
 	}) {
 		return errors.Errorf("could not commit ledger state for epoch %d, unavailable diff", ei)
@@ -491,7 +490,6 @@ func EC(ecRecord *epoch.ECRecord) *epoch.EC {
 	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
 	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
-
 type CommitmentProof struct {
 	EI    epoch.Index
 	proof smt.SparseMerkleProof
