@@ -58,61 +58,61 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
-	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
-		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(output).Release()
-		_, err := m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
+	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
+		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
+		outputIDBytes := outputWithMetadata.ID().Bytes()
+		_, err := m.epochCommitmentFactory.stateRootTree.Update(outputIDBytes, outputIDBytes)
 		if err != nil {
 			m.log.Error(err)
 		}
-		return nil
-	})
+	}
+
+	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
+		epochDiff := snapshot.EpochDiffs[ei]
+		for _, spentOutputWithMetadata := range epochDiff.Spent() {
+			spentOutputIDBytes := spentOutputWithMetadata.ID().Bytes()
+			m.epochCommitmentFactory.storage.ledgerstateStorage.Delete(spentOutputIDBytes)
+			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spentOutputIDBytes); !has {
+				panic("epoch diff spends an output not contained in the ledger state")
+			}
+			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spentOutputIDBytes)
+			if err != nil {
+				m.log.Error(err)
+			}
+		}
+
+		for _, createdOutputWithMetadata := range epochDiff.Created() {
+			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
+			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata)
+			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
+			if err != nil {
+				m.log.Error(err)
+			}
+		}
+	}
 
 	// TODO: mana root
 
-	if err := m.epochCommitmentFactory.SetFullEpochIndex(snapshot.FullEpochIndex); err != nil {
+	// Our ledgerstate is aligned with the last committed epoch, which is the same as the last epoch in the snapshot.
+	if err := m.epochCommitmentFactory.storage.SetFullEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)
 	}
 
-	if err := m.epochCommitmentFactory.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)
 	}
 
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)
 	}
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
-	if err := m.epochCommitmentFactory.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+	if err := m.epochCommitmentFactory.storage.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
-
-	snapshot.EpochDiffs.ForEach(func(_ epoch.Index, epochDiff *ledger.EpochDiff) bool {
-		m.epochCommitmentFactory.storage.epochDiffStorage.Store(epochDiff).Release()
-
-		_ = epochDiff.Spent().ForEach(func(spent utxo.Output) error {
-			if has, _ := m.epochCommitmentFactory.stateRootTree.Has(spent.ID().Bytes()); !has {
-				panic("epoch diff spends an output not contained in the ledger state")
-			}
-			_, err := m.epochCommitmentFactory.stateRootTree.Delete(spent.ID().Bytes())
-			if err != nil {
-				m.log.Error(err)
-			}
-			return nil
-		})
-
-		_ = epochDiff.Created().ForEach(func(created utxo.Output) error {
-			_, err := m.epochCommitmentFactory.stateRootTree.Update(created.ID().Bytes(), created.ID().Bytes())
-			if err != nil {
-				m.log.Error(err)
-			}
-			return nil
-		})
-
-		return true
-	})
 }
 
 // PendingConflictsCount returns the current value of pendingConflictsCount.
@@ -148,7 +148,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 		return nil, errors.Wrap(err, "could not get latest epoch commitment")
 	}
 
-	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
+	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
 
@@ -158,7 +158,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 }
 
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
-	return m.epochCommitmentFactory.LastConfirmedEpochIndex()
+	return m.epochCommitmentFactory.storage.LastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
@@ -242,7 +242,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
 	currentEpoch := m.epochManager.TimeToEI(time.Now())
 
-	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
 		err = errors.Wrap(lastCommittedEpochErr, "could not obtain last committed epoch index")
 		return
@@ -322,7 +322,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 		}
 
 		// update last committed index
-		if setLastCommittedEpochIndexErr := m.epochCommitmentFactory.SetLastCommittedEpochIndex(ei); setLastCommittedEpochIndexErr != nil {
+		if setLastCommittedEpochIndexErr := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(ei); setLastCommittedEpochIndexErr != nil {
 			err = errors.Wrap(setLastCommittedEpochIndexErr, "could not set last committed epoch")
 			return
 		}

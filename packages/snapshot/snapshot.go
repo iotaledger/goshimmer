@@ -10,9 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 
-	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 )
@@ -44,18 +42,25 @@ func (s *Snapshot) FromBytes(bytes []byte) (err error) {
 	if err != nil {
 		return errors.Errorf("failed to read LedgerSnapshot: %w", err)
 	}
-	_ = s.LedgerSnapshot.Outputs.OrderedMap.ForEach(func(outputID utxo.OutputID, output utxo.Output) bool {
-		output.SetID(outputID)
-		return true
-	})
-	_ = s.LedgerSnapshot.OutputsMetadata.OrderedMap.ForEach(func(outputID utxo.OutputID, outputMetadata *ledger.OutputMetadata) bool {
-		outputMetadata.SetID(outputID)
-		return true
-	})
-	_ = s.LedgerSnapshot.EpochDiffs.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *ledger.EpochDiff) bool {
-		epochDiff.SetID(ei)
-		return true
-	})
+
+	for _, output := range s.LedgerSnapshot.OutputsWithMetadata {
+		output.SetID(output.M.OutputID)
+		output.Output().SetID(output.M.OutputID)
+		output.OutputMetadata().SetID(output.M.OutputID)
+	}
+
+	for _, epochdiff := range s.LedgerSnapshot.EpochDiffs {
+		for _, spentOutput := range epochdiff.Spent() {
+			spentOutput.SetID(spentOutput.M.OutputID)
+			spentOutput.Output().SetID(spentOutput.M.OutputID)
+			spentOutput.OutputMetadata().SetID(spentOutput.M.OutputID)
+		}
+		for _, createdOutput := range epochdiff.Created() {
+			createdOutput.SetID(createdOutput.M.OutputID)
+			createdOutput.Output().SetID(createdOutput.M.OutputID)
+			createdOutput.OutputMetadata().SetID(createdOutput.M.OutputID)
+		}
+	}
 
 	return nil
 }

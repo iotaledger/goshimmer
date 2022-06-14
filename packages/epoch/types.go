@@ -29,7 +29,7 @@ func (e Index) String() string {
 	return fmt.Sprintf("EI(%d)", e)
 }
 
-func EIFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
+func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), bytes, &ei)
 	if err != nil {
 		panic(err)
