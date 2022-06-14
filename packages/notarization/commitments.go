@@ -8,11 +8,14 @@ import (
 	"github.com/celestiaorg/smt"
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/types"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -255,6 +258,51 @@ func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRec
 		e.SetECR(ecr)
 		e.SetPrevEC(prevEC)
 		ecRecord = e
+	})
+
+	return
+}
+
+func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent utxo.OutputIDs, created devnetvm.Outputs) {
+	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
+
+	for it := spent.Iterator(); it.HasNext(); {
+		spentOutput := it.Next()
+		epochDiffStorage.created.Delete(spentOutput.Bytes())
+		// TODO: maybe we can avoid having the tangle as a dependency if we only stored the spent IDs, do we need the entire output?
+		f.tangle.Ledger.Storage.CachedOutput(spentOutput).Consume(func(o utxo.Output) {
+			outputVM := o.(devnetvm.Output)
+			epochDiffStorage.spent.Store(outputVM)
+		})
+	}
+
+	for _, createdOutput := range created {
+		f.tangle.Ledger.Storage.CachedOutputMetadata(createdOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+			createdOutputWithMetadata := ledger.NewOutputWithMetadata(createdOutput.ID(), createdOutput, outputMetadata)
+			epochDiffStorage.created.Store(createdOutputWithMetadata)
+		})
+	}
+}
+
+func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent utxo.OutputIDs, created devnetvm.Outputs) {
+	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
+
+	spent = utxo.NewOutputIDs()
+	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[utxo.Output]) bool {
+		cachedOutput.Consume(func(output utxo.Output) {
+			spent.Add(output.ID())
+			fmt.Println(">> loaded spent output:", output.ID())
+		})
+		return true
+	})
+
+	created = make(devnetvm.Outputs, 0)
+	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
+		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
+			created = append(created, outputWithMetadata.Output().(devnetvm.Output))
+			fmt.Println(">> loaded created output:", created)
+		})
+		return true
 	})
 
 	return

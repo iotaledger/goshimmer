@@ -175,47 +175,6 @@ func (s *EpochCommitmentStorage) Shutdown() {
 	})
 }
 
-func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent utxo.OutputIDs, created devnetvm.Outputs) {
-	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
-
-	for it := spent.Iterator(); it.HasNext(); {
-		spentOutput := it.Next()
-		epochDiffStorage.created.Delete(spentOutput.Bytes())
-		f.tangle.Ledger.Storage.CachedOutput(spentOutput).Consume(func(o utxo.Output) {
-			outputVM := o.(devnetvm.Output)
-			// TODO: maybe we can avoid having the tangle as a dependency if we only stored the spent IDs, do we need the entire output?
-			epochDiffStorage.spent.Store(outputVM)
-		})
-	}
-
-	for _, createdOutput := range created {
-		f.tangle.Ledger.Storage.CachedOutputMetadata(createdOutput.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-			createdOutputWithMetadata := ledger.NewOutputWithMetadata(createdOutput.ID(), createdOutput, outputMetadata)
-			epochDiffStorage.created.Store(createdOutputWithMetadata)
-		})
-	}
-}
-
-func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent utxo.OutputIDs, created devnetvm.Outputs) {
-	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
-
-	spent = utxo.NewOutputIDs()
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[utxo.Output]) bool {
-		spent.Add(cachedOutput.Get().ID())
-		fmt.Println(">> loaded spent output:", cachedOutput.Get().ID())
-		return true
-	})
-
-	created = make(devnetvm.Outputs, 0)
-	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		created = append(created, cachedOutputWithMetadata.Get().Output().(devnetvm.Output))
-		fmt.Println(">> loaded created output:", cachedOutputWithMetadata.Get().ID())
-		return true
-	})
-
-	return
-}
-
 func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
 	if epochDiffStorage, exists := s.epochDiffStorages[ei]; exists {
 		return epochDiffStorage
