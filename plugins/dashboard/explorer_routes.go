@@ -10,16 +10,16 @@ import (
 	"github.com/mr-tron/base58/base58"
 
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/chat"
-	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
-	manaAPI "github.com/iotaledger/goshimmer/plugins/webapi/mana"
 )
 
 // ExplorerMessage defines the struct of the ExplorerMessage.
@@ -69,6 +69,13 @@ type ExplorerMessage struct {
 	PastMarkerGap uint64 `json:"pastMarkerGap"`
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
+
+	// Epoch commitment
+	EC                   string `json:"ec"`
+	EI                   uint64 `json:"ei"`
+	ECR                  string `json:"ecr"`
+	PrevEC               string `json:"prevEC"`
+	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
 }
 
 func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
@@ -78,6 +85,10 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 	messageMetadata, _ := cachedMessageMetadata.Unwrap()
 
 	branchIDs, _ := deps.Tangle.Booker.MessageBranchIDs(messageID)
+
+	ecRecord := epoch.NewECRecord(msg.EI())
+	ecRecord.SetECR(msg.ECR())
+	ecRecord.SetPrevEC(msg.PrevEC())
 
 	t := &ExplorerMessage{
 		ID:                      messageID.Base58(),
@@ -104,6 +115,11 @@ func createExplorerMessage(msg *tangle.Message) *ExplorerMessage {
 		GradeOfFinalityTime:     messageMetadata.GradeOfFinalityTime().Unix(),
 		PayloadType:             uint32(msg.Payload().Type()),
 		Payload:                 ProcessPayload(msg.Payload()),
+		EC:                   	 notarization.EC(ecRecord).Base58(),
+		EI:                      uint64(msg.EI()),
+		ECR:                     msg.ECR().Base58(),
+		PrevEC:                  msg.PrevEC().Base58(),
+		LatestConfirmedEpoch:    uint64(msg.LatestConfirmedEpoch()),
 	}
 
 	if d := messageMetadata.StructureDetails(); d != nil {
@@ -139,7 +155,6 @@ type ExplorerOutput struct {
 	Output          *jsonmodels.Output         `json:"output"`
 	Metadata        *jsonmodels.OutputMetadata `json:"metadata"`
 	TxTimestamp     int                        `json:"txTimestamp"`
-	PendingMana     float64                    `json:"pendingMana"`
 	GradeOfFinality gof.GradeOfFinality        `json:"gradeOfFinality"`
 }
 
@@ -181,7 +196,6 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/output/:outputID", ledgerstateAPI.GetOutput)
 	routeGroup.GET("/output/:outputID/metadata", ledgerstateAPI.GetOutputMetadata)
 	routeGroup.GET("/output/:outputID/consumers", ledgerstateAPI.GetOutputConsumers)
-	routeGroup.GET("/mana/pending", manaAPI.GetPendingMana)
 	routeGroup.GET("/branch/:branchID", ledgerstateAPI.GetBranch)
 	routeGroup.GET("/branch/:branchID/children", ledgerstateAPI.GetBranchChildren)
 	routeGroup.GET("/branch/:branchID/conflicts", ledgerstateAPI.GetBranchConflicts)
@@ -266,9 +280,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					}
 				})
 
-				// how much pending mana the output has?
-				pendingMana, _ := messagelayer.PendingManaOnOutput(output.ID())
-
 				// obtain information about the consumer of the output being considered
 				confirmedConsumerID := deps.Tangle.Utils.ConfirmedConsumer(output.ID())
 
@@ -277,7 +288,6 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 					Output:          jsonmodels.NewOutput(output),
 					Metadata:        jsonmodels.NewOutputMetadata(metaData, confirmedConsumerID),
 					TxTimestamp:     int(timestamp),
-					PendingMana:     pendingMana,
 					GradeOfFinality: metaData.GradeOfFinality(),
 				})
 			}

@@ -93,7 +93,6 @@ func PeerConfig() config.GoShimmer {
 	c.Faucet.GenesisTokenAmount = 2500000000000000
 
 	c.Mana.Enabled = true
-	c.Mana.SnapshotResetTime = true
 
 	c.Consensus.Enabled = false
 
@@ -110,7 +109,7 @@ func EntryNodeConfig() config.GoShimmer {
 	c := PeerConfig()
 
 	c.DisabledPlugins = append(c.DisabledPlugins, "issuer", "metrics", "valuetransfers", "consensus",
-		"manarefresher", "manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
+		"manualpeering", "chat", "WebAPIDataEndpoint", "WebAPIFaucetEndpoint", "WebAPIMessageEndpoint",
 		"Snapshot", "WebAPIWeightProviderEndpoint", "WebAPIInfoEndpoint", "WebAPILedgerstateEndpoint", "Firewall",
 		"remotelog", "remotelogmetrics", "DAGsVisualizer", "Notarization")
 	c.Gossip.Enabled = false

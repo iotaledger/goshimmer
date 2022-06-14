@@ -27,9 +27,9 @@ const (
 
 type notarizationDependencies struct {
 	dig.In
+
 	Tangle  *tangle.Tangle
 	Storage kvstore.KVStore
-	VM      *devnetvm.VM
 }
 
 var (
@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	NotarizationPlugin = node.NewPlugin(NotarizationPluginName, deps, node.Enabled, configureNotarizationPlugin, runNotarizationPlugin)
+	NotarizationPlugin = node.NewPlugin(NotarizationPluginName, notarizationDeps, node.Enabled, configureNotarizationPlugin, runNotarizationPlugin)
 
 	NotarizationPlugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
 		if err := event.Container.Provide(newNotarizationManager); err != nil {
@@ -50,6 +50,7 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
+	notarizationManager = newNotarizationManager(*notarizationDeps)
 	if nodeSnapshot != nil {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
@@ -79,9 +80,6 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
 		notarizationManager.OnBranchRejected(event.ID)
 	}))
-	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
-		notarizationManager.OnCommitmentTreeCreated(event.EI)
-	}))
 }
 
 func runNotarizationPlugin(*node.Plugin) {
@@ -93,16 +91,21 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager(deps *notarizationDependencies) *notarization.Manager {
+func newNotarizationManager(deps notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(deps.Storage, deps.VM, deps.Tangle),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle),
 		notarizationDeps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
 		notarization.Log(Plugin.Logger()))
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() (*epoch.ECRecord, error) {
-	return notarizationManager.GetLatestEC()
+func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
+	ecRecord, err = notarizationManager.GetLatestEC()
+	if err != nil {
+		return
+	}
+	latestConfirmedEpoch, err = notarizationManager.LatestConfirmedEpochIndex()
+	return
 }

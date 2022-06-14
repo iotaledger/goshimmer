@@ -3,10 +3,10 @@ package messagelayer
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/hive.go/daemon"
@@ -69,8 +69,8 @@ func configureManaPlugin(*node.Plugin) {
 
 	allowedPledgeNodes = make(map[mana.Type]AllowedPledge)
 	baseManaVectors = make(map[mana.Type]mana.BaseManaVector)
-	baseManaVectors[mana.AccessMana], _ = mana.NewBaseManaVector(mana.AccessMana)
-	baseManaVectors[mana.ConsensusMana], _ = mana.NewBaseManaVector(mana.ConsensusMana)
+	baseManaVectors[mana.AccessMana] = mana.NewBaseManaVector()
+	baseManaVectors[mana.ConsensusMana] = mana.NewBaseManaVector()
 
 	// configure storage for each vector type
 	storages = make(map[mana.Type]*objectstorage.ObjectStorage[*mana.PersistableBaseMana])
@@ -180,13 +180,9 @@ func gatherInputInfos(transaction *devnetvm.Transaction) (totalAmount float64, i
 
 func runManaPlugin(_ *node.Plugin) {
 	// mana calculation coefficients can be set from config
-	ema1 := ManaParameters.EmaCoefficient1
-	ema2 := ManaParameters.EmaCoefficient2
-	dec := ManaParameters.Decay
 	pruneInterval := ManaParameters.PruneConsensusEventLogsInterval
 	vectorsCleanUpInterval := ManaParameters.VectorsCleanupInterval
 	fmt.Printf("Prune interval: %v\n", pruneInterval)
-	mana.SetCoefficients(ema1, ema2, dec)
 	if err := daemon.BackgroundWorker("Mana", func(ctx context.Context) {
 		defer manaLogger.Infof("Stopping %s ... done", PluginName)
 		// ticker := time.NewTicker(pruneInterval)
@@ -201,7 +197,9 @@ func runManaPlugin(_ *node.Plugin) {
 					Plugin.Panic("could not load snapshot from file", Parameters.Snapshot.File, err)
 				}
 
-				loadSnapshot(nodeSnapshot.ManaSnapshot)
+				if err := loadSnapshot(nodeSnapshot.LedgerSnapshot); err != nil {
+					Plugin.Panicf("Couldn't load snapshot: %s", err)
+				}
 
 				// initialize cMana WeightProvider with snapshot
 				t := time.Unix(tangle.DefaultGenesisTime, 0)
@@ -305,7 +303,7 @@ func GetManaMap(manaType mana.Type, optionalUpdateTime ...time.Time) (mana.NodeM
 	if !QueryAllowed() {
 		return mana.NodeMap{}, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+	return baseManaVectors[manaType].GetManaMap()
 }
 
 // GetCMana is a wrapper for the approval weight.
@@ -322,7 +320,7 @@ func GetTotalMana(manaType mana.Type, optionalUpdateTime ...time.Time) (float64,
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	manaMap, updateTime, err := baseManaVectors[manaType].GetManaMap(optionalUpdateTime...)
+	manaMap, updateTime, err := baseManaVectors[manaType].GetManaMap()
 	if err != nil {
 		return 0, time.Now(), err
 	}
@@ -339,7 +337,7 @@ func GetAccessMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (float64
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[mana.AccessMana].GetMana(nodeID, optionalUpdateTime...)
+	return baseManaVectors[mana.AccessMana].GetMana(nodeID)
 }
 
 // GetConsensusMana returns the consensus mana of the node specified.
@@ -347,7 +345,7 @@ func GetConsensusMana(nodeID identity.ID, optionalUpdateTime ...time.Time) (floa
 	if !QueryAllowed() {
 		return 0, time.Now(), ErrQueryNotAllowed
 	}
-	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID, optionalUpdateTime...)
+	return baseManaVectors[mana.ConsensusMana].GetMana(nodeID)
 }
 
 // GetNeighborsMana returns the type mana of the nodes neighbors.
@@ -359,7 +357,7 @@ func GetNeighborsMana(manaType mana.Type, neighbors []*gossip.Neighbor, optional
 	res := make(mana.NodeMap)
 	for _, n := range neighbors {
 		// in case of error, value is 0.0
-		value, _, _ := baseManaVectors[manaType].GetMana(n.ID(), optionalUpdateTime...)
+		value, _, _ := baseManaVectors[manaType].GetMana(n.ID())
 		res[n.ID()] = value
 	}
 	return res, nil
@@ -375,12 +373,6 @@ func GetAllManaMaps(optionalUpdateTime ...time.Time) (map[mana.Type]mana.NodeMap
 		res[manaType], _, _ = GetManaMap(manaType, optionalUpdateTime...)
 	}
 	return res, nil
-}
-
-// OverrideMana sets the nodes mana to a specific value.
-// It can be useful for debugging, setting faucet mana, initialization, etc.. Triggers ManaUpdated.
-func OverrideMana(manaType mana.Type, nodeID identity.ID, bm *mana.AccessBaseMana) {
-	baseManaVectors[manaType].SetMana(nodeID, bm)
 }
 
 // GetAllowedPledgeNodes returns the list of nodes that type mana is allowed to be pledged to.
@@ -456,42 +448,6 @@ func verifyPledgeNodes() error {
 	allowedPledgeNodes[mana.AccessMana] = access
 	allowedPledgeNodes[mana.ConsensusMana] = consensus
 	return nil
-}
-
-// PendingManaOnOutput predicts how much mana (bm2) will be pledged to a node if the output specified is spent.
-func PendingManaOnOutput(outputID utxo.OutputID) (float64, time.Time) {
-	cachedOutputMetadata := deps.Tangle.Ledger.Storage.CachedOutputMetadata(outputID)
-	defer cachedOutputMetadata.Release()
-	outputMetadata, exists := cachedOutputMetadata.Unwrap()
-
-	// spent output has 0 pending mana.
-	if !exists || outputMetadata.IsSpent() {
-		return 0, time.Time{}
-	}
-
-	var value float64
-	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		outputEssence := output.(devnetvm.Output)
-		outputEssence.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
-			value += float64(balance)
-			return true
-		})
-	})
-
-	var txTimestamp time.Time
-	deps.Tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
-		cachedTx := deps.Tangle.Ledger.Storage.CachedTransaction(output.ID().TransactionID)
-		defer cachedTx.Release()
-		tx, _ := cachedTx.Unwrap()
-		txTimestamp = tx.(*devnetvm.Transaction).Essence().Timestamp()
-	})
-
-	return GetPendingMana(value, time.Since(txTimestamp)), txTimestamp
-}
-
-// GetPendingMana returns the mana pledged by spending a `value` output that sat for `n` duration.
-func GetPendingMana(value float64, n time.Duration) float64 {
-	return value * (1 - math.Pow(math.E, -mana.Decay*(n.Seconds())))
 }
 
 // // GetLoggedEvents gets the events logs for the node IDs and time frame specified. If none is specified, it returns the logs for all nodes.
@@ -799,11 +755,49 @@ func QueryAllowed() (allowed bool) {
 }
 
 // loadSnapshot loads the tx snapshot and the access mana snapshot, sorts it and loads it into the various mana versions.
-func loadSnapshot(snapshot *mana.Snapshot) {
-	if ManaParameters.SnapshotResetTime {
-		snapshot.ResetTime()
+func loadSnapshot(snapshot *ledger.Snapshot) error {
+	consensusManaByNode := map[identity.ID]float64{}
+	accessManaByNode := map[identity.ID]float64{}
+	processOutputs := func(outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) error {
+		return snapshot.Outputs.ForEach(func(output utxo.Output) error {
+			metadata, exists := snapshot.OutputsMetadata.Get(output.ID())
+			if !exists {
+				return errors.Errorf("metadata not found for output %s", output.ID())
+			}
+			devnetOutput := output.(devnetvm.Output)
+			var manaValue float64
+			devnetOutput.Balances().ForEach(func(_ devnetvm.Color, balance uint64) bool {
+				manaValue += float64(balance)
+				return true
+			})
+			if isCreated {
+				consensusManaByNode[metadata.ConsensusManaPledgeID()] += manaValue
+				accessManaByNode[metadata.AccessManaPledgeID()] += manaValue
+			} else {
+				consensusManaByNode[metadata.ConsensusManaPledgeID()] -= manaValue
+				accessManaByNode[metadata.AccessManaPledgeID()] -= manaValue
+			}
+			return nil
+		})
+
+	}
+	if err := processOutputs(snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */); err != nil {
+		return errors.WithStack(err)
+	}
+	for i := snapshot.FullEpochIndex; i < snapshot.DiffEpochIndex; i++ {
+		diff, exists := snapshot.EpochDiffs.Get(i)
+		if !exists {
+			return errors.Errorf("diff with index %d not found", i)
+		}
+		if err := processOutputs(diff.M.Created, diff.M.CreatedMetadata, true /* isCreated */); err != nil {
+			return errors.WithStack(err)
+		}
+		if err := processOutputs(diff.M.Spent, diff.M.SpentMetadata, false /* isCreated */); err != nil {
+			return errors.WithStack(err)
+		}
 	}
 
-	baseManaVectors[mana.ConsensusMana].LoadSnapshot(snapshot.ByNodeID)
-	baseManaVectors[mana.AccessMana].LoadSnapshot(snapshot.ByNodeID)
+	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
+	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
+	return nil
 }

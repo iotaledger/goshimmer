@@ -11,16 +11,13 @@ import (
 
 func TestEpochManager(t *testing.T) {
 	genesisTime := time.Now()
-	manager := NewEpochManager(GenesisTime(genesisTime.Unix()), Interval(int64(10)))
+	manager := NewEpochManager(GenesisTime(genesisTime.Unix()), Duration(10*time.Second))
 
 	{
 		// ei = 0
 		testTime := genesisTime.Add(5 * time.Second)
 		ei := manager.TimeToEI(testTime)
-		assert.Equal(t, ei, epoch.EI(0))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
+		assert.Equal(t, ei, epoch.Index(0))
 
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Unix(), 0))
@@ -32,10 +29,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 1
 		testTime := genesisTime.Add(10 * time.Second)
 		ei := manager.TimeToEI(testTime)
-		assert.Equal(t, ei, epoch.EI(1))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
+		assert.Equal(t, ei, epoch.Index(1))
 
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(10*time.Second).Unix(), 0))
@@ -47,10 +41,7 @@ func TestEpochManager(t *testing.T) {
 		// ei = 3
 		testTime := genesisTime.Add(35 * time.Second)
 		ei := manager.TimeToEI(testTime)
-		assert.Equal(t, ei, epoch.EI(3))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
+		assert.Equal(t, ei, epoch.Index(3))
 
 		startTime := manager.EIToStartTime(ei)
 		assert.Equal(t, startTime, time.Unix(genesisTime.Add(30*time.Second).Unix(), 0))
@@ -62,19 +53,14 @@ func TestEpochManager(t *testing.T) {
 		// ei = 4
 		testTime := genesisTime.Add(49 * time.Second)
 		ei := manager.TimeToEI(testTime)
-		assert.Equal(t, ei, epoch.EI(4))
+		assert.Equal(t, ei, epoch.Index(4))
 
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(2))
 	}
 
 	{
 		// a time before genesis time, ei = 0
 		testTime := genesisTime.Add(-10 * time.Second)
 		ei := manager.TimeToEI(testTime)
-		assert.Equal(t, ei, epoch.EI(0))
-
-		oracleEci := manager.TimeToOracleEI(testTime)
-		assert.Equal(t, oracleEci, epoch.EI(0))
+		assert.Equal(t, ei, epoch.Index(0))
 	}
 }

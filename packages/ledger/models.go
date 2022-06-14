@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
@@ -210,23 +211,26 @@ type outputMetadata struct {
 	// ConsensusManaPledgeID contains the identifier of the node that received the consensus mana pledge.
 	ConsensusManaPledgeID identity.ID `serix:"0"`
 
+	// AccessManaPledgeID contains the identifier of the node that received the access mana pledge.
+	AccessManaPledgeID identity.ID `serix:"1"`
+
 	// CreationTime contains the time when the Output was created.
-	CreationTime time.Time `serix:"1"`
+	CreationTime time.Time `serix:"2"`
 
 	// BranchIDs contains the conflicting BranchIDs that this Output depends on.
-	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"2"`
+	BranchIDs *set.AdvancedSet[utxo.TransactionID] `serix:"3"`
 
 	// FirstConsumer contains the first Transaction that ever spent the Output.
-	FirstConsumer utxo.TransactionID `serix:"3"`
+	FirstConsumer utxo.TransactionID `serix:"4"`
 
 	// FirstConsumerForked contains a boolean flag that indicates if the FirstConsumer was forked.
-	FirstConsumerForked bool `serix:"4"`
+	FirstConsumerForked bool `serix:"5"`
 
 	// GradeOfFinality contains the confirmation status of the Output.
-	GradeOfFinality gof.GradeOfFinality `serix:"5"`
+	GradeOfFinality gof.GradeOfFinality `serix:"6"`
 
 	// GradeOfFinalityTime contains the last time the GradeOfFinality was updated.
-	GradeOfFinalityTime time.Time `serix:"6"`
+	GradeOfFinalityTime time.Time `serix:"7"`
 }
 
 // NewOutputMetadata returns new OutputMetadata for the given OutputID.
@@ -257,6 +261,29 @@ func (o *OutputMetadata) SetConsensusManaPledgeID(id identity.ID) (updated bool)
 	}
 
 	o.M.ConsensusManaPledgeID = id
+	o.SetModified()
+
+	return true
+}
+
+// AccessManaPledgeID returns the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) AccessManaPledgeID() (id identity.ID) {
+	o.RLock()
+	defer o.RUnlock()
+
+	return o.M.AccessManaPledgeID
+}
+
+// SetAccessManaPledgeID sets the identifier of the node that received the access mana pledge.
+func (o *OutputMetadata) SetAccessManaPledgeID(id identity.ID) (updated bool) {
+	o.Lock()
+	defer o.Unlock()
+
+	if o.M.AccessManaPledgeID == id {
+		return false
+	}
+
+	o.M.AccessManaPledgeID = id
 	o.SetModified()
 
 	return true
@@ -516,6 +543,131 @@ func (c *Consumer) SetBooked() (updated bool) {
 	updated = true
 
 	return
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
+
+type EpochDiffs struct {
+	orderedmap.OrderedMap[epoch.Index, *EpochDiff] `serix:"0"`
+}
+
+func (e *EpochDiffs) String() string {
+	structBuilder := stringify.StructBuilder("EpochDiffs")
+	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *EpochDiff) bool {
+		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
+		return true
+	})
+
+	return structBuilder.String()
+}
+
+type EpochDiff struct {
+	model.Storable[epoch.Index, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
+}
+
+type epochDiff struct {
+	EI              epoch.Index      `serix:"0"`
+	Created         *utxo.Outputs    `serix:"1"`
+	CreatedMetadata *OutputsMetadata `serix:"2"`
+	Spent           *utxo.Outputs    `serix:"3"`
+	SpentMetadata   *OutputsMetadata `serix:"4"`
+}
+
+func NewEpochDiff(ei epoch.Index) (new *EpochDiff) {
+	new = model.NewStorable[epoch.Index, EpochDiff](&epochDiff{
+		EI:              ei,
+		Created:         utxo.NewOutputs(),
+		CreatedMetadata: NewOutputsMetadata(),
+		Spent:           utxo.NewOutputs(),
+		SpentMetadata:   NewOutputsMetadata(),
+	})
+	new.SetID(ei)
+	return
+}
+
+func (e *EpochDiff) EI() epoch.Index {
+	e.RLock()
+	defer e.RUnlock()
+
+	return e.M.EI
+}
+
+func (e *EpochDiff) SetEI(ei epoch.Index) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.EI = ei
+	e.SetModified()
+}
+
+func (e *EpochDiff) AddCreated(created utxo.Output) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Created.Add(created)
+	e.SetModified()
+}
+
+func (e *EpochDiff) DeleteCreated(id utxo.OutputID) (existed bool) {
+	e.Lock()
+	defer e.Unlock()
+
+	if existed = e.M.Created.OrderedMap.Delete(id); existed {
+		e.SetModified()
+	}
+
+	return
+}
+
+func (e *EpochDiff) AddSpent(spent utxo.Output) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Spent.Add(spent)
+	e.SetModified()
+}
+
+func (e *EpochDiff) DeleteSpent(id utxo.OutputID) (existed bool) {
+	e.Lock()
+	defer e.Unlock()
+
+	if existed = e.M.Spent.OrderedMap.Delete(id); existed {
+		e.SetModified()
+	}
+
+	return
+}
+
+func (e *EpochDiff) Created() *utxo.Outputs {
+	e.RLock()
+	defer e.RUnlock()
+
+	return &utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
+}
+
+func (e *EpochDiff) SetCreated(created *utxo.Outputs) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Created = created
+	e.SetModified()
+}
+
+func (e *EpochDiff) Spent() *utxo.Outputs {
+	e.RLock()
+	defer e.RUnlock()
+
+	return &utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
+}
+
+func (e *EpochDiff) SetSpent(spent *utxo.Outputs) {
+	e.Lock()
+	defer e.Unlock()
+
+	e.M.Spent = spent
+	e.SetModified()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

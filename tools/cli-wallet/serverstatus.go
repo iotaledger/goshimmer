@@ -24,5 +24,4 @@ func execServerStatusCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 	fmt.Println("Server ID: ", status.ID)
 	fmt.Println("Server Synced: ", status.Synced)
 	fmt.Println("Server Version: ", status.Version)
-	fmt.Println("Delegation Address: ", status.DelegationAddress)
 }

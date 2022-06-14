@@ -116,6 +116,13 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		countParents = parentsCount[0]
 	}
 
+	epochCommitment, lastConfirmedEpochIndex, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
+	if epochCommitmentErr != nil {
+		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
+		f.Events.Error.Trigger(err)
+		return nil, err
+	}
+
 	for run := true; run; run = errPoW != nil && time.Since(startTime) < f.powTimeout {
 		_, txOk := p.(utxo.Transaction)
 		if len(references) == 0 && (len(strongParents) == 0 || !txOk) {
@@ -139,7 +146,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 				return nil, err
 			}
 		}
-		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, errPoW = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p, lastConfirmedEpochIndex, epochCommitment)
 	}
 
 	if errPoW != nil {
@@ -148,15 +155,8 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		return nil, err
 	}
 
-	epochCommitment, epochCommitmentErr := f.tangle.Options.CommitmentFunc()
-	if epochCommitmentErr != nil {
-		err = errors.Errorf("cannot retrieve epoch commitment: %w", epochCommitmentErr)
-		f.Events.Error.Trigger(err)
-		return nil, err
-	}
-
 	// create the signature
-	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce, epochCommitment)
+	signature, err := f.sign(references, issuingTime, issuerPublicKey, sequenceNumber, p, nonce, lastConfirmedEpochIndex, epochCommitment)
 	if err != nil {
 		err = errors.Errorf("signing failed: %w", err)
 		f.Events.Error.Trigger(err)
@@ -171,7 +171,7 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 		p,
 		nonce,
 		signature,
-		0, // TODO: get latest confirmed epoch
+		lastConfirmedEpochIndex,
 		epochCommitment,
 	)
 	if err != nil {
@@ -262,9 +262,9 @@ func (f *MessageFactory) Shutdown() {
 }
 
 // doPOW performs pow on the message and returns a nonce.
-func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload) (uint64, error) {
+func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (uint64, error) {
 	// create a dummy message to simplify marshaling
-	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, 0, nil)
+	message := NewMessage(references, issuingTime, key, seq, messagePayload, 0, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummy, err := message.Bytes()
 	if err != nil {
 		return 0, err
@@ -275,9 +275,9 @@ func (f *MessageFactory) doPOW(references ParentMessageIDs, issuingTime time.Tim
 	return f.worker.DoPOW(dummy)
 }
 
-func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
+func (f *MessageFactory) sign(references ParentMessageIDs, issuingTime time.Time, key ed25519.PublicKey, seq uint64, messagePayload payload.Payload, nonce uint64, latestConfirmedEpoch epoch.Index, epochCommitment *epoch.ECRecord) (ed25519.Signature, error) {
 	// create a dummy message to simplify marshaling
-	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, 0, epochCommitment)
+	dummy := NewMessage(references, issuingTime, key, seq, messagePayload, nonce, ed25519.EmptySignature, latestConfirmedEpoch, epochCommitment)
 	dummyBytes, err := dummy.Bytes()
 	if err != nil {
 		return ed25519.EmptySignature, err

@@ -5,6 +5,4 @@ type ServerStatus struct {
 	ID                string
 	Synced            bool
 	Version           string
-	ManaDecay         float64
-	DelegationAddress string
 }
