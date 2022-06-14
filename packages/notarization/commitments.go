@@ -1,8 +1,8 @@
 package notarization
 
 import (
-	"github.com/iotaledger/hive.go/identity"
 	"fmt"
+	"github.com/iotaledger/hive.go/identity"
 	"hash"
 	"sync"
 
@@ -62,7 +62,6 @@ type EpochCommitmentFactory struct {
 	stateRootTree *smt.SparseMerkleTree
 	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
 	manaRootTree *smt.SparseMerkleTree
-
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -247,18 +246,6 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(outputID utxo.OutputID) error {
 	_, err := f.stateRootTree.Update(outputID.Bytes(), outputID.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "could not insert leaf to the state tree")
-	}
-	return nil
-}
-
-// RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
-	exists, _ := f.stateRootTree.Has(outputID.Bytes())
-	if exists {
-		_, err := f.stateRootTree.Delete(outputID.Bytes())
-		if err != nil {
-			return errors.Wrap(err, "could not delete leaf from the state tree")
-		}
 	}
 	return nil
 }
