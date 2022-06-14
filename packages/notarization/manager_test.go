@@ -85,7 +85,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	vm := new(devnetvm.VM)
 	nodes := make(map[string]*identity.Identity)
-	for _, node := range []string{"A", "B"} {
+	for _, node := range []string{"A"} {
 		nodes[node] = identity.GenerateIdentity()
 	}
 
@@ -104,53 +104,75 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	{
 		time.Sleep(time.Duration(epochInterval) * time.Second)
 
-		testEventMock.Expect("EpochCommitted", epoch.EI(0))
-
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
+		msg := testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
-		testFramework.CreateMessage("Message1", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 
-		// TODO: check if leaf is inserted
-		_, err = m.GetBlockInclusionProof(testFramework.Message("Message1").ID())
+		// check if leaf is inserted via generating proof successfully
+		_, err = m.GetBlockInclusionProof(msg.ID())
 		require.NoError(t, err)
+
+		testEventMock.AssertExpectations(t)
 	}
 
 	//  ISSUE Message2, issuing time epoch 2
 	{
 		time.Sleep(time.Duration(epochInterval) * time.Second)
 
-		testEventMock.Expect("EpochCommitted", epoch.EI(1))
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
 		assert.Equal(t, epoch.EI(0), ecRecord.EI())
 
+		msg := testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+
 		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(2))
-		testFramework.CreateMessage("Message2", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
 		testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 
-		// TODO: check if leaf is inserted
+		// check if leaf is inserted
+		_, err = m.GetBlockInclusionProof(msg.ID())
+		require.NoError(t, err)
+
+		testEventMock.AssertExpectations(t)
 	}
 
-	//  ISSUE Message3, issuing time epoch 3
+	//  ISSUE Message3, issuing time epoch 3. New epoch is committed.
 	{
 		time.Sleep(time.Duration(epochInterval) * time.Second)
 
-		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(3))
 		testEventMock.Expect("EpochCommitted", epoch.EI(1))
-
 		ecRecord, err := m.GetLatestEC()
 		require.NoError(t, err)
 		assert.Equal(t, epoch.EI(1), ecRecord.EI())
 
-		testFramework.CreateMessage("Message3", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		msg := testFramework.CreateMessage("Message3", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testEventMock.Expect("NewCommitmentTreesCreated", epoch.EI(3))
 		testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 
-		// TODO: check if leaf is inserted
+		// check if leaf is inserted
+		_, err = m.GetBlockInclusionProof(msg.ID())
+		require.NoError(t, err)
 
+		testEventMock.AssertExpectations(t)
+	}
+
+	//  ISSUE Message4, issuing time epoch 3. No tree is created, and no new epoch gets committed
+	{
+		ecRecord, err := m.GetLatestEC()
+		require.NoError(t, err)
+		assert.Equal(t, epoch.EI(1), ecRecord.EI())
+
+		msg := testFramework.CreateMessage("Message4", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(nodes["A"].PublicKey()), tangle.WithECRecord(ecRecord))
+		testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
+
+		// check if leaf is inserted
+		_, err = m.GetBlockInclusionProof(msg.ID())
+		require.NoError(t, err)
+
+		testEventMock.AssertExpectations(t)
 	}
 }
 
@@ -185,14 +207,16 @@ func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {
 }
 
 func registerToTangleEvents(m *Manager, testTangle *tangle.Tangle) {
-	testTangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		testTangle.Storage.Message(event.Message.ID()).Consume(func(msg *tangle.Message) {
-			m.OnMessageConfirmed(msg)
+	// By pass finality gadget
+	// TODO: think about orphaned testing
+	testTangle.Booker.Events.MessageBooked.Attach(event.NewClosure(func(event *tangle.MessageBookedEvent) {
+		var message *tangle.Message
+		testTangle.Storage.Message(event.MessageID).Consume(func(msg *tangle.Message) {
+			message = msg
 		})
+		m.OnMessageConfirmed(message)
 	}))
-	testTangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		m.OnMessageOrphaned(event.Message)
-	}))
+
 	testTangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		testTangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
 			m.OnTransactionConfirmed(t.(*devnetvm.Transaction))
