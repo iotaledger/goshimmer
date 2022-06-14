@@ -24,7 +24,7 @@ const (
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "β".
 	RateSettingDecrease = 1.5
 	// Wmax is the maximum inbox threshold for the node. This value denotes when maximum active mana holder backs off its rate.
-	Wmax = 15
+	Wmax = 10
 	// Wmin is the min inbox threshold for the node. This value denotes when nodes with the least mana back off their rate.
 	Wmin = 2
 )
