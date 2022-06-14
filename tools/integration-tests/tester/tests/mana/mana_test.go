@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/mr-tron/base58"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -225,7 +224,7 @@ func TestManaApis(t *testing.T) {
 		require.NoError(t, err)
 		t.Logf("/mana/percentile %+v", resp)
 		require.Equal(t, fullID(peers[0].ID()), resp.NodeID)
-		require.InDelta(t, 75.0, resp.Access, 0.01)
+		require.InDelta(t, 20.0, resp.Access, 0.01)
 
 		resp, err = faucet.GetManaPercentile(faucet.ID().EncodeBase58())
 		require.NoError(t, err)
@@ -237,22 +236,24 @@ func TestManaApis(t *testing.T) {
 	// Test /mana/access/online and /mana/consensus/online
 	t.Run("mana/*/online", func(t *testing.T) {
 		// genesis node is not online
-		expectedOnlineAccessOrder := []string{peers[0].ID().String(), peers[1].ID().String(), peers[2].ID().String(), peers[3].ID().String()}
-		aResp, err := faucet.GetOnlineAccessMana()
+		aResp, err := peers[0].GoShimmerAPI.GetOnlineAccessMana()
 		require.NoError(t, err)
 		t.Logf("/mana/access/online %+v", aResp)
-		require.Len(t, aResp.Online, len(expectedOnlineAccessOrder))
-		require.Equal(t, expectedOnlineAccessOrder[0], aResp.Online[0].ShortID)
-		unorderedOnlineNodes := aResp.Online[1:]
-		for j := range unorderedOnlineNodes {
-			assert.Contains(t, expectedOnlineAccessOrder[1:], unorderedOnlineNodes[j].ShortID)
+		require.Len(t, aResp.Online, len(n.Peers()))
+		nodeIDs := make([]string, len(aResp.Online))
+		for i := range aResp.Online {
+			nodeIDs[i] = aResp.Online[i].ID
+		}
+		require.Len(t, nodeIDs, len(n.Peers()))
+		for _, peer := range n.Peers() {
+			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
 
 		cResp, err := peers[0].GoShimmerAPI.GetOnlineConsensusMana()
 		require.NoError(t, err)
 		t.Logf("/mana/consensus/online %+v", cResp)
 		require.Len(t, cResp.Online, len(n.Peers()))
-		nodeIDs := make([]string, len(cResp.Online))
+		nodeIDs = make([]string, len(cResp.Online))
 		for i := range cResp.Online {
 			nodeIDs[i] = cResp.Online[i].ID
 		}
@@ -260,18 +261,6 @@ func TestManaApis(t *testing.T) {
 		for _, peer := range n.Peers() {
 			require.Contains(t, nodeIDs, peer.ID().EncodeBase58())
 		}
-	})
-
-	// Test /mana/pending
-	t.Run("mana/pending", func(t *testing.T) {
-		unspentOutputs, err := peers[1].PostAddressUnspentOutputs([]string{peers[1].Address(0).Base58()})
-		require.NoError(t, err)
-		outputID := unspentOutputs.UnspentOutputs[0].Outputs[0].Output.OutputID.Base58
-		resp, err := peers[1].GetPending(outputID)
-		require.NoError(t, err)
-		t.Logf("/mana/pending %+v", resp)
-		require.Equal(t, outputID, resp.OutputID)
-		require.Greater(t, resp.Mana, minConsensusMana)
 	})
 
 	// Test /mana/allowedManaPledge
