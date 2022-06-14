@@ -62,7 +62,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 			if err = r.checkPayloadLiked(strongParent); err != nil {
 				continue
 			}
-			
+
 			referencesToAdd = NewParentMessageIDs().Add(WeakParentType, strongParent)
 		} else {
 			referencesToAdd.AddStrong(strongParent)
@@ -76,6 +76,14 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 
 	if len(references[StrongParentType]) == 0 {
 		return nil, errors.Errorf("none of the provided strong parents can be referenced")
+	}
+
+	// Make sure that there's no duplicate between strong and weak parents.
+	for strongParent := range references[StrongParentType] {
+		delete(references[WeakParentType], strongParent)
+	}
+	if len(references[WeakParentType]) == 0 {
+		delete(references, WeakParentType)
 	}
 
 	return references, nil

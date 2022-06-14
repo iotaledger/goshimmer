@@ -76,7 +76,7 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents.
-func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
+func areReferencesConflictingAcrossBlocks(parentsBlocks ParentMessageIDs) bool {
 	for messageID := range parentsBlocks[WeakParentType] {
 		if _, exists := parentsBlocks[StrongParentType][messageID]; exists {
 			return true
