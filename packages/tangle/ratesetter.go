@@ -19,7 +19,7 @@ const (
 	MaxLocalQueueSize = 20
 	// RateSettingIncrease is the global additive increase parameter.
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "A".
-	RateSettingIncrease = 1.0
+	RateSettingIncrease = 0.075
 	// RateSettingDecrease global multiplicative decrease parameter (larger than 1).
 	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "β".
 	RateSettingDecrease = 1.5
@@ -162,8 +162,12 @@ func (r *RateSetter) Estimate() time.Duration {
 		r.initializeInitialRate()
 	})
 
+	var pauseUpdate time.Duration
+	if r.pauseUpdates > 0 {
+		pauseUpdate = time.Duration(float64(r.pauseUpdates)) * r.tangle.Scheduler.Rate()
+	}
 	// dummy estimate
-	return time.Duration(math.Ceil(float64(r.Size()) / r.ownRate.Load() * float64(time.Second)))
+	return lo.Max(time.Duration(math.Ceil(float64(r.Size())/r.ownRate.Load()*float64(time.Second))), pauseUpdate)
 }
 
 // rateSetting updates the rate ownRate at which messages can be issued by the node.
