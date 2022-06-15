@@ -1,13 +1,51 @@
 package notarization
 
 import (
+	"fmt"
 	"reflect"
 	"sync/atomic"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/consensus/finality"
+	"github.com/iotaledger/goshimmer/packages/consensus/gof"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+)
+
+const (
+	testingLowBound    = 0.2
+	testingMediumBound = 0.3
+	testingHighBound   = 0.4
+)
+
+var (
+	TestBranchGoFTranslation finality.BranchThresholdTranslation = func(branchID utxo.TransactionID, aw float64) gof.GradeOfFinality {
+		switch {
+		case aw >= testingLowBound && aw < testingMediumBound:
+			return gof.Low
+		case aw >= testingMediumBound && aw < testingHighBound:
+			return gof.Medium
+		case aw >= testingHighBound:
+			return gof.High
+		default:
+			return gof.None
+		}
+	}
+
+	TestMessageGoFTranslation finality.MessageThresholdTranslation = func(aw float64) gof.GradeOfFinality {
+		switch {
+		case aw >= testingLowBound && aw < testingMediumBound:
+			return gof.Low
+		case aw >= testingMediumBound && aw < testingHighBound:
+			return gof.Medium
+		case aw >= testingHighBound:
+			return gof.High
+		default:
+			return gof.None
+		}
+	}
 )
 
 // EventMock acts as a container for event mocks.
@@ -77,13 +115,13 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 // EpochCommitted is the mocked BranchWeightChanged function.
 func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
 	e.Called(event.EI)
-
+	fmt.Println("committed", event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
 
 // NewCommitmentTreesCreated is the mocked BranchWeightChanged function.
 func (e *EventMock) NewCommitmentTreesCreated(event *CommitmentTreesCreatedEvent) {
 	e.Called(event.EI)
-
+	fmt.Println("commitment tree created", event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }
