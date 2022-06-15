@@ -83,6 +83,10 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 
 func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs MessageIDs) {
 	blockIDs = NewMessageIDs()
+	if amount == 0 {
+		return blockIDs
+	}
+
 	for it := r.tangle.TipManager.tipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
 		blockID, blockIDErr := r.firstValidAttachment(it.Next(), issuingTime)
 		if blockIDErr != nil {

@@ -154,16 +154,14 @@ func (f *MessageFactory) issuePayload(p payload.Payload, references ParentMessag
 }
 
 func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedReferences ParentMessageIDs, parentsCount int, issuerPublicKey ed25519.PublicKey, sequenceNumber uint64) (references ParentMessageIDs, nonce uint64, issuingTime time.Time, err error) {
-	references = NewParentMessageIDs()
-
 	// Perform PoW with given information if there are references provided.
 	if !providedReferences.IsEmpty() {
 		issuingTime = f.getIssuingTime(providedReferences[StrongParentType])
-		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
+		nonce, err = f.doPOW(providedReferences, issuingTime, issuerPublicKey, sequenceNumber, p)
 		if err != nil {
-			return references, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
+			return providedReferences, nonce, issuingTime, errors.Errorf("PoW failed: %w", err)
 		}
-		return references, nonce, issuingTime, nil
+		return providedReferences, nonce, issuingTime, nil
 	}
 
 	// TODO: once we get rid of PoW we need to set another timeout here that allows to specify for how long we try to select tips if there are no valid references.
@@ -185,6 +183,9 @@ func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefe
 		}
 
 		// fill up weak references with weak references to liked missing branches
+		if _, exists := references[WeakParentType]; !exists {
+			references[WeakParentType] = NewMessageIDs()
+		}
 		references[WeakParentType].AddAll(f.ReferenceProvider.ReferencesToMissingConflicts(issuingTime, MaxParentsCount-len(references[WeakParentType])))
 
 		if len(references[WeakParentType]) == 0 {
