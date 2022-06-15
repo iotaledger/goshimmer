@@ -7,14 +7,11 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
-	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 	"github.com/iotaledger/hive.go/timedexecutor"
 	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
@@ -105,22 +102,21 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 
 // TipManager manages a map of tips and emits events for their removal and addition.
 type TipManager struct {
-	tangle               *Tangle
-	tips                 *randommap.RandomMap[MessageID, MessageID]
-	tipsCleaner          *TimedTaskExecutor
-	tipsBranchCount      map[utxo.TransactionID]uint
-	tipsBranchCountMutex sync.RWMutex
-	Events               *TipManagerEvents
+	tangle              *Tangle
+	tips                *randommap.RandomMap[MessageID, MessageID]
+	tipsCleaner         *TimedTaskExecutor
+	tipsConflictTracker *TipsConflictTracker
+	Events              *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
 	tipSelector := &TipManager{
-		tangle:          tangle,
-		tips:            randommap.New[MessageID, MessageID](),
-		tipsCleaner:     NewTimedTaskExecutor(1),
-		tipsBranchCount: make(map[utxo.TransactionID]uint),
-		Events:          newTipManagerEvents(),
+		tangle:              tangle,
+		tips:                randommap.New[MessageID, MessageID](),
+		tipsCleaner:         NewTimedTaskExecutor(1),
+		tipsConflictTracker: NewTipsConflictTracker(tangle),
+		Events:              newTipManagerEvents(),
 	}
 
 	if tips != nil {
@@ -138,10 +134,6 @@ func (t *TipManager) Setup() {
 
 	t.Events.TipRemoved.Attach(event.NewClosure(func(tipEvent *TipEvent) {
 		t.tipsCleaner.Cancel(tipEvent.MessageID)
-	}))
-
-	t.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		t.deleteConfirmedBranchCount(event.BranchID)
 	}))
 
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
@@ -208,7 +200,7 @@ func (t *TipManager) addTip(message *Message) (added bool) {
 	}
 
 	if t.tips.Set(messageID, messageID) {
-		t.increaseTipBranchesCount(messageID)
+		t.tipsConflictTracker.AddTip(messageID)
 		t.Events.TipAdded.Trigger(&TipEvent{
 			MessageID: messageID,
 		})
@@ -225,7 +217,7 @@ func (t *TipManager) addTip(message *Message) (added bool) {
 
 func (t *TipManager) deleteTip(msgID MessageID) (deleted bool) {
 	if _, deleted = t.tips.Delete(msgID); deleted {
-		t.decreaseTipBranchesCount(msgID)
+		t.tipsConflictTracker.RemoveTip(msgID)
 		t.Events.TipRemoved.Trigger(&TipEvent{
 			MessageID: msgID,
 		})
@@ -249,84 +241,6 @@ func (t *TipManager) checkApprovers(messageID MessageID) bool {
 		}
 	})
 	return approverScheduledConfirmed
-}
-
-func (t *TipManager) increaseTipBranchesCount(messageID MessageID) {
-	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
-	if err != nil {
-		panic(err)
-	}
-
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	for it := messageBranchIDs.Iterator(); it.HasNext(); {
-		messageBranchID := it.Next()
-		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
-			continue
-		}
-
-		t.tipsBranchCount[messageBranchID]++
-	}
-}
-
-func (t *TipManager) decreaseTipBranchesCount(messageID MessageID) {
-	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
-	if err != nil {
-		panic("could not determine BranchIDs of tip.")
-	}
-
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	for it := messageBranchIDs.Iterator(); it.HasNext(); {
-		messageBranchID := it.Next()
-		if _, exists := t.tipsBranchCount[messageBranchID]; exists {
-			t.tipsBranchCount[messageBranchID]--
-			if t.tipsBranchCount[messageBranchID] == 0 {
-				delete(t.tipsBranchCount, messageBranchID)
-			}
-		}
-	}
-}
-
-func (t *TipManager) deleteConfirmedBranchCount(branchID utxo.TransactionID) {
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	t.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(branchID, func(conflictingBranchID utxo.TransactionID) bool {
-		delete(t.tipsBranchCount, conflictingBranchID)
-		return true
-	})
-	delete(t.tipsBranchCount, branchID)
-}
-
-func (t *TipManager) isLastTipForBranch(messageID MessageID) bool {
-	messageBranchIDs, err := t.tangle.Booker.MessageBranchIDs(messageID)
-	if err != nil {
-		panic("could not determine BranchIDs of message.")
-	}
-
-	t.tipsBranchCountMutex.Lock()
-	defer t.tipsBranchCountMutex.Unlock()
-
-	for it := messageBranchIDs.Iterator(); it.HasNext(); {
-		messageBranchID := it.Next()
-		// Lazily introduce a counter for Pending branches only.
-		if t.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(messageBranchID)) != conflictdag.Pending {
-			continue
-		}
-		count, exists := t.tipsBranchCount[messageBranchID]
-		if !exists {
-			t.tipsBranchCount[messageBranchID] = 1
-			return true
-		}
-		if count == 1 {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (t *TipManager) removeStrongParents(message *Message) {

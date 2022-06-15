@@ -78,15 +78,21 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents Me
 		return nil, errors.Errorf("none of the provided strong parents can be referenced")
 	}
 
-	// Make sure that there's no duplicate between strong and weak parents.
-	for strongParent := range references[StrongParentType] {
-		delete(references[WeakParentType], strongParent)
-	}
-	if len(references[WeakParentType]) == 0 {
-		delete(references, WeakParentType)
+	return references, nil
+}
+
+func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs MessageIDs) {
+	blockIDs = NewMessageIDs()
+	for it := r.tangle.TipManager.tipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
+		blockID, blockIDErr := r.firstValidAttachment(it.Next(), issuingTime)
+		if blockIDErr != nil {
+			continue
+		}
+
+		blockIDs.Add(blockID)
 	}
 
-	return references, nil
+	return blockIDs
 }
 
 // addedReferenceForMessage returns the reference that is necessary to correct our opinion on the given message.

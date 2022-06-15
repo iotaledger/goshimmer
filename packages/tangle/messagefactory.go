@@ -178,6 +178,19 @@ func (f *MessageFactory) selectTipsAndPerformPoW(p payload.Payload, providedRefe
 			f.Events.Error.Trigger(errors.Errorf("references could not be created: %w", err))
 			continue
 		}
+
+		// Make sure that there's no duplicate between strong and weak parents.
+		for strongParent := range references[StrongParentType] {
+			delete(references[WeakParentType], strongParent)
+		}
+
+		// fill up weak references with weak references to liked missing branches
+		references[WeakParentType].AddAll(f.ReferenceProvider.ReferencesToMissingConflicts(issuingTime, MaxParentsCount-len(references[WeakParentType])))
+
+		if len(references[WeakParentType]) == 0 {
+			delete(references, WeakParentType)
+		}
+
 		nonce, err = f.doPOW(references, issuingTime, issuerPublicKey, sequenceNumber, p)
 	}
 
