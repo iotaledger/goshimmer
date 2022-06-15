@@ -9,6 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/mr-tron/base58"
 	"golang.org/x/sync/errgroup"
 
@@ -128,6 +129,30 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 	}
 	if err := n.waitForManualPeering(ctx, nodes); err != nil {
 		return errors.Wrap(err, "manual peering failed")
+	}
+	return nil
+}
+
+// CreatePartitionsManualPeering creates a partitioned network topology between nodes using manual peering.
+// If the optional list of partitioned nodes is not provided an error is returned.
+// CreatePartitionsManualPeering blocks until all connections are established or the ctx has expired.
+func (n *Network) CreatePartitionsManualPeering(ctx context.Context, partitions ...[]*Node) error {
+	if len(partitions) == 0 {
+		return fmt.Errorf("no partitions provided")
+	}
+
+	if err := n.dropManualPeers(n.Peers()); err != nil {
+		return errors.Wrap(err, "resetting manual peers failed")
+	}
+
+	for _, partition := range partitions {
+		if err := n.addManualPeers(partition); err != nil {
+			return errors.Wrap(err, "adding manual peers failed")
+		}
+
+		if err := n.waitForManualPeering(ctx, partition); err != nil {
+			return errors.Wrap(err, "manual peering failed")
+		}
 	}
 	return nil
 }
@@ -436,6 +461,28 @@ func (n *Network) addManualPeers(nodes []*Node) error {
 		}
 	}
 	log.Println("Adding manual peers... done")
+	return nil
+}
+
+// dropManualPeers instructs each node to drop all the other nodes as peers.
+func (n *Network) dropManualPeers(nodes []*Node) error {
+	log.Printf("Adding manual peers to %d nodes...", len(nodes))
+	for i := range nodes {
+		manualPeers, err := nodes[i].GetManualPeers()
+		if err != nil {
+			return err
+		}
+		// connect to all other nodes
+		var publicKeys []ed25519.PublicKey
+		for _, manualPeer := range manualPeers {
+			publicKeys = append(publicKeys, manualPeer.PublicKey)
+		}
+
+		if err := nodes[i].RemoveManualPeers(publicKeys); err != nil {
+			return errors.Wrap(err, "failed to drop manual nodes via API")
+		}
+	}
+	log.Println("Dropping manual peers... done")
 	return nil
 }
 
