@@ -12,7 +12,7 @@ import (
 )
 
 type TipsConflictTracker struct {
-	missingConflicts  *set.AdvancedSet[utxo.TransactionID]
+	missingConflicts  utxo.TransactionIDs
 	tipsConflictCount map[utxo.TransactionID]int
 	tangle            *Tangle
 
@@ -68,27 +68,40 @@ func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
 	defer c.Unlock()
 
 	for it := messageBranchIDs.Iterator(); it.HasNext(); {
-		messageBranchID := it.Next()
+		conflictID := it.Next()
 
-		if _, exists := c.tipsConflictCount[messageBranchID]; exists {
-			if c.tipsConflictCount[messageBranchID]--; c.tipsConflictCount[messageBranchID] == 0 {
-				if c.tangle.OTVConsensusManager != nil && c.tangle.OTVConsensusManager.BranchLiked(messageBranchID) {
-					c.missingConflicts.Add(messageBranchID)
-				}
+		if _, exists := c.tipsConflictCount[conflictID]; !exists {
+			continue
+		}
 
-				delete(c.tipsConflictCount, messageBranchID)
-			}
+		if c.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(conflictID)) != conflictdag.Pending {
+			continue
+		}
+
+		if c.tipsConflictCount[conflictID]--; c.tipsConflictCount[conflictID] == 0 {
+			c.missingConflicts.Add(conflictID)
+			delete(c.tipsConflictCount, conflictID)
 		}
 	}
 }
 
 func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utxo.TransactionIDs) {
-	c.RLock()
-	defer c.RUnlock()
+	c.Lock()
+	defer c.Unlock()
 
 	missingConflicts = utxo.NewTransactionIDs()
 	_ = c.missingConflicts.ForEach(func(conflictID utxo.TransactionID) (err error) {
-		if c.tangle.OTVConsensusManager.BranchLiked(conflictID) && missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
+		// TODO: this should not be necessary if BranchConfirmed/BranchRejected events are fired appropriately
+		if c.tangle.Ledger.ConflictDAG.InclusionState(set.NewAdvancedSet(conflictID)) != conflictdag.Pending {
+			c.missingConflicts.Delete(conflictID)
+			delete(c.tipsConflictCount, conflictID)
+			return
+		}
+		if !c.tangle.OTVConsensusManager.BranchLiked(conflictID) {
+			return
+		}
+
+		if missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
 			return errors.Errorf("amount of missing conflicts reached %d", amount)
 		}
 
