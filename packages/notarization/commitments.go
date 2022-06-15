@@ -2,6 +2,7 @@ package notarization
 
 import (
 	"fmt"
+	"github.com/iotaledger/hive.go/identity"
 	"hash"
 	"sync"
 
@@ -27,6 +28,7 @@ type CommitmentRoots struct {
 	tangleRoot        epoch.MerkleRoot
 	stateMutationRoot epoch.MerkleRoot
 	stateRoot         epoch.MerkleRoot
+	manaRoot          epoch.MerkleRoot
 }
 
 // CommitmentTrees is a compressed form of all the information (messages and confirmed value payloads) of an epoch.
@@ -57,6 +59,8 @@ type EpochCommitmentFactory struct {
 
 	// stateRootTree stores the state tree at the LastCommittedEpoch.
 	stateRootTree *smt.SparseMerkleTree
+	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
+	manaRootTree *smt.SparseMerkleTree
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
@@ -68,18 +72,28 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle) *Ep
 	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeNodes)
 	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeValues)
 
+	manaRootTreeStore := specializeStore(epochCommitmentStorage.baseStore, PrefixManaTree)
+	manaRootTreeNodeStore := specializeStore(manaRootTreeStore, PrefixManaTreeNodes)
+	manaRootTreeValueStore := specializeStore(manaRootTreeStore, PrefixManaTreeValues)
+
 	return &EpochCommitmentFactory{
 		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
 		storage:         epochCommitmentStorage,
 		hasher:          hasher,
 		tangle:          tangle,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, hasher),
+		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, hasher),
 	}
 }
 
 // StateRoot returns the root of the state sparse merkle tree at the latest committed epoch.
 func (f *EpochCommitmentFactory) StateRoot() []byte {
 	return f.stateRootTree.Root()
+}
+
+// ManaRoot returns the root of the state sparse merkle tree at the latest committed epoch.
+func (f *EpochCommitmentFactory) ManaRoot() []byte {
+	return f.manaRootTree.Root()
 }
 
 // ECR retrieves the epoch commitment root.
@@ -89,8 +103,7 @@ func (f *EpochCommitmentFactory) ECR(ei epoch.Index) (ecr *epoch.ECR, err error)
 		return nil, errors.Wrap(err, "ECR could not be created")
 	}
 	branch1 := types.NewIdentifier(append(epochRoots.tangleRoot.Bytes(), epochRoots.stateMutationRoot.Bytes()...))
-	// TODO: append mana root here...
-	branch2 := types.NewIdentifier(append(epochRoots.stateRoot.Bytes()))
+	branch2 := types.NewIdentifier(append(epochRoots.stateRoot.Bytes(), epochRoots.manaRoot.Bytes()...))
 	root := make([]byte, 0)
 	root = append(root, branch1.Bytes()...)
 	root = append(root, branch2.Bytes()...)
@@ -106,16 +119,54 @@ func (f *EpochCommitmentFactory) InsertStateLeaf(outputID utxo.OutputID) error {
 	return nil
 }
 
-// RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
-func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
-	exists, _ := f.stateRootTree.Has(outputID.Bytes())
-	if exists {
-		_, err := f.stateRootTree.Delete(outputID.Bytes())
-		if err != nil {
-			return errors.Wrap(err, "could not delete leaf from the state tree")
+// UpdateManaLeaf updates the mana balance in the mana sparse merkle tree.
+func (f *EpochCommitmentFactory) UpdateManaLeaf(outputID utxo.OutputID, increaseBalance bool) error {
+	pledgeID, balances, updatedBalances, err := f.getPledgeIDAndBalances(outputID)
+	if err != nil {
+		return err
+	}
+	var leafHasBalance bool
+	balances.ForEach(func(color devnetvm.Color, balance uint64) bool {
+		if increaseBalance {
+			updatedBalances.Map()[color] += balance
+		} else {
+			updatedBalances.Map()[color] -= balance
+			if updatedBalances.Map()[color] > 0 {
+				leafHasBalance = true
+			}
 		}
+		return true
+	})
+	// remove leaf if mana is zero
+	if !leafHasBalance {
+		err = f.removeManaRoot(pledgeID)
+		return err
+	}
+	_, err = f.stateRootTree.Update(pledgeID.Bytes(), updatedBalances.Bytes())
+	if err != nil {
+		return errors.Wrap(err, "could not insert leaf to the state tree")
 	}
 	return nil
+}
+
+func (f *EpochCommitmentFactory) getPledgeIDAndBalances(outputID utxo.OutputID) (identity.ID, *devnetvm.ColoredBalances, *devnetvm.ColoredBalances, error) {
+	var pledgeID identity.ID
+	f.tangle.Ledger.Storage.CachedOutputMetadata(outputID).Consume(func(metadata *ledger.OutputMetadata) {
+		pledgeID = metadata.ConsensusManaPledgeID()
+	})
+	var balances *devnetvm.ColoredBalances
+	f.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(output utxo.Output) {
+		balances = output.(devnetvm.Output).Balances()
+	})
+	balanceBytes, err := f.stateRootTree.Get(pledgeID.Bytes())
+	if err != nil {
+		return identity.ID{}, nil, nil, errors.Wrap(err, "could not get leaf from mana tree")
+	}
+	updatedBalances, _, err := devnetvm.ColoredBalancesFromBytes(balanceBytes)
+	if err != nil {
+		return identity.ID{}, nil, nil, errors.Wrap(err, "could not decode balances")
+	}
+	return pledgeID, balances, updatedBalances, nil
 }
 
 // InsertStateMutationLeaf inserts the transaction ID to the state mutation sparse merkle tree.
@@ -185,6 +236,31 @@ func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.Index, msgID tangle.M
 	return nil
 }
 
+// RemoveStateLeaf removes the output ID from the ledger sparse merkle tree.
+func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
+	exists, _ := f.stateRootTree.Has(outputID.Bytes())
+	if exists {
+		_, err := f.stateRootTree.Delete(outputID.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the state tree")
+		}
+	}
+	return nil
+}
+
+func (f *EpochCommitmentFactory) removeManaRoot(id identity.ID) error {
+	exists, _ := f.stateRootTree.Has(id.Bytes())
+	if exists {
+		_, err := f.stateRootTree.Delete(id.Bytes())
+		if err != nil {
+			return errors.Wrap(err, "could not delete leaf from the state tree")
+		}
+	}
+	return nil
+}
+
+	stateRoot, manaRoot, commitmentTreesErr := f.newStateRoots(ei)
+	copy(commitmentRoots.manaRoot.Bytes(), manaRoot)
 // ProofStateRoot returns the merkle proof for the outputID against the state root.
 func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
 	key := outID.Bytes()
@@ -368,28 +444,38 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
-func (f *EpochCommitmentFactory) newStateRoot(ei epoch.Index) (stateRoot []byte, err error) {
+func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte, manaRoot []byte, err error) {
 	fmt.Println("\t\t>> newStateRoot", ei)
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spent, created := f.loadDiffUTXOs(ei)
+		return nil, nil, errors.Errorf("could not load diff for epoch %d", ei)
 
-	// Insert created UTXOs into the state tree.
+	// Insert  created UTXOs into the state tree.
 	for _, o := range created {
-		err := f.InsertStateLeaf(o.ID())
+		err = f.InsertStateLeaf(o.ID())
 		if err != nil {
-			return nil, errors.Wrap(err, "could not insert the state leaf")
+			return nil, nil, errors.Wrap(err, "could not insert the state leaf")
+		}
+		err = f.UpdateManaLeaf(o.ID(), true)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "could not insert the mana leaf")
 		}
 	}
 
 	// Remove spent UTXOs from the state tree.
 	for it := spent.Iterator(); it.HasNext(); {
-		err := f.RemoveStateLeaf(it.Next())
+		outID := it.Next()
+		err = f.RemoveStateLeaf(outID)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not remove state leaf")
+			return nil, nil, errors.Wrap(err, "could not remove state leaf")
+		}
+		err = f.UpdateManaLeaf(outID, false)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "could not remove mana leaf")
 		}
 	}
 
-	return f.StateRoot(), nil
+	return f.StateRoot(), f.ManaRoot(), nil
 }
 
 func EC(ecRecord *epoch.ECRecord) *epoch.EC {

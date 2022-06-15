@@ -266,6 +266,12 @@ const (
 	PrefixStateTreeNodes
 
 	PrefixStateTreeValues
+
+	PrefixManaTree
+
+	PrefixManaTreeNodes
+
+	PrefixManaTreeValues
 )
 
 // region WithStore ////////////////////////////////////////////////////////////////////////////////////////////////////

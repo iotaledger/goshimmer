@@ -60,13 +60,15 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		outputIDBytes := outputWithMetadata.ID().Bytes()
-		_, err := m.epochCommitmentFactory.stateRootTree.Update(outputIDBytes, outputIDBytes)
+		err := m.epochCommitmentFactory.InsertStateLeaf(output.ID())
+		if err != nil {
+			m.log.Error(err)
+		}
+		err = m.epochCommitmentFactory.UpdateManaLeaf(output.ID(), true)
 		if err != nil {
 			m.log.Error(err)
 		}
 	}
-
 	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex; ei++ {
 		epochDiff := snapshot.EpochDiffs[ei]
 		for _, spentOutputWithMetadata := range epochDiff.Spent() {
@@ -168,6 +170,10 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("message confirmed in already committed epoch %d, ECC is now incorrect", ei)
+	}
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
@@ -177,9 +183,27 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	// TODO: think about transaction case.
+	m.updateDiffOnMessageOrphaned(message, ei)
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("message orphaned in already committed epoch %d, ECC is now incorrect", ei)
+	}
 }
 
+// updateDiffOnMessageOrphaned removes transaction from diff storage if it was contained in an orphaned message.
+func (m *Manager) updateDiffOnMessageOrphaned(message *tangle.Message, ei epoch.Index) {
+	transaction, isTransaction := message.Payload().(utxo.Transaction)
+	if isTransaction {
+		outputsSpent := m.outputIDsToOutputs(m.tangle.Ledger.Utils.ResolveInputs(transaction.Inputs()))
+		outputsCreated := m.outputsToOutputIDs(transaction.(*devnetvm.Transaction).Essence().Outputs())
+		m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsCreated, outputsSpent)
+	}
+}
+
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("transaction confirmed in already committed epoch %d, ECC is now incorrect", ei)
+	}
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
 	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
@@ -188,7 +212,6 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if oldEpoch == newEpoch {
 		return
 	}
-
 	if err := m.epochCommitmentFactory.RemoveStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
 		m.log.Error(err)
 	}
@@ -201,8 +224,20 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 	m.storeTXDiff(newEpoch, event.TransactionID)
 
-	// TODO: propagate updates to future epochs
-	// TODO: update state tree
+	m.updateDiffStorageOnInclusion(event.TransactionID, prevEpoch, newEpoch)
+
+	if m.isCommittedEpochBeingUpdated(prevEpoch) || m.isCommittedEpochBeingUpdated(newEpoch) {
+		m.log.Errorf("inclustion time of transaction changed for already committed epoch: previous EI %d,"+
+			" new EI %d, ECC is now incorrect", prevEpoch, newEpoch)
+	}
+}
+
+func (m *Manager) updateDiffStorageOnInclusion(txID utxo.TransactionID, prevEpoch, newEpoch epoch.Index) {
+	outputsSpent, outputsCreated := m.resolveTransaction(txID)
+	m.epochCommitmentFactory.storeDiffUTXOs(prevEpoch, outputsSpent, outputsCreated)
+	createdIDs := m.outputsToOutputIDs(outputsCreated)
+	outputsVm := m.outputIDsToOutputs(outputsSpent)
+	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, createdIDs, outputsVm)
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -315,7 +350,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 		// read the roots and store the ec
 		// roll the state trees
 		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
-			err = errors.Wrapf(ecRecordErr, "could not update committments for epoch %d", ei)
+			err = errors.Wrapf(ecRecordErr, "could not update commitments for epoch %d", ei)
 			return
 		}
 
@@ -326,6 +361,36 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 		}
 	}
 
+	return
+}
+
+func (m *Manager) isCommittedEpochBeingUpdated(ei epoch.Index) bool {
+	lastCommitted, _ := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	return ei <= lastCommitted
+}
+
+func (m *Manager) resolveTransaction(txID utxo.TransactionID) (outputsSpent utxo.OutputIDs, outputsCreated devnetvm.Outputs) {
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		outputsSpent = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+		outputsCreated = tx.(*devnetvm.Transaction).Essence().Outputs()
+	})
+	return
+}
+
+func (m *Manager) outputIDsToOutputs(outputIDs utxo.OutputIDs) (outputsVm devnetvm.Outputs) {
+	for it := outputIDs.Iterator(); it.HasNext(); {
+		outputID := it.Next()
+		m.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(out utxo.Output) {
+			outputsVm = append(outputsVm, out.(devnetvm.Output))
+		})
+	}
+	return
+}
+
+func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.OutputIDs) {
+	for _, o := range outputs {
+		createdIDs.Add(o.ID())
+	}
 	return
 }
 
