@@ -1,7 +1,6 @@
 package tangle
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -73,8 +72,6 @@ func (c *TipsConflictTracker) RemoveTip(messageID MessageID) {
 
 		if _, exists := c.tipsConflictCount[messageBranchID]; exists {
 			if c.tipsConflictCount[messageBranchID]--; c.tipsConflictCount[messageBranchID] == 0 {
-				fmt.Println()
-
 				if c.tangle.OTVConsensusManager != nil && c.tangle.OTVConsensusManager.BranchLiked(messageBranchID) {
 					c.missingConflicts.Add(messageBranchID)
 				}
