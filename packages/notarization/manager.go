@@ -170,6 +170,10 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("message confirmed in already committed epoch %d, ECC is now incorrect", ei)
+	}
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
@@ -180,6 +184,10 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 		m.log.Error(err)
 	}
 	// TODO: think about transaction case.
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("message orphaned in already committed epoch %d, ECC is now incorrect", ei)
+	}
 }
 
 // OnTransactionConfirmed is the handler for transaction confirmed event.
@@ -191,6 +199,10 @@ func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
 		m.log.Error(err)
 	}
 	m.storeTXDiff(ei, tx)
+
+	if m.isCommittedEpochBeingUpdated(ei) {
+		m.log.Errorf("transaction confirmed in already committed epoch %d, ECC is now incorrect", ei)
+	}
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
@@ -201,7 +213,6 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if prevEpoch == newEpoch {
 		return
 	}
-
 	err := m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
 	if err != nil {
 		m.log.Error(err)
@@ -210,8 +221,20 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if err != nil {
 		m.log.Error(err)
 	}
-	// TODO: propagate updates to future epochs
-	// TODO: update state tree
+	m.updateDiffStorageOnInclusion(event.TransactionID, prevEpoch, newEpoch)
+
+	if m.isCommittedEpochBeingUpdated(prevEpoch) || m.isCommittedEpochBeingUpdated(newEpoch) {
+		m.log.Errorf("inclustion time of transaction changed for already committed epoch: previous EI %d,"+
+			" new EI %d, ECC is now incorrect", prevEpoch, newEpoch)
+	}
+}
+
+func (m *Manager) updateDiffStorageOnInclusion(txID utxo.TransactionID, prevEpoch, newEpoch epoch.Index) {
+	outputsSpent, outputsCreated := m.resolveTransaction(txID)
+	m.epochCommitmentFactory.storeDiffUTXOs(prevEpoch, outputsSpent, outputsCreated)
+	createdIDs := m.outputsToOutputIDs(outputsCreated)
+	outputsVm := m.outputIDsToOutputs(outputsSpent)
+	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, createdIDs, outputsVm)
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -333,9 +356,34 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	return
 }
 
-func (m *Manager) isNextCommittableEpoch(ei epoch.Index) bool {
+func (m *Manager) isCommittedEpochBeingUpdated(ei epoch.Index) bool {
 	lastCommitted, _ := m.epochCommitmentFactory.LastCommittedEpochIndex()
-	return ei == lastCommitted+1
+	return ei <= lastCommitted
+}
+
+func (m *Manager) resolveTransaction(txID utxo.TransactionID) (outputsSpent utxo.OutputIDs, outputsCreated devnetvm.Outputs) {
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		outputsSpent = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+		outputsCreated = tx.(*devnetvm.Transaction).Essence().Outputs()
+	})
+	return
+}
+
+func (m *Manager) outputIDsToOutputs(outputIDs utxo.OutputIDs) (outputsVm devnetvm.Outputs) {
+	for it := outputIDs.Iterator(); it.HasNext(); {
+		outputID := it.Next()
+		m.tangle.Ledger.Storage.CachedOutput(outputID).Consume(func(out utxo.Output) {
+			outputsVm = append(outputsVm, out.(devnetvm.Output))
+		})
+	}
+	return
+}
+
+func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.OutputIDs) {
+	for _, o := range outputs {
+		createdIDs.Add(o.ID())
+	}
+	return
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
