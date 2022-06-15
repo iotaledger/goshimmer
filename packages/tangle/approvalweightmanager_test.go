@@ -896,7 +896,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	branchID.RegisterAlias(branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], voter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]utxo.TransactionIDs, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for it := branchIDs[branchIDString].Iterator(); it.HasNext(); {
