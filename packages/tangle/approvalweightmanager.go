@@ -132,6 +132,7 @@ func (a *ApprovalWeightManager) updateBranchVoters(message *Message) {
 		a.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
 			messageMetadata.SetSubjectivelyInvalid(true)
 		})
+		return
 	}
 
 	if !a.isRelevantVoter(message) {
@@ -158,17 +159,17 @@ func (a *ApprovalWeightManager) determineVotes(votedBranchIDs *set.AdvancedSet[u
 	addedBranches = utxo.NewTransactionIDs()
 	for it := votedBranchIDs.Iterator(); it.HasNext(); {
 		votedBranchID := it.Next()
-		// TODO: do not exit earlier to always determine subjectively invalid messages correctly
-		// conflictingBranchWithHigherVoteExists := false
-		// a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
-		// 	conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
-		//
-		// 	return !conflictingBranchWithHigherVoteExists
-		// })
-		//
-		// if conflictingBranchWithHigherVoteExists {
-		// 	continue
-		// }
+
+		conflictingBranchWithHigherVoteExists := false
+		a.tangle.Ledger.ConflictDAG.Utils.ForEachConflictingBranchID(votedBranchID, func(conflictingBranchID utxo.TransactionID) bool {
+			conflictingBranchWithHigherVoteExists = a.identicalVoteWithHigherPowerExists(vote.WithBranchID(conflictingBranchID).WithOpinion(Confirmed))
+
+			return !conflictingBranchWithHigherVoteExists
+		})
+
+		if conflictingBranchWithHigherVoteExists {
+			continue
+		}
 
 		// The starting branches should not be considered as having common Parents, hence we treat them separately.
 		conflictAddedBranches, _ := a.determineBranchesToAdd(set.NewAdvancedSet(votedBranchID), vote.WithOpinion(Confirmed))
@@ -253,26 +254,30 @@ func (a *ApprovalWeightManager) voteWithHigherPower(vote *BranchVote) (existingV
 
 func (a *ApprovalWeightManager) addVoterToBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
 	a.tangle.Storage.LatestBranchVotes(branchVote.Voter(), NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		latestBranchVotes.Store(branchVote)
-	})
+		if existingVote, exists := latestBranchVotes.Vote(branchID); !exists || existingVote.VotePower() < branchVote.VotePower() {
+			latestBranchVotes.Store(branchVote)
 
-	a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		branchVoters.AddVoter(branchVote.Voter())
-	})
+			a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
+				branchVoters.AddVoter(branchVote.Voter())
+			})
 
-	a.updateBranchWeight(branchID)
+			a.updateBranchWeight(branchID)
+		}
+	})
 }
 
 func (a *ApprovalWeightManager) revokeVoterFromBranch(branchID utxo.TransactionID, branchVote *BranchVote) {
 	a.tangle.Storage.LatestBranchVotes(branchVote.Voter(), NewLatestBranchVotes).Consume(func(latestBranchVotes *LatestBranchVotes) {
-		latestBranchVotes.Store(branchVote)
-	})
+		if existingVote, exists := latestBranchVotes.Vote(branchID); !exists || existingVote.VotePower() < branchVote.VotePower() {
+			latestBranchVotes.Store(branchVote)
 
-	a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
-		branchVoters.DeleteVoter(branchVote.Voter())
-	})
+			a.tangle.Storage.BranchVoters(branchID, NewBranchVoters).Consume(func(branchVoters *BranchVoters) {
+				branchVoters.DeleteVoter(branchVote.Voter())
+			})
 
-	a.updateBranchWeight(branchID)
+			a.updateBranchWeight(branchID)
+		}
+	})
 }
 
 func (a *ApprovalWeightManager) updateSequenceVoters(message *Message) {
