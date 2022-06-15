@@ -65,9 +65,8 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle) *Ep
 
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
-	stateRootTreeStore := specializeStore(epochCommitmentStorage.baseStore, PrefixStateTree)
-	stateRootTreeNodeStore := specializeStore(stateRootTreeStore, PrefixStateTreeNodes)
-	stateRootTreeValueStore := specializeStore(stateRootTreeStore, PrefixStateTreeValues)
+	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeNodes)
+	stateRootTreeValueStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeValues)
 
 	return &EpochCommitmentFactory{
 		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
@@ -291,7 +290,6 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent utxo.Outpu
 	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[utxo.Output]) bool {
 		cachedOutput.Consume(func(output utxo.Output) {
 			spent.Add(output.ID())
-			fmt.Println(">> loaded spent output:", output.ID())
 		})
 		return true
 	})
@@ -300,7 +298,6 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent utxo.Outpu
 	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		cachedOutputWithMetadata.Consume(func(outputWithMetadata *ledger.OutputWithMetadata) {
 			created = append(created, outputWithMetadata.Output().(devnetvm.Output))
-			fmt.Println(">> loaded created output:", created)
 		})
 		return true
 	})
@@ -328,6 +325,7 @@ func (f *EpochCommitmentFactory) newCommitmentTrees(ei epoch.Index) *CommitmentT
 
 // newEpochRoots creates a new commitment with the given ei, by advancing the corresponding data structures.
 func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots *CommitmentRoots, commitmentTreesErr error) {
+	fmt.Println("\t>> newEpochRoots", ei)
 	// TODO: what if a node restarts and we have incomplete trees?
 	commitmentTrees, commitmentTreesErr := f.getCommitmentTrees(ei)
 	if commitmentTreesErr != nil {
@@ -371,6 +369,7 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 }
 
 func (f *EpochCommitmentFactory) newStateRoot(ei epoch.Index) (stateRoot []byte, err error) {
+	fmt.Println("\t\t>> newStateRoot", ei)
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spent, created := f.loadDiffUTXOs(ei)
 

@@ -51,17 +51,17 @@ func newEpochCommitmentStorage(options ...Option) (new *EpochCommitmentStorage) 
 		epochCommitmentStorageOptions: newOptions(options...),
 	}
 
-	new.baseStore = specializeStore(new.epochCommitmentStorageOptions.store, database.PrefixNotarization)
+	new.baseStore = new.epochCommitmentStorageOptions.store
 
 	new.ledgerstateStorage = objectstorage.NewStructStorage[ledger.OutputWithMetadata](
-		specializeStore(new.baseStore, PrefixLedgerState),
+		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, PrefixLedgerState),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
 	)
 
 	new.ecRecordStorage = objectstorage.NewStructStorage[epoch.ECRecord](
-		specializeStore(new.baseStore, PrefixECRecord),
+		objectstorage.NewStoreWithRealm(new.baseStore, database.PrefixNotarization, PrefixECRecord),
 		new.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(new.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 		objectstorage.LeakDetectionEnabled(false),
 		objectstorage.StoreOnCreation(true),
@@ -180,11 +180,18 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		return epochDiffStorage
 	}
 
-	epochDiffStore := specializeStore(specializeStore(s.baseStore, PrefixEpochDiff), ei.Bytes()...)
+	spentDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochDiffSpent}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
+	createdDiffStore, err := s.baseStore.WithRealm(append([]byte{database.PrefixNotarization, PrefixEpochDiffCreated}, ei.Bytes()...))
+	if err != nil {
+		panic(err)
+	}
 
 	diffStorage = &epochDiffStorage{
 		spent: objectstorage.NewInterfaceStorage[utxo.Output](
-			specializeStore(epochDiffStore, PrefixEpochDiffSpent),
+			spentDiffStore,
 			outputFactory,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
@@ -192,7 +199,7 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 		),
 
 		created: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
-			specializeStore(epochDiffStore, PrefixEpochDiffCreated),
+			createdDiffStore,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
@@ -206,6 +213,7 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
 func (s *EpochCommitmentStorage) commitLedgerState(ei epoch.Index) (err error) {
+	fmt.Println("\t\t>> commitLedgerState", ei)
 	epochDiffStorage := s.getEpochDiffStorage(ei)
 	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[utxo.Output]) bool {
 		spentOutput := cachedOutput.Get()
@@ -213,27 +221,18 @@ func (s *EpochCommitmentStorage) commitLedgerState(ei epoch.Index) (err error) {
 
 		return true
 	})
+	fmt.Println("\t\t>> commitLedgerState: loaded spent outputs")
 	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
 		outputWithMetadata := cachedOutputWithMetadata.Get()
 		s.ledgerstateStorage.Store(outputWithMetadata)
 
 		return true
 	})
-
-	epochDiffStorage.spent.Shutdown()
-	epochDiffStorage.created.Shutdown()
+	fmt.Println("\t\t>> commitLedgerState: loaded created outputs")
 
 	delete(s.epochDiffStorages, ei)
 
 	return nil
-}
-
-func specializeStore(baseStore kvstore.KVStore, prefixes ...byte) (specializedStore kvstore.KVStore) {
-	specializedStore, err := baseStore.WithRealm(prefixes)
-	if err != nil {
-		panic(fmt.Errorf("could not create specialized store: %w", err))
-	}
-	return specializedStore
 }
 
 func outputFactory(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
@@ -260,13 +259,9 @@ const (
 
 	PrefixECRecord
 
-	PrefixEpochDiff
-
 	PrefixEpochDiffCreated
 
 	PrefixEpochDiffSpent
-
-	PrefixStateTree
 
 	PrefixStateTreeNodes
 
