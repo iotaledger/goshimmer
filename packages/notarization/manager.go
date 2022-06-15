@@ -183,10 +183,20 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	// TODO: think about transaction case.
+	m.updateDiffOnMessageOrphaned(message, ei)
 
 	if m.isCommittedEpochBeingUpdated(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d, ECC is now incorrect", ei)
+	}
+}
+
+// updateDiffOnMessageOrphaned removes transaction from diff storage if it was contained in an orphaned message.
+func (m *Manager) updateDiffOnMessageOrphaned(message *tangle.Message, ei epoch.Index) {
+	transaction, isTransaction := message.Payload().(utxo.Transaction)
+	if isTransaction {
+		outputsSpent := m.outputIDsToOutputs(m.tangle.Ledger.Utils.ResolveInputs(transaction.Inputs()))
+		outputsCreated := m.outputsToOutputIDs(transaction.(*devnetvm.Transaction).Essence().Outputs())
+		m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsCreated, outputsSpent)
 	}
 }
 
