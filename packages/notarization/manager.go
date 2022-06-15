@@ -180,34 +180,27 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	// TODO: think about transaction case.
 }
 
-// OnTransactionConfirmed is the handler for transaction confirmed event.
-func (m *Manager) OnTransactionConfirmed(tx *devnetvm.Transaction) {
-	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
-	ei := m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
-	err := m.epochCommitmentFactory.InsertStateMutationLeaf(ei, tx.ID())
-	if err != nil && m.log != nil {
-		m.log.Error(err)
-	}
-	m.storeTXDiff(ei, tx)
-}
-
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
-	prevEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
+	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
 	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
 
-	if prevEpoch == newEpoch {
+	if oldEpoch == newEpoch {
 		return
 	}
 
-	err := m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
-	if err != nil {
+	if err := m.epochCommitmentFactory.RemoveStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
 		m.log.Error(err)
 	}
-	err = m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID)
-	if err != nil {
+
+	if err := m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID); err != nil {
 		m.log.Error(err)
 	}
+
+	fmt.Println(">> OnTransactionInclusionUpdated:", event.TransactionID, oldEpoch, newEpoch)
+
+	m.storeTXDiff(newEpoch, event.TransactionID)
+
 	// TODO: propagate updates to future epochs
 	// TODO: update state tree
 }
@@ -264,9 +257,14 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	return lastCommittedEpoch, latestCommittableEpoch, nil
 }
 
-func (m *Manager) storeTXDiff(ei epoch.Index, tx *devnetvm.Transaction) {
-	outputsSpent := m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
-	outputsCreated := tx.Essence().Outputs()
+func (m *Manager) storeTXDiff(ei epoch.Index, txID utxo.TransactionID) {
+	var outputsSpent utxo.OutputIDs
+	var outputsCreated devnetvm.Outputs
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		devnetTx := tx.(*devnetvm.Transaction)
+		outputsSpent = m.tangle.Ledger.Utils.ResolveInputs(devnetTx.Inputs())
+		outputsCreated = devnetTx.Essence().Outputs()
+	})
 
 	// store outputs in the commitment diff storage
 	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
