@@ -151,6 +151,8 @@ func (t *TipManager) Setup() {
 
 		t.addTip(block)
 	}))
+
+	t.tipsConflictTracker.Setup()
 }
 
 // set adds the given messageIDs as tips.
