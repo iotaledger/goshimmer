@@ -60,14 +60,16 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(output).Release()
-		_, err := m.epochCommitmentFactory.stateRootTree.Update(output.ID().Bytes(), output.ID().Bytes())
+		err := m.epochCommitmentFactory.InsertStateLeaf(output.ID())
+		if err != nil {
+			m.log.Error(err)
+		}
+		err = m.epochCommitmentFactory.UpdateManaLeaf(output.ID(), true)
 		if err != nil {
 			m.log.Error(err)
 		}
 		return nil
 	})
-
-	// TODO: mana root
 
 	if err := m.epochCommitmentFactory.SetFullEpochIndex(snapshot.FullEpochIndex); err != nil {
 		m.log.Error(err)
@@ -317,7 +319,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 		// read the roots and store the ec
 		// roll the state trees
 		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
-			err = errors.Wrapf(ecRecordErr, "could not update committments for epoch %d", ei)
+			err = errors.Wrapf(ecRecordErr, "could not update commitments for epoch %d", ei)
 			return
 		}
 
@@ -329,6 +331,11 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	}
 
 	return
+}
+
+func (m *Manager) isNextCommittableEpoch(ei epoch.Index) bool {
+	lastCommitted, _ := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	return ei == lastCommitted+1
 }
 
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.

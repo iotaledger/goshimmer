@@ -400,7 +400,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 
 	// We advance the StateRootTree to the next epoch.
 	// This call will fail if we are trying to commit an epoch other than the next of the last committed epoch.
-	stateRoot, commitmentTreesErr := f.newStateRoot(ei)
+	stateRoot, manaRoot, commitmentTreesErr := f.newStateRoots(ei)
 	if commitmentTreesErr != nil {
 		return nil, commitmentTreesErr
 	}
@@ -416,6 +416,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	copy(commitmentRoots.stateRoot.Bytes(), commitmentTrees.tangleTree.Root())
 	copy(commitmentRoots.stateMutationRoot.Bytes(), commitmentTrees.stateMutationTree.Root())
 	copy(commitmentRoots.stateRoot.Bytes(), stateRoot)
+	copy(commitmentRoots.manaRoot.Bytes(), manaRoot)
 
 	return commitmentRoots, nil
 }
@@ -423,12 +424,12 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 // commitLedgerState commits the corresponding diff to the ledger state and drops it.
 func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) (err error) {
 	if !f.storage.CachedDiff(ei).Consume(func(diff *ledger.EpochDiff) {
-		diff.Spent().ForEach(func(spent utxo.Output) error {
+		_ = diff.Spent().ForEach(func(spent utxo.Output) error {
 			f.storage.ledgerstateStorage.Delete(spent.ID().Bytes())
 			return nil
 		})
 
-		diff.Created().ForEach(func(created utxo.Output) error {
+		_ = diff.Created().ForEach(func(created utxo.Output) error {
 			fmt.Println(">> commitLedgerState", created)
 			f.storage.ledgerstateStorage.Store(created).Release()
 			return nil
@@ -500,30 +501,39 @@ func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, v
 	return smt.VerifyProof(proof.proof, proof.root, key, value, f.hasher)
 }
 
-func (f *EpochCommitmentFactory) newStateRoot(ei epoch.Index) (stateRoot []byte, err error) {
+func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte, manaRoot []byte, err error) {
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
 	spent, created := f.loadDiffUTXOs(ei)
 	if spent == nil || created == nil {
-		return nil, errors.Errorf("could not load diff for epoch %d", ei)
+		return nil, nil, errors.Errorf("could not load diff for epoch %d", ei)
 	}
 
-	// Insert created UTXOs into the state tree.
+	// Insert  created UTXOs into the state tree.
 	for _, o := range created {
-		err := f.InsertStateLeaf(o.ID())
+		err = f.InsertStateLeaf(o.ID())
 		if err != nil {
-			return nil, errors.Wrap(err, "could not insert the state leaf")
+			return nil, nil, errors.Wrap(err, "could not insert the state leaf")
+		}
+		err = f.UpdateManaLeaf(o.ID(), true)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "could not insert the mana leaf")
 		}
 	}
 
 	// Remove spent UTXOs from the state tree.
 	for it := spent.Iterator(); it.HasNext(); {
-		err := f.RemoveStateLeaf(it.Next())
+		outID := it.Next()
+		err = f.RemoveStateLeaf(outID)
 		if err != nil {
-			return nil, errors.Wrap(err, "could not remove state leaf")
+			return nil, nil, errors.Wrap(err, "could not remove state leaf")
+		}
+		err = f.UpdateManaLeaf(outID, false)
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "could not remove mana leaf")
 		}
 	}
 
-	return f.StateRoot(), nil
+	return f.StateRoot(), f.ManaRoot(), nil
 }
 
 func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent utxo.OutputIDs, created devnetvm.Outputs) {
@@ -552,7 +562,7 @@ func (f *EpochCommitmentFactory) loadDiffUTXOs(ei epoch.Index) (spent utxo.Outpu
 	created = make(devnetvm.Outputs, 0)
 	f.storage.CachedDiff(ei, ledger.NewEpochDiff).Consume(func(epochDiff *ledger.EpochDiff) {
 		spent = epochDiff.Spent().IDs()
-		epochDiff.Created().ForEach(func(output utxo.Output) error {
+		_ = epochDiff.Created().ForEach(func(output utxo.Output) error {
 			created = append(created, output.(devnetvm.Output))
 			return nil
 		})
