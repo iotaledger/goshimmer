@@ -1,3 +1,25 @@
+# v0.9.0 - 2022-06-16
+
+> This major release introduces concurrency throughout the node with asynchronous events and parallelized booking. This is achieved with serix, a generic deterministic serialization library, and through generic thread-safe data models. The ledger and conflictDAG and output processing (introduction of UTXO VM) have been completely rewritten. The Blockfactory received a total revamp as well and tip selection should show better behavior in resolving conflicts. In addition, a bunch of unused modules and code have been removed rendering the project overall more readable. The short identifier of a nodeID has been adjusted to show the first 8 characters of the full identity.
+
+The snapshot has been changed and thus the ledger state is fully reset.
+- Refactor MessageFactory, introduce ReferenceProvider and OrphanageManager (#2240)
+- Refactor models to be thread-safe with serix (#2248)
+- Remove future markers (#2241)
+- Delete unused modules (#2234)
+- Change identity.ID short representation (#2238)
+- Build(deps): bump eventsource in /plugins/dagsvisualizer/frontend (#2235)
+- Refactor models to use generic base models (#2231)
+- Build(deps): bump eventsource in /plugins/analysis/dashboard/frontend (#2233)
+- Build(deps): bump eventsource in /plugins/dashboard/frontend (#2232)
+- Multithreaded booking and new data flow with solidification of transactions (#2151)
+- Reviewdog version bump (#2223)
+- Fix serializer package dependency (#2219)
+- Force static linking of final binary in builtin script (#2216)
+- GoReleaser dryrun on PRs (#2213)
+- Update marker docs (#2146)
+
+
 # v0.8.14 - 2022-05-16
 
 > Minor revision introducing small docker changes.
