@@ -548,31 +548,36 @@ func ProcessMessageScenario3(t *testing.T, options ...Option) *TestScenario {
 	s.Steps = []TestStep{
 		// ISSUE Message1
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
-			ecRecord, _, _ := testFramework.tangle.Options.CommitmentFunc()
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
 			testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message2
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
-			ecRecord, _, _ := testFramework.tangle.Options.CommitmentFunc()
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
 			testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message3
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
-			ecRecord, _, _ := testFramework.tangle.Options.CommitmentFunc()
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
 			testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message4
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
-			ecRecord, _, _ := testFramework.tangle.Options.CommitmentFunc()
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
 			testFramework.CreateMessage("Message4", WithStrongParents("Message3", "Message2"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message5
 		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
-			ecRecord, _, _ := testFramework.tangle.Options.CommitmentFunc()
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
 			testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 		},

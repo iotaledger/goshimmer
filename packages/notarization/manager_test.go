@@ -115,20 +115,28 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	loadSnapshot(m, processMsgScenario.TestFramework)
 
 	prePostSteps := []*tangle.PrePostStepTuple{
-		// Message1
+		// Message1, issuing time epoch 1
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
 			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message1")
+				assert.Equal(t, epoch.EI(0), msg.EI())
+			},
 		},
-		// Message2
+		// Message2, issuing time epoch 2
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
 				fmt.Println("message 2")
 			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message2")
+				assert.Equal(t, epoch.EI(0), msg.EI())
+			},
 		},
-		// Message3
+		// Message3, issuing time epoch 3
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
@@ -136,8 +144,12 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 				eventHandlerMock.Expect("EpochCommitted", epoch.EI(1))
 				fmt.Println("message 3")
 			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message3")
+				assert.Equal(t, epoch.EI(1), msg.EI())
+			},
 		},
-		// Message4
+		// Message4, issuing time epoch 4
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
@@ -145,8 +157,12 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 				eventHandlerMock.Expect("EpochCommitted", epoch.EI(2))
 				fmt.Println("message 4")
 			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message4")
+				assert.Equal(t, epoch.EI(2), msg.EI())
+			},
 		},
-		// Message5
+		// Message5, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
@@ -156,6 +172,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 			},
 
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message5")
+				assert.Equal(t, epoch.EI(3), msg.EI())
 				assertExistenceOfBlock(t, testFramework, m, []string{
 					"Message1",
 					"Message2",
