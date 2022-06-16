@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/set"
 	"github.com/iotaledger/hive.go/generics/walker"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -200,10 +201,7 @@ func (s *SimpleFinalityGadget) FirstUnconfirmedMarkerIndex(sequenceID markers.Se
 
 // IsBranchConfirmed returns whether the given branch is confirmed.
 func (s *SimpleFinalityGadget) IsBranchConfirmed(branchID utxo.TransactionID) (confirmed bool) {
-	// TODO: HANDLE ERRORS INSTEAD?
-	branchGoF, _ := s.tangle.Ledger.Utils.BranchGradeOfFinality(branchID)
-
-	return branchGoF >= s.opts.BranchGoFReachedLevel
+	return s.tangle.Ledger.ConflictDAG.InclusionState(utxo.NewTransactionIDs(branchID)) == conflictdag.Confirmed
 }
 
 // IsTransactionConfirmed returns whether the given transaction is confirmed.

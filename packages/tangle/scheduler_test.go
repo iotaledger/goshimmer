@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -531,16 +532,22 @@ func BenchmarkScheduler(b *testing.B) {
 	b.StopTimer()
 }
 
+var timeOffset = 0 * time.Nanosecond
+var timeOffsetMutex = sync.Mutex{}
+
 func newMessage(issuerPublicKey ed25519.PublicKey) *Message {
+	timeOffsetMutex.Lock()
+	timeOffset++
 	message := NewMessage(
 		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
-		time.Now(),
+		time.Now().Add(timeOffset),
 		issuerPublicKey,
 		0,
 		payload.NewGenericDataPayload([]byte("")),
 		0,
 		ed25519.Signature{},
 	)
+	timeOffsetMutex.Unlock()
 	if err := message.DetermineID(); err != nil {
 		panic(err)
 	}
