@@ -27,6 +27,7 @@ type Manager struct {
 	epochManager                *EpochManager
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
+	lastCommittedEpoch          *epoch.ECRecord
 	options                     *ManagerOptions
 	pendingConflictsCount       map[epoch.Index]uint64
 	pccMutex                    sync.RWMutex
@@ -122,6 +123,17 @@ func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
 	return m.pendingConflictsCount[ei]
 }
 
+// PendingConflictsCountAll returns the current value of pendingConflictsCount per epoch.
+func (m *Manager) PendingConflictsCountAll() map[epoch.Index]uint64 {
+	m.pccMutex.RLock()
+	defer m.pccMutex.RUnlock()
+	duplicate := make(map[epoch.Index]uint64, len(m.pendingConflictsCount))
+	for k, v := range m.pendingConflictsCount {
+		duplicate[k] = v
+	}
+	return duplicate
+}
+
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) IsCommittable(ei epoch.Index) bool {
 	t := m.epochManager.EIToEndTime(ei)
@@ -151,10 +163,22 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	if err := m.epochCommitmentFactory.SetLastCommittedEpochIndex(latestCommittableEpoch); err != nil {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
-
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
-
+	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{CommittedEpoch: ecRecord})
 	return
+}
+
+func (m *Manager) LastCommittedEpoch() (*epoch.ECRecord, error) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+	ei, err := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	ecr, err := m.epochCommitmentFactory.ecRecord(ei)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return ecr, nil
 }
 
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
@@ -362,6 +386,6 @@ type Events struct {
 
 // EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
 type EpochCommittedEvent struct {
-	// EI is the index of committable epoch.
-	EI epoch.Index
+	// CommittedEpoch is the committed epoch.
+	CommittedEpoch *epoch.ECRecord
 }

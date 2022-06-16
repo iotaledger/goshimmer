@@ -17,9 +17,11 @@ import (
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/gossip"
+	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
+	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/analysis/server"
@@ -38,10 +40,11 @@ var (
 type dependencies struct {
 	dig.In
 
-	Tangle    *tangle.Tangle
-	GossipMgr *gossip.Manager     `optional:"true"`
-	Selection *selection.Protocol `optional:"true"`
-	Local     *peer.Local
+	Tangle          *tangle.Tangle
+	NotarizationMgr *notarization.Manager
+	GossipMgr       *gossip.Manager     `optional:"true"`
+	Selection       *selection.Protocol `optional:"true"`
+	Local           *peer.Local
 }
 
 func init() {
@@ -315,5 +318,18 @@ func registerLocalMetrics() {
 	// mana pledge events
 	mana.Events.Pledged.Attach(event.NewClosure(func(ev *mana.PledgedEvent) {
 		addPledge(ev)
+	}))
+	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedEvent) {
+		saveCommittedEpoch(e.CommittedEpoch)
+	}))
+	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		message := event.Message
+		if err := saveEpochVotersWeight(message); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		deps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
+		})
 	}))
 }
