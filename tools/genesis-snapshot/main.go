@@ -49,19 +49,6 @@ const (
 //	}(),
 // }
 
-// Equally distributed snapshot internal testnet.
-// var nodesToPledge = []string{
-// 	"e3m6WPQXLyuUqEfSHmGVEs6qpyhWNJqtbquX65kFoJQ",  // entrynode
-// 	"EGgbUaAnfXG2mBtGQwSPPVxLa8uC1hnNsxtnLYbHkm8B", // bootstrap_01
-// 	"7PS8tJSjhyFMbUqbVE2pUideT6DQc2ovNv5hBDTkvUtm", // vanilla_01
-// 	"3HqasBLjyqiYWeavLZoi1k1nrMVvGZDGj3EPkKHxzxdZ", // drng_01
-// 	"85LVFFjYZj8JNwmD5BJFux3gVGsw9uT2frFrnQ8gm7dX", // drng_02
-// 	"7Hk4Airu42Gcqm3JZDAL69DSdaksF9qfahppez9LZTJr", // drng_03
-// 	"E3RmVjQHsisxxLY36AuRkV7Uceo1FReYWLMsCTEbDBeC", // drng_04
-// 	"GRbfN6HDzFxWNwN6q4ixmTjDR5oS8XQc5zWbxxFFkBmw", // drng_05
-// 	"12rLUHyF67rzqHgYR6Jxbi3GD5CTU7DaxwDQfmVYcwnV", // faucet_01
-// }
-
 // Feature network.
 // var nodesToPledge = []string{
 // 	"Xv5Kmv9uZfNME4KD2zBoHZ3kVqovJN59ec62rH3AeLA",  // entrynode
@@ -73,6 +60,19 @@ const (
 // 	"Amkmn4nt8qwboUGPmFhCoM9ogeCbvS3eBSTjuoE3a5ci", // drng_04
 // 	"4FJbEsv448BoXeRo1a5Cq9xizkP2AkRBcx9W4PwDt2GL", // drng_05
 // 	"GbkZ3CoiTuUPUAYjgZLM8Y1VgvUbPujHVxmYmPVY2GDC", // faucet_01
+// }
+
+// Devnet
+// var nodesToPledge = []string{
+// 	"7Yr1tz7atYcbQUv5njuzoC5MiDsMmr3hqaWtAsgJfxxr", // entrynode
+// 	"AuQXPFmRu9nKNtUq3g1RLqVgSmxNrYeogt6uRwqYLGvK", // bootstrap_01
+// 	"D9SPFofAGhA5V9QRDngc1E8qG9bTrnATmpZMdoyRiBoW", // vanilla_01
+// 	"CfkVFzXRjJdshjgPpQAZ4fccZs2SyVPGkTc8LmtnbsT",  // node_01
+// 	"AQfLfcKpvt1nWn916ZGSBy7bRPkjEv5sN7fSZ2rFKoPh", // node_02
+// 	"9GLqh2VaDYUiKGn7kwV2EXsnU6Eiv7AEW73bXhfnX6FD", // node_03
+// 	"C3VeWTBAi12JHXKWTvYCxBRyVya6UpbdziiGZNqgh1sB", // node_04
+// 	"HGiFs4jR74yxDMCN8K1Z16QPdwchXokXzYhBLqKW2ssW", // node_05
+// 	"5heLsHxMRdTewXooaaDFGpAoj5c41ah5wTmpMukjdvi7", // faucet_01
 // }
 
 // Docker network.
