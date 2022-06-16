@@ -185,11 +185,6 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.updateDiffOnMessageOrphaned(ei, message)
-}
-
-// updateDiffOnMessageOrphaned removes transaction from diff storage if it was contained in an orphaned message.
-func (m *Manager) updateDiffOnMessageOrphaned(ei epoch.Index, message *tangle.Message) {
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
 		spent, created := m.resolveOutputs(transaction.ID())
@@ -285,34 +280,6 @@ func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
 		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	})
 	return
-}
-
-// GetBlockInclusionProof gets the proof of the inclusion (acceptance) of a block.
-func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentProof, error) {
-	var ei epoch.Index
-	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
-		t := block.IssuingTime()
-		ei = m.epochManager.TimeToEI(t)
-	})
-	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
-}
-
-// GetTransactionInclusionProof gets the proof of the inclusion (acceptance) of a transaction.
-func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID) (*CommitmentProof, error) {
-	var ei epoch.Index
-	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
-		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
-		ei = m.epochManager.TimeToEI(t)
-	})
-	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
 }
 
 // updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.

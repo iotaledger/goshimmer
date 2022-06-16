@@ -237,51 +237,6 @@ func (f *EpochCommitmentFactory) removeTangleLeaf(ei epoch.Index, msgID tangle.M
 	return nil
 }
 
-// ProofStateRoot returns the merkle proof for the outputID against the state root.
-func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.OutputID) (*CommitmentProof, error) {
-	key := outID.Bytes()
-	root := f.commitmentTrees[ei].tangleTree.Root()
-	proof, err := f.stateRootTree.ProveForRoot(key, root)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not generate the state root proof")
-	}
-	return &CommitmentProof{ei, proof, root}, nil
-}
-
-// ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
-func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
-	key := txID.Bytes()
-	root := f.commitmentTrees[ei].stateMutationTree.Root()
-	proof, err := f.commitmentTrees[ei].stateMutationTree.ProveForRoot(key, root)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not generate the state mutation root proof")
-	}
-	return &CommitmentProof{ei, proof, root}, nil
-}
-
-// ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
-func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.MessageID) (*CommitmentProof, error) {
-	key := blockID.Bytes()
-	root := f.commitmentTrees[ei].tangleTree.Root()
-	proof, err := f.commitmentTrees[ei].tangleTree.ProveForRoot(key, root)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not generate the tangle root proof")
-	}
-	return &CommitmentProof{ei, proof, root}, nil
-}
-
-// VerifyTangleRoot verify the provided merkle proof against the tangle root.
-func (f *EpochCommitmentFactory) VerifyTangleRoot(proof CommitmentProof, blockID tangle.MessageID) bool {
-	key := blockID.Bytes()
-	return f.verifyRoot(proof, key, key)
-}
-
-// VerifyStateMutationRoot verify the provided merkle proof against the state mutation root.
-func (f *EpochCommitmentFactory) VerifyStateMutationRoot(proof CommitmentProof, transactionID utxo.TransactionID) bool {
-	key := transactionID.Bytes()
-	return f.verifyRoot(proof, key, key)
-}
-
 // ecRecord retrieves the epoch commitment.
 func (f *EpochCommitmentFactory) ecRecord(ei epoch.Index) (ecRecord *epoch.ECRecord, err error) {
 	fmt.Println(">> ecRecord", ei)
@@ -440,10 +395,6 @@ func (f *EpochCommitmentFactory) getCommitmentTrees(ei epoch.Index) (commitmentT
 	return
 }
 
-func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
-	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))
-}
-
 func (f *EpochCommitmentFactory) newStateRoots(ei epoch.Index) (stateRoot []byte, manaRoot []byte, err error) {
 	fmt.Println("\t\t>> newStateRoot", ei)
 	// By the time we want the state root for a specific epoch, the diff should be complete and unalterable.
@@ -485,10 +436,4 @@ func EC(ecRecord *epoch.ECRecord) (ec epoch.EC) {
 	ecHash := blake2b.Sum256(concatenated)
 
 	return epoch.NewMerkleRoot(ecHash[:])
-}
-
-type CommitmentProof struct {
-	EI    epoch.Index
-	proof smt.SparseMerkleProof
-	root  []byte
 }
