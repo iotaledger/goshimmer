@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 var (
@@ -48,7 +48,7 @@ var (
 					AccessMana:    inputPledgeID1,
 					ConsensusMana: inputPledgeID1,
 				},
-				InputID: ledgerstate.OutputID{1},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -58,7 +58,7 @@ var (
 					AccessMana:    inputPledgeID2,
 					ConsensusMana: inputPledgeID2,
 				},
-				InputID: ledgerstate.OutputID{2},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 			{
 				// funds have been sitting here for couple days...
@@ -68,7 +68,7 @@ var (
 					AccessMana:    inputPledgeID3,
 					ConsensusMana: inputPledgeID3,
 				},
-				InputID: ledgerstate.OutputID{3},
+				InputID: utxo.NewOutputID(randomTxID(), 0),
 			},
 		},
 	}
@@ -82,7 +82,7 @@ func TestNewBaseManaVector_Access(t *testing.T) {
 	bmvAccess, err := NewBaseManaVector(AccessMana)
 	assert.NoError(t, err)
 	assert.Equal(t, AccessMana, bmvAccess.Type())
-	assert.Equal(t, map[identity.ID]*AccessBaseMana{}, bmvAccess.(*AccessBaseManaVector).vector)
+	assert.Equal(t, map[identity.ID]*AccessBaseMana{}, bmvAccess.(*AccessBaseManaVector).M.Vector)
 }
 
 func TestAccessBaseManaVector_Type(t *testing.T) {
@@ -98,11 +98,7 @@ func TestAccessBaseManaVector_Size(t *testing.T) {
 	assert.Equal(t, 0, bmv.Size())
 
 	for i := 0; i < 10; i++ {
-		bmv.SetMana(randNodeID(), &AccessBaseMana{
-			BaseMana2:          float64(i),
-			EffectiveBaseMana2: float64(i),
-			LastUpdated:        baseTime,
-		})
+		bmv.SetMana(randNodeID(), NewAccessBaseMana(float64(i), float64(i), baseTime))
 	}
 	assert.Equal(t, 10, bmv.Size())
 }
@@ -115,11 +111,7 @@ func TestAccessBaseManaVector_Has(t *testing.T) {
 	has := bmv.Has(randID)
 	assert.False(t, has)
 
-	bmv.SetMana(randID, &AccessBaseMana{
-		BaseMana2:          0,
-		EffectiveBaseMana2: 0,
-		LastUpdated:        time.Time{},
-	})
+	bmv.SetMana(randID, NewAccessBaseMana(0, 0, time.Time{}))
 	has = bmv.Has(randID)
 	assert.True(t, has)
 }
@@ -133,13 +125,13 @@ func TestAccessBaseManaVector_Book(t *testing.T) {
 	)
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
-	Events().Revoked.Attach(events.NewClosure(func(ev *RevokedEvent) {
+	Events.Revoked.Hook(event.NewClosure(func(ev *RevokedEvent) {
 		revokeEvents = append(revokeEvents, ev)
 	}))
-	Events().Pledged.Attach(events.NewClosure(func(ev *PledgedEvent) {
+	Events.Pledged.Hook(event.NewClosure(func(ev *PledgedEvent) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
@@ -147,18 +139,9 @@ func TestAccessBaseManaVector_Book(t *testing.T) {
 	assert.NoError(t, err)
 
 	// init vector to inputTime with pledged beforeBookingAmount
-	bmv.SetMana(inputPledgeID1, &AccessBaseMana{
-		BaseMana2:   beforeBookingAmount[inputPledgeID1],
-		LastUpdated: inputTime,
-	})
-	bmv.SetMana(inputPledgeID2, &AccessBaseMana{
-		BaseMana2:   beforeBookingAmount[inputPledgeID2],
-		LastUpdated: inputTime,
-	})
-	bmv.SetMana(inputPledgeID3, &AccessBaseMana{
-		BaseMana2:   beforeBookingAmount[inputPledgeID3],
-		LastUpdated: inputTime,
-	})
+	bmv.SetMana(inputPledgeID1, NewAccessBaseMana(beforeBookingAmount[inputPledgeID1], 0.0, inputTime))
+	bmv.SetMana(inputPledgeID2, NewAccessBaseMana(beforeBookingAmount[inputPledgeID2], 0.0, inputTime))
+	bmv.SetMana(inputPledgeID3, NewAccessBaseMana(beforeBookingAmount[inputPledgeID3], 0.0, inputTime))
 
 	// update to txTime - 6 hours. Effective base manas should converge to their asymptote.
 	err = bmv.UpdateAll(baseTime)
@@ -300,16 +283,13 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
 	randID := randNodeID()
 	// init vector to baseTime
-	bmv.SetMana(randID, &AccessBaseMana{
-		BaseMana2:   10.0,
-		LastUpdated: baseTime,
-	})
+	bmv.SetMana(randID, NewAccessBaseMana(10.0, 0.0, baseTime))
 	updateTime := baseTime.Add(time.Hour * 6)
 	err = bmv.Update(randID, updateTime)
 
@@ -318,11 +298,7 @@ func TestAccessBaseManaVector_Update(t *testing.T) {
 	ev := updateEvents[0]
 	assert.Equal(t, randID, ev.NodeID)
 	assert.Equal(t, AccessMana, ev.ManaType)
-	assert.Equal(t, &AccessBaseMana{
-		BaseMana2:   10.0,
-		LastUpdated: baseTime,
-	},
-		ev.OldMana)
+	assert.Equal(t, NewAccessBaseMana(10.0, 0.0, baseTime), ev.OldMana)
 	assert.InDelta(t, 5, ev.NewMana.BaseValue(), delta)
 	assert.InDelta(t, 3.465731, ev.NewMana.EffectiveValue(), delta)
 	assert.Equal(t, updateTime, ev.NewMana.LastUpdate())
@@ -336,7 +312,7 @@ func TestAccessBaseManaVector_UpdateError(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -351,10 +327,7 @@ func TestAccessBaseManaVector_UpdateError(t *testing.T) {
 	assert.Empty(t, updateEvents)
 
 	// init vector to baseTime
-	bmv.SetMana(randID, &AccessBaseMana{
-		BaseMana2:   10.0,
-		LastUpdated: updateTime,
-	})
+	bmv.SetMana(randID, NewAccessBaseMana(10.0, 0.0, baseTime))
 	// vector update to baseTime + 6 hours already
 	err = bmv.Update(randID, baseTime)
 	assert.Error(t, err)
@@ -369,7 +342,7 @@ func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
 	var updateEvents []*UpdatedEvent
 
 	// when an event triggers, add it to the log
-	Events().Updated.Attach(events.NewClosure(func(ev *UpdatedEvent) {
+	Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
 	}))
 
@@ -380,22 +353,16 @@ func TestAccessBaseManaVector_UpdateAll(t *testing.T) {
 	}
 
 	// init vector (values are not important)
-	bmv.SetMana(inputPledgeID1, &AccessBaseMana{
-		LastUpdated: baseTime,
-	})
-	bmv.SetMana(inputPledgeID2, &AccessBaseMana{
-		LastUpdated: baseTime,
-	})
-	bmv.SetMana(inputPledgeID3, &AccessBaseMana{
-		LastUpdated: baseTime,
-	})
+	bmv.SetMana(inputPledgeID1, NewAccessBaseMana(0.0, 0.0, baseTime))
+	bmv.SetMana(inputPledgeID2, NewAccessBaseMana(0.0, 0.0, baseTime))
+	bmv.SetMana(inputPledgeID3, NewAccessBaseMana(0.0, 0.0, baseTime))
 
 	updateTime := baseTime.Add(time.Hour)
 	err = bmv.UpdateAll(updateTime)
 	assert.NoError(t, err)
 
-	for _, mana := range bmv.(*AccessBaseManaVector).vector {
-		assert.Equal(t, updateTime, mana.LastUpdated)
+	for _, mana := range bmv.(*AccessBaseManaVector).M.Vector {
+		assert.Equal(t, updateTime, mana.LastUpdate())
 	}
 
 	assert.Equal(t, 3, len(updateEvents))
@@ -413,16 +380,12 @@ func TestAccessBaseManaVector_GetMana(t *testing.T) {
 	mana, _, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)
-	bmv.SetMana(randID, &AccessBaseMana{})
+	bmv.SetMana(randID, NewAccessBaseMana(0, 0, time.Time{}))
 	mana, _, err = bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
 	assert.NoError(t, err)
 	now := time.Now()
-	bmv.SetMana(randID, &AccessBaseMana{
-		BaseMana2:          1.0,
-		EffectiveBaseMana2: 1.0,
-		LastUpdated:        now,
-	})
+	bmv.SetMana(randID, NewAccessBaseMana(1.0, 1.0, now))
 
 	mana, _, err = bmv.GetMana(randID, now)
 	assert.NoError(t, err)
@@ -434,7 +397,7 @@ func TestAccessBaseManaVector_ForEach(t *testing.T) {
 	assert.NoError(t, err)
 
 	for i := 0; i < 10000; i++ {
-		bmv.SetMana(randNodeID(), &AccessBaseMana{BaseMana2: 1.0})
+		bmv.SetMana(randNodeID(), NewAccessBaseMana(1.0, 0.0, time.Time{}))
 	}
 
 	// fore each should iterate over all elements
@@ -472,11 +435,7 @@ func TestAccessBaseManaVector_GetManaMap(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		id := randNodeID()
-		bmv.SetMana(id, &AccessBaseMana{
-			BaseMana2:          1.0,
-			EffectiveBaseMana2: 1.0,
-			LastUpdated:        now,
-		})
+		bmv.SetMana(id, NewAccessBaseMana(1.0, 1.0, now))
 		nodeIDs[id] = 0
 	}
 
@@ -501,11 +460,7 @@ func TestAccessBaseManaVector_GetHighestManaNodes(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
-		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
-			BaseMana2:          float64(i),
-			EffectiveBaseMana2: float64(i),
-			LastUpdated:        baseTime,
-		})
+		bmv.SetMana(nodeIDs[i], NewAccessBaseMana(float64(i), float64(i), baseTime))
 	}
 
 	// requesting the top mana holder
@@ -547,11 +502,7 @@ func TestAccessBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
-		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
-			BaseMana2:          float64(i),
-			EffectiveBaseMana2: float64(i),
-			LastUpdated:        baseTime,
-		})
+		bmv.SetMana(nodeIDs[i], NewAccessBaseMana(float64(i), float64(i), baseTime))
 	}
 
 	// requesting minus value
@@ -596,18 +547,10 @@ func TestAccessBaseManaVector_SetMana(t *testing.T) {
 	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
-		bmv.SetMana(nodeIDs[i], &AccessBaseMana{
-			BaseMana2:          float64(i),
-			EffectiveBaseMana2: float64(i),
-			LastUpdated:        baseTime,
-		})
+		bmv.SetMana(nodeIDs[i], NewAccessBaseMana(float64(i), float64(i), baseTime))
 	}
 	for i := 0; i < 10; i++ {
-		assert.Equal(t, &AccessBaseMana{
-			BaseMana2:          float64(i),
-			EffectiveBaseMana2: float64(i),
-			LastUpdated:        baseTime,
-		}, bmv.(*AccessBaseManaVector).vector[nodeIDs[i]])
+		assert.Equal(t, NewAccessBaseMana(float64(i), float64(i), baseTime), bmv.(*AccessBaseManaVector).M.Vector[nodeIDs[i]])
 	}
 }
 
@@ -620,28 +563,20 @@ func TestAccessBaseManaVector_ToPersistables(t *testing.T) {
 		id1: 1,
 		id2: 10,
 	}
-	bmv.SetMana(id1, &AccessBaseMana{
-		BaseMana2:          data[id1],
-		EffectiveBaseMana2: data[id1],
-		LastUpdated:        baseTime,
-	})
-	bmv.SetMana(id2, &AccessBaseMana{
-		BaseMana2:          data[id2],
-		EffectiveBaseMana2: data[id2],
-		LastUpdated:        baseTime,
-	})
+	bmv.SetMana(id1, NewAccessBaseMana(data[id1], data[id1], baseTime))
+	bmv.SetMana(id2, NewAccessBaseMana(data[id2], data[id2], baseTime))
 
 	persistables := bmv.ToPersistables()
 
 	assert.Equal(t, 2, len(persistables))
 	for _, p := range persistables {
-		assert.Equal(t, p.ManaType, AccessMana)
-		assert.Equal(t, p.LastUpdated, baseTime)
-		assert.Equal(t, 1, len(p.BaseValues))
-		assert.Equal(t, 1, len(p.EffectiveValues))
-		assert.Equal(t, data[p.NodeID], p.BaseValues[0])
-		assert.Equal(t, data[p.NodeID], p.EffectiveValues[0])
-		delete(data, p.NodeID)
+		assert.Equal(t, p.ManaType(), AccessMana)
+		assert.Equal(t, p.LastUpdated(), baseTime)
+		assert.Equal(t, 1, len(p.BaseValues()))
+		assert.Equal(t, 1, len(p.EffectiveValues()))
+		assert.Equal(t, data[p.NodeID()], p.BaseValues()[0])
+		assert.Equal(t, data[p.NodeID()], p.EffectiveValues()[0])
+		delete(data, p.NodeID())
 	}
 	assert.Equal(t, 0, len(data))
 }
@@ -649,13 +584,7 @@ func TestAccessBaseManaVector_ToPersistables(t *testing.T) {
 func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		id := randNodeID()
-		p := &PersistableBaseMana{
-			ManaType:        AccessMana,
-			BaseValues:      []float64{10},
-			EffectiveValues: []float64{100},
-			LastUpdated:     baseTime,
-			NodeID:          id,
-		}
+		p := NewPersistableBaseMana(id, AccessMana, []float64{10}, []float64{100}, baseTime)
 
 		bmv, err := NewBaseManaVector(AccessMana)
 		assert.NoError(t, err)
@@ -664,20 +593,14 @@ func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, bmv.Has(id))
 		assert.Equal(t, 1, bmv.Size())
-		bmValue := bmv.(*AccessBaseManaVector).vector[id]
+		bmValue := bmv.(*AccessBaseManaVector).M.Vector[id]
 		assert.Equal(t, 10.0, bmValue.BaseValue())
 		assert.Equal(t, 100.0, bmValue.EffectiveValue())
 		assert.Equal(t, baseTime, bmValue.LastUpdate())
 	})
 
 	t.Run("CASE: Wrong type", func(t *testing.T) {
-		p := &PersistableBaseMana{
-			ManaType:        ConsensusMana,
-			BaseValues:      []float64{0},
-			EffectiveValues: []float64{0},
-			LastUpdated:     baseTime,
-			NodeID:          randNodeID(),
-		}
+		p := NewPersistableBaseMana(randNodeID(), ConsensusMana, []float64{0}, []float64{0}, baseTime)
 
 		bmv, err := NewBaseManaVector(AccessMana)
 		assert.NoError(t, err)
@@ -688,13 +611,7 @@ func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
 	})
 
 	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
-		p := &PersistableBaseMana{
-			ManaType:        AccessMana,
-			BaseValues:      []float64{0, 0},
-			EffectiveValues: []float64{0},
-			LastUpdated:     baseTime,
-			NodeID:          randNodeID(),
-		}
+		p := NewPersistableBaseMana(randNodeID(), AccessMana, []float64{0, 0}, []float64{0}, baseTime)
 
 		bmv, err := NewBaseManaVector(AccessMana)
 		assert.NoError(t, err)
@@ -705,13 +622,7 @@ func TestAccessBaseManaVector_FromPersistable(t *testing.T) {
 	})
 
 	t.Run("CASE: Wrong number of effective values", func(t *testing.T) {
-		p := &PersistableBaseMana{
-			ManaType:        AccessMana,
-			BaseValues:      []float64{0},
-			EffectiveValues: []float64{0, 0},
-			LastUpdated:     baseTime,
-			NodeID:          randNodeID(),
-		}
+		p := NewPersistableBaseMana(randNodeID(), AccessMana, []float64{0}, []float64{0, 0}, baseTime)
 
 		bmv, err := NewBaseManaVector(AccessMana)
 		assert.NoError(t, err)
@@ -731,16 +642,10 @@ func TestAccessBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		id1: 1,
 		id2: 10,
 	}
-	bmv.SetMana(id1, &AccessBaseMana{
-		BaseMana2:          data[id1],
-		EffectiveBaseMana2: data[id1],
-		LastUpdated:        baseTime,
-	})
-	bmv.SetMana(id2, &AccessBaseMana{
-		BaseMana2:          data[id2],
-		EffectiveBaseMana2: data[id2],
-		LastUpdated:        baseTime,
-	})
+
+	bmv.SetMana(id1, NewAccessBaseMana(data[id1], data[id1], baseTime))
+
+	bmv.SetMana(id2, NewAccessBaseMana(data[id2], data[id2], baseTime))
 
 	persistables := bmv.ToPersistables()
 
@@ -752,5 +657,5 @@ func TestAccessBaseManaVector_ToAndFromPersistable(t *testing.T) {
 		err = restoredBmv.FromPersistable(p)
 		assert.NoError(t, err)
 	}
-	assert.Equal(t, bmv.(*AccessBaseManaVector).vector, restoredBmv.(*AccessBaseManaVector).vector)
+	assert.Equal(t, bmv.(*AccessBaseManaVector).M.Vector, restoredBmv.(*AccessBaseManaVector).M.Vector)
 }

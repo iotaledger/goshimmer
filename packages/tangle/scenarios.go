@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
@@ -69,7 +69,7 @@ func (s *TestScenario) Next(prePostStepTuple *PrePostStepTuple) {
 
 // ProcessMessageScenario the approval weight and voter adjustments.
 //nolint:gomnd
-func ProcessMessageScenario(t *testing.T) *TestScenario {
+func ProcessMessageScenario(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -91,7 +91,9 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Setup()
 
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 3
@@ -106,7 +108,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.3)
 
 			IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Message2
@@ -117,8 +119,8 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 2), 0.15)
 
 			IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.45,
-				*markers.NewMarker(0, 2): 0.15,
+				markers.NewMarker(0, 1): 0.45,
+				markers.NewMarker(0, 2): 0.15,
 			})
 		},
 		// ISSUE Message3
@@ -130,9 +132,9 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 3), 0.25)
 
 			IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.70,
-				*markers.NewMarker(0, 2): 0.40,
-				*markers.NewMarker(0, 3): 0.25,
+				markers.NewMarker(0, 1): 0.70,
+				markers.NewMarker(0, 2): 0.40,
+				markers.NewMarker(0, 3): 0.25,
 			})
 		},
 		// ISSUE Message4
@@ -145,10 +147,10 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 4), 0.20)
 
 			IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.90,
-				*markers.NewMarker(0, 2): 0.60,
-				*markers.NewMarker(0, 3): 0.45,
-				*markers.NewMarker(0, 4): 0.20,
+				markers.NewMarker(0, 1): 0.90,
+				markers.NewMarker(0, 2): 0.60,
+				markers.NewMarker(0, 3): 0.45,
+				markers.NewMarker(0, 4): 0.20,
 			})
 		},
 		// ISSUE Message5
@@ -162,11 +164,11 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 5), 0.30)
 
 			IssueAndValidateMessageApproval(t, "Message5", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.90,
-				*markers.NewMarker(0, 2): 0.90,
-				*markers.NewMarker(0, 3): 0.75,
-				*markers.NewMarker(0, 4): 0.50,
-				*markers.NewMarker(0, 5): 0.30,
+				markers.NewMarker(0, 1): 0.90,
+				markers.NewMarker(0, 2): 0.90,
+				markers.NewMarker(0, 3): 0.75,
+				markers.NewMarker(0, 4): 0.50,
+				markers.NewMarker(0, 5): 0.30,
 			})
 		},
 		// ISSUE Message6
@@ -186,11 +188,11 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.3,
 				"Branch2": 0.1,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 0.85,
-				*markers.NewMarker(0, 4): 0.60,
-				*markers.NewMarker(0, 5): 0.30,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 0.85,
+				markers.NewMarker(0, 4): 0.60,
+				markers.NewMarker(0, 5): 0.30,
 			})
 		},
 		// ISSUE Message7
@@ -207,12 +209,12 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.55,
 				"Branch2": 0.1,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 0.85,
-				*markers.NewMarker(0, 4): 0.85,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.25,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 0.85,
+				markers.NewMarker(0, 4): 0.85,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.25,
 			})
 		},
 		// ISSUE Message7.1
@@ -226,13 +228,13 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.55,
 				"Branch2": 0.1,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 0.85,
-				*markers.NewMarker(0, 4): 0.85,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 0.85,
+				markers.NewMarker(0, 4): 0.85,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
 			})
 		},
 		// ISSUE Message8
@@ -245,13 +247,13 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.55,
 				"Branch2": 0.30,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 0.85,
-				*markers.NewMarker(0, 4): 0.85,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 0.85,
+				markers.NewMarker(0, 4): 0.85,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
 			})
 		},
 		// ISSUE Message9
@@ -267,14 +269,14 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.25,
 				"Branch2": 0.60,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 0.85,
-				*markers.NewMarker(0, 4): 0.85,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.30,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 0.85,
+				markers.NewMarker(0, 4): 0.85,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.30,
 			})
 		},
 		// ISSUE Message10
@@ -292,15 +294,15 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch1": 0.25,
 				"Branch2": 0.75,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 1,
-				*markers.NewMarker(0, 4): 1,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.45,
-				*markers.NewMarker(1, 6): 0.15,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 1,
+				markers.NewMarker(0, 4): 1,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.45,
+				markers.NewMarker(1, 6): 0.15,
 			})
 		},
 		// ISSUE Message11
@@ -320,15 +322,15 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch3": 0.25,
 				"Branch4": 0.30,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 1,
-				*markers.NewMarker(0, 4): 1,
-				*markers.NewMarker(0, 5): 0.55,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.45,
-				*markers.NewMarker(1, 6): 0.15,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 1,
+				markers.NewMarker(0, 4): 1,
+				markers.NewMarker(0, 5): 0.55,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.45,
+				markers.NewMarker(1, 6): 0.15,
 			})
 		},
 		// ISSUE Message12
@@ -347,15 +349,15 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch3": 0.25,
 				"Branch4": 0.50,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 1,
-				*markers.NewMarker(0, 4): 1,
-				*markers.NewMarker(0, 5): 0.75,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.45,
-				*markers.NewMarker(1, 6): 0.15,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 1,
+				markers.NewMarker(0, 4): 1,
+				markers.NewMarker(0, 5): 0.75,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.45,
+				markers.NewMarker(1, 6): 0.15,
 			})
 		},
 		// ISSUE Message13
@@ -375,16 +377,16 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch3": 0.25,
 				"Branch4": 0.60,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 1,
-				*markers.NewMarker(0, 4): 1,
-				*markers.NewMarker(0, 5): 0.85,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.45,
-				*markers.NewMarker(1, 6): 0.15,
-				*markers.NewMarker(2, 6): 0.10,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 1,
+				markers.NewMarker(0, 4): 1,
+				markers.NewMarker(0, 5): 0.85,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.45,
+				markers.NewMarker(1, 6): 0.15,
+				markers.NewMarker(2, 6): 0.10,
 			})
 		},
 		// ISSUE Message14
@@ -405,17 +407,17 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 				"Branch3": 0.25,
 				"Branch4": 0.75,
 			}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 1,
-				*markers.NewMarker(0, 2): 1,
-				*markers.NewMarker(0, 3): 1,
-				*markers.NewMarker(0, 4): 1,
-				*markers.NewMarker(0, 5): 1,
-				*markers.NewMarker(0, 6): 0.55,
-				*markers.NewMarker(0, 7): 0.30,
-				*markers.NewMarker(1, 5): 0.45,
-				*markers.NewMarker(1, 6): 0.15,
-				*markers.NewMarker(2, 6): 0.25,
-				*markers.NewMarker(2, 7): 0.15,
+				markers.NewMarker(0, 1): 1,
+				markers.NewMarker(0, 2): 1,
+				markers.NewMarker(0, 3): 1,
+				markers.NewMarker(0, 4): 1,
+				markers.NewMarker(0, 5): 1,
+				markers.NewMarker(0, 6): 0.55,
+				markers.NewMarker(0, 7): 0.30,
+				markers.NewMarker(1, 5): 0.45,
+				markers.NewMarker(1, 6): 0.15,
+				markers.NewMarker(2, 6): 0.25,
+				markers.NewMarker(2, 7): 0.15,
 			})
 		},
 	}
@@ -424,7 +426,7 @@ func ProcessMessageScenario(t *testing.T) *TestScenario {
 
 // ProcessMessageScenario2 creates a scenario useful to validate strong / weak propagation paths.
 //nolint:gomnd
-func ProcessMessageScenario2(t *testing.T) *TestScenario {
+func ProcessMessageScenario2(t *testing.T, options ...Option) *TestScenario {
 	s := &TestScenario{t: t}
 	s.nodes = make(map[string]*identity.Identity)
 	for _, node := range []string{"A", "B", "C", "D", "E"} {
@@ -446,7 +448,9 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 	}
 	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
 
-	s.Tangle = NewTestTangle(ApprovalWeights(weightProvider))
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
 	s.Tangle.Setup()
 
@@ -460,7 +464,7 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(0, 1), 0.30)
 
 			IssueAndValidateMessageApproval(t, "Message0", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Message1
@@ -468,7 +472,7 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 			testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()))
 
 			IssueAndValidateMessageApproval(t, "Message1", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(0, 1): 0.30,
 			})
 		},
 		// ISSUE Message2
@@ -478,8 +482,8 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 1), 0.15)
 
 			IssueAndValidateMessageApproval(t, "Message2", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
-				*markers.NewMarker(1, 1): 0.15,
+				markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(1, 1): 0.15,
 			})
 		},
 		// ISSUE Message3
@@ -489,9 +493,9 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 2), 0.15)
 
 			IssueAndValidateMessageApproval(t, "Message3", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
-				*markers.NewMarker(1, 1): 0.15,
-				*markers.NewMarker(1, 2): 0.15,
+				markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(1, 1): 0.15,
+				markers.NewMarker(1, 2): 0.15,
 			})
 		},
 		// ISSUE Message4
@@ -503,10 +507,10 @@ func ProcessMessageScenario2(t *testing.T) *TestScenario {
 			testEventMock.Expect("MarkerWeightChanged", markers.NewMarker(1, 3), 0.20)
 
 			IssueAndValidateMessageApproval(t, "Message4", testEventMock, testFramework, map[string]float64{}, map[markers.Marker]float64{
-				*markers.NewMarker(0, 1): 0.30,
-				*markers.NewMarker(1, 1): 0.35,
-				*markers.NewMarker(1, 2): 0.35,
-				*markers.NewMarker(1, 3): 0.20,
+				markers.NewMarker(0, 1): 0.30,
+				markers.NewMarker(1, 1): 0.35,
+				markers.NewMarker(1, 2): 0.35,
+				markers.NewMarker(1, 3): 0.20,
 			})
 		},
 	}
@@ -519,20 +523,20 @@ func IssueAndValidateMessageApproval(t *testing.T, messageAlias string, eventMoc
 	eventMock.Expect("MessageProcessed", testFramework.Message(messageAlias).ID())
 
 	t.Logf("ISSUE:\tMessageID(%s)", messageAlias)
-	testFramework.IssueMessages(messageAlias).WaitApprovalWeightProcessed()
+	testFramework.IssueMessages(messageAlias).WaitUntilAllTasksProcessed()
 
 	for branchAlias, expectedWeight := range expectedBranchWeights {
 		branchID := testFramework.BranchID(branchAlias)
 		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfBranch(branchID)
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", branchID, actualWeight, expectedWeight)
 		}
 	}
 
 	for marker, expectedWeight := range expectedMarkerWeights {
-		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(&marker, testFramework.Message(messageAlias).IssuingTime())
+		actualWeight := testFramework.tangle.ApprovalWeightManager.WeightOfMarker(marker, testFramework.Message(messageAlias).IssuingTime())
 		if expectedWeight != actualWeight {
-			assert.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
+			require.True(t, math.Abs(actualWeight-expectedWeight) < 0.001, "weight of %s (%0.2f) not equal to expected value %0.2f", marker.String(), actualWeight, expectedWeight)
 		}
 	}
 

@@ -4,19 +4,19 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // Address represents an address in a wallet. It extends the normal address type with an index number that was used to
 // generate the address from its seed.
 type Address struct {
-	AddressBytes [ledgerstate.AddressLength]byte
+	AddressBytes [devnetvm.AddressLength]byte
 	Index        uint64
 }
 
 // Address returns the ledgerstate Address of this wallet Address.
-func (a Address) Address() (ledgerStateAddress ledgerstate.Address) {
-	ledgerStateAddress, _, err := ledgerstate.AddressFromBytes(a.AddressBytes[:])
+func (a Address) Address() (ledgerStateAddress devnetvm.Address) {
+	ledgerStateAddress, _, err := devnetvm.AddressFromBytes(a.AddressBytes[:])
 	if err != nil {
 		panic(err)
 	}

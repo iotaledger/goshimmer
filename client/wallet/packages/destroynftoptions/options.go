@@ -3,7 +3,7 @@ package destroynftoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // DestroyNFTOption is a function that provides options.
@@ -36,7 +36,7 @@ func ConsensusManaPledgeID(nodeID string) DestroyNFTOption {
 // Alias specifies which alias to destroy.
 func Alias(aliasID string) DestroyNFTOption {
 	return func(options *DestroyNFTOptions) error {
-		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
+		parsed, err := devnetvm.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func Alias(aliasID string) DestroyNFTOption {
 // RemainderAddress specifies the address where the funds of the destroyed NFT will be sent (optional).
 func RemainderAddress(address string) DestroyNFTOption {
 	return func(options *DestroyNFTOptions) error {
-		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
+		parsed, err := devnetvm.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
 		}
@@ -61,8 +61,8 @@ func RemainderAddress(address string) DestroyNFTOption {
 type DestroyNFTOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
-	Alias                 *ledgerstate.AliasAddress
-	RemainderAddress      ledgerstate.Address
+	Alias                 *devnetvm.AliasAddress
+	RemainderAddress      devnetvm.Address
 	WaitForConfirmation   bool
 }
 

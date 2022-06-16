@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 )
@@ -51,10 +51,10 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	defer rateSetter.Shutdown()
 
 	messageDiscarded := make(chan MessageID, 1)
-	discardedCounter := events.NewClosure(func(id MessageID) { messageDiscarded <- id })
-	rateSetter.Events.MessageDiscarded.Attach(discardedCounter)
+	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
+	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
 
-	msg, _ := NewMessage(
+	msg := NewMessage(
 		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
 		time.Now(),
 		localNode.PublicKey(),
@@ -63,6 +63,7 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		0,
 		ed25519.Signature{},
 	)
+	assert.NoError(t, msg.DetermineID())
 	assert.NoError(t, rateSetter.Issue(msg))
 
 	assert.Eventually(t, func() bool {

@@ -5,7 +5,6 @@ package framework
 
 import (
 	"context"
-	"encoding/hex"
 	"log"
 	"os"
 	"sync"
@@ -15,10 +14,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/mr-tron/base58"
 
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/tools/genesis-snapshot/snapshotcreator"
-
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
 )
@@ -104,7 +100,7 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 		return nil, err
 	}
 
-	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	errCreateSnapshots := createSnapshot(conf.Snapshot)
 	if errCreateSnapshots != nil {
 		return nil, errors.Wrap(errCreateSnapshots, "failed to create snapshot")
 	}
@@ -143,48 +139,49 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createSnapshots(snapshotInfos []SnapshotInfo) (err error) {
-	for _, snapshotInfo := range snapshotInfos {
-		nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
-		if err != nil {
-			return err
-		}
-
-		_, err = snapshotcreator.CreateSnapshot(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, 0,
-			nodesToPledgeMap, snapshotInfo.FilePath)
-		if err != nil {
-			return err
-		}
+func createSnapshot(snapshotInfo SnapshotInfo) error {
+	nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
+	if err != nil {
+		return err
 	}
-	return
+
+	if len(nodesToPledgeMap) == 0 {
+		return errors.Errorf("no nodes to pledge specified in SnapshotInfo")
+	}
+
+	masterSeed, err := base58.Decode(snapshotInfo.MasterSeed)
+	if err != nil {
+		return errors.Wrap(err, "failed to decode master seed")
+	}
+	createdSnapshot, err := snapshotcreator.CreateSnapshotForIntegrationTest(snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, masterSeed, nodesToPledgeMap)
+	if err != nil {
+		return err
+	}
+
+	// default to /assets/snapshot.bin
+	if snapshotInfo.FilePath == "" {
+		snapshotInfo.FilePath = "/assets/snapshot.bin"
+	}
+
+	if err = createdSnapshot.WriteFile(snapshotInfo.FilePath); err != nil {
+		return err
+	}
+	return nil
 }
 
-// createPledgeMap will create a pledge map according to snapshotInfo
-func createPledgeMap(snapshotInfo SnapshotInfo) (map[string]snapshotcreator.Pledge, error) {
-	numOfPeers := len(snapshotInfo.PeersSeedBase58)
-	nodesToPledge := make(map[string]snapshotcreator.Pledge, numOfPeers)
-	if snapshotInfo.MasterSeed != "" {
-		masterSeedBytes, err := base58.Decode(snapshotInfo.MasterSeed)
+// createPledgeMap creates a pledge map according to snapshotInfo
+func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge map[[32]byte]uint64, err error) {
+	nodesToPledge = make(map[[32]byte]uint64)
+
+	for i, peerSeedBase58 := range snapshotInfo.PeersSeedBase58 {
+		seedBytes, err := base58.Decode(peerSeedBase58)
 		if err != nil {
 			return nil, err
 		}
-		publicKey := ed25519.PrivateKeyFromSeed(masterSeedBytes).Public()
-		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-			Genesis: true,
-		}
-	}
 
-	for i := 0; i < numOfPeers; i++ {
-		seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[i])
-		if err != nil {
-			return nil, err
-		}
-		publicKey := ed25519.PrivateKeyFromSeed(seedBytes).Public()
-
-		nodesToPledge[publicKey.String()] = snapshotcreator.Pledge{
-			Address: walletseed.NewSeed(seedBytes).Address(0).Address(),
-			Amount:  snapshotInfo.PeersAmountsPledged[i],
-		}
+		var seed [32]byte
+		copy(seed[:], seedBytes)
+		nodesToPledge[seed] = snapshotInfo.PeersAmountsPledged[i]
 	}
 
 	return nodesToPledge, nil
@@ -201,8 +198,8 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	// make sure that autopeering is on
 	conf.Autopeering = true
 
-	// Create Snapshots defined in the networkc configuration.
-	errCreateSnapshots := createSnapshots(conf.Snapshots)
+	// Create Snapshot defined in the network configuration.
+	errCreateSnapshots := createSnapshot(conf.Snapshot)
 	if errCreateSnapshots != nil {
 		return nil, errCreateSnapshots
 	}
@@ -262,65 +259,4 @@ func (f *Framework) CreateNetworkWithPartitions(ctx context.Context, name string
 	}
 
 	return network, nil
-}
-
-// CreateDRNGNetwork creates and returns a network that contains numPeers GoShimmer peers
-// out of which numMembers are part of the DRNG committee. It blocks until all peers are connected.
-func (f *Framework) CreateDRNGNetwork(ctx context.Context, name string, numMembers int, numPeers int) (*DRNGNetwork, error) {
-	drng, err := newDRNGNetwork(ctx, f.docker, name, f.tester)
-	if err != nil {
-		return nil, err
-	}
-
-	// create numMembers/drand nodes
-	for i := 0; i < numMembers; i++ {
-		leader := i == 0
-		if _, err = drng.CreateMember(ctx, leader); err != nil {
-			return nil, err
-		}
-	}
-
-	err = drng.WaitForDKG(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// create GoShimmer identities
-	pubKeys := make([]ed25519.PublicKey, numPeers)
-	privKeys := make([]ed25519.PrivateKey, numPeers)
-	var drngCommittee []string
-	for i := 0; i < numPeers; i++ {
-		pubKeys[i], privKeys[i], err = ed25519.GenerateKey()
-		if err != nil {
-			return nil, err
-		}
-
-		if i < numMembers {
-			drngCommittee = append(drngCommittee, pubKeys[i].String())
-		}
-	}
-
-	conf := PeerConfig()
-	conf.Activity.Enabled = true
-	conf.DRNG.Enabled = true
-	conf.DRNG.Custom.InstanceID = 111
-	conf.DRNG.Custom.Threshold = 3
-	conf.DRNG.Custom.DistributedPubKey = hex.EncodeToString(drng.distKey)
-	conf.DRNG.Custom.CommitteeMembers = drngCommittee
-
-	conf.MessageLayer.StartSynced = true
-
-	// create numPeers/GoShimmer nodes
-	for i := 0; i < numPeers; i++ {
-		conf.Seed = privKeys[i].Seed().Bytes()
-		if _, e := drng.CreatePeer(ctx, conf); e != nil {
-			return nil, e
-		}
-	}
-
-	err = drng.DoManualPeering(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "manual peering failed")
-	}
-	return drng, nil
 }

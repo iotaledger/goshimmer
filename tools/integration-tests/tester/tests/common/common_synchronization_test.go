@@ -31,7 +31,7 @@ func TestCommonSynchronization(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 		PeerMaster:  true,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
@@ -105,6 +105,7 @@ func TestFirewall(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
+		Snapshot:    tests.EqualSnapshotDetails,
 	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
 		if peerIndex == 0 {
 			cfg.Gossip.MessagesRateLimit.Limit = 50
@@ -143,7 +144,7 @@ func TestConfirmMessage(t *testing.T) {
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
 		StartSynced: true,
-		Snapshots:   []framework.SnapshotInfo{snapshotInfo},
+		Snapshot:    snapshotInfo,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
 		return conf
@@ -151,13 +152,11 @@ func TestConfirmMessage(t *testing.T) {
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 
+	// Send a message and wait for it to be confirmed.
 	peers := n.Peers()
-	msgID, err := peers[0].Data([]byte("test"))
-	require.Nil(t, err)
-	metadata, err := peers[0].GetMessageMetadata(msgID)
-	require.Nil(t, err)
-	log.Printf("gof of msg %s = %s", msgID, metadata.GradeOfFinality.String())
-	tests.TryConfirmMessage(t, n, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
+	msgID, _ := tests.SendDataMessage(t, peers[0], []byte("Test"), 0)
+
+	tests.TryConfirmMessage(t, peers[:], msgID, 30*time.Second, 100*time.Millisecond)
 }
 
 func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {

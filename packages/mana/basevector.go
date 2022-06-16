@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/identity"
 )
 
@@ -16,7 +17,7 @@ type BaseManaVector interface {
 	// Has tells if a certain node is present in the base mana vactor.
 	Has(identity.ID) bool
 	// LoadSnapshot loads the initial mana state into the base mana vector.
-	LoadSnapshot(map[identity.ID]SnapshotNode)
+	LoadSnapshot(map[identity.ID]*SnapshotNode)
 	// Book books mana into the base mana vector.
 	Book(*TxInfo)
 	// Update updates the mana entries for a particular node wrt time.
@@ -47,13 +48,9 @@ type BaseManaVector interface {
 func NewBaseManaVector(vectorType Type) (BaseManaVector, error) {
 	switch vectorType {
 	case AccessMana:
-		return &AccessBaseManaVector{
-			vector: make(map[identity.ID]*AccessBaseMana),
-		}, nil
+		return model.NewMutable[AccessBaseManaVector](&accessBaseManaVectorModel{Vector: make(map[identity.ID]*AccessBaseMana)}), nil
 	case ConsensusMana:
-		return &ConsensusBaseManaVector{
-			vector: make(map[identity.ID]*ConsensusBaseMana),
-		}, nil
+		return model.NewMutable[ConsensusBaseManaVector](&consensusBaseManaVectorModel{Vector: make(map[identity.ID]*ConsensusBaseMana)}), nil
 	default:
 		return nil, errors.Errorf("error while creating base mana vector with type %d: %w", vectorType, ErrUnknownManaType)
 	}

@@ -3,7 +3,7 @@ package reclaimoptions
 import (
 	"github.com/cockroachdb/errors"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // ReclaimFundsOption is a function that provides an option.
@@ -36,7 +36,7 @@ func ConsensusManaPledgeID(nodeID string) ReclaimFundsOption {
 // Alias specifies which alias to reclaim.
 func Alias(aliasID string) ReclaimFundsOption {
 	return func(options *ReclaimFundsOptions) error {
-		parsed, err := ledgerstate.AliasAddressFromBase58EncodedString(aliasID)
+		parsed, err := devnetvm.AliasAddressFromBase58EncodedString(aliasID)
 		if err != nil {
 			return err
 		}
@@ -48,7 +48,7 @@ func Alias(aliasID string) ReclaimFundsOption {
 // ToAddress specifies the new governor of the alias.
 func ToAddress(address string) ReclaimFundsOption {
 	return func(options *ReclaimFundsOptions) error {
-		parsed, err := ledgerstate.AddressFromBase58EncodedString(address)
+		parsed, err := devnetvm.AddressFromBase58EncodedString(address)
 		if err != nil {
 			return err
 		}
@@ -61,8 +61,8 @@ func ToAddress(address string) ReclaimFundsOption {
 type ReclaimFundsOptions struct {
 	AccessManaPledgeID    string
 	ConsensusManaPledgeID string
-	Alias                 *ledgerstate.AliasAddress
-	ToAddress             ledgerstate.Address
+	Alias                 *devnetvm.AliasAddress
+	ToAddress             devnetvm.Address
 	WaitForConfirmation   bool
 }
 

@@ -1,9 +1,6 @@
 name: Client Lib Import Check
 
 on:
-  push:
-    paths-ignore:
-      - 'docs/**'
   pull_request:
     paths-ignore:
       - 'docs/**'

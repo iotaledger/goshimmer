@@ -3,7 +3,6 @@ export enum WSMsgType {
     MessageBooked,
     MessageConfirmed,
     MessageTxGoFChanged,
-    FutureMarkerUpdated,
     Transaction,
     TransactionBooked,
     TransactionGoFChanged,

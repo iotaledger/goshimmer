@@ -1,7 +1,10 @@
 package jsonmodels
 
 import (
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
@@ -14,7 +17,7 @@ type GetAddressResponse struct {
 }
 
 // NewGetAddressResponse returns a GetAddressResponse from the given details.
-func NewGetAddressResponse(address ledgerstate.Address, outputs ledgerstate.Outputs) *GetAddressResponse {
+func NewGetAddressResponse(address devnetvm.Address, outputs devnetvm.Outputs) *GetAddressResponse {
 	return &GetAddressResponse{
 		Address: NewAddress(address),
 		Outputs: func() (mappedOutputs []*Output) {
@@ -59,7 +62,7 @@ type GetBranchChildrenResponse struct {
 }
 
 // NewGetBranchChildrenResponse returns a GetBranchChildrenResponse from the given details.
-func NewGetBranchChildrenResponse(branchID ledgerstate.BranchID, childBranches []*ledgerstate.ChildBranch) *GetBranchChildrenResponse {
+func NewGetBranchChildrenResponse(branchID utxo.TransactionID, childBranches []*conflictdag.ChildBranch[utxo.TransactionID]) *GetBranchChildrenResponse {
 	return &GetBranchChildrenResponse{
 		BranchID: branchID.Base58(),
 		ChildBranches: func() (mappedChildBranches []*ChildBranch) {
@@ -84,7 +87,7 @@ type GetBranchConflictsResponse struct {
 }
 
 // NewGetBranchConflictsResponse returns a GetBranchConflictsResponse from the given details.
-func NewGetBranchConflictsResponse(branchID ledgerstate.BranchID, branchIDsPerConflictID map[ledgerstate.ConflictID][]ledgerstate.BranchID) *GetBranchConflictsResponse {
+func NewGetBranchConflictsResponse(branchID utxo.TransactionID, branchIDsPerConflictID map[utxo.OutputID][]utxo.TransactionID) *GetBranchConflictsResponse {
 	return &GetBranchConflictsResponse{
 		BranchID: branchID.Base58(),
 		Conflicts: func() (mappedConflicts []*Conflict) {
@@ -109,7 +112,7 @@ type GetBranchVotersResponse struct {
 }
 
 // NewGetBranchVotersResponse returns a GetBranchVotersResponse from the given details.
-func NewGetBranchVotersResponse(branchID ledgerstate.BranchID, voters *tangle.Voters) *GetBranchVotersResponse {
+func NewGetBranchVotersResponse(branchID utxo.TransactionID, voters *tangle.Voters) *GetBranchVotersResponse {
 	return &GetBranchVotersResponse{
 		BranchID: branchID.Base58(),
 		Voters: func() (votersStr []string) {
@@ -133,7 +136,7 @@ type GetOutputConsumersResponse struct {
 }
 
 // NewGetOutputConsumersResponse returns a GetOutputConsumersResponse from the given details.
-func NewGetOutputConsumersResponse(outputID ledgerstate.OutputID, consumers []*ledgerstate.Consumer) *GetOutputConsumersResponse {
+func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*ledger.Consumer) *GetOutputConsumersResponse {
 	return &GetOutputConsumersResponse{
 		OutputID: NewOutputID(outputID),
 		Consumers: func() []*Consumer {
@@ -160,7 +163,7 @@ type GetTransactionAttachmentsResponse struct {
 }
 
 // NewGetTransactionAttachmentsResponse returns a GetTransactionAttachmentsResponse from the given details.
-func NewGetTransactionAttachmentsResponse(transactionID ledgerstate.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
+func NewGetTransactionAttachmentsResponse(transactionID utxo.TransactionID, messageIDs tangle.MessageIDs) *GetTransactionAttachmentsResponse {
 	var messageIDsBase58 []string
 	for messageID := range messageIDs {
 		messageIDsBase58 = append(messageIDsBase58, messageID.Base58())

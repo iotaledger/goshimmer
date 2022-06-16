@@ -3,9 +3,10 @@ package tangle
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
-	"github.com/iotaledger/hive.go/generics/walker"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/syncutils"
+
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // maxParentsTimeDifference defines the smallest allowed time difference between a child Message and its parents.
@@ -21,19 +22,16 @@ type Solidifier struct {
 	// Events contains the Solidifier related events.
 	Events *SolidifierEvents
 
-	triggerMutex *syncutils.MultiMutex
-	tangle       *Tangle
+	mutex  *syncutils.DAGMutex[MessageID]
+	tangle *Tangle
 }
 
 // NewSolidifier is the constructor of the Solidifier.
 func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 	solidifier = &Solidifier{
-		Events: &SolidifierEvents{
-			MessageSolid:   events.NewEvent(MessageIDCaller),
-			MessageMissing: events.NewEvent(MessageIDCaller),
-		},
-		triggerMutex: syncutils.NewMultiMutex(),
-		tangle:       tangle,
+		Events: newSolidifierEvents(),
+		mutex:  syncutils.NewDAGMutex[MessageID](),
+		tangle: tangle,
 	}
 
 	return
@@ -41,12 +39,35 @@ func NewSolidifier(tangle *Tangle) (solidifier *Solidifier) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (s *Solidifier) Setup() {
-	s.tangle.Storage.Events.MessageStored.Attach(events.NewClosure(s.Solidify))
+	s.tangle.Storage.Events.MessageStored.Hook(event.NewClosure(func(event *MessageStoredEvent) {
+		s.solidify(event.Message)
+	}))
+
+	s.Events.MessageSolid.Attach(event.NewClosure(func(event *MessageSolidEvent) {
+		s.processApprovers(event.Message.ID())
+	}))
 }
 
 // Solidify solidifies the given Message.
 func (s *Solidifier) Solidify(messageID MessageID) {
-	s.tangle.Utils.WalkMessageAndMetadata(s.checkMessageSolidity, NewMessageIDs(messageID), true)
+	s.tangle.Storage.Message(messageID).Consume(s.solidify)
+}
+
+// Solidify solidifies the given Message.
+func (s *Solidifier) solidify(message *Message) {
+	s.tangle.Storage.MessageMetadata(message.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		if s.checkMessageSolidity(message, messageMetadata) {
+			s.Events.MessageSolid.Trigger(&MessageSolidEvent{message})
+		}
+	})
+}
+
+func (s *Solidifier) processApprovers(messageID MessageID) {
+	s.tangle.Storage.Approvers(messageID).Consume(func(approver *Approver) {
+		event.Loop.Submit(func() {
+			s.Solidify(approver.ApproverMessageID())
+		})
+	})
 }
 
 // RetrieveMissingMessage checks if the message is missing and triggers the corresponding events to request it. It returns true if the message has been missing.
@@ -56,7 +77,7 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 			cachedMissingMessage.Release()
 
 			messageWasMissing = true
-			s.Events.MessageMissing.Trigger(messageID)
+			s.Events.MessageMissing.Trigger(&MessageMissingEvent{messageID})
 		}
 
 		return nil
@@ -66,38 +87,27 @@ func (s *Solidifier) RetrieveMissingMessage(messageID MessageID) (messageWasMiss
 }
 
 // checkMessageSolidity checks if the given Message is solid and eventually queues its Approvers to also be checked.
-func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata, walker *walker.Walker[MessageID]) {
+func (s *Solidifier) checkMessageSolidity(message *Message, messageMetadata *MessageMetadata) (messageBecameSolid bool) {
+	s.mutex.Lock(message.ID())
+	defer s.mutex.Unlock(message.ID())
+
+	if messageMetadata.IsSolid() {
+		return false
+	}
+
 	if !s.isMessageSolid(message, messageMetadata) {
-		return
+		return false
 	}
 
 	if !s.areParentMessagesValid(message) {
-		if !messageMetadata.SetObjectivelyInvalid(true) {
-			return
+		if messageMetadata.SetObjectivelyInvalid(true) {
+			s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
 		}
-		s.tangle.Events.MessageInvalid.Trigger(&MessageInvalidEvent{MessageID: message.ID(), Error: ErrParentsInvalid})
-		return
+
+		return false
 	}
 
-	lockBuilder := syncutils.MultiMutexLockBuilder{}
-	lockBuilder.AddLock(messageMetadata.ID())
-
-	message.ForEachParent(func(parent Parent) {
-		lockBuilder.AddLock(parent.ID)
-	})
-	lock := lockBuilder.Build()
-
-	s.triggerMutex.Lock(lock...)
-	defer s.triggerMutex.Unlock(lock...)
-
-	if !messageMetadata.SetSolid(true) {
-		return
-	}
-	s.Events.MessageSolid.Trigger(message.ID())
-
-	s.tangle.Storage.Approvers(message.ID()).Consume(func(approver *Approver) {
-		walker.Push(approver.ApproverMessageID())
-	})
+	return messageMetadata.SetSolid(true)
 }
 
 // isMessageSolid checks if the given Message is solid.
@@ -141,50 +151,54 @@ func (s *Solidifier) isMessageMarkedAsSolid(messageID MessageID) (solid bool) {
 func (s *Solidifier) areParentMessagesValid(message *Message) (valid bool) {
 	valid = true
 	message.ForEachParent(func(parent Parent) {
-		valid = valid && s.isParentMessageValid(parent.ID, message)
+		if !valid {
+			return
+		}
+
+		if parent.ID == EmptyMessageID {
+			if s.tangle.Options.GenesisNode != nil {
+				valid = *s.tangle.Options.GenesisNode == message.IssuerPublicKey()
+				return
+			}
+
+			s.tangle.Storage.MessageMetadata(parent.ID).Consume(func(messageMetadata *MessageMetadata) {
+				timeDifference := message.IssuingTime().Sub(messageMetadata.SolidificationTime())
+				if valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference; !valid {
+					return
+				}
+			})
+
+			return
+		}
+
+		s.tangle.Storage.Message(parent.ID).Consume(func(parentMessage *Message) {
+			if parent.Type == ShallowLikeParentType {
+				if _, valid = parentMessage.Payload().(utxo.Transaction); !valid {
+					return
+				}
+			}
+
+			if valid = s.isParentMessageValid(parentMessage, message); !valid {
+				return
+			}
+		})
 	})
 
 	return
 }
 
 // isParentMessageValid checks whether the given parent Message is valid.
-func (s *Solidifier) isParentMessageValid(parentMessageID MessageID, childMessage *Message) (valid bool) {
-	if parentMessageID == EmptyMessageID {
-		if s.tangle.Options.GenesisNode != nil {
-			return *s.tangle.Options.GenesisNode == childMessage.IssuerPublicKey()
-		}
-
-		s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-			timeDifference := childMessage.IssuingTime().Sub(messageMetadata.SolidificationTime())
-			valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
-		})
-		return
+func (s *Solidifier) isParentMessageValid(parentMessage *Message, childMessage *Message) (valid bool) {
+	timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
+	if timeDifference < minParentsTimeDifference || timeDifference > maxParentsTimeDifference {
+		return false
 	}
 
-	s.tangle.Storage.Message(parentMessageID).Consume(func(parentMessage *Message) {
-		timeDifference := childMessage.IssuingTime().Sub(parentMessage.IssuingTime())
-
-		valid = timeDifference >= minParentsTimeDifference && timeDifference <= maxParentsTimeDifference
+	s.tangle.Storage.MessageMetadata(parentMessage.ID()).Consume(func(messageMetadata *MessageMetadata) {
+		valid = !messageMetadata.IsObjectivelyInvalid()
 	})
 
-	s.tangle.Storage.MessageMetadata(parentMessageID).Consume(func(messageMetadata *MessageMetadata) {
-		valid = valid && !messageMetadata.IsObjectivelyInvalid()
-	})
-
-	return
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region SolidifierEvents /////////////////////////////////////////////////////////////////////////////////////////////
-
-// SolidifierEvents represents events happening in the Solidifier.
-type SolidifierEvents struct {
-	// MessageSolid is triggered when a message becomes solid, i.e. its past cone is known and solid.
-	MessageSolid *events.Event
-
-	// MessageMissing is triggered when a message references an unknown parent Message.
-	MessageMissing *events.Event
+	return valid
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

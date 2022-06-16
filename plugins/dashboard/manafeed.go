@@ -9,7 +9,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/workerpool"
 	"github.com/mr-tron/base58"
@@ -54,15 +54,15 @@ func configureManaFeed() {
 }
 
 func runManaFeed() {
-	notifyManaPledge := events.NewClosure(func(ev *mana.PledgedEvent) {
+	notifyManaPledge := event.NewClosure(func(ev *mana.PledgedEvent) {
 		manaFeedWorkerPool.TrySubmit(MsgTypeManaPledge, ev)
 	})
-	notifyManaRevoke := events.NewClosure(func(ev *mana.RevokedEvent) {
+	notifyManaRevoke := event.NewClosure(func(ev *mana.RevokedEvent) {
 		manaFeedWorkerPool.TrySubmit(MsgTypeManaRevoke, ev)
 	})
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
-		mana.Events().Pledged.Attach(notifyManaPledge)
-		mana.Events().Revoked.Attach(notifyManaRevoke)
+		mana.Events.Pledged.Attach(notifyManaPledge)
+		mana.Events.Revoked.Attach(notifyManaRevoke)
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {

@@ -3,28 +3,25 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 )
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.
 type CollectionLogEvents struct {
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
-	TangleTimeSyncChanged *events.Event
-	SchedulerQuery        *events.Event
+	TangleTimeSyncChanged *event.Event[*TangleTimeSyncChangedEvent]
+	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-// SyncStatusChangedEventCaller is called when a node changes its sync status.
-func SyncStatusChangedEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(SyncStatusChangedEvent))(params[0].(SyncStatusChangedEvent))
+func newCollectionLogEvents() (new *CollectionLogEvents) {
+	return &CollectionLogEvents{
+		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
+		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
+	}
 }
 
-// TimeEventCaller is used everytime you want to send an event with a timestamp.
-func TimeEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(time.Time))(params[0].(time.Time))
-}
-
-// SyncStatusChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
-type SyncStatusChangedEvent struct {
+// TangleTimeSyncChangedEvent is triggered by a node when its sync status changes. It is also structure that is sent to remote logger.
+type TangleTimeSyncChangedEvent struct {
 	// Type defines the type of the message.
 	Type string `json:"type" bson:"type"`
 	// NodeID defines the ID of the node.
@@ -41,27 +38,30 @@ type SyncStatusChangedEvent struct {
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
 
+type SchedulerQueryEvent struct {
+	Time time.Time
+}
+
 // MessageFinalizedMetrics defines the transaction metrics record that is sent to remote logger.
 type MessageFinalizedMetrics struct {
-	Type                    string    `json:"type" bson:"type"`
-	NodeID                  string    `json:"nodeID" bson:"nodeID"`
-	IssuerID                string    `json:"issuerID" bson:"issuerID"`
-	MetricsLevel            uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	MessageID               string    `json:"messageID" bson:"messageID"`
-	TransactionID           string    `json:"transactionID,omitempty" bson:"transactionID"`
-	IssuedTimestamp         time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	SolidTimestamp          time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
-	ScheduledTimestamp      time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
-	BookedTimestamp         time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
-	ConfirmedTimestamp      time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
-	DeltaSolid              int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
-	DeltaScheduled          int64     `json:"deltaArrival" bson:"deltaArrival"`
-	DeltaBooked             int64     `json:"deltaBooked" bson:"deltaBooked"`
-	DeltaConfirmed          int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
-	StrongEdgeCount         int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
-	WeakEdgeCount           int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
-	ShallowLikeEdgeCount    int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
-	ShallowDislikeEdgeCount int       `json:"shallowDislikeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	Type                 string    `json:"type" bson:"type"`
+	NodeID               string    `json:"nodeID" bson:"nodeID"`
+	IssuerID             string    `json:"issuerID" bson:"issuerID"`
+	MetricsLevel         uint8     `json:"metricsLevel" bson:"metricsLevel"`
+	MessageID            string    `json:"messageID" bson:"messageID"`
+	TransactionID        string    `json:"transactionID,omitempty" bson:"transactionID"`
+	IssuedTimestamp      time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
+	SolidTimestamp       time.Time `json:"solidTimestamp,omitempty" bson:"solidTimestamp"`
+	ScheduledTimestamp   time.Time `json:"scheduledTimestamp" bson:"scheduledTimestamp"`
+	BookedTimestamp      time.Time `json:"bookedTimestamp" bson:"bookedTimestamp"`
+	ConfirmedTimestamp   time.Time `json:"confirmedTimestamp" bson:"confirmedTimestamp"`
+	DeltaSolid           int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
+	DeltaScheduled       int64     `json:"deltaArrival" bson:"deltaArrival"`
+	DeltaBooked          int64     `json:"deltaBooked" bson:"deltaBooked"`
+	DeltaConfirmed       int64     `json:"deltaConfirmed" bson:"deltaConfirmed"`
+	StrongEdgeCount      int       `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount        int       `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	ShallowLikeEdgeCount int       `json:"shallowLikeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // MessageScheduledMetrics defines the scheduling message confirmation metrics record that is sent to remote logger.
@@ -150,16 +150,4 @@ type BranchCountUpdate struct {
 	ConfirmedBranchCountSinceStart uint64 `json:"confirmedBranchCountSinceStart" bson:"confirmedBranchCountSinceStart"`
 	InitialFinalizedBranchCount    uint64 `json:"initialFinalizedBranchCount" bson:"initialFinalizedBranchCount"`
 	FinalizedBranchCountSinceStart uint64 `json:"finalizedBranchCountSinceStart" bson:"finalizedBranchCountSinceStart"`
-}
-
-// DRNGMetrics defines the DRNG metrics record that is sent to remote logger.
-type DRNGMetrics struct {
-	Type              string    `json:"type" bson:"type"`
-	NodeID            string    `json:"nodeID" bson:"nodeID"`
-	MetricsLevel      uint8     `json:"metricsLevel" bson:"metricsLevel"`
-	InstanceID        uint32    `json:"instanceID" bson:"instanceID"`
-	Round             uint64    `json:"round" bson:"round"`
-	IssuedTimestamp   time.Time `json:"issuedTimestamp" bson:"issuedTimestamp"`
-	ReceivedTimestamp time.Time `json:"receivedTimestamp" bson:"receivedTimestamp"`
-	DeltaReceived     int64     `json:"deltaReceived"  bson:"deltaReceived"`
 }

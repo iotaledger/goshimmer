@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execAssetInfoCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -30,7 +30,7 @@ func execAssetInfoCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "you need to provide an assetID (color)")
 	}
 
-	color, err := ledgerstate.ColorFromBase58EncodedString(*assetID)
+	color, err := devnetvm.ColorFromBase58EncodedString(*assetID)
 	if err != nil {
 		printUsage(command, fmt.Sprintf("wrong assetID (color) provided: %s", err.Error()))
 	}

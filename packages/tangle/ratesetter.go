@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle/schedulerutils"
 
 	"github.com/cockroachdb/errors"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
 	"go.uber.org/atomic"
 )
@@ -63,10 +63,8 @@ type RateSetter struct {
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
 	rateSetter := &RateSetter{
-		tangle: tangle,
-		Events: &RateSetterEvents{
-			MessageDiscarded: events.NewEvent(MessageIDCaller),
-		},
+		tangle:         tangle,
+		Events:         newRateSetterEvents(),
 		self:           tangle.Options.Identity.ID(),
 		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
 		issueChan:      make(chan *Message),
@@ -86,7 +84,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
 	// update own rate setting
-	r.tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(func(MessageID) {
+	r.tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(_ *MessageScheduledEvent) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
@@ -162,8 +160,8 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
-			if err := r.tangle.Scheduler.SubmitAndReady(msg.ID()); err != nil {
-				r.Events.MessageDiscarded.Trigger(msg.ID())
+			if err := r.tangle.Scheduler.SubmitAndReady(msg); err != nil {
+				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
 			}
 			lastIssueTime = time.Now()
 
@@ -175,7 +173,7 @@ loop:
 		// add a new message to the local issuer queue
 		case msg := <-r.issueChan:
 			if r.issuingQueue.Size()+msg.Size() > MaxLocalQueueSize {
-				r.Events.MessageDiscarded.Trigger(msg.ID())
+				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
 				continue
 			}
 			// add to queue
@@ -199,12 +197,12 @@ loop:
 
 	// discard all remaining messages at shutdown
 	for _, id := range r.issuingQueue.IDs() {
-		r.Events.MessageDiscarded.Trigger(id)
+		r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{NewMessageID(id)})
 	}
 }
 
 func (r *RateSetter) issueInterval(msg *Message) time.Duration {
-	wait := time.Duration(math.Ceil(float64(len(msg.Bytes())) / r.ownRate.Load() * float64(time.Second)))
+	wait := time.Duration(math.Ceil(float64(msg.Size()) / r.ownRate.Load() * float64(time.Second)))
 	return wait
 }
 
@@ -214,7 +212,13 @@ func (r *RateSetter) issueInterval(msg *Message) time.Duration {
 
 // RateSetterEvents represents events happening in the rate setter.
 type RateSetterEvents struct {
-	MessageDiscarded *events.Event
+	MessageDiscarded *event.Event[*MessageDiscardedEvent]
+}
+
+func newRateSetterEvents() (new *RateSetterEvents) {
+	return &RateSetterEvents{
+		MessageDiscarded: event.New[*MessageDiscardedEvent](),
+	}
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

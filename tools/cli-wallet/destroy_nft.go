@@ -7,7 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
@@ -33,7 +33,7 @@ func execDestroyNFTCommand(command *flag.FlagSet, cliWallet *wallet.Wallet) {
 		printUsage(command, "an nft (alias) ID must be given for destroy")
 	}
 
-	aliasID, err := ledgerstate.AliasAddressFromBase58EncodedString(*nftIDPtr)
+	aliasID, err := devnetvm.AliasAddressFromBase58EncodedString(*nftIDPtr)
 	if err != nil {
 		printUsage(command, err.Error())
 	}

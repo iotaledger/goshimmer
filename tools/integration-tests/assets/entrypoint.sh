@@ -13,5 +13,5 @@ if [ "x$DEBUG" = "x1" ]; then
   dlv test --headless --listen ':40000' --accept-multiclient --api-version 2 ./tests/${TEST_NAME}
 else
   echo "running tests..."
-  go test ./tests/"${TEST_NAME}" -v -timeout 30m -count=1
+  go test ./tests/"${TEST_NAME}" -v -timeout 10m -count=1
 fi

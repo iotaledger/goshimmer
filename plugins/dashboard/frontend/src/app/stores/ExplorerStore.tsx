@@ -2,9 +2,6 @@ import {action, computed, observable} from 'mobx';
 import {registerHandler, WSMsgType} from "app/misc/WS";
 import {
     BasicPayload,
-    DrngCbPayload,
-    DrngPayload,
-    DrngSubtype,
     getPayloadType,
     Output,
     PayloadType,
@@ -37,7 +34,6 @@ export class Message {
     strongApprovers: Array<string>;
     weakApprovers: Array<string>;
     shallowLikeApprovers: Array<string>;
-    shallowDislikeApprovers: Array<string>;
     solid: boolean;
     branchIDs: Array<string>;
     addedBranchIDs: Array<string>;
@@ -55,7 +51,6 @@ export class Message {
     isPastMarker: boolean;
     pastMarkerGap: number;
     pastMarkers: string;
-    futureMarkers: string;
 }
 
 export class AddressResult {
@@ -80,8 +75,6 @@ class OutputID {
 export class OutputMetadata {
     outputID: OutputID;
     branchIDs: Array<string>;
-    solid: boolean;
-    solidificationTime: number;
     consumerCount: number;
     confirmedConsumer: string // tx id of confirmed consumer
     gradeOfFinality: number
@@ -109,7 +102,8 @@ class Branch {
     id: string;
     parents: Array<string>;
     conflictIDs: Array<string>;
-    gradeOfFinality: number
+    gradeOfFinality: number;
+    inclusionState: string;
 }
 
 class BranchChildren {
@@ -537,14 +531,6 @@ export class ExplorerStore {
         this.query_err = null;
         this.query_loading = false;
         switch (msg.payload_type) {
-            case PayloadType.Drng:
-                this.payload = msg.payload as DrngPayload
-                if (this.payload.subpayload_type == DrngSubtype.Cb) {
-                    this.subpayload = this.payload.drngpayload as DrngCbPayload
-                } else {
-                    this.subpayload = this.payload.drngpayload as BasicPayload
-                }
-                break;
             case PayloadType.Transaction:
                 this.payload = msg.payload as TransactionPayload
                 break;

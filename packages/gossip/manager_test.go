@@ -11,7 +11,7 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/logger"
 	libp2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -357,7 +357,7 @@ func TestMessageRequest(t *testing.T) {
 	// mgrA should eventually receive the message
 	mgrA.On("messageReceived", &MessageReceivedEvent{Data: testMessageData, Peer: peerB}).Once()
 
-	b, err := proto.Marshal(&pb.MessageRequest{Id: id[:]})
+	b, err := proto.Marshal(&pb.MessageRequest{Id: id.Bytes()})
 	require.NoError(t, err)
 	mgrA.RequestMessage(b)
 	time.Sleep(graceTime)
@@ -383,15 +383,15 @@ func TestDropNeighbor(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signalA := events.NewClosure(func(_ *Neighbor) { wg.Done() })
-		signalB := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signalA := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
+		signalB := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalA)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(signalA)
 		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalA)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(signalB)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(signalB)
 		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Detach(signalB)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupAuto)) }()
@@ -402,14 +402,14 @@ func TestDropNeighbor(t *testing.T) {
 	// close connection
 	disconnect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signal := event.NewClosure(func(_ *NeighborRemovedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(signal)
 		defer mgrA.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Detach(signal)
 
 		// assure that no DropNeighbor calls are leaking
@@ -446,14 +446,14 @@ func TestDropNeighborDifferentGroup(t *testing.T) {
 	// establish connection
 	connect := func() {
 		var wg sync.WaitGroup
-		signal := events.NewClosure(func(_ *Neighbor) { wg.Done() })
+		signal := event.NewClosure(func(_ *NeighborAddedEvent) { wg.Done() })
 		// we are expecting two signals
 		wg.Add(2)
 
 		// signal as soon as the neighbor is added
-		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Hook(signal)
 		defer mgrA.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
-		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Attach(signal)
+		mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Hook(signal)
 		defer mgrB.NeighborsEvents(NeighborsGroupManual).NeighborAdded.Detach(signal)
 
 		go func() { assert.NoError(t, mgrA.AddInbound(context.Background(), peerB, NeighborsGroupManual)) }()
@@ -567,9 +567,9 @@ func mockManager(t testing.TB, mgr *Manager) *mockedManager {
 	e := &mockedManager{Manager: mgr}
 	e.Test(t)
 
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Attach(events.NewClosure(e.neighborAdded))
-	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Attach(events.NewClosure(e.neighborRemoved))
-	e.Events().MessageReceived.Attach(events.NewClosure(e.messageReceived))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborAdded.Hook(event.NewClosure(e.neighborAdded))
+	e.NeighborsEvents(NeighborsGroupAuto).NeighborRemoved.Hook(event.NewClosure(e.neighborRemoved))
+	e.Events.MessageReceived.Hook(event.NewClosure(e.messageReceived))
 
 	return e
 }
@@ -579,6 +579,6 @@ type mockedManager struct {
 	*Manager
 }
 
-func (e *mockedManager) neighborAdded(n *Neighbor)                { e.Called(n) }
-func (e *mockedManager) neighborRemoved(n *Neighbor)              { e.Called(n) }
-func (e *mockedManager) messageReceived(ev *MessageReceivedEvent) { e.Called(ev) }
+func (e *mockedManager) neighborAdded(event *NeighborAddedEvent)     { e.Called(event.Neighbor) }
+func (e *mockedManager) neighborRemoved(event *NeighborRemovedEvent) { e.Called(event.Neighbor) }
+func (e *mockedManager) messageReceived(event *MessageReceivedEvent) { e.Called(event) }

@@ -1,20 +1,17 @@
 package tangle
 
 import (
-	"context"
 	"fmt"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/byteutils"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
-	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/database"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/markers"
 )
 
@@ -62,7 +59,7 @@ const (
 	approvalWeightCacheTime = 20 * time.Second
 )
 
-// region Storage //////////////////////////////////////////////////////////////////////////////////////////////////////
+// region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Storage represents the storage of messages.
 type Storage struct {
@@ -90,23 +87,19 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 	storage = &Storage{
 		tangle:                            tangle,
 		shutdown:                          make(chan struct{}),
-		messageStorage:                    objectstorage.New[*Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		messageMetadataStorage:            objectstorage.New[*MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		approverStorage:                   objectstorage.New[*Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		missingMessageStorage:             objectstorage.New[*MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		attachmentStorage:                 objectstorage.New[*Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(ledgerstate.TransactionIDLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
-		markerIndexBranchIDMappingStorage: objectstorage.New[*MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
-		branchVotersStorage:               objectstorage.New[*BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestBranchVotesStorage:          objectstorage.New[*LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		latestMarkerVotesStorage:          objectstorage.New[*LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
-		branchWeightStorage:               objectstorage.New[*BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
-		markerMessageMappingStorage:       objectstorage.New[*MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
+		messageStorage:                    objectstorage.NewStructStorage[Message](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		messageMetadataStorage:            objectstorage.NewStructStorage[MessageMetadata](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMessageMetadata), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		approverStorage:                   objectstorage.NewStructStorage[Approver](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixApprovers), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(MessageIDLength, ApproverTypeLength, MessageIDLength), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		missingMessageStorage:             objectstorage.NewStructStorage[MissingMessage](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMissingMessage), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		attachmentStorage:                 objectstorage.NewStructStorage[Attachment](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixAttachments), cacheProvider.CacheTime(cacheTime), objectstorage.PartitionKey(new(Attachment).KeyPartitions()...), objectstorage.LeakDetectionEnabled(false), objectstorage.StoreOnCreation(true)),
+		markerIndexBranchIDMappingStorage: objectstorage.NewStructStorage[MarkerIndexBranchIDMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerBranchIDMapping), cacheProvider.CacheTime(cacheTime), objectstorage.LeakDetectionEnabled(false)),
+		branchVotersStorage:               objectstorage.NewStructStorage[BranchVoters](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchVoters), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestBranchVotesStorage:          objectstorage.NewStructStorage[LatestBranchVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestBranchVotes), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		latestMarkerVotesStorage:          objectstorage.NewStructStorage[LatestMarkerVotes](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixLatestMarkerVotes), cacheProvider.CacheTime(approvalWeightCacheTime), LatestMarkerVotesKeyPartition, objectstorage.LeakDetectionEnabled(false)),
+		branchWeightStorage:               objectstorage.NewStructStorage[BranchWeight](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixBranchWeight), cacheProvider.CacheTime(approvalWeightCacheTime), objectstorage.LeakDetectionEnabled(false)),
+		markerMessageMappingStorage:       objectstorage.NewStructStorage[MarkerMessageMapping](objectstorage.NewStoreWithRealm(tangle.Options.Store, database.PrefixTangle, PrefixMarkerMessageMapping), cacheProvider.CacheTime(cacheTime), MarkerMessageMappingPartitionKeys, objectstorage.StoreOnCreation(true)),
 
-		Events: &StorageEvents{
-			MessageStored:        events.NewEvent(MessageIDCaller),
-			MessageRemoved:       events.NewEvent(MessageIDCaller),
-			MissingMessageStored: events.NewEvent(MessageIDCaller),
-		},
+		Events: newStorageEvents(),
 	}
 
 	storage.storeGenesis()
@@ -116,8 +109,8 @@ func NewStorage(tangle *Tangle) (storage *Storage) {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
 func (s *Storage) Setup() {
-	s.tangle.Parser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
-		s.tangle.Storage.StoreMessage(msgParsedEvent.Message)
+	s.tangle.Parser.Events.MessageParsed.Hook(event.NewClosure(func(event *MessageParsedEvent) {
+		s.tangle.Storage.StoreMessage(event.Message)
 	}))
 }
 
@@ -146,16 +139,16 @@ func (s *Storage) StoreMessage(message *Message) {
 
 	// trigger events
 	if s.missingMessageStorage.DeleteIfPresent(messageID.Bytes()) {
-		s.tangle.Storage.Events.MissingMessageStored.Trigger(messageID)
+		s.tangle.Storage.Events.MissingMessageStored.Trigger(&MissingMessageStoredEvent{messageID})
 	}
 
 	// messages are stored, trigger MessageStored event to move on next check
-	s.Events.MessageStored.Trigger(message.ID())
+	s.Events.MessageStored.Trigger(&MessageStoredEvent{message})
 }
 
 // Message retrieves a message from the message store.
 func (s *Storage) Message(messageID MessageID) *objectstorage.CachedObject[*Message] {
-	return s.messageStorage.Load(messageID[:])
+	return s.messageStorage.Load(messageID.Bytes())
 }
 
 // MessageMetadata retrieves the MessageMetadata with the given MessageID.
@@ -166,7 +159,7 @@ func (s *Storage) MessageMetadata(messageID MessageID, computeIfAbsentCallback .
 		})
 	}
 
-	return s.messageMetadataStorage.Load(messageID[:])
+	return s.messageMetadataStorage.Load(messageID.Bytes())
 }
 
 // Approvers retrieves the Approvers of a Message from the object storage. It is possible to provide an optional
@@ -209,16 +202,12 @@ func (s *Storage) MissingMessages() (ids []MessageID) {
 }
 
 // StoreAttachment stores a new attachment if not already stored.
-func (s *Storage) StoreAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
-	cachedAttachment, stored = s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
-	if !stored {
-		return
-	}
-	return
+func (s *Storage) StoreAttachment(transactionID utxo.TransactionID, messageID MessageID) (cachedAttachment *objectstorage.CachedObject[*Attachment], stored bool) {
+	return s.attachmentStorage.StoreIfAbsent(NewAttachment(transactionID, messageID))
 }
 
 // Attachments retrieves the attachment of a transaction in attachmentStorage.
-func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
+func (s *Storage) Attachments(transactionID utxo.TransactionID) (cachedAttachments objectstorage.CachedObjects[*Attachment]) {
 	s.attachmentStorage.ForEach(func(key []byte, cachedObject *objectstorage.CachedObject[*Attachment]) bool {
 		cachedAttachments = append(cachedAttachments, cachedObject)
 		return true
@@ -227,7 +216,7 @@ func (s *Storage) Attachments(transactionID ledgerstate.TransactionID) (cachedAt
 }
 
 // AttachmentMessageIDs returns the messageIDs of the transaction in attachmentStorage.
-func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) (messageIDs MessageIDs) {
+func (s *Storage) AttachmentMessageIDs(transactionID utxo.TransactionID) (messageIDs MessageIDs) {
 	messageIDs = NewMessageIDs()
 	s.Attachments(transactionID).Consume(func(attachment *Attachment) {
 		messageIDs.Add(attachment.MessageID())
@@ -236,7 +225,7 @@ func (s *Storage) AttachmentMessageIDs(transactionID ledgerstate.TransactionID) 
 }
 
 // IsTransactionAttachedByMessage checks whether Transaction with transactionID is attached by Message with messageID.
-func (s *Storage) IsTransactionAttachedByMessage(transactionID ledgerstate.TransactionID, messageID MessageID) (attached bool) {
+func (s *Storage) IsTransactionAttachedByMessage(transactionID utxo.TransactionID, messageID MessageID) (attached bool) {
 	return s.attachmentStorage.Contains(NewAttachment(transactionID, messageID).ObjectStorageKey())
 }
 
@@ -248,16 +237,16 @@ func (s *Storage) DeleteMessage(messageID MessageID) {
 			s.deleteApprover(parent, messageID)
 		})
 
-		s.messageMetadataStorage.Delete(messageID[:])
-		s.messageStorage.Delete(messageID[:])
+		s.messageMetadataStorage.Delete(messageID.Bytes())
+		s.messageStorage.Delete(messageID.Bytes())
 
-		s.Events.MessageRemoved.Trigger(messageID)
+		s.Events.MessageRemoved.Trigger(&MessageRemovedEvent{messageID})
 	})
 }
 
 // DeleteMissingMessage deletes a message from the missingMessageStorage.
 func (s *Storage) DeleteMissingMessage(messageID MessageID) {
-	s.missingMessageStorage.Delete(messageID[:])
+	s.missingMessageStorage.Delete(messageID.Bytes())
 }
 
 // MarkerIndexBranchIDMapping retrieves the MarkerIndexBranchIDMapping for the given SequenceID. It accepts an optional
@@ -279,12 +268,12 @@ func (s *Storage) StoreMarkerMessageMapping(markerMessageMapping *MarkerMessageM
 }
 
 // DeleteMarkerMessageMapping deleted a MarkerMessageMapping in the underlying object storage.
-func (s *Storage) DeleteMarkerMessageMapping(branchID ledgerstate.BranchID, messageID MessageID) {
+func (s *Storage) DeleteMarkerMessageMapping(branchID utxo.TransactionID, messageID MessageID) {
 	s.markerMessageMappingStorage.Delete(byteutils.ConcatBytes(branchID.Bytes(), messageID.Bytes()))
 }
 
 // MarkerMessageMapping retrieves the MarkerMessageMapping associated with the given details.
-func (s *Storage) MarkerMessageMapping(marker *markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
+func (s *Storage) MarkerMessageMapping(marker markers.Marker) (cachedMarkerMessageMappings *objectstorage.CachedObject[*MarkerMessageMapping]) {
 	return s.markerMessageMappingStorage.Load(marker.Bytes())
 }
 
@@ -297,8 +286,8 @@ func (s *Storage) MarkerMessageMappings(sequenceID markers.SequenceID) (cachedMa
 	return
 }
 
-// BranchVoters retrieves the BranchVoters with the given ledgerstate.BranchID.
-func (s *Storage) BranchVoters(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
+// BranchVoters retrieves the BranchVoters with the given ledger.BranchID.
+func (s *Storage) BranchVoters(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchVoters) *objectstorage.CachedObject[*BranchVoters] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchVotersStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchVoters {
 			return computeIfAbsentCallback[0](branchID)
@@ -346,7 +335,7 @@ func (s *Storage) AllLatestMarkerVotes(sequenceID markers.SequenceID) (cachedLat
 }
 
 // BranchWeight retrieves the BranchWeight with the given BranchID.
-func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCallback ...func(branchID ledgerstate.BranchID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
+func (s *Storage) BranchWeight(branchID utxo.TransactionID, computeIfAbsentCallback ...func(branchID utxo.TransactionID) *BranchWeight) *objectstorage.CachedObject[*BranchWeight] {
 	if len(computeIfAbsentCallback) >= 1 {
 		return s.branchWeightStorage.ComputeIfAbsent(branchID.Bytes(), func(key []byte) *BranchWeight {
 			return computeIfAbsentCallback[0](branchID)
@@ -358,25 +347,16 @@ func (s *Storage) BranchWeight(branchID ledgerstate.BranchID, computeIfAbsentCal
 
 func (s *Storage) storeGenesis() {
 	s.MessageMetadata(EmptyMessageID, func() *MessageMetadata {
-		genesisMetadata := &MessageMetadata{
-			messageMetadataInner{
-				SolidificationTime: clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
-				MessageID:          EmptyMessageID,
-				Solid:              true,
-				StructureDetails: &markers.StructureDetails{
-					Rank:          0,
-					IsPastMarker:  false,
-					PastMarkers:   markers.NewMarkers(),
-					FutureMarkers: markers.NewMarkers(),
-				},
-				Scheduled: true,
-				Booked:    true,
-			},
-		}
-
-		genesisMetadata.Persist()
-		genesisMetadata.SetModified()
-
+		genesisMetadata := model.NewStorable[MessageID, MessageMetadata](&messageMetadataModel{
+			AddedBranchIDs:      utxo.NewTransactionIDs(),
+			SubtractedBranchIDs: utxo.NewTransactionIDs(),
+			SolidificationTime:  clock.SyncedTime().Add(time.Duration(-20) * time.Minute),
+			Solid:               true,
+			StructureDetails:    markers.NewStructureDetails(),
+			Scheduled:           true,
+			Booked:              true,
+		})
+		genesisMetadata.SetID(EmptyMessageID)
 		return genesisMetadata
 	}).Release()
 }
@@ -461,7 +441,7 @@ func (s *Storage) DBStats() (res DBStatsResult) {
 			if msgMetaData.Scheduled() {
 				res.ScheduledCount++
 				res.SumSchedulerReceivedTime += msgMetaData.ScheduledTime().Sub(received)
-				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.messageMetadataInner.BookedTime)
+				res.SumSchedulerBookedTime += msgMetaData.ScheduledTime().Sub(msgMetaData.BookedTime())
 			}
 		})
 		return true
@@ -483,9 +463,9 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 	s.messageMetadataStorage.ForEach(func(key []byte, cachedMessage *objectstorage.CachedObject[*MessageMetadata]) bool {
 		cachedMessage.Consume(func(messageMetadata *MessageMetadata) {
 			if messageMetadata != nil && messageMetadata.IsSolid() {
-				cachedApprovers := s.Approvers(messageMetadata.messageMetadataInner.MessageID)
+				cachedApprovers := s.Approvers(messageMetadata.ID())
 				if len(cachedApprovers) == 0 {
-					tips = append(tips, messageMetadata.messageMetadataInner.MessageID)
+					tips = append(tips, messageMetadata.ID())
 				}
 				cachedApprovers.Release()
 			}
@@ -493,22 +473,6 @@ func (s *Storage) RetrieveAllTips() (tips []MessageID) {
 		return true
 	})
 	return tips
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region StorageEvents ////////////////////////////////////////////////////////////////////////////////////////////////
-
-// StorageEvents represents events happening on the message store.
-type StorageEvents struct {
-	// Fired when a message has been stored.
-	MessageStored *events.Event
-
-	// Fired when a message was removed from storage.
-	MessageRemoved *events.Event
-
-	// Fired when a message which was previously marked as missing was received.
-	MissingMessageStored *events.Event
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -524,9 +488,6 @@ const (
 
 	// ShallowLikeApprover is the ApproverType that represents references formed by shallow like parents.
 	ShallowLikeApprover
-
-	// ShallowDislikeApprover is the ApproverType that represents references formed by shallow dislike parents.
-	ShallowDislikeApprover
 )
 
 // ApproverTypeLength contains the amount of bytes that a marshaled version of the ApproverType contains.
@@ -538,10 +499,9 @@ type ApproverType uint8
 
 // ParentTypeToApproverType represents a convenient mapping between a parent type and the approver type.
 var ParentTypeToApproverType = map[ParentsType]ApproverType{
-	StrongParentType:         StrongApprover,
-	WeakParentType:           WeakApprover,
-	ShallowLikeParentType:    ShallowLikeApprover,
-	ShallowDislikeParentType: ShallowDislikeApprover,
+	StrongParentType:      StrongApprover,
+	WeakParentType:        WeakApprover,
+	ShallowLikeParentType: ShallowLikeApprover,
 }
 
 // Bytes returns a marshaled version of the ApproverType.
@@ -558,8 +518,6 @@ func (a ApproverType) String() string {
 		return "ApproverType(WeakApprover)"
 	case ShallowLikeApprover:
 		return "ApproverType(ShallowLikeApprover)"
-	case ShallowDislikeApprover:
-		return "ApproverType(ShallowDislikeApprover)"
 	default:
 		return fmt.Sprintf("ApproverType(%X)", uint8(a))
 	}
@@ -571,104 +529,39 @@ func (a ApproverType) String() string {
 
 // Approver is an approver of a given referenced message.
 type Approver struct {
-	approverInner `serix:"0"`
+	model.StorableReference[Approver, *Approver, approverSourceModel, MessageID] `serix:"0"`
 }
 
-type approverInner struct {
+type approverSourceModel struct {
 	// the message which got referenced by the approver message.
 	ReferencedMessageID MessageID `serix:"0"`
 
 	// ApproverType defines if the reference was created by a strong, weak, shallowlike or shallowdislike parent reference.
 	ApproverType ApproverType `serix:"1"`
-
-	// the message which approved/referenced the given referenced message.
-	ApproverMessageID MessageID `serix:"2"`
-
-	objectstorage.StorableObjectFlags
 }
 
 // NewApprover creates a new approver relation to the given approved/referenced message.
 func NewApprover(approverType ApproverType, referencedMessageID MessageID, approverMessageID MessageID) *Approver {
-	approver := &Approver{
-		approverInner{
-			ApproverType:        approverType,
-			ReferencedMessageID: referencedMessageID,
-			ApproverMessageID:   approverMessageID,
-		},
-	}
-	return approver
-}
-
-// FromObjectStorage creates an Approver from sequences of key and bytes.
-func (a *Approver) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse Approver from bytes: %w", err)
-	}
-	return result, err
-}
-
-// FromBytes parses the given bytes into an approver.
-func (a *Approver) FromBytes(data []byte) (result *Approver, err error) {
-	approver := new(Approver)
-	if a != nil {
-		approver = a
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, approver, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Approver: %w", err)
-		return approver, err
-	}
-	return approver, err
+	return model.NewStorableReference[Approver](approverSourceModel{
+		ReferencedMessageID: referencedMessageID,
+		ApproverType:        approverType,
+	}, approverMessageID)
 }
 
 // Type returns the type of the Approver reference.
 func (a *Approver) Type() ApproverType {
-	return a.approverInner.ApproverType
+	return a.SourceID().ApproverType
 }
 
 // ReferencedMessageID returns the ID of the message which is referenced by the approver.
 func (a *Approver) ReferencedMessageID() MessageID {
-	return a.approverInner.ReferencedMessageID
+	return a.SourceID().ReferencedMessageID
 }
 
 // ApproverMessageID returns the ID of the message which referenced the given approved message.
 func (a *Approver) ApproverMessageID() MessageID {
-	return a.approverInner.ApproverMessageID
+	return a.TargetID()
 }
-
-// Bytes returns the bytes of the approver.
-func (a *Approver) Bytes() []byte {
-	return a.ObjectStorageKey()
-}
-
-// String returns the string representation of the approver.
-func (a *Approver) String() string {
-	return stringify.Struct("Approver",
-		stringify.StructField("referencedMessageID", a.ReferencedMessageID()),
-		stringify.StructField("approverMessageID", a.ApproverMessageID()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *Approver) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue returns the value of the stored approver object.
-func (a *Approver) ObjectStorageValue() (result []byte) {
-	return
-}
-
-// interface contract (allow the compiler to check if the implementation has all of the required methods).
-var _ objectstorage.StorableObject = new(Approver)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -677,95 +570,23 @@ var _ objectstorage.StorableObject = new(Approver)
 // Attachment stores the information which transaction was attached by which message. We need this to be able to perform
 // reverse lookups from transactions to their corresponding messages that attach them.
 type Attachment struct {
-	attachmentInner `serix:"0"`
-}
-type attachmentInner struct {
-	TransactionID ledgerstate.TransactionID `serix:"0"`
-	MessageID     MessageID                 `serix:"1"`
-
-	objectstorage.StorableObjectFlags
+	model.StorableReference[Attachment, *Attachment, utxo.TransactionID, MessageID] `serix:"0"`
 }
 
 // NewAttachment creates an attachment object with the given information.
-func NewAttachment(transactionID ledgerstate.TransactionID, messageID MessageID) *Attachment {
-	return &Attachment{
-		attachmentInner{
-			TransactionID: transactionID,
-			MessageID:     messageID,
-		},
-	}
-}
-
-// FromObjectStorage creates an Attachment from sequences of key and bytes.
-func (a *Attachment) FromObjectStorage(key, _ []byte) (objectstorage.StorableObject, error) {
-	result, err := a.FromBytes(key)
-	if err != nil {
-		err = errors.Errorf("failed to parse attachment from object storage: %w", err)
-	}
-	return result, err
-}
-
-// FromBytes unmarshals an Attachment from a sequence of bytes - it either creates a new object or fills the
-// optionally provided one with the parsed information.
-func (a *Attachment) FromBytes(data []byte) (result *Attachment, err error) {
-	attachment := new(Attachment)
-	if a != nil {
-		attachment = a
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, attachment, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse Attachment: %w", err)
-		return attachment, err
-	}
-	return attachment, err
+func NewAttachment(transactionID utxo.TransactionID, messageID MessageID) *Attachment {
+	return model.NewStorableReference[Attachment](transactionID, messageID)
 }
 
 // TransactionID returns the transactionID of this Attachment.
-func (a *Attachment) TransactionID() ledgerstate.TransactionID {
-	return a.attachmentInner.TransactionID
+func (a *Attachment) TransactionID() utxo.TransactionID {
+	return a.SourceID()
 }
 
 // MessageID returns the messageID of this Attachment.
 func (a *Attachment) MessageID() MessageID {
-	return a.attachmentInner.MessageID
+	return a.TargetID()
 }
-
-// Bytes marshals the Attachment into a sequence of bytes.
-func (a *Attachment) Bytes() []byte {
-	return a.ObjectStorageKey()
-}
-
-// String returns a human readable version of the Attachment.
-func (a *Attachment) String() string {
-	return stringify.Struct("Attachment",
-		stringify.StructField("transactionId", a.TransactionID()),
-		stringify.StructField("messageID", a.MessageID()),
-	)
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (a *Attachment) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), a, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the "content part" of an Attachment to a sequence of bytes. Since all of the information
-// for this object are stored in its key, this method does nothing and is only required to conform with the interface.
-func (a *Attachment) ObjectStorageValue() (data []byte) {
-	return
-}
-
-// Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = new(Attachment)
-
-// AttachmentLength holds the length of a marshaled Attachment in bytes.
-const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -773,93 +594,30 @@ const AttachmentLength = ledgerstate.TransactionIDLength + MessageIDLength
 
 // MissingMessage represents a missing message.
 type MissingMessage struct {
-	missingMessageInner `serix:"0"`
-}
-
-type missingMessageInner struct {
-	MessageID    MessageID
-	MissingSince time.Time `serix:"0"`
-
-	objectstorage.StorableObjectFlags
+	model.Storable[MessageID, MissingMessage, *MissingMessage, time.Time] `serix:"0"`
 }
 
 // NewMissingMessage creates new missing message with the specified messageID.
 func NewMissingMessage(messageID MessageID) *MissingMessage {
-	return &MissingMessage{
-		missingMessageInner{
-			MessageID:    messageID,
-			MissingSince: time.Now(),
-		},
-	}
-}
+	now := time.Now()
+	missingMessage := model.NewStorable[MessageID, MissingMessage](
+		&now,
+	)
 
-// FromObjectStorage creates an MissingMessage from sequences of key and bytes.
-func (m *MissingMessage) FromObjectStorage(key, value []byte) (objectstorage.StorableObject, error) {
-	result, err := m.FromBytes(byteutils.ConcatBytes(key, value))
-	if err != nil {
-		err = fmt.Errorf("failed to parse missing message from object storage: %w", err)
-	}
-	return result, err
-}
-
-// FromBytes parses the given bytes into a MissingMessage.
-func (m *MissingMessage) FromBytes(data []byte) (result *MissingMessage, err error) {
-	missingMsg := new(MissingMessage)
-	if m != nil {
-		missingMsg = m
-	}
-	bytesRead, err := serix.DefaultAPI.Decode(context.Background(), data, &missingMsg.missingMessageInner.MessageID, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage.MessageID: %w", err)
-		return missingMsg, err
-	}
-
-	_, err = serix.DefaultAPI.Decode(context.Background(), data[bytesRead:], missingMsg, serix.WithValidation())
-	if err != nil {
-		err = errors.Errorf("failed to parse MissingMessage: %w", err)
-		return missingMsg, err
-	}
-	return missingMsg, err
+	missingMessage.SetID(messageID)
+	return missingMessage
 }
 
 // MessageID returns the id of the message.
 func (m *MissingMessage) MessageID() MessageID {
-	return m.missingMessageInner.MessageID
+	return m.ID()
 }
 
 // MissingSince returns the time since when this message is missing.
 func (m *MissingMessage) MissingSince() time.Time {
-	return m.missingMessageInner.MissingSince
+	m.RLock()
+	defer m.RUnlock()
+	return m.M
 }
-
-// Bytes returns a marshaled version of this MissingMessage.
-func (m *MissingMessage) Bytes() []byte {
-	return byteutils.ConcatBytes(m.ObjectStorageKey(), m.ObjectStorageValue())
-}
-
-// ObjectStorageKey returns the key that is used to store the object in the database. It is required to match the
-// StorableObject interface.
-func (m *MissingMessage) ObjectStorageKey() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m.missingMessageInner.MessageID, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// ObjectStorageValue marshals the MissingMessage into a sequence of bytes. The ID is not serialized here as it is only used as
-// a key in the ObjectStorage.
-func (m *MissingMessage) ObjectStorageValue() []byte {
-	objBytes, err := serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation())
-	if err != nil {
-		// TODO: what do?
-		panic(err)
-	}
-	return objBytes
-}
-
-// Interface contract: make compiler warn if the interface is not implemented correctly.
-var _ objectstorage.StorableObject = new(MissingMessage)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

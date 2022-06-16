@@ -8,7 +8,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/types"
 	"github.com/iotaledger/hive.go/typeutils"
@@ -18,7 +19,10 @@ import (
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/faucet"
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 )
@@ -31,7 +35,7 @@ const (
 	MinFundingOutputsPercentage = 0.3
 
 	// MaxFaucetOutputsCount defines the max outputs count for the Faucet as the ledgerstate.MaxOutputCount -1 remainder output.
-	MaxFaucetOutputsCount = ledgerstate.MaxOutputCount - 1
+	MaxFaucetOutputsCount = devnetvm.MaxOutputCount - 1
 
 	// WaitForConfirmation defines the wait time before considering a transaction confirmed.
 	WaitForConfirmation = 10 * time.Second
@@ -45,9 +49,9 @@ const (
 
 // FaucetOutput represents an output controlled by the faucet.
 type FaucetOutput struct {
-	ID           ledgerstate.OutputID
+	ID           utxo.OutputID
 	Balance      uint64
-	Address      ledgerstate.Address
+	Address      devnetvm.Address
 	AddressIndex uint64
 }
 
@@ -237,32 +241,32 @@ func (s *StateManager) signalReplenishmentNeeded(wait bool) {
 
 // prepareFaucetTransaction prepares a funding faucet transaction that spends fundingOutput to destAddr and pledges
 // mana to pledgeID.
-func (s *StateManager) prepareFaucetTransaction(destAddr ledgerstate.Address, fundingOutput *FaucetOutput, accessManaPledgeID, consensusManaPledgeID identity.ID) (tx *ledgerstate.Transaction) {
-	inputs := ledgerstate.NewInputs(ledgerstate.NewUTXOInput(fundingOutput.ID))
+func (s *StateManager) prepareFaucetTransaction(destAddr devnetvm.Address, fundingOutput *FaucetOutput, accessManaPledgeID, consensusManaPledgeID identity.ID) (tx *devnetvm.Transaction) {
+	inputs := devnetvm.NewInputs(devnetvm.NewUTXOInput(fundingOutput.ID))
 
-	outputs := ledgerstate.NewOutputs(ledgerstate.NewSigLockedColoredOutput(
-		ledgerstate.NewColoredBalances(
-			map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: s.tokensPerRequest,
+	outputs := devnetvm.NewOutputs(devnetvm.NewSigLockedColoredOutput(
+		devnetvm.NewColoredBalances(
+			map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: s.tokensPerRequest,
 			}),
 		destAddr,
 	))
 
-	essence := ledgerstate.NewTransactionEssence(
+	essence := devnetvm.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
 		accessManaPledgeID,
 		consensusManaPledgeID,
-		ledgerstate.NewInputs(inputs...),
-		ledgerstate.NewOutputs(outputs...),
+		devnetvm.NewInputs(inputs...),
+		devnetvm.NewOutputs(outputs...),
 	)
 
 	w := wallet{keyPair: *s.replenishmentState.seed.KeyPair(fundingOutput.AddressIndex)}
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(w.sign(essence))
 
-	tx = ledgerstate.NewTransaction(
+	tx = devnetvm.NewTransaction(
 		essence,
-		ledgerstate.UnlockBlocks{unlockBlock},
+		devnetvm.UnlockBlocks{unlockBlock},
 	)
 	return
 }
@@ -292,23 +296,27 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 	Plugin.LogInfof("Looking for existing funding outputs in address range %d to %d...", start, end)
 
 	for i := start; i <= end; i++ {
-		deps.Tangle.LedgerState.CachedOutputsOnAddress(s.replenishmentState.seed.Address(i).Address()).Consume(func(output ledgerstate.Output) {
-			deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-				if outputMetadata.ConsumerCount() < 1 {
-					iotaBalance, colorExist := output.Balances().Get(ledgerstate.ColorIOTA)
-					if !colorExist {
-						return
+		deps.Indexer.CachedAddressOutputMappings(s.replenishmentState.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+					if outputMetadata.IsSpent() {
+						outputEssence := output.(devnetvm.Output)
+
+						iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+						if !colorExist {
+							return
+						}
+						if iotaBalance == s.tokensPerRequest {
+							// we found a prepared output
+							foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
+								ID:           output.ID(),
+								Balance:      iotaBalance,
+								Address:      outputEssence.Address(),
+								AddressIndex: i,
+							})
+						}
 					}
-					if iotaBalance == s.tokensPerRequest {
-						// we found a prepared output
-						foundPreparedOutputs = append(foundPreparedOutputs, &FaucetOutput{
-							ID:           output.ID(),
-							Balance:      iotaBalance,
-							Address:      output.Address(),
-							AddressIndex: i,
-						})
-					}
-				}
+				})
 			})
 		})
 	}
@@ -325,25 +333,28 @@ func (s *StateManager) findUnspentRemainderOutput() error {
 	remainderAddress := s.replenishmentState.seed.Address(RemainderAddressIndex).Address()
 
 	// remainder output should sit on address 0
-	deps.Tangle.LedgerState.CachedOutputsOnAddress(remainderAddress).Consume(func(output ledgerstate.Output) {
-		deps.Tangle.LedgerState.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledgerstate.OutputMetadata) {
-			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()) == ledgerstate.GenesisTransactionID &&
-				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
-				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
-					return
+	deps.Indexer.CachedAddressOutputMappings(remainderAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
+		deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+			deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+				if !outputMetadata.IsSpent() && deps.Tangle.ConfirmationOracle.IsOutputConfirmed(outputMetadata.ID()) {
+					outputEssence := output.(devnetvm.Output)
+
+					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+					if !ok || iotaBalance < uint64(minFaucetBalanceMultiplier*float64(Parameters.GenesisTokenAmount)) {
+						return
+					}
+					if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
+						// when multiple "big" unspent outputs sit on this address, take the biggest one
+						return
+					}
+					foundRemainderOutput = &FaucetOutput{
+						ID:           outputEssence.ID(),
+						Balance:      iotaBalance,
+						Address:      outputEssence.Address(),
+						AddressIndex: RemainderAddressIndex,
+					}
 				}
-				if foundRemainderOutput != nil && iotaBalance < foundRemainderOutput.Balance {
-					// when multiple "big" unspent outputs sit on this address, take the biggest one
-					return
-				}
-				foundRemainderOutput = &FaucetOutput{
-					ID:           output.ID(),
-					Balance:      iotaBalance,
-					Address:      output.Address(),
-					AddressIndex: RemainderAddressIndex,
-				}
-			}
+			})
 		})
 	})
 	if foundRemainderOutput == nil {
@@ -365,26 +376,30 @@ func (s *StateManager) findSupplyOutputs() uint64 {
 		// make sure only one output per address will be added
 		foundOnCurrentAddress = false
 
-		deps.Tangle.LedgerState.CachedOutputsOnAddress(supplyAddress).Consume(func(output ledgerstate.Output) {
-			if foundOnCurrentAddress {
-				return
-			}
-			if deps.Tangle.LedgerState.ConfirmedConsumer(output.ID()).Base58() == ledgerstate.GenesisTransactionID.Base58() &&
-				deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
-				iotaBalance, ok := output.Balances().Get(ledgerstate.ColorIOTA)
-				if !ok || iotaBalance != s.tokensPerSupplyOutput {
+		deps.Indexer.CachedAddressOutputMappings(supplyAddress).Consume(func(mapping *indexer.AddressOutputMapping) {
+			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
+				if foundOnCurrentAddress {
 					return
 				}
-				supplyOutput := &FaucetOutput{
-					ID:           output.ID(),
-					Balance:      iotaBalance,
-					Address:      output.Address(),
-					AddressIndex: supplyAddr,
+				if deps.Tangle.Utils.ConfirmedConsumer(output.ID()) == utxo.EmptyTransactionID &&
+					deps.Tangle.ConfirmationOracle.IsOutputConfirmed(output.ID()) {
+					outputEssence := output.(devnetvm.Output)
+
+					iotaBalance, ok := outputEssence.Balances().Get(devnetvm.ColorIOTA)
+					if !ok || iotaBalance != s.tokensPerSupplyOutput {
+						return
+					}
+					supplyOutput := &FaucetOutput{
+						ID:           outputEssence.ID(),
+						Balance:      iotaBalance,
+						Address:      outputEssence.Address(),
+						AddressIndex: supplyAddr,
+					}
+					s.replenishmentState.AddSupplyOutput(supplyOutput)
+					foundSupplyCount++
+					foundOnCurrentAddress = true
 				}
-				s.replenishmentState.AddSupplyOutput(supplyOutput)
-				foundSupplyCount++
-				foundOnCurrentAddress = true
-			}
+			})
 		})
 	}
 
@@ -460,7 +475,7 @@ func (s *StateManager) replenishSupplyOutputs() (err error) {
 // to create either supply or split transaction, error channel (param 1) to signal failure during preparation
 // or issuance and decrement number of expected confirmations.
 func (s *StateManager) prepareTransactionTask(task workerpool.Task) {
-	transactionElementsCallback := task.Param(0).(func() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error))
+	transactionElementsCallback := task.Param(0).(func() (inputs devnetvm.Inputs, outputs devnetvm.Outputs, w wallet, err error))
 	preparationFailed := task.Param(1).(chan error)
 
 	tx, err := s.createSplittingTx(transactionElementsCallback)
@@ -502,17 +517,18 @@ func (s *StateManager) replenishFundingOutputs() (err error) {
 func (s *StateManager) updateStateOnConfirmation(txNumToProcess uint64, preparationFailure <-chan error, listenerAttached chan<- types.Empty) {
 	Plugin.LogInfof("Start listening for confirmation")
 	// buffered channel will store all confirmed transactions
-	txConfirmed := make(chan ledgerstate.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
+	txConfirmed := make(chan utxo.TransactionID, txNumToProcess) // length is s.targetSupplyOutputsCount or 1
 
-	monitorTxConfirmation := events.NewClosure(func(transactionID ledgerstate.TransactionID) {
-		if s.splittingEnv.WasIssuedInThisPreparation(transactionID) {
-			txConfirmed <- transactionID
+	monitorTxConfirmation := event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		txID := event.TransactionID
+		if s.splittingEnv.WasIssuedInThisPreparation(txID) {
+			txConfirmed <- txID
 		}
 	})
 
 	// listen on confirmation
-	deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(monitorTxConfirmation)
-	defer deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Detach(monitorTxConfirmation)
+	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(monitorTxConfirmation)
+	defer deps.Tangle.Ledger.Events.TransactionConfirmed.Detach(monitorTxConfirmation)
 
 	ticker := time.NewTicker(WaitForConfirmation)
 	defer ticker.Stop()
@@ -559,7 +575,7 @@ func (s *StateManager) onTickerCheckMaxAttempts(issuedCount uint64) (finished bo
 	return false, err
 }
 
-func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, issuedCount uint64) (finished bool) {
+func (s *StateManager) onConfirmation(confirmedTx utxo.TransactionID, issuedCount uint64) (finished bool) {
 	s.splittingEnv.confirmedCount.Add(1)
 	err := s.updateState(confirmedTx)
 	if err == nil {
@@ -573,13 +589,18 @@ func (s *StateManager) onConfirmation(confirmedTx ledgerstate.TransactionID, iss
 }
 
 // updateState takes a confirmed transaction (splitting or supply tx), and updates the faucet internal state based on its content.
-func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err error) {
-	deps.Tangle.LedgerState.Transaction(transactionID).Consume(func(transaction *ledgerstate.Transaction) {
+func (s *StateManager) updateState(transactionID utxo.TransactionID) (err error) {
+	deps.Tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(transaction utxo.Transaction) {
+		tx, ok := transaction.(*devnetvm.Transaction)
+		if !ok {
+			return
+		}
+
 		newFaucetRemainderBalance := s.replenishmentState.RemainderOutputBalance() - s.tokensUsedOnSupplyReplenishment
 
 		// derive information from outputs
-		for _, output := range transaction.Essence().Outputs() {
-			iotaBalance, hasIota := output.Balances().Get(ledgerstate.ColorIOTA)
+		for _, output := range tx.Essence().Outputs() {
+			iotaBalance, hasIota := output.Balances().Get(devnetvm.ColorIOTA)
 			if !hasIota {
 				err = errors.Errorf("tx outputs don't have IOTA balance ")
 				return
@@ -617,26 +638,26 @@ func (s *StateManager) updateState(transactionID ledgerstate.TransactionID) (err
 }
 
 // createSplittingTx creates splitting transaction based on provided callback function.
-func (s *StateManager) createSplittingTx(transactionElementsCallback func() (ledgerstate.Inputs, ledgerstate.Outputs, wallet, error)) (*ledgerstate.Transaction, error) {
+func (s *StateManager) createSplittingTx(transactionElementsCallback func() (devnetvm.Inputs, devnetvm.Outputs, wallet, error)) (*devnetvm.Transaction, error) {
 	inputs, outputs, w, err := transactionElementsCallback()
 	if err != nil {
 		return nil, err
 	}
-	essence := ledgerstate.NewTransactionEssence(
+	essence := devnetvm.NewTransactionEssence(
 		0,
 		clock.SyncedTime(),
 		deps.Local.ID(),
 		// consensus mana is pledged to EmptyNodeID
 		identity.ID{},
-		ledgerstate.NewInputs(inputs...),
-		ledgerstate.NewOutputs(outputs...),
+		devnetvm.NewInputs(inputs...),
+		devnetvm.NewOutputs(outputs...),
 	)
 
-	unlockBlock := ledgerstate.NewSignatureUnlockBlock(w.sign(essence))
+	unlockBlock := devnetvm.NewSignatureUnlockBlock(w.sign(essence))
 
-	tx := ledgerstate.NewTransaction(
+	tx := devnetvm.NewTransaction(
 		essence,
-		ledgerstate.UnlockBlocks{unlockBlock},
+		devnetvm.UnlockBlocks{unlockBlock},
 	)
 	return tx, nil
 }
@@ -645,10 +666,10 @@ func (s *StateManager) createSplittingTx(transactionElementsCallback func() (led
 // It takes the current remainder output and creates a supply transaction into targetSupplyOutputsCount
 // outputs and one remainder output. It uses address indices 1 to targetSupplyOutputsCount because each address in
 // a transaction output has to be unique and can prepare at most MaxFaucetOutputsCount supply outputs at once.
-func (s *StateManager) supplyTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
-	inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(s.replenishmentState.RemainderOutputID()))
+func (s *StateManager) supplyTransactionElements() (inputs devnetvm.Inputs, outputs devnetvm.Outputs, w wallet, err error) {
+	inputs = devnetvm.NewInputs(devnetvm.NewUTXOInput(s.replenishmentState.RemainderOutputID()))
 	// prepare targetSupplyOutputsCount number of supply outputs for further splitting.
-	outputs = make(ledgerstate.Outputs, 0, s.targetSupplyOutputsCount+1)
+	outputs = make(devnetvm.Outputs, 0, s.targetSupplyOutputsCount+1)
 
 	// all funding outputs will land on supply addresses 1 to 126
 	for index := uint64(1); index < s.targetSupplyOutputsCount+1; index++ {
@@ -666,15 +687,15 @@ func (s *StateManager) supplyTransactionElements() (inputs ledgerstate.Inputs, o
 
 // splittingTransactionElements is a callback function used during creation of splitting transactions.
 // It splits a supply output into funding outputs and uses lastFundingOutputAddressIndex to derive their target address.
-func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs, outputs ledgerstate.Outputs, w wallet, err error) {
+func (s *StateManager) splittingTransactionElements() (inputs devnetvm.Inputs, outputs devnetvm.Outputs, w wallet, err error) {
 	supplyOutput, err := s.replenishmentState.NextSupplyOutput()
 	if err != nil {
 		err = errors.Errorf("could not retrieve supply output: %w", err)
 		return
 	}
 
-	inputs = ledgerstate.NewInputs(ledgerstate.NewUTXOInput(supplyOutput.ID))
-	outputs = make(ledgerstate.Outputs, 0, s.splittingMultiplier)
+	inputs = devnetvm.NewInputs(devnetvm.NewUTXOInput(supplyOutput.ID))
+	outputs = make(devnetvm.Outputs, 0, s.splittingMultiplier)
 
 	for i := uint64(0); i < s.splittingMultiplier; i++ {
 		index := s.replenishmentState.IncrLastFundingOutputAddressIndex()
@@ -688,18 +709,18 @@ func (s *StateManager) splittingTransactionElements() (inputs ledgerstate.Inputs
 }
 
 // createOutput creates an output based on provided address and balance.
-func (s *StateManager) createOutput(addr ledgerstate.Address, balance uint64) ledgerstate.Output {
-	return ledgerstate.NewSigLockedColoredOutput(
-		ledgerstate.NewColoredBalances(
-			map[ledgerstate.Color]uint64{
-				ledgerstate.ColorIOTA: balance,
+func (s *StateManager) createOutput(addr devnetvm.Address, balance uint64) devnetvm.Output {
+	return devnetvm.NewSigLockedColoredOutput(
+		devnetvm.NewColoredBalances(
+			map[devnetvm.Color]uint64{
+				devnetvm.ColorIOTA: balance,
 			}),
 		addr,
 	)
 }
 
 // issueTx issues a transaction to the Tangle and waits for it to become booked.
-func (s *StateManager) issueTx(tx *ledgerstate.Transaction) (msg *tangle.Message, err error) {
+func (s *StateManager) issueTx(tx *devnetvm.Transaction) (msg *tangle.Message, err error) {
 	// attach to message layer
 	issueTransaction := func() (*tangle.Message, error) {
 		message, e := deps.Tangle.IssuePayload(tx)
@@ -722,7 +743,7 @@ func (s *StateManager) issueTx(tx *ledgerstate.Transaction) (msg *tangle.Message
 // splittingEnv provides variables used for synchronization during splitting transactions.
 type splittingEnv struct {
 	// preparedTxID is a map that stores prepared and issued transaction IDs
-	issuedTxIDs map[ledgerstate.TransactionID]types.Empty
+	issuedTxIDs map[utxo.TransactionID]types.Empty
 	sync.RWMutex
 
 	// channel to signal that listening has finished
@@ -740,7 +761,7 @@ type splittingEnv struct {
 
 func newSplittingEnv() *splittingEnv {
 	return &splittingEnv{
-		issuedTxIDs:       make(map[ledgerstate.TransactionID]types.Empty),
+		issuedTxIDs:       make(map[utxo.TransactionID]types.Empty),
 		listeningFinished: make(chan error),
 		confirmedCount:    atomic.NewUint64(0),
 		updateStateCount:  atomic.NewUint64(0),
@@ -749,7 +770,7 @@ func newSplittingEnv() *splittingEnv {
 }
 
 // WasIssuedInThisPreparation indicates if given transaction was issued during this lifespan of splittingEnv.
-func (s *splittingEnv) WasIssuedInThisPreparation(transactionID ledgerstate.TransactionID) bool {
+func (s *splittingEnv) WasIssuedInThisPreparation(transactionID utxo.TransactionID) bool {
 	s.RLock()
 	defer s.RUnlock()
 
@@ -766,7 +787,7 @@ func (s *splittingEnv) IssuedTransactionsCount() uint64 {
 }
 
 // AddIssuedTxID adds transactionID to the issuedTxIDs map.
-func (s *splittingEnv) AddIssuedTxID(txID ledgerstate.TransactionID) {
+func (s *splittingEnv) AddIssuedTxID(txID utxo.TransactionID) {
 	s.Lock()
 	defer s.Unlock()
 	s.issuedTxIDs[txID] = types.Void
@@ -863,7 +884,7 @@ func (p *replenishmentState) RemainderOutputBalance() uint64 {
 }
 
 // RemainderOutputID returns the OutputID of remainderOutput.
-func (p *replenishmentState) RemainderOutputID() ledgerstate.OutputID {
+func (p *replenishmentState) RemainderOutputID() utxo.OutputID {
 	p.RLock()
 	defer p.RUnlock()
 	id := p.remainderOutput.ID
@@ -964,6 +985,6 @@ func (w wallet) publicKey() ed25519.PublicKey {
 	return w.keyPair.PublicKey
 }
 
-func (w wallet) sign(txEssence *ledgerstate.TransactionEssence) *ledgerstate.ED25519Signature {
-	return ledgerstate.NewED25519Signature(w.publicKey(), w.privateKey().Sign(txEssence.Bytes()))
+func (w wallet) sign(txEssence *devnetvm.TransactionEssence) *devnetvm.ED25519Signature {
+	return devnetvm.NewED25519Signature(w.publicKey(), w.privateKey().Sign(lo.PanicOnErr(txEssence.Bytes())))
 }

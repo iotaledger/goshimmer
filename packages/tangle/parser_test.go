@@ -8,7 +8,9 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/autopeering/peer"
-	"github.com/iotaledger/hive.go/events"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/generics/lo"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/marshalutil"
 	"github.com/labstack/gommon/log"
@@ -16,13 +18,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
 func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
-	msgBytes := newTestDataMessage("Test").Bytes()
+	msgBytes := lo.PanicOnErr(newTestDataMessage("Test").Bytes())
 	msgParser := NewParser()
 	msgParser.Setup()
 
@@ -36,7 +39,7 @@ func BenchmarkMessageParser_ParseBytesSame(b *testing.B) {
 func BenchmarkMessageParser_ParseBytesDifferent(b *testing.B) {
 	messageBytes := make([][]byte, b.N)
 	for i := 0; i < b.N; i++ {
-		messageBytes[i] = newTestDataMessage("Test" + strconv.Itoa(i)).Bytes()
+		messageBytes[i] = lo.PanicOnErr(newTestDataMessage("Test" + strconv.Itoa(i)).Bytes())
 	}
 
 	msgParser := NewParser()
@@ -54,9 +57,9 @@ func TestMessageParser_ParseMessage(t *testing.T) {
 
 	msgParser := NewParser()
 	msgParser.Setup()
-	msgParser.Parse(msg.Bytes(), nil)
+	msgParser.Parse(lo.PanicOnErr(msg.Bytes()), nil)
 
-	msgParser.Events.MessageParsed.Attach(events.NewClosure(func(msgParsedEvent *MessageParsedEvent) {
+	msgParser.Events.MessageParsed.Hook(event.NewClosure(func(_ *MessageParsedEvent) {
 		log.Infof("parsed message")
 	}))
 }
@@ -76,38 +79,36 @@ func TestTransactionFilter_Filter(t *testing.T) {
 
 	t.Run("skip non-transaction payloads", func(t *testing.T) {
 		msg := &Message{}
-		msg.messageInner.Payload = payload.NewGenericDataPayload([]byte("hello world"))
-		m.On("Accept", msg, testPeer)
-		filter.Filter(msg, testPeer)
-	})
+		msg.Init()
 
-	t.Run("reject on failed parse", func(t *testing.T) {
-		msg := &Message{messageInner{Payload: &testTxPayload{}}}
-		m.On("Reject", msg, mock.MatchedBy(func(err error) bool { return err != nil }), testPeer)
+		msg.payload = payload.NewGenericDataPayload([]byte("hello world"))
+		m.On("Accept", msg, testPeer)
 		filter.Filter(msg, testPeer)
 	})
 }
 
 func Test_isMessageAndTransactionTimestampsValid(t *testing.T) {
 	msg := &Message{}
+	msg.Init()
+
 	t.Run("older tx timestamp within limit", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
+		msg.M.IssuingTime = tx.Essence().Timestamp().Add(1 * time.Second)
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older timestamp but older than max", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
+		msg.M.IssuingTime = tx.Essence().Timestamp().Add(MaxReattachmentTimeMin).Add(1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("equal tx and msg timestamp", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.messageInner.IssuingTime = tx.Essence().Timestamp()
+		msg.M.IssuingTime = tx.Essence().Timestamp()
 		assert.True(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 	t.Run("older message", func(t *testing.T) {
 		tx := newTransaction(time.Now())
-		msg.messageInner.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
+		msg.M.IssuingTime = tx.Essence().Timestamp().Add(-1 * time.Millisecond)
 		assert.False(t, isMessageAndTransactionTimestampsValid(tx, msg))
 	})
 }
@@ -126,7 +127,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	})
 
 	msg := newTestNonceMessage(0)
-	msgBytes := msg.Bytes()
+	msgBytes := lo.PanicOnErr(msg.Bytes())
 
 	t.Run("reject invalid nonce", func(t *testing.T) {
 		m.On("Reject", msgBytes, mock.MatchedBy(func(err error) bool { return errors.Is(err, ErrInvalidPOWDifficultly) }), testPeer)
@@ -137,7 +138,7 @@ func TestPowFilter_Filter(t *testing.T) {
 	require.NoError(t, err)
 
 	msgPOW := newTestNonceMessage(nonce)
-	msgPOWBytes := msgPOW.Bytes()
+	msgPOWBytes := lo.PanicOnErr(msgPOW.Bytes())
 
 	t.Run("accept valid nonce", func(t *testing.T) {
 		zeroes, err := testWorker.LeadingZeros(msgPOWBytes[:len(msgPOWBytes)-len(msgPOW.Signature())])
@@ -163,7 +164,7 @@ func (m *messageCallbackMock) Reject(msg *Message, err error, p *peer.Peer) { m.
 
 type testTxPayload struct{}
 
-func (p *testTxPayload) Type() payload.Type { return ledgerstate.TransactionType }
+func (p *testTxPayload) Type() payload.Type { return devnetvm.TransactionType }
 func (p *testTxPayload) Bytes() []byte {
 	marshalUtil := marshalutil.New()
 	marshalUtil.WriteUint32(32) // random payload size
@@ -172,11 +173,18 @@ func (p *testTxPayload) Bytes() []byte {
 }
 func (p *testTxPayload) String() string { return "tx" }
 
-func newTransaction(t time.Time) *ledgerstate.Transaction {
-	ID, _ := identity.RandomID()
-	var inputs ledgerstate.Inputs
-	var outputs ledgerstate.Outputs
-	essence := ledgerstate.NewTransactionEssence(1, t, ID, ID, inputs, outputs)
-	var unlockBlocks ledgerstate.UnlockBlocks
-	return ledgerstate.NewTransaction(essence, unlockBlocks)
+func newTransaction(t time.Time) *devnetvm.Transaction {
+	issuerKeyPair := ed25519.GenerateKeyPair()
+	issuerIdentity := identity.New(issuerKeyPair.PublicKey)
+	inputs := devnetvm.NewInputs(
+		devnetvm.NewUTXOInput(utxo.NewOutputID(utxo.TransactionID{}, 0)),
+	)
+	outputs := devnetvm.NewOutputs(
+		devnetvm.NewSigLockedSingleOutput(12, devnetvm.NewED25519Address(issuerKeyPair.PublicKey)),
+	)
+	essence := devnetvm.NewTransactionEssence(0, t, issuerIdentity.ID(), issuerIdentity.ID(), inputs, outputs)
+	unlockBlocks := devnetvm.UnlockBlocks{
+		devnetvm.NewSignatureUnlockBlock(devnetvm.NewED25519Signature(issuerKeyPair.PublicKey, issuerKeyPair.PrivateKey.Sign(lo.PanicOnErr(essence.Bytes())))),
+	}
+	return devnetvm.NewTransaction(essence, unlockBlocks)
 }

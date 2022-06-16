@@ -41,15 +41,6 @@ output {
             ilm_pattern => "000001"
             ilm_policy => "logstash-policy"
         }
-    } else if [log][type] == "drng" {
-        elasticsearch {
-            hosts => "elasticsearch:9200"
-            user => "{{ elkElasticUser }}"
-            password => "{{ elkElasticPassword }}"
-            ilm_rollover_alias => "drng"
-            ilm_pattern => "000001"
-            ilm_policy => "logstash-policy"
-        }
     } else if [log][type] == "messageFinalized" {
          elasticsearch {
             hosts => "elasticsearch:9200"

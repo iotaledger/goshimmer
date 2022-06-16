@@ -33,6 +33,7 @@ func main() {
 	pk := ed25519.PrivateKeyFromSeed(b[:])
 
 	f.WriteString("Identity - base58:" + identity.New(pk.Public()).ID().String() + "\n")
+	f.WriteString("Identity - base58:" + identity.New(pk.Public()).ID().EncodeBase58() + "\n")
 	f.WriteString("Public Key - base58:" + identity.New(pk.Public()).PublicKey().String())
 
 	fmt.Println("New random seed generated (both base64 and base58 encoded) and written in random-seed.txt")

@@ -27,6 +27,10 @@ func ElementIDFromBytes(data []byte) (result ElementID) {
 	return
 }
 
+func (e ElementID) Bytes() []byte {
+	return e[:]
+}
+
 // Element represents the generic interface for an message in NodeQueue.
 type Element interface {
 	// IDBytes returns the ID of an Element as a byte slice.

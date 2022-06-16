@@ -8,7 +8,6 @@ import {RouterStore, syncHistoryWithStore} from 'mobx-react-router';
 import {Router} from 'react-router-dom';
 import NodeStore from "app/stores/NodeStore";
 import ExplorerStore from "app/stores/ExplorerStore";
-import DrngStore from "app/stores/DrngStore";
 import FaucetStore from "app/stores/FaucetStore";
 import VisualizerStore from "app/stores/VisualizerStore";
 import ManaStore from "app/stores/ManaStore";
@@ -20,7 +19,6 @@ import ConflictsStore from "app/stores/ConflictsStore";
 const routerStore = new RouterStore();
 const nodeStore = new NodeStore();
 const explorerStore = new ExplorerStore(routerStore);
-const drngStore = new DrngStore(routerStore);
 const chatStore = new ChatStore(routerStore, nodeStore);
 const conflictsStore = new ConflictsStore(routerStore, nodeStore);
 const faucetStore = new FaucetStore(routerStore);
@@ -31,7 +29,6 @@ const stores = {
     "routerStore": routerStore,
     "nodeStore": nodeStore,
     "explorerStore": explorerStore,
-    "drngStore": drngStore,
     "chatStore": chatStore,
     "conflictsStore": conflictsStore,
     "faucetStore": faucetStore,

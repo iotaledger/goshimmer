@@ -8,18 +8,19 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/types"
 
-	"github.com/iotaledger/goshimmer/packages/ledgerstate"
+	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 
 	"github.com/iotaledger/hive.go/daemon"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/drng"
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/remotemetrics"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -53,7 +54,6 @@ type dependencies struct {
 	Local        *peer.Local
 	Tangle       *tangle.Tangle
 	RemoteLogger *remotelog.RemoteLoggerConn `optional:"true"`
-	DrngInstance *drng.DRNG                  `optional:"true"`
 	ClockPlugin  *node.Plugin                `name:"clock" optional:"true"`
 }
 
@@ -69,9 +69,6 @@ func configure(_ *node.Plugin) {
 	}
 	measureInitialBranchCounts()
 	configureSyncMetrics()
-	if deps.DrngInstance != nil {
-		configureDRNGMetrics()
-	}
 	configureBranchConfirmationMetrics()
 	configureMessageFinalizedMetrics()
 	configureMessageScheduledMetrics()
@@ -89,7 +86,7 @@ func run(_ *node.Plugin) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
 		timeutil.NewTicker(func() { checkSynced() }, syncUpdateTime, ctx)
-		timeutil.NewTicker(func() { remotemetrics.Events().SchedulerQuery.Trigger(time.Now()) }, schedulerQueryUpdateTime, ctx)
+		timeutil.NewTicker(func() { remotemetrics.Events.SchedulerQuery.Trigger(&remotemetrics.SchedulerQueryEvent{time.Now()}) }, schedulerQueryUpdateTime, ctx)
 
 		// Wait before terminating so we get correct log messages from the daemon regarding the shutdown order.
 		<-ctx.Done()
@@ -102,35 +99,34 @@ func configureSyncMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(func(syncUpdate remotemetrics.SyncStatusChangedEvent) {
-		isTangleTimeSynced.Store(syncUpdate.CurrentStatus)
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+		isTangleTimeSynced.Store(event.CurrentStatus)
 	}))
-	remotemetrics.Events().TangleTimeSyncChanged.Attach(events.NewClosure(sendSyncStatusChangedEvent))
+	remotemetrics.Events.TangleTimeSyncChanged.Attach(event.NewClosure(func(event *remotemetrics.TangleTimeSyncChangedEvent) {
+		sendSyncStatusChangedEvent(event)
+	}))
 }
 
 func configureSchedulerQueryMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	remotemetrics.Events().SchedulerQuery.Attach(events.NewClosure(obtainSchedulerStats))
-}
-
-func configureDRNGMetrics() {
-	if Parameters.MetricsLevel > Info {
-		return
-	}
-	deps.DrngInstance.Events.Randomness.Attach(events.NewClosure(onRandomnessReceived))
+	remotemetrics.Events.SchedulerQuery.Attach(event.NewClosure(func(event *remotemetrics.SchedulerQueryEvent) { obtainSchedulerStats(event.Time) }))
 }
 
 func configureBranchConfirmationMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	}
-	deps.Tangle.ConfirmationOracle.Events().BranchConfirmed.Attach(events.NewClosure(onBranchConfirmed))
+	deps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		onBranchConfirmed(event.BranchID)
+	}))
 
-	deps.Tangle.LedgerState.BranchDAG.Events.BranchCreated.Attach(events.NewClosure(func(branchID ledgerstate.BranchID) {
+	deps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
 		activeBranchesMutex.Lock()
 		defer activeBranchesMutex.Unlock()
+
+		branchID := event.ID
 		if _, exists := activeBranches[branchID]; !exists {
 			branchTotalCountDB.Inc()
 			activeBranches[branchID] = types.Void
@@ -143,9 +139,13 @@ func configureMessageFinalizedMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.ConfirmationOracle.Events().TransactionConfirmed.Attach(events.NewClosure(onTransactionConfirmed))
+		deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+			onTransactionConfirmed(event.TransactionID)
+		}))
 	} else {
-		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(events.NewClosure(onMessageFinalized))
+		deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+			onMessageFinalized(event.Message)
+		}))
 	}
 }
 
@@ -153,10 +153,16 @@ func configureMessageScheduledMetrics() {
 	if Parameters.MetricsLevel > Info {
 		return
 	} else if Parameters.MetricsLevel == Info {
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		}))
 	} else {
-		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(events.NewClosure(onMessageScheduled))
-		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(events.NewClosure(onMessageDiscarded))
+		deps.Tangle.Scheduler.Events.MessageScheduled.Attach(event.NewClosure(func(event *tangle.MessageScheduledEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageScheduled")
+		}))
+		deps.Tangle.Scheduler.Events.MessageDiscarded.Attach(event.NewClosure(func(event *tangle.MessageDiscardedEvent) {
+			sendMessageSchedulerRecord(event.MessageID, "messageDiscarded")
+		}))
 	}
 }
 
@@ -165,6 +171,12 @@ func configureMissingMessageMetrics() {
 		return
 	}
 
-	deps.Tangle.Solidifier.Events.MessageMissing.Attach(events.NewClosure(onMissingMessageRequest))
-	deps.Tangle.Storage.Events.MissingMessageStored.Attach(events.NewClosure(onMissingMessageStored))
+	deps.Tangle.Solidifier.Events.MessageMissing.Attach(event.NewClosure(func(event *tangle.MessageMissingEvent) {
+		sendMissingMessageRecord(event.MessageID, "missingMessage")
+
+	}))
+	deps.Tangle.Storage.Events.MissingMessageStored.Attach(event.NewClosure(func(event *tangle.MissingMessageStoredEvent) {
+		sendMissingMessageRecord(event.MessageID, "missingMessageStored")
+
+	}))
 }

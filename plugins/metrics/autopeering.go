@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/autopeering/selection"
-	"github.com/iotaledger/hive.go/events"
 	"github.com/iotaledger/hive.go/generics/event"
 	"go.uber.org/atomic"
 
@@ -26,22 +25,22 @@ var (
 )
 
 var (
-	onNeighborRemoved = events.NewClosure(func(n *gossipPkg.Neighbor) {
+	onNeighborRemoved = event.NewClosure(func(event *gossipPkg.NeighborRemovedEvent) {
 		neighborMutex.Lock()
 		defer neighborMutex.Unlock()
 		neighborDropCount++
-		neighborConnectionsLifeTime += time.Since(n.ConnectionEstablished())
+		neighborConnectionsLifeTime += time.Since(event.Neighbor.ConnectionEstablished())
 	})
 
-	onNeighborAdded = events.NewClosure(func(_ *gossipPkg.Neighbor) {
+	onNeighborAdded = event.NewClosure(func(_ *gossipPkg.NeighborAddedEvent) {
 		neighborConnectionsCount.Inc()
 	})
 
-	onAutopeeringSelection = event.NewClosure[*selection.PeeringEvent](func(ev *selection.PeeringEvent) {
+	onAutopeeringSelection = event.NewClosure(func(event *selection.PeeringEvent) {
 		distanceMutex.Lock()
 		defer distanceMutex.Unlock()
 		autopeeringConnectionsCount++
-		distance := uint64(ev.Distance)
+		distance := uint64(event.Distance)
 		if distance < minDistance {
 			minDistance = distance
 		}
