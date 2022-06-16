@@ -8,7 +8,8 @@ import (
 
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
-	"github.com/iotaledger/hive.go/types"
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 )
@@ -38,12 +39,24 @@ func IndexFromBytes(bytes []byte) (ei Index, consumedBytes int, err error) {
 	return
 }
 
-type MerkleRoot struct {
-	types.Identifier `serix:"0"`
-}
+type MerkleRoot [blake2b.Size256]byte
 
 type ECR = MerkleRoot
 type EC = MerkleRoot
+
+func NewMerkleRoot(bytes []byte) (mr MerkleRoot) {
+	b := [blake2b.Size256]byte{}
+	copy(b[:], bytes[:])
+	return b
+}
+
+func (m MerkleRoot) Base58() string {
+	return base58.Encode(m[:])
+}
+
+func (m MerkleRoot) Bytes() []byte {
+	return m[:]
+}
 
 // Epoch is a time range used to define a bucket of messages.
 type Epoch struct {
@@ -134,16 +147,16 @@ type ECRecord struct {
 
 type ecRecord struct {
 	EI     Index `serix:"0"`
-	ECR    *ECR  `serix:"1"`
-	PrevEC *EC   `serix:"2"`
+	ECR    ECR   `serix:"1"`
+	PrevEC EC    `serix:"2"`
 }
 
 // NewECRecord creates and returns a ECRecord of the given EI.
 func NewECRecord(ei Index) (new *ECRecord) {
 	new = model.NewStorable[Index, ECRecord](&ecRecord{
 		EI:     ei,
-		ECR:    &MerkleRoot{},
-		PrevEC: &MerkleRoot{},
+		ECR:    MerkleRoot{},
+		PrevEC: MerkleRoot{},
 	})
 	new.SetID(ei)
 	return
@@ -167,7 +180,7 @@ func (e *ECRecord) SetEI(ei Index) {
 }
 
 // ECR returns the ECR of an ECRecord.
-func (e *ECRecord) ECR() *ECR {
+func (e *ECRecord) ECR() ECR {
 	e.RLock()
 	defer e.RUnlock()
 
@@ -175,16 +188,16 @@ func (e *ECRecord) ECR() *ECR {
 }
 
 // SetECR sets the ECR of an ECRecord.
-func (e *ECRecord) SetECR(ecr *ECR) {
+func (e *ECRecord) SetECR(ecr ECR) {
 	e.Lock()
 	defer e.Unlock()
 
-	e.M.ECR = ecr
+	e.M.ECR = NewMerkleRoot(ecr[:])
 	e.SetModified()
 }
 
 // PrevEC returns the EC of an ECRecord.
-func (e *ECRecord) PrevEC() *EC {
+func (e *ECRecord) PrevEC() EC {
 	e.RLock()
 	defer e.RUnlock()
 
@@ -192,10 +205,10 @@ func (e *ECRecord) PrevEC() *EC {
 }
 
 // SetPrevEC sets the PrevEC of an ECRecord.
-func (e *ECRecord) SetPrevEC(prevEC *EC) {
+func (e *ECRecord) SetPrevEC(prevEC EC) {
 	e.Lock()
 	defer e.Unlock()
 
-	e.M.PrevEC = prevEC
+	e.M.PrevEC = NewMerkleRoot(prevEC[:])
 	e.SetModified()
 }

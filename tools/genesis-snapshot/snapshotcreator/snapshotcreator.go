@@ -5,7 +5,6 @@ import (
 
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/iotaledger/hive.go/types"
 
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -43,8 +42,8 @@ func CreateSnapshot(genesisTokenAmount uint64, genesisSeedBytes []byte, nodesToP
 	ledgerSnapshot.DiffEpochIndex = 0
 	ledgerSnapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 	ledgerSnapshot.LatestECRecord = epoch.NewECRecord(0)
-	ledgerSnapshot.LatestECRecord.SetECR(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})
-	ledgerSnapshot.LatestECRecord.SetPrevEC(&epoch.MerkleRoot{types.NewIdentifier([]byte{})})
+	ledgerSnapshot.LatestECRecord.SetECR(epoch.MerkleRoot{})
+	ledgerSnapshot.LatestECRecord.SetPrevEC(epoch.MerkleRoot{})
 
 	return &snapshot.Snapshot{
 		LedgerSnapshot: ledgerSnapshot,

@@ -1,8 +1,6 @@
 package notarization
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -10,13 +8,10 @@ import (
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/serix"
 
 	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 )
 
 // region storage //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +36,7 @@ type EpochCommitmentStorage struct {
 }
 
 type epochDiffStorage struct {
-	spent   *objectstorage.ObjectStorage[utxo.Output]
+	spent   *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 	created *objectstorage.ObjectStorage[*ledger.OutputWithMetadata]
 }
 
@@ -190,9 +185,8 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 	}
 
 	diffStorage = &epochDiffStorage{
-		spent: objectstorage.NewInterfaceStorage[utxo.Output](
+		spent: objectstorage.NewStructStorage[ledger.OutputWithMetadata](
 			spentDiffStore,
-			outputFactory,
 			s.epochCommitmentStorageOptions.cacheTimeProvider.CacheTime(s.epochCommitmentStorageOptions.epochCommitmentCacheTime),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
@@ -211,45 +205,6 @@ func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorag
 	return
 }
 
-// commitLedgerState commits the corresponding diff to the ledger state and drops it.
-func (s *EpochCommitmentStorage) commitLedgerState(ei epoch.Index) (err error) {
-	fmt.Println("\t\t>> commitLedgerState", ei)
-	epochDiffStorage := s.getEpochDiffStorage(ei)
-	epochDiffStorage.spent.ForEach(func(_ []byte, cachedOutput *objectstorage.CachedObject[utxo.Output]) bool {
-		spentOutput := cachedOutput.Get()
-		s.ledgerstateStorage.Delete(spentOutput.ID().Bytes())
-
-		return true
-	})
-	fmt.Println("\t\t>> commitLedgerState: loaded spent outputs")
-	epochDiffStorage.created.ForEach(func(_ []byte, cachedOutputWithMetadata *objectstorage.CachedObject[*ledger.OutputWithMetadata]) bool {
-		outputWithMetadata := cachedOutputWithMetadata.Get()
-		s.ledgerstateStorage.Store(outputWithMetadata)
-
-		return true
-	})
-	fmt.Println("\t\t>> commitLedgerState: loaded created outputs")
-
-	delete(s.epochDiffStorages, ei)
-
-	return nil
-}
-
-func outputFactory(key []byte, data []byte) (result objectstorage.StorableObject, err error) {
-	var outputID utxo.OutputID
-	if _, err = serix.DefaultAPI.Decode(context.Background(), key, &outputID, serix.WithValidation()); err != nil {
-		return nil, err
-	}
-
-	output, err := devnetvm.OutputFromBytes(data)
-	if err != nil {
-		return nil, err
-	}
-	output.SetID(outputID)
-
-	return output, nil
-}
-
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region db prefixes //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,8 +221,6 @@ const (
 	PrefixStateTreeNodes
 
 	PrefixStateTreeValues
-
-	PrefixManaTree
 
 	PrefixManaTreeNodes
 

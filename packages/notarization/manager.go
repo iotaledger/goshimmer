@@ -60,11 +60,11 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
-		err := m.epochCommitmentFactory.InsertStateLeaf(output.ID())
+		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
 		if err != nil {
 			m.log.Error(err)
 		}
-		err = m.epochCommitmentFactory.UpdateManaLeaf(output.ID(), true)
+		err = m.epochCommitmentFactory.updateManaLeaf(outputWithMetadata, true)
 		if err != nil {
 			m.log.Error(err)
 		}
@@ -166,44 +166,37 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
-	err := m.epochCommitmentFactory.InsertTangleLeaf(ei, message.ID())
+	if m.isEpochAlreadyComitted(ei) {
+		m.log.Errorf("message confirmed in already committed epoch %d", ei)
+	}
+	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
-	}
-
-	if m.isCommittedEpochBeingUpdated(ei) {
-		m.log.Errorf("message confirmed in already committed epoch %d, ECC is now incorrect", ei)
 	}
 }
 
 // OnMessageOrphaned is the handler for message orphaned event.
 func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
-	err := m.epochCommitmentFactory.RemoveTangleLeaf(ei, message.ID())
+	if m.isEpochAlreadyComitted(ei) {
+		m.log.Errorf("message orphaned in already committed epoch %d", ei)
+	}
+	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
 	if err != nil && m.log != nil {
 		m.log.Error(err)
 	}
-	m.updateDiffOnMessageOrphaned(message, ei)
-
-	if m.isCommittedEpochBeingUpdated(ei) {
-		m.log.Errorf("message orphaned in already committed epoch %d, ECC is now incorrect", ei)
-	}
+	m.updateDiffOnMessageOrphaned(ei, message)
 }
 
 // updateDiffOnMessageOrphaned removes transaction from diff storage if it was contained in an orphaned message.
-func (m *Manager) updateDiffOnMessageOrphaned(message *tangle.Message, ei epoch.Index) {
+func (m *Manager) updateDiffOnMessageOrphaned(ei epoch.Index, message *tangle.Message) {
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
-		outputsSpent := m.outputIDsToOutputs(m.tangle.Ledger.Utils.ResolveInputs(transaction.Inputs()))
-		outputsCreated := m.outputsToOutputIDs(transaction.(*devnetvm.Transaction).Essence().Outputs())
-		m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsCreated, outputsSpent)
+		spent, created := m.resolveOutputs(transaction.ID())
+		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
 	}
 }
 
-
-	if m.isCommittedEpochBeingUpdated(ei) {
-		m.log.Errorf("transaction confirmed in already committed epoch %d, ECC is now incorrect", ei)
-	}
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
 	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
@@ -212,32 +205,26 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if oldEpoch == newEpoch {
 		return
 	}
-	if err := m.epochCommitmentFactory.RemoveStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
+
+	if (oldEpoch != 0 && m.isEpochAlreadyComitted(oldEpoch)) || m.isEpochAlreadyComitted(newEpoch) {
+		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
+		return
+	}
+
+	if err := m.epochCommitmentFactory.removeStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
 		m.log.Error(err)
 	}
 
-	if err := m.epochCommitmentFactory.InsertStateMutationLeaf(newEpoch, event.TransactionID); err != nil {
+	if err := m.epochCommitmentFactory.insertStateMutationLeaf(newEpoch, event.TransactionID); err != nil {
 		m.log.Error(err)
 	}
 
 	fmt.Println(">> OnTransactionInclusionUpdated:", event.TransactionID, oldEpoch, newEpoch)
 
-	m.storeTXDiff(newEpoch, event.TransactionID)
+	spent, created := m.resolveOutputs(event.TransactionID)
 
-	m.updateDiffStorageOnInclusion(event.TransactionID, prevEpoch, newEpoch)
-
-	if m.isCommittedEpochBeingUpdated(prevEpoch) || m.isCommittedEpochBeingUpdated(newEpoch) {
-		m.log.Errorf("inclustion time of transaction changed for already committed epoch: previous EI %d,"+
-			" new EI %d, ECC is now incorrect", prevEpoch, newEpoch)
-	}
-}
-
-func (m *Manager) updateDiffStorageOnInclusion(txID utxo.TransactionID, prevEpoch, newEpoch epoch.Index) {
-	outputsSpent, outputsCreated := m.resolveTransaction(txID)
-	m.epochCommitmentFactory.storeDiffUTXOs(prevEpoch, outputsSpent, outputsCreated)
-	createdIDs := m.outputsToOutputIDs(outputsCreated)
-	outputsVm := m.outputIDsToOutputs(outputsSpent)
-	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, createdIDs, outputsVm)
+	m.epochCommitmentFactory.deleteDiffUTXOs(oldEpoch, spent, created)
+	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, spent, created)
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -290,19 +277,6 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	}
 
 	return lastCommittedEpoch, latestCommittableEpoch, nil
-}
-
-func (m *Manager) storeTXDiff(ei epoch.Index, txID utxo.TransactionID) {
-	var outputsSpent utxo.OutputIDs
-	var outputsCreated devnetvm.Outputs
-	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-		devnetTx := tx.(*devnetvm.Transaction)
-		outputsSpent = m.tangle.Ledger.Utils.ResolveInputs(devnetTx.Inputs())
-		outputsCreated = devnetTx.Essence().Outputs()
-	})
-
-	// store outputs in the commitment diff storage
-	m.epochCommitmentFactory.storeDiffUTXOs(ei, outputsSpent, outputsCreated)
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
@@ -364,16 +338,41 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	return
 }
 
-func (m *Manager) isCommittedEpochBeingUpdated(ei epoch.Index) bool {
-	lastCommitted, _ := m.epochCommitmentFactory.LastCommittedEpochIndex()
+func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
+	lastCommitted, _, err := m.latestCommittableEpoch()
+	if err != nil {
+		m.log.Errorf("could not determine latest committed epoch: %v", err)
+	}
 	return ei <= lastCommitted
 }
 
-func (m *Manager) resolveTransaction(txID utxo.TransactionID) (outputsSpent utxo.OutputIDs, outputsCreated devnetvm.Outputs) {
+func (m *Manager) resolveOutputs(txID utxo.TransactionID) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
+	spentOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	createdOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
+	var spentOutputIDs utxo.OutputIDs
+	var createdOutputs []utxo.Output
+
 	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-		outputsSpent = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
-		outputsCreated = tx.(*devnetvm.Transaction).Essence().Outputs()
+		spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+		createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
 	})
+
+	for it := spentOutputIDs.Iterator(); it.HasNext(); {
+		spentOutputID := it.Next()
+		m.tangle.Ledger.Storage.CachedOutput(spentOutputID).Consume(func(spentOutput utxo.Output) {
+			m.tangle.Ledger.Storage.CachedOutputMetadata(spentOutputID).Consume(func(spentOutputMetadata *ledger.OutputMetadata) {
+				spentOutputsWithMetadata = append(spentOutputsWithMetadata, ledger.NewOutputWithMetadata(spentOutputID, spentOutput, spentOutputMetadata))
+			})
+		})
+	}
+
+	for _, createdOutput := range createdOutputs {
+		createdOutputID := createdOutput.ID()
+		m.tangle.Ledger.Storage.CachedOutputMetadata(createdOutputID).Consume(func(createdOutputMetadata *ledger.OutputMetadata) {
+			createdOutputsWithMetadata = append(createdOutputsWithMetadata, ledger.NewOutputWithMetadata(createdOutputID, createdOutput, createdOutputMetadata))
+		})
+	}
+
 	return
 }
 
