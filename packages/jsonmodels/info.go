@@ -2,6 +2,11 @@ package jsonmodels
 
 import (
 	"time"
+
+	"github.com/iotaledger/hive.go/identity"
+
+	"github.com/iotaledger/goshimmer/packages/epoch"
+	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
 
 // InfoResponse holds the response of the GET request.
@@ -32,6 +37,16 @@ type InfoResponse struct {
 	Mana Mana `json:"mana,omitempty"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
+
+	// Epoch related metrics.
+	EpochCommitments   map[epoch.Index]metrics.EpochInfo
+	EpochVotersWeight  map[epoch.Index]map[identity.ID]float64
+	EpochUTXOs         map[epoch.Index][]string
+	EpochMessages      map[epoch.Index][]string
+	EpochTransactions  map[epoch.Index][]string
+	LastCommittedEpoch metrics.EpochInfo
+	PendingBranchCount map[epoch.Index]uint64
+
 	// error of the response
 	Error string `json:"error,omitempty"`
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/metrics"
 	"github.com/iotaledger/goshimmer/packages/notarization"
@@ -324,12 +325,13 @@ func registerLocalMetrics() {
 	}))
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		message := event.Message
-		if err := saveEpochVotersWeight(message); err != nil {
-			Plugin.Panic(err)
-		}
+		saveEpochVotersWeight(message)
+		saveEpochMessage(message)
 	}))
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		deps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
+			saveEpochUTXOs(t.(*devnetvm.Transaction))
+			saveEpochTransaction(t)
 		})
 	}))
 }

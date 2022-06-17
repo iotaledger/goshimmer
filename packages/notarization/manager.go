@@ -57,6 +57,11 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 	}
 }
 
+// EpochManager return EpochManager instance.
+func (m *Manager) EpochManager() *EpochManager {
+	return m.epochManager
+}
+
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	_ = snapshot.Outputs.ForEach(func(output utxo.Output) error {

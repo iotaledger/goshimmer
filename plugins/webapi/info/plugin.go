@@ -140,5 +140,13 @@ func getInfo(c echo.Context) error {
 			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
 			NodeQueueSizes:    nodeQueueSizes,
 		},
+
+		EpochCommitments:   metrics.GetCommittedEpochs(),
+		EpochVotersWeight:  metrics.GetEpochVotersWeight(),
+		EpochUTXOs:         metrics.GetEpochUTXOs(),
+		EpochMessages:      metrics.GetEpochMessages(),
+		EpochTransactions:  metrics.GetEpochTransactions(),
+		LastCommittedEpoch: metrics.GetLastCommittedEpoch(),
+		PendingBranchCount: metrics.GetPendingBranchCount(),
 	})
 }
