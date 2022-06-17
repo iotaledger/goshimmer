@@ -18,6 +18,7 @@ import (
 	"github.com/iotaledger/hive.go/node"
 
 	db_pkg "github.com/iotaledger/goshimmer/packages/database"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -758,46 +759,44 @@ func QueryAllowed() (allowed bool) {
 func loadSnapshot(snapshot *ledger.Snapshot) error {
 	consensusManaByNode := map[identity.ID]float64{}
 	accessManaByNode := map[identity.ID]float64{}
-	processOutputs := func(outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata, isCreated bool) error {
-		return snapshot.Outputs.ForEach(func(output utxo.Output) error {
-			metadata, exists := snapshot.OutputsMetadata.Get(output.ID())
-			if !exists {
-				return errors.Errorf("metadata not found for output %s", output.ID())
-			}
-			devnetOutput := output.(devnetvm.Output)
+	processOutputs := func(outputsWithMetadata []*ledger.OutputWithMetadata, areCreated bool) {
+		for _, outputWithMetadata := range outputsWithMetadata {
+			devnetOutput := outputWithMetadata.Output().(devnetvm.Output)
 			var manaValue float64
-			devnetOutput.Balances().ForEach(func(_ devnetvm.Color, balance uint64) bool {
+			devnetOutput.Balances().ForEach(func(color devnetvm.Color, balance uint64) bool {
+				if color != devnetvm.ColorIOTA {
+					return true
+				}
 				manaValue += float64(balance)
 				return true
 			})
-			if isCreated {
-				consensusManaByNode[metadata.ConsensusManaPledgeID()] += manaValue
-				accessManaByNode[metadata.AccessManaPledgeID()] += manaValue
+			outputMetadata := outputWithMetadata.OutputMetadata()
+			if areCreated {
+				consensusManaByNode[outputMetadata.ConsensusManaPledgeID()] += manaValue
+				accessManaByNode[outputMetadata.AccessManaPledgeID()] += manaValue
 			} else {
-				consensusManaByNode[metadata.ConsensusManaPledgeID()] -= manaValue
-				accessManaByNode[metadata.AccessManaPledgeID()] -= manaValue
+				consensusManaByNode[outputMetadata.ConsensusManaPledgeID()] -= manaValue
+				accessManaByNode[outputMetadata.AccessManaPledgeID()] -= manaValue
 			}
-			return nil
-		})
+		}
 
+		return
 	}
-	if err := processOutputs(snapshot.Outputs, snapshot.OutputsMetadata, true /* isCreated */); err != nil {
-		return errors.WithStack(err)
-	}
-	for i := snapshot.FullEpochIndex; i < snapshot.DiffEpochIndex; i++ {
-		diff, exists := snapshot.EpochDiffs.Get(i)
+
+	processOutputs(snapshot.OutputsWithMetadata, true /* areCreated */)
+
+	// We fix the mana vector a few epochs in the past with respect of the latest epoch in the snapshot.
+	for ei := snapshot.FullEpochIndex + 1; ei <= snapshot.DiffEpochIndex-epoch.Index(ManaParameters.EpochDelay); ei++ {
+		diff, exists := snapshot.EpochDiffs[ei]
 		if !exists {
-			return errors.Errorf("diff with index %d not found", i)
+			return errors.Errorf("diff with index %d missing from snapshot", ei)
 		}
-		if err := processOutputs(diff.M.Created, diff.M.CreatedMetadata, true /* isCreated */); err != nil {
-			return errors.WithStack(err)
-		}
-		if err := processOutputs(diff.M.Spent, diff.M.SpentMetadata, false /* isCreated */); err != nil {
-			return errors.WithStack(err)
-		}
+		processOutputs(diff.Created(), true /* areCreated */)
+		processOutputs(diff.Spent(), false /* areCreated */)
 	}
 
 	baseManaVectors[mana.ConsensusMana].InitializeWithData(consensusManaByNode)
 	baseManaVectors[mana.AccessMana].InitializeWithData(accessManaByNode)
+
 	return nil
 }

@@ -303,8 +303,8 @@ type MessageModel struct {
 	PayloadBytes         []byte            `serix:"5,lengthPrefixType=uint32"`
 	Nonce                uint64            `serix:"6"`
 	EI                   epoch.Index       `serix:"7"`
-	ECR                  *epoch.ECR        `serix:"8"`
-	PrevEC               *epoch.EC         `serix:"9"`
+	ECR                  epoch.ECR         `serix:"8"`
+	PrevEC               epoch.EC          `serix:"9"`
 	LatestConfirmedEpoch epoch.Index       `serix:"10"`
 	Signature            ed25519.Signature `serix:"11"`
 }
@@ -467,12 +467,12 @@ func (m *Message) EI() epoch.Index {
 }
 
 // ECR returns the ECR of the message.
-func (m *Message) ECR() *epoch.ECR {
+func (m *Message) ECR() epoch.ECR {
 	return m.M.ECR
 }
 
 // PrevEC returns the PrevEC of the message.
-func (m *Message) PrevEC() *epoch.EC {
+func (m *Message) PrevEC() epoch.EC {
 	return m.M.PrevEC
 }
 

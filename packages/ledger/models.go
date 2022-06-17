@@ -550,12 +550,12 @@ func (c *Consumer) SetBooked() (updated bool) {
 // region EpochDiffs ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 type EpochDiffs struct {
-	orderedmap.OrderedMap[epoch.Index, *EpochDiff] `serix:"0"`
+	orderedmap.OrderedMap[epoch.Index, *OutputWithMetadata] `serix:"0"`
 }
 
 func (e *EpochDiffs) String() string {
 	structBuilder := stringify.StructBuilder("EpochDiffs")
-	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *EpochDiff) bool {
+	e.OrderedMap.ForEach(func(ei epoch.Index, epochDiff *OutputWithMetadata) bool {
 		structBuilder.AddField(stringify.StructField(ei.String(), epochDiff))
 		return true
 	})
@@ -563,111 +563,91 @@ func (e *EpochDiffs) String() string {
 	return structBuilder.String()
 }
 
-type EpochDiff struct {
-	model.Storable[epoch.Index, EpochDiff, *EpochDiff, epochDiff] `serix:"0"`
+type OutputWithMetadata struct {
+	model.Storable[utxo.OutputID, OutputWithMetadata, *OutputWithMetadata, outputWithMetadataModel] `serix:"0"`
 }
 
-type epochDiff struct {
-	EI              epoch.Index      `serix:"0"`
-	Created         *utxo.Outputs    `serix:"1"`
-	CreatedMetadata *OutputsMetadata `serix:"2"`
-	Spent           *utxo.Outputs    `serix:"3"`
-	SpentMetadata   *OutputsMetadata `serix:"4"`
+type outputWithMetadataModel struct {
+	OutputID       utxo.OutputID   `serix:"0"`
+	Output         utxo.Output     `serix:"1"`
+	OutputMetadata *OutputMetadata `serix:"2"`
 }
 
-func NewEpochDiff(ei epoch.Index) (new *EpochDiff) {
-	new = model.NewStorable[epoch.Index, EpochDiff](&epochDiff{
-		EI:              ei,
-		Created:         utxo.NewOutputs(),
-		CreatedMetadata: NewOutputsMetadata(),
-		Spent:           utxo.NewOutputs(),
-		SpentMetadata:   NewOutputsMetadata(),
+func (o *OutputWithMetadata) String() string {
+	structBuilder := stringify.StructBuilder("OutputWithMetadata")
+	structBuilder.AddField(stringify.StructField("OutputID", o.ID()))
+	structBuilder.AddField(stringify.StructField("Output", o.Output()))
+	structBuilder.AddField(stringify.StructField("OutputMetadata", o.OutputMetadata()))
+
+	return structBuilder.String()
+}
+
+func NewOutputWithMetadata(outputID utxo.OutputID, output utxo.Output, outputMetadata *OutputMetadata) (new *OutputWithMetadata) {
+	new = model.NewStorable[utxo.OutputID, OutputWithMetadata](&outputWithMetadataModel{
+		OutputID:       outputID,
+		Output:         output,
+		OutputMetadata: outputMetadata,
 	})
-	new.SetID(ei)
+	new.SetID(outputID)
 	return
 }
 
-func (e *EpochDiff) EI() epoch.Index {
-	e.RLock()
-	defer e.RUnlock()
+func (o *OutputWithMetadata) Output() (output utxo.Output) {
+	o.RLock()
+	defer o.RUnlock()
 
-	return e.M.EI
+	return o.M.Output
 }
 
-func (e *EpochDiff) SetEI(ei epoch.Index) {
-	e.Lock()
-	defer e.Unlock()
+func (o *OutputWithMetadata) SetOutput(output utxo.Output) {
+	o.Lock()
+	defer o.Unlock()
 
-	e.M.EI = ei
-	e.SetModified()
-}
-
-func (e *EpochDiff) AddCreated(created utxo.Output) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Created.Add(created)
-	e.SetModified()
-}
-
-func (e *EpochDiff) DeleteCreated(id utxo.OutputID) (existed bool) {
-	e.Lock()
-	defer e.Unlock()
-
-	if existed = e.M.Created.OrderedMap.Delete(id); existed {
-		e.SetModified()
-	}
+	o.M.Output = output
+	o.SetModified()
 
 	return
 }
 
-func (e *EpochDiff) AddSpent(spent utxo.Output) {
-	e.Lock()
-	defer e.Unlock()
+func (o *OutputWithMetadata) OutputMetadata() (outputMetadata *OutputMetadata) {
+	o.RLock()
+	defer o.RUnlock()
 
-	e.M.Spent.Add(spent)
-	e.SetModified()
+	return o.M.OutputMetadata
 }
 
-func (e *EpochDiff) DeleteSpent(id utxo.OutputID) (existed bool) {
-	e.Lock()
-	defer e.Unlock()
+func (o *OutputWithMetadata) SetOutputMetadata(outputMetadata *OutputMetadata) {
+	o.Lock()
+	defer o.Unlock()
 
-	if existed = e.M.Spent.OrderedMap.Delete(id); existed {
-		e.SetModified()
-	}
+	o.M.OutputMetadata = outputMetadata
+	o.SetModified()
 
 	return
 }
 
-func (e *EpochDiff) Created() *utxo.Outputs {
-	e.RLock()
-	defer e.RUnlock()
-
-	return &utxo.Outputs{*e.M.Created.OrderedMap.Clone()}
+type EpochDiff struct {
+	model.Immutable[EpochDiff, *EpochDiff, epochDiffModel] `serix:"0"`
 }
 
-func (e *EpochDiff) SetCreated(created *utxo.Outputs) {
-	e.Lock()
-	defer e.Unlock()
-
-	e.M.Created = created
-	e.SetModified()
+type epochDiffModel struct {
+	Spent   []*OutputWithMetadata `serix:"0"`
+	Created []*OutputWithMetadata `serix:"1"`
 }
 
-func (e *EpochDiff) Spent() *utxo.Outputs {
-	e.RLock()
-	defer e.RUnlock()
-
-	return &utxo.Outputs{*e.M.Spent.OrderedMap.Clone()}
+func NewEpochDiff(spent []*OutputWithMetadata, created []*OutputWithMetadata) (new *EpochDiff) {
+	return model.NewImmutable[EpochDiff](&epochDiffModel{
+		Spent:   spent,
+		Created: created,
+	})
 }
 
-func (e *EpochDiff) SetSpent(spent *utxo.Outputs) {
-	e.Lock()
-	defer e.Unlock()
+func (e *EpochDiff) Spent() []*OutputWithMetadata {
+	return e.M.Spent
+}
 
-	e.M.Spent = spent
-	e.SetModified()
+func (e *EpochDiff) Created() []*OutputWithMetadata {
+	return e.M.Spent
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
