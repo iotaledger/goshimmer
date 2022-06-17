@@ -64,11 +64,11 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 				}
 
@@ -87,15 +87,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -114,15 +114,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C"}),
 					},
 				}
 
@@ -141,15 +141,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C"}),
 					},
 				}
 
@@ -168,15 +168,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -195,15 +195,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 				}
 
@@ -222,19 +222,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "D"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"D"}),
 					},
 				}
 
@@ -253,19 +253,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "D"}, []string{"A", "B", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 				}
 
@@ -284,23 +284,23 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C", "D"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "E"}, []string{"A", "B", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"B", "A"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"C", "D"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"B", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"B"}),
 					},
 				}
 
@@ -319,23 +319,23 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B", "D"}, []string{"A", "B", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C", "D"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "E"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"D"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"E"}),
 					},
 				}
 
@@ -354,15 +354,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"A", "B"}),
 					},
 				}
 
@@ -381,23 +381,23 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 				}
 
@@ -416,23 +416,23 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 				}
 
@@ -451,47 +451,47 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"G", "F"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F"}),
 					},
 					{
 						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F", "G"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F"}),
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
 						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"H", "I"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
 						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"K", "J"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 					{
 						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J", "K"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 				}
 
@@ -510,23 +510,23 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C"}),
 					},
 					{
 						branchAlias:     "D",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"E", "D"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "E",
-						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D", "E"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"E"}, []string{"D"}),
 					},
 					{
 						branchAlias:     "F",
@@ -538,19 +538,19 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
 						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"H", "I"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"I"}),
 					},
 					{
 						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"K", "J"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 					{
 						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J", "K"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"K"}, []string{"J"}),
 					},
 				}
 
@@ -569,15 +569,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "A"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "H", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
 					},
 					{
 						branchAlias:     "F",
@@ -589,7 +589,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C", "F", "G", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
 					},
 				}
 
@@ -608,27 +608,27 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"A", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "C"}, []string{"A", "H", "C", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"H", "B", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"H", "B"}),
 					},
 					{
 						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"G", "H", "F"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"H", "F"}),
 					},
 					{
 						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F", "H", "G"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"G"}, []string{"F", "H"}),
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "C", "G"}, []string{"B", "C", "F", "G", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"C"}, []string{"B", "F", "G", "H"}),
 					},
 				}
 
@@ -647,55 +647,55 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "A"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "H"}, []string{"A", "H", "C", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "H", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "H", "F"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
 					},
 					{
 						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "H", "G"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
 					},
 					{
 						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"J", "O", "I"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"O", "I"}),
 					},
 					{
 						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"I", "O", "J"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"I", "O"}),
 					},
 					{
 						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"L", "K"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
 						branchAlias:     "L",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K", "L"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
 						branchAlias:     "M",
-						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"N", "O", "M"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"O", "M"}),
 					},
 					{
 						branchAlias:     "N",
-						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"M", "O", "N"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"N"}, []string{"M", "O"}),
 					},
 					{
 						branchAlias:     "O",
-						wantLikedBranch: mustMatch(&scenario, []string{"J", "N"}, []string{"M", "N", "J", "I", "O"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"J"}, []string{"M", "N", "I", "O"}),
 					},
 				}
 
@@ -714,55 +714,55 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B", "A"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"B"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"A", "H"}, []string{"A", "H", "C", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"A"}, []string{"H", "C", "B"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "H", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"B", "C"}),
 					},
 					{
 						branchAlias:     "F",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "H", "F"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"G", "F"}),
 					},
 					{
 						branchAlias:     "G",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "H", "G"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G"}),
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"H"}, []string{"F", "G", "B", "C"}),
 					},
 					{
 						branchAlias:     "I",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"J", "O", "I"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"J", "I"}),
 					},
 					{
 						branchAlias:     "J",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"I", "O", "J"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"I", "J"}),
 					},
 					{
 						branchAlias:     "K",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"L", "K"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
 						branchAlias:     "L",
-						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K", "L"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"L"}, []string{"K"}),
 					},
 					{
 						branchAlias:     "M",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"N", "O", "M"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"N", "M"}),
 					},
 					{
 						branchAlias:     "N",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "O", "N"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "N"}),
 					},
 					{
 						branchAlias:     "O",
-						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "N", "J", "I", "O"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"O"}, []string{"M", "N", "J", "I"}),
 					},
 				}
 
@@ -781,15 +781,15 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 				executions := []execution{
 					{
 						branchAlias:     "A",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "A"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A"}),
 					},
 					{
 						branchAlias:     "B",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C", "B"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"A", "H", "C"}),
 					},
 					{
 						branchAlias:     "C",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "H", "C"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"H", "C"}),
 					},
 					{
 						branchAlias:     "F",
@@ -801,7 +801,7 @@ func TestOnTangleVoting_LikedInstead(t *testing.T) {
 					},
 					{
 						branchAlias:     "H",
-						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"B", "C", "F", "G", "H"}),
+						wantLikedBranch: mustMatch(&scenario, []string{"B"}, []string{"C", "F", "G", "H"}),
 					},
 					{
 						branchAlias:     "I",

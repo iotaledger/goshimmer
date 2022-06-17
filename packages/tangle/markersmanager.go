@@ -69,11 +69,6 @@ func (b *BranchMarkersMapper) SetMessageID(marker markers.Marker, messageID Mess
 	b.tangle.Storage.StoreMarkerMessageMapping(NewMarkerMessageMapping(marker, messageID))
 }
 
-// PendingBranchIDs returns the pending BranchIDs that are associated with the given Marker.
-func (b *BranchMarkersMapper) PendingBranchIDs(marker markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
-	return b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(b.branchIDs(marker))
-}
-
 // SetBranchIDs associates ledger.BranchIDs with the given Marker.
 func (b *BranchMarkersMapper) SetBranchIDs(marker markers.Marker, branchIDs *set.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if floorMarker, floorBranchIDs, exists := b.Floor(marker); exists {
@@ -86,13 +81,13 @@ func (b *BranchMarkersMapper) SetBranchIDs(marker markers.Marker, branchIDs *set
 		}
 	}
 
-	b.setBranchIDMapping(marker, branchIDs)
+	b.setBranchIDMapping(marker, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(branchIDs))
 
 	return true
 }
 
-// branchIDs returns the BranchID that is associated with the given Marker.
-func (b *BranchMarkersMapper) branchIDs(marker markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
+// BranchIDs returns the BranchID that is associated with the given Marker.
+func (b *BranchMarkersMapper) BranchIDs(marker markers.Marker) (branchIDs *set.AdvancedSet[utxo.TransactionID]) {
 	b.tangle.Storage.MarkerIndexBranchIDMapping(marker.SequenceID()).Consume(func(markerIndexBranchIDMapping *MarkerIndexBranchIDMapping) {
 		branchIDs = markerIndexBranchIDMapping.BranchIDs(marker.Index())
 	})

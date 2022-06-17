@@ -3,6 +3,7 @@ package tangle
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -111,9 +112,6 @@ func (m *MessageTestFramework) CreateMessage(messageAlias string, messageOptions
 	}
 	if parents := m.weakParentIDs(options); len(parents) > 0 {
 		references.AddAll(WeakParentType, parents)
-	}
-	if parents := m.shallowDislikeParentIDs(options); len(parents) > 0 {
-		references.AddAll(ShallowDislikeParentType, parents)
 	}
 	if parents := m.shallowLikeParentIDs(options); len(parents) > 0 {
 		references.AddAll(ShallowLikeParentType, parents)
@@ -374,12 +372,6 @@ func (m *MessageTestFramework) weakParentIDs(options *MessageTestFrameworkMessag
 	return m.parentIDsByMessageAlias(options.weakParents)
 }
 
-// shallowDislikeParentIDs returns the MessageIDs that were defined to be the shallow dislike parents of the
-// MessageTestFrameworkMessageOptions.
-func (m *MessageTestFramework) shallowDislikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
-	return m.parentIDsByMessageAlias(options.shallowDislikeParents)
-}
-
 // shallowLikeParentIDs returns the MessageIDs that were defined to be the shallow like parents of the
 // MessageTestFrameworkMessageOptions.
 func (m *MessageTestFramework) shallowLikeParentIDs(options *MessageTestFrameworkMessageOptions) MessageIDs {
@@ -472,7 +464,6 @@ type MessageTestFrameworkMessageOptions struct {
 	strongParents            map[string]types.Empty
 	weakParents              map[string]types.Empty
 	shallowLikeParents       map[string]types.Empty
-	shallowDislikeParents    map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
 	reattachmentMessageAlias string
@@ -483,12 +474,11 @@ type MessageTestFrameworkMessageOptions struct {
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
 func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOptions *MessageTestFrameworkMessageOptions) {
 	messageOptions = &MessageTestFrameworkMessageOptions{
-		inputs:                make(map[string]types.Empty),
-		outputs:               make(map[string]uint64),
-		strongParents:         make(map[string]types.Empty),
-		weakParents:           make(map[string]types.Empty),
-		shallowLikeParents:    make(map[string]types.Empty),
-		shallowDislikeParents: make(map[string]types.Empty),
+		inputs:             make(map[string]types.Empty),
+		outputs:            make(map[string]uint64),
+		strongParents:      make(map[string]types.Empty),
+		weakParents:        make(map[string]types.Empty),
+		shallowLikeParents: make(map[string]types.Empty),
 	}
 
 	for _, option := range options {
@@ -548,15 +538,6 @@ func WithShallowLikeParents(messageAliases ...string) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		for _, messageAlias := range messageAliases {
 			options.shallowLikeParents[messageAlias] = types.Void
-		}
-	}
-}
-
-// WithShallowDislikeParents returns a MessageOption that is used to define the shallow dislike parents of the Message.
-func WithShallowDislikeParents(messageAliases ...string) MessageOption {
-	return func(options *MessageTestFrameworkMessageOptions) {
-		for _, messageAlias := range messageAliases {
-			options.shallowDislikeParents[messageAlias] = types.Void
 		}
 	}
 }
@@ -862,7 +843,9 @@ func NewTestTangle(options ...Option) *Tangle {
 }
 
 // MockConfirmationOracle is a mock of a ConfirmationOracle.
-type MockConfirmationOracle struct{}
+type MockConfirmationOracle struct {
+	sync.RWMutex
+}
 
 // FirstUnconfirmedMarkerIndex mocks its interface function.
 func (m *MockConfirmationOracle) FirstUnconfirmedMarkerIndex(sequenceID markers.SequenceID) (unconfirmedMarkerIndex markers.Index) {
@@ -952,8 +935,8 @@ func (o *SimpleMockOnTangleVoting) BranchLiked(branchID utxo.TransactionID) (bra
 	return likedConflictMembers.conflictMembers.Has(branchID)
 }
 
-func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time, _ *Tangle) (references ParentMessageIDs, referenceNotPossible MessageIDs, err error) {
-	return emptyLikeReferencesFromStrongParents(parents), nil, nil
+func emptyLikeReferences(payload payload.Payload, parents MessageIDs, _ time.Time) (references ParentMessageIDs, err error) {
+	return emptyLikeReferencesFromStrongParents(parents), nil
 }
 
 func emptyLikeReferencesFromStrongParents(parents MessageIDs) (references ParentMessageIDs) {

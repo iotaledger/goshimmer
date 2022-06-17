@@ -74,21 +74,6 @@ export class MessageInfo extends React.Component<Props, any> {
                                         )}
                                     </ListGroup>
                                 </ListGroup.Item>
-                                <ListGroup.Item>
-                                    ShallowDislike Parents:
-                                    <ListGroup>
-                                        {selectedMsg.shallowDislikeParentIDs.map(
-                                            (p, i) => (
-                                                <ListGroup.Item key={i}>
-                                                    <LinkToDashboard
-                                                        route={`explorer/message/${p}`}
-                                                        title={p}
-                                                    />
-                                                </ListGroup.Item>
-                                            )
-                                        )}
-                                    </ListGroup>
-                                </ListGroup.Item>
                                 {selectedMsg.isTx && (
                                     <ListGroup.Item>
                                         Transaction:{' '}
