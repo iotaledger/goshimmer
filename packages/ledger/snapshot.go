@@ -4,32 +4,28 @@ import (
 	"github.com/iotaledger/hive.go/stringify"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 )
 
 // Snapshot represents a snapshot of the current ledger state.
 type Snapshot struct {
-	Outputs         *utxo.Outputs    `serix:"0"`
-	OutputsMetadata *OutputsMetadata `serix:"1"`
-	FullEpochIndex  epoch.EI         `serix:"2"`
-	DiffEpochIndex  epoch.EI         `serix:"3"`
-	EpochDiffs      *EpochDiffs      `serix:"4"`
-	LatestECRecord  *epoch.ECRecord  `serix:"5"`
+	OutputsWithMetadata []*OutputWithMetadata      `serix:"0,lengthPrefixType=uint32"`
+	FullEpochIndex      epoch.Index                `serix:"1"`
+	DiffEpochIndex      epoch.Index                `serix:"2"`
+	EpochDiffs          map[epoch.Index]*EpochDiff `serix:"3,lengthPrefixType=uint32"`
+	LatestECRecord      *epoch.ECRecord            `serix:"4"`
 }
 
 // NewSnapshot creates a new Snapshot from the given details.
-func NewSnapshot(outputs *utxo.Outputs, outputsMetadata *OutputsMetadata) (new *Snapshot) {
+func NewSnapshot(outputsWithMetadata []*OutputWithMetadata) (new *Snapshot) {
 	return &Snapshot{
-		Outputs:         outputs,
-		OutputsMetadata: outputsMetadata,
+		OutputsWithMetadata: outputsWithMetadata,
 	}
 }
 
 // String returns a human-readable version of the Snapshot.
 func (s *Snapshot) String() (humanReadable string) {
 	return stringify.Struct("Snapshot",
-		stringify.StructField("Outputs", s.Outputs),
-		stringify.StructField("OutputsMetadata", s.OutputsMetadata),
+		stringify.StructField("OutputsWithMetadata", s.OutputsWithMetadata),
 		stringify.StructField("FullEpochIndex", s.FullEpochIndex),
 		stringify.StructField("DiffEpochIndex", s.DiffEpochIndex),
 		stringify.StructField("EpochDiffs", s.EpochDiffs),

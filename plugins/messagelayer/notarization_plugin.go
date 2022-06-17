@@ -3,18 +3,13 @@ package messagelayer
 import (
 	"context"
 
-	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/epoch"
-	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
-
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/node"
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/goshimmer/packages/ledger"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/notarization"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/tangle"
@@ -54,35 +49,6 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 	if nodeSnapshot != nil {
 		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
-	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		notarizationDeps.Tangle.Storage.Message(event.Message.ID()).Consume(func(m *tangle.Message) {
-			notarizationManager.OnMessageConfirmed(m)
-		})
-	}))
-	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		notarizationManager.OnMessageOrphaned(event.Message)
-	}))
-	notarizationDeps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
-		notarizationDeps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
-			notarizationManager.OnTransactionConfirmed(t.(*devnetvm.Transaction))
-		})
-	}))
-	notarizationDeps.Tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
-		notarizationManager.OnTransactionInclusionUpdated(event)
-	}))
-
-	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchConfirmed(event.ID)
-	}))
-	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		notarizationManager.OnBranchCreated(event.ID)
-	}))
-	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchRejected(event.ID)
-	}))
-	notarizationManager.CommitmentFactoryEvents().NewCommitmentTreesCreated.Attach(event.NewClosure(func(event *notarization.CommitmentTreesCreatedEvent) {
-		notarizationManager.OnCommitmentTreesCreated(event.EI)
-	}))
 }
 
 func runNotarizationPlugin(*node.Plugin) {
@@ -97,14 +63,14 @@ func runNotarizationPlugin(*node.Plugin) {
 func newNotarizationManager(deps notarizationDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
-		notarization.NewEpochCommitmentFactory(deps.Storage, new(devnetvm.VM), deps.Tangle),
+		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle, NotarizationParameters.SnapshotDepth),
 		notarizationDeps.Tangle,
-		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableDuration),
+		notarization.MinCommittableEpochAge(NotarizationParameters.MinEpochCommitableAge),
 		notarization.Log(Plugin.Logger()))
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
-func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.EI, err error) {
+func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
 	ecRecord, err = notarizationManager.GetLatestEC()
 	if err != nil {
 		return

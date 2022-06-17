@@ -70,12 +70,10 @@ func NewEventMock(t *testing.T, notarizationManager *Manager, ecFactory *EpochCo
 
 	// attach all events
 	notarizationManager.Events.EpochCommitted.Hook(event.NewClosure(e.EpochCommitted))
-	ecFactory.Events.NewCommitmentTreesCreated.Hook(event.NewClosure(e.NewCommitmentTreesCreated))
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	factoryNumEvents := reflect.ValueOf(ecFactory.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents+factoryNumEvents, "not all events in notarizationManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
 
 	return e
 }

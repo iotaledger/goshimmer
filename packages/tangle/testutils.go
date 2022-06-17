@@ -286,35 +286,34 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	}
 	manaPledgeTime := time.Now()
 
-	outputs := utxo.NewOutputs()
-	outputsMetadata := ledger.NewOutputsMetadata()
+	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	for alias, balance := range m.options.genesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputsWithMetadata)
 	}
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputs, outputsMetadata)
+		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputsWithMetadata)
 	}
 
-	m.snapshot = ledger.NewSnapshot(outputs, outputsMetadata)
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
 	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputs *utxo.Outputs, outputsMetadata *ledger.OutputsMetadata) {
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputsWithMetadata []*ledger.OutputWithMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet
 
 	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(outputs.Size())))
-	outputs.Add(output)
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(len(outputsWithMetadata))))
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetGradeOfFinality(gof.High)
 	outputMetadata.SetConsensusManaPledgeID(manaPledgeID)
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
-	outputsMetadata.Add(outputMetadata)
+
+	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata))
 
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
@@ -487,7 +486,7 @@ type MessageTestFrameworkMessageOptions struct {
 	sequenceNumber           uint64
 	overrideSequenceNumber   bool
 	ecRecord                 *epoch.ECRecord
-	latestConfirmedEpoch     epoch.EI
+	latestConfirmedEpoch     epoch.Index
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -608,7 +607,7 @@ func WithECRecord(ecRecord *epoch.ECRecord) MessageOption {
 }
 
 // WithLatestConfirmedEpoch returns a MessageOption that is used to define the latestConfirmedEpoch of the Message.
-func WithLatestConfirmedEpoch(ei epoch.EI) MessageOption {
+func WithLatestConfirmedEpoch(ei epoch.Index) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.latestConfirmedEpoch = ei
 	}
@@ -872,7 +871,7 @@ func NewTestTangle(options ...Option) *Tangle {
 	cacheTimeProvider := database.NewCacheTimeProvider(0)
 
 	options = append(options, SchedulerConfig(testSchedulerParams), CacheTimeProvider(cacheTimeProvider), TimeSinceConfirmationThreshold(tscThreshold))
-	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, epoch.EI, error) {
+	options = append(options, CommitmentFunc(func() (*epoch.ECRecord, epoch.Index, error) {
 		return nil, 0, nil
 	}))
 

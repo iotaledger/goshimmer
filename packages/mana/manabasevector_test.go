@@ -78,22 +78,19 @@ func randNodeID() identity.ID {
 }
 
 func TestNewBaseManaVector_Consensus(t *testing.T) {
-	bmvCons, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmvCons := NewBaseManaVector()
 	assert.Equal(t, ConsensusMana, bmvCons.Type())
 	assert.Equal(t, map[identity.ID]*ManaBase{}, bmvCons.(*ManaBaseVector).M.Vector)
 }
 
 func TestConsensusBaseManaVector_Type(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	vectorType := bmv.Type()
 	assert.Equal(t, ConsensusMana, vectorType)
 }
 
 func TestConsensusBaseManaVector_Size(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	assert.Equal(t, 0, bmv.Size())
 
 	for i := 0; i < 10; i++ {
@@ -103,8 +100,7 @@ func TestConsensusBaseManaVector_Size(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_Has(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	randID := randNodeID()
 
 	has := bmv.Has(randID)
@@ -134,8 +130,7 @@ func TestConsensusBaseManaVector_Book(t *testing.T) {
 		pledgeEvents = append(pledgeEvents, ev)
 	}))
 
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 
 	// init vector to inputTime with pledged beforeBookingAmount
 	bmv.SetMana(inputPledgeID1, NewManaBase(beforeBookingAmount[inputPledgeID1]))
@@ -197,8 +192,7 @@ func TestConsensusBaseManaVector_Book(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetMana(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	randID := randNodeID()
 	mana, _, err := bmv.GetMana(randID)
 	assert.Equal(t, 0.0, mana)
@@ -217,8 +211,7 @@ func TestConsensusBaseManaVector_GetMana(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_ForEach(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 
 	for i := 0; i < 10000; i++ {
 		bmv.SetMana(randNodeID(), NewManaBase(1.0))
@@ -246,8 +239,7 @@ func TestConsensusBaseManaVector_ForEach(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 
 	// empty vector returns empty map
 	manaMap, _, err := bmv.GetManaMap()
@@ -274,8 +266,7 @@ func TestConsensusBaseManaVector_GetManaMap(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 
 	nodeIDs := make([]identity.ID, 10)
 
@@ -314,8 +305,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodes(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 
 	nodeIDs := make([]identity.ID, 10)
 
@@ -363,8 +353,7 @@ func TestConsensusBaseManaVector_GetHighestManaNodesFraction(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_SetMana(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	nodeIDs := make([]identity.ID, 10)
 	for i := 0; i < 10; i++ {
 		nodeIDs[i] = randNodeID()
@@ -376,8 +365,7 @@ func TestConsensusBaseManaVector_SetMana(t *testing.T) {
 }
 
 func TestConsensusBaseManaVector_ToPersistables(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	id1 := randNodeID()
 	id2 := randNodeID()
 	data := map[identity.ID]float64{
@@ -403,10 +391,9 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		id := randNodeID()
 		p := NewPersistableBaseMana(id, ConsensusMana, []float64{10}, []float64{100}, baseTime)
-		bmv, err := NewBaseManaVector(ConsensusMana)
-		assert.NoError(t, err)
+		bmv := NewBaseManaVector()
 		assert.False(t, bmv.Has(id))
-		err = bmv.FromPersistable(p)
+		err := bmv.FromPersistable(p)
 		assert.NoError(t, err)
 		assert.True(t, bmv.Has(id))
 		assert.Equal(t, 1, bmv.Size())
@@ -416,10 +403,9 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 
 	t.Run("CASE: Wrong type", func(t *testing.T) {
 		p := NewPersistableBaseMana(randNodeID(), AccessMana, []float64{0}, []float64{0}, baseTime)
-		bmv, err := NewBaseManaVector(ConsensusMana)
-		assert.NoError(t, err)
+		bmv := NewBaseManaVector()
 
-		err = bmv.FromPersistable(p)
+		err := bmv.FromPersistable(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "has type Access instead of Consensus")
 	})
@@ -427,18 +413,16 @@ func TestConsensusBaseManaVector_FromPersistable(t *testing.T) {
 	t.Run("CASE: Wrong number of base values", func(t *testing.T) {
 		p := NewPersistableBaseMana(randNodeID(), ConsensusMana, []float64{0, 0}, []float64{0}, baseTime)
 
-		bmv, err := NewBaseManaVector(ConsensusMana)
-		assert.NoError(t, err)
+		bmv := NewBaseManaVector()
 
-		err = bmv.FromPersistable(p)
+		err := bmv.FromPersistable(p)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "has 2 base values instead of 1")
 	})
 }
 
 func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
-	bmv, err := NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	bmv := NewBaseManaVector()
 	id1 := randNodeID()
 	id2 := randNodeID()
 	data := map[identity.ID]float64{
@@ -451,11 +435,10 @@ func TestConsensusBaseManaVector_ToAndFromPersistable(t *testing.T) {
 	persistables := bmv.ToPersistables()
 
 	var restoredBmv BaseManaVector
-	restoredBmv, err = NewBaseManaVector(ConsensusMana)
-	assert.NoError(t, err)
+	restoredBmv = NewBaseManaVector()
 
 	for _, p := range persistables {
-		err = restoredBmv.FromPersistable(p)
+		err := restoredBmv.FromPersistable(p)
 		assert.NoError(t, err)
 	}
 	assert.Equal(t, bmv.(*ManaBaseVector).M.Vector, restoredBmv.(*ManaBaseVector).M.Vector)
