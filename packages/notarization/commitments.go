@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"hash"
 	"sync"
 
@@ -262,6 +263,7 @@ func (f *EpochCommitmentFactory) RemoveStateLeaf(outputID utxo.OutputID) error {
 func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei epoch.EI, txID utxo.TransactionID) error {
 	f.commitmentsMutex.Lock()
 	defer f.commitmentsMutex.Unlock()
+	fmt.Println("insert tx", ei)
 
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
@@ -278,6 +280,7 @@ func (f *EpochCommitmentFactory) InsertStateMutationLeaf(ei epoch.EI, txID utxo.
 func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei epoch.EI, txID utxo.TransactionID) error {
 	f.commitmentsMutex.Lock()
 	defer f.commitmentsMutex.Unlock()
+	fmt.Println("remove tx", ei)
 
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
@@ -294,6 +297,7 @@ func (f *EpochCommitmentFactory) RemoveStateMutationLeaf(ei epoch.EI, txID utxo.
 func (f *EpochCommitmentFactory) InsertTangleLeaf(ei epoch.EI, msgID tangle.MessageID) error {
 	f.commitmentsMutex.Lock()
 	defer f.commitmentsMutex.Unlock()
+	fmt.Println("insert", ei)
 
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
@@ -310,7 +314,7 @@ func (f *EpochCommitmentFactory) InsertTangleLeaf(ei epoch.EI, msgID tangle.Mess
 func (f *EpochCommitmentFactory) RemoveTangleLeaf(ei epoch.EI, msgID tangle.MessageID) error {
 	f.commitmentsMutex.Lock()
 	defer f.commitmentsMutex.Unlock()
-
+	fmt.Println("remove", ei)
 	commitment, err := f.getCommitmentTrees(ei)
 	if err != nil {
 		return errors.Wrap(err, "could not get commitment while deleting tangle leaf")
@@ -516,7 +520,6 @@ func EC(ecRecord *epoch.ECRecord) *epoch.EC {
 	concatenated = append(concatenated, ecRecord.EI().Bytes()...)
 	return &epoch.EC{Identifier: types.NewIdentifier(concatenated)}
 }
-
 
 type CommitmentProof struct {
 	EI    epoch.EI

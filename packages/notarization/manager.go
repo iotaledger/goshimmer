@@ -1,6 +1,7 @@
 package notarization
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -124,6 +125,7 @@ func (m *Manager) PendingConflictsCount(ei epoch.EI) uint64 {
 func (m *Manager) IsCommittable(ei epoch.EI) bool {
 	t := m.epochManager.EIToEndTime(ei)
 	diff := time.Since(t)
+	fmt.Println(ei, diff)
 	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
@@ -201,7 +203,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if prevEpoch == newEpoch {
 		return
 	}
-
+	fmt.Println(event.TransactionID)
 	err := m.epochCommitmentFactory.RemoveStateMutationLeaf(prevEpoch, event.TransactionID)
 	if err != nil {
 		m.log.Error(err)
@@ -218,7 +220,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
-
+	fmt.Println("confirmed", branchID)
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCount[ei]--
 }
@@ -227,6 +229,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
+	fmt.Println("created", branchID)
 
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCount[ei]++
@@ -236,6 +239,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.pccMutex.Lock()
 	defer m.pccMutex.Unlock()
+	fmt.Println("rejected", branchID)
 
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCount[ei]--
@@ -273,6 +277,7 @@ func (m *Manager) storeTXDiff(ei epoch.EI, tx *devnetvm.Transaction) {
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.EI) {
 	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
 		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
+		//fmt.Println("attachment:", earliestAttachment)
 		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	})
 	return
