@@ -113,7 +113,7 @@ func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err 
 func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
 	var value []byte
 	if value, err = s.baseStore.Get([]byte(flag)); err != nil {
-		return ei, errors.Wrap(err, "failed to get lastConfirmedEpochIndex from database")
+		return ei, errors.Wrapf(err, "failed to get %s from database", flag)
 	}
 
 	if ei, _, err = epoch.IndexFromBytes(value); err != nil {
@@ -125,7 +125,7 @@ func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err 
 
 func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err error) {
 	if err := s.baseStore.Set([]byte(flag), ei.Bytes()); err != nil {
-		return errors.Wrap(err, "failed to set lastConfirmedEpochIndex in database")
+		return errors.Wrapf(err, "failed to set %s in database", flag)
 	}
 	return nil
 }
