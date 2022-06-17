@@ -98,9 +98,7 @@ func (w *Worker) Mine(ctx context.Context, msg []byte, target int) (uint64, erro
 
 // LeadingZeros returns the number of leading zeros in the digest of the given data.
 func (w *Worker) LeadingZeros(data []byte) (int, error) {
-	digest := blake2b.Sum512(data)
-	asAnInt := new(big.Int).SetBytes(digest[:])
-	return 8*blake2b.Size - asAnInt.BitLen(), nil
+	return LeadingZeros(data)
 }
 
 // LeadingZerosWithNonce returns the number of leading zeros in the digest
@@ -141,4 +139,11 @@ func (w *Worker) worker(msg []byte, startNonce uint64, target int, done *uint32,
 
 func putUint64(b []byte, v uint64) {
 	binary.LittleEndian.PutUint64(b, v)
+}
+
+// LeadingZeros returns the number of leading zeros in the digest of the given data.
+func LeadingZeros(data []byte) (int, error) {
+	digest := blake2b.Sum512(data)
+	asAnInt := new(big.Int).SetBytes(digest[:])
+	return 8*blake2b.Size - asAnInt.BitLen(), nil
 }

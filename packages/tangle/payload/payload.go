@@ -11,7 +11,7 @@ import (
 //                    (version(1) + parentsBlocksCount(1) + 4 * (parentsType(1) + parentsCount(1) + 8 * reference(32)) +
 //		      issuerPK(32) + issuanceTime(8) + seqNum(8) + payloadLength(4) + nonce(8) + signature(64)
 //		      = MaxMessageSize - 1158 bytes = 64378
-const MaxSize = 64378
+const MaxSize = 64370
 
 // Payload represents the generic interface for an object that can be embedded in Messages of the Tangle.
 type Payload interface {

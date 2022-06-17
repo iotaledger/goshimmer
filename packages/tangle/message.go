@@ -23,6 +23,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/markers"
+	"github.com/iotaledger/goshimmer/packages/pow"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
 
@@ -292,6 +293,7 @@ type Message struct {
 	model.Storable[MessageID, Message, *Message, MessageModel] `serix:"0"`
 	payload                                                    payload.Payload
 }
+
 type MessageModel struct {
 	// core properties (get sent over the wire)
 	Version         uint8             `serix:"0"`
@@ -299,9 +301,10 @@ type MessageModel struct {
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
-	PayloadBytes    []byte            `serix:"5,lengthPrefixType=uint32"`
-	Nonce           uint64            `serix:"6"`
-	Signature       ed25519.Signature `serix:"7"`
+	BurnedMana      uint64            `serix:"5"`
+	PayloadBytes    []byte            `serix:"6,lengthPrefixType=uint32"`
+	Nonce           uint64            `serix:"7"`
+	Signature       ed25519.Signature `serix:"8"`
 }
 
 // NewMessage creates a new message with the details provided by the issuer.
@@ -424,6 +427,11 @@ func (m *Message) SequenceNumber() uint64 {
 	return m.M.SequenceNumber
 }
 
+// BurnedMana returns the mana burned by this message.
+func (m *Message) BurnedMana() uint64 {
+	return m.M.BurnedMana
+}
+
 // Payload returns the Payload of the message.
 func (m *Message) Payload() payload.Payload {
 	m.Lock()
@@ -491,10 +499,47 @@ func (m *Message) String() string {
 	builder.AddField(stringify.StructField("Issuer", m.IssuerPublicKey()))
 	builder.AddField(stringify.StructField("IssuingTime", m.IssuingTime()))
 	builder.AddField(stringify.StructField("SequenceNumber", m.SequenceNumber()))
+	builder.AddField(stringify.StructField("BurnedMana", m.BurnedMana()))
 	builder.AddField(stringify.StructField("Payload", m.Payload()))
 	builder.AddField(stringify.StructField("Nonce", m.Nonce()))
 	builder.AddField(stringify.StructField("Signature", m.Signature()))
 	return builder.String()
+}
+
+// PoW returns the PoW of the Block.
+func (m *Message) PoW() (leadingZeros int) {
+	serializedMessage, err := m.Bytes()
+	if err != nil {
+		return 0
+	}
+
+	leadingZeros, err = pow.LeadingZeros(serializedMessage)
+	if err != nil {
+		return 0
+	}
+
+	return leadingZeros
+}
+
+// Compare is a comparator for Blocks.
+func (m *Message) Compare(other *Message) int {
+	if m.BurnedMana() < other.BurnedMana() {
+		return -1
+	}
+
+	if m.BurnedMana() > other.BurnedMana() {
+		return 1
+	}
+
+	if m.PoW() < other.PoW() {
+		return -1
+	}
+
+	if m.PoW() > other.PoW() {
+		return 1
+	}
+
+	return 0
 }
 
 // sorts given parents and returns a new slice with sorted parents
