@@ -93,8 +93,6 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		}
 	}
 
-	// TODO: mana root
-
 	// Our ledgerstate is aligned with the last committed epoch, which is the same as the last epoch in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetFullEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)

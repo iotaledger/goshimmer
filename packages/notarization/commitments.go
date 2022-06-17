@@ -356,7 +356,6 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	}
 
 	// We advance the LedgerState to the next epoch.
-	// TODO: PARAMETER
 	f.commitLedgerState(ei - 10)
 
 	return &CommitmentRoots{

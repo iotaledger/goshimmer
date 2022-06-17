@@ -259,7 +259,6 @@ type options struct {
 	// cacheTimeProvider contains the cacheTimeProvider that overrides the local cache times.
 	cacheTimeProvider *database.CacheTimeProvider
 
-	// TODO
 	epochCommitmentCacheTime time.Duration
 }
 
