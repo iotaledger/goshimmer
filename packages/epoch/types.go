@@ -11,7 +11,7 @@ import (
 )
 
 // Index is the ID of an epoch.
-type Index uint64
+type Index int64
 
 func (e Index) Bytes() []byte {
 	bytes, err := serix.DefaultAPI.Encode(context.Background(), e, serix.WithValidation())

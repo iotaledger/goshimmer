@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/logger"
 
+	"github.com/iotaledger/goshimmer/packages/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -35,16 +36,18 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, tangle *tangle.Tangle, opts ...ManagerOption) *Manager {
+func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
 	}
+
 	for _, option := range opts {
 		option(options)
 	}
-	return &Manager{
-		tangle:                 tangle,
+
+	new = &Manager{
+		tangle:                 t,
 		epochManager:           epochManager,
 		epochCommitmentFactory: epochCommitmentFactory,
 		pendingConflictsCount:  make(map[epoch.Index]uint64),
@@ -54,6 +57,32 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 			EpochCommitted: event.New[*EpochCommittedEvent](),
 		},
 	}
+
+	new.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		new.OnMessageConfirmed(event.Message)
+	}))
+
+	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
+		new.OnMessageOrphaned(event.Message)
+	}))
+
+	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
+		new.OnTransactionInclusionUpdated(event)
+	}))
+
+	new.tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
+		new.OnBranchConfirmed(event.ID)
+	}))
+
+	new.tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
+		new.OnBranchCreated(event.ID)
+	}))
+
+	new.tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
+		new.OnBranchRejected(event.ID)
+	}))
+
+	return new
 }
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
