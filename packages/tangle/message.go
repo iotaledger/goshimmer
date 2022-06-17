@@ -76,22 +76,13 @@ func validateParentMessageIDs(_ context.Context, parents ParentMessageIDs) (err 
 
 // validate messagesIDs are unique across blocks
 // there may be repetition across strong and like parents.
-func areReferencesConflictingAcrossBlocks(parentsBlocks map[ParentsType]MessageIDs) bool {
-	additiveParents := NewMessageIDs()
-	subtractiveParents := NewMessageIDs()
-
-	for parentsType, parentBlockReferences := range parentsBlocks {
-		for _, parent := range parentBlockReferences.Slice() {
-			if parentsType == WeakParentType || parentsType == ShallowLikeParentType {
-				additiveParents.Add(parent)
-			} else if parentsType == ShallowDislikeParentType {
-				subtractiveParents.Add(parent)
-			}
+func areReferencesConflictingAcrossBlocks(parentsBlocks ParentMessageIDs) bool {
+	for messageID := range parentsBlocks[WeakParentType] {
+		if _, exists := parentsBlocks[StrongParentType][messageID]; exists {
+			return true
 		}
-	}
 
-	for parent := range subtractiveParents {
-		if _, exists := additiveParents[parent]; exists {
+		if _, exists := parentsBlocks[ShallowLikeParentType][messageID]; exists {
 			return true
 		}
 	}
@@ -283,8 +274,8 @@ func (m MessageIDs) String() string {
 // region Message //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const (
-	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents, ShallowDislikeParents.
-	LastValidBlockType = ShallowDislikeParentType
+	// LastValidBlockType counts StrongParents, WeakParents, ShallowLikeParents.
+	LastValidBlockType = ShallowLikeParentType
 )
 
 // Message represents the core message for the base layer Tangle.
@@ -481,9 +472,6 @@ func (m *Message) String() string {
 	for index, parent := range sortParents(m.ParentsByType(WeakParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("weakParent%d", index), parent.String()))
 	}
-	for index, parent := range sortParents(m.ParentsByType(ShallowDislikeParentType)) {
-		builder.AddField(stringify.StructField(fmt.Sprintf("shallowdislikeParent%d", index), parent.String()))
-	}
 	for index, parent := range sortParents(m.ParentsByType(ShallowLikeParentType)) {
 		builder.AddField(stringify.StructField(fmt.Sprintf("shallowlikeParent%d", index), parent.String()))
 	}
@@ -525,13 +513,11 @@ const (
 	WeakParentType
 	// ShallowLikeParentType is the ParentsType for the shallow like parent.
 	ShallowLikeParentType
-	// ShallowDislikeParentType is the ParentsType for a shallow dislike parent.
-	ShallowDislikeParentType
 )
 
 // String returns string representation of ParentsType.
 func (bp ParentsType) String() string {
-	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like", "Shallow Dislike"}[bp])
+	return fmt.Sprintf("ParentType(%s)", []string{"Undefined", "Strong", "Weak", "Shallow Like"}[bp])
 }
 
 // Parent is a parent that can be either strong or weak.
@@ -573,6 +559,11 @@ func (p ParentMessageIDs) AddAll(parentType ParentsType, messageIDs MessageIDs) 
 	}
 	p[parentType].AddAll(messageIDs)
 	return p
+}
+
+// IsEmpty returns true if the ParentMessageIDs are empty.
+func (p ParentMessageIDs) IsEmpty() bool {
+	return p == nil || len(p) == 0
 }
 
 // Clone returns a copy of map.

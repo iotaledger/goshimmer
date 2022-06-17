@@ -528,10 +528,11 @@ type Branch struct {
 	ConflictIDs     []string            `json:"conflictIDs,omitempty"`
 	GradeOfFinality gof.GradeOfFinality `json:"gradeOfFinality"`
 	ApprovalWeight  float64             `json:"approvalWeight"`
+	InclusionState  string              `json:"inclusionState"`
 }
 
 // NewBranch returns a Branch from the given ledger.Conflict.
-func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64) Branch {
+func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], gradeOfFinality gof.GradeOfFinality, aw float64, inclusionState conflictdag.InclusionState) Branch {
 	return Branch{
 		ID: branch.ID().Base58(),
 		Parents: func() []string {
@@ -552,6 +553,7 @@ func NewBranch(branch *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 
 		}(),
 		GradeOfFinality: gradeOfFinality,
 		ApprovalWeight:  aw,
+		InclusionState:  inclusionState.String(),
 	}
 }
 

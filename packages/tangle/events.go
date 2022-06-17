@@ -57,28 +57,20 @@ type MessageFactoryEvents struct {
 	// Fired when a message is built including tips, sequence number and other metadata.
 	MessageConstructed *event.Event[*MessageConstructedEvent]
 
-	// MessageReferenceImpossible is fired when references for a message can't be constructed and the message can never become a parent.
-	MessageReferenceImpossible *event.Event[*MessageReferenceImpossibleEvent]
-
 	// Fired when an error occurred.
 	Error *event.Event[error]
 }
 
-// NewConfirmationEvents returns a new MessageFactoryEvents object.
+// NewMessageFactoryEvents returns a new MessageFactoryEvents object.
 func NewMessageFactoryEvents() (new *MessageFactoryEvents) {
 	return &MessageFactoryEvents{
-		MessageConstructed:         event.New[*MessageConstructedEvent](),
-		MessageReferenceImpossible: event.New[*MessageReferenceImpossibleEvent](),
-		Error:                      event.New[error](),
+		MessageConstructed: event.New[*MessageConstructedEvent](),
+		Error:              event.New[error](),
 	}
 }
 
 type MessageConstructedEvent struct {
 	Message *Message
-}
-
-type MessageReferenceImpossibleEvent struct {
-	MessageID MessageID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

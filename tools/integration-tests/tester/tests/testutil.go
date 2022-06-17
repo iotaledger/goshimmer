@@ -273,7 +273,7 @@ func CreateTransactionFromOutputs(t *testing.T, manaPledgeID identity.ID, target
 // SendDataMessage sends a data message on a given peer and returns the id and a DataMessageSent struct.
 func SendDataMessage(t *testing.T, node *framework.Node, data []byte, number int) (string, DataMessageSent) {
 	id, err := node.Data(data)
-	require.NoErrorf(t, err, "node=%s, 'Data' failed", node)
+	require.NoErrorf(t, err, "node=%s, 'Data' failed with error %s", node, err)
 
 	sent := DataMessageSent{
 		number: number,
