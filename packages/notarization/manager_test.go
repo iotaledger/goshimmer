@@ -84,7 +84,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	genesisTime := time.Now()
 	var m *Manager
 
-	processMsgScenario := tangle.ProcessMessageScenario3(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	processMsgScenario := tangle.NotarizationMessageScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
 	testTangle := processMsgScenario.Tangle
 	vm := new(devnetvm.VM)
 
@@ -194,10 +194,158 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 	eventHandlerMock.AssertExpectations(t)
 }
 
+func TestManager_UpdateStateMutationTree(t *testing.T) {
+	var epochInterval int64 = 1
+	var minCommittable time.Duration = 2 * time.Second
+	genesisTime := time.Now()
+
+	processMsgScenario := tangle.NotarizationTxScenario(t, tangle.WithConflictDAGOptions(conflictdag.WithMergeToMaster(false)))
+	testTangle := processMsgScenario.Tangle
+	vm := new(devnetvm.VM)
+
+	// set up notarization manager
+	ecFactory := NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle)
+	epochMgr := NewEpochManager(Interval(epochInterval), GenesisTime(genesisTime.Unix()))
+	m := NewManager(epochMgr, ecFactory, testTangle, MinCommittableEpochAge(minCommittable))
+
+	commitmentFunc := func() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.EI, err error) {
+		ecRecord, err = m.GetLatestEC()
+		require.NoError(t, err)
+		latestConfirmedEpoch, err = m.LatestConfirmedEpochIndex()
+		require.NoError(t, err)
+		return ecRecord, latestConfirmedEpoch, nil
+	}
+	testTangle.Options.CommitmentFunc = commitmentFunc
+
+	// set up finality gadget
+	testOpts := []finality.Option{
+		finality.WithBranchThresholdTranslation(TestBranchGoFTranslation),
+		finality.WithMessageThresholdTranslation(TestMessageGoFTranslation),
+	}
+	sfg := finality.NewSimpleFinalityGadget(processMsgScenario.Tangle, testOpts...)
+
+	registerToTangleEvents(m, sfg, testTangle)
+	eventHandlerMock := NewEventMock(t, m, ecFactory)
+
+	loadSnapshot(m, processMsgScenario.TestFramework)
+
+	prePostSteps := []*tangle.PrePostStepTuple{
+		// Message1, issuing time epoch 1
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(time.Duration(epochInterval) * time.Second)
+			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message1")
+				assert.Equal(t, epoch.EI(0), msg.EI())
+			},
+		},
+		// Message2, issuing time epoch 2
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(time.Duration(epochInterval) * time.Second)
+				fmt.Println("message 2")
+			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message2")
+				assert.Equal(t, epoch.EI(0), msg.EI())
+			},
+		},
+		// Message3, issuing time epoch 3
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(time.Duration(epochInterval) * time.Second)
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(1))
+				eventHandlerMock.Expect("EpochCommitted", epoch.EI(1))
+				fmt.Println("message 3")
+			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message3")
+				assert.Equal(t, epoch.EI(1), msg.EI())
+			},
+		},
+		// Message4, issuing time epoch 4
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(time.Duration(epochInterval) * time.Second)
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(2))
+				eventHandlerMock.Expect("EpochCommitted", epoch.EI(2))
+				fmt.Println("message 4")
+			},
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message4")
+				assert.Equal(t, epoch.EI(2), msg.EI())
+			},
+		},
+		// Message5, issuing time epoch 5
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(time.Duration(epochInterval) * time.Second)
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(3))
+				eventHandlerMock.Expect("EpochCommitted", epoch.EI(3))
+				fmt.Println("message 5")
+			},
+
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message5")
+				assert.Equal(t, epoch.EI(3), msg.EI())
+			},
+		},
+		// Message6, issuing time epoch 5
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(4))
+				eventHandlerMock.Expect("EpochCommitted", epoch.EI(4))
+				fmt.Println("message 6")
+			},
+
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message6")
+				assert.Equal(t, epoch.EI(3), msg.EI())
+				assert.EqualValues(t, 2, m.PendingConflictsCount(epoch.EI(5)))
+			},
+		},
+		// Message7, issuing time epoch 5
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(5))
+				fmt.Println("message 7")
+			},
+
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message7")
+				assert.Equal(t, epoch.EI(3), msg.EI())
+				assert.EqualValues(t, 0, m.PendingConflictsCount(epoch.EI(5)))
+				assertExistenceOfTransaction(t, testFramework, m, []string{
+					"Message5",
+					"Message6",
+				})
+			},
+		},
+	}
+
+	for i := 0; processMsgScenario.HasNext(); i++ {
+		if len(prePostSteps)-1 < i {
+			processMsgScenario.Next(nil)
+			continue
+		}
+		processMsgScenario.Next(prePostSteps[i])
+	}
+
+	eventHandlerMock.AssertExpectations(t)
+}
+
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
 	for _, alias := range aliasNames {
-
 		_, err := m.GetBlockInclusionProof(testFramework.Message(alias).ID())
+		require.NoError(t, err)
+		fmt.Println(alias)
+	}
+}
+
+func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
+	for _, alias := range aliasNames {
+		_, err := m.GetTransactionInclusionProof(testFramework.Transaction(alias).ID())
 		require.NoError(t, err)
 		fmt.Println(alias)
 	}
@@ -249,7 +397,6 @@ func registerToTangleEvents(m *Manager, sfg *finality.SimpleFinalityGadget, test
 		m.OnMessageOrphaned(event.Message)
 	}))
 	testTangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
-		fmt.Println("event triggered")
 		testTangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
 			m.OnTransactionConfirmed(t.(*devnetvm.Transaction))
 		})
