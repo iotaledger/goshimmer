@@ -756,12 +756,6 @@ func TestOutOfOrderStatements(t *testing.T) {
 		testFramework.RegisterBranchID("X", "Message3")
 		testFramework.RegisterBranchID("Y", "Message13")
 
-		// TODO: the event seems to be triggered for every supporter, something with branch propagation has probably changed
-		// testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.15)
-		// testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.2)
-		// testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.25)
-		// testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.4)
-		// testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 0.65)
 		testEventMock.Expect("BranchWeightChanged", testFramework.BranchID("X"), 1.0)
 
 		IssueAndValidateMessageApproval(t, "Message13", testEventMock, testFramework, map[string]float64{
@@ -896,7 +890,7 @@ func createBranch(t *testing.T, tangle *Tangle, branchAlias string, branchIDs ma
 	branchID.RegisterAlias(branchAlias)
 }
 
-func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]*set.AdvancedSet[utxo.TransactionID], voter Voter, expectedResults map[string]bool) {
+func validateStatementResults(t *testing.T, approvalWeightManager *ApprovalWeightManager, branchIDs map[string]utxo.TransactionIDs, voter Voter, expectedResults map[string]bool) {
 	for branchIDString, expectedResult := range expectedResults {
 		var actualResult bool
 		for it := branchIDs[branchIDString].Iterator(); it.HasNext(); {

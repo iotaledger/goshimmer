@@ -3,7 +3,6 @@ export class tangleVertex {
     strongParentIDs: Array<string>;
     weakParentIDs: Array<string>;
     shallowLikeParentIDs: Array<string>;
-    shallowDislikeParentIDs: Array<string>;
     branchIDs: Array<string>;
     isMarker: boolean;
     isTx: boolean;

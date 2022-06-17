@@ -28,6 +28,7 @@ type Booker struct {
 	tangle              *Tangle
 	payloadBookingMutex *syncutils.DAGMutex[MessageID]
 	bookingMutex        *syncutils.DAGMutex[MessageID]
+	sequenceMutex       *syncutils.DAGMutex[markers.SequenceID]
 }
 
 // NewBooker is the constructor of a Booker.
@@ -38,6 +39,7 @@ func NewBooker(tangle *Tangle) (messageBooker *Booker) {
 		MarkersManager:      NewBranchMarkersMapper(tangle),
 		payloadBookingMutex: syncutils.NewDAGMutex[MessageID](),
 		bookingMutex:        syncutils.NewDAGMutex[MessageID](),
+		sequenceMutex:       syncutils.NewDAGMutex[markers.SequenceID](),
 	}
 
 	return
@@ -270,41 +272,30 @@ func (b *Booker) inheritBranchIDs(message *Message, messageMetadata *MessageMeta
 
 // determineBookingDetails determines the booking details of an unbooked Message.
 func (b *Booker) determineBookingDetails(message *Message) (parentsStructureDetails []*markers.StructureDetails, parentsPastMarkersBranchIDs, inheritedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	inheritedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-
-	branchIDsOfPayload, err := b.PayloadBranchIDs(message.ID())
+	inheritedBranchIDs, err = b.PayloadBranchIDs(message.ID())
 	if err != nil {
 		return
 	}
-	inheritedBranchIDs.AddAll(branchIDsOfPayload)
 
 	parentsStructureDetails, parentsPastMarkersBranchIDs, strongParentsBranchIDs, bookingDetailsErr := b.collectStrongParentsBookingDetails(message)
 	if bookingDetailsErr != nil {
 		err = errors.Errorf("failed to retrieve booking details of parents of Message with %s: %w", message.ID(), bookingDetailsErr)
 		return
 	}
-	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
 
 	weakPayloadBranchIDs, weakParentsErr := b.collectWeakParentsBranchIDs(message)
 	if weakParentsErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect weak parents of %s: %w", message.ID(), weakParentsErr)
 	}
-	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 
-	dislikedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
-	likedBranchIDs, dislikedBranchesFromShallowLike, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
+	likedBranchIDs, dislikedBranchIDs, shallowLikeErr := b.collectShallowLikedParentsBranchIDs(message)
 	if shallowLikeErr != nil {
 		return nil, nil, nil, errors.Errorf("failed to collect shallow likes of %s: %w", message.ID(), shallowLikeErr)
 	}
+
+	inheritedBranchIDs.AddAll(strongParentsBranchIDs)
+	inheritedBranchIDs.AddAll(weakPayloadBranchIDs)
 	inheritedBranchIDs.AddAll(likedBranchIDs)
-	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowLike)
-
-	dislikedBranchesFromShallowDislike, shallowDislikeErr := b.collectShallowDislikedParentsBranchIDs(message)
-	if shallowDislikeErr != nil {
-		return nil, nil, nil, errors.Errorf("failed to collect shallow dislikes of %s: %w", message.ID(), shallowDislikeErr)
-	}
-	dislikedBranchIDs.AddAll(dislikedBranchesFromShallowDislike)
-
 	inheritedBranchIDs.DeleteAll(b.tangle.Ledger.Utils.BranchIDsInFutureCone(dislikedBranchIDs))
 
 	return parentsStructureDetails, parentsPastMarkersBranchIDs, b.tangle.Ledger.ConflictDAG.UnconfirmedConflicts(inheritedBranchIDs), nil
@@ -337,16 +328,32 @@ func (b *Booker) messageBookingDetails(messageID MessageID) (structureDetails *m
 	return structureDetails, pastMarkersBranchIDs, messageBranchIDs, err
 }
 
+func (b *Booker) branchIDsFromMetadata(meta *MessageMetadata) (branchIDs utxo.TransactionIDs, err error) {
+	if branchIDs, err = b.branchIDsFromStructureDetails(meta.StructureDetails()); err != nil {
+		return nil, errors.Errorf("failed to retrieve BranchIDs from Structure Details %s of message with %s: %w", meta.StructureDetails(), meta.ID(), err)
+	}
+
+	if addedBranchIDs := meta.AddedBranchIDs(); !addedBranchIDs.IsEmpty() {
+		branchIDs.AddAll(addedBranchIDs)
+	}
+
+	if subtractedBranchIDs := meta.SubtractedBranchIDs(); !subtractedBranchIDs.IsEmpty() {
+		branchIDs.DeleteAll(subtractedBranchIDs)
+	}
+
+	return branchIDs, nil
+}
+
 // branchIDsFromStructureDetails returns the BranchIDs from StructureDetails.
-func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
+func (b *Booker) branchIDsFromStructureDetails(structureDetails *markers.StructureDetails) (structureDetailsBranchIDs utxo.TransactionIDs, err error) {
 	if structureDetails == nil {
 		return nil, errors.Errorf("StructureDetails is empty: %w", cerrors.ErrFatal)
 	}
 
-	structureDetailsBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
+	structureDetailsBranchIDs = utxo.NewTransactionIDs()
 	// obtain all the Markers
 	structureDetails.PastMarkers().ForEach(func(sequenceID markers.SequenceID, index markers.Index) bool {
-		branchIDs := b.MarkersManager.PendingBranchIDs(markers.NewMarker(sequenceID, index))
+		branchIDs := b.MarkersManager.BranchIDs(markers.NewMarker(sequenceID, index))
 		structureDetailsBranchIDs.AddAll(branchIDs)
 		return true
 	})
@@ -414,44 +421,6 @@ func (b *Booker) collectShallowLikedParentsBranchIDs(message *Message) (collecte
 	})
 
 	return collectedLikedBranchIDs, collectedDislikedBranchIDs, err
-}
-
-// collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
-// the supplied ArithmeticBranchIDs.
-func (b *Booker) collectShallowDislikedParentsBranchIDs(message *Message) (collectedDislikedBranchIDs *set.AdvancedSet[utxo.TransactionID], err error) {
-	collectedDislikedBranchIDs = set.NewAdvancedSet[utxo.TransactionID]()
-	message.ForEachParentByType(ShallowDislikeParentType, func(parentMessageID MessageID) bool {
-		if !b.tangle.Storage.Message(parentMessageID).Consume(func(message *Message) {
-			transaction, isTransaction := message.Payload().(utxo.Transaction)
-			if !isTransaction {
-				err = errors.Errorf("%s referenced by a shallow like of %s does not contain a Transaction: %w", parentMessageID, message.ID(), cerrors.ErrFatal)
-				return
-			}
-
-			referenceDislikedBranchIDs, referenceDislikedBranchIDsErr := b.tangle.Ledger.Utils.TransactionBranchIDs(transaction.ID())
-			if referenceDislikedBranchIDsErr != nil {
-				err = errors.Errorf("failed to retrieve liked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", transaction.ID(), parentMessageID, message.ID(), referenceDislikedBranchIDsErr)
-				return
-			}
-			collectedDislikedBranchIDs.AddAll(referenceDislikedBranchIDs)
-
-			for it := b.tangle.Ledger.Utils.ConflictingTransactions(transaction.ID()).Iterator(); it.HasNext(); {
-				conflictingTransactionID := it.Next()
-				dislikedBranches, dislikedBranchesErr := b.tangle.Ledger.Utils.TransactionBranchIDs(conflictingTransactionID)
-				if dislikedBranchesErr != nil {
-					err = errors.Errorf("failed to retrieve disliked BranchIDs of Transaction with %s contained in %s referenced by a shallow like of %s: %w", conflictingTransactionID, parentMessageID, message.ID(), dislikedBranchesErr)
-					return
-				}
-				collectedDislikedBranchIDs.AddAll(dislikedBranches)
-			}
-		}) {
-			err = errors.Errorf("failed to load MessageMetadata of shallow like with %s: %w", parentMessageID, cerrors.ErrFatal)
-		}
-
-		return err == nil
-	})
-
-	return collectedDislikedBranchIDs, err
 }
 
 // collectShallowDislikedParentsBranchIDs removes the BranchIDs of the shallow dislike reference and all its conflicts from
@@ -532,37 +501,33 @@ func (b *Booker) propagateForkedBranch(messageMetadata *MessageMetadata, addedBr
 	return b.updateMessageBranches(messageMetadata, addedBranchID, removedBranchIDs)
 }
 
-func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch utxo.TransactionID, removedBranches *set.AdvancedSet[utxo.TransactionID]) (updated bool, err error) {
-	addedBranchIDs := messageMetadata.AddedBranchIDs()
-	if !addedBranchIDs.Add(addedBranch) {
-		return false, nil
-	}
+func (b *Booker) updateMessageBranches(messageMetadata *MessageMetadata, addedBranch utxo.TransactionID, parentConflicts utxo.TransactionIDs) (updated bool, err error) {
+	messageMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+		b.sequenceMutex.RLock(sequenceID)
+		return true
+	})
 
-	pastMarkerBranchIDs, err := b.branchIDsFromStructureDetails(messageMetadata.StructureDetails())
+	defer func() {
+		messageMetadata.StructureDetails().PastMarkers().ForEachSorted(func(sequenceID markers.SequenceID, _ markers.Index) bool {
+			b.sequenceMutex.RUnlock(sequenceID)
+			return true
+		})
+	}()
+
+	branchIDs, err := b.branchIDsFromMetadata(messageMetadata)
 	if err != nil {
-		return false, errors.Errorf("failed to retrieve BranchIDs from Structure Details of %s: %w", messageMetadata.ID(), err)
+		return false, errors.Errorf("failed to retrieve BranchIDs of %s: %w", messageMetadata.ID(), err)
 	}
-	if pastMarkerBranchIDs.Has(addedBranch) {
+
+	if !branchIDs.HasAll(parentConflicts) {
 		return false, nil
 	}
 
-	removedBranchIDsFromPastMarkers := pastMarkerBranchIDs.DeleteAll(removedBranches)
-	removedBranchIDsFromAddedBranchIDs := addedBranchIDs.DeleteAll(removedBranches)
-
-	allRemovedBranchIDs := set.NewAdvancedSet[utxo.TransactionID]()
-	allRemovedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
-	allRemovedBranchIDs.AddAll(removedBranchIDsFromAddedBranchIDs)
-	if !allRemovedBranchIDs.Equal(removedBranches) {
+	if !messageMetadata.AddBranchID(addedBranch) {
 		return false, nil
 	}
 
-	subtractedBranchIDs := messageMetadata.SubtractedBranchIDs()
-	subtractedBranchIDs.AddAll(removedBranchIDsFromPastMarkers)
-
-	updated = messageMetadata.SetAddedBranchIDs(addedBranchIDs)
-	updated = messageMetadata.SetSubtractedBranchIDs(subtractedBranchIDs) || updated
-
-	return updated, nil
+	return true, nil
 }
 
 // propagateForkedTransactionToMarkerFutureCone propagates a newly created BranchID into the future cone of the given Marker.
@@ -585,13 +550,16 @@ func (b *Booker) propagateForkedTransactionToMarkerFutureCone(marker markers.Mar
 // forkSingleMarker propagates a newly created BranchID to a single marker and queues the next elements that need to be
 // visited.
 func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newBranchID utxo.TransactionID, removedBranchIDs *set.AdvancedSet[utxo.TransactionID], markerWalker *walker.Walker[markers.Marker]) (err error) {
+	b.sequenceMutex.Lock(currentMarker.SequenceID())
+	defer b.sequenceMutex.Unlock(currentMarker.SequenceID())
+
 	// update BranchID mapping
-	newBranchIDs := b.MarkersManager.PendingBranchIDs(currentMarker)
-	if !newBranchIDs.Add(newBranchID) {
+	newBranchIDs := b.MarkersManager.BranchIDs(currentMarker)
+	if !newBranchIDs.HasAll(removedBranchIDs) {
 		return nil
 	}
 
-	if newBranchIDs.DeleteAll(removedBranchIDs).Size() != removedBranchIDs.Size() {
+	if !newBranchIDs.Add(newBranchID) {
 		return nil
 	}
 
