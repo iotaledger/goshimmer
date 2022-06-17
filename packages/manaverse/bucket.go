@@ -22,23 +22,23 @@ func NewManaBucket(mana uint64) *Bucket {
 	}
 }
 
-func (f *Bucket) Mana() (mana uint64) {
-	return f.mana
+func (b *Bucket) Mana() (mana uint64) {
+	return b.mana
 }
 
-func (f *Bucket) Push(block *tangle.Message) {
-	f.Lock()
-	defer f.Unlock()
+func (b *Bucket) Push(block *tangle.Message) {
+	b.Lock()
+	defer b.Unlock()
 
-	f.priorityQueue.Push(block)
+	b.priorityQueue.Push(block)
 }
 
-func (f *Bucket) Compare(other *Bucket) int {
-	if f.Mana() < other.Mana() {
+func (b *Bucket) Compare(other *Bucket) int {
+	if b.Mana() < other.Mana() {
 		return -1
 	}
 
-	if f.Mana() > other.Mana() {
+	if b.Mana() > other.Mana() {
 		return 1
 	}
 

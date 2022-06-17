@@ -1,16 +1,15 @@
 package manaverse
 
 import (
-	"fmt"
 	"testing"
 	"time"
 )
 
 func Test(t *testing.T) {
 	scheduler := NewScheduler()
-	scheduler.Start()
+	if false {
+		scheduler.Push(nil)
+	}
 
 	time.Sleep(20 * time.Second)
-
-	fmt.Println(scheduler.iterations)
 }
