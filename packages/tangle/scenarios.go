@@ -653,7 +653,7 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			require.NoError(t, err)
 
 			testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500), WithECRecord(ecRecord))
-			testFramework.RegisterBranchID("Branch1", "Message5")
+			//testFramework.RegisterBranchID("Branch1", "Message5")
 			testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message6
@@ -661,8 +661,8 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
 			require.NoError(t, err)
 
-			testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500), WithECRecord(ecRecord))
-			testFramework.RegisterBranchID("Branch2", "Message6")
+			testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("B"), WithOutput("C", 500), WithECRecord(ecRecord))
+			//testFramework.RegisterBranchID("Branch2", "Message6")
 			testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message7
@@ -670,7 +670,7 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
 			require.NoError(t, err)
 
-			testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500), WithECRecord(ecRecord))
+			testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("C"), WithOutput("D", 500), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message7.1

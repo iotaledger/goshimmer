@@ -237,6 +237,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message1")
+				fmt.Println(epochMgr.TimeToEI(msg.IssuingTime()))
 				assert.Equal(t, epoch.EI(0), msg.EI())
 			},
 		},
@@ -277,7 +278,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 				assert.Equal(t, epoch.EI(2), msg.EI())
 			},
 		},
-		// Message5, issuing time epoch 5
+		// Message5 TX1, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				time.Sleep(time.Duration(epochInterval) * time.Second)
@@ -291,23 +292,24 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 				assert.Equal(t, epoch.EI(3), msg.EI())
 			},
 		},
-		// Message6, issuing time epoch 5
+		// Message6 TX2, conflicting to TX1, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(4))
-				eventHandlerMock.Expect("EpochCommitted", epoch.EI(4))
 				fmt.Println("message 6")
 			},
 
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message6")
 				assert.Equal(t, epoch.EI(3), msg.EI())
-				assert.EqualValues(t, 2, m.PendingConflictsCount(epoch.EI(5)))
+				assert.EqualValues(t, 0, m.PendingConflictsCount(epoch.EI(5)))
 			},
 		},
 		// Message7, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				// This is trigger weird
+				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(0))
+
 				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.EI(5))
 				fmt.Println("message 7")
 			},
