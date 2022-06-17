@@ -79,75 +79,40 @@ func (s *EpochCommitmentStorage) CachedECRecord(ei epoch.Index, computeIfAbsentC
 }
 
 func (s *EpochCommitmentStorage) SetFullEpochIndex(ei epoch.Index) error {
-	if err := s.baseStore.Set([]byte("fullEpochIndex"), ei.Bytes()); err != nil {
-		return errors.Wrap(err, "failed to set fullEpochIndex in database")
-	}
-	return nil
+	return s.setIndexFlag("fullEpochIndex", ei)
 }
 
 func (s *EpochCommitmentStorage) FullEpochIndex() (ei epoch.Index, err error) {
-	var value []byte
-	if value, err = s.baseStore.Get([]byte("fullEpochIndex")); err != nil {
-		return ei, errors.Wrap(err, "failed to get fullEpochIndex from database")
-	}
-
-	if ei, _, err = epoch.IndexFromBytes(value); err != nil {
-		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
-	}
-
-	return
+	return s.getIndexFlag("fullEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) SetDiffEpochIndex(ei epoch.Index) error {
-	if err := s.baseStore.Set([]byte("diffEpochIndex"), ei.Bytes()); err != nil {
-		return errors.Wrap(err, "failed to set diffEpochIndex in database")
-	}
-	return nil
+	return s.setIndexFlag("diffEpochIndex", ei)
 }
 
 func (s *EpochCommitmentStorage) DiffEpochIndex() (ei epoch.Index, err error) {
-	var value []byte
-	if value, err = s.baseStore.Get([]byte("diffEpochIndex")); err != nil {
-		return ei, errors.Wrap(err, "failed to get diffEpochIndex from database")
-	}
-
-	if ei, _, err = epoch.IndexFromBytes(value); err != nil {
-		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
-	}
-
-	return
+	return s.getIndexFlag("diffEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) SetLastCommittedEpochIndex(ei epoch.Index) error {
-	if err := s.baseStore.Set([]byte("lastCommittedEpochIndex"), ei.Bytes()); err != nil {
-		return errors.Wrap(err, "failed to set lastCommittedEpochIndex in database")
-	}
-	return nil
+	return s.setIndexFlag("lastCommittedEpochIndex", ei)
 }
 
 func (s *EpochCommitmentStorage) LastCommittedEpochIndex() (ei epoch.Index, err error) {
-	var value []byte
-	if value, err = s.baseStore.Get([]byte("lastCommittedEpochIndex")); err != nil {
-		return ei, errors.Wrap(err, "failed to get lastCommittedEpochIndex from database")
-	}
-
-	if ei, _, err = epoch.IndexFromBytes(value); err != nil {
-		return ei, errors.Wrap(err, "failed to deserialize EI from bytes")
-	}
-
-	return
+	return s.getIndexFlag("lastCommittedEpochIndex")
 }
 
 func (s *EpochCommitmentStorage) SetLastConfirmedEpochIndex(ei epoch.Index) error {
-	if err := s.baseStore.Set([]byte("lastConfirmedEpochIndex"), ei.Bytes()); err != nil {
-		return errors.Wrap(err, "failed to set lastConfirmedEpochIndex in database")
-	}
-	return nil
+	return s.setIndexFlag("lastConfirmedEpochIndex", ei)
 }
 
 func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("lastConfirmedEpochIndex")
+}
+
+func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
 	var value []byte
-	if value, err = s.baseStore.Get([]byte("lastConfirmedEpochIndex")); err != nil {
+	if value, err = s.baseStore.Get([]byte(flag)); err != nil {
 		return ei, errors.Wrap(err, "failed to get lastConfirmedEpochIndex from database")
 	}
 
@@ -156,6 +121,13 @@ func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err 
 	}
 
 	return
+}
+
+func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err error) {
+	if err := s.baseStore.Set([]byte(flag), ei.Bytes()); err != nil {
+		return errors.Wrap(err, "failed to set lastConfirmedEpochIndex in database")
+	}
+	return nil
 }
 
 // Shutdown shuts down the KVStore used to persist data.

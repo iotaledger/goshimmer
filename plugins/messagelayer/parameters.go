@@ -47,7 +47,7 @@ type ManaParametersDefinition struct {
 	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
 	// Number of epochs past the latest committable epoch for which the base mana vector becomes effective.
-	EpochDelay uint `default:2 usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
+	EpochDelay uint `default:"2" usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
 }
 
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.

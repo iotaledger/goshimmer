@@ -3,15 +3,11 @@ package epoch
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
-
-	"github.com/iotaledger/goshimmer/packages/clock"
 )
 
 // Index is the ID of an epoch.
@@ -56,88 +52,6 @@ func (m MerkleRoot) Base58() string {
 
 func (m MerkleRoot) Bytes() []byte {
 	return m[:]
-}
-
-// Epoch is a time range used to define a bucket of messages.
-type Epoch struct {
-	ei Index
-
-	confirmed     bool
-	confirmedTime time.Time
-	finalized     bool
-	finalizedTime time.Time
-
-	confirmedMutex  sync.RWMutex
-	finalizedMutex  sync.RWMutex
-	commitmentMutex sync.RWMutex
-}
-
-// NewEpoch is the constructor for an Epoch.
-func NewEpoch(ei Index) (epoch *Epoch) {
-	epoch = &Epoch{
-		ei: ei,
-	}
-
-	return
-}
-
-// EI returns the Epoch's EI.
-func (e *Epoch) EI() Index {
-	return e.ei
-}
-
-// Finalized returns true if the epoch is finalized.
-func (e *Epoch) Finalized() bool {
-	return e.finalized
-}
-
-// Confirmed returns true if the epoch is confirmed.
-func (e *Epoch) Confirmed() bool {
-	return e.confirmed
-}
-
-// SetFinalized sets the finalized flag with the given value.
-func (e *Epoch) SetFinalized(finalized bool) (modified bool) {
-	e.finalizedMutex.RLock()
-	if e.finalized != finalized {
-		e.finalizedMutex.RUnlock()
-
-		e.finalizedMutex.Lock()
-		if e.finalized != finalized {
-			e.finalized = finalized
-			if finalized {
-				e.finalizedTime = clock.SyncedTime()
-			}
-			modified = true
-		}
-		e.finalizedMutex.Unlock()
-	} else {
-		e.finalizedMutex.RUnlock()
-	}
-
-	return
-}
-
-// SetConfirmed sets the confirmed flag with the given value.
-func (e *Epoch) SetConfirmed(confirmed bool) (modified bool) {
-	e.confirmedMutex.RLock()
-	if e.confirmed != confirmed {
-		e.confirmedMutex.RUnlock()
-
-		e.confirmedMutex.Lock()
-		if e.confirmed != confirmed {
-			e.confirmed = confirmed
-			if confirmed {
-				e.confirmedTime = clock.SyncedTime()
-			}
-			modified = true
-		}
-		e.confirmedMutex.Unlock()
-	} else {
-		e.confirmedMutex.RUnlock()
-	}
-
-	return
 }
 
 // ECRecord is a storable object represents the ecRecord of an epoch.
