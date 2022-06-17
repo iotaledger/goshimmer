@@ -202,8 +202,8 @@ func SendFaucetRequest(t *testing.T, node *framework.Node, addr devnetvm.Address
 		aManaPledgeID, cManaPledgeID = manaPledgeIDs[0], manaPledgeIDs[1]
 	}
 
-	resp, err := node.SendFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
-	require.NoErrorf(t, err, "node=%s, address=%s, SendFaucetRequest failed", node, addr.Base58())
+	resp, err := node.BroadcastFaucetRequest(addr.Base58(), faucetPoWDifficulty, aManaPledgeID, cManaPledgeID)
+	require.NoErrorf(t, err, "node=%s, address=%s, BroadcastFaucetRequest failed", node, addr.Base58())
 
 	sent := DataMessageSent{
 		id:              resp.ID,

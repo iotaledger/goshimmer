@@ -48,7 +48,7 @@ func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address, powTa
 	}
 	time.Sleep(rateSetterInfo.Estimate)
 
-	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
+	_, err = webConnector.client.BroadcastFaucetRequest(addr.Address().Base58(), powTarget)
 
 	return
 }

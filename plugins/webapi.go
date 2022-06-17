@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucet"
+	"github.com/iotaledger/goshimmer/plugins/webapi/faucetrequest"
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
@@ -22,6 +23,7 @@ import (
 var WebAPI = node.Plugins(
 	webapi.Plugin,
 	data.Plugin,
+	faucetrequest.Plugin,
 	faucet.Plugin,
 	healthz.Plugin,
 	message.Plugin,

@@ -191,7 +191,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID utxo.OutputID,
 	if err = RateSetterSleep(clt); err != nil {
 		return
 	}
-	err = clt.SendFaucetRequest(addr.Base58())
+	err = clt.BroadcastFaucetRequest(addr.Base58())
 	if err != nil {
 		return
 	}
