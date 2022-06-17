@@ -51,10 +51,13 @@ type EpochCommitmentFactory struct {
 	stateRootTree *smt.SparseMerkleTree
 	// manaRootTree stores the mana tree at the LastCommittedEpoch + 1.
 	manaRootTree *smt.SparseMerkleTree
+
+	// snapshotDepth defines how far back the ledgerstate is kept with respect to the latest committed epoch.
+	snapshotDepth int
 }
 
 // NewEpochCommitmentFactory returns a new commitment factory.
-func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle) *EpochCommitmentFactory {
+func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle, snapshotDepth int) *EpochCommitmentFactory {
 	epochCommitmentStorage := newEpochCommitmentStorage(WithStore(store))
 
 	stateRootTreeNodeStore := objectstorage.NewStoreWithRealm(epochCommitmentStorage.baseStore, database.PrefixNotarization, PrefixStateTreeNodes)
@@ -67,6 +70,7 @@ func NewEpochCommitmentFactory(store kvstore.KVStore, tangle *tangle.Tangle) *Ep
 		commitmentTrees: make(map[epoch.Index]*CommitmentTrees),
 		storage:         epochCommitmentStorage,
 		tangle:          tangle,
+		snapshotDepth:   snapshotDepth,
 		stateRootTree:   smt.NewSparseMerkleTree(stateRootTreeNodeStore, stateRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 		manaRootTree:    smt.NewSparseMerkleTree(manaRootTreeNodeStore, manaRootTreeValueStore, lo.PanicOnErr(blake2b.New256(nil))),
 	}
@@ -356,7 +360,7 @@ func (f *EpochCommitmentFactory) newEpochRoots(ei epoch.Index) (commitmentRoots 
 	}
 
 	// We advance the LedgerState to the next epoch.
-	f.commitLedgerState(ei - 10)
+	f.commitLedgerState(ei - epoch.Index(f.snapshotDepth))
 
 	return &CommitmentRoots{
 		EI:                ei,
