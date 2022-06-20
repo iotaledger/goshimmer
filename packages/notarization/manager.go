@@ -278,7 +278,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
+	ei := m.getBranchEI(branchID, true)
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -287,7 +287,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
+	ei := m.getBranchEI(branchID, false)
 	m.pendingConflictsCounters[ei]++
 }
 
@@ -296,7 +296,7 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
+	ei := m.getBranchEI(branchID, true)
 	m.pendingConflictsCounters[ei]--
 }
 
@@ -359,8 +359,8 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
-func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
-	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID))
+func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
+	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
 	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	return
 }
