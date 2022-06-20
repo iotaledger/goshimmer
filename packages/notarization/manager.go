@@ -211,7 +211,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	}
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
-		spent, created := m.resolveOutputs(transaction.ID())
+		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
 	}
 }
@@ -243,7 +243,10 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 	fmt.Println(">> OnTransactionInclusionUpdated:", event.TransactionID, oldEpoch, newEpoch)
 
-	spent, created := m.resolveOutputs(event.TransactionID)
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
 
 	m.epochCommitmentFactory.deleteDiffUTXOs(oldEpoch, spent, created)
 	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, spent, created)
@@ -349,16 +352,14 @@ func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
 	return ei <= lastCommitted
 }
 
-func (m *Manager) resolveOutputs(txID utxo.TransactionID) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
+func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
 	spentOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	createdOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	var spentOutputIDs utxo.OutputIDs
 	var createdOutputs []utxo.Output
 
-	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-		spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
-		createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
-	})
+	spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
 
 	for it := spentOutputIDs.Iterator(); it.HasNext(); {
 		spentOutputID := it.Next()
