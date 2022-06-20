@@ -111,7 +111,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		// Message1, issuing time epoch 1
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
+				time.Sleep(epochInterval)
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message1")
@@ -121,7 +122,8 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		// Message2, issuing time epoch 2
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
+				time.Sleep(epochInterval)
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 				fmt.Println("message 2")
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
@@ -132,8 +134,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		// Message3, issuing time epoch 3
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(1))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 				fmt.Println("message 3")
 			},
@@ -145,8 +146,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		// Message4, issuing time epoch 4
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(2))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(2))
 				fmt.Println("message 4")
 			},
@@ -158,8 +158,7 @@ func TestManager_UpdateTangleTree(t *testing.T) {
 		// Message5, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(3))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
 				fmt.Println("message 5")
 			},
@@ -361,6 +360,7 @@ func loadSnapshot(m *Manager, testFramework *tangle.MessageTestFramework) {
 	for _, metadata := range snapshot.OutputsWithMetadata {
 		createMetadata = append(createMetadata, metadata)
 	}
+	snapshot.EpochDiffs = make(map[epoch.Index]*ledger.EpochDiff)
 	snapshot.EpochDiffs[epoch.Index(0)] = ledger.NewEpochDiff([]*ledger.OutputWithMetadata{}, createMetadata)
 
 	ecRecord := epoch.NewECRecord(snapshot.FullEpochIndex)
