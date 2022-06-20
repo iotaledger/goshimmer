@@ -65,6 +65,10 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		new.OnMessageOrphaned(event.Message)
 	}))
 
+	new.tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		new.OnTransactionConfirmed(event)
+	}))
+
 	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
 		new.OnTransactionInclusionUpdated(event)
 	}))
@@ -216,6 +220,27 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	}
 }
 
+func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
+
+	txID := event.TransactionID
+
+	var txEpoch epoch.Index
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+		txEpoch = m.epochManager.TimeToEI(txMeta.InclusionTime())
+	})
+
+	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
+		m.log.Error(err)
+	}
+}
+
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -224,32 +249,29 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
 	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
 
-	if oldEpoch == newEpoch {
+	if oldEpoch == 0 || oldEpoch == newEpoch {
 		return
 	}
 
-	if (oldEpoch != 0 && m.isEpochAlreadyComitted(oldEpoch)) || m.isEpochAlreadyComitted(newEpoch) {
+	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
 		return
 	}
 
-	if err := m.epochCommitmentFactory.removeStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
-		m.log.Error(err)
-	}
-
-	if err := m.epochCommitmentFactory.insertStateMutationLeaf(newEpoch, event.TransactionID); err != nil {
-		m.log.Error(err)
-	}
-
-	fmt.Println(">> OnTransactionInclusionUpdated:", event.TransactionID, oldEpoch, newEpoch)
+	txID := event.TransactionID
 
 	var spent, created []*ledger.OutputWithMetadata
-	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
 		spent, created = m.resolveOutputs(tx)
 	})
 
-	m.epochCommitmentFactory.deleteDiffUTXOs(oldEpoch, spent, created)
-	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, spent, created)
+	if err := m.removeTransactionFromEpoch(txID, oldEpoch, spent, created); err != nil {
+		m.log.Error(err)
+	}
+
+	if err := m.includeTransactionInEpoch(txID, newEpoch, spent, created); err != nil {
+		m.log.Error(err)
+	}
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
@@ -279,6 +301,26 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCounters[ei]--
+}
+
+func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
+	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
+		return err
+	}
+
+	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
+
+	return nil
+}
+
+func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
+	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
+		return err
+	}
+
+	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
+
+	return nil
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
