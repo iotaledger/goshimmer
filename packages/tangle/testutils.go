@@ -498,6 +498,8 @@ func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOpt
 		weakParents:           make(map[string]types.Empty),
 		shallowLikeParents:    make(map[string]types.Empty),
 		shallowDislikeParents: make(map[string]types.Empty),
+		ecRecord:              epoch.NewECRecord(0),
+		latestConfirmedEpoch:  0,
 	}
 
 	for _, option := range options {
