@@ -132,14 +132,8 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 	accountBytes := outputWithMetadata.OutputMetadata().ConsensusManaPledgeID().Bytes()
 
-	balanceBytes, getLeafErr := f.manaRootTree.Get(accountBytes)
-	if getLeafErr != nil {
-		return errors.Wrap(getLeafErr, "could not get leaf from mana tree")
-	}
-
 	var currentBalance uint64
-
-	if len(balanceBytes) > 0 {
+	if balanceBytes, getLeafErr := f.manaRootTree.Get(accountBytes); getLeafErr != nil && len(balanceBytes) > 0 {
 		_, decodeErr := serix.DefaultAPI.Decode(context.Background(), balanceBytes, &currentBalance, serix.WithValidation())
 		if decodeErr != nil {
 			return errors.Wrap(decodeErr, "could not decode mana leaf balance")
