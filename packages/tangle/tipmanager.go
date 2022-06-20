@@ -270,6 +270,13 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	return t.selectTips(p, countParents)
 }
 
+// isPastConeTimestampCorrect performs the TSC check for the given tip.
+// Conceptually, this involves the following steps:
+//   1. Collect all confirmed blocks in the tip's past cone at the boundary of confirmed/unconfirmed.
+//   2. Order by timestamp (ascending), if the oldest confirmed block > TSC threshold then return false.
+//
+// This function is optimized through the use of markers and the following assumption:
+//   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
 	minSupportedTimestamp := t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
 	timestampValid = true
@@ -285,11 +292,12 @@ func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampV
 		timestampValid = minSupportedTimestamp.Before(message.IssuingTime())
 	})
 
-	if !timestampValid || t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		// return false if message is unconfirmed and has invalid timestamp
-		// return false if message is confirmed and has invalid timestamp
+	if !timestampValid {
+		return false
+	}
+	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
 		// return true if message is confirmed and has valid timestamp
-		return timestampValid
+		return true
 	}
 
 	markerWalker := walker.New[markers.Marker](false)
