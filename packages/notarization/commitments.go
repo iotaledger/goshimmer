@@ -2,7 +2,6 @@ package notarization
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/iotaledger/hive.go/serix"
 
@@ -259,12 +258,10 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		fmt.Println(">> spent:", spentOutputWithMetadata)
 		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		fmt.Println(">> created:", createdOutputWithMetadata)
 		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
 	}
 }

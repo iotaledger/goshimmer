@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -288,8 +287,6 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	fmt.Println(">> OnBranchCreated:", branchID)
-
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCounters[ei]++
 }
@@ -363,17 +360,13 @@ func (m *Manager) isCommittable(ei epoch.Index) bool {
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
-	time.Sleep(1 * time.Second)
 	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID))
-	fmt.Println("\t>> getBranchEI", earliestAttachment)
 	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	return
 }
 
 // updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
 func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.Index) (err error) {
-	fmt.Println("\t>> updateCommitmentsUpToLatestCommittableEpoch", lastCommitted, latestCommittable)
-
 	var ei epoch.Index
 	for ei = lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the roots and store the ec

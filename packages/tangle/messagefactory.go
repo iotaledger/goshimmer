@@ -224,11 +224,8 @@ func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs) 
 	var earliestIssuingTime time.Time
 	for it := transactionIDs.Iterator(); it.HasNext(); {
 		f.tangle.Storage.Attachments(it.Next()).Consume(func(attachment *Attachment) {
-			fmt.Println("\t\t>>Attachment:", attachment)
 			f.tangle.Storage.Message(attachment.MessageID()).Consume(func(message *Message) {
-				fmt.Println("\t\t\t>>Message:", message)
 				f.tangle.Storage.MessageMetadata(attachment.MessageID()).Consume(func(messageMetadata *MessageMetadata) {
-					fmt.Println("\t\t\t>>MessageMetadata:", messageMetadata)
 					if messageMetadata.IsBooked() &&
 						(earliestAttachment == nil || message.IssuingTime().Before(earliestIssuingTime)) {
 						earliestAttachment = message
