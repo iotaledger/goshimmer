@@ -29,8 +29,7 @@ type Manager struct {
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
-	pendingConflictsCount       map[epoch.Index]uint64
-	pccMutex                    sync.RWMutex
+	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
 	Events                      *Events
 }
@@ -47,12 +46,12 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 	}
 
 	new = &Manager{
-		tangle:                 t,
-		epochManager:           epochManager,
-		epochCommitmentFactory: epochCommitmentFactory,
-		pendingConflictsCount:  make(map[epoch.Index]uint64),
-		log:                    options.Log,
-		options:                options,
+		tangle:                   t,
+		epochManager:             epochManager,
+		epochCommitmentFactory:   epochCommitmentFactory,
+		pendingConflictsCounters: make(map[epoch.Index]uint64),
+		log:                      options.Log,
+		options:                  options,
 		Events: &Events{
 			EpochCommitted: event.New[*EpochCommittedEvent](),
 		},
@@ -87,6 +86,9 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
 		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
@@ -144,20 +146,6 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 }
 
-// PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
-	m.pccMutex.RLock()
-	defer m.pccMutex.RUnlock()
-	return m.pendingConflictsCount[ei]
-}
-
-// IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) IsCommittable(ei epoch.Index) bool {
-	t := m.epochManager.EIToEndTime(ei)
-	diff := time.Since(t)
-	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
-}
-
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -187,11 +175,17 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 }
 
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+
 	return m.epochCommitmentFactory.storage.LastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
@@ -204,6 +198,9 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 
 // OnMessageOrphaned is the handler for message orphaned event.
 func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
@@ -221,6 +218,9 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
 	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
 
@@ -251,29 +251,31 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]--
+	m.pendingConflictsCounters[ei]--
 }
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	fmt.Println(">> OnBranchCreated:", branchID)
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]++
+	m.pendingConflictsCounters[ei]++
 }
 
 // OnBranchRejected is the handler for branch created event.
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
 	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]--
+	m.pendingConflictsCounters[ei]--
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
@@ -286,7 +288,7 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	}
 
 	for ei := lastCommittedEpoch; ei < currentEpoch; ei++ {
-		if m.IsCommittable(ei) {
+		if m.isCommittable(ei) {
 			latestCommittableEpoch = ei
 			continue
 		}
@@ -301,11 +303,18 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	return lastCommittedEpoch, latestCommittableEpoch, nil
 }
 
+// isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
+func (m *Manager) isCommittable(ei epoch.Index) bool {
+	t := m.epochManager.EIToEndTime(ei)
+	diff := time.Since(t)
+	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
+}
+
 func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
-	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
-		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
-		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
-	})
+	time.Sleep(1 * time.Second)
+	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID))
+	fmt.Println("\t>> getBranchEI", earliestAttachment)
+	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	return
 }
 
