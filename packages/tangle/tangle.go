@@ -53,6 +53,7 @@ type Tangle struct {
 	WeightProvider        WeightProvider
 	Events                *Events
 	ConfirmationOracle    ConfirmationOracle
+	OrphanageManager      *OrphanageManager
 }
 
 // ConfirmationOracle answers questions about entities' confirmation.
@@ -81,11 +82,12 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
 	tangle.Booker = NewBooker(tangle)
+	tangle.OrphanageManager = NewOrphanageManager(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
 	tangle.TimeManager = NewTimeManager(tangle)
 	tangle.Requester = NewRequester(tangle)
 	tangle.TipManager = NewTipManager(tangle)
-	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager, PrepareReferences)
+	tangle.MessageFactory = NewMessageFactory(tangle, tangle.TipManager)
 	tangle.Utils = NewUtils(tangle)
 
 	tangle.WeightProvider = tangle.Options.WeightProvider
@@ -115,6 +117,7 @@ func (t *Tangle) Setup() {
 	t.Solidifier.Setup()
 	t.Requester.Setup()
 	t.Booker.Setup()
+	t.OrphanageManager.Setup()
 	t.ApprovalWeightManager.Setup()
 	t.Scheduler.Setup()
 	t.TimeManager.Setup()

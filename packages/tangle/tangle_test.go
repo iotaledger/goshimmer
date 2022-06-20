@@ -33,8 +33,8 @@ func BenchmarkVerifyDataMessages(b *testing.B) {
 
 	pool := workerpool.NewBlockingQueuedWorkerPool(workerpool.WorkerCount(runtime.GOMAXPROCS(0)))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs, err error) {
-		return NewMessageIDs(EmptyMessageID), nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countParents int) (parents MessageIDs) {
+		return NewMessageIDs(EmptyMessageID)
 	}), emptyLikeReferences)
 
 	messages := make([][]byte, b.N)
@@ -68,8 +68,8 @@ func BenchmarkVerifySignature(b *testing.B) {
 
 	pool, _ := ants.NewPool(80, ants.WithNonblocking(false))
 
-	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs, err error) {
-		return NewMessageIDs(EmptyMessageID), nil
+	factory := NewMessageFactory(tangle, TipSelectorFunc(func(p payload.Payload, countStrongParents int) (parents MessageIDs) {
+		return NewMessageIDs(EmptyMessageID)
 	}), emptyLikeReferences)
 
 	messages := make([]*Message, b.N)
@@ -244,16 +244,16 @@ func TestTangle_MissingMessages(t *testing.T) {
 	// setup the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return NewMessageIDs(EmptyMessageID), nil
+				return NewMessageIDs(EmptyMessageID)
 			}
 			parents := NewMessageIDs()
 			for _, tip := range r {
 				parents.Add(tip)
 			}
-			return parents, nil
+			return parents
 		}),
 		emptyLikeReferences,
 	)
@@ -403,17 +403,17 @@ func TestTangle_Flow(t *testing.T) {
 	// set up the message factory
 	tangle.MessageFactory = NewMessageFactory(
 		tangle,
-		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs, err error) {
+		TipSelectorFunc(func(p payload.Payload, countParents int) (parentsMessageIDs MessageIDs) {
 			r := tips.RandomUniqueEntries(countParents)
 			if len(r) == 0 {
-				return NewMessageIDs(EmptyMessageID), nil
+				return NewMessageIDs(EmptyMessageID)
 			}
 
 			parents := NewMessageIDs()
 			for _, tip := range r {
 				parents.Add(tip)
 			}
-			return parents, nil
+			return parents
 		}),
 		emptyLikeReferences,
 	)
@@ -612,7 +612,7 @@ func (f *MessageFactory) issueInvalidTsPayload(p payload.Payload, _ ...*Tangle) 
 		return nil, err
 	}
 
-	parents, err := f.selector.Tips(p, 2)
+	parents := f.selector.Tips(p, 2)
 	if err != nil {
 		err = fmt.Errorf("could not select tips: %w", err)
 		f.Events.Error.Trigger(err)

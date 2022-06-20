@@ -33,18 +33,17 @@ type wsMessage struct {
 }
 
 type tangleVertex struct {
-	ID                      string   `json:"ID"`
-	StrongParentIDs         []string `json:"strongParentIDs"`
-	WeakParentIDs           []string `json:"weakParentIDs"`
-	ShallowLikeParentIDs    []string `json:"shallowLikeParentIDs"`
-	ShallowDislikeParentIDs []string `json:"shallowDislikeParentIDs"`
-	BranchIDs               []string `json:"branchIDs"`
-	IsMarker                bool     `json:"isMarker"`
-	IsTx                    bool     `json:"isTx"`
-	TxID                    string   `json:"txID,omitempty"`
-	IsConfirmed             bool     `json:"isConfirmed"`
-	ConfirmedTime           int64    `json:"confirmedTime"`
-	GoF                     string   `json:"gof,omitempty"`
+	ID                   string   `json:"ID"`
+	StrongParentIDs      []string `json:"strongParentIDs"`
+	WeakParentIDs        []string `json:"weakParentIDs"`
+	ShallowLikeParentIDs []string `json:"shallowLikeParentIDs"`
+	BranchIDs            []string `json:"branchIDs"`
+	IsMarker             bool     `json:"isMarker"`
+	IsTx                 bool     `json:"isTx"`
+	TxID                 string   `json:"txID,omitempty"`
+	IsConfirmed          bool     `json:"isConfirmed"`
+	ConfirmedTime        int64    `json:"confirmedTime"`
+	GoF                  string   `json:"gof,omitempty"`
 }
 
 type tangleBooked struct {

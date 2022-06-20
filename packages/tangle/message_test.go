@@ -163,8 +163,6 @@ func TestMessage_MarshalUnmarshal(t *testing.T) {
 	tangle := NewTestTangle()
 	defer tangle.Shutdown()
 
-	tangle.MessageFactory.referencesFunc = emptyLikeReferences
-
 	testMessage, err := tangle.MessageFactory.IssuePayload(payload.NewGenericDataPayload([]byte("test")))
 	require.NoError(t, err)
 	assert.Equal(t, true, lo.PanicOnErr(testMessage.VerifySignature()))
@@ -243,8 +241,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(1))
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -259,6 +256,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 			nil,
 			MessageVersion,
 		)
+		assert.NoError(t, err)
 		assert.NoError(t, msg.DetermineID())
 		msgBytes := lo.PanicOnErr(msg.Bytes())
 
@@ -275,8 +273,7 @@ func TestNewMessageWithValidation(t *testing.T) {
 		parents := testSortParents(randomParents(MaxParentsCount))
 		parentBlocks := NewParentMessageIDs()
 		parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(WeakParentType, NewMessageIDs(parents...))
-		parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
+		parentBlocks.AddAll(WeakParentType, NewMessageIDs(testSortParents(randomParents(MaxParentsCount))...))
 		parentBlocks.AddAll(ShallowLikeParentType, NewMessageIDs(parents...))
 
 		msg, err := NewMessageWithValidation(
@@ -420,21 +417,17 @@ func TestNewMessageWithValidation(t *testing.T) {
 				nil,
 				MessageVersion,
 			)
-			assert.NoError(t, err, "messages in weak references may allow to overlap with strong references")
+			assert.Error(t, err, "messages in weak references may allow to overlap with strong references")
 		}
 
 		{
 			// check for repeating message across weak and dislike block
 			weakParents := testSortParents(randomParents(4))
-			dislikeParents := randomParents(4).Slice()
-			// create duplicate
-			dislikeParents[2] = weakParents[2]
-			dislikeParents = testSortParents(NewMessageIDs(dislikeParents...))
+			weakParents[2] = parents[2]
 
 			parentBlocks := NewParentMessageIDs()
 			parentBlocks.AddAll(StrongParentType, NewMessageIDs(parents...))
 			parentBlocks.AddAll(WeakParentType, NewMessageIDs(weakParents...))
-			parentBlocks.AddAll(ShallowDislikeParentType, NewMessageIDs(dislikeParents...))
 
 			_, err := NewMessageWithValidation(
 				parentBlocks,
@@ -562,10 +555,9 @@ func TestMessage_Bytes(t *testing.T) {
 		data := make([]byte, payload.MaxSize-8)
 		msg, err := NewMessageWithValidation(
 			ParentMessageIDs{
-				StrongParentType:         randomParents(MaxParentsCount),
-				WeakParentType:           randomParents(MaxParentsCount),
-				ShallowDislikeParentType: randomParents(MaxParentsCount),
-				ShallowLikeParentType:    randomParents(MaxParentsCount),
+				StrongParentType:      randomParents(MaxParentsCount),
+				WeakParentType:        randomParents(MaxParentsCount),
+				ShallowLikeParentType: randomParents(MaxParentsCount),
 			},
 			time.Now(),
 			ed25519.PublicKey{},
@@ -595,10 +587,9 @@ func TestMessage_Bytes(t *testing.T) {
 		)
 		assert.NoError(t, err)
 
-		t.Logf("%s", msg)
 		msgBytes := lo.PanicOnErr(msg.Bytes())
 		// 4 full parents blocks - 1 parent block with 1 parent
-		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(3*(1+1+8*32)+(7*32)), len(msgBytes))
+		assert.Equal(t, MaxMessageSize-payload.MaxSize+8-(2*(1+1+8*32)+(7*32)), len(msgBytes))
 	})
 }
 

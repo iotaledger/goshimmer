@@ -25,8 +25,8 @@ func newUtils(ledger *Ledger) (new *Utils) {
 	}
 }
 
-func (u *Utils) BranchIDsInFutureCone(branchIDs *set.AdvancedSet[utxo.TransactionID]) (branchIDsInFutureCone *set.AdvancedSet[utxo.TransactionID]) {
-	branchIDsInFutureCone = set.NewAdvancedSet[utxo.TransactionID]()
+func (u *Utils) BranchIDsInFutureCone(branchIDs utxo.TransactionIDs) (branchIDsInFutureCone utxo.TransactionIDs) {
+	branchIDsInFutureCone = utxo.NewTransactionIDs()
 
 	for branchIDWalker := branchIDs.Iterator(); branchIDWalker.HasNext(); {
 		branchID := branchIDWalker.Next()
