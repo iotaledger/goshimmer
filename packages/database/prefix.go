@@ -27,4 +27,7 @@ const (
 
 	// PrefixNotarization defines the storage prefix for the epochs package.
 	PrefixNotarization
+
+	// PrefixMetrics defines the storage prefix for the metrics.
+	PrefixMetrics
 )

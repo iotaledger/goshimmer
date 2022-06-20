@@ -3,7 +3,11 @@ package metrics
 import (
 	"sync"
 
+	"github.com/cockroachdb/errors"
+	"github.com/iotaledger/hive.go/generics/model"
+	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
+	"github.com/iotaledger/hive.go/kvstore"
 
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -17,44 +21,102 @@ type EpochInfo struct {
 	PrevEC string
 }
 
-var (
-	epochCommitmentsMutex = sync.RWMutex{}
+// EpochContent is a storable object represents the epochContent of an epoch.
+type EpochContent struct {
+	model.Storable[epoch.Index, EpochContent, *EpochContent, epochContent] `serix:"0"`
+}
+
+type epochContent struct {
+	EI      epoch.Index `serix:"0"`
+	Content []string    `serix:"1"`
+}
+
+// NewEpochContent creates and returns an EpochContent of the given EI.
+func NewEpochContent(ei epoch.Index) (new *EpochContent) {
+	new = model.NewStorable[epoch.Index, EpochContent](&epochContent{
+		EI: ei,
+	})
+	new.SetID(ei)
+	return
+}
+
+const (
+	storagePrefixUTXOs byte = iota
+	storagePrefixMessages
+	storagePrefixTransactions
+)
+
+type EpochCommitmentsMetrics struct {
+	epochCommitmentsMutex sync.RWMutex
 	epochCommitments      map[epoch.Index]EpochInfo
 
 	epochVotersWeightMutex sync.RWMutex
-	epochVotersWeight      = map[epoch.Index]map[identity.ID]float64{}
+	epochVotersWeight      map[epoch.Index]map[identity.ID]float64
 
-	epochUTXOsMutex sync.RWMutex
-	epochUTXOs      = map[epoch.Index][]string{}
-
-	epochMessagesMutex sync.RWMutex
-	epochMessages      = map[epoch.Index][]string{}
-
+	epochUTXOsMutex        sync.RWMutex
+	epochUTXOs             *objectstorage.ObjectStorage[*EpochContent]
+	epochMessagesMutex     sync.RWMutex
+	epochMessages          *objectstorage.ObjectStorage[*EpochContent]
 	epochTransactionsMutex sync.RWMutex
-	epochTransactions      = map[epoch.Index][]string{}
-)
+	epochTransactions      *objectstorage.ObjectStorage[*EpochContent]
+}
 
-func saveCommittedEpoch(ecr *epoch.ECRecord) {
-	epochCommitmentsMutex.Lock()
-	defer epochCommitmentsMutex.Unlock()
-	epochCommitments[ecr.EI()] = EpochInfo{
+func NewEpochCommitmentsMetrics(storage kvstore.KVStore) (*EpochCommitmentsMetrics, error) {
+	UTXOsKV, err := storage.WithRealm(kvstore.Realm{storagePrefixUTXOs})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	messagesKV, err := storage.WithRealm(kvstore.Realm{storagePrefixMessages})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	transactionsKV, err := storage.WithRealm(kvstore.Realm{storagePrefixTransactions})
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	metrics := &EpochCommitmentsMetrics{
+		epochCommitments:  map[epoch.Index]EpochInfo{},
+		epochVotersWeight: map[epoch.Index]map[identity.ID]float64{},
+		epochUTXOs: objectstorage.NewStructStorage[EpochContent](
+			UTXOsKV,
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
+		epochMessages: objectstorage.NewStructStorage[EpochContent](
+			messagesKV,
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
+		epochTransactions: objectstorage.NewStructStorage[EpochContent](
+			transactionsKV,
+			objectstorage.LeakDetectionEnabled(false),
+			objectstorage.StoreOnCreation(true),
+		),
+	}
+	return metrics, nil
+}
+
+func (m *EpochCommitmentsMetrics) saveCommittedEpoch(ecr *epoch.ECRecord) {
+	m.epochCommitmentsMutex.Lock()
+	defer m.epochCommitmentsMutex.Unlock()
+	m.epochCommitments[ecr.EI()] = EpochInfo{
 		EI:     ecr.EI(),
 		ECR:    ecr.M.ECR.String(),
 		PrevEC: ecr.M.PrevEC.String(),
 	}
 }
 
-func GetCommittedEpochs() map[epoch.Index]EpochInfo {
-	epochCommitmentsMutex.RLock()
-	defer epochCommitmentsMutex.RUnlock()
-	duplicate := make(map[epoch.Index]EpochInfo, len(epochCommitments))
-	for k, v := range epochCommitments {
+func (m *EpochCommitmentsMetrics) GetCommittedEpochs() map[epoch.Index]EpochInfo {
+	m.epochCommitmentsMutex.RLock()
+	defer m.epochCommitmentsMutex.RUnlock()
+	duplicate := make(map[epoch.Index]EpochInfo, len(m.epochCommitments))
+	for k, v := range m.epochCommitments {
 		duplicate[k] = v
 	}
 	return duplicate
 }
 
-func saveEpochVotersWeight(message *tangle.Message) {
+func (m *EpochCommitmentsMetrics) saveEpochVotersWeight(message *tangle.Message) {
 	branchesOfMessage, err := deps.Tangle.Booker.MessageBranchIDs(message.ID())
 	if err != nil {
 		Plugin.LogError(err)
@@ -66,21 +128,21 @@ func saveEpochVotersWeight(message *tangle.Message) {
 		totalWeight += weight
 		return nil
 	})
-	epochVotersWeightMutex.Lock()
-	defer epochVotersWeightMutex.Unlock()
+	m.epochVotersWeightMutex.Lock()
+	defer m.epochVotersWeightMutex.Unlock()
 
 	epochIndex := message.M.EI
-	if _, ok := epochVotersWeight[epochIndex]; !ok {
-		epochVotersWeight[epochIndex] = map[identity.ID]float64{}
+	if _, ok := m.epochVotersWeight[epochIndex]; !ok {
+		m.epochVotersWeight[epochIndex] = map[identity.ID]float64{}
 	}
-	epochVotersWeight[epochIndex][voter] += totalWeight
+	m.epochVotersWeight[epochIndex][voter] += totalWeight
 }
 
-func GetEpochVotersWeight() map[epoch.Index]map[identity.ID]float64 {
-	epochVotersWeightMutex.RLock()
-	defer epochVotersWeightMutex.RUnlock()
-	duplicate := make(map[epoch.Index]map[identity.ID]float64, len(epochVotersWeight))
-	for k, v := range epochVotersWeight {
+func (m *EpochCommitmentsMetrics) GetEpochVotersWeight() map[epoch.Index]map[identity.ID]float64 {
+	m.epochVotersWeightMutex.RLock()
+	defer m.epochVotersWeightMutex.RUnlock()
+	duplicate := make(map[epoch.Index]map[identity.ID]float64, len(m.epochVotersWeight))
+	for k, v := range m.epochVotersWeight {
 		subDuplicate := make(map[identity.ID]float64, len(v))
 		for subK, subV := range v {
 			subDuplicate[subK] = subV
@@ -90,59 +152,83 @@ func GetEpochVotersWeight() map[epoch.Index]map[identity.ID]float64 {
 	return duplicate
 }
 
-func saveEpochUTXOs(tx *devnetvm.Transaction) {
+func (m *EpochCommitmentsMetrics) saveEpochUTXOs(tx *devnetvm.Transaction) {
 	earliestAttachment := deps.Tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
 	ei := deps.NotarizationMgr.EpochManager().TimeToEI(earliestAttachment.IssuingTime())
 	createdOutputs := tx.Essence().Outputs().UTXOOutputs()
-	epochUTXOsMutex.Lock()
-	defer epochUTXOsMutex.Unlock()
+	m.epochUTXOsMutex.Lock()
+	defer m.epochUTXOsMutex.Unlock()
+	obj := m.epochUTXOs.Load(ei.Bytes())
+	t := obj.Get()
+	if t == nil {
+		t = NewEpochContent(ei)
+	}
 	for _, o := range createdOutputs {
-		epochUTXOs[ei] = append(epochUTXOs[ei], o.ID().String())
+		t.M.Content = append(t.M.Content, o.ID().String())
 	}
+	m.epochUTXOs.Store(t)
 }
 
-func GetEpochUTXOs() map[epoch.Index][]string {
-	epochUTXOsMutex.RLock()
-	defer epochUTXOsMutex.RUnlock()
-	duplicate := make(map[epoch.Index][]string, len(epochUTXOs))
-	for k, v := range epochUTXOs {
-		duplicate[k] = v
-	}
+func (m *EpochCommitmentsMetrics) GetEpochUTXOs() map[epoch.Index][]string {
+	m.epochUTXOsMutex.RLock()
+	defer m.epochUTXOsMutex.RUnlock()
+	duplicate := make(map[epoch.Index][]string, 0)
+	m.epochUTXOs.ForEach(func(_ []byte, obj *objectstorage.CachedObject[*EpochContent]) bool {
+		ec := obj.Get()
+		duplicate[ec.M.EI] = ec.M.Content
+		return true
+	})
 	return duplicate
 }
 
-func saveEpochMessage(msg *tangle.Message) {
+func (m *EpochCommitmentsMetrics) saveEpochMessage(msg *tangle.Message) {
 	ei := deps.NotarizationMgr.EpochManager().TimeToEI(msg.IssuingTime())
-	epochMessagesMutex.Lock()
-	defer epochMessagesMutex.Unlock()
-	epochMessages[ei] = append(epochMessages[ei], msg.ID().String())
+	m.epochMessagesMutex.Lock()
+	defer m.epochMessagesMutex.Unlock()
+	obj := m.epochMessages.Load(ei.Bytes())
+	t := obj.Get()
+	if t == nil {
+		t = NewEpochContent(ei)
+	}
+	t.M.Content = append(t.M.Content, msg.ID().String())
+	m.epochMessages.Store(t)
 }
 
-func GetEpochMessages() map[epoch.Index][]string {
-	epochMessagesMutex.RLock()
-	defer epochMessagesMutex.RUnlock()
-	duplicate := make(map[epoch.Index][]string, len(epochMessages))
-	for k, v := range epochMessages {
-		duplicate[k] = v
-	}
+func (m *EpochCommitmentsMetrics) GetEpochMessages() map[epoch.Index][]string {
+	m.epochMessagesMutex.RLock()
+	defer m.epochMessagesMutex.RUnlock()
+	duplicate := make(map[epoch.Index][]string, 0)
+	m.epochMessages.ForEach(func(_ []byte, obj *objectstorage.CachedObject[*EpochContent]) bool {
+		ec := obj.Get()
+		duplicate[ec.M.EI] = ec.M.Content
+		return true
+	})
 	return duplicate
 }
 
-func saveEpochTransaction(tx utxo.Transaction) {
+func (m *EpochCommitmentsMetrics) saveEpochTransaction(tx utxo.Transaction) {
 	earliestAttachment := deps.Tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
 	ei := deps.NotarizationMgr.EpochManager().TimeToEI(earliestAttachment.IssuingTime())
-	epochTransactionsMutex.Lock()
-	defer epochTransactionsMutex.Unlock()
-	epochTransactions[ei] = append(epochTransactions[ei], tx.ID().String())
+	m.epochTransactionsMutex.Lock()
+	defer m.epochTransactionsMutex.Unlock()
+	obj := m.epochTransactions.Load(ei.Bytes())
+	t := obj.Get()
+	if t == nil {
+		t = NewEpochContent(ei)
+	}
+	t.M.Content = append(t.M.Content, tx.ID().String())
+	m.epochTransactions.Store(t)
 }
 
-func GetEpochTransactions() map[epoch.Index][]string {
-	epochTransactionsMutex.RLock()
-	defer epochTransactionsMutex.RUnlock()
-	duplicate := make(map[epoch.Index][]string, len(epochTransactions))
-	for k, v := range epochTransactions {
-		duplicate[k] = v
-	}
+func (m *EpochCommitmentsMetrics) GetEpochTransactions() map[epoch.Index][]string {
+	m.epochTransactionsMutex.RLock()
+	defer m.epochTransactionsMutex.RUnlock()
+	duplicate := make(map[epoch.Index][]string, 0)
+	m.epochTransactions.ForEach(func(_ []byte, obj *objectstorage.CachedObject[*EpochContent]) bool {
+		ec := obj.Get()
+		duplicate[ec.M.EI] = ec.M.Content
+		return true
+	})
 	return duplicate
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/daemon"
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/node"
 	"github.com/iotaledger/hive.go/timeutil"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -33,9 +35,10 @@ const PluginName = "Metrics"
 
 var (
 	// Plugin is the plugin instance of the metrics plugin.
-	Plugin *node.Plugin
-	deps   = new(dependencies)
-	log    *logger.Logger
+	Plugin  *node.Plugin
+	deps    = new(dependencies)
+	log     *logger.Logger
+	storage kvstore.KVStore
 )
 
 type dependencies struct {
@@ -43,6 +46,7 @@ type dependencies struct {
 
 	Tangle          *tangle.Tangle
 	NotarizationMgr *notarization.Manager
+	Storage         kvstore.KVStore
 	GossipMgr       *gossip.Manager     `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
@@ -54,6 +58,7 @@ func init() {
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
+	storage, _ = deps.Storage.WithRealm(kvstore.Realm{database.PrefixMetrics})
 }
 
 func run(_ *node.Plugin) {
