@@ -9,7 +9,7 @@ import (
 )
 
 func TestRevoke_Consensus(t *testing.T) {
-	bm := NewConsensusBaseMana(1.0)
+	bm := NewManaBase(1.0)
 	err := bm.revoke(1.0)
 	assert.NoError(t, err)
 	// values are only valid for default coefficients of 0.00003209 and t = 6 hours
@@ -17,7 +17,7 @@ func TestRevoke_Consensus(t *testing.T) {
 }
 
 func TestRevokeNegativeBalance_Consensus(t *testing.T) {
-	bm := NewConsensusBaseMana(0.0)
+	bm := NewManaBase(0.0)
 
 	err := bm.revoke(1.0)
 	assert.NoError(t, err)
@@ -26,7 +26,7 @@ func TestRevokeNegativeBalance_Consensus(t *testing.T) {
 
 func TestPledgeAndUpdateRegularOldFunds_Consensus(t *testing.T) {
 	_baseTime := time.Now()
-	bm := NewConsensusBaseMana(1.0)
+	bm := NewManaBase(1.0)
 
 	// transaction pledges mana at t=6 hours with 3 inputs.
 	_txInfo := &TxInfo{
