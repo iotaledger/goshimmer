@@ -224,7 +224,8 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		// Message1, issuing time epoch 1
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
+				time.Sleep(epochInterval)
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message1")
@@ -235,8 +236,9 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		// Message2, issuing time epoch 2
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
+				time.Sleep(epochInterval)
 				fmt.Println("message 2")
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(0))
 			},
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message2")
@@ -246,8 +248,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		// Message3, issuing time epoch 3
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(1))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(1))
 				fmt.Println("message 3")
 			},
@@ -259,8 +260,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		// Message4, issuing time epoch 4
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(2))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(2))
 				fmt.Println("message 4")
 			},
@@ -272,8 +272,7 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 		// Message5 TX1, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(time.Duration(epochInterval) * time.Second)
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(3))
+				time.Sleep(epochInterval)
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
 				fmt.Println("message 5")
 			},
@@ -283,32 +282,32 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 				assert.Equal(t, epoch.Index(3), msg.EI())
 			},
 		},
-		// Message6 TX2, conflicting to TX1, issuing time epoch 5
+		// Message6 TX2, issuing time epoch 6
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(epochInterval)
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
 				fmt.Println("message 6")
 			},
 
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message6")
-				assert.Equal(t, epoch.Index(3), msg.EI())
-				assert.EqualValues(t, 0, m.PendingConflictsCount(epoch.Index(5)))
+				assert.Equal(t, epoch.Index(4), msg.EI())
 			},
 		},
-		// Message7, issuing time epoch 5
+		// Message7, issuing time epoch 6
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				// This is trigger weird
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(0))
-
-				eventHandlerMock.Expect("NewCommitmentTreesCreated", epoch.Index(5))
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
 				fmt.Println("message 7")
 			},
 
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message7")
-				assert.Equal(t, epoch.Index(3), msg.EI())
-				assert.EqualValues(t, 0, m.PendingConflictsCount(epoch.Index(5)))
+				assert.Equal(t, epoch.Index(4), msg.EI())
+				fmt.Println(testFramework.TransactionMetadata("Message5").GradeOfFinality())
+				fmt.Println(testFramework.MessageMetadata("Message5").GradeOfFinality())
+				fmt.Println(testFramework.MessageMetadata("Message6").GradeOfFinality())
 				assertExistenceOfTransaction(t, testFramework, m, []string{
 					"Message5",
 					"Message6",

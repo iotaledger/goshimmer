@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"reflect"
 	"sync/atomic"
 	"testing"
@@ -73,7 +72,7 @@ func NewEventMock(t *testing.T, notarizationManager *Manager, ecFactory *EpochCo
 
 	// assure that all available events are mocked
 	numEvents := reflect.ValueOf(notarizationManager.Events).Elem().NumField()
-	assert.Equalf(t, len(e.attached)+2, numEvents, "not all events in notarizationManager.Events have been attached")
+	assert.Equalf(t, len(e.attached)+1, numEvents, "not all events in notarizationManager.Events have been attached")
 
 	return e
 }
@@ -113,13 +112,5 @@ func (e *EventMock) AssertExpectations(t mock.TestingT) bool {
 // EpochCommitted is the mocked BranchWeightChanged function.
 func (e *EventMock) EpochCommitted(event *EpochCommittedEvent) {
 	e.Called(event.EI)
-	fmt.Println("committed", event.EI)
-	atomic.AddUint64(&e.calledEvents, 1)
-}
-
-// NewCommitmentTreesCreated is the mocked BranchWeightChanged function.
-func (e *EventMock) NewCommitmentTreesCreated(event *CommitmentTreesCreatedEvent) {
-	e.Called(event.EI)
-	fmt.Println("commitment tree created", event.EI)
 	atomic.AddUint64(&e.calledEvents, 1)
 }

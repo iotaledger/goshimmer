@@ -66,6 +66,10 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 		new.OnMessageOrphaned(event.Message)
 	}))
 
+	new.tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		new.OnTransactionConfirmed(event)
+	}))
+
 	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
 		new.OnTransactionInclusionUpdated(event)
 	}))
@@ -218,6 +222,23 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 		spent, created := m.resolveOutputs(transaction.ID())
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
 	}
+}
+
+func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
+	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(event.TransactionID))
+	ei := m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
+
+	fmt.Println(event.TransactionID)
+
+	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, event.TransactionID); err != nil {
+		m.log.Error(err)
+	}
+
+	fmt.Println(">> OnTransactionConfirmed:", event.TransactionID, ei)
+
+	spent, created := m.resolveOutputs(event.TransactionID)
+
+	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
