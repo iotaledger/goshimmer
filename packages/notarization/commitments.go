@@ -266,12 +266,12 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created [
 
 	for _, spentOutputWithMetadata := range spent {
 		fmt.Println(">> spent:", spentOutputWithMetadata)
-		epochDiffStorage.spent.Store(spentOutputWithMetadata)
+		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
 		fmt.Println(">> created:", createdOutputWithMetadata)
-		epochDiffStorage.created.Store(createdOutputWithMetadata)
+		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
 	}
 }
 
@@ -365,11 +365,10 @@ func (f *EpochCommitmentFactory) commitLedgerState(ei epoch.Index) {
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		f.storage.ledgerstateStorage.Store(createdOutputWithMetadata)
+		f.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
 	}
 
-	// TODO: properly drop storage
-	delete(f.storage.epochDiffStorages, ei)
+	f.storage.dropEpochDiffStorage(ei)
 
 	return
 }

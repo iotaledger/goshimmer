@@ -142,6 +142,14 @@ func (s *EpochCommitmentStorage) Shutdown() {
 	})
 }
 
+func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
+	// TODO: properly drop (delete epoch bucketed) storage
+	diffStorage := s.getEpochDiffStorage(ei)
+	diffStorage.spent.Shutdown()
+	diffStorage.created.Shutdown()
+	delete(s.epochDiffStorages, ei)
+}
+
 func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {
 	if epochDiffStorage, exists := s.epochDiffStorages[ei]; exists {
 		return epochDiffStorage

@@ -120,7 +120,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 		for _, createdOutputWithMetadata := range epochDiff.Created() {
 			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata)
+			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
 			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
 			if err != nil {
 				m.log.Error(err)
@@ -301,6 +301,13 @@ func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 
 	ei := m.getBranchEI(branchID)
 	m.pendingConflictsCounters[ei]--
+}
+
+func (m *Manager) Shutdown() {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	m.epochCommitmentFactory.storage.Shutdown()
 }
 
 func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
