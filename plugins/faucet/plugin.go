@@ -263,7 +263,7 @@ func onMessageProcessed(messageID tangle.MessageID) {
 func handleFaucetRequest(fundingRequest *faucet.Payload) error {
 	addr := fundingRequest.Address()
 
-	if isFaucetRequestPoWValid(fundingRequest, addr) {
+	if !isFaucetRequestPoWValid(fundingRequest, addr) {
 		return errors.New("PoW requirement is not satisfied")
 	}
 
