@@ -138,7 +138,7 @@ func (n *Network) DoManualPeering(ctx context.Context, nodes ...*Node) error {
 // CreatePartitionsManualPeering blocks until all connections are established or the ctx has expired.
 func (n *Network) CreatePartitionsManualPeering(ctx context.Context, partitions ...[]*Node) error {
 	if len(partitions) == 0 {
-		return fmt.Errorf("no partitions provided")
+		return errors.Errorf("no partitions provided")
 	}
 
 	if err := n.dropManualPeers(n.Peers()); err != nil {

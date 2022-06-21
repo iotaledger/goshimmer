@@ -135,9 +135,8 @@ func (t *TimeManager) CTT() time.Time {
 // RATT return relative acceptance tangle time, i.e., ATT + time since last update of ATT.
 func (t *TimeManager) RATT() time.Time {
 	now := time.Now()
-	lastConfirmedTime := t.lastAcceptedTime()
-	ctt := t.ATT()
-	return ctt.Add(now.Sub(lastConfirmedTime))
+timeSinceLastUpdate := time.Now().Sub(t.lastAcceptedTime())
+	return t.ATT().Add(timeSinceLastUpdate)
 }
 
 // RCTT return relative acceptance tangle time, i.e., CTT + time since last update of CTT.
