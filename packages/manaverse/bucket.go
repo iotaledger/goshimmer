@@ -1,46 +1,31 @@
 package manaverse
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/generics/priorityqueue"
 
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 type Bucket struct {
-	mana          uint64
-	priorityQueue *priorityqueue.PriorityQueue[*tangle.Message]
+	mana int64
 
-	sync.RWMutex
+	*priorityqueue.PriorityQueue[*tangle.Message]
 }
 
-func NewManaBucket(mana uint64) *Bucket {
+func NewManaBucket(mana int64) *Bucket {
 	return &Bucket{
 		mana:          mana,
-		priorityQueue: priorityqueue.New[*tangle.Message](),
+		PriorityQueue: priorityqueue.New[*tangle.Message](),
 	}
-}
-
-func (b *Bucket) Mana() (mana uint64) {
-	return b.mana
-}
-
-func (b *Bucket) Push(block *tangle.Message) {
-	b.Lock()
-	defer b.Unlock()
-
-	b.priorityQueue.Push(block)
 }
 
 func (b *Bucket) Compare(other *Bucket) int {
-	if b.Mana() < other.Mana() {
+	switch true {
+	case b.mana < other.mana:
 		return -1
-	}
-
-	if b.Mana() > other.Mana() {
+	case b.mana > other.mana:
 		return 1
+	default:
+		return 0
 	}
-
-	return 0
 }

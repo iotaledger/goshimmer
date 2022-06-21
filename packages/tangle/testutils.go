@@ -475,6 +475,7 @@ type MessageTestFrameworkMessageOptions struct {
 	shallowDislikeParents    map[string]types.Empty
 	issuer                   ed25519.PublicKey
 	issuingTime              time.Time
+	burnedMana               int64
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
 	overrideSequenceNumber   bool
@@ -565,6 +566,13 @@ func WithShallowDislikeParents(messageAliases ...string) MessageOption {
 func WithIssuer(issuer ed25519.PublicKey) MessageOption {
 	return func(options *MessageTestFrameworkMessageOptions) {
 		options.issuer = issuer
+	}
+}
+
+// WithBurnedMana returns a MessageOption that is used to define the amount of burned mana.
+func WithBurnedMana(burnedMana int64) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.burnedMana = burnedMana
 	}
 }
 

@@ -301,7 +301,7 @@ type MessageModel struct {
 	IssuerPublicKey ed25519.PublicKey `serix:"2"`
 	IssuingTime     time.Time         `serix:"3"`
 	SequenceNumber  uint64            `serix:"4"`
-	BurnedMana      uint64            `serix:"5"`
+	BurnedMana      int64             `serix:"5"`
 	PayloadBytes    []byte            `serix:"6,lengthPrefixType=uint32"`
 	Nonce           uint64            `serix:"7"`
 	Signature       ed25519.Signature `serix:"8"`
@@ -428,7 +428,7 @@ func (m *Message) SequenceNumber() uint64 {
 }
 
 // BurnedMana returns the mana burned by this message.
-func (m *Message) BurnedMana() uint64 {
+func (m *Message) BurnedMana() int64 {
 	return m.M.BurnedMana
 }
 
