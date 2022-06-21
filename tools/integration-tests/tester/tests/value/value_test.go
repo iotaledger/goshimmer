@@ -4,19 +4,14 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 
 	"github.com/iotaledger/hive.go/bitmask"
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/generics/lo"
-	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/address"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/createnftoptions"
-	"github.com/iotaledger/goshimmer/client/wallet/packages/delegateoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/destroynftoptions"
 	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/consensus/gof"
@@ -201,110 +196,6 @@ func TestValueAliasPersistence(t *testing.T) {
 		// there should be no outputs
 		require.True(t, len(resp.Outputs) == 0)
 	}
-}
-
-// TestValueAliasDelegation tests if a delegation output can be used to refresh mana.
-func TestValueAliasDelegation(t *testing.T) {
-	t.Skip("Value Alias Delegation test needs to be fixed.")
-	snapshotInfo := tests.EqualSnapshotDetails
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Faucet:      true,
-		Activity:    true, // we need to issue regular activity messages
-		PeerMaster:  true,
-		Snapshot:    snapshotInfo,
-	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	faucet, nonFaucetPeers := n.Peers()[0], n.Peers()[1:]
-
-	// check consensus mana: all nodes should have equal mana
-	require.Eventually(t, func() bool {
-		return tests.Mana(t, faucet).Consensus > 0
-	}, tests.Timeout, tests.Tick)
-	require.EqualValues(t, snapshotInfo.GenesisTokenAmount, tests.Mana(t, faucet).Consensus)
-
-	for i, peer := range nonFaucetPeers {
-		if snapshotInfo.PeersAmountsPledged[i] > 0 {
-			require.Eventually(t, func() bool {
-				return tests.Mana(t, peer).Consensus > 0
-			}, tests.Timeout, tests.Tick)
-		}
-		require.EqualValues(t, snapshotInfo.PeersAmountsPledged[i], tests.Mana(t, peer).Consensus)
-	}
-
-	tests.AwaitInitialFaucetOutputsPrepared(t, faucet, n.Peers())
-
-	// create a wallet that connects to a random peer
-	w := wallet.New(wallet.WebAPI(nonFaucetPeers[0].BaseURL()), wallet.FaucetPowDifficulty(faucet.Config().Faucet.PowDifficulty))
-
-	err = w.RequestFaucetFunds(true)
-	require.NoError(t, err)
-
-	dumbWallet := createWallets(1)[0]
-	delegationAddress := dumbWallet.address
-	_, delegationIDs, err := w.DelegateFunds(
-		delegateoptions.Destination(address.Address{AddressBytes: delegationAddress.Array()}, map[devnetvm.Color]uint64{devnetvm.ColorIOTA: 1000}),
-		delegateoptions.WaitForConfirmation(true),
-	)
-	require.NoError(t, err)
-
-	delegatedAliasOutputID := utxo.OutputID{}
-	delegatedAliasOutput := &devnetvm.AliasOutput{}
-	for i, peer := range n.Peers() {
-		resp, err := peer.GetAddressUnspentOutputs(delegationIDs[0].Base58())
-		require.NoError(t, err)
-		// there should be only this output
-		require.True(t, len(resp.Outputs) == 1)
-		shouldBeAliasOutput, err := resp.Outputs[0].ToLedgerstateOutput()
-		require.NoError(t, err)
-		require.Equal(t, devnetvm.AliasOutputType, shouldBeAliasOutput.Type())
-		alias, ok := shouldBeAliasOutput.(*devnetvm.AliasOutput)
-		require.True(t, ok)
-		require.Equal(t, delegationIDs[0].Base58(), alias.GetAliasAddress().Base58())
-		require.True(t, alias.IsDelegated())
-		switch i {
-		case 0:
-			delegatedAliasOutputID = alias.ID()
-			delegatedAliasOutput = alias
-		default:
-			require.Equal(t, delegatedAliasOutputID.Base58(), alias.ID().Base58())
-			require.Equal(t, lo.PanicOnErr(delegatedAliasOutput.Bytes()), lo.PanicOnErr(alias.Bytes()))
-		}
-	}
-
-	aManaReceiver, err := identity.RandomID()
-	require.NoError(t, err)
-	cManaReceiver, err := identity.RandomID()
-	require.NoError(t, err)
-
-	// let's try to "refresh mana"
-	nextOutput := delegatedAliasOutput.NewAliasOutputNext(false)
-	essence := devnetvm.NewTransactionEssence(0, time.Now(),
-		aManaReceiver, cManaReceiver,
-		devnetvm.NewInputs(devnetvm.NewUTXOInput(delegatedAliasOutputID)),
-		devnetvm.NewOutputs(nextOutput))
-	tx := devnetvm.NewTransaction(essence, dumbWallet.unlockBlocks(essence))
-	_, err = nonFaucetPeers[0].PostTransaction(lo.PanicOnErr(tx.Bytes()))
-	require.NoError(t, err)
-
-	tests.RequireGradeOfFinalityEqual(t, n.Peers(), map[string]tests.ExpectedState{
-		tx.ID().Base58(): {
-			GradeOfFinality: tests.GoFPointer(gof.High),
-		},
-	}, tests.Timeout, tests.Tick)
-
-	aManaReceiverCurrMana, err := nonFaucetPeers[0].GetManaFullNodeID(base58.Encode(aManaReceiver.Bytes()))
-	require.NoError(t, err)
-	cManaReceiverCurrMana, err := nonFaucetPeers[0].GetManaFullNodeID(base58.Encode(cManaReceiver.Bytes()))
-	require.NoError(t, err)
-
-	// check that the pledge actually worked
-	require.True(t, aManaReceiverCurrMana.Access > 0)
-	require.True(t, cManaReceiverCurrMana.Consensus > 0)
 }
 
 func checkAliasOutputOnAllPeers(t *testing.T, peers []*framework.Node, aliasAddr *devnetvm.AliasAddress) utxo.OutputID {
