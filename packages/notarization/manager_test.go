@@ -17,14 +17,14 @@ import (
 func TestNewManager(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	vm := new(devnetvm.VM)
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
+	m := NewManager(epoch.NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
 	assert.NotNil(t, m)
 }
 
 func TestManager_PendingConflictsCount(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	vm := new(devnetvm.VM)
-	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
+	m := NewManager(epoch.NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle)
 	m.pendingConflictsCount[3] = 3
 	assert.Equal(t, uint64(3), m.PendingConflictsCount(3))
 }
@@ -77,5 +77,5 @@ func testNotarizationManager() *Manager {
 	testTangle := tangle.NewTestTangle()
 	interval := 5 * time.Minute
 	vm := new(devnetvm.VM)
-	return NewManager(NewEpochManager(GenesisTime(t), Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
+	return NewManager(epoch.NewEpochManager(epoch.GenesisTime(t), epoch.Duration(interval)), NewEpochCommitmentFactory(testTangle.Options.Store, vm, testTangle), testTangle, MinCommittableEpochAge(10*time.Minute))
 }

@@ -25,7 +25,7 @@ const (
 // Manager is the notarization manager.
 type Manager struct {
 	tangle                      *tangle.Tangle
-	epochManager                *EpochManager
+	epochManager                *epoch.Manager
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
@@ -36,7 +36,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
+func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,

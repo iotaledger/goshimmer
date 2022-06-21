@@ -11,7 +11,7 @@ import (
 
 func TestEpochManager(t *testing.T) {
 	genesisTime := time.Now()
-	manager := NewEpochManager(GenesisTime(genesisTime.Unix()), Duration(10*time.Second))
+	manager := epoch.NewEpochManager(epoch.GenesisTime(genesisTime.Unix()), epoch.Duration(10*time.Second))
 
 	{
 		// ei = 0
