@@ -194,11 +194,20 @@ func (t *TimeManager) updateTime(message *Message) {
 	if t.lastAcceptedMessage.MessageTime.After(message.IssuingTime()) {
 		return
 	}
+
 	t.lastAcceptedMessage = LastMessage{
 		MessageID:   message.ID(),
 		MessageTime: message.IssuingTime(),
 		UpdateTime:  time.Now(),
 	}
+
+	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
+		NewTime: t.lastAcceptedMessage.UpdateTime,
+	})
+
+	t.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
+		NewTime: t.lastAcceptedMessage.UpdateTime,
+	})
 }
 
 func (t *TimeManager) lastAcceptedTime() time.Time {

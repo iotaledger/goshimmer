@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"container/heap"
 	"fmt"
 	"sync"
 	"time"
@@ -8,93 +9,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/timedexecutor"
-	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
-
-// region TimedTaskExecutor ////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimedTaskExecutor is a TimedExecutor that internally manages the scheduled callbacks as tasks with a unique
-// identifier. It allows to replace existing scheduled tasks and cancel them using the same identifier.
-type TimedTaskExecutor struct {
-	*timedexecutor.TimedExecutor
-	queuedElements      map[interface{}]*timedqueue.QueueElement
-	queuedElementsMutex sync.Mutex
-}
-
-// NewTimedTaskExecutor is the constructor of the TimedTaskExecutor.
-func NewTimedTaskExecutor(workerCount int) *TimedTaskExecutor {
-	return &TimedTaskExecutor{
-		TimedExecutor:  timedexecutor.New(workerCount),
-		queuedElements: make(map[interface{}]*timedqueue.QueueElement),
-	}
-}
-
-// ExecuteAfter executes the given function after the given delay.
-func (t *TimedTaskExecutor) ExecuteAfter(identifier interface{}, callback func(), delay time.Duration) *timedexecutor.ScheduledTask {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if queuedElementExists {
-		queuedElement.Cancel()
-	}
-
-	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAfter(func() {
-		callback()
-
-		t.queuedElementsMutex.Lock()
-		defer t.queuedElementsMutex.Unlock()
-
-		delete(t.queuedElements, identifier)
-	}, delay)
-
-	return t.queuedElements[identifier]
-}
-
-// ExecuteAt executes the given function at the given time.
-func (t *TimedTaskExecutor) ExecuteAt(identifier interface{}, callback func(), executionTime time.Time) *timedexecutor.ScheduledTask {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if queuedElementExists {
-		queuedElement.Cancel()
-	}
-
-	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAt(func() {
-		callback()
-
-		t.queuedElementsMutex.Lock()
-		defer t.queuedElementsMutex.Unlock()
-
-		delete(t.queuedElements, identifier)
-	}, executionTime)
-
-	return t.queuedElements[identifier]
-}
-
-// Cancel cancels a queued task.
-func (t *TimedTaskExecutor) Cancel(identifier interface{}) (canceled bool) {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if !queuedElementExists {
-		return
-	}
-
-	queuedElement.Cancel()
-	delete(t.queuedElements, identifier)
-
-	return true
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -104,26 +23,28 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 type TipManager struct {
 	tangle              *Tangle
 	tips                *randommap.RandomMap[MessageID, MessageID]
-	tipsCleaner         *TimedTaskExecutor
+	tipsCleaner         *TipsCleaner
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
-	tipSelector := &TipManager{
+	tipManager := &TipManager{
 		tangle:              tangle,
 		tips:                randommap.New[MessageID, MessageID](),
-		tipsCleaner:         NewTimedTaskExecutor(1),
 		tipsConflictTracker: NewTipsConflictTracker(tangle),
 		Events:              newTipManagerEvents(),
 	}
-
+	tipManager.tipsCleaner = &TipsCleaner{
+		heap:       make([]*QueueElement, 0),
+		tipManager: tipManager,
+	}
 	if tips != nil {
-		tipSelector.set(tips...)
+		tipManager.set(tips...)
 	}
 
-	return tipSelector
+	return tipManager
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
@@ -132,16 +53,16 @@ func (t *TipManager) Setup() {
 		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
-	t.Events.TipRemoved.Attach(event.NewClosure(func(tipEvent *TipEvent) {
-		t.tipsCleaner.Cancel(tipEvent.MessageID)
-	}))
-
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
 		t.removeStrongParents(event.Message)
 	}))
 
 	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
 		t.deleteTip(event.Block.ID())
+	}))
+
+	t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
+		t.tipsCleaner.RemoveBefore(event.NewTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
 	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {
@@ -207,10 +128,7 @@ func (t *TipManager) addTip(message *Message) (added bool) {
 			MessageID: messageID,
 		})
 
-		t.tipsCleaner.ExecuteAt(messageID, func() {
-			t.deleteTip(messageID)
-		}, message.IssuingTime().Add(tipLifeGracePeriod))
-
+		t.tipsCleaner.Add(message.IssuingTime(), messageID)
 		return true
 	}
 
@@ -529,7 +447,99 @@ func (t *TipManager) TipCount() int {
 
 // Shutdown stops the TipManager.
 func (t *TipManager) Shutdown() {
-	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region QueueElement /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// QueueElement is an element in the TimedQueue. It
+type QueueElement struct {
+	// Value represents the value of the queued element.
+	Value MessageID
+
+	// Key represents the time of the element to be used as a key.
+	Key time.Time
+
+	index int
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type TipsCleaner struct {
+	heap       TimedHeap
+	tipManager *TipManager
+	heapMutex  sync.RWMutex
+}
+
+// Add adds a new element to the heap.
+func (t *TipsCleaner) Add(key time.Time, value MessageID) {
+	t.heapMutex.Lock()
+	defer t.heapMutex.Unlock()
+	heap.Push(&t.heap, &QueueElement{Value: value, Key: key})
+}
+
+// RemoveBefore removes the elements with key time earlier than the given time.
+func (t *TipsCleaner) RemoveBefore(minAllowedTime time.Time) {
+	t.heapMutex.Lock()
+	defer t.heapMutex.Unlock()
+	popCounter := 0
+	for i := 0; i < t.heap.Len(); i++ {
+		if t.heap[i].Key.After(minAllowedTime) {
+			break
+		}
+		popCounter++
+
+	}
+	for i := 0; i < popCounter; i++ {
+		message := heap.Pop(&t.heap)
+		t.tipManager.deleteTip(message.(*QueueElement).Value)
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimedHeap defines a heap based on times.
+type TimedHeap []*QueueElement
+
+// Len is the number of elements in the collection.
+func (h TimedHeap) Len() int {
+	return len(h)
+}
+
+// Less reports whether the element with index i should sort before the element with index j.
+func (h TimedHeap) Less(i, j int) bool {
+	return h[i].Key.Before(h[j].Key)
+}
+
+// Swap swaps the elements with indexes i and j.
+func (h TimedHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index, h[j].index = i, j
+}
+
+// Push adds x as the last element to the heap.
+func (h *TimedHeap) Push(x interface{}) {
+	data := x.(*QueueElement)
+	*h = append(*h, data)
+	data.index = len(*h) - 1
+}
+
+// Pop removes and returns the last element of the heap.
+func (h *TimedHeap) Pop() interface{} {
+	n := len(*h)
+	data := (*h)[n-1]
+	(*h)[n-1] = nil // avoid memory leak
+	*h = (*h)[:n-1]
+	data.index = -1
+	return data
+}
+
+// interface contract (allow the compiler to check if the implementation has all the required methods).
+var _ heap.Interface = &TimedHeap{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
