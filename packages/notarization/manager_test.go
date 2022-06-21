@@ -282,20 +282,32 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 				assert.Equal(t, epoch.Index(3), msg.EI())
 			},
 		},
-		// Message6 TX2, issuing time epoch 6
+		// Message6 TX2, issuing time epoch 5
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
-				time.Sleep(epochInterval)
-				eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(3))
 				fmt.Println("message 6")
 			},
 
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message6")
-				assert.Equal(t, epoch.Index(4), msg.EI())
+				assert.Equal(t, epoch.Index(3), msg.EI())
 			},
 		},
 		// Message7, issuing time epoch 6
+		{
+			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				time.Sleep(epochInterval)
+				eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
+				fmt.Println("message 7")
+			},
+
+			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
+				msg := testFramework.Message("Message7")
+				assert.Equal(t, epoch.Index(4), msg.EI())
+			},
+		},
+		// Message8, issuing time epoch 6
 		{
 			Pre: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				eventHandlerMock.Expect("EpochCommitted", epoch.Index(4))
@@ -305,9 +317,6 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 			Post: func(t *testing.T, testFramework *tangle.MessageTestFramework, testEventMock *tangle.EventMock, nodes tangle.NodeIdentities) {
 				msg := testFramework.Message("Message7")
 				assert.Equal(t, epoch.Index(4), msg.EI())
-				fmt.Println(testFramework.TransactionMetadata("Message5").GradeOfFinality())
-				fmt.Println(testFramework.MessageMetadata("Message5").GradeOfFinality())
-				fmt.Println(testFramework.MessageMetadata("Message6").GradeOfFinality())
 				assertExistenceOfTransaction(t, testFramework, m, []string{
 					"Message5",
 					"Message6",
@@ -329,17 +338,19 @@ func TestManager_UpdateStateMutationTree(t *testing.T) {
 
 func assertExistenceOfBlock(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
 	for _, alias := range aliasNames {
-		_, err := m.GetBlockInclusionProof(testFramework.Message(alias).ID())
+		p, err := m.GetBlockInclusionProof(testFramework.Message(alias).ID())
 		require.NoError(t, err)
-		fmt.Println(alias)
+		valid := m.epochCommitmentFactory.VerifyTangleRoot(*p, testFramework.Message(alias).ID())
+		assert.True(t, valid)
 	}
 }
 
 func assertExistenceOfTransaction(t *testing.T, testFramework *tangle.MessageTestFramework, m *Manager, aliasNames []string) {
 	for _, alias := range aliasNames {
-		_, err := m.GetTransactionInclusionProof(testFramework.Transaction(alias).ID())
+		p, err := m.GetTransactionInclusionProof(testFramework.Transaction(alias).ID())
 		require.NoError(t, err)
-		fmt.Println(alias)
+		valid := m.epochCommitmentFactory.VerifyStateMutationRoot(*p, testFramework.TransactionID(alias))
+		assert.True(t, valid)
 	}
 }
 

@@ -660,7 +660,7 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
 			require.NoError(t, err)
 
-			testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("B"), WithOutput("D", 500), WithECRecord(ecRecord))
+			testFramework.CreateMessage("Message6", WithStrongParents("Message5"), WithIssuer(nodes["E"].PublicKey()), WithInputs("B"), WithOutput("D", 500), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
 		},
 		// ISSUE Message7
@@ -668,8 +668,16 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
 			require.NoError(t, err)
 
-			testFramework.CreateMessage("Message7", WithStrongParents("Message5", "Message6"), WithIssuer(nodes["C"].PublicKey()), WithInputs("C"), WithOutput("E", 500), WithECRecord(ecRecord))
+			testFramework.CreateMessage("Message7", WithStrongParents("Message6"), WithIssuer(nodes["C"].PublicKey()), WithInputs("C"), WithOutput("E", 500), WithECRecord(ecRecord))
 			testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message8
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+
+			testFramework.CreateMessage("Message8", WithStrongParents("Message7"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 		},
 	}
 	return s
