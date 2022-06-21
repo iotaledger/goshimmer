@@ -43,6 +43,7 @@ type MessageTestFramework struct {
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
 	snapshot                 *ledger.Snapshot
+	outputCounter            uint16
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -289,23 +290,26 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	for alias, balance := range m.options.genesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputsWithMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputsWithMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 
 	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
 	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputsWithMetadata []*ledger.OutputWithMetadata) {
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet
 
 	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(len(outputsWithMetadata))))
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
+	m.outputCounter++
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetGradeOfFinality(gof.High)
@@ -313,11 +317,12 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
 
-	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata))
-
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
+
+	return outputWithMetadata
 }
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
