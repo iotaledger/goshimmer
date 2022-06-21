@@ -96,11 +96,15 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
+	tm := deps.Tangle.TimeManager
+	lcm := tm.LastAcceptedMessage()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:    deps.Tangle.TimeManager.Synced(),
-		Time:      lcm.Time.UnixNano(),
-		MessageID: lcm.MessageID.Base58(),
+		Synced:            deps.Tangle.TimeManager.Synced(),
+		AcceptedMessageID: lcm.MessageID.Base58(),
+		ATT:               tm.ATT().UnixNano(),
+		RATT:              tm.RATT().UnixNano(),
+		CTT:               tm.CTT().UnixNano(),
+		RCTT:              tm.RCTT().UnixNano(),
 	}
 
 	t := time.Now()

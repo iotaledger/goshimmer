@@ -31,19 +31,20 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, EmptyMessageID)
 	}
-
+	fmt.Println("send genesis")
 	// without any count -> 1 tip, in this case genesis
 	{
 		parents := tipManager.Tips(nil, 0)
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, EmptyMessageID)
 	}
-
+	fmt.Println("send msg1")
 	// Message 1
 	{
 		messages["1"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
 		tipManager.AddTip(messages["1"])
 		tangle.TimeManager.updateTime(messages["1"])
+		tangle.TimeManager.updateSyncedState()
 
 		assert.Equal(t, 1, tipManager.TipCount())
 		assert.Contains(t, tipManager.tips.Keys(), messages["1"].ID())
@@ -52,7 +53,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, messages["1"].ID())
 	}
-
+	fmt.Println("send msg2")
 	// Message 2
 	{
 		messages["2"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(EmptyMessageID), NewMessageIDs())
@@ -65,7 +66,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Len(t, parents, 2)
 		assert.Contains(t, parents, messages["1"].ID(), messages["2"].ID())
 	}
-
+	fmt.Println("send msg3")
 	// Message 3
 	{
 		messages["3"] = createAndStoreParentsDataMessageInMasterBranch(tangle, NewMessageIDs(messages["1"].ID(), messages["2"].ID()), NewMessageIDs())
@@ -78,7 +79,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		assert.Len(t, parents, 1)
 		assert.Contains(t, parents, messages["3"].ID())
 	}
-
+	fmt.Println("send msg3")
 	// Add Message 4-8
 	{
 		tips := NewMessageIDs()
@@ -92,6 +93,7 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 			assert.Equalf(t, count+2, tipManager.TipCount(), "TipCount does not match after adding Message %d", n)
 			assert.ElementsMatchf(t, tipManager.tips.Keys(), tips.Slice(), "Elements in strongTips do not match after adding Message %d", n)
 			assert.Contains(t, tipManager.tips.Keys(), messages["3"].ID())
+			fmt.Println("send msg", n)
 		}
 	}
 
@@ -101,16 +103,19 @@ func TestTipManager_DataMessageTips(t *testing.T) {
 		parents := tipManager.Tips(nil, 4)
 		assert.Len(t, parents, 4)
 	}
+	fmt.Println("select tip1")
 	// Tips(8) -> 6
 	{
 		parents := tipManager.Tips(nil, 8)
 		assert.Len(t, parents, 6)
 	}
+	fmt.Println("select tip2")
 	// Tips(0) -> 1
 	{
 		parents := tipManager.Tips(nil, 0)
 		assert.Len(t, parents, 1)
 	}
+	fmt.Println("select tip3")
 }
 
 // TODO: FIX
@@ -432,6 +437,7 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 
 	tangle.ConfirmationOracle = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
 	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
+	tangle.TimeManager.updateSyncedState()
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
@@ -460,6 +466,16 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
 	// case #11
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
+	//case #12 (attach to 0/1-postTSCSeq3_4)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSCSeq3_4").ID()))
+	//case #13 (attach to unconfirmed message younger than TSC, with confirmed past marker older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC_2").ID()))
+	//case #14
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("6/2_4").ID()))
+	//case #15
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq5_4").ID()))
+	//case #16
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC-direct_0").ID()))
 }
 
 // Test based on packages/tangle/images/TSC_test_scenario.png.
@@ -495,6 +511,7 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 
 	// = &MockConfirmationOracleTipManagerTest{confirmedMessageIDs: confirmedMessageIDs, confirmedMarkers: confirmedMarkers}
 	tangle.TimeManager.updateTime(testFramework.Message("Marker-2/3"))
+	tangle.TimeManager.updateSyncedState()
 
 	// Even without any confirmations, it should be possible to attach to genesis.
 	assert.True(t, tipManager.isPastConeTimestampCorrect(EmptyMessageID))
@@ -513,16 +530,26 @@ func TestTipManager_TimeSinceConfirmation_Confirmed(t *testing.T) {
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/5_4").ID()))
 	// case #6 (attach to unconfirmed message older than TSC)
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSC_2").ID()))
-	// // case #7
+	// case #7
 	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("3/2_4").ID()))
 	// case #8
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("2/3+0/4_3").ID()))
 	// case #9
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("Marker-4/5").ID()))
 	// case #10 (attach to confirmed message older than TSC)
-	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq2_2").ID()))
 	// case #11
 	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("5/2_4").ID()))
+	//case #12 (attach to 0/1-postTSCSeq3_4)
+	assert.True(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSCSeq3_4").ID()))
+	//case #13 (attach to unconfirmed message younger than TSC, with confirmed past marker older than TSC)
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC_2").ID()))
+	//case #14
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("6/2_4").ID()))
+	//case #15
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-preTSCSeq5_4").ID()))
+	//case #16
+	assert.False(t, tipManager.isPastConeTimestampCorrect(testFramework.Message("0/1-postTSC-direct_0").ID()))
 }
 
 func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
@@ -551,6 +578,10 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 		testFramework.PreventNewMarkers(true)
 		_ = issueMessages(testFramework, "0/4", 5, []string{"Marker-0/4"}, 0)
 		testFramework.PreventNewMarkers(false)
+
+		// issue message for test case #16
+		testFramework.CreateMessage("0/1-postTSC-direct_0", WithStrongParents("Marker-0/1"))
+		testFramework.IssueMessages("0/1-postTSC-direct_0").WaitUntilAllTasksProcessed()
 
 		checkMarkers(t, testFramework, map[string]*markers.Markers{
 			"Marker-0/1":    markers.NewMarkers(markers.NewMarker(0, 1)),
@@ -681,7 +712,7 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 	// SEQUENCE 3
 	{
 		testFramework.PreventNewMarkers(true)
-		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 6, []string{"0/1-preTSCSeq2_2"}, 0)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq3", 5, []string{"0/1-postTSCSeq2_0"}, 0)
 		testFramework.PreventNewMarkers(false)
 		testFramework.CreateMessage("Marker-3/2", WithStrongParents(lastMsgAlias))
 		testFramework.IssueMessages("Marker-3/2").WaitUntilAllTasksProcessed()
@@ -743,6 +774,32 @@ func createTestTangleTSC(t *testing.T, testFramework *MessageTestFramework) {
 			"5/2_2":            markers.NewMarkers(markers.NewMarker(5, 2)),
 			"5/2_3":            markers.NewMarkers(markers.NewMarker(5, 2)),
 			"5/2_4":            markers.NewMarkers(markers.NewMarker(5, 2)),
+		})
+	}
+
+	// SEQUENCE 6
+	{
+		testFramework.PreventNewMarkers(true)
+		lastMsgAlias = issueMessages(testFramework, "0/1-postTSCSeq6", 6, []string{"0/1-preTSCSeq2_2"}, 0)
+		testFramework.PreventNewMarkers(false)
+		testFramework.CreateMessage("Marker-6/2", WithStrongParents(lastMsgAlias))
+		testFramework.IssueMessages("Marker-6/2").WaitUntilAllTasksProcessed()
+		testFramework.PreventNewMarkers(true)
+		_ = issueMessages(testFramework, "6/2", 5, []string{"Marker-6/2"}, 0)
+		testFramework.PreventNewMarkers(false)
+
+		checkMarkers(t, testFramework, map[string]*markers.Markers{
+			"0/1-postTSCSeq6_0": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_1": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_2": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_3": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"0/1-postTSCSeq6_4": markers.NewMarkers(markers.NewMarker(0, 1)),
+			"Marker-6/2":        markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_0":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_1":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_2":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_3":             markers.NewMarkers(markers.NewMarker(6, 2)),
+			"6/2_4":             markers.NewMarkers(markers.NewMarker(6, 2)),
 		})
 	}
 }

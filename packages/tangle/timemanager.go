@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	lastConfirmedKey = "LastConfirmedMessage"
+	lastConfirmedKey = "LastAcceptedMessage"
 )
 
 // region TimeManager //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,10 +31,11 @@ type TimeManager struct {
 	tangle      *Tangle
 	startSynced bool
 
-	lastConfirmedMutex   sync.RWMutex
-	lastConfirmedMessage LastConfirmedMessage
-	lastSyncedMutex      sync.RWMutex
-	lastSynced           bool
+	lastAcceptedMutex   sync.RWMutex
+	lastAcceptedMessage LastMessage
+	lastSyncedMutex     sync.RWMutex
+	lastSynced          bool
+	bootstrapped        bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -50,9 +51,10 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	t.ctx, t.cancel = context.WithCancel(context.Background())
 
 	// initialize with Genesis
-	t.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID: EmptyMessageID,
-		Time:      time.Unix(DefaultGenesisTime, 0),
+	t.lastAcceptedMessage = LastMessage{
+		MessageID:   EmptyMessageID,
+		MessageTime: time.Unix(DefaultGenesisTime, 0),
+		UpdateTime:  time.Unix(DefaultGenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -61,13 +63,13 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	}
 	// load from storage if key was found
 	if marshaledLastConfirmedMessage != nil {
-		if t.lastConfirmedMessage, _, err = lastConfirmedMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
+		if t.lastAcceptedMessage, _, err = lastMessageFromBytes(marshaledLastConfirmedMessage); err != nil {
 			panic(err)
 		}
 	}
-
 	// initialize the synced status
 	t.lastSynced = t.synced()
+	t.bootstrapped = t.lastSynced
 
 	return t
 }
@@ -81,17 +83,18 @@ func (t *TimeManager) Start() {
 func (t *TimeManager) Setup() {
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
 		t.updateTime(event.Message)
+		t.updateSyncedState()
 	}))
 	t.Start()
 }
 
 // Shutdown shuts down the TimeManager and persists its state.
 func (t *TimeManager) Shutdown() {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastConfirmedMessage.Bytes()); err != nil {
-		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastConfirmedMessage (%v): %w", err, cerrors.ErrFatal))
+	if err := t.tangle.Options.Store.Set(kvstore.Key(lastConfirmedKey), t.lastAcceptedMessage.Bytes()); err != nil {
+		t.tangle.Events.Error.Trigger(errors.Errorf("failed to persists LastAcceptedMessage (%v): %w", err, cerrors.ErrFatal))
 		return
 	}
 
@@ -99,23 +102,58 @@ func (t *TimeManager) Shutdown() {
 	t.cancel()
 }
 
+// LastAcceptedMessage returns the last confirmed message.
+func (t *TimeManager) LastAcceptedMessage() LastMessage {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
+
+	return t.lastAcceptedMessage
+}
+
 // LastConfirmedMessage returns the last confirmed message.
-func (t *TimeManager) LastConfirmedMessage() LastConfirmedMessage {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+func (t *TimeManager) LastConfirmedMessage() LastMessage {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastConfirmedMessage
+	return t.lastAcceptedMessage
 }
 
-// Time returns the TangleTime, i.e., the issuing time of the last confirmed message.
-func (t *TimeManager) Time() time.Time {
-	t.lastConfirmedMutex.RLock()
-	defer t.lastConfirmedMutex.RUnlock()
+// ATT returns the Acceptance Tangle Time, i.e., the issuing time of the last accepted message.
+func (t *TimeManager) ATT() time.Time {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
 
-	return t.lastConfirmedMessage.Time
+	return t.lastAcceptedMessage.MessageTime
 }
 
-// Synced returns whether the node is in sync based on the difference between TangleTime and current wall time which can
+// CTT returns the confirmed tangle time, i.e. the issuing time of the last confirmed message.
+// For now, it's just a stub, it actually returns ATT.
+func (t *TimeManager) CTT() time.Time {
+	return t.ATT()
+}
+
+// RATT return relative acceptance tangle time, i.e., ATT + time since last update of ATT.
+func (t *TimeManager) RATT() time.Time {
+	timeSinceLastUpdate := time.Now().Sub(t.lastAcceptedTime())
+	return t.ATT().Add(timeSinceLastUpdate)
+}
+
+// RCTT return relative acceptance tangle time, i.e., CTT + time since last update of CTT.
+// For now, it's just a stub, it actually returns RATT.
+func (t *TimeManager) RCTT() time.Time {
+	return t.RATT()
+}
+
+// Bootstrapped returns whether the node has bootstrapped based on the difference between CTT and the current wall time which can
+// be configured via SyncTimeWindow.
+// When the node becomes bootstrapped and this method returns true, it can't return false after that.
+func (t *TimeManager) Bootstrapped() bool {
+	t.lastSyncedMutex.RLock()
+	defer t.lastSyncedMutex.RUnlock()
+	return t.bootstrapped
+}
+
+// Synced returns whether the node is in sync based on the difference between CTT and the current wall time which can
 // be configured via SyncTimeWindow.
 func (t *TimeManager) Synced() bool {
 	t.lastSyncedMutex.RLock()
@@ -124,11 +162,11 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.lastConfirmedMessage.Time.Unix() == DefaultGenesisTime {
+	if t.startSynced && t.CTT().Unix() == DefaultGenesisTime {
 		return true
 	}
 
-	return clock.Since(t.lastConfirmedMessage.Time) < t.tangle.Options.SyncTimeWindow
+	return clock.Since(t.CTT()) < t.tangle.Options.SyncTimeWindow
 }
 
 // checks whether the synced state needs to be updated and if so,
@@ -140,24 +178,40 @@ func (t *TimeManager) updateSyncedState() {
 		t.lastSynced = newSynced
 		// trigger the event inside the lock to assure that the status is still correct
 		t.Events.SyncChanged.Trigger(&SyncChangedEvent{Synced: newSynced})
+		if newSynced {
+			t.bootstrapped = true
+		}
 	}
 }
 
 // updateTime updates the last confirmed message.
 func (t *TimeManager) updateTime(message *Message) {
-	t.lastConfirmedMutex.Lock()
-	defer t.lastConfirmedMutex.Unlock()
+	t.lastAcceptedMutex.Lock()
+	defer t.lastAcceptedMutex.Unlock()
 
-	if t.lastConfirmedMessage.Time.After(message.IssuingTime()) {
+	if t.lastAcceptedMessage.MessageTime.After(message.IssuingTime()) {
 		return
 	}
 
-	t.lastConfirmedMessage = LastConfirmedMessage{
-		MessageID: message.ID(),
-		Time:      message.IssuingTime(),
+	t.lastAcceptedMessage = LastMessage{
+		MessageID:   message.ID(),
+		MessageTime: message.IssuingTime(),
+		UpdateTime:  time.Now(),
 	}
 
-	t.updateSyncedState()
+	t.Events.AcceptanceTimeUpdated.Trigger(&TimeUpdate{
+		NewTime: t.lastAcceptedMessage.UpdateTime,
+	})
+
+	t.Events.ConfirmedTimeUpdated.Trigger(&TimeUpdate{
+		NewTime: t.lastAcceptedMessage.UpdateTime,
+	})
+}
+
+func (t *TimeManager) lastAcceptedTime() time.Time {
+	t.lastAcceptedMutex.RLock()
+	defer t.lastAcceptedMutex.RUnlock()
+	return t.lastAcceptedMessage.UpdateTime
 }
 
 // the main loop runs the updateSyncedState at least every synced time window interval to keep the synced state updated
@@ -173,16 +227,19 @@ func (t *TimeManager) mainLoop() {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region LastConfirmedMessage /////////////////////////////////////////////////////////////////////////////////////////
+// region LastAcceptedMessage /////////////////////////////////////////////////////////////////////////////////////////
 
-// LastConfirmedMessage is a wrapper type for the last confirmed message, consisting of MessageID and time.
-type LastConfirmedMessage struct {
+// LastMessage is a wrapper type for the last confirmed message, consisting of MessageID, MessageTime and UpdateTime.
+type LastMessage struct {
 	MessageID MessageID `serix:"0"`
-	Time      time.Time `serix:"1"`
+	// MessageTime field is the time of the last confirmed message.
+	MessageTime time.Time `serix:"1"`
+	// UpdateTime field is the time when the last confirmed message was updated.
+	UpdateTime time.Time `serix:"2"`
 }
 
-// lastConfirmedMessageFromBytes unmarshals a LastConfirmedMessage object from a sequence of bytes.
-func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consumedBytes int, err error) {
+// lastMessageFromBytes unmarshals a LastMessage object from a sequence of bytes.
+func lastMessageFromBytes(data []byte) (lcm LastMessage, consumedBytes int, err error) {
 	consumedBytes, err = serix.DefaultAPI.Decode(context.Background(), data, &lcm, serix.WithValidation())
 	if err != nil {
 		err = errors.Errorf("failed to parse Background: %w", err)
@@ -191,8 +248,8 @@ func lastConfirmedMessageFromBytes(data []byte) (lcm LastConfirmedMessage, consu
 	return
 }
 
-// Bytes returns a marshaled version of the LastConfirmedMessage.
-func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
+// Bytes returns a marshaled version of the LastMessage.
+func (l LastMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	objBytes, err := serix.DefaultAPI.Encode(context.Background(), l, serix.WithValidation())
 	if err != nil {
 		// TODO: what do?
@@ -201,11 +258,12 @@ func (l LastConfirmedMessage) Bytes() (marshaledLastConfirmedMessage []byte) {
 	return objBytes
 }
 
-// String returns a human readable version of the LastConfirmedMessage.
-func (l LastConfirmedMessage) String() string {
-	return stringify.Struct("LastConfirmedMessage",
+// String returns a human-readable version of the LastMessage.
+func (l LastMessage) String() string {
+	return stringify.Struct("LastMessage",
 		stringify.StructField("MessageID", l.MessageID),
-		stringify.StructField("Time", l.Time),
+		stringify.StructField("MessageTime", l.MessageTime),
+		stringify.StructField("UpdateTime", l.UpdateTime),
 	)
 }
 

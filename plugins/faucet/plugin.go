@@ -134,11 +134,11 @@ func run(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker(PluginName, func(ctx context.Context) {
 		defer plugin.LogInfof("Stopping %s ... done", PluginName)
 
-		plugin.LogInfo("Waiting for node to become synced...")
-		if !waitUntilSynced(ctx) {
+		plugin.LogInfo("Waiting for node to become bootstrapped...")
+		if !waitUntilBootstrapped(ctx) {
 			return
 		}
-		plugin.LogInfo("Waiting for node to become synced... done")
+		plugin.LogInfo("Waiting for node to become bootstrapped... done")
 
 		plugin.LogInfo("Waiting for node to have sufficient access mana")
 		if err := waitForMana(ctx); err != nil {
@@ -168,9 +168,9 @@ func run(plugin *node.Plugin) {
 	}
 }
 
-func waitUntilSynced(ctx context.Context) bool {
+func waitUntilBootstrapped(ctx context.Context) bool {
 	// if we are already synced, there is no need to wait for the event
-	if deps.Tangle.TimeManager.Synced() {
+	if deps.Tangle.TimeManager.Bootstrapped() {
 		return true
 	}
 

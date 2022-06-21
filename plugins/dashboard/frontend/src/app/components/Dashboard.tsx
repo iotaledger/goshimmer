@@ -14,6 +14,7 @@ import MemChart from "app/components/MemChart";
 import ComponentCounterChart from "app/components/ComponentCounterChart";
 import TangleTime from "app/components/TangleTime";
 import Scheduler from "app/components/Scheduler";
+import Bootstrapped from "app/components/Bootstrapped";
 
 interface Props {
     nodeStore?: NodeStore;
@@ -35,6 +36,11 @@ export class Dashboard extends React.Component<Props, any> {
                                     <Col>
                                         <ListGroup variant={"flush"}>
                                             <ListGroup.Item><Uptime/></ListGroup.Item>
+                                        </ListGroup>
+                                    </Col>
+                                    <Col>
+                                        <ListGroup variant={"flush"}>
+                                            <ListGroup.Item><Bootstrapped/></ListGroup.Item>
                                         </ListGroup>
                                     </Col>
                                     <Col>

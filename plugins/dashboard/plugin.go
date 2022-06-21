@@ -189,8 +189,6 @@ const (
 	MsgTypeManaInitDone
 	// MsgManaDashboardAddress is the socket address of the dashboard to stream mana from.
 	MsgManaDashboardAddress
-	// MsgTypeMsgOpinionFormed defines a tip info message.
-	MsgTypeMsgOpinionFormed
 	// MsgTypeChat defines a chat message.
 	MsgTypeChat
 	// MsgTypeRateSetterMetric defines rate setter metrics.
@@ -222,9 +220,15 @@ type nodestatus struct {
 }
 
 type tangleTime struct {
-	Synced    bool   `json:"synced"`
-	Time      int64  `json:"time"`
-	MessageID string `json:"messageID"`
+	Synced       bool  `json:"synced"`
+	Bootstrapped bool  `json:"bootstrapped"`
+	ATT          int64 `json:"ATT"`
+	RATT         int64 `json:"RATT"`
+	CTT          int64 `json:"CTT"`
+	RCTT         int64 `json:"RCTT"`
+
+	AcceptedMessageID  string `json:"acceptedMessageID"`
+	ConfirmedMessageID string `json:"confirmedMessageID"`
 }
 
 type memmetrics struct {
@@ -330,11 +334,16 @@ func currentNodeStatus() *nodestatus {
 	}
 
 	// get TangleTime
-	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
+	tm := deps.Tangle.TimeManager
 	status.TangleTime = tangleTime{
-		Synced:    deps.Tangle.TimeManager.Synced(),
-		Time:      lcm.Time.UnixNano(),
-		MessageID: lcm.MessageID.Base58(),
+		Synced:             tm.Synced(),
+		Bootstrapped:       tm.Bootstrapped(),
+		AcceptedMessageID:  tm.LastAcceptedMessage().MessageID.Base58(),
+		ConfirmedMessageID: tm.LastConfirmedMessage().MessageID.Base58(),
+		ATT:                tm.ATT().UnixNano(),
+		RATT:               tm.RATT().UnixNano(),
+		CTT:                tm.CTT().UnixNano(),
+		RCTT:               tm.RCTT().UnixNano(),
 	}
 
 	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()

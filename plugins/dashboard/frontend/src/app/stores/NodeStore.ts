@@ -1,6 +1,6 @@
-import { action, computed, observable, ObservableMap } from 'mobx';
+import {action, computed, observable, ObservableMap} from 'mobx';
 import * as dateformat from 'dateformat';
-import { connectWebSocket, registerHandler, unregisterHandler, WSMsgType } from "app/misc/WS";
+import {connectWebSocket, registerHandler, unregisterHandler, WSMsgType} from "app/misc/WS";
 
 class MPSMetric {
     mps: number;
@@ -18,8 +18,14 @@ class Status {
 
 class TangleTime {
     synced: boolean;
-    time: number;
-    messageID: string;
+    bootstrapped: boolean;
+    ATT: number;
+    RATT: number;
+    CTT: number;
+    RCTT: number;
+    acceptedMessageID: string;
+    confirmedMessageID: string;
+
 }
 
 class MemoryMetrics {
@@ -199,7 +205,10 @@ export class NodeStore {
 
     constructor() {
         this.status.tangleTime = new TangleTime;
-        this.status.tangleTime.time = 0;
+        this.status.tangleTime.ATT = 0;
+        this.status.tangleTime.RATT = 0;
+        this.status.tangleTime.CTT = 0;
+        this.status.tangleTime.RCTT = 0;
         this.registerHandlers();
     }
 

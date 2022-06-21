@@ -13,7 +13,7 @@ type CollectionLogEvents struct {
 	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-func newCollectionLogEvents() (newEvents *CollectionLogEvents) {
+func newCollectionLogEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
 		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
@@ -34,8 +34,14 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// LastConfirmedMessageTime contains time of the last confirmed message
-	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
+	// ATT contains time of the last accepted message
+	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
+	// RATT contains relative time of the last accepted message
+	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
+	// CTT contains time of the last confirmed message
+	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
+	// RCTT contains relative time of the last confirmed message
+	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
 // SchedulerQueryEvent is used to trigger scheduler metric collection for remote metric monitoring.

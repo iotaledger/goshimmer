@@ -1,6 +1,7 @@
 package tangle
 
 import (
+	"container/heap"
 	"fmt"
 	"sync"
 	"time"
@@ -8,93 +9,11 @@ import (
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/generics/randommap"
 	"github.com/iotaledger/hive.go/generics/walker"
-	"github.com/iotaledger/hive.go/timedexecutor"
-	"github.com/iotaledger/hive.go/timedqueue"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/markers"
 	"github.com/iotaledger/goshimmer/packages/tangle/payload"
 )
-
-// region TimedTaskExecutor ////////////////////////////////////////////////////////////////////////////////////////////
-
-// TimedTaskExecutor is a TimedExecutor that internally manages the scheduled callbacks as tasks with a unique
-// identifier. It allows to replace existing scheduled tasks and cancel them using the same identifier.
-type TimedTaskExecutor struct {
-	*timedexecutor.TimedExecutor
-	queuedElements      map[interface{}]*timedqueue.QueueElement
-	queuedElementsMutex sync.Mutex
-}
-
-// NewTimedTaskExecutor is the constructor of the TimedTaskExecutor.
-func NewTimedTaskExecutor(workerCount int) *TimedTaskExecutor {
-	return &TimedTaskExecutor{
-		TimedExecutor:  timedexecutor.New(workerCount),
-		queuedElements: make(map[interface{}]*timedqueue.QueueElement),
-	}
-}
-
-// ExecuteAfter executes the given function after the given delay.
-func (t *TimedTaskExecutor) ExecuteAfter(identifier interface{}, callback func(), delay time.Duration) *timedexecutor.ScheduledTask {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if queuedElementExists {
-		queuedElement.Cancel()
-	}
-
-	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAfter(func() {
-		callback()
-
-		t.queuedElementsMutex.Lock()
-		defer t.queuedElementsMutex.Unlock()
-
-		delete(t.queuedElements, identifier)
-	}, delay)
-
-	return t.queuedElements[identifier]
-}
-
-// ExecuteAt executes the given function at the given time.
-func (t *TimedTaskExecutor) ExecuteAt(identifier interface{}, callback func(), executionTime time.Time) *timedexecutor.ScheduledTask {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if queuedElementExists {
-		queuedElement.Cancel()
-	}
-
-	t.queuedElements[identifier] = t.TimedExecutor.ExecuteAt(func() {
-		callback()
-
-		t.queuedElementsMutex.Lock()
-		defer t.queuedElementsMutex.Unlock()
-
-		delete(t.queuedElements, identifier)
-	}, executionTime)
-
-	return t.queuedElements[identifier]
-}
-
-// Cancel cancels a queued task.
-func (t *TimedTaskExecutor) Cancel(identifier interface{}) (canceled bool) {
-	t.queuedElementsMutex.Lock()
-	defer t.queuedElementsMutex.Unlock()
-
-	queuedElement, queuedElementExists := t.queuedElements[identifier]
-	if !queuedElementExists {
-		return
-	}
-
-	queuedElement.Cancel()
-	delete(t.queuedElements, identifier)
-
-	return true
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region TipManager ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -104,26 +23,28 @@ const tipLifeGracePeriod = maxParentsTimeDifference - 1*time.Minute
 type TipManager struct {
 	tangle              *Tangle
 	tips                *randommap.RandomMap[MessageID, MessageID]
-	tipsCleaner         *TimedTaskExecutor
+	tipsCleaner         *TipsCleaner
 	tipsConflictTracker *TipsConflictTracker
 	Events              *TipManagerEvents
 }
 
 // NewTipManager creates a new tip-selector.
 func NewTipManager(tangle *Tangle, tips ...MessageID) *TipManager {
-	tipSelector := &TipManager{
+	tipManager := &TipManager{
 		tangle:              tangle,
 		tips:                randommap.New[MessageID, MessageID](),
-		tipsCleaner:         NewTimedTaskExecutor(1),
 		tipsConflictTracker: NewTipsConflictTracker(tangle),
 		Events:              newTipManagerEvents(),
 	}
-
+	tipManager.tipsCleaner = &TipsCleaner{
+		heap:       make([]*QueueElement, 0),
+		tipManager: tipManager,
+	}
 	if tips != nil {
-		tipSelector.set(tips...)
+		tipManager.set(tips...)
 	}
 
-	return tipSelector
+	return tipManager
 }
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of other components.
@@ -132,16 +53,16 @@ func (t *TipManager) Setup() {
 		t.tangle.Storage.Message(event.MessageID).Consume(t.AddTip)
 	}))
 
-	t.Events.TipRemoved.Attach(event.NewClosure(func(tipEvent *TipEvent) {
-		t.tipsCleaner.Cancel(tipEvent.MessageID)
-	}))
-
 	t.tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *MessageConfirmedEvent) {
 		t.removeStrongParents(event.Message)
 	}))
 
 	t.tangle.OrphanageManager.Events.BlockOrphaned.Hook(event.NewClosure(func(event *BlockOrphanedEvent) {
 		t.deleteTip(event.Block.ID())
+	}))
+
+	t.tangle.TimeManager.Events.AcceptanceTimeUpdated.Attach(event.NewClosure(func(event *TimeUpdate) {
+		t.tipsCleaner.RemoveBefore(event.NewTime.Add(-t.tangle.Options.TimeSinceConfirmationThreshold))
 	}))
 
 	t.tangle.OrphanageManager.Events.AllChildrenOrphaned.Hook(event.NewClosure(func(block *Message) {
@@ -207,10 +128,7 @@ func (t *TipManager) addTip(message *Message) (added bool) {
 			MessageID: messageID,
 		})
 
-		t.tipsCleaner.ExecuteAt(messageID, func() {
-			t.deleteTip(messageID)
-		}, message.IssuingTime().Add(tipLifeGracePeriod))
-
+		t.tipsCleaner.Add(message.IssuingTime(), messageID)
 		return true
 	}
 
@@ -270,45 +188,44 @@ func (t *TipManager) Tips(p payload.Payload, countParents int) (parents MessageI
 	return t.selectTips(p, countParents)
 }
 
+// isPastConeTimestampCorrect performs the TSC check for the given tip.
+// Conceptually, this involves the following steps:
+//   1. Collect all confirmed blocks in the tip's past cone at the boundary of confirmed/unconfirmed.
+//   2. Order by timestamp (ascending), if the oldest confirmed block > TSC threshold then return false.
+//
+// This function is optimized through the use of markers and the following assumption:
+//   If there's any unconfirmed block >TSC threshold, then the oldest confirmed block will be >TSC threshold, too.
 func (t *TipManager) isPastConeTimestampCorrect(messageID MessageID) (timestampValid bool) {
-	now := clock.SyncedTime()
-	minSupportedTimestamp := now.Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
+	minSupportedTimestamp := t.tangle.TimeManager.ATT().Add(-t.tangle.Options.TimeSinceConfirmationThreshold)
 	timestampValid = true
 
 	// skip TSC check if no message has been confirmed to allow attaching to genesis
-	if t.tangle.TimeManager.LastConfirmedMessage().MessageID == EmptyMessageID {
+	if t.tangle.TimeManager.LastAcceptedMessage().MessageID == EmptyMessageID {
 		// if the genesis message is the last confirmed message, then there is no point in performing tangle walk
 		// return true so that the network can start issuing messages when the tangle starts
-		return
+		return true
 	}
 
-	// if last confirmed message if older than minSupportedTimestamp, then all tips are invalid
-	if t.tangle.TimeManager.LastConfirmedMessage().Time.Before(minSupportedTimestamp) {
-		return false
-	}
-
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		// selected message is confirmed, therefore it's correct
-		return
-	}
-
-	// selected message is not confirmed and older than TSC
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
 		timestampValid = minSupportedTimestamp.Before(message.IssuingTime())
 	})
+
 	if !timestampValid {
-		// timestamp of the selected message is invalid
-		return
+		return false
+	}
+	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+		// return true if message is confirmed and has valid timestamp
+		return true
 	}
 
 	markerWalker := walker.New[markers.Marker](false)
 	messageWalker := walker.New[MessageID](false)
 
 	t.processMessage(messageID, messageWalker, markerWalker)
-
+	previousMessageID := messageID
 	for markerWalker.HasNext() && timestampValid {
 		marker := markerWalker.Next()
-		timestampValid = t.checkMarker(marker, messageWalker, markerWalker, minSupportedTimestamp)
+		previousMessageID, timestampValid = t.checkMarker(marker, previousMessageID, messageWalker, markerWalker, minSupportedTimestamp)
 	}
 
 	for messageWalker.HasNext() && timestampValid {
@@ -337,24 +254,24 @@ func (t *TipManager) processMessage(messageID MessageID, messageWalker *walker.W
 	})
 }
 
-func (t *TipManager) checkMarker(marker markers.Marker, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (timestampValid bool) {
+func (t *TipManager) checkMarker(marker markers.Marker, previousMessageID MessageID, messageWalker *walker.Walker[MessageID], markerWalker *walker.Walker[markers.Marker], minSupportedTimestamp time.Time) (messageID MessageID, timestampValid bool) {
 	messageID, messageIssuingTime := t.getMarkerMessage(marker)
 
-	// should never enter this condition as other checks before already cover this case, but leaving it just for safety
+	// marker before minSupportedTimestamp
 	if messageIssuingTime.Before(minSupportedTimestamp) {
 		// marker before minSupportedTimestamp
 		if !t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
 			// if unconfirmed, then incorrect
 			markerWalker.StopWalk()
-			return false
+			return messageID, false
 		}
-
-		// if closest past marker is confirmed and before minSupportedTimestamp, then message should be ok
-		return true
+		// if closest past marker is confirmed and before minSupportedTimestamp, then need to walk message past cone of the previously marker message
+		messageWalker.Push(previousMessageID)
+		return messageID, true
 	}
 	// confirmed after minSupportedTimestamp
 	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		return true
+		return messageID, true
 	}
 
 	// unconfirmed after minSupportedTimestamp
@@ -389,7 +306,7 @@ func (t *TipManager) checkMarker(marker markers.Marker, messageWalker *walker.Wa
 			return true
 		})
 	})
-	return true
+	return messageID, true
 }
 
 // isMarkerOldAndConfirmed check whether previousMarker is confirmed and older than minSupportedTimestamp. It is used to check whether to walk messages in the past cone of the current marker.
@@ -403,6 +320,7 @@ func (t *TipManager) isMarkerOldAndConfirmed(previousMarker markers.Marker, minS
 
 func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimestamp time.Time, oldestUnconfirmedMarker markers.Marker) (tscValid bool) {
 	// oldest unconfirmed marker is in the future cone of the past marker (same sequence), therefore past marker is confirmed and there is no need to check
+	// this condition is covered by other checks but leaving it here just for safety
 	if pastMarker.Index() < oldestUnconfirmedMarker.Index() {
 		return true
 	}
@@ -413,17 +331,20 @@ func (t *TipManager) processMarker(pastMarker markers.Marker, minSupportedTimest
 func (t *TipManager) checkMessage(messageID MessageID, messageWalker *walker.Walker[MessageID], minSupportedTimestamp time.Time) (timestampValid bool) {
 	timestampValid = true
 
-	if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
-		return
-	}
 	t.tangle.Storage.Message(messageID).Consume(func(message *Message) {
+		// if message is older than TSC then it's incorrect no matter the confirmation status
 		if message.IssuingTime().Before(minSupportedTimestamp) {
 			timestampValid = false
 			messageWalker.StopWalk()
 			return
 		}
 
-		// walk through strong parents' past cones
+		// if message is younger than TSC and confirmed, then return timestampValid=true
+		if t.tangle.ConfirmationOracle.IsMessageConfirmed(messageID) {
+			return
+		}
+
+		// if message is younger than TSC and not confirmed, walk through strong parents' past cones
 		for parentID := range message.ParentsByType(StrongParentType) {
 			messageWalker.Push(parentID)
 		}
@@ -443,6 +364,7 @@ func (t *TipManager) getMarkerMessage(marker markers.Marker) (markerMessageID Me
 		markerMessageID = message.ID()
 		markerMessageIssuingTime = message.IssuingTime()
 	})
+
 	return
 }
 
@@ -525,7 +447,99 @@ func (t *TipManager) TipCount() int {
 
 // Shutdown stops the TipManager.
 func (t *TipManager) Shutdown() {
-	t.tipsCleaner.Shutdown(timedexecutor.CancelPendingTasks)
 }
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region QueueElement /////////////////////////////////////////////////////////////////////////////////////////////////
+
+// QueueElement is an element in the TimedQueue. It
+type QueueElement struct {
+	// Value represents the value of the queued element.
+	Value MessageID
+
+	// Key represents the time of the element to be used as a key.
+	Key time.Time
+
+	index int
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+type TipsCleaner struct {
+	heap       TimedHeap
+	tipManager *TipManager
+	heapMutex  sync.RWMutex
+}
+
+// Add adds a new element to the heap.
+func (t *TipsCleaner) Add(key time.Time, value MessageID) {
+	t.heapMutex.Lock()
+	defer t.heapMutex.Unlock()
+	heap.Push(&t.heap, &QueueElement{Value: value, Key: key})
+}
+
+// RemoveBefore removes the elements with key time earlier than the given time.
+func (t *TipsCleaner) RemoveBefore(minAllowedTime time.Time) {
+	t.heapMutex.Lock()
+	defer t.heapMutex.Unlock()
+	popCounter := 0
+	for i := 0; i < t.heap.Len(); i++ {
+		if t.heap[i].Key.After(minAllowedTime) {
+			break
+		}
+		popCounter++
+
+	}
+	for i := 0; i < popCounter; i++ {
+		message := heap.Pop(&t.heap)
+		t.tipManager.deleteTip(message.(*QueueElement).Value)
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// region TimedHeap ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TimedHeap defines a heap based on times.
+type TimedHeap []*QueueElement
+
+// Len is the number of elements in the collection.
+func (h TimedHeap) Len() int {
+	return len(h)
+}
+
+// Less reports whether the element with index i should sort before the element with index j.
+func (h TimedHeap) Less(i, j int) bool {
+	return h[i].Key.Before(h[j].Key)
+}
+
+// Swap swaps the elements with indexes i and j.
+func (h TimedHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+	h[i].index, h[j].index = i, j
+}
+
+// Push adds x as the last element to the heap.
+func (h *TimedHeap) Push(x interface{}) {
+	data := x.(*QueueElement)
+	*h = append(*h, data)
+	data.index = len(*h) - 1
+}
+
+// Pop removes and returns the last element of the heap.
+func (h *TimedHeap) Pop() interface{} {
+	n := len(*h)
+	data := (*h)[n-1]
+	(*h)[n-1] = nil // avoid memory leak
+	*h = (*h)[:n-1]
+	data.index = -1
+	return data
+}
+
+// interface contract (allow the compiler to check if the implementation has all the required methods).
+var _ heap.Interface = &TimedHeap{}
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
