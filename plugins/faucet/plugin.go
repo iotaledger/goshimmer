@@ -225,25 +225,11 @@ func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	if !initDone.Load() {
 		return errors.New("faucet plugin is not done initializing")
 	}
-	addr := fundingRequest.Address()
 
-	if verifyFaucetRequestPoW(fundingRequest, addr) {
-		return errors.New("PoW requirement is not satisfied")
+	if err := handleFaucetRequest(fundingRequest); err != nil {
+		return err
 	}
 
-	if IsAddressBlackListed(addr) {
-		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
-	}
-
-	// finally add it to the faucet to be processed
-	_, added := fundingWorkerPool.TrySubmit(fundingRequest)
-	if !added {
-		RemoveAddressFromBlacklist(addr)
-		Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-		return errors.Newf("dropped funding request for address %s as queue is full", addr.Base58())
-	}
-	Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
 	return nil
 }
 
@@ -260,16 +246,6 @@ func onMessageProcessed(messageID tangle.MessageID) {
 			return
 		}
 		fundingRequest := message.Payload().(*faucet.Payload)
-		addr := fundingRequest.Address()
-
-		if verifyFaucetRequestPoW(fundingRequest, addr) {
-			return
-		}
-
-		if IsAddressBlackListed(addr) {
-			Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-			return
-		}
 
 		// pledge mana to requester if not specified in the request
 		emptyID := identity.ID{}
@@ -280,35 +256,52 @@ func onMessageProcessed(messageID tangle.MessageID) {
 			fundingRequest.SetConsensusManaPledgeID(identity.NewID(message.IssuerPublicKey()))
 		}
 
-		// finally add it to the faucet to be processed
-		_, added := fundingWorkerPool.TrySubmit(fundingRequest)
-		if !added {
-			RemoveAddressFromBlacklist(addr)
-			Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-			return
-		}
-		Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+		_ = handleFaucetRequest(fundingRequest)
 	})
 }
 
-func verifyFaucetRequestPoW(fundingRequest *faucet.Payload, addr devnetvm.Address) bool {
+func handleFaucetRequest(fundingRequest *faucet.Payload) error {
+	addr := fundingRequest.Address()
+
+	if isFaucetRequestPoWValid(fundingRequest, addr) {
+		return errors.New("PoW requirement is not satisfied")
+	}
+
+	if IsAddressBlackListed(addr) {
+		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
+		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
+	}
+
+	// finally add it to the faucet to be processed
+	_, added := fundingWorkerPool.TrySubmit(fundingRequest)
+	if !added {
+		RemoveAddressFromBlacklist(addr)
+		Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
+		return errors.Newf("dropped funding request for address %s as queue is full", addr.Base58())
+	}
+
+	Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+	return nil
+}
+
+func isFaucetRequestPoWValid(fundingRequest *faucet.Payload, addr devnetvm.Address) bool {
 	requestBytes, err := fundingRequest.Bytes()
 	if err != nil {
 		Plugin.LogInfof("couldn't serialize faucet request: %w", err)
-		return true
+		return false
 	}
 	// verify PoW
 	leadingZeroes, err := powVerifier.LeadingZeros(requestBytes)
 	if err != nil {
 		Plugin.LogInfof("couldn't verify PoW of funding request for address %s: %w", addr.Base58(), err)
-		return true
+		return false
 	}
-
 	if leadingZeroes < targetPoWDifficulty {
 		Plugin.LogInfof("funding request for address %s doesn't fulfill PoW requirement %d vs. %d", addr.Base58(), targetPoWDifficulty, leadingZeroes)
-		return true
+		return false
 	}
-	return false
+
+	return true
 }
 
 // IsAddressBlackListed returns if an address is blacklisted.
