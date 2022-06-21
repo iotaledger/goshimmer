@@ -1,6 +1,10 @@
 package metrics
 
-import "github.com/iotaledger/hive.go/generics/event"
+import (
+	"time"
+
+	"github.com/iotaledger/hive.go/generics/event"
+)
 
 // Events defines the events of the plugin.
 var Events *EventsStruct
@@ -12,6 +16,8 @@ type EventsStruct struct {
 	ReceivedTPSUpdated *event.Event[*ReceivedTPSUpdatedEvent]
 	// Fired when the component counter per second metric is updated.
 	ComponentCounterUpdated *event.Event[*ComponentCounterUpdatedEvent]
+	// RateSetterUpdated is fired when the rate setter metric is updated.
+	RateSetterUpdated *event.Event[*RateSetterMetric]
 }
 
 func newEvents() (new *EventsStruct) {
@@ -19,8 +25,8 @@ func newEvents() (new *EventsStruct) {
 		ReceivedMPSUpdated:      event.New[*ReceivedMPSUpdatedEvent](),
 		ReceivedTPSUpdated:      event.New[*ReceivedTPSUpdatedEvent](),
 		ComponentCounterUpdated: event.New[*ComponentCounterUpdatedEvent](),
+		RateSetterUpdated:       event.New[*RateSetterMetric](),
 	}
-
 }
 
 func init() {
@@ -29,6 +35,13 @@ func init() {
 
 type ReceivedMPSUpdatedEvent struct {
 	MPS uint64
+}
+
+// RateSetterMetric is the metric for the rate setter.
+type RateSetterMetric struct {
+	Size     int
+	Estimate time.Duration
+	Rate     float64
 }
 
 type ReceivedTPSUpdatedEvent struct {

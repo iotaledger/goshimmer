@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -54,6 +55,12 @@ func broadcastData(c echo.Context) error {
 
 	if len(request.Data) == 0 {
 		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{Error: "no data provided"})
+	}
+
+	if request.MaxEstimate > 0 && deps.Tangle.RateSetter.Estimate().Milliseconds() > request.MaxEstimate {
+		return c.JSON(http.StatusBadRequest, jsonmodels.DataResponse{
+			Error: fmt.Sprintf("issuance estimate greater than %d ms", request.MaxEstimate),
+		})
 	}
 
 	issueData := func() (*tangle.Message, error) {

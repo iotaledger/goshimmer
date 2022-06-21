@@ -6,7 +6,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/identity"
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/goshimmer/packages/faucet"
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
@@ -16,7 +15,8 @@ import (
 )
 
 const (
-	routeFaucet = "faucet"
+	routeFaucetRequestBroadcast = "faucetrequest"
+	routeFaucetRequestAPI       = "faucet"
 )
 
 var (
@@ -24,8 +24,8 @@ var (
 	powWorker        = pow.New(1)
 )
 
-// SendFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
-func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetResponse, error) {
+// BroadcastFaucetRequest requests funds from faucet nodes by sending a faucet request payload message.
+func (api *GoShimmerAPI) BroadcastFaucetRequest(base58EncodedAddr string, powTarget int, pledgeIDs ...string) (*jsonmodels.FaucetRequestResponse, error) {
 	var aManaPledgeID identity.ID
 	var cManaPledgeID identity.ID
 	if len(pledgeIDs) > 1 {
@@ -49,12 +49,52 @@ func (api *GoShimmerAPI) SendFaucetRequest(base58EncodedAddr string, powTarget i
 		return nil, errors.Errorf("could not compute faucet PoW: %w", err)
 	}
 
-	res := &jsonmodels.FaucetResponse{}
-	if err := api.do(http.MethodPost, routeFaucet,
+	res := &jsonmodels.FaucetRequestResponse{}
+	if err := api.do(http.MethodPost, routeFaucetRequestBroadcast,
 		&jsonmodels.FaucetRequest{
 			Address:               base58EncodedAddr,
-			AccessManaPledgeID:    base58.Encode(aManaPledgeID.Bytes()),
-			ConsensusManaPledgeID: base58.Encode(cManaPledgeID.Bytes()),
+			AccessManaPledgeID:    aManaPledgeID.EncodeBase58(),
+			ConsensusManaPledgeID: cManaPledgeID.EncodeBase58(),
+			Nonce:                 nonce,
+		}, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// SendFaucetRequestAPI requests funds from faucet nodes by sending a faucet request directly to the faucet node.
+func (api *GoShimmerAPI) SendFaucetRequestAPI(base58EncodedAddr string, powTarget int, accessPledgeID, consensusPledgeID string) (*jsonmodels.FaucetAPIResponse, error) {
+	var aManaPledgeID identity.ID
+	var cManaPledgeID identity.ID
+	if accessPledgeID == "" && consensusPledgeID == "" {
+		return nil, errors.Errorf("accessPledgeID and consensusPledgeID must not be empty")
+	}
+	aManaPledgeIDFromString, err := mana.IDFromStr(accessPledgeID)
+	if err == nil {
+		aManaPledgeID = aManaPledgeIDFromString
+	}
+	cManaPledgeIDFromString, err := mana.IDFromStr(consensusPledgeID)
+	if err == nil {
+		cManaPledgeID = cManaPledgeIDFromString
+	}
+
+	address, err := devnetvm.AddressFromBase58EncodedString(base58EncodedAddr)
+	if err != nil {
+		return nil, errors.Errorf("could not decode address from string: %w", err)
+	}
+
+	nonce, err := computeFaucetPoW(address, aManaPledgeID, cManaPledgeID, powTarget)
+	if err != nil {
+		return nil, errors.Errorf("could not compute faucet PoW: %w", err)
+	}
+
+	res := &jsonmodels.FaucetAPIResponse{}
+	if err := api.do(http.MethodPost, routeFaucetRequestAPI,
+		&jsonmodels.FaucetRequest{
+			Address:               base58EncodedAddr,
+			AccessManaPledgeID:    aManaPledgeID.EncodeBase58(),
+			ConsensusManaPledgeID: cManaPledgeID.EncodeBase58(),
 			Nonce:                 nonce,
 		}, res); err != nil {
 		return nil, err

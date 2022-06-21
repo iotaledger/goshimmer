@@ -76,5 +76,8 @@
   },
   "faucet": {
     "powDifficulty": 12
+  },
+  "manaInitializer": {
+    "FaucetAPI": "http://faucet:8080"
   }
 }

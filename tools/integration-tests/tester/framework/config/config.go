@@ -53,6 +53,7 @@ type GoShimmer struct {
 	Profiling
 	Dashboard
 	Dagsvisualizer
+	RateSetter
 }
 
 // NewGoShimmer creates a GoShimmer config initialized with default values.
@@ -133,6 +134,13 @@ type Activity struct {
 	Enabled bool
 
 	activity.ParametersDefinition
+}
+
+// RateSetter defines the parameters of the RateSetter plugin.
+type RateSetter struct {
+	Enabled bool
+
+	messagelayer.RateSetterParametersDefinition
 }
 
 // Prometheus defines the parameters of the Prometheus plugin.

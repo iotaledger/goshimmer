@@ -1,9 +1,10 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/cockroachdb/errors"
-	"strconv"
 )
 
 // region survey  //////////////////////////////////////////////////////////////////////////////////////////////
@@ -27,6 +28,12 @@ var settingsQuestion = &survey.Select{
 
 var autoCreationQuestion = &survey.Select{
 	Message: "Enable automatic faucet output creation",
+	Options: confirms,
+	Default: "enable",
+}
+
+var enableRateSetterQuestion = &survey.Select{
+	Message: "Enable using rate-setter estimate",
 	Options: confirms,
 	Default: "enable",
 }

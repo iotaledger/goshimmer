@@ -51,13 +51,22 @@ const lineChartOptions = Object.assign({
 @observer
 export default class StoreChart extends React.Component<Props, any> {
     render() {
+        const infoStyle = {
+            display: "flex",
+            flexDirection: "column"
+        };
         return (
             <Card>
                 <Card.Body>
                     <Card.Title>Component Counter Messages Per Second</Card.Title>
-                    <small>
-                        MPS: {this.props.nodeStore.last_component_counter_metric.store}.
-                    </small>
+                    <div style={infoStyle as React.CSSProperties}>
+                        <small>
+                            MPS: {this.props.nodeStore.last_component_counter_metric.store}.
+                        </small>
+                        <small>
+                            Rate Setter - Estimate: {this.props.nodeStore.last_rate_setter_metric.estimate}
+                        </small>
+                    </div>
 
                     <Line height={50} data={this.props.nodeStore.componentSeries} options={lineChartOptions}/>
                 </Card.Body>

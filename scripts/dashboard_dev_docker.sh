@@ -4,7 +4,7 @@
 
 echo "::: Running /plugins/dashboard/frontend :::"
 docker run -it --rm \
-    -p 9093:9090 -u $(id -u ${USER}):$(id -g ${USER}) \
+    -p 9090:9090 -u $(id -u ${USER}):$(id -g ${USER}) \
     --volume="/etc/group:/etc/group:ro" \
     --volume="/etc/passwd:/etc/passwd:ro" \
     --volume="/etc/shadow:/etc/shadow:ro" \

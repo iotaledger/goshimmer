@@ -118,6 +118,8 @@ func getInfo(c echo.Context) error {
 		nodeQueueSizes[nodeID.String()] = size
 	}
 
+	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
+
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
 		NetworkVersion:          discovery.Parameters.NetworkVersion,
@@ -138,7 +140,13 @@ func getInfo(c echo.Context) error {
 			Rate:              deps.Tangle.Scheduler.Rate().String(),
 			MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
 			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+			Deficit:           deficit,
 			NodeQueueSizes:    nodeQueueSizes,
+		},
+		RateSetter: jsonmodels.RateSetter{
+			Rate:     deps.Tangle.RateSetter.Rate(),
+			Size:     deps.Tangle.RateSetter.Size(),
+			Estimate: deps.Tangle.RateSetter.Estimate(),
 		},
 	})
 }

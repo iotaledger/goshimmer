@@ -19,6 +19,7 @@ export enum WSMsgType {
     MsgManaDashboardAddress,
     MsgTypeMsgOpinionFormed,
     Chat,
+    RateSetter,
     Conflict,
     Branch
 }

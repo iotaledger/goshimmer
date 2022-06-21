@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/hive.go/generics/event"
+	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotaledger/goshimmer/packages/markers"
@@ -762,9 +763,9 @@ func issueMessages(testFramework *MessageTestFramework, msgPrefix string, msgCou
 
 	for i := 1; i < msgCount; i++ {
 		alias := fmt.Sprintf("%s_%d", msgPrefix, i)
-		testFramework.CreateMessage(alias, WithStrongParents(msgAlias), WithIssuingTime(time.Now().Add(-timestampOffset)))
+		testFramework.CreateMessage(alias, WithIssuer(identity.GenerateIdentity().PublicKey()), WithStrongParents(msgAlias), WithSequenceNumber(uint64(i)), WithIssuingTime(time.Now().Add(-timestampOffset)))
 		testFramework.IssueMessages(alias).WaitUntilAllTasksProcessed()
-
+		fmt.Println("issuing message", testFramework.Message(alias).ID())
 		msgAlias = alias
 	}
 	return msgAlias
