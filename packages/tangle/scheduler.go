@@ -2,6 +2,7 @@ package tangle
 
 import (
 	"math"
+	"math/big"
 	"sync"
 	"time"
 
@@ -16,13 +17,14 @@ import (
 )
 
 const (
-	// MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
-	// It must be >= MaxMessageSize.
-	MaxDeficit = MaxMessageSize
 	// MinMana is the minimum amount of Mana needed to issue messages.
 	// MaxMessageSize / MinMana is also the upper bound of iterations inside one schedule call, as such it should not be too small.
 	MinMana float64 = 1.0
 )
+
+// MaxDeficit is the maximum cap for accumulated deficit, i.e. max bytes that can be scheduled without waiting.
+// It must be >= MaxMessageSize.
+var MaxDeficit = new(big.Rat).SetInt64(int64(MaxMessageSize))
 
 // ErrNotRunning is returned when a message is submitted when the scheduler has been stopped.
 var ErrNotRunning = errors.New("scheduler stopped")
@@ -32,7 +34,6 @@ type SchedulerParams struct {
 	MaxBufferSize                     int
 	TotalSupply                       int
 	Rate                              time.Duration
-	AccessManaRetrieveFunc            func(identity.ID) float64
 	TotalAccessManaRetrieveFunc       func() float64
 	AccessManaMapRetrieverFunc        func() map[identity.ID]float64
 	ConfirmedMessageScheduleThreshold time.Duration
@@ -47,9 +48,10 @@ type Scheduler struct {
 	started               typeutils.AtomicBool
 	stopped               typeutils.AtomicBool
 	accessManaCache       *schedulerutils.AccessManaCache
-	mu                    sync.RWMutex
+	bufferMutex           sync.RWMutex
 	buffer                *schedulerutils.BufferQueue
-	deficits              map[identity.ID]float64
+	deficitsMutex         sync.RWMutex
+	deficits              map[identity.ID]*big.Rat
 	rate                  *atomic.Duration
 	confirmedMsgThreshold time.Duration
 	shutdownSignal        chan struct{}
@@ -58,7 +60,7 @@ type Scheduler struct {
 
 // NewScheduler returns a new Scheduler.
 func NewScheduler(tangle *Tangle) *Scheduler {
-	if tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc == nil || tangle.Options.SchedulerParams.AccessManaRetrieveFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
+	if tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc == nil || tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc == nil {
 		panic("scheduler: the option AccessManaMapRetrieverFunc and AccessManaRetriever and TotalAccessManaRetriever must be defined so that AccessMana can be determined in scheduler")
 	}
 
@@ -74,7 +76,11 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 	// maximum access mana-scaled inbox length
 	maxQueue := float64(maxBuffer) / float64(totalSupply)
 
-	accessManaCache := schedulerutils.NewAccessManaCache(tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc, MinMana)
+	accessManaCache := schedulerutils.NewAccessManaCache(
+		tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc,
+		tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc,
+		MinMana,
+	)
 
 	return &Scheduler{
 		Events:                NewSchedulerEvents(),
@@ -84,7 +90,7 @@ func NewScheduler(tangle *Tangle) *Scheduler {
 		ticker:                time.NewTicker(tangle.Options.SchedulerParams.Rate),
 		buffer:                schedulerutils.NewBufferQueue(maxBuffer, maxQueue),
 		confirmedMsgThreshold: confirmedMessageScheduleThreshold,
-		deficits:              make(map[identity.ID]float64),
+		deficits:              make(map[identity.ID]*big.Rat),
 		shutdownSignal:        make(chan struct{}),
 	}
 }
@@ -106,8 +112,8 @@ func (s *Scheduler) Running() bool {
 func (s *Scheduler) Shutdown() {
 	s.shutdownOnce.Do(func() {
 		// lock the scheduler to make sure that any Submit() has been finished
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 		s.stopped.Set()
 		close(s.shutdownSignal)
 	})
@@ -173,8 +179,8 @@ func (s *Scheduler) Rate() time.Duration {
 
 // NodeQueueSize returns the size of the nodeIDs queue.
 func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	nodeQueue := s.buffer.NodeQueue(nodeID)
 	if nodeQueue == nil {
@@ -185,8 +191,8 @@ func (s *Scheduler) NodeQueueSize(nodeID identity.ID) int {
 
 // NodeQueueSizes returns the size for each node queue.
 func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 
 	nodeQueueSizes := make(map[identity.ID]int)
 	for _, nodeID := range s.buffer.NodeIDs() {
@@ -198,29 +204,29 @@ func (s *Scheduler) NodeQueueSizes() map[identity.ID]int {
 
 // MaxBufferSize returns the max size of the buffer.
 func (s *Scheduler) MaxBufferSize() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.MaxSize()
 }
 
 // BufferSize returns the size of the buffer.
 func (s *Scheduler) BufferSize() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.Size()
 }
 
 // ReadyMessagesCount returns the size buffer.
 func (s *Scheduler) ReadyMessagesCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.ReadyMessagesCount()
 }
 
 // TotalMessagesCount returns the size buffer.
 func (s *Scheduler) TotalMessagesCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.bufferMutex.RLock()
+	defer s.bufferMutex.RUnlock()
 	return s.buffer.TotalMessagesCount()
 }
 
@@ -234,8 +240,8 @@ func (s *Scheduler) AccessManaCache() *schedulerutils.AccessManaCache {
 // scheduled until Ready(messageID) has been called.
 func (s *Scheduler) Submit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 		err = s.submit(message)
 	}) {
 		err = errors.Errorf("failed to get message '%x' from storage", messageID)
@@ -247,8 +253,8 @@ func (s *Scheduler) Submit(messageID MessageID) (err error) {
 // If that message is already marked as ready, Unsubmit has no effect.
 func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 
 		s.unsubmit(message)
 	}) {
@@ -261,8 +267,8 @@ func (s *Scheduler) Unsubmit(messageID MessageID) (err error) {
 // If Ready is called without a previous Submit, it has no effect.
 func (s *Scheduler) Ready(messageID MessageID) (err error) {
 	if !s.tangle.Storage.Message(messageID).Consume(func(message *Message) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.bufferMutex.Lock()
+		defer s.bufferMutex.Unlock()
 
 		s.ready(message)
 	}) {
@@ -273,8 +279,8 @@ func (s *Scheduler) Ready(messageID MessageID) (err error) {
 
 // SubmitAndReady submits the message to the scheduler and marks it ready right away.
 func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	if err = s.submit(message); err != nil {
 		return err
@@ -286,15 +292,15 @@ func (s *Scheduler) SubmitAndReady(message *Message) (err error) {
 }
 
 // GetManaFromCache allows you to get the cached mana for a node ID. This is exposed for analytics purposes.
-func (s *Scheduler) GetManaFromCache(nodeID identity.ID) float64 {
-	return s.accessManaCache.GetCachedMana(nodeID)
+func (s *Scheduler) GetManaFromCache(nodeID identity.ID) int64 {
+	return int64(math.Ceil(s.AccessManaCache().GetCachedMana(nodeID)))
 }
 
 // Clear removes all submitted messages (ready or not) from the scheduler.
 // The MessageDiscarded event is triggered for each of these messages.
 func (s *Scheduler) Clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
 
 	for q := s.buffer.Current(); q != nil; q = s.buffer.Next() {
 		s.buffer.RemoveNode(q.NodeID())
@@ -358,8 +364,10 @@ func (s *Scheduler) submit(message *Message) error {
 		// shortly before submitting we set the queued time
 		messageMetadata.SetQueuedTime(clock.SyncedTime())
 	})
+
+	s.AccessManaCache().RefreshCacheIfNecessary()
 	// when removing the zero mana node solution, check if nodes have MinMana here
-	droppedMessageIDs, err := s.buffer.Submit(message, s.accessManaCache.GetCachedMana)
+	droppedMessageIDs, err := s.buffer.Submit(message, s.AccessManaCache().GetCachedMana)
 	if err != nil {
 		panic(errors.Errorf("failed to submit %s: %w", message.ID(), err))
 	}
@@ -380,11 +388,17 @@ func (s *Scheduler) ready(message *Message) {
 	s.buffer.Ready(message)
 }
 
-func (s *Scheduler) schedule() *Message {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *Scheduler) Quanta(nodeID identity.ID) *big.Rat {
+	return big.NewRat(s.GetManaFromCache(nodeID), int64(s.AccessManaCache().GetCachedTotalMana()))
+}
 
-	s.updateActiveNodesList(s.accessManaCache.RawAccessManaVector())
+func (s *Scheduler) schedule() *Message {
+	s.bufferMutex.Lock()
+	defer s.bufferMutex.Unlock()
+	// Refresh mana cache only at the beginning of the method so that later it's fixed and cannot be
+	// updated in the middle of the execution, as it could result in negative deficit values.
+	s.AccessManaCache().RefreshCacheIfNecessary()
+	s.updateActiveNodesList(s.AccessManaCache().RawAccessManaVector())
 
 	start := s.buffer.Current()
 	// no messages submitted
@@ -393,7 +407,7 @@ func (s *Scheduler) schedule() *Message {
 	}
 
 	var schedulingNode *schedulerutils.NodeQueue
-	rounds := math.MaxInt32
+	rounds := new(big.Rat).SetInt64(math.MaxInt64)
 	for q := start; ; {
 		msg := q.Front()
 		// a message can be scheduled, if it is ready
@@ -412,10 +426,12 @@ func (s *Scheduler) schedule() *Message {
 				msg = q.Front()
 			} else {
 				// compute how often the deficit needs to be incremented until the message can be scheduled
-				remainingDeficit := math.Dim(float64(msg.Size()), s.getDeficit(q.NodeID()))
-				nodeMana := s.accessManaCache.GetCachedMana(q.NodeID())
+				remainingDeficit := maxRat(new(big.Rat).Sub(big.NewRat(int64(msg.Size()), 1), s.GetDeficit(q.NodeID())), new(big.Rat))
+				// calculate how many rounds we need to skip to accumulate enough deficit.
+				// Use for loop to account for float imprecision.
+				r := new(big.Rat).Mul(remainingDeficit, new(big.Rat).Inv(s.Quanta(q.NodeID())))
 				// find the first node that will be allowed to schedule a message
-				if r := int(math.Ceil(remainingDeficit / nodeMana)); r < rounds {
+				if r.Cmp(rounds) < 0 {
 					rounds = r
 					schedulingNode = q
 				}
@@ -434,10 +450,10 @@ func (s *Scheduler) schedule() *Message {
 		return nil
 	}
 
-	if rounds > 0 {
+	if rounds.Cmp(big.NewRat(0, 1)) > 0 {
 		// increment every node's deficit for the required number of rounds
 		for q := start; ; {
-			s.updateDeficit(q.NodeID(), float64(rounds)*s.accessManaCache.GetCachedMana(q.NodeID()))
+			s.updateDeficit(q.NodeID(), new(big.Rat).Mul(s.Quanta(q.NodeID()), rounds))
 
 			q = s.buffer.Next()
 			if q == start {
@@ -448,18 +464,20 @@ func (s *Scheduler) schedule() *Message {
 
 	// increment the deficit for all nodes before schedulingNode one more time
 	for q := start; q != schedulingNode; q = s.buffer.Next() {
-		s.updateDeficit(q.NodeID(), s.accessManaCache.GetCachedMana(q.NodeID()))
+		s.updateDeficit(q.NodeID(), s.Quanta(q.NodeID()))
 	}
 
 	// remove the message from the buffer and adjust node's deficit
 	msg := s.buffer.PopFront()
 	nodeID := identity.NewID(msg.IssuerPublicKey())
-	s.updateDeficit(nodeID, -float64(msg.Size()))
+	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(msg.Size())))
 
 	return msg.(*Message)
 }
 
 func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
 	currentNode := s.buffer.Current()
 	// use counter to avoid infinite loop in case the start element is removed
 	activeNodes := s.buffer.NumActiveNodes()
@@ -482,7 +500,7 @@ func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {
 			continue
 		}
 		if _, exists := s.deficits[nodeID]; !exists {
-			s.deficits[nodeID] = 0
+			s.deficits[nodeID] = new(big.Rat).SetInt64(0)
 			s.buffer.InsertNode(nodeID)
 		}
 	}
@@ -516,17 +534,41 @@ loop:
 	s.Clear()
 }
 
-func (s *Scheduler) getDeficit(nodeID identity.ID) float64 {
-	return s.deficits[nodeID]
+func (s *Scheduler) GetDeficit(nodeID identity.ID) *big.Rat {
+	s.deficitsMutex.RLock()
+	defer s.deficitsMutex.RUnlock()
+	if deficit, exists := s.deficits[nodeID]; !exists {
+		return new(big.Rat).SetInt64(0)
+	} else {
+		return deficit
+	}
 }
 
-func (s *Scheduler) updateDeficit(nodeID identity.ID, d float64) {
-	deficit := s.deficits[nodeID] + d
-	if deficit < 0 {
+func (s *Scheduler) updateDeficit(nodeID identity.ID, d *big.Rat) {
+	deficit := new(big.Rat).Add(s.GetDeficit(nodeID), d)
+	if deficit.Sign() < 0 {
 		// this will never happen and is just here for debugging purposes
+		// TODO: remove print
 		panic("scheduler: deficit is less than 0")
 	}
-	s.deficits[nodeID] = math.Min(deficit, MaxDeficit)
+
+	s.deficitsMutex.Lock()
+	defer s.deficitsMutex.Unlock()
+	s.deficits[nodeID] = minRat(deficit, MaxDeficit)
+}
+
+func minRat(x, y *big.Rat) *big.Rat {
+	if x.Cmp(y) < 0 {
+		return x
+	}
+	return y
+}
+
+func maxRat(x, y *big.Rat) *big.Rat {
+	if x.Cmp(y) > 0 {
+		return x
+	}
+	return y
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

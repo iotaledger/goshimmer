@@ -14,6 +14,7 @@ var (
 	totalMessagesCount prometheus.Gauge
 	bufferSize         prometheus.Gauge
 	maxBufferSize      prometheus.Gauge
+	schedulerDeficit   prometheus.Gauge
 )
 
 func registerSchedulerMetrics() {
@@ -58,6 +59,11 @@ func registerSchedulerMetrics() {
 		Help: "maximum number of bytes that can be stored in the buffer.",
 	})
 
+	schedulerDeficit = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "scheduler_deficit",
+		Help: "deficit value for local node.",
+	})
+
 	registry.MustRegister(queueSizePerNode)
 	registry.MustRegister(manaAmountPerNode)
 	registry.MustRegister(schedulerRate)
@@ -65,6 +71,7 @@ func registerSchedulerMetrics() {
 	registry.MustRegister(totalMessagesCount)
 	registry.MustRegister(bufferSize)
 	registry.MustRegister(maxBufferSize)
+	registry.MustRegister(schedulerDeficit)
 
 	addCollect(collectSchedulerMetrics)
 }
@@ -85,4 +92,5 @@ func collectSchedulerMetrics() {
 	totalMessagesCount.Set(float64(metrics.SchedulerTotalBufferMessagesCount()))
 	bufferSize.Set(float64(metrics.SchedulerBufferSize()))
 	maxBufferSize.Set(float64(metrics.SchedulerMaxBufferSize()))
+	schedulerDeficit.Set(metrics.SchedulerDeficit())
 }

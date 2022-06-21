@@ -16,19 +16,57 @@ export default class TangleTime extends React.Component<Props, any> {
         return (
             <Card>
                 <Card.Body>
-                    <Card.Title>TangleTime Synced: {this.props.nodeStore.status.tangleTime.synced? "Yes":"No"} </Card.Title>
+                    <Card.Title>TangleTime
+                        Synced: {this.props.nodeStore.status.tangleTime.synced ? "Yes" : "No"}</Card.Title>
                     <small>
                         <div>
                             <hr/>
-                            <div>Message: <Link to={`/explorer/message/${this.props.nodeStore.status.tangleTime.messageID}`}>
-                                            {this.props.nodeStore.status.tangleTime.messageID}
-                                        </Link></div>
-                            <div>Time: {dateformat(new Date(this.props.nodeStore.status.tangleTime.time/1000000), "dd.mm.yyyy HH:MM:ss")}</div>
+                            <div className={"row"}>
+                                <div className={"col-12"}>Last Accepted Message: <Link
+                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.acceptedMessageID}`}>
+                                    {this.props.nodeStore.status.tangleTime.acceptedMessageID}
+                                </Link></div>
+                            </div>
+                            <div className={"row"}>
+                                <div className={"col-12"}>Last Confirmed Message: <Link
+                                    to={`/explorer/message/${this.props.nodeStore.status.tangleTime.confirmedMessageID}`}>
+                                    {this.props.nodeStore.status.tangleTime.confirmedMessageID}
+                                </Link></div>
+                            </div>
+                            <hr/>
+                            <div className={"row"}>
+                                <div className={"col-3"}>
+                                    Acceptance Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.ATT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                                <div className={"col-3"}>
+                                    Confirmation Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.CTT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                            </div>
+                            <div className={"row"}>
+                                <div className={"col-3"}>
+                                    Relative Acceptance Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.RATT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                                <div className={"col-3"}>
+                                    Relative Confirmation Time:
+                                </div>
+                                <div className={"col-3"}>
+                                    {dateformat(new Date(this.props.nodeStore.status.tangleTime.RCTT / 1000000), "dd.mm.yyyy HH:MM:ss")}
+                                </div>
+                            </div>
                         </div>
                     </small>
-
                 </Card.Body>
             </Card>
-        );
+        )
+            ;
     }
 }

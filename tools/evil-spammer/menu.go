@@ -81,6 +81,7 @@ func (p *Printer) SpammerSettings() {
 	p.Println(p.colorString("Current settings:", "cyan"), 1)
 	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), 2)
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), 2)
+	p.PrintlnPoint(fmt.Sprintf("Use rate-setter: %v", p.mode.Config.UseRateSetter), 2)
 	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), 2)
 	p.PrintLine()
 	fmt.Println()
@@ -154,6 +155,7 @@ func (p *Printer) Settings() {
 	p.PrintTopLine()
 	p.Println(p.colorString("Current settings:", "cyan"), 0)
 	p.Println(fmt.Sprintf("Auto requesting enabled: %v", p.mode.Config.AutoRequesting), 1)
+	p.Println(fmt.Sprintf("Use rate-setter: %v", p.mode.Config.UseRateSetter), 1)
 	p.clients()
 	p.PrintLine()
 	fmt.Println()
@@ -240,6 +242,13 @@ func (p *Printer) AutoRequestingEnabled() {
 	p.Println("", 2)
 	p.Println(p.colorString(fmt.Sprintf("Automatic funds requesting enabled. %s outputs will be requested whenever output amout will go below %d.", p.mode.Config.AutoRequestingAmount, minSpamOutputs), "green"), 1)
 	p.Println(p.colorString("The size of the request can be changed in the config file. Possible values: '100', '10000'", "yellow"), 1)
+	p.Println("", 2)
+}
+
+func (p *Printer) RateSetterEnabled() {
+	p.Println("", 2)
+	p.Println(p.colorString(fmt.Sprintf("Enable waiting the rate-setter estimate."), "green"), 1)
+	p.Println(p.colorString(" Enabling this will force the spammer to sleep certain amount of time based on node's rate-setter estimate.", "yellow"), 1)
 	p.Println("", 2)
 }
 

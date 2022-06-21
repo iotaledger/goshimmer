@@ -1,6 +1,8 @@
 package tangle
 
 import (
+	"time"
+
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/generics/event"
 	"github.com/iotaledger/hive.go/identity"
@@ -384,18 +386,27 @@ type RequestFailedEvent struct {
 // TimeManagerEvents represents events happening in the TimeManager.
 type TimeManagerEvents struct {
 	// Fired when the nodes sync status changes.
-	SyncChanged *event.Event[*SyncChangedEvent]
+	SyncChanged           *event.Event[*SyncChangedEvent]
+	AcceptanceTimeUpdated *event.Event[*TimeUpdate]
+	ConfirmedTimeUpdated  *event.Event[*TimeUpdate]
 }
 
 func newTimeManagerEvents() (new *TimeManagerEvents) {
 	return &TimeManagerEvents{
-		SyncChanged: event.New[*SyncChangedEvent](),
+		SyncChanged:           event.New[*SyncChangedEvent](),
+		AcceptanceTimeUpdated: event.New[*TimeUpdate](),
+		ConfirmedTimeUpdated:  event.New[*TimeUpdate](),
 	}
 }
 
 // SyncChangedEvent represents a sync changed event.
 type SyncChangedEvent struct {
 	Synced bool
+}
+
+// TimeUpdate represents an update in Tangle Time.
+type TimeUpdate struct {
+	NewTime time.Time
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

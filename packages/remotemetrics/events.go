@@ -13,7 +13,7 @@ type CollectionLogEvents struct {
 	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-func newCollectionLogEvents() (new *CollectionLogEvents) {
+func newCollectionLogEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
 		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
@@ -34,10 +34,17 @@ type TangleTimeSyncChangedEvent struct {
 	CurrentStatus bool `json:"currentStatus" bson:"currentStatus"`
 	// PreviousStatus contains previous sync status
 	PreviousStatus bool `json:"previousStatus" bson:"previousStatus"`
-	// LastConfirmedMessageTime contains time of the last confirmed message
-	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
+	// ATT contains time of the last accepted message
+	ATT time.Time `json:"acceptanceTangleTime" bson:"acceptanceTangleTime"`
+	// RATT contains relative time of the last accepted message
+	RATT time.Time `json:"relativeAcceptanceTangleTime" bson:"relativeAcceptanceTangleTime"`
+	// CTT contains time of the last confirmed message
+	CTT time.Time `json:"confirmedTangleTime" bson:"confirmedTangleTime"`
+	// RCTT contains relative time of the last confirmed message
+	RCTT time.Time `json:"relativeConfirmedTangleTime" bson:"relativeConfirmedTangleTime"`
 }
 
+// SchedulerQueryEvent is used to trigger scheduler metric collection for remote metric monitoring.
 type SchedulerQueryEvent struct {
 	Time time.Time
 }
@@ -93,11 +100,11 @@ type MessageScheduledMetrics struct {
 	// ReceivedTimestamp - IssuedTimestamp in nanoseconds
 	DeltaReceivedIssued int64 `json:"DeltaReceivedIssued" bson:"DeltaReceivedIssued"`
 	// ScheduledTimestamp - QueuedTimestamp in nanoseconds
-	SchedulingTime  int64   `json:"schedulingTime" bson:"schedulingTime"`
-	AccessMana      float64 `json:"accessMana" bson:"accessMana"`
-	StrongEdgeCount int     `json:"strongEdgeCount" bson:"strongEdgeCount"`
-	WeakEdgeCount   int     `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
-	LikeEdgeCount   int     `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
+	SchedulingTime  int64 `json:"schedulingTime" bson:"schedulingTime"`
+	AccessMana      int64 `json:"accessMana" bson:"accessMana"`
+	StrongEdgeCount int   `json:"strongEdgeCount" bson:"strongEdgeCount"`
+	WeakEdgeCount   int   `json:"weakEdgeCount,omitempty" bson:"weakEdgeCount"`
+	LikeEdgeCount   int   `json:"likeEdgeCount,omitempty" bson:"likeEdgeCount"`
 }
 
 // MissingMessageMetrics defines message solidification record that is sent to the remote logger.

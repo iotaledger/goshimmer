@@ -51,7 +51,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 	tokensPerRequest = faucet.Config().TokensPerRequest
 
 	const delayBetweenDataMessages = 100 * time.Millisecond
-	dataMessagesAmount := len(n.Peers()) * 3
+	dataMessagesAmount := len(n.Peers()) * 10
 
 	t.Logf("Sending %d data messages to confirm Faucet Outputs", dataMessagesAmount)
 	tests.SendDataMessagesWithDelay(t, n.Peers(), dataMessagesAmount, delayBetweenDataMessages)

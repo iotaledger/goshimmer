@@ -40,7 +40,12 @@ func (webConnector *WebConnector) ServerStatus() (status ServerStatus, err error
 
 // RequestFaucetFunds request some funds from the faucet for test purposes.
 func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address, powTarget int) (err error) {
-	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
+	err = webConnector.client.SleepRateSetterEstimate()
+	if err != nil {
+		return err
+	}
+
+	_, err = webConnector.client.BroadcastFaucetRequest(addr.Address().Base58(), powTarget)
 
 	return
 }
@@ -100,6 +105,10 @@ func (webConnector WebConnector) UnspentOutputs(addresses ...address.Address) (u
 
 // SendTransaction sends a new transaction to the network.
 func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err error) {
+	err = webConnector.client.SleepRateSetterEstimate()
+	if err != nil {
+		return err
+	}
 	txBytes, err := tx.Bytes()
 	if err != nil {
 		return err
