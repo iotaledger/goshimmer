@@ -204,7 +204,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 func (m *Manager) LastCommittedEpoch() (*epoch.ECRecord, error) {
 	m.epochCommitmentFactoryMutex.RLock()
 	defer m.epochCommitmentFactoryMutex.RUnlock()
-	ei, err := m.epochCommitmentFactory.LastCommittedEpochIndex()
+	ei, err := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}

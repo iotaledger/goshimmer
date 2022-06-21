@@ -15,8 +15,8 @@ type EpochInfo struct {
 func EpochInfoFromRecord(record epoch.ECRecord) EpochInfo {
 	return EpochInfo{
 		EI:     uint64(record.EI()),
-		ECR:    record.ECR().String(),
-		PrevEC: record.PrevEC().String(),
+		ECR:    record.ECR().Base58(),
+		PrevEC: record.PrevEC().Base58(),
 	}
 }
 
