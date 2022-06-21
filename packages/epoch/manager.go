@@ -20,8 +20,8 @@ type Manager struct {
 	options *ManagerOptions
 }
 
-// NewEpochManager is the constructor of the EpochManager that takes a KVStore to persist its state.
-func NewEpochManager(opts ...ManagerOption) *Manager {
+// NewManager is the constructor of the EpochManager that takes a KVStore to persist its state.
+func NewManager(opts ...ManagerOption) *Manager {
 	options := &ManagerOptions{
 		GenesisTime: DefaultGenesisTime,
 		Duration:    defaultDuration,
