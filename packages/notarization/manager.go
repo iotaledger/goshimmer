@@ -149,6 +149,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
 }
 
+	fmt.Println(ei, diff)
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 	m.epochCommitmentFactoryMutex.Lock()
@@ -251,6 +252,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	if oldEpoch == 0 || oldEpoch == newEpoch {
 		return
 	}
+	fmt.Println(event.TransactionID)
 
 	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
@@ -277,7 +279,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
-
+	fmt.Println("confirmed", branchID)
 	ei := m.getBranchEI(branchID, true)
 	m.pendingConflictsCounters[ei]--
 }
@@ -286,6 +288,7 @@ func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
+	fmt.Println("created", branchID)
 
 	ei := m.getBranchEI(branchID, false)
 	m.pendingConflictsCounters[ei]++
@@ -295,6 +298,7 @@ func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
+	fmt.Println("rejected", branchID)
 
 	ei := m.getBranchEI(branchID, true)
 	m.pendingConflictsCounters[ei]--

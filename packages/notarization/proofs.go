@@ -45,7 +45,6 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	return proof, nil
 }
 
-
 func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
 	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))
 }
@@ -63,6 +62,10 @@ func (f *EpochCommitmentFactory) ProofStateRoot(ei epoch.Index, outID utxo.Outpu
 
 // ProofStateMutationRoot returns the merkle proof for the transactionID against the state mutation root.
 func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utxo.TransactionID) (*CommitmentProof, error) {
+	if _, ok := f.commitmentTrees[ei]; !ok {
+		return nil, errors.Newf("commitment tree of epoch %d does not exist.", ei)
+	}
+
 	key := txID.Bytes()
 	root := f.commitmentTrees[ei].stateMutationTree.Root()
 	proof, err := f.commitmentTrees[ei].stateMutationTree.ProveForRoot(key, root)
@@ -74,6 +77,10 @@ func (f *EpochCommitmentFactory) ProofStateMutationRoot(ei epoch.Index, txID utx
 
 // ProofTangleRoot returns the merkle proof for the blockID against the tangle root.
 func (f *EpochCommitmentFactory) ProofTangleRoot(ei epoch.Index, blockID tangle.MessageID) (*CommitmentProof, error) {
+	if _, ok := f.commitmentTrees[ei]; !ok {
+		return nil, errors.Newf("commitment tree of epoch %d does not exist.", ei)
+	}
+
 	key := blockID.Bytes()
 	root := f.commitmentTrees[ei].tangleTree.Root()
 	proof, err := f.commitmentTrees[ei].tangleTree.ProveForRoot(key, root)

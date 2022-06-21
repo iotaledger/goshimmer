@@ -43,6 +43,8 @@ type MessageTestFramework struct {
 	outputsByID              map[utxo.OutputID]devnetvm.Output
 	options                  *MessageTestFrameworkOptions
 	oldIncreaseIndexCallback markers.IncreaseIndexCallback
+	snapshot                 *ledger.Snapshot
+	outputCounter            uint16
 }
 
 // NewMessageTestFramework is the constructor of the MessageTestFramework.
@@ -62,6 +64,11 @@ func NewMessageTestFramework(tangle *Tangle, options ...MessageTestFrameworkOpti
 	messageTestFramework.createGenesisOutputs()
 
 	return
+}
+
+// Snapshot returns the Snapshot of the test framework.
+func (m *MessageTestFramework) Snapshot() (snapshot *ledger.Snapshot) {
+	return m.snapshot
 }
 
 // RegisterBranchID registers a BranchID from the given Messages' transactions with the MessageTestFramework and
@@ -281,22 +288,26 @@ func (m *MessageTestFramework) createGenesisOutputs() {
 	outputsWithMetadata := make([]*ledger.OutputWithMetadata, 0)
 
 	for alias, balance := range m.options.genesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime, outputsWithMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(map[devnetvm.Color]uint64{devnetvm.ColorIOTA: balance}), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 	for alias, coloredBalances := range m.options.coloredGenesisOutputs {
-		m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime, outputsWithMetadata)
+		outputWithMetadata := m.createOutput(alias, devnetvm.NewColoredBalances(coloredBalances), manaPledgeID, manaPledgeTime)
+		outputsWithMetadata = append(outputsWithMetadata, outputWithMetadata)
 	}
 
-	m.tangle.Ledger.LoadSnapshot(ledger.NewSnapshot(outputsWithMetadata))
+	m.snapshot = ledger.NewSnapshot(outputsWithMetadata)
+	m.tangle.Ledger.LoadSnapshot(m.snapshot)
 }
 
-func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time, outputsWithMetadata []*ledger.OutputWithMetadata) {
+func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devnetvm.ColoredBalances, manaPledgeID identity.ID, manaPledgeTime time.Time) (outputWithMetadata *ledger.OutputWithMetadata) {
 	addressWallet := createWallets(1)[0]
 	m.walletsByAlias[alias] = addressWallet
 	m.walletsByAddress[addressWallet.address] = addressWallet
 
 	output := devnetvm.NewSigLockedColoredOutput(coloredBalances, addressWallet.address)
-	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, uint16(len(outputsWithMetadata))))
+	output.SetID(utxo.NewOutputID(utxo.EmptyTransactionID, m.outputCounter))
+	m.outputCounter++
 
 	outputMetadata := ledger.NewOutputMetadata(output.ID())
 	outputMetadata.SetGradeOfFinality(gof.High)
@@ -304,12 +315,12 @@ func (m *MessageTestFramework) createOutput(alias string, coloredBalances *devne
 	outputMetadata.SetCreationTime(manaPledgeTime)
 	outputMetadata.SetBranchIDs(set.NewAdvancedSet[utxo.TransactionID]())
 
-	outputsWithMetadata = append(outputsWithMetadata, ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata))
-
-
+	outputWithMetadata = ledger.NewOutputWithMetadata(output.ID(), output, outputMetadata)
 	m.outputsByAlias[alias] = output
 	m.outputsByID[output.ID()] = output
 	m.inputsByAlias[alias] = devnetvm.NewUTXOInput(output.ID())
+
+	return outputWithMetadata
 }
 
 // buildTransaction creates a Transaction from the given MessageTestFrameworkMessageOptions. It returns nil if there are
@@ -470,6 +481,8 @@ type MessageTestFrameworkMessageOptions struct {
 	reattachmentMessageAlias string
 	sequenceNumber           uint64
 	overrideSequenceNumber   bool
+	ecRecord                 *epoch.ECRecord
+	latestConfirmedEpoch     epoch.Index
 }
 
 // NewMessageTestFrameworkMessageOptions is the constructor for the MessageTestFrameworkMessageOptions.
@@ -480,6 +493,8 @@ func NewMessageTestFrameworkMessageOptions(options ...MessageOption) (messageOpt
 		strongParents:      make(map[string]types.Empty),
 		weakParents:        make(map[string]types.Empty),
 		shallowLikeParents: make(map[string]types.Empty),
+		ecRecord:              epoch.NewECRecord(0),
+		latestConfirmedEpoch:  0,
 	}
 
 	for _, option := range options {
@@ -572,6 +587,20 @@ func WithSequenceNumber(sequenceNumber uint64) MessageOption {
 	}
 }
 
+// WithECRecord returns a MessageOption that is used to define the ecr of the Message.
+func WithECRecord(ecRecord *epoch.ECRecord) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.ecRecord = ecRecord
+	}
+}
+
+// WithLatestConfirmedEpoch returns a MessageOption that is used to define the latestConfirmedEpoch of the Message.
+func WithLatestConfirmedEpoch(ei epoch.Index) MessageOption {
+	return func(options *MessageTestFrameworkMessageOptions) {
+		options.latestConfirmedEpoch = ei
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region Utility functions ////////////////////////////////////////////////////////////////////////////////////////////
@@ -653,9 +682,9 @@ func newTestParentsDataMessageWithOptions(payloadString string, references Paren
 		sequenceNumber = nextSequenceNumber()
 	}
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, payload.NewGenericDataPayload([]byte(payloadString)), 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 
 	if err := message.DetermineID(); err != nil {
@@ -682,9 +711,9 @@ func newTestParentsPayloadMessageWithOptions(p payload.Payload, references Paren
 	}
 	var err error
 	if options.issuingTime.IsZero() {
-		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, time.Now(), options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	} else {
-		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, 0, nil)
+		message = NewMessage(references, options.issuingTime, options.issuer, sequenceNumber, p, 0, ed25519.Signature{}, options.latestConfirmedEpoch, options.ecRecord)
 	}
 	if err != nil {
 		panic(err)
