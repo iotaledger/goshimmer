@@ -46,6 +46,8 @@ type ManaParametersDefinition struct {
 	VectorsCleanupInterval time.Duration `default:"30m" usage:"interval to cleanup empty mana nodes from the mana vectors"`
 	// DebuggingEnabled defines if the mana plugin responds to queries while not being in sync or not.
 	DebuggingEnabled bool `default:"false" usage:"if mana plugin responds to queries while not in sync"`
+	// Number of epochs past the latest committable epoch for which the base mana vector becomes effective.
+	EpochDelay uint `default:"2" usage:"number of epochs past the latest committable epoch for which the base mana vector becomes effective"`
 }
 
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
@@ -68,6 +70,8 @@ type SchedulerParametersDefinition struct {
 type NotarizationParameterDefinition struct {
 	// MinEpochCommitableAge defines the min age of a commitable epoch.
 	MinEpochCommitableAge time.Duration `default:"1m" usage:"min age of a commitable epoch"`
+	// SnapshotDepth defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate
+	SnapshotDepth int `default:"5" usage:"defines how many epoch diffs are stored in the snapshot, starting from the full ledgerstate"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.
