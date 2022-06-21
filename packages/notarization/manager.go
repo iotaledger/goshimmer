@@ -154,7 +154,9 @@ func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
 // IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) IsCommittable(ei epoch.Index) bool {
 	t := m.epochManager.EIToEndTime(ei)
-	diff := time.Since(t)
+	// TODO update to ATT after merging TSC PR
+	currentATT := m.tangle.TimeManager.Time()
+	diff := currentATT.Sub(t)
 	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
@@ -193,7 +195,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
 	}
 	err := m.epochCommitmentFactory.insertTangleLeaf(ei, message.ID())
@@ -205,7 +207,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 // OnMessageOrphaned is the handler for message orphaned event.
 func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
-	if m.isEpochAlreadyComitted(ei) {
+	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
 	}
 	err := m.epochCommitmentFactory.removeTangleLeaf(ei, message.ID())
@@ -228,7 +230,7 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 		return
 	}
 
-	if (oldEpoch != 0 && m.isEpochAlreadyComitted(oldEpoch)) || m.isEpochAlreadyComitted(newEpoch) {
+	if (oldEpoch != 0 && m.isEpochAlreadyCommitted(oldEpoch)) || m.isEpochAlreadyCommitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
 		return
 	}
@@ -332,7 +334,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 	return
 }
 
-func (m *Manager) isEpochAlreadyComitted(ei epoch.Index) bool {
+func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
 	lastCommitted, _, err := m.latestCommittableEpoch()
 	if err != nil {
 		m.log.Errorf("could not determine latest committed epoch: %v", err)
