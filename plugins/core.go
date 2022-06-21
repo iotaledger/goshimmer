@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/gracefulshutdown"
 	"github.com/iotaledger/goshimmer/plugins/logger"
 	"github.com/iotaledger/goshimmer/plugins/manaeventlogger"
+	"github.com/iotaledger/goshimmer/plugins/manainitializer"
 	"github.com/iotaledger/goshimmer/plugins/manualpeering"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
@@ -48,4 +49,5 @@ var Core = node.Plugins(
 	metrics.Plugin,
 	spammer.Plugin,
 	manaeventlogger.Plugin,
+	manainitializer.Plugin,
 )

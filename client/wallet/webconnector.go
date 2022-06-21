@@ -45,7 +45,7 @@ func (webConnector *WebConnector) RequestFaucetFunds(addr address.Address, powTa
 		return err
 	}
 
-	_, err = webConnector.client.SendFaucetRequest(addr.Address().Base58(), powTarget)
+	_, err = webConnector.client.BroadcastFaucetRequest(addr.Address().Base58(), powTarget)
 
 	return
 }
