@@ -2,6 +2,7 @@ package notarization
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/iotaledger/hive.go/serix"
 

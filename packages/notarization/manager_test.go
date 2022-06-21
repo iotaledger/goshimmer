@@ -22,34 +22,34 @@ func TestNewManager(t *testing.T) {
 	assert.NotNil(t, m)
 }
 
-func TestManager_PendingConflictsCount(t *testing.T) {
+func TestManager_pendingConflictsCounters(t *testing.T) {
 	testTangle := tangle.NewTestTangle()
 	m := NewManager(NewEpochManager(), NewEpochCommitmentFactory(testTangle.Options.Store, testTangle, 1), testTangle)
-	m.pendingConflictsCount[3] = 3
-	assert.Equal(t, uint64(3), m.PendingConflictsCount(3))
+	m.pendingConflictsCounters[3] = 3
+	assert.Equal(t, uint64(3), m.pendingConflictsCounters[3])
 }
 
 func TestManager_IsCommittable(t *testing.T) {
 	m := testNotarizationManager()
 	Index := epoch.Index(5)
-	m.pendingConflictsCount[Index] = 0
+	m.pendingConflictsCounters[Index] = 0
 	// not old enough
-	assert.False(t, m.IsCommittable(Index))
+	assert.False(t, m.isCommittable(Index))
 
 	Index = epoch.Index(1)
-	m.pendingConflictsCount[Index] = 1
+	m.pendingConflictsCounters[Index] = 1
 	// old enough but pbc > 0
-	assert.False(t, m.IsCommittable(Index))
-	m.pendingConflictsCount[Index] = 0
+	assert.False(t, m.isCommittable(Index))
+	m.pendingConflictsCounters[Index] = 0
 	// old enough and pbc > 0
-	assert.True(t, m.IsCommittable(Index))
+	assert.True(t, m.isCommittable(Index))
 }
 
 func TestManager_GetLatestEC(t *testing.T) {
 	m := testNotarizationManager()
 	// epoch ages (in mins) since genesis [25,20,15,10,5]
 	for i := 0; i <= 5; i++ {
-		m.pendingConflictsCount[epoch.Index(i)] = uint64(i)
+		m.pendingConflictsCounters[epoch.Index(i)] = uint64(i)
 		err := m.epochCommitmentFactory.insertTangleLeaf(epoch.Index(i), tangle.EmptyMessageID)
 		require.NoError(t, err)
 	}
@@ -59,13 +59,13 @@ func TestManager_GetLatestEC(t *testing.T) {
 	// only epoch 0 has pbc = 0
 	assert.Equal(t, epoch.Index(0), commitment.EI)
 
-	m.pendingConflictsCount[4] = 0
+	m.pendingConflictsCounters[4] = 0
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 4 has pbc = 0 but is not old enough
 	assert.Equal(t, epoch.Index(0), commitment.EI)
 
-	m.pendingConflictsCount[2] = 0
+	m.pendingConflictsCounters[2] = 0
 	commitment, err = m.GetLatestEC()
 	assert.NoError(t, err)
 	// epoch 2 has pbc=0 and is old enough
