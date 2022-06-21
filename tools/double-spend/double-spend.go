@@ -35,7 +35,7 @@ func main() {
 	mySeed := walletseed.NewSeed()
 	myAddr := mySeed.Address(0)
 
-	if _, err := clients[0].SendFaucetRequest(myAddr.Address().Base58(), -1); err != nil {
+	if _, err := clients[0].BroadcastFaucetRequest(myAddr.Address().Base58(), -1); err != nil {
 		fmt.Println(err)
 		return
 	}

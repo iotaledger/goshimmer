@@ -102,7 +102,7 @@ func configure(plugin *node.Plugin) {
 	}))
 
 	// Messages created by the node need to pass through the normal flow.
-	deps.Tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *tangle.MessageConstructedEvent) {
+	deps.Tangle.RateSetter.Events.MessageIssued.Attach(event.NewClosure(func(event *tangle.MessageConstructedEvent) {
 		deps.Tangle.ProcessGossipMessage(lo.PanicOnErr(event.Message.Bytes()), deps.Local.Peer)
 	}))
 
@@ -192,11 +192,12 @@ func newTangle(tangleDeps tangledeps) *tangle.Tangle {
 			ConfirmedMessageScheduleThreshold: parseDuration(SchedulerParameters.ConfirmedMessageThreshold),
 			Rate:                              parseDuration(SchedulerParameters.Rate),
 			AccessManaMapRetrieverFunc:        accessManaMapRetriever,
-			AccessManaRetrieveFunc:            accessManaRetriever,
 			TotalAccessManaRetrieveFunc:       totalAccessManaRetriever,
 		}),
 		tangle.RateSetterConfig(tangle.RateSetterParams{
-			Initial: &RateSetterParameters.Initial,
+			Initial:          RateSetterParameters.Initial,
+			RateSettingPause: RateSetterParameters.RateSettingPause,
+			Enabled:          RateSetterParameters.Enable,
 		}),
 		tangle.SyncTimeWindow(Parameters.TangleTimeWindow),
 		tangle.StartSynced(Parameters.StartSynced),
@@ -237,15 +238,6 @@ func accessManaMapRetriever() map[identity.ID]float64 {
 		return mana.NodeMap{}
 	}
 	return nodeMap
-}
-
-func accessManaRetriever(nodeID identity.ID) float64 {
-	nodeMana, _, err := GetAccessMana(nodeID)
-	// return at least MinMana so that zero mana nodes can access the network
-	if err != nil && nodeMana < tangle.MinMana {
-		return tangle.MinMana
-	}
-	return nodeMana
 }
 
 func totalAccessManaRetriever() float64 {

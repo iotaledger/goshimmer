@@ -40,6 +40,7 @@ type Tangle struct {
 	Storage               *Storage
 	Solidifier            *Solidifier
 	Scheduler             *Scheduler
+	RateSetter            *RateSetter
 	Booker                *Booker
 	ApprovalWeightManager *ApprovalWeightManager
 	TimeManager           *TimeManager
@@ -80,6 +81,7 @@ func New(options ...Option) (tangle *Tangle) {
 	tangle.Ledger = ledger.New(ledger.WithStore(tangle.Options.Store), ledger.WithVM(new(devnetvm.VM)), ledger.WithCacheTimeProvider(tangle.Options.CacheTimeProvider), ledger.WithConflictDAGOptions(tangle.Options.ConflictDAGOptions...))
 	tangle.Solidifier = NewSolidifier(tangle)
 	tangle.Scheduler = NewScheduler(tangle)
+	tangle.RateSetter = NewRateSetter(tangle)
 	tangle.Booker = NewBooker(tangle)
 	tangle.OrphanageManager = NewOrphanageManager(tangle)
 	tangle.ApprovalWeightManager = NewApprovalWeightManager(tangle)
@@ -115,6 +117,7 @@ func (t *Tangle) Setup() {
 	t.Storage.Setup()
 	t.Solidifier.Setup()
 	t.Requester.Setup()
+	t.RateSetter.Setup()
 	t.Booker.Setup()
 	t.OrphanageManager.Setup()
 	t.ApprovalWeightManager.Setup()
@@ -132,6 +135,10 @@ func (t *Tangle) Setup() {
 
 	t.Scheduler.Events.Error.Attach(event.NewClosure(func(err error) {
 		t.Events.Error.Trigger(errors.Errorf("error in Scheduler: %w", err))
+	}))
+
+	t.RateSetter.Events.Error.Attach(event.NewClosure(func(err error) {
+		t.Events.Error.Trigger(errors.Errorf("error in RateSetter: %w", err))
 	}))
 }
 
@@ -170,6 +177,7 @@ func (t *Tangle) Shutdown() {
 	t.Requester.Shutdown()
 	t.Parser.Shutdown()
 	t.MessageFactory.Shutdown()
+	t.RateSetter.Shutdown()
 	t.Scheduler.Shutdown()
 	t.Booker.Shutdown()
 	t.ApprovalWeightManager.Shutdown()

@@ -35,14 +35,14 @@ type State struct {
 // Not mandatory options, if not provided spammer will use default settings:
 // WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval
 type Spammer struct {
-	SpamDetails *SpamDetails
-	State       *State
-
-	Clients      evilwallet.Connector
-	EvilWallet   *evilwallet.EvilWallet
-	EvilScenario *evilwallet.EvilScenario
-	ErrCounter   *ErrorCounter
-	log          Logger
+	SpamDetails   *SpamDetails
+	State         *State
+	UseRateSetter bool
+	Clients       evilwallet.Connector
+	EvilWallet    *evilwallet.EvilWallet
+	EvilScenario  *evilwallet.EvilScenario
+	ErrCounter    *ErrorCounter
+	log           Logger
 
 	// accessed from spamming functions
 	done     chan bool
@@ -65,6 +65,7 @@ func NewSpammer(options ...Options) *Spammer {
 		spamFunc:       CustomConflictSpammingFunc,
 		State:          state,
 		EvilScenario:   evilwallet.NewEvilScenario(),
+		UseRateSetter:  true,
 		done:           make(chan bool),
 		shutdown:       make(chan types.Empty),
 		NumberOfSpends: 2,
@@ -148,6 +149,7 @@ func (s *Spammer) Spam() {
 	timeExceeded := time.After(s.SpamDetails.MaxDuration)
 
 	go func() {
+		goroutineCount := atomic.NewInt32(0)
 		for {
 			select {
 			case <-s.State.logTicker.C:
@@ -160,7 +162,14 @@ func (s *Spammer) Spam() {
 				s.StopSpamming()
 				return
 			case <-s.State.spamTicker.C:
-				go s.spamFunc(s)
+				if goroutineCount.Load() > 100 {
+					break
+				}
+				go func() {
+					goroutineCount.Inc()
+					defer goroutineCount.Dec()
+					s.spamFunc(s)
+				}()
 			}
 		}
 	}()
@@ -200,6 +209,9 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 
 	var err error
 	var txID utxo.TransactionID
+	if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+		return
+	}
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debug(ErrFailPostTransaction)

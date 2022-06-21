@@ -30,12 +30,10 @@ type InfoResponse struct {
 	DisabledPlugins []string `json:"disabledPlugins,omitempty"`
 	// Mana values
 	Mana Mana `json:"mana,omitempty"`
-	// Mana Delegation Address
-	ManaDelegationAddress string `json:"manaDelegationAddress,omitempty"`
-	// ManaDecay is the decay coefficient of bm2.
-	ManaDecay float64 `json:"mana_decay"`
 	// Scheduler is the scheduler.
 	Scheduler Scheduler `json:"scheduler"`
+	// RateSetter is the rate setter.
+	RateSetter RateSetter `json:"rateSetter"`
 	// error of the response
 	Error string `json:"error,omitempty"`
 }
@@ -65,10 +63,12 @@ type Scheduler struct {
 	MaxBufferSize     int            `json:"maxBufferSize"`
 	CurrentBufferSize int            `json:"currentBufferSizer"`
 	NodeQueueSizes    map[string]int `json:"nodeQueueSizes"`
+	Deficit           float64        `json:"deficit"`
 }
 
 // RateSetter is the rate setter details.
 type RateSetter struct {
-	Rate float64 `json:"rate"`
-	Size int     `json:"size"`
+	Rate     float64       `json:"rate"`
+	Size     int           `json:"size"`
+	Estimate time.Duration `json:"estimate"`
 }

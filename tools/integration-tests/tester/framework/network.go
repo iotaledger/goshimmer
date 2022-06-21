@@ -411,6 +411,7 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 		if networkConfig.Faucet {
 			masterConfig.Faucet.Enabled = true
 		}
+		masterConfig.Seed, _ = base58.Decode("8q491c3YWjbPwLmF2WD95YmCgh61j2kenCKHfGfByoWi")
 
 		if len(cfgAlterFunc) > 0 && cfgAlterFunc[0] != nil {
 			masterConfig = cfgAlterFunc[0](0, true, masterConfig)

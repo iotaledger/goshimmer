@@ -54,8 +54,6 @@ type Event interface {
 	ToJSONSerializable() interface{}
 	// ToPersistable returns an event that can be persisted.
 	ToPersistable() *PersistableEvent
-	// Timestamp returns the time of the event.
-	Timestamp() time.Time
 	// String returns a human readable version of the event.
 	String() string
 }
@@ -239,9 +237,7 @@ type UpdatedEventJSON struct {
 
 // BaseManaJSON is a JSON serializable form of a BaseMana.
 type BaseManaJSON struct {
-	BaseMana          float64 `json:"baseMana"`
-	EffectiveBaseMana float64 `json:"effectiveBaseMana"`
-	LastUpdated       int64   `json:"lastUpdated"`
+	BaseMana float64 `json:"baseMana"`
 }
 
 // ToJSONSerializable returns a struct that can be serialized into JSON object.
@@ -250,14 +246,10 @@ func (u *UpdatedEvent) ToJSONSerializable() interface{} {
 		ManaType: u.ManaType.String(),
 		NodeID:   u.NodeID.String(),
 		OldMana: &BaseManaJSON{
-			BaseMana:          u.OldMana.BaseValue(),
-			EffectiveBaseMana: u.OldMana.EffectiveValue(),
-			LastUpdated:       u.OldMana.LastUpdate().Unix(),
+			BaseMana: u.OldMana.BaseValue(),
 		},
 		NewMana: &BaseManaJSON{
-			BaseMana:          u.NewMana.BaseValue(),
-			EffectiveBaseMana: u.NewMana.EffectiveValue(),
-			LastUpdated:       u.NewMana.LastUpdate().Unix(),
+			BaseMana: u.NewMana.BaseValue(),
 		},
 	}
 }
@@ -281,11 +273,6 @@ func (u *UpdatedEvent) ToPersistable() *PersistableEvent {
 // Type returns the type of the event.
 func (u *UpdatedEvent) Type() byte {
 	return EventTypeUpdate
-}
-
-// Timestamp returns time the event was fired.
-func (u *UpdatedEvent) Timestamp() time.Time {
-	panic("not implemented")
 }
 
 var _ Event = &UpdatedEvent{}

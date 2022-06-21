@@ -46,15 +46,12 @@ services:
       - PROFILING_BINDADDRESS=0.0.0.0:6061
     command: >
       --skip-config=true
-     {% if snapshotResetTime|default(false) %}
-      --mana.snapshotResetTime=true
-     {% endif %}
       --autoPeering.entryNodes={{ entryNodePubKey }}@{{ entryNodeHost }}:15626{% if communityEntryNode|default(None) %},{{ communityEntryNode }}{% endif %}
      {% if networkVersion|default(None) %}
       --autoPeering.networkVersion={{ networkVersion }}
      {% endif %}
-      --node.disablePlugins=portcheck
-      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet{% endif %},activity,snapshot,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
+      --node.disablePlugins=portcheck,ManaInitializer
+      --node.enablePlugins=dashboard,remotelog,networkdelay,prometheus{% if faucet|default(false) %},faucet,WebAPIFaucetEndpoint{% endif %},activity,snapshot,WebAPIToolsMessageEndpoint,"WebAPI tools Endpoint"{% if spammer|default(false) %},spammer{% endif %}
       --prometheus.bindAddress=0.0.0.0:9311
       --activity.broadcastInterval=1s
      {% if faucet|default(false) %}

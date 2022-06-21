@@ -13,9 +13,11 @@ import (
 )
 
 var (
-	testInitial          = 20000.0
+	testInitial          = 5.0
 	testRateSetterParams = RateSetterParams{
-		Initial: &testInitial,
+		Initial:          testInitial,
+		RateSettingPause: time.Second,
+		Enabled:          true,
 	}
 )
 
@@ -36,9 +38,19 @@ func TestRateSetter_Submit(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
+	messageIssued := make(chan *Message, 1)
+	rateSetter.Events.MessageIssued.Attach(event.NewClosure(func(event *MessageConstructedEvent) { messageIssued <- event.Message }))
+
 	msg := newMessage(localNode.PublicKey())
 	assert.NoError(t, rateSetter.Issue(msg))
-	time.Sleep(100 * time.Millisecond)
+	assert.Eventually(t, func() bool {
+		select {
+		case msg1 := <-messageIssued:
+			return assert.Equal(t, msg, msg1)
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
 }
 
 func TestRateSetter_ErrorHandling(t *testing.T) {
@@ -50,26 +62,27 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 	rateSetter := NewRateSetter(tangle)
 	defer rateSetter.Shutdown()
 
-	messageDiscarded := make(chan MessageID, 1)
+	messageDiscarded := make(chan MessageID, MaxLocalQueueSize*2)
 	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
 	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
-
-	msg := NewMessage(
-		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
-		time.Now(),
-		localNode.PublicKey(),
-		0,
-		payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
-		0,
-		ed25519.Signature{},
-	)
-	assert.NoError(t, msg.DetermineID())
-	assert.NoError(t, rateSetter.Issue(msg))
+	for i := 0; i < MaxLocalQueueSize*2; i++ {
+		msg := NewMessage(
+			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+			time.Now(),
+			localNode.PublicKey(),
+			0,
+			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
+			0,
+			ed25519.Signature{},
+		)
+		assert.NoError(t, msg.DetermineID())
+		assert.NoError(t, rateSetter.Issue(msg))
+	}
 
 	assert.Eventually(t, func() bool {
 		select {
-		case id := <-messageDiscarded:
-			return assert.Equal(t, msg.ID(), id)
+		case <-messageDiscarded:
+			return true
 		default:
 			return false
 		}

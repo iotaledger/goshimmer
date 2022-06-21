@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"time"
+
+	"github.com/iotaledger/goshimmer/client/evilwallet"
 )
 
 // Nodes used during the test, use at least two nodes to be able to doublespend
@@ -24,6 +25,7 @@ var (
 		DelayBetweenConflicts: 0,
 		Scenario:              evilwallet.Scenario1(),
 		DeepSpam:              false,
+		EnableRateSetter:      true,
 	}
 	quickTest = QuickTestParams{
 		ClientUrls:            urls,
@@ -31,5 +33,6 @@ var (
 		Duration:              time.Second * 30,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
+		EnableRateSetter:      true,
 	}
 )

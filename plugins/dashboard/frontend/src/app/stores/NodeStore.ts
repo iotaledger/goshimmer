@@ -13,6 +13,7 @@ class Status {
     uptime: number;
     mem: MemoryMetrics = new MemoryMetrics();
     tangleTime: TangleTime;
+    scheduler: SchedulerMetric = new SchedulerMetric();
 }
 
 class TangleTime {
@@ -47,6 +48,23 @@ class NetworkIO {
     tx: number;
     rx: number;
     ts: string;
+}
+
+class RateSetterMetric {
+    size: number;
+    estimate: string;
+    rate: number;
+    ts: string;
+}
+
+class SchedulerMetric {
+    running: number;
+    rate: string;
+    maxBufferSize: number;
+    currentBufferSize: number;
+    deficit : number;
+    ts: string;
+
 }
 
 class NeighborMetrics {
@@ -174,6 +192,9 @@ export class NodeStore {
     @observable websocketConnected: boolean = false;
     @observable last_mps_metric: MPSMetric = new MPSMetric();
     @observable collected_mps_metrics: Array<MPSMetric> = [];
+    @observable collected_rate_setter_metrics: Array<RateSetterMetric> = [];
+    @observable last_rate_setter_metric: RateSetterMetric = new RateSetterMetric();
+    @observable collected_scheduler_metrics: Array<SchedulerMetric> = [];
     @observable collected_mem_metrics: Array<MemoryMetrics> = [];
     @observable neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
     @observable last_tips_metric: TipsMetric = new TipsMetric();
@@ -199,6 +220,8 @@ export class NodeStore {
         registerHandler(WSMsgType.NeighborStats, this.updateNeighborMetrics);
         registerHandler(WSMsgType.TipsMetrics, this.updateLastTipsMetric);
         registerHandler(WSMsgType.ComponentCounterMetrics, this.updateLastComponentMetric);
+        registerHandler(WSMsgType.RateSetter, this.updateLastRateSetterMetric)
+
         this.updateCollecting(true);
     }
 
@@ -208,6 +231,7 @@ export class NodeStore {
         unregisterHandler(WSMsgType.NeighborStats);
         unregisterHandler(WSMsgType.TipsMetrics);
         unregisterHandler(WSMsgType.ComponentCounterMetrics);
+        unregisterHandler(WSMsgType.RateSetter);
         this.updateCollecting(false);
     }
 
@@ -220,6 +244,7 @@ export class NodeStore {
     reset() {
         this.collected_mps_metrics = [];
         this.collected_mem_metrics = [];
+        this.collected_scheduler_metrics = [];
         this.neighbor_metrics = new ObservableMap<string, NeighborMetrics>();
         this.collected_tips_metrics = [];
         this.collected_component_counter_metrics = [];
@@ -250,7 +275,14 @@ export class NodeStore {
         }
         this.collected_mem_metrics.push(status.mem);
         this.status = status;
+
+        status.scheduler.ts = dateformat(Date.now(), "HH:MM:ss");
+        if (this.collected_scheduler_metrics.length > maxMetricsDataPoints) {
+            this.collected_scheduler_metrics.shift();
+        }
+        this.collected_scheduler_metrics.push(status.scheduler);
     };
+
 
     @action
     updateNeighborMetrics = (neighborMetrics: Array<NeighborMetric>) => {
@@ -274,6 +306,16 @@ export class NodeStore {
                 this.neighbor_metrics.delete(k);
             }
         }
+    };
+
+    @action
+    updateLastRateSetterMetric = (metric: RateSetterMetric) => {
+        metric.ts = dateformat(Date.now(), "HH:MM:ss");
+        this.last_rate_setter_metric = metric;
+        if (this.collected_rate_setter_metrics.length > maxMetricsDataPoints) {
+            this.collected_rate_setter_metrics.shift();
+        }
+        this.collected_rate_setter_metrics.push(metric);
     };
 
     @action
@@ -379,6 +421,44 @@ export class NodeStore {
         return {
             labels: labels,
             datasets: [stored, solidified, scheduled, booked],
+        };
+    }
+
+    @computed
+    get bufferSizeSeries() {
+        let bufferSize = Object.assign({}, chartSeriesOpts,
+            series("buffer size", 'rgba(209,165,253,1)', 'rgba(209,165,253,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_scheduler_metrics.length; i++) {
+            let metric: SchedulerMetric = this.collected_scheduler_metrics[i];
+            labels.push(metric.ts);
+            bufferSize.data.push(metric.currentBufferSize);
+        }
+
+        return {
+            labels: labels,
+            datasets: [bufferSize],
+        };
+    }
+
+    @computed
+    get deficitSeries() {
+        let deficit = Object.assign({}, chartSeriesOpts,
+            series("deficit", 'rgba(182, 141, 64,1)', 'rgba(182, 141, 64,0.4)')
+        );
+
+        let labels = [];
+        for (let i = 0; i < this.collected_scheduler_metrics.length; i++) {
+            let metric: SchedulerMetric = this.collected_scheduler_metrics[i];
+            labels.push(metric.ts);
+            deficit.data.push(metric.deficit);
+        }
+
+        return {
+            labels: labels,
+            datasets: [deficit],
         };
     }
 
