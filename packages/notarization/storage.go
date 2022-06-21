@@ -110,6 +110,18 @@ func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err 
 	return s.getIndexFlag("lastConfirmedEpochIndex")
 }
 
+// Shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) Shutdown() {
+	s.shutdownOnce.Do(func() {
+		s.ledgerstateStorage.Shutdown()
+		s.ecRecordStorage.Shutdown()
+		for _, epochDiffStorage := range s.epochDiffStorages {
+			epochDiffStorage.spent.Shutdown()
+			epochDiffStorage.created.Shutdown()
+		}
+	})
+}
+
 func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
 	var value []byte
 	if value, err = s.baseStore.Get([]byte(flag)); err != nil {
@@ -128,18 +140,6 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 		return errors.Wrapf(err, "failed to set %s in database", flag)
 	}
 	return nil
-}
-
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) Shutdown() {
-	s.shutdownOnce.Do(func() {
-		s.ledgerstateStorage.Shutdown()
-		s.ecRecordStorage.Shutdown()
-		for _, epochDiffStorage := range s.epochDiffStorages {
-			epochDiffStorage.spent.Shutdown()
-			epochDiffStorage.created.Shutdown()
-		}
-	})
 }
 
 func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {

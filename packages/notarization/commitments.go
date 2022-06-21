@@ -2,7 +2,6 @@ package notarization
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/iotaledger/hive.go/serix"
 
@@ -132,14 +131,8 @@ func (f *EpochCommitmentFactory) updateManaLeaf(outputWithMetadata *ledger.Outpu
 
 	accountBytes := outputWithMetadata.OutputMetadata().ConsensusManaPledgeID().Bytes()
 
-	balanceBytes, getLeafErr := f.manaRootTree.Get(accountBytes)
-	if getLeafErr != nil {
-		return errors.Wrap(getLeafErr, "could not get leaf from mana tree")
-	}
-
 	var currentBalance uint64
-
-	if len(balanceBytes) > 0 {
+	if balanceBytes, getLeafErr := f.manaRootTree.Get(accountBytes); getLeafErr != nil && len(balanceBytes) > 0 {
 		_, decodeErr := serix.DefaultAPI.Decode(context.Background(), balanceBytes, &currentBalance, serix.WithValidation())
 		if decodeErr != nil {
 			return errors.Wrap(decodeErr, "could not decode mana leaf balance")
@@ -265,12 +258,10 @@ func (f *EpochCommitmentFactory) storeDiffUTXOs(ei epoch.Index, spent, created [
 	epochDiffStorage := f.storage.getEpochDiffStorage(ei)
 
 	for _, spentOutputWithMetadata := range spent {
-		fmt.Println(">> spent:", spentOutputWithMetadata)
 		epochDiffStorage.spent.Store(spentOutputWithMetadata).Release()
 	}
 
 	for _, createdOutputWithMetadata := range created {
-		fmt.Println(">> created:", createdOutputWithMetadata)
 		epochDiffStorage.created.Store(createdOutputWithMetadata).Release()
 	}
 }
