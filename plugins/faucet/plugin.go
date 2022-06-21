@@ -61,23 +61,13 @@ var (
 type dependencies struct {
 	dig.In
 
-	Local        *peer.Local
-	Tangle       *tangle.Tangle
-	FaucetEvents *Events
-	Indexer      *indexer.Indexer
+	Local   *peer.Local
+	Tangle  *tangle.Tangle
+	Indexer *indexer.Indexer
 }
 
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
-
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
-		if err := event.Container.Provide(func() *Events {
-			events := newEvents()
-			return events
-		}); err != nil {
-			Plugin.Panic(err)
-		}
-	}))
 }
 
 // newFaucet gets the faucet component instance the faucet plugin has initialized.
@@ -220,9 +210,6 @@ func configureEvents() {
 	deps.Tangle.ApprovalWeightManager.Events.MessageProcessed.Attach(event.NewClosure(func(event *tangle.MessageProcessedEvent) {
 		onMessageProcessed(event.MessageID)
 	}))
-	deps.FaucetEvents.WebAPIFaucetRequest.Attach(event.NewClosure(func(event *FaucetRequestEvent) {
-		onWebAPIRequest(event.Request)
-	}))
 	deps.Tangle.TimeManager.Events.SyncChanged.Attach(event.NewClosure(func(event *tangle.SyncChangedEvent) {
 		if event.Synced {
 			synced <- true
@@ -230,23 +217,23 @@ func configureEvents() {
 	}))
 }
 
-func onWebAPIRequest(fundingRequest *faucet.Payload) {
+func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	// Do not start picking up request while waiting for initialization.
 	// If faucet nodes crashes and you restart with a clean db, all previous faucet req msgs will be enqueued
 	// and addresses will be funded again. Therefore, do not process any faucet request messages until we are in
 	// sync and initialized.
 	if !initDone.Load() {
-		return
+		return errors.New("faucet plugin is not done initializing")
 	}
 	addr := fundingRequest.Address()
 
 	if verifyFaucetRequestPoW(fundingRequest, addr) {
-		return
+		return errors.New("PoW requirement is not satisfied")
 	}
 
 	if IsAddressBlackListed(addr) {
 		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
-		return
+		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
 	}
 
 	// finally add it to the faucet to be processed
@@ -254,9 +241,10 @@ func onWebAPIRequest(fundingRequest *faucet.Payload) {
 	if !added {
 		RemoveAddressFromBlacklist(addr)
 		Plugin.LogInfof("dropped funding request for address %s as queue is full", addr.Base58())
-		return
+		return errors.Newf("dropped funding request for address %s as queue is full", addr.Base58())
 	}
 	Plugin.LogInfof("enqueued funding request for address %s", addr.Base58())
+	return nil
 }
 
 func onMessageProcessed(messageID tangle.MessageID) {

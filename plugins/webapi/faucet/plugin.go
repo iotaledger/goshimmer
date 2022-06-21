@@ -25,9 +25,8 @@ var (
 type dependencies struct {
 	dig.In
 
-	Server       *echo.Echo
-	FaucetEvents *faucet.Events
-	Tangle       *tangle.Tangle
+	Server *echo.Echo
+	Tangle *tangle.Tangle
 }
 
 // Plugin gets the plugin instance.
@@ -70,7 +69,10 @@ func processFaucetRequest(c echo.Context) error {
 
 	faucetPayload := faucetpkg.NewRequest(addr, accessManaPledgeID, consensusManaPledgeID, request.Nonce)
 
-	deps.FaucetEvents.WebAPIFaucetRequest.Trigger(&faucet.FaucetRequestEvent{Request: faucetPayload})
+	err = faucet.OnWebAPIRequest(faucetPayload)
 
+	if err != nil {
+		return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: false, Error: err.Error()})
+	}
 	return c.JSON(http.StatusOK, jsonmodels.FaucetAPIResponse{Success: true})
 }
