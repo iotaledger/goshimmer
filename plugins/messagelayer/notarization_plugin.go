@@ -25,7 +25,14 @@ const (
 	NotarizationPluginName = "Notarization"
 )
 
-type notarizationDependencies struct {
+type notarizationPluginDependencies struct {
+	dig.In
+
+	Tangle  *tangle.Tangle
+	Manager *notarization.Manager
+}
+
+type notarizationManagerDependencies struct {
 	dig.In
 
 	Tangle  *tangle.Tangle
@@ -34,9 +41,7 @@ type notarizationDependencies struct {
 
 var (
 	NotarizationPlugin *node.Plugin
-	notarizationDeps   = new(notarizationDependencies)
-
-	notarizationManager *notarization.Manager
+	notarizationDeps   = new(notarizationPluginDependencies)
 )
 
 func init() {
@@ -50,35 +55,34 @@ func init() {
 }
 
 func configureNotarizationPlugin(plugin *node.Plugin) {
-	notarizationManager = newNotarizationManager(*notarizationDeps)
 	if nodeSnapshot != nil {
-		notarizationManager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
+		notarizationDeps.Manager.LoadSnapshot(nodeSnapshot.LedgerSnapshot)
 	}
 	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		notarizationDeps.Tangle.Storage.Message(event.Message.ID()).Consume(func(m *tangle.Message) {
-			notarizationManager.OnMessageConfirmed(m)
+			notarizationDeps.Manager.OnMessageConfirmed(m)
 		})
 	}))
 	notarizationDeps.Tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
-		notarizationManager.OnMessageOrphaned(event.Message)
+		notarizationDeps.Manager.OnMessageOrphaned(event.Message)
 	}))
 	notarizationDeps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		notarizationDeps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
-			notarizationManager.OnTransactionConfirmed(t.(*devnetvm.Transaction))
+			notarizationDeps.Manager.OnTransactionConfirmed(t.(*devnetvm.Transaction))
 		})
 	}))
 	notarizationDeps.Tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
-		notarizationManager.OnTransactionInclusionUpdated(event)
+		notarizationDeps.Manager.OnTransactionInclusionUpdated(event)
 	}))
 
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchConfirmed.Attach(event.NewClosure(func(event *conflictdag.BranchConfirmedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchConfirmed(event.ID)
+		notarizationDeps.Manager.OnBranchConfirmed(event.ID)
 	}))
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		notarizationManager.OnBranchCreated(event.ID)
+		notarizationDeps.Manager.OnBranchCreated(event.ID)
 	}))
 	notarizationDeps.Tangle.Ledger.ConflictDAG.Events.BranchRejected.Attach(event.NewClosure(func(event *conflictdag.BranchRejectedEvent[utxo.TransactionID]) {
-		notarizationManager.OnBranchRejected(event.ID)
+		notarizationDeps.Manager.OnBranchRejected(event.ID)
 	}))
 }
 
@@ -91,7 +95,7 @@ func runNotarizationPlugin(*node.Plugin) {
 	}
 }
 
-func newNotarizationManager(deps notarizationDependencies) *notarization.Manager {
+func newNotarizationManager(deps notarizationManagerDependencies) *notarization.Manager {
 	return notarization.NewManager(
 		notarization.NewEpochManager(),
 		notarization.NewEpochCommitmentFactory(deps.Storage, deps.Tangle),
@@ -102,10 +106,10 @@ func newNotarizationManager(deps notarizationDependencies) *notarization.Manager
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
 func GetLatestEC() (ecRecord *epoch.ECRecord, latestConfirmedEpoch epoch.Index, err error) {
-	ecRecord, err = notarizationManager.GetLatestEC()
+	ecRecord, err = notarizationDeps.Manager.GetLatestEC()
 	if err != nil {
 		return
 	}
-	latestConfirmedEpoch, err = notarizationManager.LatestConfirmedEpochIndex()
+	latestConfirmedEpoch, err = notarizationDeps.Manager.LatestConfirmedEpochIndex()
 	return
 }

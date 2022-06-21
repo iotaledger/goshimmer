@@ -35,10 +35,9 @@ const PluginName = "Metrics"
 
 var (
 	// Plugin is the plugin instance of the metrics plugin.
-	Plugin  *node.Plugin
-	deps    = new(dependencies)
-	log     *logger.Logger
-	storage kvstore.KVStore
+	Plugin *node.Plugin
+	deps   = new(dependencies)
+	log    *logger.Logger
 )
 
 type dependencies struct {
@@ -46,19 +45,41 @@ type dependencies struct {
 
 	Tangle          *tangle.Tangle
 	NotarizationMgr *notarization.Manager
-	Storage         kvstore.KVStore
+	EpochMetrics    *EpochCommitmentsMetrics
 	GossipMgr       *gossip.Manager     `optional:"true"`
 	Selection       *selection.Protocol `optional:"true"`
 	Local           *peer.Local
 }
 
+type epochMetricsDependencies struct {
+	dig.In
+
+	Storage kvstore.KVStore
+}
+
+func newEpochMetrics(deps epochMetricsDependencies) *EpochCommitmentsMetrics {
+	storage, err := deps.Storage.WithRealm(kvstore.Realm{database.PrefixMetrics})
+	if err != nil {
+		Plugin.Panic(err)
+	}
+	ecm, err := NewEpochCommitmentsMetrics(storage)
+	if err != nil {
+		Plugin.Panic(err)
+	}
+	return ecm
+}
+
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure, run)
+	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+		if err := event.Container.Provide(newEpochMetrics); err != nil {
+			Plugin.Panic(err)
+		}
+	}))
 }
 
 func configure(_ *node.Plugin) {
 	log = logger.NewLogger(PluginName)
-	storage, _ = deps.Storage.WithRealm(kvstore.Realm{database.PrefixMetrics})
 }
 
 func run(_ *node.Plugin) {
@@ -326,17 +347,17 @@ func registerLocalMetrics() {
 		addPledge(ev)
 	}))
 	deps.NotarizationMgr.Events.EpochCommitted.Attach(event.NewClosure(func(e *notarization.EpochCommittedEvent) {
-		saveCommittedEpoch(e.CommittedEpoch)
+		deps.EpochMetrics.saveCommittedEpoch(e.CommittedEpoch)
 	}))
 	deps.Tangle.ConfirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		message := event.Message
-		saveEpochVotersWeight(message)
-		saveEpochMessage(message)
+		deps.EpochMetrics.saveEpochVotersWeight(message)
+		deps.EpochMetrics.saveEpochMessage(message)
 	}))
 	deps.Tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
 		deps.Tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(t utxo.Transaction) {
-			saveEpochUTXOs(t.(*devnetvm.Transaction))
-			saveEpochTransaction(t)
+			deps.EpochMetrics.saveEpochUTXOs(t.(*devnetvm.Transaction))
+			deps.EpochMetrics.saveEpochTransaction(t)
 		})
 	}))
 }

@@ -15,13 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
-type EpochInfo struct {
-	EI     epoch.Index
-	ECR    string
-	PrevEC string
-}
-
-// EpochContent is a storable object represents the epochContent of an epoch.
+// EpochContent is a storable object represents the epoch and its content like UTXO ids, message ids, or transaction ids.
 type EpochContent struct {
 	model.Storable[epoch.Index, EpochContent, *EpochContent, epochContent] `serix:"0"`
 }
@@ -48,7 +42,7 @@ const (
 
 type EpochCommitmentsMetrics struct {
 	epochCommitmentsMutex sync.RWMutex
-	epochCommitments      map[epoch.Index]EpochInfo
+	epochCommitments      map[epoch.Index]epoch.ECRecord
 
 	epochVotersWeightMutex sync.RWMutex
 	epochVotersWeight      map[epoch.Index]map[identity.ID]float64
@@ -75,7 +69,7 @@ func NewEpochCommitmentsMetrics(storage kvstore.KVStore) (*EpochCommitmentsMetri
 		return nil, errors.WithStack(err)
 	}
 	metrics := &EpochCommitmentsMetrics{
-		epochCommitments:  map[epoch.Index]EpochInfo{},
+		epochCommitments:  map[epoch.Index]epoch.ECRecord{},
 		epochVotersWeight: map[epoch.Index]map[identity.ID]float64{},
 		epochUTXOs: objectstorage.NewStructStorage[EpochContent](
 			UTXOsKV,
@@ -99,17 +93,13 @@ func NewEpochCommitmentsMetrics(storage kvstore.KVStore) (*EpochCommitmentsMetri
 func (m *EpochCommitmentsMetrics) saveCommittedEpoch(ecr *epoch.ECRecord) {
 	m.epochCommitmentsMutex.Lock()
 	defer m.epochCommitmentsMutex.Unlock()
-	m.epochCommitments[ecr.EI()] = EpochInfo{
-		EI:     ecr.EI(),
-		ECR:    ecr.M.ECR.String(),
-		PrevEC: ecr.M.PrevEC.String(),
-	}
+	m.epochCommitments[ecr.EI()] = *ecr
 }
 
-func (m *EpochCommitmentsMetrics) GetCommittedEpochs() map[epoch.Index]EpochInfo {
+func (m *EpochCommitmentsMetrics) GetCommittedEpochs() map[epoch.Index]epoch.ECRecord {
 	m.epochCommitmentsMutex.RLock()
 	defer m.epochCommitmentsMutex.RUnlock()
-	duplicate := make(map[epoch.Index]EpochInfo, len(m.epochCommitments))
+	duplicate := make(map[epoch.Index]epoch.ECRecord, len(m.epochCommitments))
 	for k, v := range m.epochCommitments {
 		duplicate[k] = v
 	}
@@ -232,16 +222,12 @@ func (m *EpochCommitmentsMetrics) GetEpochTransactions() map[epoch.Index][]strin
 	return duplicate
 }
 
-func GetLastCommittedEpoch() EpochInfo {
+func GetLastCommittedEpoch() epoch.ECRecord {
 	epochRecord, err := deps.NotarizationMgr.LastCommittedEpoch()
 	if err != nil {
 		Plugin.LogError("Notarization manager failed to return last committed epoch", err)
 	}
-	return EpochInfo{
-		EI:     epochRecord.EI(),
-		ECR:    epochRecord.ECR().String(),
-		PrevEC: epochRecord.PrevEC().String(),
-	}
+	return *epochRecord
 }
 
 func GetPendingBranchCount() map[epoch.Index]uint64 {
