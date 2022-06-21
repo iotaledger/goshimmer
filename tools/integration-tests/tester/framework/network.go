@@ -466,13 +466,13 @@ func (n *Network) addManualPeers(nodes []*Node) error {
 
 // dropManualPeers instructs each node to drop all the other nodes as peers.
 func (n *Network) dropManualPeers(nodes []*Node) error {
-	log.Printf("Adding manual peers to %d nodes...", len(nodes))
+	log.Printf("Removing manual peers from %d nodes...", len(nodes))
 	for i := range nodes {
 		manualPeers, err := nodes[i].GetManualPeers()
 		if err != nil {
 			return err
 		}
-		// connect to all other nodes
+
 		var publicKeys []ed25519.PublicKey
 		for _, manualPeer := range manualPeers {
 			publicKeys = append(publicKeys, manualPeer.PublicKey)

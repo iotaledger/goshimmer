@@ -17,6 +17,7 @@ class Status {
 
 class TangleTime {
     synced: boolean;
+    bootstrapped: boolean;
     ATT: number;
     RATT: number;
     CTT: number;

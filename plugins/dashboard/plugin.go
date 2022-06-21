@@ -217,11 +217,12 @@ type nodestatus struct {
 }
 
 type tangleTime struct {
-	Synced bool  `json:"synced"`
-	ATT    int64 `json:"ATT"`
-	RATT   int64 `json:"RATT"`
-	CTT    int64 `json:"CTT"`
-	RCTT   int64 `json:"RCTT"`
+	Synced       bool  `json:"synced"`
+	Bootstrapped bool  `json:"bootstrapped"`
+	ATT          int64 `json:"ATT"`
+	RATT         int64 `json:"RATT"`
+	CTT          int64 `json:"CTT"`
+	RCTT         int64 `json:"RCTT"`
 
 	AcceptedMessageID  string `json:"acceptedMessageID"`
 	ConfirmedMessageID string `json:"confirmedMessageID"`
@@ -319,6 +320,7 @@ func currentNodeStatus() *nodestatus {
 	tm := deps.Tangle.TimeManager
 	status.TangleTime = tangleTime{
 		Synced:             tm.Synced(),
+		Bootstrapped:       tm.Bootstrapped(),
 		AcceptedMessageID:  tm.LastAcceptedMessage().MessageID.Base58(),
 		ConfirmedMessageID: tm.LastConfirmedMessage().MessageID.Base58(),
 		ATT:                tm.ATT().UnixNano(),

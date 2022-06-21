@@ -17,20 +17,23 @@ export default class TangleTime extends React.Component<Props, any> {
             <Card>
                 <Card.Body>
                     <Card.Title>TangleTime
-                        Synced: {this.props.nodeStore.status.tangleTime.synced ? "Yes" : "No"} </Card.Title>
+                        Synced: {this.props.nodeStore.status.tangleTime.synced ? "Yes" : "No"}</Card.Title>
                     <small>
                         <div>
                             <hr/>
                             <div className={"row"}>
-                                <div className={"col"}>Last Accepted Message: <Link
+                                <div className={"col-12"}>Last Accepted Message: <Link
                                     to={`/explorer/message/${this.props.nodeStore.status.tangleTime.acceptedMessageID}`}>
                                     {this.props.nodeStore.status.tangleTime.acceptedMessageID}
                                 </Link></div>
-                                <div className={"col"}>Last Confirmed Message: <Link
+                            </div>
+                            <div className={"row"}>
+                                <div className={"col-12"}>Last Confirmed Message: <Link
                                     to={`/explorer/message/${this.props.nodeStore.status.tangleTime.confirmedMessageID}`}>
                                     {this.props.nodeStore.status.tangleTime.confirmedMessageID}
                                 </Link></div>
                             </div>
+                            <hr/>
                             <div className={"row"}>
                                 <div className={"col-3"}>
                                     Acceptance Time:
