@@ -15,11 +15,9 @@ import (
 func DataSpammingFunction(s *Spammer) {
 	clt := s.Clients.GetClient()
 	// sleep randomly to avoid issuing messages in different goroutines at once
-	//time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
-	if s.UseRateSetter {
-		if err := evilwallet.RateSetterSleep(clt); err != nil {
-			s.ErrCounter.CountError(err)
-		}
+	time.Sleep(time.Duration(rand.Float64()*20) * time.Millisecond)
+	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+		s.ErrCounter.CountError(err)
 	}
 	msgID, err := clt.PostData([]byte(fmt.Sprintf("SPAM")))
 	if err != nil {
@@ -57,10 +55,8 @@ func CustomConflictSpammingFunc(s *Spammer) {
 
 				// sleep randomly to avoid issuing messages in different goroutines at once
 				time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
-				if s.UseRateSetter {
-					if err = evilwallet.RateSetterSleep(clt); err != nil {
-						s.ErrCounter.CountError(err)
-					}
+				if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+					s.ErrCounter.CountError(err)
 				}
 				s.PostTransaction(tx, clt)
 			}(clients[i], tx)

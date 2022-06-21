@@ -209,10 +209,8 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 
 	var err error
 	var txID utxo.TransactionID
-	if s.UseRateSetter {
-		if err = evilwallet.RateSetterSleep(clt); err != nil {
-			return
-		}
+	if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+		return
 	}
 	txID, err = clt.PostTransaction(tx)
 	if err != nil {
