@@ -1,8 +1,6 @@
 package evilwallet
 
 import (
-	"time"
-
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -56,11 +54,12 @@ func getIotaColorAmount(balance *devnetvm.ColoredBalances) uint64 {
 }
 
 // RateSetterSleep sleeps for the given rate.
-func RateSetterSleep(clt Client) error {
-	estimate, err := clt.GetRateSetterEstimate()
-	if err != nil {
-		return err
+func RateSetterSleep(clt Client, useRateSetter bool) error {
+	if useRateSetter {
+		err := clt.SleepRateSetterEstimate()
+		if err != nil {
+			return err
+		}
 	}
-	time.Sleep(estimate)
 	return nil
 }

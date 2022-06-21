@@ -51,7 +51,3 @@ type ReceivedTPSUpdatedEvent struct {
 type ComponentCounterUpdatedEvent struct {
 	ComponentStatus map[ComponentType]uint64
 }
-
-func rateSetterMetricEventCaller(handler interface{}, params ...interface{}) {
-	handler.(func(RateSetterMetric))(params[0].(RateSetterMetric))
-}

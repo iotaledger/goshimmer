@@ -13,7 +13,7 @@ type CollectionLogEvents struct {
 	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
 }
 
-func newCollectionLogEvents() (new *CollectionLogEvents) {
+func newCollectionLogEvents() (newEvents *CollectionLogEvents) {
 	return &CollectionLogEvents{
 		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
 		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
@@ -38,6 +38,7 @@ type TangleTimeSyncChangedEvent struct {
 	LastConfirmedMessageTime time.Time `json:"lastConfirmedMessageTime" bson:"lastConfirmedMessageTime"`
 }
 
+// SchedulerQueryEvent is used to trigger scheduler metric collection for remote metric monitoring.
 type SchedulerQueryEvent struct {
 	Time time.Time
 }

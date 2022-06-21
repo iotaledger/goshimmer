@@ -36,16 +36,6 @@ var (
 	ErrStopped = errors.New("rate setter stopped")
 )
 
-var (
-	// Enabled is the flag that enables the rate setting mechanism on node startup.
-	Enabled bool
-	// RateSettingPause is the amount of scheduler ticks to pause updating own rate.
-	// In the Access Control for Distributed Ledgers in the Internet of Things: A Networking Approach paper this parameter is denoted as "τ".
-	RateSettingPause uint
-	// MaxRate is the maximum rate at which node can ever issue (scheduler rate).
-	MaxRate float64
-)
-
 // region RateSetterParams /////////////////////////////////////////////////////////////////////////////////////////////
 
 // RateSetterParams represents the parameters for RateSetter.
@@ -61,33 +51,35 @@ type RateSetterParams struct {
 
 // RateSetter is a Tangle component that takes care of congestion control of local node.
 type RateSetter struct {
-	tangle         *Tangle
-	Events         *RateSetterEvents
-	self           identity.ID
-	issuingQueue   *schedulerutils.NodeQueue
-	issueChan      chan *Message
-	ownRate        *atomic.Float64
-	pauseUpdates   uint
-	shutdownSignal chan struct{}
-	shutdownOnce   sync.Once
-	initOnce       sync.Once
+	tangle              *Tangle
+	Events              *RateSetterEvents
+	self                identity.ID
+	issuingQueue        *schedulerutils.NodeQueue
+	issueChan           chan *Message
+	ownRate             *atomic.Float64
+	pauseUpdates        uint
+	initialPauseUpdates uint
+	maxRate             float64
+	shutdownSignal      chan struct{}
+	shutdownOnce        sync.Once
+	initOnce            sync.Once
 }
 
 // NewRateSetter returns a new RateSetter.
 func NewRateSetter(tangle *Tangle) *RateSetter {
-	RateSettingPause = uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate())
-	MaxRate = float64(time.Second / tangle.Scheduler.Rate())
-	Enabled = tangle.Options.RateSetterParams.Enabled
+
 	rateSetter := &RateSetter{
-		tangle:         tangle,
-		Events:         newRateSetterEvents(),
-		self:           tangle.Options.Identity.ID(),
-		issuingQueue:   schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
-		issueChan:      make(chan *Message),
-		ownRate:        atomic.NewFloat64(0),
-		pauseUpdates:   0,
-		shutdownSignal: make(chan struct{}),
-		shutdownOnce:   sync.Once{},
+		tangle:              tangle,
+		Events:              newRateSetterEvents(),
+		self:                tangle.Options.Identity.ID(),
+		issuingQueue:        schedulerutils.NewNodeQueue(tangle.Options.Identity.ID()),
+		issueChan:           make(chan *Message),
+		ownRate:             atomic.NewFloat64(0),
+		pauseUpdates:        0,
+		initialPauseUpdates: uint(tangle.Options.RateSetterParams.RateSettingPause / tangle.Scheduler.Rate()),
+		maxRate:             float64(time.Second / tangle.Scheduler.Rate()),
+		shutdownSignal:      make(chan struct{}),
+		shutdownOnce:        sync.Once{},
 	}
 
 	go rateSetter.issuerLoop()
@@ -96,7 +88,7 @@ func NewRateSetter(tangle *Tangle) *RateSetter {
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) Setup() {
-	if !Enabled {
+	if !r.tangle.Options.RateSetterParams.Enabled {
 		r.tangle.MessageFactory.Events.MessageConstructed.Attach(event.NewClosure(func(event *MessageConstructedEvent) {
 			r.Events.MessageIssued.Trigger(event)
 		}))
@@ -182,11 +174,11 @@ func (r *RateSetter) rateSetting() {
 	// TODO: make sure not to issue or scheduled blocks older than TSC
 	if float64(r.tangle.Scheduler.NodeQueueSize(r.self)) > math.Max(Wmin, Wmax*ownMana/maxManaValue) {
 		ownRate /= RateSettingDecrease
-		r.pauseUpdates = RateSettingPause
+		r.pauseUpdates = r.initialPauseUpdates
 	} else {
 		ownRate += RateSettingIncrease * ownMana / totalMana
 	}
-	r.ownRate.Store(math.Min(MaxRate, ownRate))
+	r.ownRate.Store(math.Min(r.maxRate, ownRate))
 }
 
 func (r *RateSetter) issuerLoop() {
@@ -258,7 +250,7 @@ func (r *RateSetter) initializeInitialRate() {
 	} else {
 		ownMana := math.Max(r.tangle.Options.SchedulerParams.AccessManaMapRetrieverFunc()[r.tangle.Options.Identity.ID()], MinMana)
 		totalMana := r.tangle.Options.SchedulerParams.TotalAccessManaRetrieveFunc()
-		r.ownRate.Store(math.Max(ownMana/totalMana*MaxRate, 0.001))
+		r.ownRate.Store(math.Max(ownMana/totalMana*r.maxRate, 0.001))
 	}
 }
 

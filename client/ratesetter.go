@@ -2,6 +2,7 @@ package client
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
 )
@@ -17,4 +18,14 @@ func (api *GoShimmerAPI) RateSetter() (*jsonmodels.RateSetter, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+// SleepRateSetterEstimate gets the rate-setter estimate and the rate-setter info and later sleeps the estimated amount of time.
+func (api *GoShimmerAPI) SleepRateSetterEstimate() error {
+	res, err := api.RateSetter()
+	if err != nil {
+		return err
+	}
+	time.Sleep(res.Estimate)
+	return nil
 }

@@ -169,6 +169,8 @@ type Client interface {
 	Url() (cltID string)
 	// GetRateSetterEstimate returns a rate setter estimate.
 	GetRateSetterEstimate() (estimate time.Duration, err error)
+	// SleepRateSetterEstimate sleeps for rate setter estimate.
+	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a message in the backend.
@@ -219,6 +221,15 @@ func (c *WebClient) GetRateSetterEstimate() (estimate time.Duration, err error) 
 		return time.Duration(0), err
 	}
 	return response.Estimate, nil
+}
+
+// SleepRateSetterEstimate returns a rate setter estimate.
+func (c *WebClient) SleepRateSetterEstimate() (err error) {
+	err = c.api.SleepRateSetterEstimate()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
