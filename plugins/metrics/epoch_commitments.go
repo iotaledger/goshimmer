@@ -3,12 +3,12 @@ package metrics
 import (
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/iotaledger/hive.go/generics/model"
 	"github.com/iotaledger/hive.go/generics/objectstorage"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/iotaledger/hive.go/kvstore"
 
+	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/ledger/vm/devnetvm"
@@ -42,7 +42,7 @@ const (
 
 type EpochCommitmentsMetrics struct {
 	epochCommitmentsMutex sync.RWMutex
-	epochCommitments      map[epoch.Index]epoch.ECRecord
+	epochCommitments      map[epoch.Index]*epoch.ECRecord
 
 	epochVotersWeightMutex sync.RWMutex
 	epochVotersWeight      map[epoch.Index]map[identity.ID]float64
@@ -56,33 +56,21 @@ type EpochCommitmentsMetrics struct {
 }
 
 func NewEpochCommitmentsMetrics(storage kvstore.KVStore) (*EpochCommitmentsMetrics, error) {
-	UTXOsKV, err := storage.WithRealm(kvstore.Realm{storagePrefixUTXOs})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	messagesKV, err := storage.WithRealm(kvstore.Realm{storagePrefixMessages})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	transactionsKV, err := storage.WithRealm(kvstore.Realm{storagePrefixTransactions})
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
 	metrics := &EpochCommitmentsMetrics{
-		epochCommitments:  map[epoch.Index]epoch.ECRecord{},
+		epochCommitments:  map[epoch.Index]*epoch.ECRecord{},
 		epochVotersWeight: map[epoch.Index]map[identity.ID]float64{},
 		epochUTXOs: objectstorage.NewStructStorage[EpochContent](
-			UTXOsKV,
+			objectstorage.NewStoreWithRealm(storage, database.PrefixNotarization, storagePrefixUTXOs),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		epochMessages: objectstorage.NewStructStorage[EpochContent](
-			messagesKV,
+			objectstorage.NewStoreWithRealm(storage, database.PrefixNotarization, storagePrefixMessages),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
 		epochTransactions: objectstorage.NewStructStorage[EpochContent](
-			transactionsKV,
+			objectstorage.NewStoreWithRealm(storage, database.PrefixNotarization, storagePrefixTransactions),
 			objectstorage.LeakDetectionEnabled(false),
 			objectstorage.StoreOnCreation(true),
 		),
@@ -93,13 +81,13 @@ func NewEpochCommitmentsMetrics(storage kvstore.KVStore) (*EpochCommitmentsMetri
 func (m *EpochCommitmentsMetrics) saveCommittedEpoch(ecr *epoch.ECRecord) {
 	m.epochCommitmentsMutex.Lock()
 	defer m.epochCommitmentsMutex.Unlock()
-	m.epochCommitments[ecr.EI()] = *ecr
+	m.epochCommitments[ecr.EI()] = ecr
 }
 
-func (m *EpochCommitmentsMetrics) GetCommittedEpochs() map[epoch.Index]epoch.ECRecord {
+func (m *EpochCommitmentsMetrics) GetCommittedEpochs() map[epoch.Index]*epoch.ECRecord {
 	m.epochCommitmentsMutex.RLock()
 	defer m.epochCommitmentsMutex.RUnlock()
-	duplicate := make(map[epoch.Index]epoch.ECRecord, len(m.epochCommitments))
+	duplicate := make(map[epoch.Index]*epoch.ECRecord, len(m.epochCommitments))
 	for k, v := range m.epochCommitments {
 		duplicate[k] = v
 	}

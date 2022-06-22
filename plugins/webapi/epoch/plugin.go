@@ -2,6 +2,7 @@ package epoch
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/cockroachdb/errors"
@@ -35,12 +36,25 @@ func init() {
 }
 
 func configure(_ *node.Plugin) {
+	deps.Server.GET("epochs", getAllCommittedEpochs)
 	deps.Server.GET("epoch/:ei", getCommittedEpoch)
 	deps.Server.GET("epoch/:ei/voters-weight", getVotersWeight)
 	deps.Server.GET("epoch/:ei/utxos", getUTXOs)
 	deps.Server.GET("epoch/:ei/messages", getMessages)
 	deps.Server.GET("epoch/:ei/transactions", getTransactions)
 	deps.Server.GET("epoch/:ei/pending-branches-count", getPendingBranchesCount)
+}
+
+func getAllCommittedEpochs(c echo.Context) error {
+	allEpochs := deps.Metrics.GetCommittedEpochs()
+	allEpochsInfos := make([]*jsonmodels.EpochInfo, 0, len(allEpochs))
+	for _, ecr := range allEpochs {
+		allEpochsInfos = append(allEpochsInfos, jsonmodels.EpochInfoFromRecord(ecr))
+	}
+	sort.Slice(allEpochsInfos, func(i, j int) bool {
+		return allEpochsInfos[i].EI < allEpochsInfos[j].EI
+	})
+	return c.JSON(http.StatusOK, allEpochsInfos)
 }
 
 func getEI(c echo.Context) (epoch.Index, error) {

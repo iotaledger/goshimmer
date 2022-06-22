@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/clock"
 	"github.com/iotaledger/goshimmer/packages/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/database"
 	"github.com/iotaledger/goshimmer/packages/gossip"
 	"github.com/iotaledger/goshimmer/packages/ledger"
 	"github.com/iotaledger/goshimmer/packages/ledger/utxo"
@@ -58,11 +57,7 @@ type epochMetricsDependencies struct {
 }
 
 func newEpochMetrics(deps epochMetricsDependencies) *EpochCommitmentsMetrics {
-	storage, err := deps.Storage.WithRealm(kvstore.Realm{database.PrefixMetrics})
-	if err != nil {
-		Plugin.Panic(err)
-	}
-	ecm, err := NewEpochCommitmentsMetrics(storage)
+	ecm, err := NewEpochCommitmentsMetrics(deps.Storage)
 	if err != nil {
 		Plugin.Panic(err)
 	}

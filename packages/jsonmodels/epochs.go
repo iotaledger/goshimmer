@@ -12,12 +12,16 @@ type EpochInfo struct {
 	PrevEC string `json:"prevEC"`
 }
 
-func EpochInfoFromRecord(record epoch.ECRecord) EpochInfo {
-	return EpochInfo{
+func EpochInfoFromRecord(record *epoch.ECRecord) *EpochInfo {
+	return &EpochInfo{
 		EI:     uint64(record.EI()),
 		ECR:    record.ECR().Base58(),
 		PrevEC: record.PrevEC().Base58(),
 	}
+}
+
+type EpochsResponse struct {
+	Epochs []*EpochInfo `json:"epochs"`
 }
 
 type EpochVotersWeightResponse struct {
