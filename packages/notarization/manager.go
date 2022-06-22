@@ -128,15 +128,6 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 		}
 	}
 
-	// Our ledgerstate is aligned with the last committed epoch, which is the same as the last epoch in the snapshot.
-	if err := m.epochCommitmentFactory.storage.SetFullEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
-	}
-
-	if err := m.epochCommitmentFactory.storage.SetDiffEpochIndex(snapshot.DiffEpochIndex); err != nil {
-		m.log.Error(err)
-	}
-
 	// The last committed epoch index corresponds to the last epoch diff stored in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetLastCommittedEpochIndex(snapshot.DiffEpochIndex); err != nil {
 		m.log.Error(err)
@@ -144,6 +135,16 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 	// We assume as our earliest forking point the last epoch diff stored in the snapshot.
 	if err := m.epochCommitmentFactory.storage.SetLastConfirmedEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	// We set it to the last committed ei. It will be updated upon first confirmed message will arrive.
+	if err := m.epochCommitmentFactory.storage.SetLatestCommittableEpochIndex(snapshot.DiffEpochIndex); err != nil {
+		m.log.Error(err)
+	}
+
+	// We set it to the next epoch after snapshotted one. It will be updated upon first confirmed message will arrive.
+	if err := m.epochCommitmentFactory.storage.SetCurrentEpochIndex(snapshot.DiffEpochIndex + 1); err != nil {
 		m.log.Error(err)
 	}
 
