@@ -22,6 +22,10 @@ func (e Index) Bytes() []byte {
 	return bytes
 }
 
+func (e Index) Length() int {
+	return 8
+}
+
 func (e Index) String() string {
 	return fmt.Sprintf("EI(%d)", e)
 }

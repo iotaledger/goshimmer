@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/serix"
 	"github.com/iotaledger/hive.go/stringify"
 	"github.com/iotaledger/hive.go/types"
+	"github.com/mr-tron/base58"
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
@@ -134,20 +136,90 @@ const (
 
 // MessageID identifies a message via its BLAKE2b-256 hash of its bytes.
 type MessageID struct {
-	types.Identifier `serix:"0"`
+	Identifier types.Identifier `serix:"0"`
+	EpochIndex epoch.Index      `serix:"1"`
 }
 
 // EmptyMessageID is an empty id.
 var EmptyMessageID MessageID
 
 // NewMessageID returns a new MessageID for the given data.
-func NewMessageID(bytes [32]byte) (new MessageID) {
-	return MessageID{Identifier: bytes}
+func NewMessageID(identifier [32]byte, epochIndex epoch.Index) (new MessageID) {
+	return MessageID{Identifier: identifier, EpochIndex: epochIndex}
 }
 
-// Length returns the byte length of a serialized TransactionID.
+func (m *MessageID) FromBytes(serialized []byte) (consumedBytes int, err error) {
+	return serix.DefaultAPI.Decode(context.Background(), serialized, m, serix.WithValidation())
+}
+
+// FromBase58 un-serializes an MessageID from a base58 encoded string.
+func (m *MessageID) FromBase58(base58EncodedString string) (err error) {
+	decodedBytes, err := base58.Decode(base58EncodedString)
+	if err != nil {
+		return errors.Errorf("could not decode base58 encoded string: %w", err)
+	}
+	if _, err = serix.DefaultAPI.Decode(context.Background(), decodedBytes, m, serix.WithValidation()); err != nil {
+		return errors.Errorf("failed to decode MessageID: %w", err)
+	}
+
+	return nil
+}
+
+// FromRandomness generates a random MessageID.
+func (m *MessageID) FromRandomness(optionalEpoch ...epoch.Index) (err error) {
+	if err = m.Identifier.FromRandomness(); err != nil {
+		return errors.Errorf("could not create Identifier from randomness: %w", err)
+	}
+
+	if len(optionalEpoch) >= 1 {
+		m.EpochIndex = optionalEpoch[0]
+	}
+
+	return nil
+}
+
+// Alias returns the human-readable alias of the MessageID (or the base58 encoded bytes of no alias was set).
+func (m MessageID) Alias() (alias string) {
+	_messageIDAliasesMutex.RLock()
+	defer _messageIDAliasesMutex.RUnlock()
+
+	if existingAlias, exists := _messageIDAliases[m]; exists {
+		return existingAlias
+	}
+
+	return fmt.Sprintf("%s, %d", m.Identifier, int(m.EpochIndex))
+}
+
+// RegisterAlias allows to register a human-readable alias for the MessageID which will be used as a replacement for the
+// String method.
+func (m MessageID) RegisterAlias(alias string) {
+	_messageIDAliasesMutex.Lock()
+	defer _messageIDAliasesMutex.Unlock()
+
+	_messageIDAliases[m] = alias
+}
+
+// UnregisterAlias allows to unregister a previously registered alias.
+func (m MessageID) UnregisterAlias() {
+	_messageIDAliasesMutex.Lock()
+	defer _messageIDAliasesMutex.Unlock()
+
+	delete(_messageIDAliases, m)
+}
+
+// Base58 returns a base58 encoded version of the MessageID.
+func (m MessageID) Base58() (base58Encoded string) {
+	return base58.Encode(m.Bytes())
+}
+
+// Length returns the byte length of a serialized MessageID.
 func (m MessageID) Length() int {
-	return types.IdentifierLength
+	return types.IdentifierLength + epoch.Index(0).Length()
+}
+
+// Bytes returns a serialized version of the MessageID.
+func (m MessageID) Bytes() (serialized []byte) {
+	return lo.PanicOnErr(serix.DefaultAPI.Encode(context.Background(), m, serix.WithValidation()))
 }
 
 // String returns a human-readable version of the MessageID.
@@ -173,6 +245,14 @@ func MessageIDFromContext(ctx context.Context) MessageID {
 func MessageIDToContext(ctx context.Context, messageID MessageID) context.Context {
 	return context.WithValue(ctx, "messageID", messageID)
 }
+
+var (
+	// _messageIDAliases contains a dictionary of MessageIDs associated to their human-readable alias.
+	_messageIDAliases = make(map[MessageID]string)
+
+	// _messageIDAliasesMutex is the mutex that is used to synchronize access to the previous map.
+	_messageIDAliasesMutex = sync.RWMutex{}
+)
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

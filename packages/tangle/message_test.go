@@ -80,7 +80,7 @@ func TestMessageIDFromBytes(t *testing.T) {
 	t.Run("CASE: Happy path", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength)
 		var msgID MessageID
-		consumed, err := msgID.Decode(buffer)
+		consumed, err := msgID.FromBytes(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, MessageIDLength, consumed)
 		assert.Equal(t, msgID.Bytes(), buffer)
@@ -89,7 +89,7 @@ func TestMessageIDFromBytes(t *testing.T) {
 	t.Run("CASE: Too few bytes", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength - 1)
 		var result MessageID
-		consumed, err := result.Decode(buffer)
+		consumed, err := result.FromBytes(buffer)
 		assert.Error(t, err)
 		assert.True(t, strings.Contains(err.Error(), "not enough data to decode Identifier"))
 		assert.Equal(t, 0, consumed)
@@ -99,7 +99,7 @@ func TestMessageIDFromBytes(t *testing.T) {
 	t.Run("CASE: More bytes", func(t *testing.T) {
 		buffer := randomBytes(MessageIDLength + 1)
 		var result MessageID
-		consumed, err := result.Decode(buffer)
+		consumed, err := result.FromBytes(buffer)
 		assert.NoError(t, err)
 		assert.Equal(t, MessageIDLength, consumed)
 		assert.Equal(t, buffer[:32], result.Bytes())
