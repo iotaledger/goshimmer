@@ -249,18 +249,22 @@ func onMessageProcessed(messageID tangle.MessageID) {
 
 		// pledge mana to requester if not specified in the request
 		emptyID := identity.ID{}
+		aManaPledge := fundingRequest.AccessManaPledgeID()
 		if fundingRequest.AccessManaPledgeID() == emptyID {
-			fundingRequest.SetAccessManaPledgeID(identity.NewID(message.IssuerPublicKey()))
-		}
-		if fundingRequest.ConsensusManaPledgeID() == emptyID {
-			fundingRequest.SetConsensusManaPledgeID(identity.NewID(message.IssuerPublicKey()))
+			aManaPledge = identity.NewID(message.IssuerPublicKey())
 		}
 
-		_ = handleFaucetRequest(fundingRequest)
+		cManaPledge := fundingRequest.AccessManaPledgeID()
+
+		if fundingRequest.ConsensusManaPledgeID() == emptyID {
+			cManaPledge = identity.NewID(message.IssuerPublicKey())
+		}
+
+		_ = handleFaucetRequest(fundingRequest, aManaPledge, cManaPledge)
 	})
 }
 
-func handleFaucetRequest(fundingRequest *faucet.Payload) error {
+func handleFaucetRequest(fundingRequest *faucet.Payload, pledge ...identity.ID) error {
 	addr := fundingRequest.Address()
 
 	if !isFaucetRequestPoWValid(fundingRequest, addr) {
@@ -270,6 +274,12 @@ func handleFaucetRequest(fundingRequest *faucet.Payload) error {
 	if IsAddressBlackListed(addr) {
 		Plugin.LogInfof("can't fund address %s since it is blacklisted", addr.Base58())
 		return errors.Newf("can't fund address %s since it is blacklisted %s", addr.Base58())
+	}
+
+	emptyID := identity.ID{}
+	if len(pledge) == 2 && fundingRequest.AccessManaPledgeID() == emptyID && fundingRequest.ConsensusManaPledgeID() == emptyID {
+		fundingRequest.SetAccessManaPledgeID(pledge[0])
+		fundingRequest.SetConsensusManaPledgeID(pledge[1])
 	}
 
 	// finally add it to the faucet to be processed
