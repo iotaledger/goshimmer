@@ -286,7 +286,7 @@ func (s *StateManager) findFundingOutputs() []*FaucetOutput {
 		deps.Indexer.CachedAddressOutputMappings(s.replenishmentState.seed.Address(i).Address()).Consume(func(mapping *indexer.AddressOutputMapping) {
 			deps.Tangle.Ledger.Storage.CachedOutput(mapping.OutputID()).Consume(func(output utxo.Output) {
 				deps.Tangle.Ledger.Storage.CachedOutputMetadata(output.ID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
-					if outputMetadata.IsSpent() {
+					if !outputMetadata.IsSpent() {
 						outputEssence := output.(devnetvm.Output)
 
 						iotaBalance, colorExist := outputEssence.Balances().Get(devnetvm.ColorIOTA)
