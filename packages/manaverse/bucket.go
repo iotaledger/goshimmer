@@ -12,7 +12,7 @@ type Bucket struct {
 	*priorityqueue.PriorityQueue[*tangle.Message]
 }
 
-func NewManaBucket(mana int64) *Bucket {
+func newManaBucket(mana int64) *Bucket {
 	return &Bucket{
 		mana:          mana,
 		PriorityQueue: priorityqueue.New[*tangle.Message](),

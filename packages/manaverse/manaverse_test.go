@@ -23,16 +23,24 @@ func Test(t *testing.T) {
 	testFramework := tangle.NewMessageTestFramework(testTangle)
 	testFramework.CreateMessage("A", tangle.WithStrongParents("Genesis"), tangle.WithIssuer(identity1.PublicKey()))
 	testFramework.CreateMessage("B", tangle.WithStrongParents("A"), tangle.WithIssuer(identity1.PublicKey()))
-	testFramework.CreateMessage("C", tangle.WithStrongParents("B"), tangle.WithIssuer(identity1.PublicKey()))
+	testFramework.CreateMessage("C", tangle.WithStrongParents("A"), tangle.WithIssuer(identity1.PublicKey()))
 
-	scheduler := NewScheduler(manaLedger)
-	scheduler.Events.BlockScheduled.Attach(event.NewClosure(func(block *tangle.Message) {
-		fmt.Println(time.Now(), "SCHEDULED", block.ID())
+	scheduler := NewScheduler(testTangle.ConfirmationOracle, manaLedger)
+	scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(event *SchedulerBlockEvent) {
+		fmt.Println(event.Time, "BlockScheduled", event.Block.ID(), event.Bucket)
+	}))
+
+	scheduler.Events.BucketProcessingStarted.Hook(event.NewClosure(func(event *SchedulerBucketEvent) {
+		fmt.Println(event.Time, "BucketProcessingStarted", event.Bucket)
+	}))
+
+	scheduler.Events.BucketProcessingFinished.Hook(event.NewClosure(func(event *SchedulerBucketEvent) {
+		fmt.Println(event.Time, "BucketProcessingFinished", event.Bucket)
 	}))
 
 	scheduler.Push(testFramework.Message("A"))
 	scheduler.Push(testFramework.Message("B"))
 	scheduler.Push(testFramework.Message("C"))
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(2 * time.Second)
 }

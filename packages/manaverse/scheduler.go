@@ -17,42 +17,45 @@ import (
 type Scheduler struct {
 	Events *SchedulerEvents
 
-	manaLedger    ManaLedger
-	priorityQueue *priorityqueue.PriorityQueue[*Bucket]
-	bucketsByMana map[int64]*Bucket
-	ticker        *timeutil.PrecisionTicker
-	mutex         sync.Mutex
+	confirmationOracle tangle.ConfirmationOracle
+	manaLedger         ManaLedger
+	priorityQueue      *priorityqueue.PriorityQueue[*Bucket]
+	bucketsByMana      map[int64]*Bucket
+	currentBucket      int64
+	ticker             *timeutil.PrecisionTicker
+	mutex              sync.Mutex
 
-	// internal cache
-	unscheduledParentsCounter map[tangle.MessageID]int
-	unscheduledBlockChildren  map[tangle.MessageID][]*tangle.Message
+	// unqueuedBlocks
+	unqueuedBlocks    map[tangle.MessageID]int
+	unscheduledBlocks map[tangle.MessageID][]*tangle.Message
 }
 
-func NewScheduler(manaLedger ManaLedger) (newScheduler *Scheduler) {
+func NewScheduler(confirmationOracle tangle.ConfirmationOracle, manaLedger ManaLedger) (newScheduler *Scheduler) {
 	newScheduler = &Scheduler{
-		Events: &SchedulerEvents{
-			BlockQueued:    event.New[*tangle.Message](),
-			BlockScheduled: event.New[*tangle.Message](),
-			BlockDropped:   event.New[*tangle.Message](),
-		},
-
-		manaLedger:    manaLedger,
-		priorityQueue: priorityqueue.New[*Bucket](),
-		bucketsByMana: make(map[int64]*Bucket, 0),
-
-		unscheduledParentsCounter: make(map[tangle.MessageID]int),
-		unscheduledBlockChildren:  make(map[tangle.MessageID][]*tangle.Message),
+		Events:             newSchedulerEvents(),
+		confirmationOracle: confirmationOracle,
+		manaLedger:         manaLedger,
+		priorityQueue:      priorityqueue.New[*Bucket](),
+		bucketsByMana:      make(map[int64]*Bucket, 0),
+		currentBucket:      -1,
+		unqueuedBlocks:     make(map[tangle.MessageID]int),
+		unscheduledBlocks:  make(map[tangle.MessageID][]*tangle.Message),
 	}
-	newScheduler.ticker = timeutil.NewPrecisionTicker(newScheduler.scheduleNextBlock, 500*time.Millisecond)
+	newScheduler.ticker = timeutil.NewPrecisionTicker(newScheduler.ScheduleBlock, 500*time.Millisecond)
 
 	return newScheduler
 }
 
 func (s *Scheduler) Setup() {
-	// TODO: trigger cleanupQueuedBlock on blocks that are confirmed as well
-	// TODO: trigger cleanupScheduledBlock on blocks that are confirmed as well
-	// s.tangle.Events.BlockConfirmed.Hook(event.NewClosure(s.cleanupQueuedBlock))
-	// s.tangle.Events.BlockConfirmed.Hook(event.NewClosure(s.cleanupScheduledBlock))
+	s.confirmationOracle.Events().MessageConfirmed.Attach(event.NewClosure(s.onMessageConfirmed))
+}
+
+func (s *Scheduler) onMessageConfirmed(event *tangle.MessageConfirmedEvent) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.markBlockQueued(event.Message)
+	s.markBlockScheduled(event.Message, time.Now())
 }
 
 func (s *Scheduler) Push(block *tangle.Message) {
@@ -60,63 +63,34 @@ func (s *Scheduler) Push(block *tangle.Message) {
 	defer s.mutex.Unlock()
 
 	if !s.hasUnscheduledParents(block) {
-		s.queueBlock(block)
+		s.queueBlock(block, time.Now())
 	}
 }
 
-func (s *Scheduler) scheduleNextBlock() {
+func (s *Scheduler) ScheduleBlock() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if blockToSchedule := s.nextBlockToSchedule(); blockToSchedule != nil {
-		s.cleanupScheduledBlock(blockToSchedule)
-
-		s.Events.BlockScheduled.Trigger(blockToSchedule)
-	}
+	s.scheduleNextBlock(time.Now())
 }
 
-func (s *Scheduler) queueBlock(block *tangle.Message) {
-	s.cleanupQueuedBlock(block)
+func (s *Scheduler) queueBlock(block *tangle.Message, now time.Time) {
+	bucket := s.bucket(block.BurnedMana())
+	bucket.Push(block)
 
-	s.bucket(block.BurnedMana()).Push(block)
+	s.markBlockQueued(block)
 
-	s.Events.BlockQueued.Trigger(block)
+	s.Events.BlockQueued.Trigger(newSchedulerBlockEvent(block, bucket.mana, now))
 }
 
-func (s *Scheduler) cleanupQueuedBlock(block *tangle.Message) {
-	delete(s.unscheduledParentsCounter, block.ID())
+func (s *Scheduler) markBlockQueued(block *tangle.Message) {
+	delete(s.unqueuedBlocks, block.ID())
 }
 
-func (s *Scheduler) cleanupScheduledBlock(block *tangle.Message) {
-	s.decreaseUnscheduledParentsCounters(block.ID())
-	delete(s.unscheduledBlockChildren, block.ID())
-}
+func (s *Scheduler) markBlockScheduled(block *tangle.Message, now time.Time) {
+	s.decreaseUnscheduledParentCountersOfChildren(block.ID(), now)
 
-func (s *Scheduler) nextBlockToSchedule() (blockToSchedule *tangle.Message) {
-	for blockToSchedule = s.nextBlock(); blockToSchedule != nil && !s.issuerCanIssue(blockToSchedule); blockToSchedule = s.nextBlock() {
-		s.Events.BlockDropped.Trigger(blockToSchedule)
-
-		// TODO: REMEMBER IT WAS DROPPED AN IGNORE FUTURE CONE?
-	}
-
-	return blockToSchedule
-}
-
-func (s *Scheduler) nextBlock() (block *tangle.Message) {
-	bucket, success := s.priorityQueue.Peek()
-	if !success {
-		return nil
-	}
-
-	if block, success = bucket.Pop(); !success {
-		panic(errors.Errorf("bucket %v should never be empty", bucket))
-	}
-
-	if bucket.IsEmpty() {
-		s.dropBucket()
-	}
-
-	return block
+	delete(s.unscheduledBlocks, block.ID())
 }
 
 func (s *Scheduler) dropBucket() {
@@ -126,19 +100,58 @@ func (s *Scheduler) dropBucket() {
 	}
 
 	delete(s.bucketsByMana, bucket.mana)
-
-	// TODO: UPDATE FEE ESTIMATION
+	s.currentBucket = -1
 }
 
-func (s *Scheduler) issuerCanIssue(block *tangle.Message) (canSchedule bool) {
+func (s *Scheduler) scheduleNextBlock(now time.Time) {
+	blockToSchedule, bucket := s.nextBlock(now)
+	for ; blockToSchedule != nil && !s.issuerHasEnoughMana(blockToSchedule); blockToSchedule, bucket = s.nextBlock(now) {
+		s.Events.BlockDropped.Trigger(newSchedulerBlockEvent(blockToSchedule, bucket, now))
+
+	}
+
+	if blockToSchedule == nil {
+		return
+	}
+
+	s.markBlockScheduled(blockToSchedule, now)
+
+	s.Events.BlockScheduled.Trigger(newSchedulerBlockEvent(blockToSchedule, bucket, now))
+}
+
+func (s *Scheduler) nextBlock(now time.Time) (block *tangle.Message, bucket int64) {
+	firstBucket, success := s.priorityQueue.Peek()
+	if !success {
+		return nil, 0
+	}
+
+	if s.currentBucket != firstBucket.mana {
+		s.currentBucket = firstBucket.mana
+		s.Events.BucketProcessingStarted.Trigger(newSchedulerBucketEvent(firstBucket.mana, now))
+	}
+
+	if block, success = firstBucket.Pop(); !success {
+		panic(errors.Errorf("bucket %v should never be empty", firstBucket))
+	}
+
+	if firstBucket.IsEmpty() {
+		s.Events.BucketProcessingFinished.Trigger(newSchedulerBucketEvent(firstBucket.mana, now))
+
+		s.dropBucket()
+	}
+
+	return block, firstBucket.mana
+}
+
+func (s *Scheduler) issuerHasEnoughMana(block *tangle.Message) (canSchedule bool) {
 	return s.manaLedger.DecreaseMana(identity.NewID(block.IssuerPublicKey()), block.BurnedMana()) >= 0
 }
 
 func (s *Scheduler) hasUnscheduledParents(block *tangle.Message) (hasUnscheduledParents bool) {
-	s.unscheduledBlockChildren[block.ID()] = make([]*tangle.Message, 0)
+	s.unscheduledBlocks[block.ID()] = make([]*tangle.Message, 0)
 
 	if unscheduledParents := s.unscheduledParents(block); unscheduledParents > 0 {
-		s.unscheduledParentsCounter[block.ID()] = unscheduledParents
+		s.unqueuedBlocks[block.ID()] = unscheduledParents
 
 		return true
 	}
@@ -150,8 +163,8 @@ func (s *Scheduler) unscheduledParents(block *tangle.Message) (unscheduledParent
 	for it := lo.Unique(block.Parents()).Iterator(); it.HasNext(); {
 		parentID := it.Next()
 
-		if children, isUnscheduled := s.unscheduledBlockChildren[parentID]; isUnscheduled {
-			s.unscheduledBlockChildren[parentID] = append(children, block)
+		if children, isUnscheduled := s.unscheduledBlocks[parentID]; isUnscheduled {
+			s.unscheduledBlocks[parentID] = append(children, block)
 
 			unscheduledParents++
 		}
@@ -163,7 +176,7 @@ func (s *Scheduler) unscheduledParents(block *tangle.Message) (unscheduledParent
 func (s *Scheduler) bucket(mana int64) (bucket *Bucket) {
 	bucket, exists := s.bucketsByMana[mana]
 	if !exists {
-		bucket = NewManaBucket(mana)
+		bucket = newManaBucket(mana)
 		s.bucketsByMana[mana] = bucket
 		s.priorityQueue.Push(bucket)
 	}
@@ -171,10 +184,10 @@ func (s *Scheduler) bucket(mana int64) (bucket *Bucket) {
 	return bucket
 }
 
-func (s *Scheduler) decreaseUnscheduledParentsCounters(blockID tangle.MessageID) {
-	for _, child := range s.unscheduledBlockChildren[blockID] {
-		if s.unscheduledParentsCounter[child.ID()]--; s.unscheduledParentsCounter[child.ID()] == 0 {
-			s.queueBlock(child)
+func (s *Scheduler) decreaseUnscheduledParentCountersOfChildren(blockID tangle.MessageID, now time.Time) {
+	for _, child := range s.unscheduledBlocks[blockID] {
+		if s.unqueuedBlocks[child.ID()]--; s.unqueuedBlocks[child.ID()] == 0 {
+			s.queueBlock(child, now)
 		}
 	}
 }
