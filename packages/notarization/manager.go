@@ -1,7 +1,6 @@
 package notarization
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -29,8 +28,7 @@ type Manager struct {
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
-	pendingConflictsCount       map[epoch.Index]uint64
-	pccMutex                    sync.RWMutex
+	pendingConflictsCounters    map[epoch.Index]uint64
 	log                         *logger.Logger
 	Events                      *Events
 }
@@ -47,12 +45,12 @@ func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommit
 	}
 
 	new = &Manager{
-		tangle:                 t,
-		epochManager:           epochManager,
-		epochCommitmentFactory: epochCommitmentFactory,
-		pendingConflictsCount:  make(map[epoch.Index]uint64),
-		log:                    options.Log,
-		options:                options,
+		tangle:                   t,
+		epochManager:             epochManager,
+		epochCommitmentFactory:   epochCommitmentFactory,
+		pendingConflictsCounters: make(map[epoch.Index]uint64),
+		log:                      options.Log,
+		options:                  options,
 		Events: &Events{
 			EpochCommitted:   event.New[*EpochEvent](),
 			NextEpochStarted: event.New[*EpochEvent](),
@@ -65,6 +63,10 @@ func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommit
 
 	new.tangle.ConfirmationOracle.Events().MessageOrphaned.Attach(event.NewClosure(func(event *tangle.MessageConfirmedEvent) {
 		new.OnMessageOrphaned(event.Message)
+	}))
+
+	new.tangle.Ledger.Events.TransactionConfirmed.Attach(event.NewClosure(func(event *ledger.TransactionConfirmedEvent) {
+		new.OnTransactionConfirmed(event)
 	}))
 
 	new.tangle.Ledger.Events.TransactionInclusionUpdated.Attach(event.NewClosure(func(event *ledger.TransactionInclusionUpdatedEvent) {
@@ -88,6 +90,9 @@ func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommit
 
 // LoadSnapshot initiates the state and mana trees from a given snapshot.
 func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	for _, outputWithMetadata := range snapshot.OutputsWithMetadata {
 		m.epochCommitmentFactory.storage.ledgerstateStorage.Store(outputWithMetadata).Release()
 		err := m.epochCommitmentFactory.insertStateLeaf(outputWithMetadata.ID())
@@ -115,7 +120,7 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 
 		for _, createdOutputWithMetadata := range epochDiff.Created() {
 			createdOutputIDBytes := createdOutputWithMetadata.ID().Bytes()
-			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata)
+			m.epochCommitmentFactory.storage.ledgerstateStorage.Store(createdOutputWithMetadata).Release()
 			_, err := m.epochCommitmentFactory.stateRootTree.Update(createdOutputIDBytes, createdOutputIDBytes)
 			if err != nil {
 				m.log.Error(err)
@@ -143,22 +148,6 @@ func (m *Manager) LoadSnapshot(snapshot *ledger.Snapshot) {
 	}
 
 	m.epochCommitmentFactory.storage.ecRecordStorage.Store(snapshot.LatestECRecord).Release()
-}
-
-// PendingConflictsCount returns the current value of pendingConflictsCount.
-func (m *Manager) PendingConflictsCount(ei epoch.Index) uint64 {
-	m.pccMutex.RLock()
-	defer m.pccMutex.RUnlock()
-	return m.pendingConflictsCount[ei]
-}
-
-// IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
-func (m *Manager) IsCommittable(ei epoch.Index) bool {
-	t := m.epochManager.EIToEndTime(ei)
-	// TODO update to ATT after merging TSC PR
-	currentATT := m.tangle.TimeManager.Time()
-	diff := currentATT.Sub(t)
-	return m.PendingConflictsCount(ei) == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 // GetLatestEC returns the latest commitment that a new message should commit to.
@@ -190,11 +179,17 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 }
 
 func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
+	m.epochCommitmentFactoryMutex.RLock()
+	defer m.epochCommitmentFactoryMutex.RUnlock()
+
 	return m.epochCommitmentFactory.storage.LastConfirmedEpochIndex()
 }
 
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	m.CheckIfEpochChanged(message.IssuingTime())
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
@@ -208,6 +203,9 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 
 // OnMessageOrphaned is the handler for message orphaned event.
 func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
@@ -218,66 +216,117 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	}
 	transaction, isTransaction := message.Payload().(utxo.Transaction)
 	if isTransaction {
-		spent, created := m.resolveOutputs(transaction.ID())
+		spent, created := m.resolveOutputs(transaction)
 		m.epochCommitmentFactory.deleteDiffUTXOs(ei, created, spent)
+	}
+}
+
+func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(event.TransactionID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
+
+	txID := event.TransactionID
+
+	var txEpoch epoch.Index
+	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
+		txEpoch = m.epochManager.TimeToEI(txMeta.InclusionTime())
+	})
+
+	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
+		m.log.Error(err)
 	}
 }
 
 // OnTransactionInclusionUpdated is the handler for transaction inclusion updated event.
 func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusionUpdatedEvent) {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
 	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
 	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
 
-	if oldEpoch == newEpoch {
+	if oldEpoch == 0 || oldEpoch == newEpoch {
 		return
 	}
 
-	if (oldEpoch != 0 && m.isEpochAlreadyCommitted(oldEpoch)) || m.isEpochAlreadyCommitted(newEpoch) {
+	if m.isEpochAlreadyComitted(oldEpoch) || m.isEpochAlreadyComitted(newEpoch) {
 		m.log.Errorf("inclusion time of transaction changed for already committed epoch: previous EI %d, new EI %d", oldEpoch, newEpoch)
 		return
 	}
 
-	if err := m.epochCommitmentFactory.removeStateMutationLeaf(oldEpoch, event.TransactionID); err != nil {
+	txID := event.TransactionID
+
+	var spent, created []*ledger.OutputWithMetadata
+	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
+		spent, created = m.resolveOutputs(tx)
+	})
+
+	if err := m.removeTransactionFromEpoch(txID, oldEpoch, spent, created); err != nil {
 		m.log.Error(err)
 	}
 
-	if err := m.epochCommitmentFactory.insertStateMutationLeaf(newEpoch, event.TransactionID); err != nil {
+	if err := m.includeTransactionInEpoch(txID, newEpoch, spent, created); err != nil {
 		m.log.Error(err)
 	}
-
-	fmt.Println(">> OnTransactionInclusionUpdated:", event.TransactionID, oldEpoch, newEpoch)
-
-	spent, created := m.resolveOutputs(event.TransactionID)
-
-	m.epochCommitmentFactory.deleteDiffUTXOs(oldEpoch, spent, created)
-	m.epochCommitmentFactory.storeDiffUTXOs(newEpoch, spent, created)
 }
 
 // OnBranchConfirmed is the handler for branch confirmed event.
 func (m *Manager) OnBranchConfirmed(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]--
+	ei := m.getBranchEI(branchID, true)
+	m.pendingConflictsCounters[ei]--
 }
 
 // OnBranchCreated is the handler for branch created event.
 func (m *Manager) OnBranchCreated(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]++
+	ei := m.getBranchEI(branchID, false)
+	m.pendingConflictsCounters[ei]++
 }
 
 // OnBranchRejected is the handler for branch created event.
 func (m *Manager) OnBranchRejected(branchID utxo.TransactionID) {
-	m.pccMutex.Lock()
-	defer m.pccMutex.Unlock()
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.getBranchEI(branchID)
-	m.pendingConflictsCount[ei]--
+	ei := m.getBranchEI(branchID, true)
+	m.pendingConflictsCounters[ei]--
+}
+
+func (m *Manager) Shutdown() {
+	m.epochCommitmentFactoryMutex.Lock()
+	defer m.epochCommitmentFactoryMutex.Unlock()
+
+	m.epochCommitmentFactory.storage.Shutdown()
+}
+
+func (m *Manager) includeTransactionInEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
+	if err := m.epochCommitmentFactory.insertStateMutationLeaf(ei, txID); err != nil {
+		return err
+	}
+
+	m.epochCommitmentFactory.storeDiffUTXOs(ei, spent, created)
+
+	return nil
+}
+
+func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.Index, spent, created []*ledger.OutputWithMetadata) (err error) {
+	if err := m.epochCommitmentFactory.removeStateMutationLeaf(ei, txID); err != nil {
+		return err
+	}
+
+	m.epochCommitmentFactory.deleteDiffUTXOs(ei, spent, created)
+
+	return nil
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
@@ -290,7 +339,7 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	}
 
 	for ei := lastCommittedEpoch; ei < currentEpoch; ei++ {
-		if m.IsCommittable(ei) {
+		if m.isCommittable(ei) {
 			latestCommittableEpoch = ei
 			continue
 		}
@@ -305,18 +354,23 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 	return lastCommittedEpoch, latestCommittableEpoch, nil
 }
 
-func (m *Manager) getBranchEI(branchID utxo.TransactionID) (ei epoch.Index) {
-	m.tangle.Ledger.Storage.CachedTransaction(branchID).Consume(func(tx utxo.Transaction) {
-		earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(tx.ID()))
-		ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
-	})
+// IsCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
+func (m *Manager) isCommittable(ei epoch.Index) bool {
+	t := m.epochManager.EIToEndTime(ei)
+	// TODO update to ATT after merging TSC PR
+	currentATT := m.tangle.TimeManager.Time()
+	diff := currentATT.Sub(t)
+	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
+}
+
+func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
+	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
+	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
 	return
 }
 
 // updateCommitmentsUpToLatestCommittableEpoch updates the commitments to align with the latest committable epoch.
 func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, latestCommittable epoch.Index) (err error) {
-	fmt.Println("\t>> updateCommitmentsUpToLatestCommittableEpoch", lastCommitted, latestCommittable)
-
 	var ei epoch.Index
 	for ei = lastCommitted + 1; ei < latestCommittable; ei++ {
 		// read the rop
@@ -343,16 +397,14 @@ func (m *Manager) isEpochAlreadyCommitted(ei epoch.Index) bool {
 	return ei <= lastCommitted
 }
 
-func (m *Manager) resolveOutputs(txID utxo.TransactionID) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
+func (m *Manager) resolveOutputs(tx utxo.Transaction) (spentOutputsWithMetadata, createdOutputsWithMetadata []*ledger.OutputWithMetadata) {
 	spentOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	createdOutputsWithMetadata = make([]*ledger.OutputWithMetadata, 0)
 	var spentOutputIDs utxo.OutputIDs
 	var createdOutputs []utxo.Output
 
-	m.tangle.Ledger.Storage.CachedTransaction(txID).Consume(func(tx utxo.Transaction) {
-		spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
-		createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
-	})
+	spentOutputIDs = m.tangle.Ledger.Utils.ResolveInputs(tx.Inputs())
+	createdOutputs = tx.(*devnetvm.Transaction).Essence().Outputs().UTXOOutputs()
 
 	for it := spentOutputIDs.Iterator(); it.HasNext(); {
 		spentOutputID := it.Next()

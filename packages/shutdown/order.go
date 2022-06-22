@@ -7,6 +7,8 @@ const (
 	PriorityPeerDatabase
 	// PriorityMana defines the shutdown priority for the mana plugin.
 	PriorityMana
+	// PriorityNotarization defines the shutdown priority for the notarization.
+	PriorityNotarization
 	// PriorityTangle defines the shutdown priority for the tangle.
 	PriorityTangle
 	// PriorityFaucet defines the shutdown priority for the faucet.

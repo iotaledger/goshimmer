@@ -434,27 +434,38 @@ func RequireMessagesAvailable(t *testing.T, nodes []*framework.Node, messageIDs 
 }
 
 // RequireMessagesEqual asserts that all nodes return the correct data messages as specified in messagesByID.
-func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID map[string]DataMessageSent) {
-	for _, node := range nodes {
-		for messageID := range messagesByID {
-			resp, err := node.GetMessage(messageID)
-			require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
-			require.Equal(t, resp.ID, messageID)
+func RequireMessagesEqual(t *testing.T, nodes []*framework.Node, messagesByID map[string]DataMessageSent, waitFor time.Duration, tick time.Duration) {
+	condition := func() bool {
+		for _, node := range nodes {
+			for messageID := range messagesByID {
+				resp, err := node.GetMessage(messageID)
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessage' failed", node, messageID)
+				require.Equal(t, resp.ID, messageID)
 
-			respMetadata, err := node.GetMessageMetadata(messageID)
-			require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
-			require.Equal(t, respMetadata.ID, messageID)
+				respMetadata, err := node.GetMessageMetadata(messageID)
+				require.NoErrorf(t, err, "node=%s, messageID=%s, 'GetMessageMetadata' failed", node, messageID)
+				require.Equal(t, respMetadata.ID, messageID)
 
-			// check for general information
-			msgSent := messagesByID[messageID]
+				// check for general information
+				msgSent := messagesByID[messageID]
 
-			require.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
-			if msgSent.data != nil {
-				require.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+				require.Equalf(t, msgSent.issuerPublicKey, resp.IssuerPublicKey, "messageID=%s, issuer=%s not correct issuer in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+				if msgSent.data != nil {
+					require.Equalf(t, msgSent.data, resp.Payload, "messageID=%s, issuer=%s data not equal in %s.", msgSent.id, msgSent.issuerPublicKey, node)
+				}
+
+				if !respMetadata.Solid {
+					log.Printf("messageID=%s, issuer=%s not solid yet on %s", msgSent.id, msgSent.issuerPublicKey, node)
+					return false
+				}
 			}
-			require.Truef(t, respMetadata.Solid, "messageID=%s, issuer=%s not solid in %s", msgSent.id, msgSent.issuerPublicKey, node)
 		}
+		return true
 	}
+
+	log.Printf("Waiting for %d messages to become consistent across peers...", len(messagesByID))
+	require.Eventuallyf(t, condition, waitFor, tick, "Nodes are not consistent")
+	log.Println("Waiting for messages... done")
 }
 
 // ExpectedAddrsBalances is a map of base58 encoded addresses to the balances they should hold.

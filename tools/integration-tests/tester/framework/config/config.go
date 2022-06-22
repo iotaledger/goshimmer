@@ -3,8 +3,6 @@ package config
 import (
 	"reflect"
 
-	"github.com/iotaledger/goshimmer/plugins/dagsvisualizer"
-
 	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/identity"
 

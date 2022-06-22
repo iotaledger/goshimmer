@@ -118,6 +118,18 @@ func (s *EpochCommitmentStorage) CurrentEpochIndex() (ei epoch.Index, err error)
 	return s.getIndexFlag("currentEpochIndex")
 }
 
+// Shutdown shuts down the KVStore used to persist data.
+func (s *EpochCommitmentStorage) Shutdown() {
+	s.shutdownOnce.Do(func() {
+		s.ledgerstateStorage.Shutdown()
+		s.ecRecordStorage.Shutdown()
+		for _, epochDiffStorage := range s.epochDiffStorages {
+			epochDiffStorage.spent.Shutdown()
+			epochDiffStorage.created.Shutdown()
+		}
+	})
+}
+
 func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
 	var value []byte
 	if value, err = s.baseStore.Get([]byte(flag)); err != nil {
@@ -138,16 +150,12 @@ func (s *EpochCommitmentStorage) setIndexFlag(flag string, ei epoch.Index) (err 
 	return nil
 }
 
-// Shutdown shuts down the KVStore used to persist data.
-func (s *EpochCommitmentStorage) Shutdown() {
-	s.shutdownOnce.Do(func() {
-		s.ledgerstateStorage.Shutdown()
-		s.ecRecordStorage.Shutdown()
-		for _, epochDiffStorage := range s.epochDiffStorages {
-			epochDiffStorage.spent.Shutdown()
-			epochDiffStorage.created.Shutdown()
-		}
-	})
+func (s *EpochCommitmentStorage) dropEpochDiffStorage(ei epoch.Index) {
+	// TODO: properly drop (delete epoch bucketed) storage
+	diffStorage := s.getEpochDiffStorage(ei)
+	diffStorage.spent.Shutdown()
+	diffStorage.created.Shutdown()
+	delete(s.epochDiffStorages, ei)
 }
 
 func (s *EpochCommitmentStorage) getEpochDiffStorage(ei epoch.Index) (diffStorage *epochDiffStorage) {

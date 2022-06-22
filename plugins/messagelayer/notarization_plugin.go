@@ -54,8 +54,8 @@ func configureNotarizationPlugin(plugin *node.Plugin) {
 func runNotarizationPlugin(*node.Plugin) {
 	if err := daemon.BackgroundWorker("Notarization", func(ctx context.Context) {
 		<-ctx.Done()
-		notarizationDeps.Tangle.Shutdown()
-	}, shutdown.PriorityTangle); err != nil {
+		notarizationManager.Shutdown()
+	}, shutdown.PriorityNotarization); err != nil {
 		NotarizationPlugin.Panicf("Failed to start as daemon: %s", err)
 	}
 }

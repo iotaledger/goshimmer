@@ -130,6 +130,8 @@ github.com/buger/jsonparser v0.0.0-20181115193947-bf1c66bbce23/go.mod h1:bbYlZJ7
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8 h1:lCaU8zjlV8f06WK3jlruYmTUPVumZ4sxj0CEyg/k0IU=
 github.com/capossele/asset-registry v0.0.0-20210521112927-c9d6e74574e8/go.mod h1:BXwVCA0+rgYcMKC3vVkfjF+2nXYIYq3h/HndbaCuw08=
 github.com/casbin/casbin/v2 v2.1.2/go.mod h1:YcPU1XXisHhLzuxH9coDNf2FbKpjGlbCg3n9yuLkIJQ=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884 h1:iRNKw2WmAbVgGMNYzDH5Y2yY3+jyxwEK9Hc5pwIjZAE=
+github.com/celestiaorg/smt v0.2.1-0.20220414134126-dba215ccb884/go.mod h1:/sdYDakowo/XaxS2Fl7CBqtuf/O2uTqF2zmAUFAtAiw=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cenkalti/backoff/v4 v4.1.1/go.mod h1:scbssz8iZGpm3xbr14ovlUdkxfGXNInqkPWOWmG2CLw=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=
@@ -461,8 +463,8 @@ github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:
 github.com/imkira/go-interpol v1.1.0/go.mod h1:z0h2/2T3XF8kyEPpRgJ3kmNv+C43p+I/CoI+jC3w2iA=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/influxdata/influxdb1-client v0.0.0-20191209144304-8bf82d3c094d/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotaledger/hive.go v0.0.0-20220607150119-1be29e962175 h1:IgXxiPx51WJglOL5EtIurlMbujnrLP4vLYQqyfmR0zg=
-github.com/iotaledger/hive.go v0.0.0-20220607150119-1be29e962175/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
+github.com/iotaledger/hive.go v0.0.0-20220609143637-44c17a08db2f h1:Xhht/JlO80+MlZcibC5C3vxDD4+88ddTuYoAnYeQvZQ=
+github.com/iotaledger/hive.go v0.0.0-20220609143637-44c17a08db2f/go.mod h1:8f9U7qHFby0W3cxv/nKnz9LHn9BbwWU0tMsWDnfqzRI=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.2/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-cid v0.0.3/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
