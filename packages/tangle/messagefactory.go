@@ -237,8 +237,6 @@ func (f *MessageFactory) EarliestAttachment(transactionIDs utxo.TransactionIDs, 
 		})
 	}
 
-	fmt.Println("<<returning", earliestAttachment)
-
 	return earliestAttachment
 }
 

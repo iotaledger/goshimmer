@@ -542,7 +542,6 @@ func NotarizationMessageScenario(t *testing.T, options ...Option) *TestScenario 
 		ApprovalWeights(weightProvider),
 	}, options...)...)
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 1
-	s.Tangle.Setup()
 
 	s.TestFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
 	s.Steps = []TestStep{
@@ -610,7 +609,6 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 	s.Tangle = NewTestTangle(append([]Option{
 		ApprovalWeights(weightProvider),
 	}, options...)...)
-	s.Tangle.Setup()
 
 	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
 
@@ -677,6 +675,103 @@ func NotarizationTxScenario(t *testing.T, options ...Option) *TestScenario {
 			require.NoError(t, err)
 
 			testFramework.CreateMessage("Message8", WithStrongParents("Message7"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
+		},
+	}
+	return s
+}
+
+func NotarizationConflictTxScenario(t *testing.T, options ...Option) *TestScenario {
+	s := &TestScenario{t: t}
+	s.nodes = make(map[string]*identity.Identity)
+	for _, node := range []string{"A", "B", "C", "D", "E"} {
+		s.nodes[node] = identity.GenerateIdentity()
+	}
+
+	var weightProvider *CManaWeightProvider
+	manaRetrieverMock := func() map[identity.ID]float64 {
+		for _, node := range s.nodes {
+			weightProvider.Update(time.Now(), node.ID())
+		}
+		return map[identity.ID]float64{
+			s.nodes["A"].ID(): 30,
+			s.nodes["B"].ID(): 15,
+			s.nodes["C"].ID(): 25,
+			s.nodes["D"].ID(): 20,
+			s.nodes["E"].ID(): 10,
+		}
+	}
+	weightProvider = NewCManaWeightProvider(manaRetrieverMock, time.Now)
+
+	s.Tangle = NewTestTangle(append([]Option{
+		ApprovalWeights(weightProvider),
+	}, options...)...)
+
+	s.Tangle.Booker.MarkersManager.Options.MaxPastMarkerDistance = 2
+
+	s.TestFramework = NewMessageTestFramework(s.Tangle, WithGenesisOutput("A", 500))
+	s.Steps = []TestStep{
+		// ISSUE Message1
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message1", WithStrongParents("Genesis"), WithIssuer(nodes["A"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message1").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message2
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message2", WithStrongParents("Message1"), WithIssuer(nodes["B"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message2").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message3
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message3", WithStrongParents("Message2"), WithIssuer(nodes["C"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message3").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message4
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+
+			testFramework.CreateMessage("Message4", WithStrongParents("Message3"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
+			testFramework.IssueMessages("Message4").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message5
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+
+			testFramework.CreateMessage("Message5", WithStrongParents("Message4"), WithIssuer(nodes["A"].PublicKey()), WithInputs("A"), WithOutput("B", 500), WithECRecord(ecRecord))
+			testFramework.RegisterBranchID("Branch1", "Message5")
+
+			testFramework.IssueMessages("Message5").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message6
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message6", WithStrongParents("Message4"), WithIssuer(nodes["E"].PublicKey()), WithInputs("A"), WithOutput("C", 500), WithECRecord(ecRecord))
+			testFramework.RegisterBranchID("Branch2", "Message6")
+			testFramework.IssueMessages("Message6").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message7
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message7", WithStrongParents("Message5"), WithIssuer(nodes["C"].PublicKey()), WithInputs("B"), WithOutput("E", 500), WithECRecord(ecRecord))
+
+			testFramework.IssueMessages("Message7").WaitUntilAllTasksProcessed()
+		},
+		// ISSUE Message8
+		func(t *testing.T, testFramework *MessageTestFramework, testEventMock *EventMock, nodes NodeIdentities) {
+			ecRecord, _, err := testFramework.tangle.Options.CommitmentFunc()
+			require.NoError(t, err)
+			testFramework.CreateMessage("Message8", WithStrongParents("Message7"), WithIssuer(nodes["D"].PublicKey()), WithECRecord(ecRecord))
+
 			testFramework.IssueMessages("Message8").WaitUntilAllTasksProcessed()
 		},
 	}
