@@ -110,6 +110,14 @@ func (s *EpochCommitmentStorage) LastConfirmedEpochIndex() (ei epoch.Index, err 
 	return s.getIndexFlag("lastConfirmedEpochIndex")
 }
 
+func (s *EpochCommitmentStorage) SetCurrentEpochIndex(ei epoch.Index) error {
+	return s.setIndexFlag("currentEpochIndex", ei)
+}
+
+func (s *EpochCommitmentStorage) CurrentEpochIndex() (ei epoch.Index, err error) {
+	return s.getIndexFlag("currentEpochIndex")
+}
+
 func (s *EpochCommitmentStorage) getIndexFlag(flag string) (ei epoch.Index, err error) {
 	var value []byte
 	if value, err = s.baseStore.Get([]byte(flag)); err != nil {

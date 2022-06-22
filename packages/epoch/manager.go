@@ -1,7 +1,6 @@
 package epoch
 
 import (
-	"github.com/iotaledger/goshimmer/packages/clock"
 	"time"
 )
 
@@ -56,11 +55,6 @@ func (m *Manager) EIToStartTime(ei Index) time.Time {
 func (m *Manager) EIToEndTime(ei Index) time.Time {
 	endUnix := m.options.GenesisTime + int64(ei)*int64(m.options.Duration.Seconds()) + int64(m.options.Duration.Seconds()) - 1
 	return time.Unix(endUnix, 0)
-}
-
-// CurrentEI returns the EI at the current synced time.
-func (m *Manager) CurrentEI() Index {
-	return m.TimeToEI(clock.SyncedTime())
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

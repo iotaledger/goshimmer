@@ -54,7 +54,8 @@ func NewManager(epochManager *epoch.Manager, epochCommitmentFactory *EpochCommit
 		log:                    options.Log,
 		options:                options,
 		Events: &Events{
-			EpochCommitted: event.New[*EpochCommittedEvent](),
+			EpochCommitted:   event.New[*EpochEvent](),
+			NextEpochStarted: event.New[*EpochEvent](),
 		},
 	}
 
@@ -183,7 +184,7 @@ func (m *Manager) GetLatestEC() (ecRecord *epoch.ECRecord, err error) {
 		return nil, errors.Wrap(err, "could not set last committed epoch")
 	}
 
-	m.Events.EpochCommitted.Trigger(&EpochCommittedEvent{EI: latestCommittableEpoch})
+	m.Events.EpochCommitted.Trigger(&EpochEvent{EI: latestCommittableEpoch})
 
 	return
 }
@@ -194,6 +195,7 @@ func (m *Manager) LatestConfirmedEpochIndex() (epoch.Index, error) {
 
 // OnMessageConfirmed is the handler for message confirmed event.
 func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
+	m.CheckIfEpochChanged(message.IssuingTime())
 	ei := m.epochManager.TimeToEI(message.IssuingTime())
 	if m.isEpochAlreadyCommitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
@@ -317,8 +319,7 @@ func (m *Manager) updateCommitmentsUpToLatestCommittableEpoch(lastCommitted, lat
 
 	var ei epoch.Index
 	for ei = lastCommitted + 1; ei < latestCommittable; ei++ {
-		// read the roots and store the ec
-		// roll the state trees
+		// read the rop
 		if _, ecRecordErr := m.epochCommitmentFactory.ecRecord(ei); ecRecordErr != nil {
 			err = errors.Wrapf(ecRecordErr, "could not update commitments for epoch %d", ei)
 			return
@@ -389,6 +390,30 @@ func (m *Manager) outputsToOutputIDs(outputs devnetvm.Outputs) (createdIDs utxo.
 	return
 }
 
+// CheckIfEpochChanged check if next epoch started and trigger the event.
+func (m *Manager) CheckIfEpochChanged(issuingTime time.Time) {
+	currentTime := m.tangle.TimeManager.Time()
+	if issuingTime.After(currentTime) {
+		currentTime = issuingTime
+	}
+	ei := m.epochManager.TimeToEI(currentTime)
+	currentEpochIndex, err := m.epochCommitmentFactory.storage.CurrentEpochIndex()
+	if err != nil {
+		m.log.Error(errors.Wrap(err, "could not get current epoch index"))
+		return
+	}
+	if ei > currentEpochIndex {
+		err = m.epochCommitmentFactory.storage.SetCurrentEpochIndex(ei)
+		if err != nil {
+			m.log.Error(errors.Wrap(err, "could not set current epoch index"))
+			return
+		}
+		for index := currentEpochIndex; index <= ei; index++ {
+			m.Events.NextEpochStarted.Trigger(&EpochEvent{index})
+		}
+	}
+}
+
 // ManagerOption represents the return type of the optional config parameters of the notarization manager.
 type ManagerOption func(options *ManagerOptions)
 
@@ -415,11 +440,12 @@ func Log(log *logger.Logger) ManagerOption {
 // Events is a container that acts as a dictionary for the existing events of a notarization manager.
 type Events struct {
 	// EpochCommitted is an event that gets triggered whenever an epoch commitment is committable.
-	EpochCommitted *event.Event[*EpochCommittedEvent]
+	EpochCommitted   *event.Event[*EpochEvent]
+	NextEpochStarted *event.Event[*EpochEvent]
 }
 
-// EpochCommittedEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
-type EpochCommittedEvent struct {
+// EpochEvent is a container that acts as a dictionary for the EpochCommitted event related parameters.
+type EpochEvent struct {
 	// EI is the index of committable epoch.
 	EI epoch.Index
 }
