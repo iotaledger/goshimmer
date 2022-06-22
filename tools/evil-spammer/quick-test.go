@@ -1,9 +1,10 @@
 package main
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/client/evilspammer"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"time"
 )
 
 type QuickTestParams struct {
@@ -13,6 +14,7 @@ type QuickTestParams struct {
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
 	VerifyLedger          bool
+	EnableRateSetter      bool
 }
 
 // QuickTest runs short spamming periods with stable mps

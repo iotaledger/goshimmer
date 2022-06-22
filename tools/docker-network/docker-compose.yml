@@ -19,14 +19,13 @@ services:
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
       --mana.enableResearchVectors=false
-      --mana.snapshotResetTime=true
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
       --metrics.global=true
       --metrics.local=true
       --metrics.manaResearch=false
-      --node.disablePlugins=portcheck,clock,Firewall
+      --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
       --node.enablePlugins=analysisServer,analysisDashboard,prometheus,spammer,WebAPIToolsMessageEndpoint,activity,snapshot
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
@@ -54,12 +53,11 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint"
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",spammer
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
       --node.disablePlugins=portcheck,clock,Firewall
-      --mana.snapshotResetTime=true
     deploy:
       replicas: ${GOSHIMMER_PEER_REPLICAS:-1}
     secrets:
@@ -81,10 +79,9 @@ services:
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.snapshot.genesisNode=
       --messageLayer.startSynced=true
-      --node.disablePlugins=portcheck,clock,Firewall
+      --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
-      --mana.snapshotResetTime=true
       --messageLayer.startSynced=true
     secrets:
       - goshimmer.config.json
@@ -97,6 +94,34 @@ services:
       - goshimmer
     depends_on:
       - peer_master
+  peer_nomana:
+    build: *goshimmer_build
+    stop_grace_period: 1m
+    command: >
+      --config=/run/secrets/goshimmer.config.json
+      --database.directory=/app/mainnetdb
+      --node.enablePlugins="webapi tools endpoint",spammer,prometheus
+      --node.overwriteStoredSeed=true
+      --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
+      --messageLayer.snapshot.genesisNode=
+      --messageLayer.startSynced=true
+      --node.disablePlugins=portcheck,clock,Firewall
+      --prometheus.bindAddress=0.0.0.0:9311
+      --prometheus.processMetrics=false
+      --mana.snapshotResetTime=true
+      --messageLayer.startSynced=true
+    secrets:
+      - goshimmer.config.json
+      - goshimmer.message.snapshot.bin
+    ports:
+      - "8040:8080/tcp" # web API
+      - "8041:8081/tcp" # dashboard
+      - "6041:6061/tcp" # pprof
+    networks:
+      - goshimmer
+    depends_on:
+      - peer_master
+      - faucet
   faucet:
     build: *goshimmer_build
     stop_grace_period: 1m
@@ -104,18 +129,16 @@ services:
       --config=/run/secrets/goshimmer.config.json
       --database.directory=/app/mainnetdb
       --node.peerDBDirectory=/app/peerdb
-      --node.enablePlugins=bootstrap,"webapi tools endpoint",faucet,activity,spammer
       --node.seed=base58:3YX6e7AL28hHihZewKdq6CMkEYVsTJBLgRiprUNiNq5E
       --node.overwriteStoredSeed=true
-      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus
+      --node.enablePlugins=bootstrap,"webAPIToolsEndpoint",faucet,activity,prometheus,spammer,"WebAPIFaucetEndpoint"
       --prometheus.bindAddress=0.0.0.0:9311
       --prometheus.processMetrics=false
       --messageLayer.snapshot.file=/run/secrets/goshimmer.message.snapshot.bin
       --messageLayer.startSynced=true
       --faucet.seed=7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih
       --messageLayer.snapshot.genesisNode=
-      --node.disablePlugins=portcheck,clock,Firewall
-      --mana.snapshotResetTime=true
+      --node.disablePlugins=portcheck,clock,Firewall,ManaInitializer
     secrets:
       - goshimmer.config.json
       - goshimmer.message.snapshot.bin

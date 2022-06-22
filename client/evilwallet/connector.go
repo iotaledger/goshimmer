@@ -2,6 +2,7 @@ package evilwallet
 
 import (
 	"sync"
+	"time"
 
 	"github.com/iotaledger/hive.go/identity"
 
@@ -81,8 +82,6 @@ func (c *WebClients) ServerStatus(cltIdx int) (status *wallet.ServerStatus, err 
 	status.ID = response.IdentityID
 	status.Synced = response.TangleTime.Synced
 	status.Version = response.Version
-	status.ManaDecay = response.ManaDecay
-	status.DelegationAddress = response.ManaDelegationAddress
 	return status, nil
 }
 
@@ -168,6 +167,10 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 type Client interface {
 	// Url returns a client API url.
 	Url() (cltID string)
+	// GetRateSetterEstimate returns a rate setter estimate.
+	GetRateSetterEstimate() (estimate time.Duration, err error)
+	// SleepRateSetterEstimate sleeps for rate setter estimate.
+	SleepRateSetterEstimate() (err error)
 	// PostTransaction sends a transaction to the Tangle via a given client.
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, error)
 	// PostData sends the given data (payload) by creating a message in the backend.
@@ -182,8 +185,8 @@ type Client interface {
 	GetOutput(outputID utxo.OutputID) devnetvm.Output
 	// GetOutputGoF gets the first unspent outputs of a given address.
 	GetOutputGoF(outputID utxo.OutputID) gof.GradeOfFinality
-	// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
-	SendFaucetRequest(address string) error
+	// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+	BroadcastFaucetRequest(address string) error
 	// GetTransactionOutputs returns the outputs the transaction created.
 	GetTransactionOutputs(txID string) (outputs devnetvm.Outputs, err error)
 	// GetTransaction gets the transaction.
@@ -211,9 +214,27 @@ func NewWebClient(url string, setters ...client.Option) *WebClient {
 	}
 }
 
-// SendFaucetRequest requests funds from the faucet and returns the faucet request message ID.
-func (c *WebClient) SendFaucetRequest(address string) (err error) {
-	_, err = c.api.SendFaucetRequest(address, -1)
+// GetRateSetterEstimate returns a rate setter estimate.
+func (c *WebClient) GetRateSetterEstimate() (estimate time.Duration, err error) {
+	response, err := c.api.RateSetter()
+	if err != nil {
+		return time.Duration(0), err
+	}
+	return response.Estimate, nil
+}
+
+// SleepRateSetterEstimate returns a rate setter estimate.
+func (c *WebClient) SleepRateSetterEstimate() (err error) {
+	err = c.api.SleepRateSetterEstimate()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// BroadcastFaucetRequest requests funds from the faucet and returns the faucet request message ID.
+func (c *WebClient) BroadcastFaucetRequest(address string) (err error) {
+	_, err = c.api.BroadcastFaucetRequest(address, -1)
 	return
 }
 

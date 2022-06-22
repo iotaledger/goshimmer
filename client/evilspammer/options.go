@@ -36,6 +36,13 @@ func WithSpamDuration(maxDuration time.Duration) Options {
 	}
 }
 
+// WithRateSetter enables setting rate of spammer.
+func WithRateSetter(enable bool) Options {
+	return func(s *Spammer) {
+		s.UseRateSetter = enable
+	}
+}
+
 // WithBatchesSent provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
 func WithBatchesSent(maxBatchesSent int) Options {
 	return func(s *Spammer) {

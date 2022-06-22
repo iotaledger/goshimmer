@@ -12,11 +12,9 @@ import (
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/tangle"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
-	"github.com/iotaledger/goshimmer/plugins/manarefresher"
 	"github.com/iotaledger/goshimmer/plugins/messagelayer"
 	"github.com/iotaledger/goshimmer/plugins/metrics"
 )
@@ -98,11 +96,15 @@ func getInfo(c echo.Context) error {
 	sort.Strings(disabledPlugins)
 
 	// get TangleTime
-	lcm := deps.Tangle.TimeManager.LastConfirmedMessage()
+	tm := deps.Tangle.TimeManager
+	lcm := tm.LastAcceptedMessage()
 	tangleTime := jsonmodels.TangleTime{
-		Synced:    deps.Tangle.TimeManager.Synced(),
-		Time:      lcm.Time.UnixNano(),
-		MessageID: lcm.MessageID.Base58(),
+		Synced:            deps.Tangle.TimeManager.Synced(),
+		AcceptedMessageID: lcm.MessageID.Base58(),
+		ATT:               tm.ATT().UnixNano(),
+		RATT:              tm.RATT().UnixNano(),
+		CTT:               tm.CTT().UnixNano(),
+		RCTT:              tm.RCTT().UnixNano(),
 	}
 
 	t := time.Now()
@@ -115,16 +117,12 @@ func getInfo(c echo.Context) error {
 		ConsensusTimestamp: tConsensus,
 	}
 
-	var delegationAddressString string
-	delegationAddress, err := manarefresher.DelegationAddress()
-	if err == nil {
-		delegationAddressString = delegationAddress.Base58()
-	}
-
 	nodeQueueSizes := make(map[string]int)
 	for nodeID, size := range deps.Tangle.Scheduler.NodeQueueSizes() {
 		nodeQueueSizes[nodeID.String()] = size
 	}
+
+	deficit, _ := deps.Tangle.Scheduler.GetDeficit(deps.Local.ID()).Float64()
 
 	return c.JSON(http.StatusOK, jsonmodels.InfoResponse{
 		Version:                 banner.AppVersion,
@@ -138,17 +136,21 @@ func getInfo(c echo.Context) error {
 			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Solidifier]),
 		TotalMessageCount: int(metrics.InitialMessageCountPerComponentGrafana()[metrics.Store] +
 			metrics.MessageCountSinceStartPerComponentGrafana()[metrics.Store]),
-		EnabledPlugins:        enabledPlugins,
-		DisabledPlugins:       disabledPlugins,
-		Mana:                  nodeMana,
-		ManaDelegationAddress: delegationAddressString,
-		ManaDecay:             mana.Decay,
+		EnabledPlugins:  enabledPlugins,
+		DisabledPlugins: disabledPlugins,
+		Mana:            nodeMana,
 		Scheduler: jsonmodels.Scheduler{
 			Running:           deps.Tangle.Scheduler.Running(),
 			Rate:              deps.Tangle.Scheduler.Rate().String(),
 			MaxBufferSize:     deps.Tangle.Scheduler.MaxBufferSize(),
 			CurrentBufferSize: deps.Tangle.Scheduler.BufferSize(),
+			Deficit:           deficit,
 			NodeQueueSizes:    nodeQueueSizes,
+		},
+		RateSetter: jsonmodels.RateSetter{
+			Rate:     deps.Tangle.RateSetter.Rate(),
+			Size:     deps.Tangle.RateSetter.Size(),
+			Estimate: deps.Tangle.RateSetter.Estimate(),
 		},
 	})
 }

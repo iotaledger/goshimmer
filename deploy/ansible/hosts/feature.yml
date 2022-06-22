@@ -42,5 +42,4 @@ goshimmers:
     logLevel: "debug"
     debugPorts: true
     remoteDebugging: true
-    snapshotResetTime: true
     spammer: true

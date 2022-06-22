@@ -88,19 +88,6 @@ type PastConsensusManaVectorResponse struct {
 	TimeStamp int64          `json:"timestamp"`
 }
 
-// PendingRequest is the pending mana request.
-type PendingRequest struct {
-	OutputID string `json:"outputID"`
-}
-
-// PendingResponse is the pending mana response.
-type PendingResponse struct {
-	Mana      float64 `json:"mana"`
-	OutputID  string  `json:"outputID"`
-	Error     string  `json:"error,omitempty"`
-	Timestamp int64   `json:"timestamp"`
-}
-
 // GetPercentileRequest is the request object of mana/percentile.
 type GetPercentileRequest struct {
 	NodeID string `json:"nodeID"`

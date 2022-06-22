@@ -178,9 +178,7 @@ func (s *StateManager) DeriveStateFromTangle(ctx context.Context) (err error) {
 
 // FulFillFundingRequest fulfills a faucet request by spending the next funding output to the requested address.
 // Mana of the transaction is pledged to the requesting node.
-func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangle.Message, string, error) {
-	faucetReq := requestMsg.Payload().(*faucet.Payload)
-
+func (s *StateManager) FulFillFundingRequest(faucetReq *faucet.Payload) (*tangle.Message, string, error) {
 	if s.replenishThresholdReached() {
 		// wait for replenishment to finish if there is no funding outputs prepared
 		waitForPreparation := s.fundingState.FundingOutputsCount() == 0
@@ -195,18 +193,7 @@ func (s *StateManager) FulFillFundingRequest(requestMsg *tangle.Message) (*tangl
 		return nil, "", err
 	}
 
-	// prepare funding tx, pledge mana to requester
-	emptyID := identity.ID{}
-	accessManaPledgeID := identity.NewID(requestMsg.IssuerPublicKey())
-	consensusManaPledgeID := identity.NewID(requestMsg.IssuerPublicKey())
-	if faucetReq.AccessManaPledgeID() != emptyID {
-		accessManaPledgeID = faucetReq.AccessManaPledgeID()
-	}
-	if faucetReq.ConsensusManaPledgeID() != emptyID {
-		consensusManaPledgeID = faucetReq.ConsensusManaPledgeID()
-	}
-
-	tx := s.prepareFaucetTransaction(faucetReq.Address(), fundingOutput, accessManaPledgeID, consensusManaPledgeID)
+	tx := s.prepareFaucetTransaction(faucetReq.Address(), fundingOutput, faucetReq.AccessManaPledgeID(), faucetReq.ConsensusManaPledgeID())
 
 	// issue funding request
 	m, err := s.issueTx(tx)

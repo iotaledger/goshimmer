@@ -41,7 +41,7 @@ func prepQueueMaps(s *tangle.Scheduler) (queueMap map[string]uint32, aManaNormal
 		aMana := s.GetManaFromCache(id)
 
 		queueMap[nodeID] = uint32(size)
-		aManaNormalizedMap[nodeID] = float64(size) / aMana
+		aManaNormalizedMap[nodeID] = float64(size) / float64(aMana)
 	}
 	return
 }

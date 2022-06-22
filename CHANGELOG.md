@@ -1,8 +1,24 @@
+# v0.9.1 - 2022-06-22
+
+> This release introduces the rate setter which allows nodes to estimate their fair rate of block creation and makes removing proof-of-work possible. Congestion is completely handled by the rate-setter and congestion control algorithms (capped at 30 BPS). Access mana is not decaying and is pledged to the node until it's re-pledged to another node. The release also includes new time concepts which make the network more resilient against mana going offline which in the past caused confirmations to stop permanently.
+
+The snapshot has been changed and thus the ledger state is fully reset.
+
+- Fix mount volume (#2300)
+- Remove pow in default config.json (#2299)
+- Update TSC to compare tangle time with time of confirmed message. (#2167)
+- Adds rate setter in data flow (#1557)
+- Update congestion control documentation (#2097)
+- AccessMana is now Mana1 (#2271)
+- Fix: faucet waits longer for messages to be booked (#2280)
+- Correct pre-devnet and devnet identities in snapshot generation tool (#2279)
+
 # v0.9.0 - 2022-06-16
 
 > This major release introduces concurrency throughout the node with asynchronous events and parallelized booking. This is achieved with serix, a generic deterministic serialization library, and through generic thread-safe data models. The ledger and conflictDAG and output processing (introduction of UTXO VM) have been completely rewritten. The Blockfactory received a total revamp as well and tip selection should show better behavior in resolving conflicts. In addition, a bunch of unused modules and code have been removed rendering the project overall more readable. The short identifier of a nodeID has been adjusted to show the first 8 characters of the full identity.
 
 The snapshot has been changed and thus the ledger state is fully reset.
+
 - Refactor MessageFactory, introduce ReferenceProvider and OrphanageManager (#2240)
 - Refactor models to be thread-safe with serix (#2248)
 - Remove future markers (#2241)
@@ -18,7 +34,6 @@ The snapshot has been changed and thus the ledger state is fully reset.
 - Force static linking of final binary in builtin script (#2216)
 - GoReleaser dryrun on PRs (#2213)
 - Update marker docs (#2146)
-
 
 # v0.8.14 - 2022-05-16
 
@@ -37,7 +52,6 @@ The snapshot has been taken at 2022-05-04 15:05 UTC.
 - Buffer size calculation update for congestion control (#2166)
 - Feat/evil spammer improvements and fixes (#2191)
 - Fix bugs in evil spammer and tutorial (#2185)
-
 
 # v0.8.12 - 2022-04-25
 
@@ -786,10 +800,10 @@ Config key changes `config.default.json`:
 
 # v0.3.1 - 2020-11-13
 * Refactor message structure according to the new Tangle RFC: 
-    * add support for multiple parents
-    * update local dashboard
-    * new unit tests
-    * max payload size changed to 65157 bytes
+  * add support for multiple parents
+  * update local dashboard
+  * new unit tests
+  * max payload size changed to 65157 bytes
 * Add community-based entry node.
 * Add commit tag to version.
 * Add package for common sentinel errors.
@@ -832,39 +846,39 @@ Config key changes `config.default.json`:
 * Fixes synchronization issue where missing messages were not requested more than once
 * Fixes node's dashboard explorer crashing or not properly visualizing the payload of a given message
 * Improves Grafana local dashboard:
-    * Adds support for the sync-beacon payload type
-    * Displaying uptime and nodeID
+  * Adds support for the sync-beacon payload type
+  * Displaying uptime and nodeID
 * Fixed all linter issues to improve code quality
 * **Breaking**: bumps network and database versions
 
 # v0.2.2 - 2020-07-27
 * Improves message and transaction validation: 
-    * Adjust max transaction inputs count;
-    * Adds signature validation before issuance; 
-    * Enforce max message size in message factory.
+  * Adjust max transaction inputs count;
+  * Adds signature validation before issuance; 
+  * Enforce max message size in message factory.
 * Improves API:
-    * Changes granularity of spammer API to accept messages per minute;
-    * Adds API middleware and set CORS to allow from every origin;
-    * Adds sendTransactionByJSON to allow a client to issue transactions by providing them in a JSON format;
-    * Adds tool API endpoint to facilitate debugging of the solidification status;
-    * Removes old API documentation;
+  * Changes granularity of spammer API to accept messages per minute;
+  * Adds API middleware and set CORS to allow from every origin;
+  * Adds sendTransactionByJSON to allow a client to issue transactions by providing them in a JSON format;
+  * Adds tool API endpoint to facilitate debugging of the solidification status;
+  * Removes old API documentation;
 * Improves synchronization process:
-    * Refactors message requester to be more reliable;
-    * Improves solidification process;
-    * Refactors worker pool management;
-    * Replaces bootstrap plugin with the more secure and reliable beacon plugin.
+  * Refactors message requester to be more reliable;
+  * Improves solidification process;
+  * Refactors worker pool management;
+  * Replaces bootstrap plugin with the more secure and reliable beacon plugin.
 * Improves analysis-server dashboard:
-    * Adds the ability to distinguish between different GoShimmer node versions;
-    * Refactors the interaction between server side and dashboard;
-    * Improves consensus visualization;
-    * Improves dashboard tooling.
+  * Adds the ability to distinguish between different GoShimmer node versions;
+  * Refactors the interaction between server side and dashboard;
+  * Improves consensus visualization;
+  * Improves dashboard tooling.
 * Adds a new electron-based wallet.
 * Increases max gossip packet size.
 * Adds command to the CLI to override database dirty flag.
 * Grafana local dashboard
-    * Adds messages in database chart (solid, not solid, total)
-    * Adds average solidification time chart
-    * Adds Message Request Queue Size chart
+  * Adds messages in database chart (solid, not solid, total)
+  * Adds average solidification time chart
+  * Adds Message Request Queue Size chart
 * **Breaking**: bumps network and database versions
 
 # v0.2.1 - 2020-07-01
@@ -875,52 +889,52 @@ Config key changes `config.default.json`:
 
 # v0.2.0 - 2020-06-30
 * Adds the value transfer dApp:
-    * New binary transaction layout
-    * UTXO model 
-    * Support for transactions with Ed25519 and BLS signatures
-    * Parallel reality based ledger state
-    * Support for colored tokens
-    * Conflict resolution via FPC
-    * Applied FCoB rules
+  * New binary transaction layout
+  * UTXO model 
+  * Support for transactions with Ed25519 and BLS signatures
+  * Parallel reality based ledger state
+  * Support for colored tokens
+  * Conflict resolution via FPC
+  * Applied FCoB rules
 * Adds the network delay dApp which is used to gather the avg. network delay occurring in the network
 * Adds the faucet dApp giving the ability to request funds for testing via the dashboard or web API
 * Adds the DRNG dApp which is used to propagate random numbers produced by a dRand committee (this dApp is inactive)
 * Adds the base communication layer
 * Adds improved analysis server:
-    * Splits it into 3 separate plugins `analysis-client`/`analysis-dashboard`/`analysis-server`
-    * Applies heartbeat pattern for robustness on both client and server side
-    * Uses TLV denoted messages for communication
-    * Complete new dashboard with live visualisations of the network graph and ongoing conflicts
-    * Use short node IDs throughout the analysis dashboard
-    * Prometheus exporter to expose global network metrics
-    * Storage for conflicts inside a MongoDB for further processing
-    * Complete rewritten autopeering data retention
+  * Splits it into 3 separate plugins `analysis-client`/`analysis-dashboard`/`analysis-server`
+  * Applies heartbeat pattern for robustness on both client and server side
+  * Uses TLV denoted messages for communication
+  * Complete new dashboard with live visualisations of the network graph and ongoing conflicts
+  * Use short node IDs throughout the analysis dashboard
+  * Prometheus exporter to expose global network metrics
+  * Storage for conflicts inside a MongoDB for further processing
+  * Complete rewritten autopeering data retention
 * Adds additional HTTP API routes:
-    * "healtz" route to query the health of the node (for LBs)
-    * Query transaction attachment locations
-    * Query transactions by IDs
-    * Send transactions
-    * Get UTXOs on addresses
-    * Query info about the node
-    * Issue a faucet funding request
-    * Query dRNG committee
-    * Query dRNG random number
-    * Issue data payloads
+  * "healtz" route to query the health of the node (for LBs)
+  * Query transaction attachment locations
+  * Query transactions by IDs
+  * Send transactions
+  * Get UTXOs on addresses
+  * Query info about the node
+  * Issue a faucet funding request
+  * Query dRNG committee
+  * Query dRNG random number
+  * Issue data payloads
 * Adds dashboard improvements:
-    * Tips chart
-    * Communication layer visualizer
-    * Address and UTXOs view
-    * Message payload view
-    * DRNG live feed
-    * Faucet page to request funds
-    * Support different payload views (data, value, faucet, unknown)
+  * Tips chart
+  * Communication layer visualizer
+  * Address and UTXOs view
+  * Message payload view
+  * DRNG live feed
+  * Faucet page to request funds
+  * Support different payload views (data, value, faucet, unknown)
 * Adds integration test framework and corresponding tests:
-    * Autopeering/Network Split
-    * Message propagation 
-    * FPC 50/50 network split voting
-    * Faucet funding
-    * Value transfers
-    * Synchronization
+  * Autopeering/Network Split
+  * Message propagation 
+  * FPC 50/50 network split voting
+  * Faucet funding
+  * Value transfers
+  * Synchronization
 * Adds refactored communication layer code
 * Adds BLAKE2-based PoW for rate control
 * Adds rewritten FPC package
@@ -943,7 +957,7 @@ Config key changes `config.default.json`:
 * Fixes usage of WebSocket message rate limiter
 * Fixes disabled/enabled plugins list in info response
 * Fixes the `Graceful Shutdown` plugin not showing the actual background workers during shutdown. The node operator is now
-able to see pending background workers in the order in which they are supposed to be terminated
+  able to see pending background workers in the order in which they are supposed to be terminated
 * Refactors display of IDs to use Base58 throughout the entire codebase
 * Increases network and database versions
 * Removes usage of non std `errors` package
@@ -956,7 +970,7 @@ able to see pending background workers in the order in which they are supposed t
 * Update SPA plugin's JS dependencies
 * Upgrade `github.com/gobuffalo/packr` to v2.8.0
 * Resolves a security issue in the packr dependency, which would allow an unauthenticated attacker to read any
- file from the application's filesystem 
+  file from the application's filesystem
 
 # v0.1.2 - 2020-02-24
 

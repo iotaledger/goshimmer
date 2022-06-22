@@ -2,14 +2,16 @@ package evilspammer
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/cockroachdb/errors"
 	"go.uber.org/atomic"
-	"sync"
 )
 
 var (
 	ErrFailPostTransaction = errors.New("failed to post transaction")
 	ErrFailSendDataMessage = errors.New("failed to send a data message")
+
 	ErrTransactionIsNil    = errors.New("provided transaction is nil")
 	ErrFailToPrepareBatch  = errors.New("custom conflict batch could not be prepared")
 	ErrInsufficientClients = errors.New("insufficient clients to send conflicts")

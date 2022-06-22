@@ -11,7 +11,7 @@ type ParametersDefinition struct {
 	// TangleWidth can be used to specify the number of tips the Tangle tries to maintain.
 	TangleWidth int `default:"0" usage:"the width of the Tangle"`
 	// TimeSinceConfirmationThreshold is used to set the limit for which tips with old unconfirmed messages in its past cone will not be selected.
-	TimeSinceConfirmationThreshold time.Duration `default:"12m" usage:"Time Since Confirmation (TSC) threshold"`
+	TimeSinceConfirmationThreshold time.Duration `default:"1m" usage:"Time Since Confirmation (TSC) threshold"`
 	// Snapshot contains snapshots related configuration parameters.
 	Snapshot struct {
 		// File is the path to the snapshot file.
@@ -29,12 +29,6 @@ type ParametersDefinition struct {
 
 // ManaParametersDefinition contains the definition of the parameters used by the mana plugin.
 type ManaParametersDefinition struct {
-	// EmaCoefficient1 defines the coefficient used for Effective Base Mana 1 (moving average) calculation.
-	EmaCoefficient1 float64 `default:"0.00003209" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
-	// EmaCoefficient2 defines the coefficient used for Effective Base Mana 2 (moving average) calculation.
-	EmaCoefficient2 float64 `default:"0.0057762265" usage:"coefficient used for Effective Base Mana 1 (moving average) calculation"`
-	// Decay defines the decay coefficient used for Base Mana 2 calculation.
-	Decay float64 `default:"0.00003209" usage:"decay coefficient used for Base Mana 2 calculation"`
 	// AllowedAccessPledge defines the list of nodes that access mana is allowed to be pledged to.
 	AllowedAccessPledge []string `usage:"list of nodes that access mana is allowed to be pledged to"`
 	// AllowedAccessFilterEnabled defines if access mana pledge filter is enabled.
@@ -59,17 +53,21 @@ type ManaParametersDefinition struct {
 // RateSetterParametersDefinition contains the definition of the parameters used by the Rate Setter.
 type RateSetterParametersDefinition struct {
 	// Initial defines the initial rate of rate setting.
-	Initial float64 `default:"100000" usage:"the initial rate of rate setting"`
+	Initial float64 `default:"0" usage:"the initial rate of rate setting. Set 0 to automatically estimate the value based on access mana."`
+	// RateSettingPause defines for how long to pause updates after decrease of rate.
+	RateSettingPause time.Duration `default:"2s" usage:"for how long to pause updates after decrease of rate"`
+	// Enable is the flag that enables the rate setting mechanism on node startup.
+	Enable bool `default:"true" usage:"whether to enable rate setter"`
 }
 
 // SchedulerParametersDefinition contains the definition of the parameters used by the Scheduler.
 type SchedulerParametersDefinition struct {
-	// MaxBufferSize defines the maximum buffer size (in number of messages).
-	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 messages
-	// Rate defines the frequency to schedule a message. `default:"5ms" usage:"message scheduling interval [time duration string]"`
-	Rate string `default:"5ms" usage:"message scheduling interval [time duration string]"`
-	// ConfirmedMessageThreshold time threshold after which confirmed messages are not scheduled [time duration string]
-	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed messages are not scheduled [time duration string]"`
+	// MaxBufferSize defines the maximum buffer size (in number of blocks).
+	MaxBufferSize int `default:"300" usage:"maximum buffer size (in number of messages)"` // 300 blocks
+	// Rate defines the frequency to schedule a message.
+	Rate string `default:"34ms" usage:"message scheduling interval [time duration string]"` // 29.4 blocks per second
+	// ConfirmedMessageThreshold time threshold after which confirmed blocks are not scheduled [time duration string]
+	ConfirmedMessageThreshold string `default:"1m" usage:"time threshold after which confirmed blocks are not scheduled [time duration string]"`
 }
 
 // Parameters contains the general configuration used by the messagelayer plugin.
