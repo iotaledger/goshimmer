@@ -417,8 +417,8 @@ func (s *Scheduler) schedule() *Message {
 			if _, err := msgID.Decode(msg.IDBytes()); err != nil {
 				panic("MessageID could not be parsed!")
 			}
-			if s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold {
-				// if a message is confirmed, and issued some time ago, don't schedule it and take the next one from the queue
+			if s.skipBlock(msgID, msg) {
+				// if a block is confirmed, and issued some time ago OR is older than TSC threshold, don't schedule it and take the next one from the queue
 				// do we want to mark those messages somehow for debugging?
 				s.Events.MessageSkipped.Trigger(&MessageSkippedEvent{msgID})
 				s.buffer.PopFront()
@@ -472,6 +472,12 @@ func (s *Scheduler) schedule() *Message {
 	s.updateDeficit(nodeID, new(big.Rat).SetInt64(-int64(msg.Size())))
 
 	return msg.(*Message)
+}
+
+// skipBlock returns true if block is confirmed and older than confirmedMsgThreshold OR block is older than TSC threshold
+func (s *Scheduler) skipBlock(msgID MessageID, msg schedulerutils.Element) bool {
+	return s.tangle.ConfirmationOracle.IsMessageConfirmed(msgID) && clock.Since(msg.IssuingTime()) > s.confirmedMsgThreshold ||
+		s.tangle.TimeManager.ATT().Add(-s.tangle.Options.TimeSinceConfirmationThreshold).After(msg.IssuingTime())
 }
 
 func (s *Scheduler) updateActiveNodesList(manaCache map[identity.ID]float64) {

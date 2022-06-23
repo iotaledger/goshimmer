@@ -200,6 +200,15 @@ loop:
 			}
 
 			msg := r.issuingQueue.PopFront().(*Message)
+			for r.tangle.TimeManager.ATT().Add(-r.tangle.Options.TimeSinceConfirmationThreshold).After(msg.IssuingTime()) {
+				r.Events.MessageDiscarded.Trigger(&MessageDiscardedEvent{msg.ID()})
+				if r.issuingQueue.Front() == nil {
+					continue loop
+				}
+
+				msg = r.issuingQueue.PopFront().(*Message)
+			}
+
 			r.Events.MessageIssued.Trigger(&MessageConstructedEvent{Message: msg})
 			lastIssueTime = time.Now()
 

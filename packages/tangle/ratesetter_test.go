@@ -88,3 +88,52 @@ func TestRateSetter_ErrorHandling(t *testing.T) {
 		}
 	}, 1*time.Second, 10*time.Millisecond)
 }
+
+func TestRateSetter_SkipOlderThanTSC(t *testing.T) {
+	localID := identity.GenerateLocalIdentity()
+	localNode := identity.New(localID.PublicKey())
+
+	tangle := NewTestTangle(Identity(localID), RateSetterConfig(testRateSetterParams))
+	defer tangle.Shutdown()
+	rateSetter := NewRateSetter(tangle)
+	defer rateSetter.Shutdown()
+	msg := NewMessage(
+		emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+		time.Now(),
+		localNode.PublicKey(),
+		0,
+		payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
+		0,
+		ed25519.Signature{},
+	)
+	assert.NoError(t, msg.DetermineID())
+	assert.NoError(t, rateSetter.Issue(msg))
+
+	tangle.TimeManager.updateTime(msg)
+
+	messageDiscarded := make(chan MessageID, MaxLocalQueueSize-1)
+	discardedCounter := event.NewClosure(func(event *MessageDiscardedEvent) { messageDiscarded <- event.MessageID })
+	rateSetter.Events.MessageDiscarded.Hook(discardedCounter)
+	for i := 0; i < MaxLocalQueueSize-1; i++ {
+		msg := NewMessage(
+			emptyLikeReferencesFromStrongParents(NewMessageIDs(EmptyMessageID)),
+			time.Now().Add(-10*time.Minute),
+			localNode.PublicKey(),
+			0,
+			payload.NewGenericDataPayload(make([]byte, MaxLocalQueueSize)),
+			0,
+			ed25519.Signature{},
+		)
+		assert.NoError(t, msg.DetermineID())
+		assert.NoError(t, rateSetter.Issue(msg))
+	}
+
+	assert.Eventually(t, func() bool {
+		select {
+		case <-messageDiscarded:
+			return true
+		default:
+			return false
+		}
+	}, 1*time.Second, 10*time.Millisecond)
+}
