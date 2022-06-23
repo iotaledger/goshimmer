@@ -22,7 +22,7 @@ func (m *Manager) GetBlockInclusionProof(blockID tangle.MessageID) (*CommitmentP
 	var ei epoch.Index
 	m.tangle.Storage.Message(blockID).Consume(func(block *tangle.Message) {
 		t := block.IssuingTime()
-		ei = m.epochManager.TimeToEI(t)
+		ei = epoch.IndexFromTime(t)
 	})
 	proof, err := m.epochCommitmentFactory.ProofTangleRoot(ei, blockID)
 	if err != nil {
@@ -36,7 +36,7 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	var ei epoch.Index
 	m.tangle.Ledger.Storage.CachedTransaction(transactionID).Consume(func(tx utxo.Transaction) {
 		t := tx.(*devnetvm.Transaction).Essence().Timestamp()
-		ei = m.epochManager.TimeToEI(t)
+		ei = epoch.IndexFromTime(t)
 	})
 	proof, err := m.epochCommitmentFactory.ProofStateMutationRoot(ei, transactionID)
 	if err != nil {
@@ -44,7 +44,6 @@ func (m *Manager) GetTransactionInclusionProof(transactionID utxo.TransactionID)
 	}
 	return proof, nil
 }
-
 
 func (f *EpochCommitmentFactory) verifyRoot(proof CommitmentProof, key []byte, value []byte) bool {
 	return smt.VerifyProof(proof.proof, proof.root, key, value, lo.PanicOnErr(blake2b.New256(nil)))

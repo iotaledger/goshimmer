@@ -14,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/timeutil"
 
 	"github.com/iotaledger/goshimmer/packages/clock"
+	"github.com/iotaledger/goshimmer/packages/epoch"
 )
 
 const (
@@ -52,7 +53,7 @@ func NewTimeManager(tangle *Tangle) *TimeManager {
 	// initialize with Genesis
 	t.lastConfirmedMessage = LastConfirmedMessage{
 		MessageID: EmptyMessageID,
-		Time:      time.Unix(DefaultGenesisTime, 0),
+		Time:      time.Unix(epoch.GenesisTime, 0),
 	}
 
 	marshaledLastConfirmedMessage, err := tangle.Options.Store.Get(kvstore.Key(lastConfirmedKey))
@@ -124,7 +125,7 @@ func (t *TimeManager) Synced() bool {
 }
 
 func (t *TimeManager) synced() bool {
-	if t.startSynced && t.lastConfirmedMessage.Time.Unix() == DefaultGenesisTime {
+	if t.startSynced && t.lastConfirmedMessage.Time.Unix() == epoch.GenesisTime {
 		return true
 	}
 

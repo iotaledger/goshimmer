@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/epoch"
 	"github.com/iotaledger/hive.go/crypto"
 	"github.com/iotaledger/hive.go/identity"
 	"github.com/stretchr/testify/assert"
@@ -51,7 +52,7 @@ func TestCManaWeightProvider(t *testing.T) {
 		}
 	}
 
-	tangleTime := time.Unix(DefaultGenesisTime, 0)
+	tangleTime := time.Unix(epoch.GenesisTime, 0)
 	timeRetrieverFunc := func() time.Time { return tangleTime }
 
 	weightProvider := NewCManaWeightProvider(manaRetrieverFunc, timeRetrieverFunc)

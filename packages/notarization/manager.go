@@ -24,7 +24,6 @@ const (
 // Manager is the notarization manager.
 type Manager struct {
 	tangle                      *tangle.Tangle
-	epochManager                *EpochManager
 	epochCommitmentFactory      *EpochCommitmentFactory
 	epochCommitmentFactoryMutex sync.RWMutex
 	options                     *ManagerOptions
@@ -34,7 +33,7 @@ type Manager struct {
 }
 
 // NewManager creates and returns a new notarization manager.
-func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
+func NewManager(epochCommitmentFactory *EpochCommitmentFactory, t *tangle.Tangle, opts ...ManagerOption) (new *Manager) {
 	options := &ManagerOptions{
 		MinCommittableEpochAge: defaultMinEpochCommittableAge,
 		Log:                    nil,
@@ -46,7 +45,6 @@ func NewManager(epochManager *EpochManager, epochCommitmentFactory *EpochCommitm
 
 	new = &Manager{
 		tangle:                   t,
-		epochManager:             epochManager,
 		epochCommitmentFactory:   epochCommitmentFactory,
 		pendingConflictsCounters: make(map[epoch.Index]uint64),
 		log:                      options.Log,
@@ -189,7 +187,7 @@ func (m *Manager) OnMessageConfirmed(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message confirmed in already committed epoch %d", ei)
 	}
@@ -204,7 +202,7 @@ func (m *Manager) OnMessageOrphaned(message *tangle.Message) {
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	ei := m.epochManager.TimeToEI(message.IssuingTime())
+	ei := epoch.IndexFromTime(message.IssuingTime())
 	if m.isEpochAlreadyComitted(ei) {
 		m.log.Errorf("message orphaned in already committed epoch %d", ei)
 	}
@@ -232,7 +230,7 @@ func (m *Manager) OnTransactionConfirmed(event *ledger.TransactionConfirmedEvent
 
 	var txEpoch epoch.Index
 	m.tangle.Ledger.Storage.CachedTransactionMetadata(txID).Consume(func(txMeta *ledger.TransactionMetadata) {
-		txEpoch = m.epochManager.TimeToEI(txMeta.InclusionTime())
+		txEpoch = epoch.IndexFromTime(txMeta.InclusionTime())
 	})
 
 	if err := m.includeTransactionInEpoch(txID, txEpoch, spent, created); err != nil {
@@ -245,8 +243,8 @@ func (m *Manager) OnTransactionInclusionUpdated(event *ledger.TransactionInclusi
 	m.epochCommitmentFactoryMutex.Lock()
 	defer m.epochCommitmentFactoryMutex.Unlock()
 
-	oldEpoch := m.epochManager.TimeToEI(event.PreviousInclusionTime)
-	newEpoch := m.epochManager.TimeToEI(event.InclusionTime)
+	oldEpoch := epoch.IndexFromTime(event.PreviousInclusionTime)
+	newEpoch := epoch.IndexFromTime(event.InclusionTime)
 
 	if oldEpoch == 0 || oldEpoch == newEpoch {
 		return
@@ -328,7 +326,7 @@ func (m *Manager) removeTransactionFromEpoch(txID utxo.TransactionID, ei epoch.I
 }
 
 func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittableEpoch epoch.Index, err error) {
-	currentEpoch := m.epochManager.TimeToEI(time.Now())
+	currentEpoch := epoch.IndexFromTime(time.Now())
 
 	lastCommittedEpoch, lastCommittedEpochErr := m.epochCommitmentFactory.storage.LastCommittedEpochIndex()
 	if lastCommittedEpochErr != nil {
@@ -354,14 +352,14 @@ func (m *Manager) latestCommittableEpoch() (lastCommittedEpoch, latestCommittabl
 
 // isCommittable returns if the epoch is committable, if all conflicts are resolved and the epoch is old enough.
 func (m *Manager) isCommittable(ei epoch.Index) bool {
-	t := m.epochManager.EIToEndTime(ei)
+	t := ei.EndTime()
 	diff := time.Since(t)
 	return m.pendingConflictsCounters[ei] == 0 && diff >= m.options.MinCommittableEpochAge
 }
 
 func (m *Manager) getBranchEI(branchID utxo.TransactionID, earliestAttachmentMustBeBooked bool) (ei epoch.Index) {
 	earliestAttachment := m.tangle.MessageFactory.EarliestAttachment(utxo.NewTransactionIDs(branchID), earliestAttachmentMustBeBooked)
-	ei = m.epochManager.TimeToEI(earliestAttachment.IssuingTime())
+	ei = epoch.IndexFromTime(earliestAttachment.IssuingTime())
 	return
 }
 

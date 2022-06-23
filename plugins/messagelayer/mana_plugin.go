@@ -26,7 +26,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/mana"
 	"github.com/iotaledger/goshimmer/packages/shutdown"
 	"github.com/iotaledger/goshimmer/packages/snapshot"
-	"github.com/iotaledger/goshimmer/packages/tangle"
 )
 
 const (
@@ -203,7 +202,7 @@ func runManaPlugin(_ *node.Plugin) {
 				}
 
 				// initialize cMana WeightProvider with snapshot
-				t := time.Unix(tangle.DefaultGenesisTime, 0)
+				t := time.Unix(epoch.GenesisTime, 0)
 				genesisNodeID := identity.ID{}
 				for nodeID := range GetCMana() {
 					if nodeID == genesisNodeID {
